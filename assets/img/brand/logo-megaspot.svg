@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 200" role="img" aria-label="MEGASPOT 메가스팟">
+  <style>
+    .en{font-family:Anton,'Arial Narrow',Impact,sans-serif;font-size:132px;letter-spacing:2px}
+    .ko{font-family:'Black Han Sans','Pretendard',sans-serif;font-size:44px;letter-spacing:14px}
+  </style>
+  <text x="8" y="120" class="en" fill="#262B2E">MEGA<tspan fill="#1F53D5">SPOT</tspan></text>
+  <text x="14" y="182" class="ko" fill="#262B2E">메가스팟</text>
+</svg>

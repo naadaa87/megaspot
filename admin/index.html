@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>운영자 페이지 · 메가스팟</title>
+<meta name="description" content="문의·예약·후기·일정을 관리하는 운영자 화면입니다.">
+<meta name="theme-color" content="#F1EFEB">
+<link rel="canonical" href="https://megaspot.pages.dev/admin/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="메가스팟 MEGASPOT">
+<meta property="og:title" content="운영자 페이지 · 메가스팟">
+<meta property="og:description" content="문의·예약·후기·일정을 관리하는 운영자 화면입니다.">
+<meta property="og:url" content="https://megaspot.pages.dev/admin/">
+<meta property="og:image" content="https://megaspot.pages.dev/assets/img/brand/og-megaspot.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/assets/img/brand/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/assets/img/brand/apple-touch-icon.png">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Black+Han+Sans&display=swap">
+<link rel="stylesheet" href="/assets/css/site.css">
+<meta name="robots" content="noindex,nofollow">
+</head>
+<body class="page-admin">
+<header class="site-header">
+  <div class="container">
+    <a class="logo" href="/" aria-label="메가스팟 홈으로"><span class="en">MEGA<b>SPOT</b></span><span class="ko">메가스팟</span></a>
+    <nav class="nav" aria-label="주요 메뉴">
+      <a href="/spaces/">공간 찾기</a>
+      <a href="/purpose/">어떤 모임</a>
+      <a href="/spaces/megaspot-gundae/">메가스팟 건대</a>
+      <a href="/host/">공간 등록</a>
+      <a href="/guide/">이용 안내</a>
+      <a href="/about/">소개</a>
+    </nav>
+    <div class="header-cta">
+      <a class="btn btn-ghost btn-sm" href="tel:" data-phone>010-0000-0000</a>
+      <a class="btn btn-primary btn-sm" href="/inquiry/">행사 조건으로 견적 문의</a>
+    </div>
+    <button class="menu-btn" aria-label="메뉴 열기" aria-expanded="false" aria-controls="mobile-nav"><span></span><span></span><span></span></button>
+  </div>
+</header>
+<nav class="mobile-nav" id="mobile-nav" aria-label="모바일 메뉴">
+  <a href="/spaces/">공간 찾기</a>
+  <a href="/purpose/">어떤 모임</a>
+  <a href="/spaces/megaspot-gundae/">메가스팟 건대 <span class="badge badge-direct" style="margin-left:8px">직영</span></a>
+  <a href="/host/">공간 등록 (호스트)</a>
+  <a href="/guide/">이용 안내</a>
+  <a href="/about/">메가스팟 소개</a>
+  <a class="btn btn-primary btn-lg" href="/inquiry/">행사 조건으로 견적 문의</a>
+  <a class="btn btn-ghost" href="tel:" data-phone>전화 상담</a>
+</nav>
+<main id="main">
+<section class="page-hero" style="padding-bottom:24px">
+  <div class="container">
+    <div class="eyebrow">Admin</div>
+    <h1 class="h-l">운영자 페이지</h1>
+    <p class="lead small">문의·입점·예약·후기·일정을 관리합니다. Cloudflare Pages 환경 변수 <code>ADMIN_KEY</code>에 설정한 키로 접근합니다.</p>
+  </div>
+</section>
+
+<section class="section" style="padding-top:28px">
+  <div class="container">
+    <div class="card" id="admin-login" style="max-width:520px">
+      <div class="f"><label for="adm-key">운영자 키</label><input class="input" type="password" id="adm-key" autocomplete="current-password" placeholder="ADMIN_KEY"></div>
+      <div class="row mt-2"><button class="btn btn-primary" id="adm-enter">접속</button><span class="small muted" id="adm-status"></span></div>
+      <p class="tiny muted mt-2">키는 이 브라우저 세션에만 저장되며 서버로는 요청 헤더로만 전달됩니다.</p>
+    </div>
+
+    <div id="admin-app" hidden>
+      <div class="row between mb-3"><div class="tabs" id="adm-tabs" style="border:0"><button class="on" data-tab="inquiries">문의함</button><button data-tab="bookings">예약 관리</button><button data-tab="reviews">후기 관리</button><button data-tab="calendar">일정 관리</button><button data-tab="hosts">입점 문의</button></div><button class="btn btn-light btn-sm" id="adm-logout">로그아웃</button></div>
+
+      <div id="tab-inquiries">
+        <div class="row between mb-2"><div class="row"><select class="select" id="inq-status-filter" style="min-width:160px"><option value="">모든 상태</option><option>문의 접수</option><option>조건 확인</option><option>견적 발송</option><option>결제 대기</option><option>예약 확정</option><option>이용 완료</option><option>취소·환불</option></select><input class="input" id="inq-q" placeholder="이름·연락처·문의번호 검색" style="min-width:240px"></div><button class="btn btn-light btn-sm" id="inq-reload">새로고침</button></div>
+        <div id="inq-list" class="grid" style="gap:12px"></div>
+      </div>
+
+      <div id="tab-bookings" hidden>
+        <div class="grid grid-2" style="gap:20px;align-items:start">
+          <form class="form card" id="bk-form">
+            <div><div class="eyebrow">New booking</div><h3 class="mt-1">예약 확정 등록</h3><p class="small muted mt-1">결제가 끝난 예약을 등록하면 예약번호가 발급됩니다. 이용 완료 처리 후 고객이 이 번호로 후기를 쓸 수 있습니다.</p></div>
+            <div class="field-row"><div class="f"><label>공간</label><select class="select" name="space_id" id="bk-space"></select></div><div class="f"><label>연결할 문의번호 (선택)</label><input class="input" name="inquiry_ref" placeholder="MS-2611-XXXX"></div></div>
+            <div class="field-row"><div class="f"><label>예약자 이름 <span class="req">*</span></label><input class="input" name="customer_name" required></div><div class="f"><label>연락처 <span class="req">*</span></label><input class="input" name="phone" type="tel" required placeholder="010-0000-0000"></div></div>
+            <div class="field-row three"><div class="f"><label>이용일 <span class="req">*</span></label><input class="input" type="date" name="date" required></div><div class="f"><label>시간대</label><select class="select" name="slot"><option value="am">오전</option><option value="pm" selected>오후</option><option value="ev">저녁</option><option value="day">종일</option><option value="custom">직접 입력</option></select></div><div class="f"><label>인원</label><input class="input" name="headcount" inputmode="numeric"></div></div>
+            <div class="f"><label>메모 (배치·장비·금액 등)</label><textarea class="textarea" name="memo" style="min-height:80px"></textarea></div>
+            <label class="agree"><input type="checkbox" name="block_calendar" checked> 해당 날짜를 달력에서 '마감'으로 표시</label>
+            <button class="btn btn-primary" type="submit">예약 등록</button>
+            <div class="form-note" id="bk-msg" hidden></div>
+          </form>
+          <div><div class="row between mb-2"><h3 class="h-s">예약 목록</h3><button class="btn btn-light btn-sm" id="bk-reload">새로고침</button></div><div id="bk-list" class="grid" style="gap:10px"></div></div>
+        </div>
+      </div>
+
+      <div id="tab-reviews" hidden>
+        <div class="row between mb-2"><select class="select" id="rv-filter" style="min-width:160px"><option value="pending">승인 대기</option><option value="approved">게시 중</option><option value="hidden">숨김</option><option value="">전체</option></select><button class="btn btn-light btn-sm" id="rv-reload">새로고침</button></div>
+        <div id="rv-list" class="grid" style="gap:12px"></div>
+      </div>
+
+      <div id="tab-calendar" hidden>
+        <div class="grid grid-2" style="gap:20px;align-items:start">
+          <form class="form card" id="cal-form">
+            <div><div class="eyebrow">Calendar</div><h3 class="mt-1">날짜 상태 등록</h3><p class="small muted mt-1">달력에 표시할 상태를 등록합니다. 외부 채널로 받은 예약도 여기서 '마감'으로 막아 두세요.</p></div>
+            <div class="field-row three"><div class="f"><label>공간</label><select class="select" name="space_id" id="cal-space"></select></div><div class="f"><label>날짜 <span class="req">*</span></label><input class="input" type="date" name="date" required></div><div class="f"><label>상태</label><select class="select" name="state"><option value="full">마감</option><option value="hold">임시 확보</option><option value="open">문의 가능(해제)</option></select></div></div>
+            <div class="f"><label>메모</label><input class="input" name="memo" placeholder="예: 외부 채널 예약, 내부 행사, 점검"></div>
+            <button class="btn btn-primary" type="submit">저장</button>
+            <div class="form-note" id="cal-msg" hidden></div>
+          </form>
+          <div><div class="row between mb-2"><h3 class="h-s">등록된 일정 (오늘 이후)</h3><button class="btn btn-light btn-sm" id="cal-reload">새로고침</button></div><div id="cal-list" class="grid" style="gap:8px"></div></div>
+        </div>
+      </div>
+
+      <div id="tab-hosts" hidden>
+        <div class="row between mb-2"><h3 class="h-s">입점 문의</h3><button class="btn btn-light btn-sm" id="host-reload">새로고침</button></div>
+        <div id="host-list" class="grid" style="gap:12px"></div>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <a class="logo inv" href="/"><span class="en">MEGA<b>SPOT</b></span><span class="ko">메가스팟</span></a>
+        <p class="mt-2" style="max-width:38ch">큰 모임에 맞는 공간을 찾다. 인원·배치·예산·시설 조건을 비교하고 확인할 수 있는 대형 공간 예약 플랫폼입니다.</p>
+        <ul class="mt-3">
+          <li>상담 <a href="tel:" data-phone>010-0000-0000</a></li>
+          <li>이메일 <a href="mailto:" data-email>contact@example.com</a></li>
+          <li><span data-hours>평일 10:00–19:00</span></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Service</h4>
+        <ul>
+          <li><a href="/spaces/">공간 찾기</a></li>
+          <li><a href="/purpose/">목적별 공간 안내</a></li>
+          <li><a href="/inquiry/">행사 조건으로 견적 문의</a></li>
+          <li><a href="/guide/">예약 흐름과 이용 안내</a></li>
+          <li><a href="/guide/#faq">자주 묻는 질문</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Spaces</h4>
+        <ul>
+          <li><a href="/spaces/megaspot-gundae/">메가스팟 건대 · 직영</a></li>
+          <li><a href="/spaces/megaspot-gundae/3d/">건대 3D 둘러보기</a></li>
+          <li><a href="/host/">공간 등록 (호스트 입점)</a></li>
+          <li><a href="/about/">메가스팟 소개</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Notice</h4>
+        <p class="footer-note">메가스팟은 직영 공간의 판매자이자, 외부 호스트 공간의 통신판매중개자입니다. 외부 호스트 공간은 상세 화면과 결제 단계에서 실제 계약 상대방(호스트 사업자)을 표시합니다. 상세 페이지의 인원·면적·시설 정보는 확인 기준(운영자 확인·도면·사진)을 함께 표기하며, 확인되지 않은 항목은 견적 단계에서 확정합니다.</p>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <div><span data-company></span></div>
+      <div class="row" style="gap:16px"><a href="/terms/">이용약관</a><a href="/privacy/">개인정보처리방침</a><a href="/admin/" rel="nofollow">운영자</a></div>
+      <div>© <span data-year>2026</span> MEGASPOT. All rights reserved.</div>
+    </div>
+  </div>
+</footer>
+<script src="/assets/js/site.js"></script>
+<script src="/assets/js/data/spaces.js"></script>
+<script src="/assets/js/pages/admin.js"></script>
+</body>
+</html>
