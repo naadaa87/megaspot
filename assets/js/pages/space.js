@@ -4,18 +4,51 @@
   var S=window.MEGASPOT_GET_SPACE('megaspot-gundae'); if(!S) return;
   var P=window.MEGASPOT_GUNDAE_PLAN, F=window.MEGASPOT_FACILITIES;
   var photoById={}; S.photos.forEach(function(p){ photoById[p.id]=p; });
-  var lbItems=S.photos.map(function(p){ return {src:M.photoSrc(S.id,p.id), title:p.title, cap:p.cap}; });
-
-  /* ---------- 갤러리 ---------- */
+  /* ---------- 갤러리: 공간 전경(CG) · 현장 사진 · 조감도 ---------- */
   (function(){
     var g=$('#gallery'); if(!g) return;
-    var show=S.photos.slice(0,7);
-    g.innerHTML=show.map(function(p,i){
-      var more = i===6 && S.photos.length>7 ? '<span class="more">+'+(S.photos.length-7)+'장 더 보기</span>' : '';
-      return '<button type="button" class="'+(i===0?'big':'')+'" data-i="'+i+'" aria-label="'+esc(p.title)+' 크게 보기"><img src="'+M.photoSrc(S.id,p.id,i!==0)+'" alt="'+esc(p.title)+'" '+(i===0?'':'loading="lazy"')+'>'+more+'</button>';
-    }).join('');
-    g.addEventListener('click', function(e){ var b=e.target.closest('button'); if(b) M.openLightbox(lbItems, +b.dataset.i); });
-    $('#open-all-photos').addEventListener('click', function(){ M.openLightbox(lbItems,0); });
+    var V=window.MEGASPOT_VIEWS||[], A=window.MEGASPOT_AERIALS||[], N=window.MEGASPOT_VISUAL_NOTE||{};
+    var SCN=' 행사 장면은 아래 <a href="#scenes" style="text-decoration:underline;color:var(--cobalt);font-weight:600">활용 장면</a>에서 볼 수 있습니다.';
+    var sets={
+      views:  { label:'공간 전경', list:V, note:esc(N.views||'') },
+      photos: { label:'현장 사진', list:S.photos, note:'현장 사진 '+S.photos.length+'장 · 촬영 당시의 가구·장비·행사물이 포함되어 있습니다.'+SCN },
+      aerial: { label:'조감도', list:A, note:esc(N.aerial||'')+' <a href="#aerial" style="text-decoration:underline;color:var(--cobalt);font-weight:600">각도별로 보기</a>' }
+    };
+    var order=['views','photos','aerial'].filter(function(k){ return sets[k].list.length; }), cur=order[0];
+    var tabs=$('#media-tabs'), note=$('#media-note');
+    if(tabs) tabs.innerHTML=order.map(function(k){ return '<button type="button" role="tab" data-set="'+k+'">'+esc(sets[k].label)+'<span class="n">'+sets[k].list.length+'</span></button>'; }).join('');
+    function items(k){ return M.sceneItems(sets[k].list); }
+    function render(k){
+      cur=k; var list=sets[k].list, show=list.slice(0,7);
+      g.classList.toggle('is-aerial', k==='aerial');
+      g.innerHTML=show.map(function(p,i){
+        var more = i===6 && list.length>7 ? '<span class="more">+'+(list.length-7)+'장 더 보기</span>' : '';
+        return '<button type="button" class="'+(i===0?'big':'')+'" data-i="'+i+'" aria-label="'+esc(p.title)+' 크게 보기"><img src="'+M.imgSrc(p.id, i===0?'m':'t')+'" alt="'+esc(p.title)+' — '+M.imgTag(p.id)+'" '+(i===0?'':'loading="lazy"')+'>'+(i===0?M.tagHtml(p.id):'')+more+'</button>';
+      }).join('');
+      if(tabs) $$('button',tabs).forEach(function(b){ var on=b.dataset.set===k; b.classList.toggle('on',on); b.setAttribute('aria-selected',String(on)); });
+      if(note) note.innerHTML=sets[k].note;
+    }
+    if(tabs) tabs.addEventListener('click', function(e){ var b=e.target.closest('button[data-set]'); if(b) render(b.dataset.set); });
+    g.addEventListener('click', function(e){ var b=e.target.closest('button'); if(b) M.openLightbox(items(cur), +b.dataset.i); });
+    $('#open-all-photos').addEventListener('click', function(){ M.openLightbox(items(cur),0); });
+    render(cur);
+  })();
+
+  /* ---------- 조감도: 각도 바꿔 보기 ---------- */
+  (function(){
+    var A=window.MEGASPOT_AERIALS||[], box=$('#aerial-angles'); if(!box||!A.length) return;
+    var img=$('#aerial-img'), ttl=$('#aerial-title'), cap=$('#aerial-cap'), k=0;
+    box.innerHTML=A.map(function(a,i){ return '<button type="button" role="tab" data-i="'+i+'" aria-selected="false"><img src="'+M.imgSrc(a.id,'t')+'" alt="" loading="lazy"><span>'+esc(a.angle)+'</span></button>'; }).join('');
+    function show(i){
+      k=i; var a=A[i];
+      img.src=M.imgSrc(a.id,'m'); img.alt='메가스팟 건대 조감도 — '+a.title+' (CG)';
+      ttl.textContent=a.title; cap.textContent=a.cap;
+      $$('button',box).forEach(function(b){ var on=+b.dataset.i===i; b.classList.toggle('on',on); b.setAttribute('aria-selected',String(on)); });
+    }
+    box.addEventListener('click', function(e){ var b=e.target.closest('button[data-i]'); if(b) show(+b.dataset.i); });
+    $('#aerial-zoom').addEventListener('click', function(){ M.openLightbox(M.sceneItems(A), k); });
+    var note=$('#aerial-note'); if(note) note.textContent=(window.MEGASPOT_VISUAL_NOTE||{}).aerial||'';
+    show(0);
   })();
 
   /* ---------- 핵심 정보 ---------- */
@@ -143,13 +176,95 @@
       banquet:function(){ var s=''; [10,12.3,14.4].forEach(function(z){ s+=table(8.8,z,11.5,.8); for(var x=3.4;x<14.4;x+=.7){ s+=chair(x,z-.75); s+=chair(x,z+.75);} }); [3,5.2].forEach(function(z){ s+=table(9.9,z,6.5,.75); for(var x=7;x<13;x+=.7){ s+=chair(x,z-.7); s+=chair(x,z+.7);} }); return s; },
       standing:function(){ var s=''; var pts=[[4,10.2],[6.2,12.6],[8.6,10.6],[10.8,13.2],[13,11],[5.5,14.6],[9.8,15],[12.6,14.2],[7.6,4.6],[11.2,4.2],[14,3.4],[21.2,21],[23.5,23.2],[21.6,26]]; pts.forEach(function(p){ s+='<circle cx="'+X(p[0])+'" cy="'+Z(p[1])+'" r="'+(.4*k)+'" fill="#D9C3A3" stroke="#8E6B3F" stroke-width=".6"/>'; }); s+='<rect x="'+X(1.1)+'" y="'+Z(P.De-.87)+'" width="'+(14.4*k)+'" height="'+(.76*k)+'" rx="2" fill="#CFC8BD"/><rect x="'+X(24.35)+'" y="'+Z(19.44)+'" width="'+(.77*k)+'" height="'+(4*k)+'" rx="2" fill="#CFC8BD"/>'; s+='<rect x="'+X(14.6)+'" y="'+Z(9.6)+'" width="'+(.9*k)+'" height="'+(4.4*k)+'" fill="#E6ECFB" stroke="#1F53D5" stroke-width=".6" stroke-dasharray="2 1.5"/>'; return s; }
     };
+    var withScene=S.layouts.filter(function(l){ return l.scene && window.MEGASPOT_SCENE && window.MEGASPOT_SCENE(l.scene); });
+    var lbItems=withScene.map(function(l){ var sc=window.MEGASPOT_SCENE(l.scene); return { src:M.imgSrc(sc.id), title:l.label+' 배치 · '+sc.title, cap:sc.cap, tag:M.imgTag(sc.id) }; });
     host.innerHTML=S.layouts.map(function(l){
-      return '<div class="card pad-s"><svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;max-height:280px;display:block" aria-label="'+esc(l.label)+' 배치 예시">'+base()+(draw[l.id]?draw[l.id]():'')+'</svg>'
+      var sc=l.scene && window.MEGASPOT_SCENE ? window.MEGASPOT_SCENE(l.scene) : null;
+      var ph=sc ? '<button type="button" class="layout-ph" data-li="'+withScene.indexOf(l)+'" aria-label="'+esc(l.label)+' 배치 장면 크게 보기"><img src="'+M.imgSrc(sc.id,'m')+'" alt="'+esc(l.label)+' 배치로 쓴 '+esc(sc.title)+' — '+M.imgTag(sc.id)+'" loading="lazy">'+M.tagHtml(sc.id)+'</button>' : '';
+      return '<div class="card pad-s">'+ph+'<svg class="layout-svg" viewBox="0 0 '+W+' '+H+'" aria-label="'+esc(l.label)+' 배치 평면 예시">'+base()+(draw[l.id]?draw[l.id]():'')+'</svg>'
         + '<div class="row between mt-2"><div><div class="eyebrow">'+esc(l.en)+'</div><h3 style="font-size:17px;margin-top:4px">'+esc(l.label)+'</h3></div><span class="badge badge-soft">인원은 '+esc(l.capacityNote)+'</span></div>'
         + '<p class="small muted mt-1">'+esc(l.desc)+'</p>'
         + '<p class="tiny mt-2"><b>적합</b> '+esc(l.fit)+'<br><b>확인</b> '+esc(l.check)+'</p></div>';
     }).join('');
+    host.addEventListener('click', function(e){ var b=e.target.closest('.layout-ph'); if(b) M.openLightbox(lbItems, +b.dataset.li); });
   })();
+
+  /* ---------- 활용 장면: 같은 자리, 다른 모임 ---------- */
+  (function(){
+    var SC=window.MEGASPOT_SCENES||[], VIEWS=window.MEGASPOT_SCENE_VIEWS||[];
+    var ba=$('#ba'); if(!ba||!SC.length) return;
+    var PUR=window.MEGASPOT_PURPOSES||[], purLabel={}; PUR.forEach(function(p){ purLabel[p.id]=p.label; });
+    var layLabel={}; S.layouts.forEach(function(l){ layLabel[l.id]=l.label; });
+    var before=$('#ba-before'), after=$('#ba-after'), range=$('#ba-range'), rlbl=$('#ba-rlbl');
+    var chips=$('#scene-chips'), viewList=$('#view-list'), info=$('#scene-info');
+    var state={ view:VIEWS[0].id, scene:null };
+    function scenesOf(v){ return SC.filter(function(s){ return s.view===v; }); }
+    function view(id){ return VIEWS.find(function(v){ return v.id===id; }); }
+    function setPos(p){ p=Math.max(0,Math.min(100,p)); ba.style.setProperty('--pos', p+'%'); range.value=Math.round(p); }
+
+    // 자리 목록
+    viewList.innerHTML=VIEWS.map(function(v){ return '<button type="button" class="view-btn" data-view="'+v.id+'"><img src="'+M.imgSrc(v.real,'t')+'" alt="" loading="lazy"><span><b>'+esc(v.label)+'</b><small>모임 '+scenesOf(v.id).length+'가지</small></span></button>'; }).join('');
+    viewList.addEventListener('click', function(e){ var b=e.target.closest('.view-btn'); if(!b) return; selectView(b.dataset.view, true); });
+
+    function selectView(id, fromUser){
+      state.view=id; var v=view(id), list=scenesOf(id);
+      $$('.view-btn',viewList).forEach(function(b){ var on=b.dataset.view===id; b.classList.toggle('on',on); b.setAttribute('aria-pressed',String(on)); });
+      before.src=M.imgSrc(v.real,'m'); before.alt='메가스팟 건대 현장 사진 — '+v.label+'에서 본 빈 홀';
+      chips.innerHTML=list.map(function(s){ return '<button type="button" class="chip" data-scene="'+s.id+'">'+esc(s.title)+'</button>'; }).join('');
+      selectScene(list[0].id);
+      if(fromUser) setPos(50);
+    }
+    chips.addEventListener('click', function(e){ var b=e.target.closest('.chip'); if(b) selectScene(b.dataset.scene); });
+
+    function selectScene(id){
+      var s=window.MEGASPOT_SCENE(id); if(!s) return; state.scene=id;
+      if(s.view!==state.view){ state.view=s.view; selectView(s.view); return selectScene(id); }
+      after.src=M.imgSrc(s.id,'m'); after.alt=s.title+' — '+M.imgTag(s.id);
+      rlbl.textContent=M.imgTag(s.id)+' · '+s.title; rlbl.classList.toggle('r', true);
+      $$('.chip',chips).forEach(function(c){ var on=c.dataset.scene===id; c.classList.toggle('on',on); c.setAttribute('aria-pressed',String(on)); });
+      var v=view(s.view);
+      info.innerHTML='<div class="row" style="gap:6px"><span class="badge badge-cobalt">'+esc(purLabel[s.purpose]||'')+'</span>'+(s.layout&&layLabel[s.layout]?'<span class="badge badge-soft">'+esc(layLabel[s.layout])+' 배치</span>':'')+(M.isStaged(s.id)?'<span class="badge badge-outline">연출 예시</span>':'')+'</div>'
+        + '<div class="si-title">'+esc(s.title)+'</div><p>'+esc(s.cap)+'</p>'
+        + '<div class="row mt-2"><button type="button" class="btn btn-primary btn-sm" id="scene-ask">이 모임으로 견적 문의</button><button type="button" class="btn btn-light btn-sm" id="scene-zoom">크게 보기</button></div>'
+        + '<p class="view-desc"><b style="color:var(--graphite)">'+esc(v.label)+'</b> — '+esc(v.desc)+'</p>';
+      $('#scene-ask').addEventListener('click', function(){ askWith(s); });
+      $('#scene-zoom').addEventListener('click', function(){ var list=scenesOf(s.view); var items=[{src:M.imgSrc(v.real), title:v.label+' · 빈 홀', cap:'메가스팟 건대 현장 사진입니다. 아래 장면들과 같은 자리에서 찍었습니다.', tag:'현장 사진'}].concat(M.sceneItems(list)); M.openLightbox(items, list.indexOf(s)+1); });
+    }
+
+    // 비교 슬라이더 — 포인터로 끌기 + 키보드(range)
+    var dragging=false;
+    function fromEvent(e){ var r=ba.getBoundingClientRect(); return (e.clientX-r.left)/r.width*100; }
+    ba.addEventListener('pointerdown', function(e){ if(e.button!==undefined && e.button!==0) return; dragging=true; try{ ba.setPointerCapture(e.pointerId); }catch(_){} setPos(fromEvent(e)); });
+    ba.addEventListener('pointermove', function(e){ if(dragging) setPos(fromEvent(e)); });
+    ['pointerup','pointercancel','lostpointercapture'].forEach(function(t){ ba.addEventListener(t, function(){ dragging=false; }); });
+    range.addEventListener('input', function(){ setPos(+range.value); });
+
+    // 장면 모아보기 (목적별 필터 + 라이트박스)
+    var grid=$('#scene-grid'), filter=$('#scene-filter'), note=$('#scene-note');
+    var cats=PUR.filter(function(p){ return SC.some(function(s){ return s.purpose===p.id; }); });
+    filter.innerHTML='<button type="button" class="chip on" data-p="">전체<span class="n">'+SC.length+'</span></button>'+cats.map(function(p){ var n=SC.filter(function(s){return s.purpose===p.id;}).length; return '<button type="button" class="chip" data-p="'+p.id+'">'+esc(p.label)+'<span class="n">'+n+'</span></button>'; }).join('');
+    var shown=SC.slice();
+    function renderGrid(pid){
+      shown=SC.filter(function(s){ return !pid||s.purpose===pid; });
+      grid.innerHTML=shown.map(function(s,k){ return '<button type="button" class="tile" data-k="'+k+'" aria-label="'+esc(s.title)+' 크게 보기"><img src="'+M.imgSrc(s.id,'t')+'" srcset="'+M.imgSrc(s.id,'t')+' 480w, '+M.imgSrc(s.id,'m')+' 960w" sizes="(min-width:1100px) 300px, (min-width:760px) 33vw, 50vw" alt="'+esc(s.title)+' — '+M.imgTag(s.id)+'" loading="lazy">'+M.tagHtml(s.id)+'<span class="lab">'+esc(purLabel[s.purpose]||'')+'<b>'+esc(s.title)+'</b></span></button>'; }).join('');
+      $$('.chip',filter).forEach(function(c){ var on=c.dataset.p===(pid||''); c.classList.toggle('on',on); c.setAttribute('aria-pressed',String(on)); });
+    }
+    filter.addEventListener('click', function(e){ var b=e.target.closest('.chip'); if(b) renderGrid(b.dataset.p); });
+    grid.addEventListener('click', function(e){ var b=e.target.closest('.tile'); if(b) M.openLightbox(M.sceneItems(shown), +b.dataset.k); });
+    if(note) note.textContent=window.MEGASPOT_SCENE_NOTE||'';
+
+    // 다른 페이지에서 ?scene=s04 로 들어오면 그 장면부터 보여 줍니다
+    var q=new URLSearchParams(location.search).get('scene');
+    selectView(VIEWS[0].id); renderGrid(''); setPos(50);
+    if(q && window.MEGASPOT_SCENE(q)) selectScene(q);
+  })();
+
+  /* 장면 → 문의서 연결 */
+  function askWith(s){
+    if(inquiry){ if(inquiry.setPurpose) inquiry.setPurpose(s.purpose); if(s.layout && inquiry.setLayout) inquiry.setLayout(s.layout); }
+    var b=$('#booking'); if(b) b.scrollIntoView({behavior:'smooth', block:'start'});
+    M.toast('‘'+s.title+'’ 기준으로 행사 목적'+(s.layout?'과 배치':'')+'를 문의서에 넣었습니다.');
+  }
 
   /* ---------- 시설·장비 ---------- */
   (function(){
@@ -181,18 +296,18 @@
 
   /* ---------- 이용 안내 / 요금 / 접근 ---------- */
   (function(){
-    var flow=$('#flow'); if(flow) flow.innerHTML=S.booking.flow.map(function(f,i){ var d=['행사 문의서를 남기면 접수 번호와 자동 안내를 보냅니다.','목적·인원·배치·장비·준비 시간을 확인하고 필요하면 연락드립니다.','항목별 금액, 유효기간, 임시 일정 확보 여부를 담은 견적서를 보냅니다.','견적을 수락하면 결제 안내를 드립니다. 결제 전까지는 확정이 아닙니다.','결제가 끝나면 확정 조건·약관 버전·현장 준비 목록을 보냅니다.','입장·피난 동선, 화면·음향, 배치를 함께 점검하고 담당자가 대기합니다.','퇴실 점검 후 후기 작성 권한을 드립니다. 비판도 같은 기준으로 게시합니다.'][i]||''; return '<li class="step"><div class="n">'+(i+1)+'</div><h4>'+esc(f)+'</h4><p>'+esc(d)+'</p></li>'; }).join('');
+    var flow=$('#flow'); if(flow) flow.innerHTML=S.booking.flow.map(function(f,i){ var d=['행사 문의서를 남기면 접수 번호와 자동 안내를 보냅니다.','목적·인원·배치·장비·준비 시간을 확인하고 필요하면 연락드립니다.','항목별 금액·보증금·결제 일정을 담은 견적서(유효기간 14일)를 보냅니다. 받은 뒤 72시간 동안 무료로 날짜를 잡아 둘 수 있습니다.','개인 예약은 전액, 행사 계약은 계약금 30%를 결제합니다. 결제 전까지는 확정이 아닙니다.','결제가 끝나면 확정 조건·적용 요금표 버전·현장 준비 목록을 보냅니다.','입장·피난 동선, 화면·음향, 배치를 함께 점검하고 담당자가 대기합니다.','퇴실 점검 뒤 3영업일 안에 보증금을 돌려드리고 후기 작성 권한을 드립니다.'][i]||''; return '<li class="step"><div class="n">'+(i+1)+'</div><h4>'+esc(f)+'</h4><p>'+esc(d)+'</p></li>'; }).join('');
     var chips=$('#slot-chips'); if(chips) chips.innerHTML=S.booking.slots.map(function(s){ return '<span class="tag">'+esc(s.label)+' '+esc(s.time)+'</span>'; }).join('');
     var rn=$('#response-note'); if(rn) rn.textContent=S.booking.response;
     var rules=$('#rules'); if(rules) rules.innerHTML=S.rules.map(function(r){ return '<div><dt>'+esc(r.k)+'</dt><dd>'+esc(r.d)+'</dd></div>'; }).join('');
-    var pn=$('#pricing-note'); if(pn) pn.textContent=S.pricing.note;
-    var pi=$('#pricing-items'); if(pi) pi.innerHTML=S.pricing.items.map(function(it,i){ return '<div class="step"><div class="n">'+M.pad2(i+1)+'</div><h4>'+esc(it.k)+'</h4><p>'+esc(it.d)+'</p></div>'; }).join('');
     var ac=$('#access-list'); if(ac) ac.innerHTML=[['주소',S.address],['대중교통',S.access.transit],['주차',S.access.parking],['엘리베이터',S.access.elevator],['현장 안내',S.access.note]].map(function(r){ return '<div><dt>'+r[0]+'</dt><dd>'+esc(r[1])+'</dd></div>'; }).join('');
     var cp=$('#copy-address'); if(cp) cp.addEventListener('click', function(){ (navigator.clipboard?navigator.clipboard.writeText(S.address):Promise.reject()).then(function(){ M.toast('주소를 복사했습니다.'); }).catch(function(){ M.toast(S.address); }); });
   })();
 
   /* ---------- 문의서 + 달력 ---------- */
   var inquiry=null;
+  // 예상 금액 계산기의 '이 조건으로 견적 문의' → 아래 문의서에 날짜·시간·인원·계산 내용을 채웁니다
+  if(M.pricing){ M.pricing.onAsk=function(p){ if(inquiry&&inquiry.prefill) inquiry.prefill(p); var b=$('#booking'); if(b) b.scrollIntoView({behavior:'smooth',block:'start'}); M.toast('계산한 조건을 문의서에 넣었습니다. 연락처만 적어 보내 주세요.'); }; }
   (function(){
     var root=$('#inquiry-root'); if(!root||!M.renderInquiry) return;
     inquiry=M.renderInquiry(root,{spaceId:S.id, mode:'space'});
@@ -226,7 +341,7 @@
         $('#cal-prev').addEventListener('click', function(){ cur=new Date(y,m-1,1); render(); });
         $('#cal-next').addEventListener('click', function(){ cur=new Date(y,m+1,1); render(); });
         $('#cal-prev').disabled = (y===today.getFullYear()&&m===today.getMonth());
-        cal.querySelectorAll('.cal-day.open,.cal-day.hold').forEach(function(el){ function pick(){ selected=el.dataset.d; if(inquiry) inquiry.setDate(selected); render(); M.toast(M.fmtKDate(selected)+'을(를) 문의서에 입력했습니다.'); var f=$('#inquiry-form'); if(f&&window.matchMedia('(max-width:899px)').matches) f.scrollIntoView({behavior:'smooth',block:'start'}); } el.addEventListener('click', pick); el.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); pick(); } }); });
+        cal.querySelectorAll('.cal-day.open,.cal-day.hold').forEach(function(el){ function pick(){ selected=el.dataset.d; if(inquiry) inquiry.setDate(selected); var est=M.pricing&&M.pricing.estimator; if(est) est.setDate(selected); render(); M.toast(M.fmtKDate(selected)+'을(를) 문의서'+(est?'와 예상 금액 계산기':'')+'에 넣었습니다.'); var f=$('#inquiry-form'); if(f&&window.matchMedia('(max-width:899px)').matches) f.scrollIntoView({behavior:'smooth',block:'start'}); } el.addEventListener('click', pick); el.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); pick(); } }); });
       });
     }
     M.checkApi().then(render);
@@ -235,6 +350,7 @@
   /* ---------- 후기 ---------- */
   (function(){
     var list=$('#review-list'), form=$('#review-form'); if(!list) return;
+    var rvType=$('#rv-type'); if(rvType){ rvType.insertAdjacentHTML('beforeend', (window.MEGASPOT_PURPOSES||[]).map(function(p){ return '<option>'+esc(p.label)+'</option>'; }).join('')+'<option>기타</option>'); }
     function stars(n){ var s=''; for(var i=1;i<=5;i++) s+= i<=n?'★':'☆'; return s; }
     function renderList(items){
       if(!items||!items.length){

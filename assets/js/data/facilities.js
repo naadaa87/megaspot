@@ -73,7 +73,7 @@ window.MEGASPOT_FACILITIES = {
    "item": "무선마이크",
    "desc": "무선마이크 구비",
    "basis": "사용자 확인",
-   "note": "이용 가능 수량 별도 안내"
+   "note": "기본 2개 포함, 추가는 개당 1만 원 (요금표 v1.0)"
   },
   {
    "no": 10,

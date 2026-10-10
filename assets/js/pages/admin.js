@@ -4,7 +4,8 @@
   var KEY=null;
   function A(path, opts){ opts=opts||{}; opts.adminKey=KEY; return M.api('/admin'+path, opts); }
   var STATUSES=['문의 접수','조건 확인','견적 발송','결제 대기','예약 확정','이용 완료','취소·환불'];
-  var SLOT={am:'오전',pm:'오후',ev:'저녁',day:'종일',custom:'직접 입력'};
+  var SLOT={am:'오전',pm:'오후',ev:'저녁',ampm:'주간 09–18',pmev:'오후~저녁 14–23',day:'전일 09–23',custom:'직접 입력'};
+  var TYPE={event:['행사 대관','badge-soft'],regular:['정기·반복 모임','badge-cobalt'],partner:['제휴·협력','badge-rust']};
   var spaces=window.MEGASPOT_SPACES||[];
 
   function enter(){
@@ -25,20 +26,21 @@
 
   /* 문의함 */
   function loadInquiries(){
-    var st=$('#inq-status-filter').value, q=$('#inq-q').value.trim();
-    A('/inquiries?status='+encodeURIComponent(st)+'&q='+encodeURIComponent(q)).then(function(r){
+    var st=$('#inq-status-filter').value, q=$('#inq-q').value.trim(), ty=$('#inq-type-filter').value;
+    A('/inquiries?status='+encodeURIComponent(st)+'&type='+encodeURIComponent(ty)+'&q='+encodeURIComponent(q)).then(function(r){
       var list=r.items||[]; if(!list.length){ $('#inq-list').innerHTML='<div class="empty"><b>표시할 문의가 없습니다</b></div>'; return; }
       $('#inq-list').innerHTML=list.map(function(it){
-        var d=it.data||{}; var sp=spaces.find(function(s){return s.id===it.space_id;});
-        return '<div class="card pad-s"><div class="row between"><div class="row"><b style="font-family:var(--font-display);font-size:18px;letter-spacing:.02em;color:var(--cobalt)">'+esc(it.ref)+'</b><span class="badge badge-soft">'+esc(sp?sp.name:(it.space_id==='request'?'맞춤 공간 요청':it.space_id))+'</span><span class="small muted">'+esc((it.created_at||'').slice(0,16).replace('T',' '))+'</span></div>'
+        var d=it.data||{}; var sp=spaces.find(function(s){return s.id===it.space_id;}); var ty=TYPE[d.inquiry_type]||TYPE.event;
+        var when = d.inquiry_type==='partner' ? esc((d.org||'')+(d.partner_kind?' · '+d.partner_kind:'')) : (d.inquiry_type==='regular' ? esc([d.repeat_cycle,d.repeat_period].filter(Boolean).join(' · ')||'반복 일정 미정')+(d.date?' · 첫 이용 '+esc(d.date):'')+' · '+esc(d.headcount||'-')+'명' : esc(d.date||'')+(d.date_alt?' (대체 '+esc(d.date_alt)+')':'')+' · '+esc(SLOT[d.slot]||d.slot||'')+' · '+esc(d.headcount||'-')+'명');
+        return '<div class="card pad-s"><div class="row between"><div class="row"><b style="font-family:var(--font-display);font-size:18px;letter-spacing:.02em;color:var(--cobalt)">'+esc(it.ref)+'</b><span class="badge '+ty[1]+'">'+ty[0]+'</span><span class="badge badge-soft">'+esc(sp?sp.name:(it.space_id==='request'?'맞춤 공간 요청':it.space_id))+'</span>'+(d.estimate?'<span class="badge badge-ok">예상 금액 첨부</span>':'')+'<span class="small muted">'+esc((it.created_at||'').slice(0,16).replace('T',' '))+'</span></div>'
           + '<select class="select" data-ref="'+esc(it.ref)+'" data-act="status" style="min-height:36px;padding:6px 30px 6px 10px;font-size:13px;width:auto">'+STATUSES.map(function(s){return '<option'+(s===it.status?' selected':'')+'>'+s+'</option>';}).join('')+'</select></div>'
-          + '<div class="grid grid-2 mt-2 small" style="gap:4px 16px"><div><b>'+esc(d.name||'')+'</b> · <a href="tel:'+esc(d.phone||'')+'">'+esc(d.phone||'')+'</a>'+(d.email?' · '+esc(d.email):'')+'</div><div>'+esc(d.date||'')+(d.date_alt?' (대체 '+esc(d.date_alt)+')':'')+' · '+esc(SLOT[d.slot]||d.slot||'')+' · '+esc(d.headcount||'-')+'명</div></div>'
+          + '<div class="grid grid-2 mt-2 small" style="gap:4px 16px"><div><b>'+esc(d.name||'')+'</b> · <a href="tel:'+esc(d.phone||'')+'">'+esc(d.phone||'')+'</a>'+(d.email?' · '+esc(d.email):'')+'</div><div>'+when+'</div></div>'
           + '<details class="mt-2"><summary class="small" style="cursor:pointer;color:var(--cobalt);font-weight:700">문의 내용 전체</summary><pre style="white-space:pre-wrap;font:13px/1.6 var(--font-body);background:var(--concrete-3);padding:10px;border-radius:4px;margin-top:8px">'+esc(d.summary||JSON.stringify(d,null,1))+'</pre></details>'
           + '<div class="row mt-2"><input class="input" data-ref="'+esc(it.ref)+'" data-act="memo" value="'+esc(it.memo||'')+'" placeholder="운영 메모 (견적 금액, 통화 내용 등)" style="min-height:38px;flex:1"><button class="btn btn-light btn-sm" data-ref="'+esc(it.ref)+'" data-act="save">메모 저장</button></div></div>';
       }).join('');
     }).catch(function(e){ $('#inq-list').innerHTML='<div class="empty">'+esc(e.message)+'</div>'; });
   }
-  $('#inq-reload').addEventListener('click', loadInquiries); $('#inq-status-filter').addEventListener('change', loadInquiries); $('#inq-q').addEventListener('keydown', function(e){ if(e.key==='Enter') loadInquiries(); });
+  $('#inq-reload').addEventListener('click', loadInquiries); $('#inq-status-filter').addEventListener('change', loadInquiries); $('#inq-type-filter').addEventListener('change', loadInquiries); $('#inq-q').addEventListener('keydown', function(e){ if(e.key==='Enter') loadInquiries(); });
   $('#inq-list').addEventListener('change', function(e){ var el=e.target; if(el.dataset.act==='status'){ A('/inquiries/'+el.dataset.ref,{method:'PATCH', body:{status:el.value}}).then(function(){ M.toast('상태를 변경했습니다.'); }).catch(function(x){ M.toast(x.message); }); } });
   $('#inq-list').addEventListener('click', function(e){ var b=e.target.closest('button[data-act=save]'); if(!b) return; var memo=$('#inq-list input[data-act=memo][data-ref="'+b.dataset.ref+'"]').value; A('/inquiries/'+b.dataset.ref,{method:'PATCH', body:{memo:memo}}).then(function(){ M.toast('메모를 저장했습니다.'); }).catch(function(x){ M.toast(x.message); }); });
 

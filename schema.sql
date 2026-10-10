@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS inquiries (
   status TEXT NOT NULL DEFAULT '문의 접수', -- 문의 접수 → 조건 확인 → 견적 발송 → 결제 대기 → 예약 확정 → 이용 완료 / 취소·환불
   name TEXT, phone TEXT, email TEXT,
   event_date TEXT, headcount INTEGER,
-  data TEXT NOT NULL,                       -- 문의서 전체(JSON)
+  data TEXT NOT NULL,                       -- 문의서 전체(JSON). inquiry_type: event(행사 대관) | regular(정기·반복 모임) | partner(제휴·협력)
   memo TEXT,                                -- 운영 메모
   created_at TEXT NOT NULL,
   updated_at TEXT
@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS bookings (
   phone TEXT NOT NULL,
   phone_last4 TEXT NOT NULL,                -- 후기 작성 확인용
   date TEXT NOT NULL,                       -- 이용일 YYYY-MM-DD
-  slot TEXT,                                -- am | pm | ev | day | custom
+  slot TEXT,                                -- am | pm | ev | ampm | pmev | day(전일) | custom
   headcount INTEGER,
   memo TEXT,
   status TEXT NOT NULL DEFAULT 'confirmed', -- confirmed | completed | cancelled

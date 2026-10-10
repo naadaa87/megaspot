@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>이용 안내 · 예약 흐름과 자주 묻는 질문 · 메가스팟</title>
-<meta name="description" content="문의 접수부터 견적, 결제, 확정, 이용, 후기까지. 메가스팟 예약 흐름과 취소·환불, 직영·외부 호스트 구분을 안내합니다.">
+<meta name="description" content="문의 접수부터 견적, 가예약, 결제, 확정, 이용, 후기까지. 메가스팟 예약 흐름과 요금·취소·환불 기준, 정기 모임·제휴 협의, 직영·외부 호스트 구분을 안내합니다.">
 <meta name="theme-color" content="#F1EFEB">
 <link rel="canonical" href="https://megaspot.pages.dev/guide/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="메가스팟 MEGASPOT">
 <meta property="og:title" content="이용 안내 · 예약 흐름과 자주 묻는 질문 · 메가스팟">
-<meta property="og:description" content="문의 접수부터 견적, 결제, 확정, 이용, 후기까지. 메가스팟 예약 흐름과 취소·환불, 직영·외부 호스트 구분을 안내합니다.">
+<meta property="og:description" content="문의 접수부터 견적, 가예약, 결제, 확정, 이용, 후기까지. 메가스팟 예약 흐름과 요금·취소·환불 기준, 정기 모임·제휴 협의, 직영·외부 호스트 구분을 안내합니다.">
 <meta property="og:url" content="https://megaspot.pages.dev/guide/">
 <meta property="og:image" content="https://megaspot.pages.dev/assets/img/brand/og-megaspot.jpg">
 <meta name="twitter:card" content="summary_large_image">
@@ -32,12 +32,13 @@
       <a href="/spaces/">공간 찾기</a>
       <a href="/purpose/">어떤 모임</a>
       <a href="/spaces/megaspot-gundae/">메가스팟 건대</a>
+      <a href="/spaces/megaspot-gundae/pricing/">요금</a>
       <a href="/host/">공간 등록</a>
       <a href="/guide/">이용 안내</a>
       <a href="/about/">소개</a>
     </nav>
     <div class="header-cta">
-      <a class="btn btn-ghost btn-sm" href="tel:" data-phone>010-0000-0000</a>
+      <a class="btn btn-ghost btn-sm" href="tel:01023849580" data-phone>010-2384-9580</a>
       <a class="btn btn-primary btn-sm" href="/inquiry/">행사 조건으로 견적 문의</a>
     </div>
     <button class="menu-btn" aria-label="메뉴 열기" aria-expanded="false" aria-controls="mobile-nav"><span></span><span></span><span></span></button>
@@ -47,11 +48,14 @@
   <a href="/spaces/">공간 찾기</a>
   <a href="/purpose/">어떤 모임</a>
   <a href="/spaces/megaspot-gundae/">메가스팟 건대 <span class="badge badge-direct" style="margin-left:8px">직영</span></a>
+  <a href="/spaces/megaspot-gundae/pricing/">메가스팟 건대 요금 안내</a>
   <a href="/host/">공간 등록 (호스트)</a>
   <a href="/guide/">이용 안내</a>
+  <a href="/inquiry/?type=partner">정기 모임·제휴 문의</a>
   <a href="/about/">메가스팟 소개</a>
   <a class="btn btn-primary btn-lg" href="/inquiry/">행사 조건으로 견적 문의</a>
-  <a class="btn btn-ghost" href="tel:" data-phone>전화 상담</a>
+  <a class="btn btn-ghost" href="tel:01023849580" data-phone>전화 상담</a>
+  <a class="btn btn-kakao" href="http://pf.kakao.com/_uTiFX" target="_blank" rel="noopener" data-kakao><svg class="ico-talk" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3.2C6.6 3.2 2.3 6.6 2.3 10.9c0 2.7 1.8 5.1 4.5 6.5l-.9 3.4c-.1.3.3.6.6.4l4-2.6c.5.1 1 .1 1.5.1 5.4 0 9.7-3.4 9.7-7.8S17.4 3.2 12 3.2z"/></svg>카카오톡 문의</a>
 </nav>
 <main id="main">
 <section class="page-hero">
@@ -65,7 +69,7 @@
 
 <nav class="subnav" aria-label="이용 안내 섹션">
   <div class="container">
-    <a href="#flow">예약 흐름</a><a href="#status">예약 상태</a><a href="#quote">견적서 읽는 법</a><a href="#cancel">취소·변경</a><a href="#seller">직영과 외부 호스트</a><a href="#faq">자주 묻는 질문</a>
+    <a href="#flow">예약 흐름</a><a href="#status">예약 상태</a><a href="#quote">견적서 읽는 법</a><a href="#cancel">취소·변경</a><a href="#seller">직영과 외부 호스트</a><a href="#faq">자주 묻는 질문</a><a href="#together">반복 모임·제휴</a><a href="/spaces/megaspot-gundae/pricing/">건대 요금</a>
   </div>
 </nav>
 
@@ -76,8 +80,8 @@
       <li class="step"><div class="n">1</div><h4>탐색</h4><p>지역·날짜·목적·인원·예산으로 후보를 찾습니다. 조건에 맞는 공간이 없으면 맞춤 공간 요청을 남깁니다.</p></li>
       <li class="step"><div class="n">2</div><h4>비교</h4><p>배치·시설·포함 항목·총비용 조건을 같은 형식으로 봅니다. 확인되지 않은 값은 '확인 필요'로 표시됩니다.</p></li>
       <li class="step"><div class="n">3</div><h4>문의</h4><p>행사 문의서에 시간·준비·철수·필수 장비를 적습니다. 접수 번호가 발급됩니다.</p></li>
-      <li class="step"><div class="n">4</div><h4>견적</h4><p>항목별 금액·유효기간·일정 확보 여부를 받습니다. 조건이 바뀌면 견적 버전이 올라갑니다.</p></li>
-      <li class="step"><div class="n">5</div><h4>예약</h4><p>판매자·정책·결제·확정 시점을 확인하고 결제합니다. 결제 완료 시점에 계약이 성립합니다.</p></li>
+      <li class="step"><div class="n">4</div><h4>견적</h4><p>항목별 금액과 보증금, 결제 일정을 받습니다. 견적을 받은 뒤 72시간 동안 무료로 날짜를 잡아 둘 수 있습니다.</p></li>
+      <li class="step"><div class="n">5</div><h4>예약</h4><p>개인 예약은 전액, 행사 계약은 계약금 30%를 결제합니다. 결제 완료 시점에 계약이 성립합니다.</p></li>
       <li class="step"><div class="n">6</div><h4>이용</h4><p>이용 7일 전 최종 확인, 당일 입장·피난 동선·장비 점검, 퇴실 시 사용 시간·파손·정리 확인.</p></li>
       <li class="step"><div class="n">7</div><h4>후기</h4><p>이용 완료가 확인된 예약에 후기 작성 권한을 드립니다. 비판도 같은 기준으로 게시합니다.</p></li>
     </ol>
@@ -92,8 +96,8 @@
       <tbody>
         <tr><td class="k"><span class="badge badge-soft">문의 접수</span></td><td>행사 문의서가 접수되어 접수 번호가 발급된 상태</td><td>미확보</td><td>운영팀이 조건 확인</td></tr>
         <tr><td class="k"><span class="badge badge-soft">조건 확인</span></td><td>배치·장비·시간·허용 조건을 확인 중인 상태</td><td>미확보</td><td>필요 시 연락 후 견적 작성</td></tr>
-        <tr><td class="k"><span class="badge badge-cobalt">견적 발송</span></td><td>항목별 견적서를 보낸 상태. 유효기간과 임시 확보 여부가 적혀 있음</td><td>견적서에 표기 (임시 확보 시 만료 시각 명시)</td><td>고객 수락 → 결제 안내</td></tr>
-        <tr><td class="k"><span class="badge badge-warn">결제 대기</span></td><td>견적을 수락하고 결제를 기다리는 상태</td><td>임시 확보 (기한 내 미결제 시 해제)</td><td>결제 완료 시 확정</td></tr>
+        <tr><td class="k"><span class="badge badge-cobalt">견적 발송</span></td><td>항목별 견적서를 보낸 상태. 유효기간(14일)과 가예약 만료 시각이 적혀 있음</td><td>가예약 72시간 무료 (11–12월 48시간, 기업 결재용 7일 연장 가능)</td><td>고객 수락 → 결제 안내</td></tr>
+        <tr><td class="k"><span class="badge badge-warn">결제 대기</span></td><td>견적을 수락하고 결제를 기다리는 상태</td><td>가예약 유지 (기한이 지나면 자동으로 풀고 알려 드림)</td><td>결제 완료 시 확정</td></tr>
         <tr><td class="k"><span class="badge badge-ok">예약 확정</span></td><td>결제가 완료되어 계약이 성립한 상태</td><td>확보</td><td>확정 조건·준비 목록 발송, 이용 7일 전 최종 확인</td></tr>
         <tr><td class="k"><span class="badge badge-ok">이용 완료</span></td><td>퇴실 점검을 마친 상태</td><td>—</td><td>후기 작성 권한 부여, 정산</td></tr>
         <tr><td class="k"><span class="badge badge-rust">취소·환불</span></td><td>고객 취소, 호스트 거절, 견적 만료, 결제 실패 등 사유별로 기록</td><td>해제</td><td>환불 요청 → 승인 → 처리 완료를 별도 상태로 안내</td></tr>
@@ -107,9 +111,9 @@
     <div class="section-head split"><div><div class="eyebrow"><span class="idx">03</span>Reading a quote</div><h2 class="h-l">견적서에는 이 항목이 꼭 들어갑니다</h2></div><p class="lead">고객과 호스트, 현장 운영자가 같은 조건을 이해하도록 공통 양식을 씁니다. 확인되지 않은 내용을 추정해 채우지 않습니다.</p></div>
     <div class="grid grid-3">
       <div class="card"><div class="eyebrow">계약과 일정</div><p class="meta mt-1">실제 판매자, 공간·상품, 확정 배치·인원, 사용 시간(준비·행사·철수)</p></div>
-      <div class="card"><div class="eyebrow">가격</div><p class="meta mt-1">공간료, 필수·선택 옵션, 인력·청소, 초과 시간 단가, 세금, 할인</p></div>
-      <div class="card"><div class="eyebrow">보증금</div><p class="meta mt-1">이용료와 구분한 금액, 반환 시점, 공제 근거와 이의 절차</p></div>
-      <div class="card"><div class="eyebrow">예약 조건</div><p class="meta mt-1">견적 유효기간, 임시 일정 확보 여부, 결제와 확정 시점</p></div>
+      <div class="card"><div class="eyebrow">가격</div><p class="meta mt-1">공간료와 적용 요금표 버전, 패키지·옵션, 할인·할증과 그 근거, 공급가액·부가세·합계</p></div>
+      <div class="card"><div class="eyebrow">보증금</div><p class="meta mt-1">이용료와 구분한 금액, 반환 시점(퇴실 점검 후 3영업일), 공제 기준과 근거 사진</p></div>
+      <div class="card"><div class="eyebrow">예약 조건</div><p class="meta mt-1">견적 유효기간(14일), 가예약 만료 시각, 결제 방식(개인 전액·행사 계약 계약금 30%)</p></div>
       <div class="card"><div class="eyebrow">변경과 취소</div><p class="meta mt-1">적용 정책 버전, 취소 접수 방법, 조건 변경 절차</p></div>
       <div class="card"><div class="eyebrow">현장 제공</div><p class="meta mt-1">포함 장비·수량, 반입·소음 규칙, 담당자, 입퇴실 안내</p></div>
     </div>
@@ -119,21 +123,24 @@
 
 <section class="section sec-white sec-line" id="cancel">
   <div class="container">
-    <div class="section-head split"><div><div class="eyebrow"><span class="idx">04</span>Cancellation</div><h2 class="h-l">취소·변경·환불</h2></div><p class="lead">모든 예약에 '결제 후 환불 불가'나 '항상 7일 무료 취소'를 일괄 적용하지 않습니다. 상품별 취소 정책은 견적서에 적용 버전을 명시하고, 법정 청약철회와 계약상 취소 정책을 구분해 안내합니다.</p></div>
-    <div class="grid grid-2" style="gap:24px">
+    <div class="section-head split"><div><div class="eyebrow"><span class="idx">04</span>Cancellation</div><h2 class="h-l">취소·변경·환불</h2></div><p class="lead">메가스팟 건대는 개인 예약과 행사 계약, 두 가지 취소 규정을 씁니다. '결제 후 환불 불가'처럼 일괄 적용하는 조항은 두지 않고, 견적서에 적용 버전을 붙입니다.</p></div>
+    <h3 class="h-s mb-2">메가스팟 건대 공제율 <span class="tiny muted" style="font-weight:600">이용료 총액 기준</span></h3>
+    <div class="pricing-wrap" data-price="cancel-matrix"></div>
+    <p class="small muted mt-2">개인 예약은 결제 후 2시간 안이면 이용 시작 전까지 전액 환불합니다. 환불 불가 특가는 고객이 할인과 함께 직접 고른 경우에만 적용합니다. <a href="/spaces/megaspot-gundae/pricing/#policy" style="color:var(--cobalt);font-weight:700;text-decoration:underline">취소·변경 규정 전체 보기</a></p>
+    <div class="grid grid-2 mt-4" style="gap:24px">
       <div class="card">
         <h3>취소·변경 절차</h3>
         <ol class="numbered mt-2" style="display:grid;gap:12px;font-size:14.5px">
-          <li>예약번호와 함께 운영팀에 접수 (전화·이메일·문의 폼)</li>
-          <li>적용 정책 버전과 환불 산식 안내</li>
-          <li>환불 요청 → 승인 → 처리 완료를 단계별로 알림</li>
-          <li>이의가 있으면 양측 증빙을 확인해 재안내</li>
+          <li>예약번호와 함께 운영팀에 접수 (전화·카카오톡·이메일·문의 폼)</li>
+          <li>적용 규정 버전과 환불 금액 계산 안내</li>
+          <li>원래 결제 수단으로 3영업일 안에 환불 (결제 수수료는 빼지 않음)</li>
+          <li>이의가 있으면 양측 증빙을 확인해 다시 안내</li>
         </ol>
       </div>
       <div class="card">
         <h3>운영자 사유의 취소</h3>
-        <p class="meta mt-2">중복예약이나 호스트 취소가 발생하면 즉시 알리고 전액 환급과 대체 공간 지원을 제시합니다. 핵심 장비가 누락되면 대체 제공, 조건 조정, 취소 가능성을 순서대로 확인합니다. 기물 손상은 이용 전후 기록과 수리 근거를 확인하며 보증금을 일괄 몰수하지 않습니다.</p>
-        <p class="small muted mt-2">내부 응답 목표와 별도로 법정 환급 기한을 지킵니다.</p>
+        <p class="meta mt-2">메가스팟 사정으로 취소하면 전액 환불하고, 같은 시점에 고객이 취소했을 때의 공제율만큼 더 배상합니다. 비슷한 공간을 찾는 것도 돕습니다. 천재지변이나 정부 명령처럼 행사를 열 수 없는 경우에는 위약금 없이 연기하거나 전액 환불합니다.</p>
+        <p class="small muted mt-2">외부 호스트 공간은 상세 화면과 견적서에 각 공간의 규정을 적습니다. 내부 응답 목표와 별도로 법정 환급 기한을 지킵니다.</p>
       </div>
     </div>
   </div>
@@ -160,15 +167,47 @@
     <div class="section-head"><div class="eyebrow"><span class="idx">06</span>FAQ</div><h2 class="h-l">자주 묻는 질문</h2></div>
     <div class="acc">
       <details><summary>최대 130명이면 130명이 다 앉을 수 있나요?</summary><div class="body">최대 130명은 운영자 확인 기준의 전체 이용 인원이며, 의자 130개나 모든 배치에서 130명을 뜻하지 않습니다. 강연형·책상형·연회형·교류형에 따라 앉을 수 있는 인원이 달라지므로 행사 조건을 확인한 뒤 배치도와 함께 확정해 드립니다.</div></details>
-      <details><summary>견적을 받으면 날짜가 잡히는 건가요?</summary><div class="body">아닙니다. 견적서에 임시 확보 여부와 만료 시각을 적어 드립니다. 임시 확보가 없는 견적은 다른 문의가 먼저 결제하면 일정이 바뀔 수 있습니다. 예약은 결제 완료 시점에 확정됩니다.</div></details>
-      <details><summary>준비·철수 시간은 따로 비용이 드나요?</summary><div class="body">준비·철수 시간은 이용 시간에 포함해 산정합니다. 행사 시간만 예약했다가 앞뒤 시간이 초과 요금으로 붙는 일이 없도록 처음부터 '기본 이용 시간 + 준비·철수 + 옵션' 단위로 견적합니다.</div></details>
-      <details><summary>음식과 주류를 가져가도 되나요?</summary><div class="body">외부 음식 반입과 케이터링, 주류 반입은 공간과 행사 성격에 따라 가능 범위가 다릅니다. 문의서에 계획을 적어 주시면 조리 범위·냉장고 사용 공간·정리 기준과 함께 견적 때 확인해 드립니다.</div></details>
+      <details><summary>요금은 어떻게 정해지나요?</summary><div class="body">메가스팟 건대 공간료는 4시간 블록 기준 55만~130만 원(부가세 포함)이고, 요일(월–목·금·토/공휴일·일)과 시간대(오전·오후·저녁)로 정해집니다. 인원은 130명까지 같은 요금입니다. 블록을 이어 쓰면 2블록 15%, 전일 20%를 할인하고, 인력·배치·연출이 필요하면 항목별 단가를 더합니다. <a href="/spaces/megaspot-gundae/pricing/" style="color:var(--cobalt);font-weight:700">요금 안내</a>에서 요금표를 보고 예상 금액을 계산해 볼 수 있습니다.</div></details>
+      <details><summary>표시된 요금에 부가세가 들어 있나요?</summary><div class="body">네. 표시 요금은 부가세 포함 총액입니다. 기업 고객께는 공급가액과 부가세를 나눈 견적서와 세금계산서를 드립니다. 결제 수단에 따라 가격을 달리하지 않습니다.</div></details>
+      <details><summary>견적을 받으면 날짜가 잡히는 건가요?</summary><div class="body">견적을 받은 뒤 72시간(11–12월은 48시간) 동안 무료로 날짜를 잡아 둘 수 있습니다. 그사이 같은 날짜로 다른 문의가 오면 먼저 알려 드리고 24시간 안에 계약 여부를 정해 주시도록 요청합니다. 기업 결재로 시간이 더 필요하면 7일 연장(10만 원, 계약하면 이용료에서 차감)을 쓸 수 있습니다. 예약은 결제가 끝나야 확정됩니다.</div></details>
+      <details><summary>정기 모임이나 제휴도 요금표대로만 진행하나요?</summary><div class="body">아닙니다. 월 2회 이상, 3개월 이상 이용하는 정기 대관은 일반 블록 20%(피크 블록 10%)를 할인하고, 선납하면 5%p를 더 빼 드립니다. 이 기준에 맞지 않는 반복 모임이나 제휴·협력·파트너 제안은 조건을 듣고 따로 협의합니다. 문의서에서 '정기·반복 모임'이나 '제휴·협력·파트너'를 골라 보내 주세요.</div></details>
+      <details><summary>준비·철수 시간은 따로 비용이 드나요?</summary><div class="body">메가스팟 건대는 4시간 블록 안에 준비·행사·철수·원상복구가 모두 들어 있습니다. 블록 사이 1시간(13–14시, 18–19시)은 청소·환기 시간이고, 블록을 이어 쓰면 이 시간도 함께 쓸 수 있습니다. 시간이 더 필요하면 예약할 때 미리 연장을 정하고, 연장은 시간 단가 그대로 받습니다.</div></details>
+      <details><summary>음식과 주류를 가져가도 되나요?</summary><div class="body">메가스팟 건대는 외부 음식·주류 반입료(콜키지)를 받지 않습니다. 식사가 나오는 행사는 식음 행사 정리(100명 이하 10만 원, 101명 이상 15만 원)를 함께 예약하고, 조리 범위와 냉장고 사용 공간은 현장에서 안내합니다. 외부 호스트 공간은 공간마다 규정이 달라 견적 때 확인해 드립니다.</div></details>
       <details><summary>사진에 보이는 장비는 모두 쓸 수 있나요?</summary><div class="body">현장에 비치된 물품이 모두 기본 대여료에 포함된다는 뜻은 아닙니다. 시설 목록에서 '구비 확인'과 '제공 조건 확인'을 구분해 표기하고, 연출 장비(스모그머신·LED 조명 등)는 사용 조건을 확인한 뒤 제공합니다.</div></details>
       <details><summary>후기는 아무나 쓸 수 있나요?</summary><div class="body">이용 완료가 확인된 예약에만 작성 권한을 드립니다. 예약번호와 예약자 휴대폰 뒷자리로 확인하며, 비판적인 내용도 같은 기준으로 게시하고 운영자 답변을 남깁니다. 후기 작성을 조건으로 좋은 평가를 요구하지 않습니다.</div></details>
       <details><summary>개인정보는 어디까지 수집하나요?</summary><div class="body">초기 문의에는 일정·목적·인원·희망 배치와 대표자 연락처만 받습니다. 참석자 명단이나 신분증을 일괄 요구하지 않습니다. 외부 호스트 공간을 문의한 경우에도 문의 정보를 여러 호스트에게 무제한 배포하지 않고, 실제 견적·예약에 필요한 범위에서만 전달합니다.</div></details>
+      <details><summary>카카오톡이나 이메일로도 문의할 수 있나요?</summary><div class="body">네. 메가스팟 문의는 소셜팩토리 카카오톡 채널에서 함께 응대합니다. <a href="http://pf.kakao.com/_uTiFX" target="_blank" rel="noopener" data-kakao style="text-decoration:underline">카카오톡 채널</a>을 열거나 페이지 아래쪽 QR코드를 휴대폰 카메라로 비춘 뒤 날짜·인원·행사 목적을 남겨 주세요. 이메일은 <a href="mailto:spaceblank0100@gmail.com" data-email style="text-decoration:underline">spaceblank0100@gmail.com</a>으로 받습니다. 조건을 한 번에 정리해 보내고 싶다면 문의서를 작성한 뒤 완료 화면의 '카카오톡으로 보내기'를 눌러 내용을 붙여 넣으면 됩니다.</div></details>
       <details><summary>세금계산서나 증빙 서류를 받을 수 있나요?</summary><div class="body">문의서의 '서류 필요' 항목에 체크해 주시면 견적서·세금계산서·증빙 서류를 준비해 드립니다. 기업 고객은 담당자가 바뀌어도 견적·계약·정산 기록이 남도록 예약번호 기준으로 관리합니다.</div></details>
     </div>
-    <div class="row mt-4"><a class="btn btn-primary" href="/inquiry/">행사 조건으로 견적 문의 <span class="arrow">→</span></a><a class="btn btn-ghost" href="tel:" data-phone>전화 상담</a></div>
+    <div class="row mt-4"><a class="btn btn-primary" href="/inquiry/">행사 조건으로 견적 문의 <span class="arrow">→</span></a><a class="btn btn-kakao" href="http://pf.kakao.com/_uTiFX" target="_blank" rel="noopener" data-kakao><svg class="ico-talk" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3.2C6.6 3.2 2.3 6.6 2.3 10.9c0 2.7 1.8 5.1 4.5 6.5l-.9 3.4c-.1.3.3.6.6.4l4-2.6c.5.1 1 .1 1.5.1 5.4 0 9.7-3.4 9.7-7.8S17.4 3.2 12 3.2z"/></svg>카카오톡 문의</a><a class="btn btn-ghost" href="tel:01023849580" data-phone>전화 상담</a></div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <!-- include:partner-band -->
+<div class="partner-band" id="together">
+  <div class="pb-head">
+    <div class="eyebrow">Regulars &amp; partners</div>
+    <h3 class="h-m">반복 모임과 제휴·협력은<br>따로 협의합니다</h3>
+    <p>요금표는 한 번 여는 행사를 기준으로 만들었습니다. 같은 모임을 여러 번 열거나 메가스팟과 함께 행사를 꾸리고 싶다면, 횟수와 기간, 함께할 일을 듣고 조건을 따로 정합니다.</p>
+  </div>
+  <div class="pb-cards">
+    <a class="pb-card" href="/inquiry/?type=regular">
+      <span class="pb-tag">정기·반복 모임</span>
+      <b>매주·격주·매월 여는 모임</b>
+      <p>월 2회 이상, 3개월 이상 이용하면 일반 블록 20%, 피크 블록 10%를 할인하고 선납하면 5%p를 더 빼 드립니다. 이 기준에 꼭 맞지 않는 반복 일정도 횟수·요일·기간을 보고 따로 협의합니다.</p>
+      <span class="go">반복 모임 상담하기 →</span>
+    </a>
+    <a class="pb-card" href="/inquiry/?type=partner">
+      <span class="pb-tag">제휴·협력·파트너</span>
+      <b>함께 행사를 만드는 기업·기관·업체</b>
+      <p>행사 기획·대행사, 케이터링·장비·인력 협력사, 브랜드 제휴, 학교·기관·커뮤니티와의 협력은 요금표와 별도로 조건을 정합니다. 제안 내용을 남겨 주시면 담당자가 직접 연락드립니다.</p>
+      <span class="go">제휴·협력 제안하기 →</span>
+    </a>
+  </div>
+</div>
+<!-- /include:partner-band -->
   </div>
 </section>
 </main>
@@ -179,10 +218,15 @@
         <a class="logo inv" href="/"><span class="en">MEGA<b>SPOT</b></span><span class="ko">메가스팟</span></a>
         <p class="mt-2" style="max-width:38ch">큰 모임에 맞는 공간을 찾다. 인원·배치·예산·시설 조건을 비교하고 확인할 수 있는 대형 공간 예약 플랫폼입니다.</p>
         <ul class="mt-3">
-          <li>상담 <a href="tel:" data-phone>010-0000-0000</a></li>
-          <li>이메일 <a href="mailto:" data-email>contact@example.com</a></li>
+          <li>상담 <a href="tel:01023849580" data-phone>010-2384-9580</a></li>
+          <li>이메일 <a href="mailto:spaceblank0100@gmail.com" data-email>spaceblank0100@gmail.com</a></li>
+          <li>카카오톡 <a href="http://pf.kakao.com/_uTiFX" target="_blank" rel="noopener" data-kakao data-kakao-url>pf.kakao.com/_uTiFX</a></li>
           <li><span data-hours>평일 10:00–19:00</span></li>
         </ul>
+        <a class="footer-kakao" href="http://pf.kakao.com/_uTiFX" target="_blank" rel="noopener" data-kakao aria-label="카카오톡 문의 채널 열기 (새 창)">
+          <img src="/assets/img/brand/kakao-qr.svg" width="80" height="80" alt="메가스팟 카카오톡 문의 채널 QR코드" loading="lazy">
+          <span><b>카카오톡 문의</b>휴대폰 카메라로 QR코드를 비춰 주세요. 소셜팩토리 카카오톡 채널에서 함께 응대합니다.</span>
+        </a>
       </div>
       <div>
         <h4>Service</h4>
@@ -190,6 +234,8 @@
           <li><a href="/spaces/">공간 찾기</a></li>
           <li><a href="/purpose/">목적별 공간 안내</a></li>
           <li><a href="/inquiry/">행사 조건으로 견적 문의</a></li>
+          <li><a href="/inquiry/?type=regular">정기·반복 모임 상담</a></li>
+          <li><a href="/inquiry/?type=partner">제휴·협력 제안</a></li>
           <li><a href="/guide/">예약 흐름과 이용 안내</a></li>
           <li><a href="/guide/#faq">자주 묻는 질문</a></li>
         </ul>
@@ -198,6 +244,7 @@
         <h4>Spaces</h4>
         <ul>
           <li><a href="/spaces/megaspot-gundae/">메가스팟 건대 · 직영</a></li>
+          <li><a href="/spaces/megaspot-gundae/pricing/">건대 요금 안내</a></li>
           <li><a href="/spaces/megaspot-gundae/3d/">건대 3D 둘러보기</a></li>
           <li><a href="/host/">공간 등록 (호스트 입점)</a></li>
           <li><a href="/about/">메가스팟 소개</a></li>
@@ -216,6 +263,9 @@
   </div>
 </footer>
 <script src="/assets/js/site.js"></script>
-
+<script src="/assets/js/data/holidays-kr.js"></script>
+<script src="/assets/js/data/pricing-gundae.js"></script>
+<script src="/assets/js/pricing-engine.js"></script>
+<script src="/assets/js/pricing-ui.js"></script>
 </body>
 </html>

@@ -14,7 +14,9 @@
     description: '인원과 목적에 맞는 대형 공간을 비교하고 문의하는 예약 플랫폼',
     phone: '010-2384-9580',          // 대표 상담 번호 — 공개 전 확인
     email: 'spaceblank0100@gmail.com', // 대표 이메일 — 공개 전 확인
-    kakaoChannel: '',                 // 카카오톡 채널 URL (예: https://pf.kakao.com/_xxxxx). 비우면 버튼 숨김
+    kakaoChannel: 'http://pf.kakao.com/_uTiFX', // 카카오톡 문의 채널 — 비우면 카카오톡 버튼·링크 숨김
+    kakaoNote: '메가스팟 문의는 소셜팩토리 카카오톡 채널에서 함께 응대합니다.',
+    // ※ 채널 주소를 바꾸면 QR 이미지(/assets/img/brand/kakao-qr.svg)도 새 주소로 다시 만들어 교체해야 합니다.
     hours: '평일 10:00–19:00 (주말·공휴일 문의는 다음 영업일 순차 답변)',
     operatorName: '메가스팟 운영팀',
     companyName: '',                  // 사업자 상호 (확정 후 입력) — 비우면 푸터에서 숨김
@@ -78,6 +80,8 @@
     $$('[data-email]').forEach(function(el){ el.textContent=CONFIG.email; if(el.tagName==='A') el.href='mailto:'+CONFIG.email; });
     $$('[data-hours]').forEach(function(el){ el.textContent=CONFIG.hours; });
     $$('[data-kakao]').forEach(function(el){ if(CONFIG.kakaoChannel){ el.href=CONFIG.kakaoChannel; el.hidden=false; } else { el.hidden=true; } });
+    $$('[data-kakao-url]').forEach(function(el){ if(CONFIG.kakaoChannel) el.textContent=CONFIG.kakaoChannel.replace(/^https?:\/\//,''); });
+    $$('[data-kakao-note]').forEach(function(el){ if(CONFIG.kakaoNote) el.textContent=CONFIG.kakaoNote; el.hidden=!CONFIG.kakaoChannel; });
     $$('[data-company]').forEach(function(el){
       if(!CONFIG.companyName){ el.hidden=true; return; }
       el.innerHTML = esc(CONFIG.companyName) + (CONFIG.ceo?' · 대표 '+esc(CONFIG.ceo):'') + (CONFIG.bizNo?' · 사업자등록번호 '+esc(CONFIG.bizNo):'') + ' · ' + esc(CONFIG.bizAddress);
@@ -104,7 +108,7 @@
   function ensureLB(){
     if(LB.el) return;
     var el=document.createElement('div'); el.className='lightbox'; el.setAttribute('role','dialog'); el.setAttribute('aria-modal','true'); el.setAttribute('aria-label','사진 크게 보기');
-    el.innerHTML='<div class="lb-top"><span class="lb-counter"></span><button class="lb-close" aria-label="닫기">×</button></div><div class="lb-stage"><button class="lb-arrow prev" aria-label="이전 사진">‹</button><img alt=""><button class="lb-arrow next" aria-label="다음 사진">›</button></div><div class="lb-cap"><b></b><span></span></div>';
+    el.innerHTML='<div class="lb-top"><span class="lb-counter"></span><button class="lb-close" aria-label="닫기">×</button></div><div class="lb-stage"><button class="lb-arrow prev" aria-label="이전 사진">‹</button><img alt=""><button class="lb-arrow next" aria-label="다음 사진">›</button></div><div class="lb-cap"><em class="lb-tag" hidden></em><b></b><span></span></div>';
     document.body.appendChild(el); LB.el=el;
     $('.lb-close',el).addEventListener('click', closeLB);
     $('.lb-arrow.prev',el).addEventListener('click', function(){ showLB(LB.i-1); });
@@ -115,10 +119,30 @@
   }
   function openLB(items, i){ ensureLB(); LB.items=items; showLB(i||0); LB.el.classList.add('open'); document.body.style.overflow='hidden'; }
   function closeLB(){ if(!LB.el) return; LB.el.classList.remove('open'); document.body.style.overflow=''; }
-  function showLB(i){ var n=LB.items.length; if(!n) return; LB.i=(i+n)%n; var it=LB.items[LB.i]; var img=$('img',LB.el); img.src=it.src; img.alt=it.title||''; $('.lb-counter',LB.el).textContent=pad2(LB.i+1)+' / '+pad2(n); $('.lb-cap b',LB.el).textContent=it.title||''; $('.lb-cap span',LB.el).textContent=it.cap||''; }
+  function showLB(i){ var n=LB.items.length; if(!n) return; LB.i=(i+n)%n; var it=LB.items[LB.i]; var img=$('img',LB.el); img.src=it.src; img.alt=it.title||''; $('.lb-counter',LB.el).textContent=pad2(LB.i+1)+' / '+pad2(n); var tg=$('.lb-tag',LB.el); tg.textContent=it.tag||''; tg.hidden=!it.tag; tg.className='lb-tag'+(it.tag==='연출 예시'?' staged':/CG/.test(it.tag||'')?' cg':''); $('.lb-cap b',LB.el).textContent=it.title||''; $('.lb-cap span',LB.el).textContent=it.cap||''; }
 
   /* ---------- 사진 경로 ---------- */
   function photoSrc(spaceId, pid, thumb){ return '/assets/img/'+ (spaceId==='megaspot-gundae'?'gundae':spaceId) +'/'+(thumb?'t/':'')+pid+'.jpg'; }
+  // 이미지 id 첫 글자로 종류를 구분합니다. size: '' | 'm' | 't'
+  //  p: 메가스팟 건대 현장 사진 · s: 활용 장면(연출 예시) · v: 공간 전경 CG · a: 조감도 CG
+  var IMG_DIR={ p:'gundae', s:'scenes', v:'views', a:'aerial' };
+  function kind(id){ var c=String(id).charAt(0); return IMG_DIR[c] ? c : 'p'; }
+  function imgSrc(id, size){ var sub=size?size+'/':''; return '/assets/img/'+IMG_DIR[kind(id)]+'/'+sub+id+'.jpg'; }
+  function isStaged(id){ if(kind(id)!=='s') return false; var sc=window.MEGASPOT_SCENE && window.MEGASPOT_SCENE(id); return !sc || sc.staged!==false; }
+  function isCG(id){ var k=kind(id); return k==='v' || k==='a'; }
+  function imgTag(id){ var k=kind(id); return k==='v' ? 'CG 이미지' : k==='a' ? '조감도 CG' : isStaged(id) ? '연출 예시' : '현장 사진'; }
+  function tagClass(id){ return isStaged(id) ? 'staged' : isCG(id) ? 'cg' : ''; }
+  function tagHtml(id, extra){ var c=tagClass(id); return '<span class="ph-tag'+(c?' '+c:'')+(extra?' '+extra:'')+'">'+imgTag(id)+'</span>'; }
+  // id로 이미지 정보(제목·설명) 찾기
+  function visual(id){
+    var k=kind(id), find=function(list){ return (list||[]).filter(function(x){ return x.id===id; })[0]; };
+    if(k==='s') return window.MEGASPOT_SCENE ? window.MEGASPOT_SCENE(id) : null;
+    if(k==='v') return find(window.MEGASPOT_VIEWS);
+    if(k==='a') return find(window.MEGASPOT_AERIALS);
+    var sp=window.MEGASPOT_GET_SPACE && window.MEGASPOT_GET_SPACE('megaspot-gundae'); return sp ? find(sp.photos) : null;
+  }
+  // 이미지 목록({id,title,cap}) → 라이트박스 항목
+  function sceneItems(list){ return (list||[]).map(function(s){ return { src:imgSrc(s.id), title:s.title, cap:s.cap, tag:imgTag(s.id) }; }); }
 
   /* ---------- 문의번호 (체험 모드용) ---------- */
   function localRef(prefix){ var d=new Date(); var r=Math.random().toString(36).slice(2,6).toUpperCase(); return (prefix||'MS')+'-'+String(d.getFullYear()).slice(2)+pad2(d.getMonth()+1)+'-'+r; }
@@ -127,6 +151,7 @@
   function validate(form){
     var ok=true, first=null;
     $$('[required]', form).forEach(function(el){
+      if(el.disabled || el.closest('[hidden]')){ el.classList.remove('invalid'); return; } // 숨긴 칸은 검사하지 않음
       var bad=false;
       if(el.type==='checkbox') bad=!el.checked; else bad=!String(el.value||'').trim();
       if(el.type==='tel' && !bad){ var v=el.value.replace(/[^0-9]/g,''); if(v.length<9||v.length>11) bad=true; }
@@ -143,6 +168,7 @@
   window.MEGASPOT = {
     CONFIG:CONFIG, $:$, $$:$$, esc:esc, pad2:pad2, fmtDate:fmtDate, fmtKDate:fmtKDate, fmtNum:fmtNum,
     toast:toast, api:api, checkApi:checkApi, demo:demo, openLightbox:openLB, photoSrc:photoSrc, localRef:localRef,
+    imgSrc:imgSrc, isStaged:isStaged, isCG:isCG, imgTag:imgTag, tagClass:tagClass, tagHtml:tagHtml, visual:visual, sceneItems:sceneItems,
     validate:validate, formData:formData
   };
 

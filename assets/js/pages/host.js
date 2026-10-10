@@ -14,7 +14,7 @@
     }).catch(function(ex){
       if(ex.code==='NO_API'){
         var text='[메가스팟 입점 문의]\n공간: '+(d.space_name||'')+'\n주소: '+(d.address||'')+'\n면적: '+(d.area||'-')+'평 / 최대 '+(d.capacity||'-')+'명 / '+(d.space_type||'-')+'\n시설: '+(d.features.join(', ')||'-')+'\n운영 권한: '+(d.role||'')+'\n예약 채널: '+(d.channels||'-')+'\n담당: '+(d.name||'')+' / '+(d.phone||'')+' / '+(d.email||'')+'\n링크: '+(d.link||'-')+'\n메모: '+(d.message||'-');
-        msg.innerHTML='<b>지금은 서버 저장이 연결되지 않아 자동 접수가 되지 않습니다.</b> 아래 버튼으로 이메일을 보내 주시면 같은 절차로 검토합니다.<div class="row mt-2"><a class="btn btn-dark btn-sm" href="mailto:'+M.CONFIG.email+'?subject='+encodeURIComponent('[메가스팟 입점 문의] '+(d.space_name||''))+'&body='+encodeURIComponent(text)+'">이메일로 보내기</a><a class="btn btn-light btn-sm" href="tel:'+M.CONFIG.phone.replace(/-/g,'')+'">전화 상담</a></div>';
+        msg.innerHTML='<b>지금은 서버 저장이 연결되지 않아 자동 접수가 되지 않습니다.</b> 아래 버튼으로 이메일을 보내 주시면 같은 절차로 검토합니다.<div class="row mt-2"><a class="btn btn-dark btn-sm" href="mailto:'+M.CONFIG.email+'?subject='+encodeURIComponent('[메가스팟 입점 문의] '+(d.space_name||''))+'&body='+encodeURIComponent(text)+'">이메일로 보내기</a>'+(M.CONFIG.kakaoChannel?'<a class="btn btn-kakao btn-sm" href="'+M.esc(M.CONFIG.kakaoChannel)+'" target="_blank" rel="noopener">카카오톡 문의</a>':'')+'<a class="btn btn-light btn-sm" href="tel:'+M.CONFIG.phone.replace(/-/g,'')+'">전화 상담</a></div>';
       } else { msg.textContent=ex.message||'전송에 실패했습니다.'; }
       msg.hidden=false;
     }).finally(function(){ btn.disabled=false; });

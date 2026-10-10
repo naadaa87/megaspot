@@ -11,7 +11,11 @@ export async function readJson(request, maxBytes = 64 * 1024) {
 }
 export function str(v, max = 500) { if (v == null) return ''; return String(v).trim().slice(0, max); }
 export function num(v) { const n = parseInt(v, 10); return Number.isFinite(n) ? n : null; }
-export function isDate(s) { return /^\d{4}-\d{2}-\d{2}$/.test(s || ''); }
+export function isDate(s) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s || '')) return false;
+  const [y, m, d] = s.split('-').map(Number); const dt = new Date(Date.UTC(y, m - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;  // 2026-13-01 같은 날짜는 거부
+}
 export function now() { return new Date().toISOString().slice(0, 19).replace('T', ' '); }
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export function makeRef(prefix = 'MS') {

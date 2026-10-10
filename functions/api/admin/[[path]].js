@@ -13,9 +13,10 @@ export async function onRequest({ request, env, params }) {
 
     // ---- 문의 ----
     if (path === 'inquiries' && method === 'GET') {
-      const st = str(url.searchParams.get('status'), 20), q = str(url.searchParams.get('q'), 60);
+      const st = str(url.searchParams.get('status'), 20), q = str(url.searchParams.get('q'), 60), ty = str(url.searchParams.get('type'), 20);
       let sql = 'SELECT ref, space_id, status, name, phone, email, event_date, headcount, data, memo, created_at, updated_at FROM inquiries WHERE 1=1'; const b = [];
       if (st) { sql += ' AND status = ?'; b.push(st); }
+      if (['event', 'regular', 'partner'].includes(ty)) { sql += " AND COALESCE(json_extract(data, '$.inquiry_type'), 'event') = ?"; b.push(ty); }
       if (q) { sql += ' AND (name LIKE ? OR phone LIKE ? OR ref LIKE ?)'; b.push('%' + q + '%', '%' + q + '%', '%' + q.toUpperCase() + '%'); }
       sql += ' ORDER BY created_at DESC LIMIT 200';
       const { results } = await env.DB.prepare(sql).bind(...b).all();
