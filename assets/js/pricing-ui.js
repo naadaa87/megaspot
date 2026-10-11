@@ -298,7 +298,7 @@
       + (notes ? '<ul class="qp-notes">' + notes + '</ul>' : '')
       + '<div class="qp-grid">'
       + '<div><h3>기본 제공 (무료)</h3><p>' + D.included.map(function(i){ return esc(i.label); }).join(' · ') + '</p><h3>환불 기준</h3><p class="qp-refund">' + refund + '</p><p class="qp-small">' + esc(D.refundNote) + ' ' + esc(D.corporate) + '</p></div>'
-      + '<div class="qp-contact"><h3>문의</h3><p>전화 ' + esc(C.phone || '') + '<br>이메일 ' + esc(C.email || '') + '<br>카카오톡 ' + esc(String(KAKAO).replace(/^https?:\/\//, '')) + '<br>홈페이지 megaspot.pages.dev</p>' + (KAKAO ? '<img src="/assets/img/brand/kakao-qr.svg" alt="카카오톡 문의 채널 QR코드" width="88" height="88">' : '') + '<p class="qp-small">' + esc(C.kakaoNote || '') + '</p></div>'
+      + '<div class="qp-contact"><h3>문의</h3><p>전화 ' + esc(C.phone || '') + '<br>이메일 ' + esc(C.email || '') + '<br>카카오톡 ' + esc(String(KAKAO).replace(/^https?:\/\//, '')) + '<br>홈페이지 megaspot.kr</p>' + (KAKAO ? '<img src="/assets/img/brand/kakao-qr.svg" alt="카카오톡 문의 채널 QR코드" width="88" height="88">' : '') + '<p class="qp-small">' + esc(C.kakaoNote || '') + '</p></div>'
       + '</div>'
       + '<footer class="qp-foot">이 문서는 공개 요금표로 계산한 예상 금액이며 정식 견적서가 아닙니다. 날짜·시간·인원·모임 유형을 알려 주시면 가능 여부와 확정 금액을 빠르게 안내드립니다. 성수기(12월·1월), 정기 이용, 팝업·전시·행사·촬영은 별도 기준으로 안내합니다.</footer>'
       + '</div>';

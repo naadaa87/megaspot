@@ -15,4 +15,4 @@ User-agent: Daum
 Allow: /
 Disallow: /admin/
 
-Sitemap: https://megaspot.pages.dev/sitemap.xml
+Sitemap: https://megaspot.kr/sitemap.xml

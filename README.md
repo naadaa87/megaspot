@@ -88,7 +88,7 @@
 - 상세 페이지에서 문의서를 한 번 보내 보고 운영자 페이지 문의함에 들어오는지 확인합니다.
 
 ### ⑥ 도메인 연결(선택)
-Pages 프로젝트 → **Custom domains → Set up a custom domain**. 도메인을 정하면 `sitemap.xml`, `robots.txt`, 각 페이지 `<link rel="canonical">`·OG 주소의 `https://megaspot.pages.dev` 를 새 도메인으로 바꿔 주세요. (GitHub에서 파일 열기 → 연필 아이콘 → 수정 → Commit)
+Pages 프로젝트 → **Custom domains → Set up a custom domain**. 현재 대표 주소는 `https://megaspot.kr`이고, `sitemap.xml`·`rss.xml`·`robots.txt`, 각 페이지 `<link rel="canonical">`·OG 주소·구조화 데이터가 모두 이 주소로 되어 있습니다. 도메인을 다시 바꾸면 `tools/build_site.py`의 `SITE_URL`을 고쳐 다시 빌드합니다. `megaspot.pages.dev`와 `www.megaspot.kr`로도 같은 화면이 열리지만, 각 페이지가 대표 주소를 canonical로 알려 주므로 검색에는 megaspot.kr 주소로 모입니다.
 
 ---
 
@@ -214,9 +214,9 @@ QR 이미지는 `assets/img/brand/kakao-qr.svg` 입니다. **채널 주소를 �
 - `sitemap.xml`(이미지 포함 44장), `rss.xml`(네이버 RSS 제출용), `robots.txt`(네이버 Yeti·구글·다음 허용, 운영자 페이지 제외), 네이버 전용 `NaverBot`·`Yeti` 메타, 위치 `geo` 메타.
 
 ### ① 네이버 — 서치어드바이저 (https://searchadvisor.naver.com)
-1. 네이버 아이디로 로그인 → **웹마스터 도구** → 사이트 주소(`https://megaspot.pages.dev` 또는 확정 도메인) 등록
-2. 소유 확인: **HTML 파일 업로드** 방식을 고르면 `naverXXXXXXXX.html` 파일을 줍니다. 이 파일을 GitHub 저장소 맨 위(index.html과 같은 자리)에 올리면 됩니다. (HTML 태그 방식을 고르면 `tools/build_site.py`의 `SEO['naver_verification']`에 content 값을 넣고 다시 빌드)
-3. 확인이 끝나면 **요청 → 사이트맵 제출**에 `https://megaspot.pages.dev/sitemap.xml`, **RSS 제출**에 `https://megaspot.pages.dev/rss.xml`을 넣습니다.
+1. 네이버 아이디로 로그인 → **웹마스터 도구** → 사이트 주소 `https://megaspot.kr` 등록 (2026-10-11 등록 완료)
+2. 소유 확인: **HTML 태그** 방식으로 반영돼 있습니다(모든 공개 페이지 `<head>`에 `naver-site-verification` 태그, 값은 `tools/build_site.py`의 `SEO['naver_verification']`). Cloudflare Pages는 `.html`로 끝나는 주소를 확장자 없는 주소로 넘기기 때문에 HTML 파일 방식보다 태그 방식이 안전합니다. 네이버가 소유확인을 주기적으로 다시 검사하므로 이 태그는 지우지 마세요.
+3. 확인이 끝나면 **요청 → 사이트맵 제출**에 `https://megaspot.kr/sitemap.xml`, **RSS 제출**에 `https://megaspot.kr/rss.xml`을 넣습니다.
 4. **요청 → 웹 페이지 수집**에 아래 주소를 하루 10개까지 넣을 수 있습니다. 첫날은 메인·건대 상세·요금 안내·목적별 안내 목록, 다음 날 목적별 페이지 9개를 넣으세요.
 5. **검증 → 사이트 간단 체크**로 robots·사이트맵·메타 태그가 정상인지 확인합니다. (이미 맞춰져 있어 모두 '정상'으로 나와야 합니다.)
 6. **네이버 스마트플레이스**(https://smartplace.naver.com)에 '메가스팟 건대'를 업체로 등록 — 업종은 '행사장·연회장' 또는 '파티룸', 주소·전화·영업시간·사진 20장 이상·홈페이지 주소·카카오톡 채널 주소를 넣습니다. '건대 대관', '건대 파티룸' 같은 지역 검색과 네이버 지도에 함께 나오며, 지역 검색 노출에는 이게 가장 효과가 큽니다. 등록 뒤에는 **네이버 예약·톡톡**을 켜 두면 문의 창구가 하나 더 생깁니다.
