@@ -7,7 +7,7 @@
   var spaceId=q.get('space')|| (mode==='request'?'request':'megaspot-gundae');
   var est=''; if(q.get('est')){ try{ est=sessionStorage.getItem('ms_estimate')||''; }catch(_){} }
   var root=$('#inquiry-root'); if(!root) return;
-  var inq=M.renderInquiry(root,{ spaceId:spaceId, mode:mode, type:type, prefill:{ purpose:q.get('purpose')||'', people:q.get('people')||'', region:q.get('region')||'', date:q.get('date')||'', slot:q.get('slot')||'', layout:q.get('layout')||'', estimate:est } });
+  var inq=M.renderInquiry(root,{ spaceId:spaceId, mode:mode, type:type, prefill:{ purpose:q.get('purpose')||'', people:q.get('people')||'', region:q.get('region')||'', date:q.get('date')||'', slot:q.get('slot')||'', t_start:q.get('t_start')||'', t_end:q.get('t_end')||'', layout:q.get('layout')||'', estimate:est } });
   var HEAD={
     event:['행사 조건으로<br>견적 문의','행사 목적·날짜·인원·배치·필수 조건을 한 번에 남겨 주세요. 같은 내용을 여러 곳에 반복 설명하지 않도록 문의서를 중심으로 조건을 확인하고 견적을 안내합니다.'],
     request:['조건에 맞는 공간을<br>찾아 드립니다','원하는 날짜·인원·지역에 맞는 공간이 아직 목록에 없다면 행사 조건을 남겨 주세요. 메가스팟이 확인 가능한 공간을 찾아 연락드리고, 같은 형식의 견적으로 비교할 수 있게 정리해 드립니다.'],

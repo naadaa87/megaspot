@@ -46,7 +46,7 @@
     var list=pick.map(function(id){ return window.MEGASPOT_SCENE(id); }).filter(Boolean);
     box.innerHTML=list.map(function(s,k){
       return '<button type="button" class="tile '+size[k]+'" data-i="'+k+'" aria-label="'+esc(s.title)+' 장면 크게 보기">'
-        + '<img src="'+M.imgSrc(s.id, size[k]==='big'?'':'m')+'" alt="'+esc(s.title)+' — 메가스팟 건대 '+M.imgTag(s.id)+'" loading="lazy">'
+        + '<img src="'+M.imgSrc(s.id, size[k]==='big'?'':'m')+'" alt="'+esc(s.title)+' — 메가스팟 건대" loading="lazy">'
         + M.tagHtml(s.id)
         + '<span class="lab">'+esc(purLabel[s.purpose]||'')+'<b>'+esc(s.title)+'</b></span></button>';
     }).join('');

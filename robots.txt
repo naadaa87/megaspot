@@ -1,4 +1,5 @@
 User-agent: *
 Allow: /
 Disallow: /admin/
+
 Sitemap: https://megaspot.pages.dev/sitemap.xml

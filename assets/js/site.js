@@ -119,20 +119,20 @@
   }
   function openLB(items, i){ ensureLB(); LB.items=items; showLB(i||0); LB.el.classList.add('open'); document.body.style.overflow='hidden'; }
   function closeLB(){ if(!LB.el) return; LB.el.classList.remove('open'); document.body.style.overflow=''; }
-  function showLB(i){ var n=LB.items.length; if(!n) return; LB.i=(i+n)%n; var it=LB.items[LB.i]; var img=$('img',LB.el); img.src=it.src; img.alt=it.title||''; $('.lb-counter',LB.el).textContent=pad2(LB.i+1)+' / '+pad2(n); var tg=$('.lb-tag',LB.el); tg.textContent=it.tag||''; tg.hidden=!it.tag; tg.className='lb-tag'+(it.tag==='연출 예시'?' staged':/CG/.test(it.tag||'')?' cg':''); $('.lb-cap b',LB.el).textContent=it.title||''; $('.lb-cap span',LB.el).textContent=it.cap||''; }
+  function showLB(i){ var n=LB.items.length; if(!n) return; LB.i=(i+n)%n; var it=LB.items[LB.i]; var img=$('img',LB.el); img.src=it.src; img.alt=it.title||''; $('.lb-counter',LB.el).textContent=pad2(LB.i+1)+' / '+pad2(n); var tg=$('.lb-tag',LB.el); tg.textContent=it.tag||''; tg.hidden=!it.tag; tg.className='lb-tag'; $('.lb-cap b',LB.el).textContent=it.title||''; $('.lb-cap span',LB.el).textContent=it.cap||''; }
 
   /* ---------- 사진 경로 ---------- */
   function photoSrc(spaceId, pid, thumb){ return '/assets/img/'+ (spaceId==='megaspot-gundae'?'gundae':spaceId) +'/'+(thumb?'t/':'')+pid+'.jpg'; }
   // 이미지 id 첫 글자로 종류를 구분합니다. size: '' | 'm' | 't'
-  //  p: 메가스팟 건대 현장 사진 · s: 활용 장면(연출 예시) · v: 공간 전경 CG · a: 조감도 CG
+  //  p: 공간 사진 · s: 활용 장면 · v: 공간 전경 · a: 조감도 (화면에는 이미지 종류 표시를 붙이지 않습니다)
   var IMG_DIR={ p:'gundae', s:'scenes', v:'views', a:'aerial' };
   function kind(id){ var c=String(id).charAt(0); return IMG_DIR[c] ? c : 'p'; }
   function imgSrc(id, size){ var sub=size?size+'/':''; return '/assets/img/'+IMG_DIR[kind(id)]+'/'+sub+id+'.jpg'; }
   function isStaged(id){ if(kind(id)!=='s') return false; var sc=window.MEGASPOT_SCENE && window.MEGASPOT_SCENE(id); return !sc || sc.staged!==false; }
   function isCG(id){ var k=kind(id); return k==='v' || k==='a'; }
-  function imgTag(id){ var k=kind(id); return k==='v' ? 'CG 이미지' : k==='a' ? '조감도 CG' : isStaged(id) ? '연출 예시' : '현장 사진'; }
+  function imgTag(id){ return ''; }
   function tagClass(id){ return isStaged(id) ? 'staged' : isCG(id) ? 'cg' : ''; }
-  function tagHtml(id, extra){ var c=tagClass(id); return '<span class="ph-tag'+(c?' '+c:'')+(extra?' '+extra:'')+'">'+imgTag(id)+'</span>'; }
+  function tagHtml(id, extra){ return ''; }
   // id로 이미지 정보(제목·설명) 찾기
   function visual(id){
     var k=kind(id), find=function(list){ return (list||[]).filter(function(x){ return x.id===id; })[0]; };

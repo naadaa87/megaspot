@@ -14,27 +14,27 @@
     shooting:{ want:'통제 가능한 촬영 환경', quote:['자연광 방향과 창 가림 가능 여부','소음·외부 간섭 차단','전력·장비 반입과 세팅 시간','초상권·공간 노출 범위'], note:'메가스팟 건대: 연속창으로 들어오는 자연광과 벽돌 라운지, 노출 천장 같은 인더스트리얼 배경을 쓸 수 있습니다. 촬영은 사전 답사를 권합니다.', photos:['p05','p12','p15','p16'] }
   };
 
-  // 목적별 메가스팟 건대 요금 예시 — 요금 데이터(pricing-gundae.js)에서 계산하므로 요금을 바꾸면 함께 바뀝니다
+  // 목적별 메가스팟 건대 요금 예시 — 요금 데이터(pricing-gundae.js)로 계산하므로 요금을 바꾸면 함께 바뀝니다
+  var EX={
+    seminar:    { d:'2026-11-05', s:10, e:17, p:50,  t:'평일 낮 패키지 · 50명' },
+    workshop:   { d:'2026-11-05', s:10, e:24, p:40,  t:'평일 올데이 패키지 · 40명' },
+    networking: { d:'2026-11-06', s:19, e:23, p:60,  t:'금요일 저녁 4시간 · 60명' },
+    community:  { d:'2026-11-03', s:19, e:22, p:30,  t:'평일 저녁 3시간 · 30명 · 1회 기준', regular:true },
+    'class':    { d:'2026-11-04', s:13, e:16, p:25,  t:'평일 낮 3시간 · 25명' },
+    culture:    { d:'2026-11-07', s:18, e:22, p:80,  t:'토요일 저녁 4시간 · 80명' },
+    party:      { d:'2026-11-07', s:10, e:17, p:60,  t:'토요일 낮 패키지 · 60명' },
+    popup:      { d:'2026-11-05', s:10, e:17, p:20,  t:'평일 낮 패키지 기준 · 팝업·전시는 별도 할인' },
+    shooting:   { d:'2026-11-05', s:8,  e:12, p:20,  t:'평일 아침 4시간 기준 · 촬영은 별도 할인' }
+  };
   function priceHint(id){
-    var E=window.MEGASPOT_PRICE; if(!E||!E.data()) return '';
-    var T=E.tables(), r=E.rate, m=E.man;
-    function pk(pid){ return T.packages.filter(function(x){ return x.pkg.id===pid; })[0]; }
-    function ex(pid, idx){ var x=pk(pid); return x ? idx.map(function(i){ var e=x.examples[i]; return e ? e.label+' '+m(e.total) : ''; }).filter(Boolean).join(' · ') : ''; }
-    var h={
-      seminar: ex('seminar',[0,1])+' — 세미나 패키지(배치 전환·현장 매니저 4시간 포함)',
-      workshop: ex('workshop',[0])+' — 워크숍 데이 패키지(공간료·책상형 배치·현장 매니저 9시간 포함)',
-      networking: '평일 저녁 '+m(r('ev','wd'))+' · 금 저녁 '+m(r('ev','fri'))+' — 4시간 블록 공간료',
-      community: '평일 저녁 '+m(r('ev','wd'))+' — 정기 대관과 선납을 함께 쓰면 회당 '+m(E.round10k(r('ev','wd')*0.75)),
-      'class': '평일 오전 '+m(r('am','wd'))+' · 평일 오후 '+m(r('pm','wd'))+' — 4시간 블록 공간료',
-      culture: ex('fan',[0,3])+' — 팬 이벤트·상영회 패키지(AV 오퍼레이터 포함)',
-      party: ex('party',[0,2])+' — 연말·파티 패키지 · 가족 기념 패키지는 '+ex('family',[0]),
-      popup: '평일 하루 '+m(T.popup[0].d1)+'부터 — 2–3일차 20%, 4일차부터 30% 할인',
-      shooting: '상업 촬영 평일 시간당 '+m(E.data().shooting.commercial.wd)+'(최소 4시간) · 소규모 비상업 시간당 '+m(E.data().shooting.small.wd)+'부터'
-    }[id];
-    return h ? '<div class="mt-3"><div class="kicker">메가스팟 건대 요금 예시</div><p class="mt-1 small" style="font-weight:600">'+esc(h)+'</p><a class="tiny" style="color:var(--cobalt);font-weight:700" href="/spaces/megaspot-gundae/pricing/#estimate">조건 넣고 예상 금액 계산하기 →</a></div>' : '';
+    var E=window.MEGASPOT_PRICE; if(!E||!E.data()||!EX[id]) return '';
+    var x=EX[id], q=E.quote({ date:x.d, start:x.s, end:x.e, people:x.p, purpose:id, regular:x.regular });
+    var parts=[q.pkg ? q.pkg.label+' '+E.man(q.pkg.price) : '공간료 '+E.man(q.time.fee)]; if(q.peopleFee) parts.push('인원 추가 '+E.man(q.peopleFee));
+    var url='/spaces/megaspot-gundae/pricing/#estimate';
+    return '<div class="mt-3"><div class="kicker">메가스팟 건대 요금 예시</div><p class="mt-1 small" style="font-weight:600">'+esc(x.t)+' → <b style="color:var(--cobalt);font-size:16px">'+esc(E.man(q.total))+'</b> <span class="muted">('+esc(parts.join(' + '))+')</span></p><a class="tiny" style="color:var(--cobalt);font-weight:700" href="'+url+'">조건 바꿔서 예상 금액 계산하기 →</a></div>';
   }
 
-  // 목적별 사진 목록: 활용 장면 → 없으면 현장 사진
+  // 목적별 사진 목록: 활용 장면 → 없으면 공간 사진
   function photosOf(p){
     var list=SC.filter(function(s){ return s.purpose===p.id; }).map(function(s){ return { id:s.id, title:s.title, cap:s.cap }; });
     if(!list.length){
@@ -64,7 +64,7 @@
       + '<div class="notice mt-3"><div>'+esc(d.note||'')+'</div></div>'
       + priceHint(p.id)
       + '<div class="row mt-3"><a class="btn btn-primary btn-sm" href="/inquiry/?purpose='+p.id+(d.ask?'&type='+d.ask:'')+'">'+(d.ask==='regular'?'반복 모임 상담':'이 목적으로 견적 문의')+'</a><a class="btn btn-light btn-sm" href="/spaces/?purpose='+p.id+'">공간 찾기</a>'+(SC.some(function(s){return s.purpose===p.id;})?'<a class="btn btn-light btn-sm" href="/spaces/megaspot-gundae/?scene='+list[0].id+'#scenes">빈 홀과 비교</a>':'')+'</div></div>'
-      + '<div><button type="button" class="photo-btn" data-p="'+p.id+'" data-i="0" aria-label="'+esc(main.title)+' 크게 보기"><img src="'+M.imgSrc(main.id,'m')+'" alt="'+esc(p.label)+' — '+esc(main.title)+' ('+M.imgTag(main.id)+')" loading="lazy">'+M.tagHtml(main.id)+'<span class="cap"><b style="display:block;font-size:15px">'+esc(main.title)+'</b>메가스팟 건대</span></button>'+thumbs+'</div>'
+      + '<div><button type="button" class="photo-btn" data-p="'+p.id+'" data-i="0" aria-label="'+esc(main.title)+' 크게 보기"><img src="'+M.imgSrc(main.id,'m')+'" alt="'+esc(p.label)+' — '+esc(main.title)+'" loading="lazy">'+M.tagHtml(main.id)+'<span class="cap"><b style="display:block;font-size:15px">'+esc(main.title)+'</b>메가스팟 건대</span></button>'+thumbs+'</div>'
       + '</div></article>';
   }).join('');
   host.addEventListener('click', function(e){ var b=e.target.closest('[data-p][data-i]'); if(!b) return; M.openLightbox(lbItems(cache[b.dataset.p]), +b.dataset.i); });

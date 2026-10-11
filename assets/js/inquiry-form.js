@@ -11,7 +11,7 @@
   var LAYOUTS=[['lecture','강연형 (스크린을 향한 좌석)'],['classroom','책상형 (테이블 + 좌석)'],['banquet','연회형 (긴 테이블 식사)'],['standing','교류형 (스탠딩·라운지)'],['undecided','미정 · 상담 후 결정']];
   var NEEDS=[['screen','200인치 스크린·프로젝터'],['mic','무선마이크·음향'],['laptop','노트북 연결(HDMI 등)'],['power','전원·멀티탭'],['food','외부 음식 반입'],['catering','케이터링 업체 이용'],['alcohol','주류 반입'],['deco','장식·설치물'],['fx','연출 장비(스모그·LED)'],['camera','촬영 장비 반입'],['parking','주차'],['lift','엘리베이터 반입']];
   var BUDGET=[['','미정 · 견적을 보고 판단'],['~100','100만원 이하'],['100-200','100~200만원'],['200-300','200~300만원'],['300-500','300~500만원'],['500+','500만원 이상']];
-  var SLOTS=[['am','오전 09–13시'],['pm','오후 14–18시'],['ev','저녁 19–23시'],['ampm','주간 09–18시'],['pmev','오후~저녁 14–23시'],['day','전일 09–23시'],['custom','직접 입력']];
+  var SLOTS=[['pkg-day','낮 패키지 10–17시'],['pkg-allday','올데이 10–24시'],['pkg-allnight','올나잇 18시–다음 날 07시'],['morning','아침 07–12시'],['day','낮 12–17시'],['evening','저녁 17–24시'],['custom','직접 입력']];
   var CYCLE=[['','선택'],['매주','매주'],['격주','격주'],['월 2회','월 2회'],['월 1회','월 1회'],['학기 중 수시','학기 중 수시'],['기타','기타']];
   var PERIOD=[['','선택'],['1개월','1개월'],['3개월','3개월'],['6개월','6개월'],['1년 이상','1년 이상'],['미정','미정']];
   var PKIND=[['','선택'],['행사 기획·대행사','행사 기획·대행사'],['케이터링·장비·인력 협력','케이터링·장비·인력 협력'],['브랜드·기업 제휴','브랜드·기업 제휴'],['학교·기관·커뮤니티 협력','학교·기관·커뮤니티 협력'],['공간 운영 협력','공간 운영 협력'],['기타','기타']];
@@ -53,7 +53,7 @@
     + '<div class="f"><label for="iq-period">예상 기간</label><select class="select" id="iq-period" name="repeat_period">'+opt(PERIOD,'')+'</select></div>'
     + '<div class="f"><label for="iq-days">선호 요일·시간대</label><input class="input" id="iq-days" name="repeat_days" placeholder="예: 둘째·넷째 화요일 저녁"></div>'
     + '</div>'
-    + '<p class="hint">월 2회 이상, 3개월 이상이면 정기 대관 할인(일반 블록 20%, 피크 블록 10%, 선납하면 5%p 추가)을 적용합니다. 이 기준에 맞지 않는 반복 일정도 횟수와 기간을 보고 따로 협의합니다.</p>'
+    + '<p class="hint">4회 이상 미리 예약하는 정기 이용은 별도 할인을 안내합니다. 횟수와 기간, 요일을 적어 주시면 조건에 맞춰 제안드립니다.</p>'
     + '</fieldset>'
 
     + '<fieldset id="fs-partner" '+FS+' hidden disabled><legend class="kicker">제휴·협력 내용</legend>'
@@ -72,12 +72,12 @@
     + '<div class="f"><label for="iq-t3">행사 종료</label><input class="input" type="time" id="iq-t3" name="t_end"></div>'
     + '<div class="f"><label for="iq-t4">철수 완료</label><input class="input" type="time" id="iq-t4" name="t_out"></div>'
     + '</div>'
-    + '<p class="hint">블록 4시간 안에 준비·철수가 들어 있습니다. 블록을 이어 쓰면 2블록 15%, 전일 20%를 할인합니다.</p>'
+    + '<p class="hint">이용 시간은 1시간 단위(07시–다음 날 07시)이고 준비·정리 시간을 포함해 잡아 주세요. 낮·올데이·올나잇 패키지로 묶으면 시간 요금보다 20% 이상 저렴합니다.</p>'
     + '</fieldset>'
 
     + '<fieldset id="fs-people" '+FS+'><legend class="kicker">인원과 배치</legend>'
     + '<div class="field-row three">'
-    + '<div class="f"><label for="iq-people">참석자 수 <span class="req">*</span></label><input class="input" type="number" min="1" max="999" id="iq-people" name="headcount" value="'+esc(pf.people||'')+'" placeholder="예: 80" required></div>'
+    + '<div class="f"><label for="iq-people">참석자 수 <span class="req">*</span></label><input class="input" type="number" min="1" max="150" id="iq-people" name="headcount" value="'+esc(pf.people||'')+'" placeholder="예: 80 (최대 150명)" required></div>'
     + '<div class="f"><label for="iq-staff">진행자·스태프</label><input class="input" type="number" min="0" max="99" id="iq-staff" name="staff" placeholder="예: 4"></div>'
     + '<div class="f"><label for="iq-layout">배치 형태</label><select class="select" id="iq-layout" name="layout">'+opt(LAYOUTS, pf.layout||'undecided')+'</select></div>'
     + '</div></fieldset>'
@@ -98,7 +98,7 @@
     + '</div>'
     + '<div class="field-row">'
     + '<div class="f"><label for="iq-email">이메일</label><input class="input" type="email" id="iq-email" name="email" placeholder="견적서를 받을 주소"></div>'
-    + '<div class="f"><label for="iq-contact">선호 연락 방법</label><select class="select" id="iq-contact" name="contact_pref"><option value="phone">전화</option><option value="sms">문자</option><option value="email">이메일</option><option value="kakao">카카오톡</option></select></div>'
+    + '<div class="f"><label for="iq-contact">선호 연락 방법</label><select class="select" id="iq-contact" name="contact_pref"><option value="kakao">카카오톡</option><option value="phone">전화</option><option value="sms">문자</option><option value="email">이메일</option></select></div>'
     + '</div>'
     + '<div class="f"><label for="iq-msg" id="iq-msg-lbl">요청사항</label><textarea class="textarea" id="iq-msg" name="message" maxlength="2000" placeholder="행사 흐름, 꼭 필요한 조건, 걱정되는 점을 자유롭게 적어 주세요."></textarea></div>'
     + '</fieldset>'
@@ -154,7 +154,7 @@
     var phone=M.CONFIG.phone.replace(/-/g,''), email=M.CONFIG.email, kakao=M.CONFIG.kakaoChannel;
     var next = t==='partner' ? '제안 내용을 확인한 담당자가 직접 연락드립니다. 협력 범위와 조건은 요금표와 별도로 협의합니다.'
       : t==='regular' ? '반복 주기와 기간을 확인해 회차별 일정과 정기 대관 조건을 안내드립니다. 기준에 맞지 않는 일정도 따로 협의합니다.'
-      : '영업시간 내 문의는 2시간 이내 첫 답변, 조건이 갖춰진 문의는 1영업일 안에 견적을 드리는 것을 목표로 합니다. 문의 완료는 예약 확정이 아니며, 견적을 받은 뒤 72시간 동안 무료로 날짜를 잡아 둘 수 있습니다.';
+      : '영업시간 내 문의는 2시간 이내 첫 답변, 조건이 갖춰진 문의는 1영업일 안에 확정 금액을 안내하는 것을 목표로 합니다. 문의 완료는 예약 확정이 아니며, 예약금을 결제하면 날짜가 확정됩니다.';
     return '<div class="card" style="border-color:var(--cobalt)">'
       + '<div class="row between"><div class="eyebrow">'+(live?'Received':'Draft ready')+'</div><span class="badge '+(live?'badge-ok':'badge-warn')+'">'+(live?'문의 접수 완료':'체험 모드 · 전송 대기')+'</span></div>'
       + '<h3 class="h-m mt-1">'+(live?'문의가 접수되었습니다':'문의 내용이 준비되었습니다')+'</h3>'
@@ -198,7 +198,7 @@
       msg.placeholder = t==='partner' ? '함께하고 싶은 일, 예상 일정과 규모, 원하는 조건을 적어 주세요.' : t==='regular' ? '모임 성격, 회차마다 바뀌는 조건, 보관이 필요한 물품 등을 적어 주세요.' : '행사 흐름, 꼭 필요한 조건, 걱정되는 점을 자유롭게 적어 주세요.';
       $f('#iq-budget-f').hidden = t==='partner';
       $f('#iq-title').textContent = t==='partner' ? '제휴·협력 제안서' : t==='regular' ? '반복 모임 상담 신청' : '행사 문의서';
-      $f('#iq-type-hint').textContent = t==='partner' ? '제휴·협력·파트너 조건은 요금표와 별도로 협의합니다.' : t==='regular' ? '반복 모임은 정기 대관 할인을 기본으로, 맞지 않는 일정도 따로 협의합니다.' : '';
+      $f('#iq-type-hint').textContent = t==='partner' ? '제휴·협력·파트너 조건은 요금표와 별도로 협의합니다.' : t==='regular' ? '4회 이상 미리 예약하는 정기 이용은 별도 할인을 안내합니다.' : '';
       $f('#iq-note').textContent = t==='event' ? '문의 완료는 예약 확정이 아닙니다. 조건을 확인한 뒤 견적과 일정 확보 여부를 안내드리며, 결제가 완료되어야 예약이 확정됩니다.' : '보내 주신 내용을 확인한 담당자가 연락드립니다. 협의 내용은 견적서나 계약서에 적어 확정합니다.';
       $f('#iq-submit').innerHTML = esc(SUBMIT[t])+' <span class="arrow">→</span>';
       form.querySelectorAll('.invalid').forEach(function(el){ el.classList.remove('invalid'); });
@@ -255,6 +255,8 @@
         if(p.type) setType(p.type);
         if(p.date) api.setDate(p.date);
         if(p.slot) setSlot(p.slot);
+        if(p.t_start){ var t2=$f('#iq-t2'); if(t2) t2.value=String(p.t_start).replace(/^다음 날 /,''); }
+        if(p.t_end){ var t3=$f('#iq-t3'); if(t3) t3.value=String(p.t_end).replace(/^다음 날 /,''); }
         if(p.purpose) api.setPurpose(p.purpose);
         if(p.layout) api.setLayout(p.layout);
         if(p.people){ var pe=$f('#iq-people'); pe.value=p.people; pe.classList.remove('invalid'); }
@@ -262,6 +264,7 @@
       },
       form:form
     };
+    if(o.prefill && (o.prefill.t_start || o.prefill.t_end)) api.prefill({ t_start:o.prefill.t_start, t_end:o.prefill.t_end });
     return api;
   };
 })();

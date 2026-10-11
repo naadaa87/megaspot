@@ -4,14 +4,14 @@
   var S=window.MEGASPOT_GET_SPACE('megaspot-gundae'); if(!S) return;
   var P=window.MEGASPOT_GUNDAE_PLAN, F=window.MEGASPOT_FACILITIES;
   var photoById={}; S.photos.forEach(function(p){ photoById[p.id]=p; });
-  /* ---------- 갤러리: 공간 전경(CG) · 현장 사진 · 조감도 ---------- */
+  /* ---------- 갤러리: 공간 전경 · 공간 사진 · 조감도 ---------- */
   (function(){
     var g=$('#gallery'); if(!g) return;
     var V=window.MEGASPOT_VIEWS||[], A=window.MEGASPOT_AERIALS||[], N=window.MEGASPOT_VISUAL_NOTE||{};
     var SCN=' 행사 장면은 아래 <a href="#scenes" style="text-decoration:underline;color:var(--cobalt);font-weight:600">활용 장면</a>에서 볼 수 있습니다.';
     var sets={
-      views:  { label:'공간 전경', list:V, note:esc(N.views||'') },
-      photos: { label:'현장 사진', list:S.photos, note:'현장 사진 '+S.photos.length+'장 · 촬영 당시의 가구·장비·행사물이 포함되어 있습니다.'+SCN },
+      views:  { label:'공간 전경', list:V, note:esc(N.views||'')+SCN },
+      photos: { label:'공간 사진', list:S.photos, note:'메인 홀과 라운지, 준비 공간, 설비를 담은 사진 '+S.photos.length+'장입니다.'+SCN },
       aerial: { label:'조감도', list:A, note:esc(N.aerial||'')+' <a href="#aerial" style="text-decoration:underline;color:var(--cobalt);font-weight:600">각도별로 보기</a>' }
     };
     var order=['views','photos','aerial'].filter(function(k){ return sets[k].list.length; }), cur=order[0];
@@ -23,7 +23,7 @@
       g.classList.toggle('is-aerial', k==='aerial');
       g.innerHTML=show.map(function(p,i){
         var more = i===6 && list.length>7 ? '<span class="more">+'+(list.length-7)+'장 더 보기</span>' : '';
-        return '<button type="button" class="'+(i===0?'big':'')+'" data-i="'+i+'" aria-label="'+esc(p.title)+' 크게 보기"><img src="'+M.imgSrc(p.id, i===0?'m':'t')+'" alt="'+esc(p.title)+' — '+M.imgTag(p.id)+'" '+(i===0?'':'loading="lazy"')+'>'+(i===0?M.tagHtml(p.id):'')+more+'</button>';
+        return '<button type="button" class="'+(i===0?'big':'')+'" data-i="'+i+'" aria-label="'+esc(p.title)+' 크게 보기"><img src="'+M.imgSrc(p.id, i===0?'m':'t')+'" alt="메가스팟 건대 — '+esc(p.title)+'" '+(i===0?'':'loading="lazy"')+'>'+(i===0?M.tagHtml(p.id):'')+more+'</button>';
       }).join('');
       if(tabs) $$('button',tabs).forEach(function(b){ var on=b.dataset.set===k; b.classList.toggle('on',on); b.setAttribute('aria-selected',String(on)); });
       if(note) note.innerHTML=sets[k].note;
@@ -41,7 +41,7 @@
     box.innerHTML=A.map(function(a,i){ return '<button type="button" role="tab" data-i="'+i+'" aria-selected="false"><img src="'+M.imgSrc(a.id,'t')+'" alt="" loading="lazy"><span>'+esc(a.angle)+'</span></button>'; }).join('');
     function show(i){
       k=i; var a=A[i];
-      img.src=M.imgSrc(a.id,'m'); img.alt='메가스팟 건대 조감도 — '+a.title+' (CG)';
+      img.src=M.imgSrc(a.id,'m'); img.alt='메가스팟 건대 조감도 — '+a.title;
       ttl.textContent=a.title; cap.textContent=a.cap;
       $$('button',box).forEach(function(b){ var on=+b.dataset.i===i; b.classList.toggle('on',on); b.setAttribute('aria-selected',String(on)); });
     }
@@ -180,7 +180,7 @@
     var lbItems=withScene.map(function(l){ var sc=window.MEGASPOT_SCENE(l.scene); return { src:M.imgSrc(sc.id), title:l.label+' 배치 · '+sc.title, cap:sc.cap, tag:M.imgTag(sc.id) }; });
     host.innerHTML=S.layouts.map(function(l){
       var sc=l.scene && window.MEGASPOT_SCENE ? window.MEGASPOT_SCENE(l.scene) : null;
-      var ph=sc ? '<button type="button" class="layout-ph" data-li="'+withScene.indexOf(l)+'" aria-label="'+esc(l.label)+' 배치 장면 크게 보기"><img src="'+M.imgSrc(sc.id,'m')+'" alt="'+esc(l.label)+' 배치로 쓴 '+esc(sc.title)+' — '+M.imgTag(sc.id)+'" loading="lazy">'+M.tagHtml(sc.id)+'</button>' : '';
+      var ph=sc ? '<button type="button" class="layout-ph" data-li="'+withScene.indexOf(l)+'" aria-label="'+esc(l.label)+' 배치 장면 크게 보기"><img src="'+M.imgSrc(sc.id,'m')+'" alt="'+esc(l.label)+' 배치로 쓴 '+esc(sc.title)+'" loading="lazy">'+M.tagHtml(sc.id)+'</button>' : '';
       return '<div class="card pad-s">'+ph+'<svg class="layout-svg" viewBox="0 0 '+W+' '+H+'" aria-label="'+esc(l.label)+' 배치 평면 예시">'+base()+(draw[l.id]?draw[l.id]():'')+'</svg>'
         + '<div class="row between mt-2"><div><div class="eyebrow">'+esc(l.en)+'</div><h3 style="font-size:17px;margin-top:4px">'+esc(l.label)+'</h3></div><span class="badge badge-soft">인원은 '+esc(l.capacityNote)+'</span></div>'
         + '<p class="small muted mt-1">'+esc(l.desc)+'</p>'
@@ -209,7 +209,7 @@
     function selectView(id, fromUser){
       state.view=id; var v=view(id), list=scenesOf(id);
       $$('.view-btn',viewList).forEach(function(b){ var on=b.dataset.view===id; b.classList.toggle('on',on); b.setAttribute('aria-pressed',String(on)); });
-      before.src=M.imgSrc(v.real,'m'); before.alt='메가스팟 건대 현장 사진 — '+v.label+'에서 본 빈 홀';
+      before.src=M.imgSrc(v.real,'m'); before.alt='메가스팟 건대 — '+v.label+'에서 본 빈 홀';
       chips.innerHTML=list.map(function(s){ return '<button type="button" class="chip" data-scene="'+s.id+'">'+esc(s.title)+'</button>'; }).join('');
       selectScene(list[0].id);
       if(fromUser) setPos(50);
@@ -219,16 +219,16 @@
     function selectScene(id){
       var s=window.MEGASPOT_SCENE(id); if(!s) return; state.scene=id;
       if(s.view!==state.view){ state.view=s.view; selectView(s.view); return selectScene(id); }
-      after.src=M.imgSrc(s.id,'m'); after.alt=s.title+' — '+M.imgTag(s.id);
-      rlbl.textContent=M.imgTag(s.id)+' · '+s.title; rlbl.classList.toggle('r', true);
+      after.src=M.imgSrc(s.id,'m'); after.alt='메가스팟 건대 — '+s.title;
+      rlbl.textContent=s.title; rlbl.classList.toggle('r', true);
       $$('.chip',chips).forEach(function(c){ var on=c.dataset.scene===id; c.classList.toggle('on',on); c.setAttribute('aria-pressed',String(on)); });
       var v=view(s.view);
-      info.innerHTML='<div class="row" style="gap:6px"><span class="badge badge-cobalt">'+esc(purLabel[s.purpose]||'')+'</span>'+(s.layout&&layLabel[s.layout]?'<span class="badge badge-soft">'+esc(layLabel[s.layout])+' 배치</span>':'')+(M.isStaged(s.id)?'<span class="badge badge-outline">연출 예시</span>':'')+'</div>'
+      info.innerHTML='<div class="row" style="gap:6px"><span class="badge badge-cobalt">'+esc(purLabel[s.purpose]||'')+'</span>'+(s.layout&&layLabel[s.layout]?'<span class="badge badge-soft">'+esc(layLabel[s.layout])+' 배치</span>':'')+'</div>'
         + '<div class="si-title">'+esc(s.title)+'</div><p>'+esc(s.cap)+'</p>'
         + '<div class="row mt-2"><button type="button" class="btn btn-primary btn-sm" id="scene-ask">이 모임으로 견적 문의</button><button type="button" class="btn btn-light btn-sm" id="scene-zoom">크게 보기</button></div>'
         + '<p class="view-desc"><b style="color:var(--graphite)">'+esc(v.label)+'</b> — '+esc(v.desc)+'</p>';
       $('#scene-ask').addEventListener('click', function(){ askWith(s); });
-      $('#scene-zoom').addEventListener('click', function(){ var list=scenesOf(s.view); var items=[{src:M.imgSrc(v.real), title:v.label+' · 빈 홀', cap:'메가스팟 건대 현장 사진입니다. 아래 장면들과 같은 자리에서 찍었습니다.', tag:'현장 사진'}].concat(M.sceneItems(list)); M.openLightbox(items, list.indexOf(s)+1); });
+      $('#scene-zoom').addEventListener('click', function(){ var list=scenesOf(s.view); var items=[{src:M.imgSrc(v.real), title:v.label+' · 빈 홀', cap:'비어 있는 홀입니다. 이어지는 장면들과 같은 자리입니다.', tag:''}].concat(M.sceneItems(list)); M.openLightbox(items, list.indexOf(s)+1); });
     }
 
     // 비교 슬라이더 — 포인터로 끌기 + 키보드(range)
@@ -246,7 +246,7 @@
     var shown=SC.slice();
     function renderGrid(pid){
       shown=SC.filter(function(s){ return !pid||s.purpose===pid; });
-      grid.innerHTML=shown.map(function(s,k){ return '<button type="button" class="tile" data-k="'+k+'" aria-label="'+esc(s.title)+' 크게 보기"><img src="'+M.imgSrc(s.id,'t')+'" srcset="'+M.imgSrc(s.id,'t')+' 480w, '+M.imgSrc(s.id,'m')+' 960w" sizes="(min-width:1100px) 300px, (min-width:760px) 33vw, 50vw" alt="'+esc(s.title)+' — '+M.imgTag(s.id)+'" loading="lazy">'+M.tagHtml(s.id)+'<span class="lab">'+esc(purLabel[s.purpose]||'')+'<b>'+esc(s.title)+'</b></span></button>'; }).join('');
+      grid.innerHTML=shown.map(function(s,k){ return '<button type="button" class="tile" data-k="'+k+'" aria-label="'+esc(s.title)+' 크게 보기"><img src="'+M.imgSrc(s.id,'t')+'" srcset="'+M.imgSrc(s.id,'t')+' 480w, '+M.imgSrc(s.id,'m')+' 960w" sizes="(min-width:1100px) 300px, (min-width:760px) 33vw, 50vw" alt="메가스팟 건대 — '+esc(s.title)+'" loading="lazy"><span class="lab">'+esc(purLabel[s.purpose]||'')+'<b>'+esc(s.title)+'</b></span></button>'; }).join('');
       $$('.chip',filter).forEach(function(c){ var on=c.dataset.p===(pid||''); c.classList.toggle('on',on); c.setAttribute('aria-pressed',String(on)); });
     }
     filter.addEventListener('click', function(e){ var b=e.target.closest('.chip'); if(b) renderGrid(b.dataset.p); });
@@ -296,7 +296,7 @@
 
   /* ---------- 이용 안내 / 요금 / 접근 ---------- */
   (function(){
-    var flow=$('#flow'); if(flow) flow.innerHTML=S.booking.flow.map(function(f,i){ var d=['행사 문의서를 남기면 접수 번호와 자동 안내를 보냅니다.','목적·인원·배치·장비·준비 시간을 확인하고 필요하면 연락드립니다.','항목별 금액·보증금·결제 일정을 담은 견적서(유효기간 14일)를 보냅니다. 받은 뒤 72시간 동안 무료로 날짜를 잡아 둘 수 있습니다.','개인 예약은 전액, 행사 계약은 계약금 30%를 결제합니다. 결제 전까지는 확정이 아닙니다.','결제가 끝나면 확정 조건·적용 요금표 버전·현장 준비 목록을 보냅니다.','입장·피난 동선, 화면·음향, 배치를 함께 점검하고 담당자가 대기합니다.','퇴실 점검 뒤 3영업일 안에 보증금을 돌려드리고 후기 작성 권한을 드립니다.'][i]||''; return '<li class="step"><div class="n">'+(i+1)+'</div><h4>'+esc(f)+'</h4><p>'+esc(d)+'</p></li>'; }).join('');
+    var flow=$('#flow'); if(flow) flow.innerHTML=S.booking.flow.map(function(f,i){ var d=['일자·시간·인원·모임 유형을 카카오톡·이메일·문의서로 보내 주세요. 문의서는 접수 번호와 자동 안내를 드립니다.','가능 여부와 추천 배치, 꼭 확인할 조건을 빠르게 안내합니다. 영업시간에는 보통 2시간 안에 첫 답을 드립니다.','공간료·인원 추가·옵션을 항목별로 나눈 확정 금액과 보증금·환불 기준을 안내합니다.','예약금을 결제하면 날짜가 확정됩니다. 법인 결제가 필요하면 예약금을 환급한 뒤 법인 결제로 진행할 수 있습니다.','확정 조건과 현장 준비 목록을 보내고, 이용 전 최종 인원·배치·음식·장비·반입을 다시 확인합니다.','입장·피난 동선, 화면·음향·장비 사용법을 안내하고 행사를 진행합니다. 예약한 시간 안에 준비·행사·정리를 마칩니다.','기본 정리와 파손·오염, 부착물 제거 여부를 확인한 뒤 보증금을 돌려 드리고, 완료된 예약에 후기 작성 권한을 드립니다.'][i]||''; return '<li class="step"><div class="n">'+(i+1)+'</div><h4>'+esc(f)+'</h4><p>'+esc(d)+'</p></li>'; }).join('');
     var chips=$('#slot-chips'); if(chips) chips.innerHTML=S.booking.slots.map(function(s){ return '<span class="tag">'+esc(s.label)+' '+esc(s.time)+'</span>'; }).join('');
     var rn=$('#response-note'); if(rn) rn.textContent=S.booking.response;
     var rules=$('#rules'); if(rules) rules.innerHTML=S.rules.map(function(r){ return '<div><dt>'+esc(r.k)+'</dt><dd>'+esc(r.d)+'</dd></div>'; }).join('');
