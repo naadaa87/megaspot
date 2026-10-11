@@ -38,7 +38,7 @@
   // 목적 카드 — cover가 있으면 사진 카드로 그립니다
   M.purposeCard = function(p, opt){
     opt = opt||{};
-    var href = opt.href || ('/purpose/#'+p.id);
+    var href = opt.href || ('/purpose/'+p.id+'/');
     if(p.cover){
       return '<a class="pcard" href="'+href+'">'
         + '<div class="ph"><img src="'+M.imgSrc(p.cover,'m')+'" alt="'+esc(p.label)+' — 메가스팟 건대" loading="lazy">'+M.tagHtml(p.cover)+'</div>'

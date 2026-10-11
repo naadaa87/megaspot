@@ -100,6 +100,19 @@ window.MEGASPOT_PRICING['megaspot-gundae'] = {
   ],
   peakMonths: [12, 1],
 
+  /* ---------- 목적별 요금 예시 시나리오 (어떤 모임 페이지·목적별 안내 페이지에서 계산) ---------- */
+  purposeExamples: {
+    seminar:    { date:'2026-11-05', start:10, end:17, people:50,  title:'평일 낮 패키지 · 50명' },
+    workshop:   { date:'2026-11-05', start:10, end:24, people:40,  title:'평일 올데이 패키지 · 40명' },
+    networking: { date:'2026-11-06', start:19, end:23, people:60,  title:'금요일 저녁 4시간 · 60명' },
+    community:  { date:'2026-11-03', start:19, end:22, people:30,  title:'평일 저녁 3시간 · 30명 · 1회 기준', regular:true },
+    class:      { date:'2026-11-04', start:13, end:16, people:25,  title:'평일 낮 3시간 · 25명' },
+    culture:    { date:'2026-11-07', start:18, end:22, people:80,  title:'토요일 저녁 4시간 · 80명' },
+    party:      { date:'2026-11-07', start:10, end:17, people:60,  title:'토요일 낮 패키지 · 60명' },
+    popup:      { date:'2026-11-05', start:10, end:17, people:20,  title:'평일 낮 패키지 기준 · 팝업·전시는 별도 할인' },
+    shooting:   { date:'2026-11-05', start:8,  end:12, people:20,  title:'평일 아침 4시간 기준 · 촬영은 별도 할인' }
+  },
+
   /* ---------- 환불 규정 (이용료 기준 환불 비율) ---------- */
   refund: [
     { k: '예약 후 2시간 이내',    rate: 1,   note: '이용일과 관계없이 전액' },

@@ -1,5 +1,18 @@
 User-agent: *
 Allow: /
 Disallow: /admin/
+Disallow: /api/
+
+User-agent: Yeti
+Allow: /
+Disallow: /admin/
+
+User-agent: Googlebot
+Allow: /
+Disallow: /admin/
+
+User-agent: Daum
+Allow: /
+Disallow: /admin/
 
 Sitemap: https://megaspot.pages.dev/sitemap.xml

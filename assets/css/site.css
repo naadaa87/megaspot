@@ -1028,3 +1028,10 @@ body:has(.subnav) section[id]{scroll-margin-top:calc(var(--header-h) + 22px)}
 @media (max-width:759px){.pkg-grid.v2,.pkg-grid.v2.compact{grid-template-columns:1fr;gap:10px}.pkg-grid.v2.compact .pkg-card,.pkg-grid.v2.compact .pkg-card:last-child:nth-child(odd){grid-column:auto;padding:16px}}
 .tbl.tbl-fit{min-width:0!important}
 .tbl.tbl-fit td{white-space:normal}
+/* 검색 유입용 안내 블록 · 목적별 페이지 링크 칩 */
+.kw-chips a.tag{text-decoration:none;height:32px;padding:0 12px;font-size:13.5px;font-weight:600;color:var(--ink);background:var(--white);transition:border-color .15s,color .15s,background .15s}
+.kw-chips a.tag:hover,.kw-chips a.tag:focus-visible{border-color:var(--cobalt);color:var(--cobalt);background:var(--cobalt-soft)}
+.seo-split .acc summary{font-size:15.5px;padding-right:40px}
+.seo-split .acc .body{font-size:14.5px}
+@media (min-width:900px){.seo-split{grid-template-columns:1.05fr .95fr}}
+.page-purpose .scene-grid .tile .lab{font-size:12px}
