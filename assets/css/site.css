@@ -1035,3 +1035,7 @@ body:has(.subnav) section[id]{scroll-margin-top:calc(var(--header-h) + 22px)}
 .seo-split .acc .body{font-size:14.5px}
 @media (min-width:900px){.seo-split{grid-template-columns:1.05fr .95fr}}
 .page-purpose .scene-grid .tile .lab{font-size:12px}
+/* 요금 안내: 계산기를 맨 위로 올린 뒤 바로 이어지는 '네 가지만 알려 주세요' 띠 */
+.ask-sec{padding:40px 0}
+@media (min-width:900px){.ask-sec{padding:56px 0}}
+[data-price=estimator]{scroll-margin-top:120px}

@@ -95,10 +95,11 @@
 
 <nav class="subnav" aria-label="요금 안내 섹션">
   <div class="container">
+    <a href="#estimate">예상 금액</a>
+    <a href="#just-ask">문의 안내</a>
     <a href="#rates">시간당 요금표</a>
     <a href="#packages">패키지</a>
     <a href="#people">인원·옵션</a>
-    <a href="#estimate">예상 금액</a>
     <a href="#policy">보증금·환불</a>
     <a href="#examples">계산 예시</a>
     <a href="#partner">별도 안내</a>
@@ -107,12 +108,47 @@
   </div>
 </nav>
 
-<!-- ===== 시간당 요금표 ===== -->
-<section class="section price-sec" id="rates">
+<!-- ===== 예상 금액 ===== -->
+<section class="section sec-white sec-line price-sec" id="estimate">
   <div class="container">
     <div class="section-head split">
       <div>
-        <div class="eyebrow"><span class="idx">01</span>Hourly rates</div>
+        <div class="eyebrow"><span class="idx">01</span>Estimate</div>
+        <h2 class="h-l">원하는 시간과 옵션을 골라<br>예상 금액을 확인해 보세요</h2>
+      </div>
+      <p class="lead">날짜, 시간, 인원, 옵션 순서로 고르면 바로 계산됩니다. 공휴일까지 반영해 요일 구분을 정하고, 결과는 견적서 모양으로 PDF 저장·인쇄하거나 그대로 문의서·카카오톡으로 보낼 수 있습니다. 시간당 요금표와 패키지는 아래에서 자세히 볼 수 있습니다.</p>
+    </div>
+    <div data-price="estimator"></div>
+  </div>
+</section>
+
+<!-- ===== 네 가지만 알려 주세요 ===== -->
+<section class="section price-sec ask-sec" id="just-ask">
+  <div class="container">
+    <!-- include:ask-band -->
+<div class="ask-band" id="ask">
+  <div>
+    <div class="eyebrow">Just ask</div>
+    <h3>복잡하게 느껴지면<br>네 가지만 알려 주세요</h3>
+    <p>요금표를 다 읽지 않으셔도 됩니다. 일자·시간·인원·모임 유형을 보내 주시면 가능 여부와 예상 금액, 추천 배치까지 빠르고 친절하게 안내드립니다. 영업시간에는 보통 2시간 안에 답을 드립니다.</p>
+    <div class="ask-four"><span><small>01</small>일자</span><span><small>02</small>시간</span><span><small>03</small>인원</span><span><small>04</small>모임 유형</span></div>
+  </div>
+  <div class="ask-cta">
+    <a class="btn btn-kakao" href="http://pf.kakao.com/_uTiFX" target="_blank" rel="noopener" data-kakao><svg class="ico-talk" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3.2C6.6 3.2 2.3 6.6 2.3 10.9c0 2.7 1.8 5.1 4.5 6.5l-.9 3.4c-.1.3.3.6.6.4l4-2.6c.5.1 1 .1 1.5.1 5.4 0 9.7-3.4 9.7-7.8S17.4 3.2 12 3.2z"/></svg>카카오톡으로 문의<small>가장 빠른 답변</small></a>
+    <a class="btn btn-light" href="mailto:spaceblank0100@gmail.com?subject=%5B%EB%A9%94%EA%B0%80%EC%8A%A4%ED%8C%9F%20%EA%B1%B4%EB%8C%80%20%EB%AC%B8%EC%9D%98%5D%20%EC%9D%BC%EC%9E%90%C2%B7%EC%8B%9C%EA%B0%84%C2%B7%EC%9D%B8%EC%9B%90%C2%B7%EB%AA%A8%EC%9E%84%20%EC%9C%A0%ED%98%95&body=%EC%95%88%EB%85%95%ED%95%98%EC%84%B8%EC%9A%94.%20%EB%A9%94%EA%B0%80%EC%8A%A4%ED%8C%9F%20%EA%B1%B4%EB%8C%80%20%EC%9D%B4%EC%9A%A9%EC%9D%84%20%EB%AC%B8%EC%9D%98%EB%93%9C%EB%A6%BD%EB%8B%88%EB%8B%A4.%0A%0A-%20%EC%9D%BC%EC%9E%90%3A%20%0A-%20%EC%8B%9C%EA%B0%84%3A%20%0A-%20%EC%9D%B8%EC%9B%90%3A%20%0A-%20%EB%AA%A8%EC%9E%84%20%EC%9C%A0%ED%98%95%3A%20%0A-%20%EC%9D%B4%EB%A6%84%C2%B7%EC%97%B0%EB%9D%BD%EC%B2%98%3A%20%0A%0A%EA%B0%80%EB%8A%A5%20%EC%97%AC%EB%B6%80%EC%99%80%20%EC%98%88%EC%83%81%20%EA%B8%88%EC%95%A1%EC%9D%84%20%EC%95%88%EB%82%B4%ED%95%B4%20%EC%A3%BC%EC%84%B8%EC%9A%94." data-email-link>이메일로 문의<small>spaceblank0100@gmail.com</small></a>
+    <a class="btn btn-ghost" href="/inquiry/">홈페이지 문의서 작성<small>조건을 한 번에 정리</small></a>
+  </div>
+</div>
+<!-- /include:ask-band -->
+  </div>
+</section>
+
+<!-- ===== 시간당 요금표 ===== -->
+<section class="section sec-white sec-line price-sec" id="rates">
+  <div class="container">
+    <div class="section-head split">
+      <div>
+        <div class="eyebrow"><span class="idx">02</span>Hourly rates</div>
         <h2 class="h-l">시간당 요금표</h2>
       </div>
       <p class="lead">요일 구분(월–목·금·토·일)과 시간대(아침·낮·저녁·심야)로 시간당 요금이 정해집니다. 공간료 = 시간당 요금 × 이용 시간이고, 기준 인원 20명이 들어 있습니다.</p>
@@ -132,11 +168,11 @@
 </section>
 
 <!-- ===== 패키지 ===== -->
-<section class="section sec-white sec-line price-sec" id="packages">
+<section class="section price-sec" id="packages">
   <div class="container">
     <div class="section-head split">
       <div>
-        <div class="eyebrow"><span class="idx">02</span>Packages</div>
+        <div class="eyebrow"><span class="idx">03</span>Packages</div>
         <h2 class="h-l">시간을 묶으면<br>20% 이상 저렴한 패키지</h2>
       </div>
       <p class="lead">낮·올데이·올나잇 세 가지입니다. 시간당 요금을 더한 정상가와 비교해 요일에 따라 20~33% 할인됩니다. 계산기에서 같은 시간을 고르면 자동으로 할인가가 적용되고, 선택한 시간을 모두 포함하는 더 싼 패키지가 있으면 알려 드립니다.</p>
@@ -146,11 +182,11 @@
 </section>
 
 <!-- ===== 인원·옵션·기본 제공 ===== -->
-<section class="section price-sec" id="people">
+<section class="section sec-white sec-line price-sec" id="people">
   <div class="container">
     <div class="section-head split">
       <div>
-        <div class="eyebrow"><span class="idx">03</span>People &amp; options</div>
+        <div class="eyebrow"><span class="idx">04</span>People &amp; options</div>
         <h2 class="h-l">인원 추가와 옵션,<br>그리고 무료로 쓰는 것들</h2>
       </div>
       <p class="lead">인원은 기준 20명을 넘는 만큼만 더합니다. 옵션은 사람 손이 들거나 소모되는 것, 제작이 필요한 것만 받고, 행사용 장비는 공간료에 들어 있습니다.</p>
@@ -161,35 +197,6 @@
     </div>
     <h3 class="h-s mt-5 mb-2">옵션</h3>
     <div data-price="options"></div>
-  </div>
-</section>
-
-<!-- ===== 예상 금액 ===== -->
-<section class="section sec-white sec-line price-sec" id="estimate">
-  <div class="container">
-    <div class="section-head split">
-      <div>
-        <div class="eyebrow"><span class="idx">04</span>Estimate</div>
-        <h2 class="h-l">원하는 시간과 옵션을 골라<br>예상 금액을 확인해 보세요</h2>
-      </div>
-      <p class="lead">날짜를 고르면 공휴일까지 반영해 요일 구분을 정합니다. 결과는 견적서 모양으로 PDF 저장·인쇄할 수 있고, 그대로 문의서에 담아 보내거나 카카오톡으로 보낼 수 있습니다.</p>
-    </div>
-    <div data-price="estimator"></div>
-    <div class="mt-5"><!-- include:ask-band -->
-<div class="ask-band" id="ask">
-  <div>
-    <div class="eyebrow">Just ask</div>
-    <h3>복잡하게 느껴지면<br>네 가지만 알려 주세요</h3>
-    <p>요금표를 다 읽지 않으셔도 됩니다. 일자·시간·인원·모임 유형을 보내 주시면 가능 여부와 예상 금액, 추천 배치까지 빠르고 친절하게 안내드립니다. 영업시간에는 보통 2시간 안에 답을 드립니다.</p>
-    <div class="ask-four"><span><small>01</small>일자</span><span><small>02</small>시간</span><span><small>03</small>인원</span><span><small>04</small>모임 유형</span></div>
-  </div>
-  <div class="ask-cta">
-    <a class="btn btn-kakao" href="http://pf.kakao.com/_uTiFX" target="_blank" rel="noopener" data-kakao><svg class="ico-talk" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3.2C6.6 3.2 2.3 6.6 2.3 10.9c0 2.7 1.8 5.1 4.5 6.5l-.9 3.4c-.1.3.3.6.6.4l4-2.6c.5.1 1 .1 1.5.1 5.4 0 9.7-3.4 9.7-7.8S17.4 3.2 12 3.2z"/></svg>카카오톡으로 문의<small>가장 빠른 답변</small></a>
-    <a class="btn btn-light" href="mailto:spaceblank0100@gmail.com?subject=%5B%EB%A9%94%EA%B0%80%EC%8A%A4%ED%8C%9F%20%EA%B1%B4%EB%8C%80%20%EB%AC%B8%EC%9D%98%5D%20%EC%9D%BC%EC%9E%90%C2%B7%EC%8B%9C%EA%B0%84%C2%B7%EC%9D%B8%EC%9B%90%C2%B7%EB%AA%A8%EC%9E%84%20%EC%9C%A0%ED%98%95&body=%EC%95%88%EB%85%95%ED%95%98%EC%84%B8%EC%9A%94.%20%EB%A9%94%EA%B0%80%EC%8A%A4%ED%8C%9F%20%EA%B1%B4%EB%8C%80%20%EC%9D%B4%EC%9A%A9%EC%9D%84%20%EB%AC%B8%EC%9D%98%EB%93%9C%EB%A6%BD%EB%8B%88%EB%8B%A4.%0A%0A-%20%EC%9D%BC%EC%9E%90%3A%20%0A-%20%EC%8B%9C%EA%B0%84%3A%20%0A-%20%EC%9D%B8%EC%9B%90%3A%20%0A-%20%EB%AA%A8%EC%9E%84%20%EC%9C%A0%ED%98%95%3A%20%0A-%20%EC%9D%B4%EB%A6%84%C2%B7%EC%97%B0%EB%9D%BD%EC%B2%98%3A%20%0A%0A%EA%B0%80%EB%8A%A5%20%EC%97%AC%EB%B6%80%EC%99%80%20%EC%98%88%EC%83%81%20%EA%B8%88%EC%95%A1%EC%9D%84%20%EC%95%88%EB%82%B4%ED%95%B4%20%EC%A3%BC%EC%84%B8%EC%9A%94." data-email-link>이메일로 문의<small>spaceblank0100@gmail.com</small></a>
-    <a class="btn btn-ghost" href="/inquiry/">홈페이지 문의서 작성<small>조건을 한 번에 정리</small></a>
-  </div>
-</div>
-<!-- /include:ask-band --></div>
   </div>
 </section>
 
