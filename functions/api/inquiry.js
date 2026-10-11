@@ -1,5 +1,5 @@
 // 문의 접수 — 행사 대관(event) · 정기·반복 모임(regular) · 제휴·협력·파트너(partner)
-import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, log } from './_lib.js';
+import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, log, getMember } from './_lib.js';
 const TYPES = ['event', 'regular', 'partner'];
 export async function onRequestPost({ request, env }) {
   if (!hasDb(env)) return err('데이터베이스가 연결되어 있지 않습니다.', 503, 'NO_DB');
@@ -36,11 +36,13 @@ export async function onRequestPost({ request, env }) {
     message, agree_marketing: !!d.agree_marketing, source: str(d.source, 200), summary: str(d.summary, 6000),
     ua: str(request.headers.get('user-agent'), 200)
   };
+  // 로그인한 회원이 보낸 문의는 회원 번호를 붙여 마이페이지에서 진행 상태를 볼 수 있게 합니다.
+  try { const m = await getMember(request, env); if (m) { data.member_id = m.id; data.member_email = m.email; } } catch {}
   try {
     const ref = await uniqueRef(env, 'inquiries', 'ref', 'MS');
     await env.DB.prepare('INSERT INTO inquiries (ref, space_id, status, name, phone, email, event_date, headcount, data, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)')
       .bind(ref, space_id, '문의 접수', name, phone, email, data.date || null, headcount, JSON.stringify(data), now()).run();
-    await log(env, 'inquiry.created', ref, 'customer', { inquiry_type, space_id, date: data.date, headcount });
-    return json({ ok: true, ref });
+    await log(env, 'inquiry.created', ref, data.member_id ? 'member:' + data.member_id : 'customer', { inquiry_type, space_id, date: data.date, headcount });
+    return json({ ok: true, ref, member: !!data.member_id });
   } catch (e) { return err('저장 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요. (' + (e.message || '') + ')', 500, 'DB_ERROR'); }
 }

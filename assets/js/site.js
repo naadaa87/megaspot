@@ -61,6 +61,23 @@
     return api('/health').then(function(j){ demo.checked=true; demo.on=!(j&&j.ok&&j.db); return !demo.on; }).catch(function(){ demo.checked=true; demo.on=true; return false; });
   }
 
+  /* ---------- 회원 (로그인 상태 표시) ---------- */
+  // ms_in 쿠키는 화면 표시용입니다. 실제 로그인 확인은 서버(/api/auth/me)가 HttpOnly 쿠키로 합니다.
+  var account = {
+    loggedIn: function(){ return /(?:^|;\s*)ms_in=1/.test(document.cookie); },
+    _me: null,
+    me: function(){
+      if(!account.loggedIn()) return Promise.resolve(null);
+      if(!account._me) account._me = api('/auth/me').then(function(j){ return j.member||null; }).catch(function(){ return null; });
+      return account._me;
+    },
+    logout: function(){ return api('/auth/logout',{method:'POST', body:{}}).catch(function(){}).then(function(){ document.cookie='ms_in=; Max-Age=0; Path=/'; account._me=null; }); }
+  };
+  function initAccount(){
+    var on=account.loggedIn();
+    $$('[data-account]').forEach(function(a){ a.href = on ? '/mypage/' : '/login/'; a.textContent = on ? '마이페이지' : (a.getAttribute('data-account')==='full'?'로그인 · 회원가입':'로그인'); });
+  }
+
   /* ---------- header / nav ---------- */
   function initHeader(){
     var btn=$('.menu-btn'), nav=$('.mobile-nav');
@@ -169,8 +186,8 @@
     CONFIG:CONFIG, $:$, $$:$$, esc:esc, pad2:pad2, fmtDate:fmtDate, fmtKDate:fmtKDate, fmtNum:fmtNum,
     toast:toast, api:api, checkApi:checkApi, demo:demo, openLightbox:openLB, photoSrc:photoSrc, localRef:localRef,
     imgSrc:imgSrc, isStaged:isStaged, isCG:isCG, imgTag:imgTag, tagClass:tagClass, tagHtml:tagHtml, visual:visual, sceneItems:sceneItems,
-    validate:validate, formData:formData
+    validate:validate, formData:formData, account:account
   };
 
-  document.addEventListener('DOMContentLoaded', function(){ initHeader(); initSubnav(); });
+  document.addEventListener('DOMContentLoaded', function(){ initHeader(); initAccount(); initSubnav(); });
 })();

@@ -71,3 +71,36 @@ CREATE TABLE IF NOT EXISTS event_log (                -- 모든 상태·금액·
   kind TEXT NOT NULL, ref TEXT, actor TEXT, detail TEXT,
   created_at TEXT NOT NULL
 );
+
+-- ---------- 회원 (2026-10-11 추가) ----------
+-- 이미 위 표들을 만들어 둔 데이터베이스에도 이 파일 전체를 다시 실행하면 됩니다 (IF NOT EXISTS 라 기존 데이터는 그대로).
+CREATE TABLE IF NOT EXISTS members (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  email TEXT NOT NULL UNIQUE COLLATE NOCASE, -- 로그인 아이디
+  name TEXT NOT NULL,
+  phone TEXT,
+  org TEXT,                                  -- 소속(회사·단체·모임명, 선택)
+  pw_hash TEXT NOT NULL,                     -- pbkdf2$반복횟수$솔트$해시 (원문 비밀번호는 저장하지 않음)
+  agree_marketing INTEGER NOT NULL DEFAULT 0,
+  agreed_at TEXT NOT NULL,                   -- 약관·개인정보 동의 시각
+  status TEXT NOT NULL DEFAULT 'active',     -- active | suspended
+  created_at TEXT NOT NULL,
+  updated_at TEXT,
+  last_login_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS sessions (        -- 로그인 상태 (쿠키 토큰의 SHA-256 해시만 저장)
+  token_hash TEXT PRIMARY KEY,
+  member_id INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  ua TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_member ON sessions(member_id);
+
+CREATE TABLE IF NOT EXISTS auth_attempts (   -- 로그인 실패·가입 시도 횟수 (일정 횟수 넘으면 잠시 막음)
+  key TEXT PRIMARY KEY,
+  count INTEGER NOT NULL,
+  window_start TEXT NOT NULL
+);
+-- 회원이 로그인한 상태로 보낸 문의는 inquiries.data 안에 member_id 가 들어가 마이페이지에 표시됩니다.

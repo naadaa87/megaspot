@@ -1,5 +1,5 @@
 // 운영자 API — 모든 경로는 X-Admin-Key 헤더 검증을 거칩니다.
-import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, checkAdmin, log } from '../_lib.js';
+import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, checkAdmin, log, hashPassword } from '../_lib.js';
 const STATUSES = ['문의 접수', '조건 확인', '견적 발송', '결제 대기', '예약 확정', '이용 완료', '취소·환불'];
 
 export async function onRequest({ request, env, params }) {
@@ -85,6 +85,39 @@ export async function onRequest({ request, env, params }) {
       await env.DB.prepare('UPDATE reviews SET status = ?, reply = ?, updated_at = ? WHERE id = ?').bind(d.status, str(d.reply, 1000), now(), id).run();
       await log(env, 'review.updated', String(id), 'admin', d);
       return json({ ok: true });
+    }
+
+    // ---- 회원 ----
+    if (path === 'members' && method === 'GET') {
+      const q = str(url.searchParams.get('q'), 60);
+      let sql = "SELECT m.id, m.email, m.name, m.phone, m.org, m.agree_marketing, m.status, m.created_at, m.last_login_at, (SELECT COUNT(*) FROM inquiries i WHERE json_extract(i.data, '$.member_id') = m.id) AS inquiry_count FROM members m"; const b = [];
+      if (q) { sql += ' WHERE m.email LIKE ? OR m.name LIKE ? OR m.phone LIKE ? OR m.org LIKE ?'; b.push(...Array(4).fill('%' + q + '%')); }
+      sql += ' ORDER BY m.created_at DESC LIMIT 300';
+      const { results } = await env.DB.prepare(sql).bind(...b).all();
+      const total = await env.DB.prepare('SELECT COUNT(*) AS n FROM members').first();
+      return json({ ok: true, total: total ? total.n : 0, items: results || [] });
+    }
+    const mMem = path.match(/^members\/(\d+)$/);
+    if (mMem && method === 'PATCH') {
+      const d = await readJson(request); const id = +mMem[1];
+      if (!['active', 'suspended'].includes(d.status)) return err('상태 값이 올바르지 않습니다.');
+      await env.DB.prepare('UPDATE members SET status = ?, updated_at = ? WHERE id = ?').bind(d.status, now(), id).run();
+      if (d.status === 'suspended') await env.DB.prepare('DELETE FROM sessions WHERE member_id = ?').bind(id).run();
+      await log(env, 'member.status', String(id), 'admin', d);
+      return json({ ok: true });
+    }
+    const mPw = path.match(/^members\/(\d+)\/reset-password$/);
+    if (mPw && method === 'POST') {
+      // 비밀번호를 잊은 회원에게 임시 비밀번호를 발급합니다. 본인 확인(가입 휴대폰·이메일) 후 전달하고, 로그인 뒤 바꾸도록 안내하세요.
+      const id = +mPw[1];
+      const row = await env.DB.prepare('SELECT id FROM members WHERE id = ?').bind(id).first();
+      if (!row) return err('회원을 찾을 수 없습니다.', 404, 'NOT_FOUND');
+      const A = 'abcdefghjkmnpqrstuvwxyz', N = '23456789'; const r = crypto.getRandomValues(new Uint8Array(10));
+      let temp = ''; for (let i = 0; i < 10; i++) temp += (i < 6 ? A : N)[r[i] % (i < 6 ? A.length : N.length)];
+      await env.DB.prepare('UPDATE members SET pw_hash = ?, updated_at = ? WHERE id = ?').bind(await hashPassword(temp), now(), id).run();
+      await env.DB.prepare('DELETE FROM sessions WHERE member_id = ?').bind(id).run();
+      await log(env, 'member.reset_password', String(id), 'admin', '');
+      return json({ ok: true, temp_password: temp });
     }
 
     // ---- 일정 ----

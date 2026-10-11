@@ -44,3 +44,74 @@ export function checkAdmin(request, env) {
 export async function log(env, kind, ref, actor, detail) {
   try { await env.DB.prepare('INSERT INTO event_log (kind, ref, actor, detail, created_at) VALUES (?,?,?,?,?)').bind(kind, ref || '', actor || 'system', typeof detail === 'string' ? detail : JSON.stringify(detail || {}), now()).run(); } catch {}
 }
+
+// ---------- 회원 (이메일·비밀번호 로그인) ----------
+// 비밀번호는 PBKDF2-SHA256(10만 회, 무작위 솔트)로 바꿔 저장하고 원문은 어디에도 남기지 않습니다.
+// 로그인 상태는 HttpOnly 쿠키(ms_session)로 유지하고, DB에는 토큰의 해시만 저장합니다.
+// ms_in=1 쿠키는 화면에서 '마이페이지' 버튼을 보여 주기 위한 표시일 뿐이며 권한과는 관계없습니다.
+const PBKDF2_ITER = 100000;   // Cloudflare Workers 의 PBKDF2 상한
+export const SESSION_DAYS = 30;
+const b64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));
+const unb64 = (s) => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+async function pbkdf2(password, salt, iter) {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+  return crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: iter }, key, 256);
+}
+export async function hashPassword(password) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  return `pbkdf2$${PBKDF2_ITER}$${b64(salt)}$${b64(await pbkdf2(password, salt, PBKDF2_ITER))}`;
+}
+export async function verifyPassword(password, stored) {
+  const p = String(stored || '').split('$'); if (p.length !== 4 || p[0] !== 'pbkdf2') return false;
+  const want = unb64(p[3]); const got = new Uint8Array(await pbkdf2(password, unb64(p[2]), +p[1]));
+  if (got.length !== want.length) return false;
+  let diff = 0; for (let i = 0; i < got.length; i++) diff |= got[i] ^ want[i];
+  return diff === 0;
+}
+export function randomToken(bytes = 32) {
+  return b64(crypto.getRandomValues(new Uint8Array(bytes))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+export async function sha256(s) {
+  const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return [...new Uint8Array(h)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+export function later(days) { return new Date(Date.now() + days * 864e5).toISOString().slice(0, 19).replace('T', ' '); }
+export function getCookie(request, name) {
+  const m = (request.headers.get('cookie') || '').match(new RegExp('(?:^|;\\s*)' + name + '=([^;]*)'));
+  return m ? decodeURIComponent(m[1]) : '';
+}
+export function sessionCookies(token, days = SESSION_DAYS) {
+  const age = days > 0 ? days * 86400 : 0;
+  return [
+    `ms_session=${token}; Path=/; Max-Age=${age}; HttpOnly; Secure; SameSite=Lax`,
+    `ms_in=${age ? 1 : ''}; Path=/; Max-Age=${age}; Secure; SameSite=Lax`
+  ];
+}
+export function withCookies(res, cookies) { for (const c of cookies) res.headers.append('set-cookie', c); return res; }
+export function isEmail(s) { return /^[^@\s]{1,64}@[^@\s]+\.[^@\s]{2,}$/.test(s || '') && s.length <= 120; }
+export function clientIp(request) { return request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for') || 'unknown'; }
+// 다른 사이트에서 회원 기능을 대신 호출하지 못하게, 브라우저가 보내는 Origin 이 이 사이트와 같은지 확인합니다.
+export function sameOrigin(request) {
+  const o = request.headers.get('origin'); if (!o) return true;
+  try { return new URL(o).host === new URL(request.url).host; } catch { return false; }
+}
+export async function getMember(request, env) {
+  const token = getCookie(request, 'ms_session'); if (!token || !hasDb(env)) return null;
+  const row = await env.DB.prepare('SELECT m.id, m.email, m.name, m.phone, m.org, m.agree_marketing, m.status, m.created_at FROM sessions s JOIN members m ON m.id = s.member_id WHERE s.token_hash = ? AND s.expires_at > ?')
+    .bind(await sha256(token), now()).first();
+  return row && row.status === 'active' ? row : null;
+}
+// 짧은 시간 안에 같은 요청이 너무 많으면 막습니다 (비밀번호 대입·무더기 가입 방지).
+export async function tooMany(env, key, limit, minutes) {
+  const row = await env.DB.prepare('SELECT count, window_start FROM auth_attempts WHERE key = ?').bind(key).first();
+  const since = new Date(Date.now() - minutes * 6e4).toISOString().slice(0, 19).replace('T', ' ');
+  if (!row || row.window_start < since) return false;
+  return row.count >= limit;
+}
+export async function hit(env, key, minutes) {
+  const since = new Date(Date.now() - minutes * 6e4).toISOString().slice(0, 19).replace('T', ' ');
+  const row = await env.DB.prepare('SELECT count, window_start FROM auth_attempts WHERE key = ?').bind(key).first();
+  if (!row || row.window_start < since) await env.DB.prepare('INSERT INTO auth_attempts (key, count, window_start) VALUES (?, 1, ?) ON CONFLICT(key) DO UPDATE SET count = 1, window_start = excluded.window_start').bind(key, now()).run();
+  else await env.DB.prepare('UPDATE auth_attempts SET count = count + 1 WHERE key = ?').bind(key).run();
+}
+export async function clearHits(env, key) { await env.DB.prepare('DELETE FROM auth_attempts WHERE key = ?').bind(key).run(); }

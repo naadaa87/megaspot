@@ -92,6 +92,7 @@
     + '<div class="f" id="iq-budget-f"><label for="iq-budget">총예산 (선택)</label><select class="select" id="iq-budget" name="budget">'+opt(BUDGET,'')+'</select><span class="hint">공간료와 패키지·옵션, 보증금은 견적서에서 항목별로 나눠 적습니다.</span></div>'
     + '<div class="f"><span class="lbl">서류 필요</span><div class="checks"><label class="chk"><input type="checkbox" name="docs" value="quote"> 견적서</label><label class="chk"><input type="checkbox" name="docs" value="tax"> 세금계산서</label><label class="chk"><input type="checkbox" name="docs" value="receipt"> 증빙 서류</label></div></div>'
     + '</div>'
+    + '<div class="member-line" id="iq-member" hidden></div>'
     + '<div class="field-row">'
     + '<div class="f"><label for="iq-name">이름 · 소속 <span class="req">*</span></label><input class="input" id="iq-name" name="name" placeholder="예: 김민지 · ○○ 커뮤니티" required></div>'
     + '<div class="f"><label for="iq-phone">연락처 <span class="req">*</span></label><input class="input" type="tel" id="iq-phone" name="phone" placeholder="010-0000-0000" required></div>'
@@ -231,7 +232,7 @@
       d.source=location.pathname; d.summary=summary(d);
       var btn=$f('#iq-submit'); btn.disabled=true; btn.textContent='보내는 중…';
       M.api('/inquiry',{method:'POST', body:d}).then(function(r){
-        form.hidden=true; done.hidden=false; done.innerHTML=donePanel(r.ref, d, true); bind(); done.scrollIntoView({behavior:'smooth',block:'start'});
+        form.hidden=true; done.hidden=false; done.innerHTML=(r.member?'<div class="member-line on mb-3"><span><b>회원 문의로 저장했습니다.</b> 진행 상태는 마이페이지에서 언제든 확인할 수 있습니다.</span><a class="btn btn-light btn-sm" href="/mypage/">마이페이지 →</a></div>':'')+donePanel(r.ref, d, true); bind(); done.scrollIntoView({behavior:'smooth',block:'start'});
       }).catch(function(ex){
         if(ex.code==='NO_API'){ var ref=M.localRef('MS'); form.hidden=true; done.hidden=false; done.innerHTML=donePanel(ref, d, false); bind(); done.scrollIntoView({behavior:'smooth',block:'start'}); }
         else { err.textContent=ex.message||'전송에 실패했습니다. 잠시 후 다시 시도해 주세요.'; err.hidden=false; }
@@ -265,6 +266,19 @@
       form:form
     };
     if(o.prefill && (o.prefill.t_start || o.prefill.t_end)) api.prefill({ t_start:o.prefill.t_start, t_end:o.prefill.t_end });
+    // 회원이면 이름·연락처·이메일을 채우고, 아니면 로그인 안내를 보여 줍니다 (서버가 연결된 경우에만)
+    if(M.account){
+      var ml=$f('#iq-member');
+      M.account.me().then(function(m){
+        if(m){
+          var fill=function(sel,v){ var el=$f(sel); if(el && !el.value && v){ el.value=v; el.classList.remove('invalid'); } };
+          fill('#iq-name', m.name+(m.org?' · '+m.org:'')); fill('#iq-phone', m.phone); fill('#iq-email', m.email);
+          ml.className='member-line on'; ml.innerHTML='<span><b>'+esc(m.name)+'</b>님, 회원으로 문의합니다. 보낸 뒤 마이페이지에서 진행 상태를 볼 수 있습니다.</span>'; ml.hidden=false;
+        } else {
+          M.checkApi().then(function(live){ if(!live) return; ml.className='member-line'; ml.innerHTML='<span>회원으로 로그인하면 연락처가 자동으로 채워지고, 문의 진행 상태를 마이페이지에서 볼 수 있습니다.</span><a class="btn btn-light btn-sm" href="/login/?next='+encodeURIComponent(location.pathname+location.search)+'">로그인 · 회원가입</a>'; ml.hidden=false; });
+        }
+      });
+    }
     return api;
   };
 })();
