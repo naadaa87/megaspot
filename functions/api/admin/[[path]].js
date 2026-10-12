@@ -1,24 +1,139 @@
 // 운영자 API — 모든 경로는 X-Admin-Key 헤더 검증을 거칩니다.
-import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, checkAdmin, log, hashPassword } from '../_lib.js';
+import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, log, hashPassword, requireAdmin, adminKeyOk, adminCookie,
+  randomToken, sha256, later, getCookie, withCookies, clientIp, sameOrigin, tooMany, hit, clearHits, kstToday } from '../_lib.js';
 const STATUSES = ['문의 접수', '조건 확인', '견적 발송', '결제 대기', '예약 확정', '이용 완료', '취소·환불'];
+const OPEN = ['문의 접수', '조건 확인', '견적 발송', '결제 대기'];
+const CHANNELS = ['web', 'kakao', 'phone', 'email', 'visit', 'other'];
 
 export async function onRequest({ request, env, params }) {
   if (!hasDb(env)) return err('데이터베이스가 연결되어 있지 않습니다.', 503, 'NO_DB');
-  const denied = checkAdmin(request, env); if (denied) return denied;
   const path = (params.path || []).join('/');
   const method = request.method.toUpperCase();
   const url = new URL(request.url);
+  if (method !== 'GET' && !sameOrigin(request)) return err('허용되지 않은 요청입니다.', 403, 'FORBIDDEN');
+
+  // ---- 관리자 로그인·로그아웃 (로그인 확인 전에 처리) ----
+  if (path === 'login' && method === 'POST') {
+    if (!env.ADMIN_KEY) return err('Cloudflare에 ADMIN_KEY가 설정되어 있지 않습니다.', 503, 'NO_ADMIN_KEY');
+    const ip = clientIp(request);
+    if (await tooMany(env, 'adminlogin:' + ip, 8, 15)) return err('로그인 시도가 너무 많습니다. 15분 뒤에 다시 시도해 주세요.', 429, 'RATE_LIMIT');
+    let d; try { d = await readJson(request); } catch (e) { return err(e.message); }
+    if (!adminKeyOk(d.key, env)) { await hit(env, 'adminlogin:' + ip, 15); return err('관리자 비밀번호가 올바르지 않습니다.', 401, 'UNAUTHORIZED'); }
+    await clearHits(env, 'adminlogin:' + ip);
+    const hours = d.remember ? 24 * 7 : 12, token = randomToken(), t = now();
+    await env.DB.prepare('DELETE FROM admin_sessions WHERE expires_at < ?').bind(t).run();
+    await env.DB.prepare('INSERT INTO admin_sessions (token_hash, created_at, expires_at, ip) VALUES (?,?,?,?)').bind(await sha256(token), t, later(hours / 24), ip).run();
+    await log(env, 'admin.login', '', 'admin', { ip });
+    return withCookies(json({ ok: true, hours }), [adminCookie(token, hours)]);
+  }
+  if (path === 'logout' && method === 'POST') {
+    const tok = getCookie(request, 'ms_admin');
+    if (tok) await env.DB.prepare('DELETE FROM admin_sessions WHERE token_hash = ?').bind(await sha256(tok)).run();
+    return withCookies(json({ ok: true }), [adminCookie('', 0)]);
+  }
+
+  const denied = await requireAdmin(request, env); if (denied) return denied;
   try {
     if (path === 'ping') return json({ ok: true });
+
+    // ---- 대시보드: 오늘 확인할 것 ----
+    if (path === 'dashboard' && method === 'GET') {
+      const today = kstToday(), in14 = kstToday(14), ago2 = new Date(Date.now() - 2 * 864e5).toISOString().slice(0, 19).replace('T', ' ');
+      const ago7 = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 19).replace('T', ' ');
+      const month = today.slice(0, 7);
+      const one = async (sql, ...b) => ((await env.DB.prepare(sql).bind(...b).first()) || {}).n || 0;
+      const all = async (sql, ...b) => ((await env.DB.prepare(sql).bind(...b).all()).results || []);
+      const counts = {};
+      for (const s of STATUSES) counts[s] = await one('SELECT COUNT(*) AS n FROM inquiries WHERE status = ?', s);
+      const latestQuote = "(SELECT q.total FROM quotes q WHERE q.inquiry_ref = i.ref ORDER BY q.id DESC LIMIT 1)";
+      const cols = `i.ref, i.status, i.name, i.phone, i.event_date, i.headcount, i.created_at, i.updated_at, json_extract(i.data, '$.purpose') AS purpose, json_extract(i.data, '$.inquiry_type') AS inquiry_type, json_extract(i.data, '$.channel') AS channel, ${latestQuote} AS quote_total`;
+      const out = {
+        today, counts,
+        upcoming_count: await one("SELECT COUNT(*) AS n FROM bookings WHERE status = 'confirmed' AND date >= ? AND date <= ?", today, in14),
+        reviews_pending: await one("SELECT COUNT(*) AS n FROM reviews WHERE status = 'pending'"),
+        members: await one('SELECT COUNT(*) AS n FROM members'), members_new: await one('SELECT COUNT(*) AS n FROM members WHERE created_at >= ?', ago7),
+        hosts_new: await one('SELECT COUNT(*) AS n FROM host_applications WHERE created_at >= ?', ago7),
+        todo: await all(`SELECT ${cols} FROM inquiries i WHERE i.status = '문의 접수' ORDER BY i.created_at ASC LIMIT 15`),
+        followup: await all(`SELECT ${cols} FROM inquiries i WHERE i.status IN ('견적 발송', '결제 대기') AND COALESCE(i.updated_at, i.created_at) <= ? ORDER BY COALESCE(i.updated_at, i.created_at) ASC LIMIT 15`, ago2),
+        soon: await all(`SELECT ${cols} FROM inquiries i WHERE i.status IN ('문의 접수', '조건 확인', '견적 발송', '결제 대기') AND i.event_date >= ? AND i.event_date <= ? ORDER BY i.event_date ASC LIMIT 15`, today, in14),
+        upcoming: await all("SELECT booking_code, inquiry_ref, customer_name, phone, date, slot, headcount, memo FROM bookings WHERE status = 'confirmed' AND date >= ? AND date <= ? ORDER BY date ASC LIMIT 20", today, in14),
+        month: {
+          month,
+          inquiries: await one("SELECT COUNT(*) AS n FROM inquiries WHERE substr(created_at, 1, 7) = ?", month),
+          confirmed: await one("SELECT COUNT(*) AS n FROM inquiries WHERE status IN ('예약 확정', '이용 완료') AND substr(event_date, 1, 7) = ?", month),
+          confirmed_amount: await one(`SELECT COALESCE(SUM(${latestQuote}), 0) AS n FROM inquiries i WHERE i.status IN ('예약 확정', '이용 완료') AND substr(i.event_date, 1, 7) = ?`, month),
+          quoted_amount: await one(`SELECT COALESCE(SUM(${latestQuote}), 0) AS n FROM inquiries i WHERE i.status IN ('견적 발송', '결제 대기') `),
+        }
+      };
+      return json({ ok: true, ...out });
+    }
+
+    // ---- 문의 상세 · 직접 등록 · 체크리스트 ----
+    const mDet = path.match(/^inquiries\/([A-Z0-9-]+)$/);
+    if (mDet && method === 'GET') {
+      const r = await env.DB.prepare('SELECT ref, space_id, status, name, phone, email, event_date, headcount, data, memo, created_at, updated_at FROM inquiries WHERE ref = ?').bind(mDet[1]).first();
+      if (!r) return err('문의를 찾을 수 없습니다.', 404, 'NOT_FOUND');
+      const c = await env.DB.prepare('SELECT checks FROM inquiry_checks WHERE ref = ?').bind(mDet[1]).first();
+      const { results: qs } = await env.DB.prepare('SELECT quote_no, total, data, created_at FROM quotes WHERE inquiry_ref = ? ORDER BY id DESC LIMIT 20').bind(mDet[1]).all();
+      const { results: bk } = await env.DB.prepare('SELECT booking_code, date, slot, status FROM bookings WHERE inquiry_ref = ? ORDER BY id DESC').bind(mDet[1]).all();
+      const { results: lg } = await env.DB.prepare('SELECT kind, actor, detail, created_at FROM event_log WHERE ref = ? ORDER BY id DESC LIMIT 30').bind(mDet[1]).all();
+      return json({ ok: true, item: { ...r, data: safe(r.data) }, checks: safe(c && c.checks), quotes: (qs || []).map(q => ({ ...q, data: safe(q.data) })), bookings: bk || [], log: lg || [] });
+    }
+    if (path === 'inquiries' && method === 'POST') {
+      // 카카오톡·전화·이메일·방문으로 받은 문의를 관리자가 직접 등록합니다.
+      const d = await readJson(request);
+      const name = str(d.name, 80), phone = str(d.phone, 30).replace(/[^0-9-+]/g, ''), email = str(d.email, 120);
+      if (!name) return err('고객 이름을 적어 주세요.');
+      const date = str(d.date, 10); if (date && !isDate(date)) return err('날짜를 확인해 주세요.');
+      const channel = CHANNELS.includes(d.channel) ? d.channel : 'other';
+      const data = { inquiry_type: ['event', 'regular', 'partner'].includes(d.inquiry_type) ? d.inquiry_type : 'event', space_id: 'megaspot-gundae', channel,
+        purpose: str(d.purpose, 40), date, t_start: str(d.t_start, 5), t_end: str(d.t_end, 5), headcount: num(d.headcount), name, phone, email,
+        org: str(d.org, 120), message: str(d.message, 2000), source: 'admin', summary: '' };
+      data.summary = ['[관리자 직접 등록 · ' + ({ kakao: '카카오톡', phone: '전화', email: '이메일', visit: '방문', web: '홈페이지', other: '기타' })[channel] + ']',
+        '이름: ' + name, phone ? '연락처: ' + phone : '', email ? '이메일: ' + email : '', date ? '날짜: ' + date + (data.t_start ? ' ' + data.t_start + '–' + (data.t_end || '') : '') : '',
+        data.headcount ? '인원: ' + data.headcount + '명' : '', data.message ? '내용: ' + data.message : ''].filter(Boolean).join('\n');
+      const ref = await uniqueRef(env, 'inquiries', 'ref', 'MS');
+      await env.DB.prepare('INSERT INTO inquiries (ref, space_id, status, name, phone, email, event_date, headcount, data, memo, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+        .bind(ref, 'megaspot-gundae', STATUSES.includes(d.status) ? d.status : '문의 접수', name, phone, email, date || null, data.headcount, JSON.stringify(data), str(d.memo, 2000), now()).run();
+      await log(env, 'inquiry.created', ref, 'admin', { channel });
+      return json({ ok: true, ref });
+    }
+    const mChk = path.match(/^inquiries\/([A-Z0-9-]+)\/checks$/);
+    if (mChk && method === 'PUT') {
+      const d = await readJson(request); const checks = {};
+      for (const [k, v] of Object.entries(d.checks || {})) if (/^[a-z_]{1,30}$/.test(k)) checks[k] = v ? now() : false;
+      await env.DB.prepare('INSERT INTO inquiry_checks (ref, checks, updated_at) VALUES (?,?,?) ON CONFLICT(ref) DO UPDATE SET checks = excluded.checks, updated_at = excluded.updated_at').bind(mChk[1], JSON.stringify(checks), now()).run();
+      return json({ ok: true, checks });
+    }
+
+    // ---- 견적 저장·목록 ----
+    if (path === 'quotes' && method === 'POST') {
+      const d = await readJson(request, 128 * 1024);
+      const total = num(d.total); if (total == null || total < 0) return err('견적 합계를 확인해 주세요.');
+      const ref = str(d.inquiry_ref, 20).toUpperCase();
+      if (ref) { const ex = await env.DB.prepare('SELECT 1 AS x FROM inquiries WHERE ref = ?').bind(ref).first(); if (!ex) return err('연결할 문의번호를 찾을 수 없습니다.'); }
+      const quote_no = await uniqueRef(env, 'quotes', 'quote_no', 'Q');
+      const data = d.data && typeof d.data === 'object' ? d.data : {};
+      await env.DB.prepare('INSERT INTO quotes (quote_no, inquiry_ref, customer, event_date, total, data, created_at) VALUES (?,?,?,?,?,?,?)')
+        .bind(quote_no, ref || null, str(d.customer, 120), isDate(str(d.event_date, 10)) ? str(d.event_date, 10) : null, total, JSON.stringify(data).slice(0, 100000), now()).run();
+      if (ref && d.mark_sent) await env.DB.prepare("UPDATE inquiries SET status = '견적 발송', updated_at = ? WHERE ref = ? AND status IN ('문의 접수', '조건 확인')").bind(now(), ref).run();
+      if (ref) await env.DB.prepare("UPDATE inquiries SET updated_at = ? WHERE ref = ?").bind(now(), ref).run();
+      await log(env, 'quote.saved', ref || quote_no, 'admin', { quote_no, total });
+      return json({ ok: true, quote_no });
+    }
+    if (path === 'quotes' && method === 'GET') {
+      const { results } = await env.DB.prepare('SELECT quote_no, inquiry_ref, customer, event_date, total, data, created_at FROM quotes ORDER BY id DESC LIMIT 100').all();
+      return json({ ok: true, items: (results || []).map(q => ({ ...q, data: safe(q.data) })) });
+    }
 
     // ---- 문의 ----
     if (path === 'inquiries' && method === 'GET') {
       const st = str(url.searchParams.get('status'), 20), q = str(url.searchParams.get('q'), 60), ty = str(url.searchParams.get('type'), 20);
-      let sql = 'SELECT ref, space_id, status, name, phone, email, event_date, headcount, data, memo, created_at, updated_at FROM inquiries WHERE 1=1'; const b = [];
-      if (st) { sql += ' AND status = ?'; b.push(st); }
+      let sql = 'SELECT ref, space_id, status, name, phone, email, event_date, headcount, data, memo, created_at, updated_at, (SELECT q.total FROM quotes q WHERE q.inquiry_ref = inquiries.ref ORDER BY q.id DESC LIMIT 1) AS quote_total FROM inquiries WHERE 1=1'; const b = [];
+      if (st === 'open') { sql += " AND status IN ('문의 접수', '조건 확인', '견적 발송', '결제 대기')"; } else if (st) { sql += ' AND status = ?'; b.push(st); }
       if (['event', 'regular', 'partner'].includes(ty)) { sql += " AND COALESCE(json_extract(data, '$.inquiry_type'), 'event') = ?"; b.push(ty); }
-      if (q) { sql += ' AND (name LIKE ? OR phone LIKE ? OR ref LIKE ?)'; b.push('%' + q + '%', '%' + q + '%', '%' + q.toUpperCase() + '%'); }
-      sql += ' ORDER BY created_at DESC LIMIT 200';
+      if (q) { sql += ' AND (name LIKE ? OR phone LIKE ? OR ref LIKE ? OR email LIKE ?)'; b.push('%' + q + '%', '%' + q + '%', '%' + q.toUpperCase() + '%', '%' + q + '%'); }
+      sql += ' ORDER BY created_at DESC LIMIT 300';
       const { results } = await env.DB.prepare(sql).bind(...b).all();
       return json({ ok: true, items: (results || []).map(r => ({ ...r, data: safe(r.data) })) });
     }
@@ -52,7 +167,7 @@ export async function onRequest({ request, env, params }) {
       const digits = phone.replace(/\D/g, ''); if (digits.length < 9) return err('연락처 형식을 확인해 주세요.');
       const code = await uniqueRef(env, 'bookings', 'booking_code', 'MS');
       await env.DB.prepare('INSERT INTO bookings (booking_code, space_id, inquiry_ref, customer_name, phone, phone_last4, date, slot, headcount, memo, status, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
-        .bind(code, space_id, str(d.inquiry_ref, 20).toUpperCase() || null, name, phone, digits.slice(-4), date, str(d.slot, 10) || 'pm', num(d.headcount), str(d.memo, 2000), 'confirmed', now()).run();
+        .bind(code, space_id, str(d.inquiry_ref, 20).toUpperCase() || null, name, phone, digits.slice(-4), date, str(d.slot, 20) || 'custom', num(d.headcount), str(d.memo, 2000), 'confirmed', now()).run();
       if (d.block_calendar) await env.DB.prepare('INSERT INTO calendar_blocks (space_id, date, state, memo) VALUES (?,?,?,?) ON CONFLICT(space_id, date) DO UPDATE SET state = excluded.state, memo = excluded.memo').bind(space_id, date, 'full', '예약 ' + code).run();
       if (d.inquiry_ref) await env.DB.prepare("UPDATE inquiries SET status = '예약 확정', updated_at = ? WHERE ref = ?").bind(now(), str(d.inquiry_ref, 20).toUpperCase()).run();
       await log(env, 'booking.created', code, 'admin', { space_id, date });

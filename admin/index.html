@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>운영자 페이지 · 메가스팟</title>
-<meta name="description" content="문의·예약·후기·일정을 관리하는 운영자 화면입니다.">
+<title>메가스팟 관리자</title>
+<meta name="description" content="문의·견적·예약·일정·후기·회원을 관리하는 메가스팟 관리자 화면입니다.">
 <meta name="keywords" content="메가스팟, MEGASPOT, 메가스팟 건대, 소셜팩토리, 건대 대관, 건대입구 행사장, 건대 파티룸, 광진구 대형 공간, 서울 세미나실 대관, 워크숍 장소, 네트워킹 공간, 150명 행사장, 170평 대관, 200인치 빔프로젝터, 대형 파티룸, 단체 모임 공간, 화양동 공간 대여, 건대입구역 행사장">
 <meta name="author" content="메가스팟 MEGASPOT">
 <meta name="robots" content="noindex,nofollow">
@@ -20,16 +20,16 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="메가스팟 MEGASPOT">
 <meta property="og:locale" content="ko_KR">
-<meta property="og:title" content="운영자 페이지 · 메가스팟">
-<meta property="og:description" content="문의·예약·후기·일정을 관리하는 운영자 화면입니다.">
+<meta property="og:title" content="메가스팟 관리자">
+<meta property="og:description" content="문의·견적·예약·일정·후기·회원을 관리하는 메가스팟 관리자 화면입니다.">
 <meta property="og:url" content="https://megaspot.kr/admin/">
 <meta property="og:image" content="https://megaspot.kr/assets/img/brand/og-megaspot.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="메가스팟 — 큰 모임에 맞는 공간을 찾다">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="운영자 페이지 · 메가스팟">
-<meta name="twitter:description" content="문의·예약·후기·일정을 관리하는 운영자 화면입니다.">
+<meta name="twitter:title" content="메가스팟 관리자">
+<meta name="twitter:description" content="문의·견적·예약·일정·후기·회원을 관리하는 메가스팟 관리자 화면입니다.">
 <meta name="twitter:image" content="https://megaspot.kr/assets/img/brand/og-megaspot.jpg">
 <link rel="icon" href="/assets/img/brand/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/assets/img/brand/apple-touch-icon.png">
@@ -42,169 +42,207 @@
 
 </head>
 <body class="page-admin">
-<header class="site-header">
-  <div class="container">
+<div id="admin-root">
+<!-- ===== 로그인 ===== -->
+<div class="adm-login" id="adm-login">
+  <form class="adm-login-card" id="adm-login-form" novalidate>
     <a class="logo" href="/" aria-label="메가스팟 홈으로"><span class="en">MEGA<b>SPOT</b></span><span class="ko">메가스팟</span></a>
-    <nav class="nav" aria-label="주요 메뉴">
-      <a href="/spaces/megaspot-gundae/">메가스팟 건대</a>
-      <a href="/spaces/megaspot-gundae/pricing/">요금</a>
-      <a href="/purpose/">어떤 모임</a>
-      <a href="/guide/">이용 안내</a>
-      <a href="/host/">공간 등록</a>
-      <a href="/about/">소개</a>
+    <h1>관리자 로그인</h1>
+    <p class="small muted">Cloudflare에 저장한 <code>ADMIN_KEY</code> 값으로 로그인합니다.</p>
+    <div class="f"><label for="adm-key">관리자 비밀번호</label><input class="input" type="password" id="adm-key" autocomplete="current-password" required></div>
+    <label class="agree"><input type="checkbox" id="adm-remember"> <span>이 기기에서 7일 동안 로그인 유지 (공용 PC에서는 체크하지 마세요)</span></label>
+    <button class="btn btn-primary btn-lg" type="submit" id="adm-login-btn">로그인</button>
+    <div class="adm-login-msg" id="adm-login-msg" hidden></div>
+    <a class="small muted" href="/">← 홈페이지로 돌아가기</a>
+  </form>
+</div>
+
+<!-- ===== 관리자 화면 ===== -->
+<div class="adm-app" id="adm-app" hidden>
+  <aside class="adm-side">
+    <div class="adm-brand"><a href="/admin/" class="logo inv"><span class="en">MEGA<b>SPOT</b></span></a><span class="adm-badge">관리자</span></div>
+    <nav class="adm-nav" id="adm-nav" aria-label="관리 메뉴">
+      <button type="button" data-view="dash" class="on">대시보드</button>
+      <button type="button" data-view="inq">문의 관리<em data-count="inq" hidden></em></button>
+      <button type="button" data-view="quote">견적 계산</button>
+      <button type="button" data-view="bookings">예약 관리</button>
+      <button type="button" data-view="calendar">일정 달력</button>
+      <button type="button" data-view="reviews">후기<em data-count="reviews" hidden></em></button>
+      <button type="button" data-view="members">회원</button>
+      <button type="button" data-view="hosts">입점 문의</button>
     </nav>
-    <div class="header-cta">
-      <a class="hdr-account" href="/login/" data-account>로그인</a>
-      <a class="btn btn-ghost btn-sm" href="tel:01023849580" data-phone>010-2384-9580</a>
-      <a class="btn btn-primary btn-sm" href="/inquiry/">행사 조건으로 견적 문의</a>
-    </div>
-    <button class="menu-btn" aria-label="메뉴 열기" aria-expanded="false" aria-controls="mobile-nav"><span></span><span></span><span></span></button>
-  </div>
-</header>
-<nav class="mobile-nav" id="mobile-nav" aria-label="모바일 메뉴">
-  <a href="/spaces/megaspot-gundae/">메가스팟 건대 <span class="badge badge-direct" style="margin-left:8px">직영</span></a>
-  <a href="/spaces/megaspot-gundae/pricing/">메가스팟 건대 요금 안내</a>
-  <a href="/spaces/megaspot-gundae/pricing/#estimate">예상 금액 계산</a>
-  <a href="/purpose/">어떤 모임</a>
-  <a href="/guide/">이용 안내</a>
-  <a href="/spaces/">공간 찾기</a>
-  <a href="/host/">공간 등록 (호스트)</a>
-  <a href="/inquiry/?type=partner">정기 이용·제휴 문의</a>
-  <a href="/about/">메가스팟 소개</a>
-  <a href="/login/" data-account="full">로그인 · 회원가입</a>
-  <a class="btn btn-primary btn-lg" href="/inquiry/">행사 조건으로 견적 문의</a>
-  <a class="btn btn-ghost" href="tel:01023849580" data-phone>전화 상담</a>
-  <a class="btn btn-kakao" href="http://pf.kakao.com/_uTiFX" target="_blank" rel="noopener" data-kakao><svg class="ico-talk" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3.2C6.6 3.2 2.3 6.6 2.3 10.9c0 2.7 1.8 5.1 4.5 6.5l-.9 3.4c-.1.3.3.6.6.4l4-2.6c.5.1 1 .1 1.5.1 5.4 0 9.7-3.4 9.7-7.8S17.4 3.2 12 3.2z"/></svg>카카오톡 문의</a>
-</nav>
-<main id="main">
-<section class="page-hero" style="padding-bottom:24px">
-  <div class="container">
-    <div class="eyebrow">Admin</div>
-    <h1 class="h-l">운영자 페이지</h1>
-    <p class="lead small">문의·입점·예약·후기·일정·회원을 관리합니다. Cloudflare Pages 환경 변수 <code>ADMIN_KEY</code>에 설정한 키로 접근합니다.</p>
-  </div>
-</section>
+    <div class="adm-side-foot"><a href="/" target="_blank" rel="noopener">홈페이지 보기 ↗</a><button type="button" id="adm-logout">로그아웃</button></div>
+  </aside>
 
-<section class="section" style="padding-top:28px">
-  <div class="container">
-    <div class="card" id="admin-login" style="max-width:520px">
-      <div class="f"><label for="adm-key">운영자 키</label><input class="input" type="password" id="adm-key" autocomplete="current-password" placeholder="ADMIN_KEY"></div>
-      <div class="row mt-2"><button class="btn btn-primary" id="adm-enter">접속</button><span class="small muted" id="adm-status"></span></div>
-      <p class="tiny muted mt-2">키는 이 브라우저 세션에만 저장되며 서버로는 요청 헤더로만 전달됩니다.</p>
-    </div>
-
-    <div id="admin-app" hidden>
-      <div class="row between mb-3"><div class="tabs" id="adm-tabs" style="border:0"><button class="on" data-tab="inquiries">문의함</button><button data-tab="bookings">예약 관리</button><button data-tab="reviews">후기 관리</button><button data-tab="calendar">일정 관리</button><button data-tab="hosts">입점 문의</button><button data-tab="members">회원</button></div><button class="btn btn-light btn-sm" id="adm-logout">로그아웃</button></div>
-
-      <div id="tab-inquiries">
-        <div class="row between mb-2"><div class="row"><select class="select" id="inq-status-filter" style="min-width:160px"><option value="">모든 상태</option><option>문의 접수</option><option>조건 확인</option><option>견적 발송</option><option>결제 대기</option><option>예약 확정</option><option>이용 완료</option><option>취소·환불</option></select><select class="select" id="inq-type-filter" style="min-width:150px"><option value="">모든 유형</option><option value="event">행사 대관</option><option value="regular">정기·반복 모임</option><option value="partner">제휴·협력</option></select><input class="input" id="inq-q" placeholder="이름·연락처·문의번호 검색" style="min-width:240px"></div><button class="btn btn-light btn-sm" id="inq-reload">새로고침</button></div>
-        <div id="inq-list" class="grid" style="gap:12px"></div>
+  <main class="adm-main">
+    <!-- 대시보드 -->
+    <section class="adm-view" id="view-dash">
+      <header class="adm-head"><div><h1>오늘 확인할 것</h1><p id="dash-date" class="small muted"></p></div><div class="row" style="gap:8px"><button class="btn btn-light btn-sm" type="button" data-go="inq-new">+ 문의 직접 등록</button><button class="btn btn-light btn-sm" type="button" id="dash-reload">새로고침</button></div></header>
+      <div class="adm-kpis" id="dash-kpis"></div>
+      <div class="adm-grid2">
+        <div class="adm-card"><h2>답변이 필요한 문의 <small>문의 접수 · 오래된 순</small></h2><div id="dash-todo" class="adm-list"></div></div>
+        <div class="adm-card"><h2>견적 후 연락이 필요한 문의 <small>견적 발송·결제 대기 2일 이상</small></h2><div id="dash-follow" class="adm-list"></div></div>
+        <div class="adm-card"><h2>날짜가 가까운데 아직 미확정 <small>14일 이내</small></h2><div id="dash-soon" class="adm-list"></div></div>
+        <div class="adm-card"><h2>다가오는 예약 <small>14일 이내</small></h2><div id="dash-upcoming" class="adm-list"></div></div>
       </div>
+      <div class="adm-card mt-3"><h2>이번 달 요약</h2><div id="dash-month" class="adm-month"></div><p class="tiny muted mt-2">금액은 각 문의에 마지막으로 저장한 견적 합계(보증금 제외)를 더한 값입니다. 견적을 저장하지 않은 문의는 금액에 들어가지 않습니다.</p></div>
+    </section>
 
-      <div id="tab-bookings" hidden>
-        <div class="grid grid-2" style="gap:20px;align-items:start">
-          <form class="form card" id="bk-form">
-            <div><div class="eyebrow">New booking</div><h3 class="mt-1">예약 확정 등록</h3><p class="small muted mt-1">결제가 끝난 예약을 등록하면 예약번호가 발급됩니다. 이용 완료 처리 후 고객이 이 번호로 후기를 쓸 수 있습니다.</p></div>
-            <div class="field-row"><div class="f"><label>공간</label><select class="select" name="space_id" id="bk-space"></select></div><div class="f"><label>연결할 문의번호 (선택)</label><input class="input" name="inquiry_ref" placeholder="MS-2611-XXXX"></div></div>
-            <div class="field-row"><div class="f"><label>예약자 이름 <span class="req">*</span></label><input class="input" name="customer_name" required></div><div class="f"><label>연락처 <span class="req">*</span></label><input class="input" name="phone" type="tel" required placeholder="010-0000-0000"></div></div>
-            <div class="field-row three"><div class="f"><label>이용일 <span class="req">*</span></label><input class="input" type="date" name="date" required></div><div class="f"><label>시간대</label><select class="select" name="slot"><option value="am">오전</option><option value="pm" selected>오후</option><option value="ev">저녁</option><option value="ampm">주간 09–18</option><option value="pmev">오후~저녁 14–23</option><option value="day">전일 09–23</option><option value="custom">직접 입력</option></select></div><div class="f"><label>인원</label><input class="input" name="headcount" inputmode="numeric"></div></div>
-            <div class="f"><label>메모 (배치·장비·금액 등)</label><textarea class="textarea" name="memo" style="min-height:80px"></textarea></div>
-            <label class="agree"><input type="checkbox" name="block_calendar" checked> 해당 날짜를 달력에서 '마감'으로 표시</label>
-            <button class="btn btn-primary" type="submit">예약 등록</button>
-            <div class="form-note" id="bk-msg" hidden></div>
-          </form>
-          <div><div class="row between mb-2"><h3 class="h-s">예약 목록</h3><button class="btn btn-light btn-sm" id="bk-reload">새로고침</button></div><div id="bk-list" class="grid" style="gap:10px"></div></div>
+    <!-- 문의 관리 -->
+    <section class="adm-view" id="view-inq" hidden>
+      <header class="adm-head"><div><h1>문의 관리</h1><p class="small muted">줄을 누르면 상세 내용·체크리스트·견적·메모를 볼 수 있습니다.</p></div><div class="row" style="gap:8px"><button class="btn btn-primary btn-sm" type="button" data-go="inq-new">+ 문의 직접 등록</button><button class="btn btn-light btn-sm" type="button" id="inq-csv">CSV 내려받기</button></div></header>
+      <div class="adm-filters">
+        <select class="select" id="inq-status"><option value="open">진행 중 (접수~결제 대기)</option><option value="">전체</option><option>문의 접수</option><option>조건 확인</option><option>견적 발송</option><option>결제 대기</option><option>예약 확정</option><option>이용 완료</option><option>취소·환불</option></select>
+        <select class="select" id="inq-type"><option value="">모든 유형</option><option value="event">행사 대관</option><option value="regular">정기·반복 모임</option><option value="partner">제휴·협력</option></select>
+        <input class="input" id="inq-q" placeholder="이름·연락처·이메일·문의번호">
+        <button class="btn btn-light btn-sm" type="button" id="inq-reload">검색</button>
+      </div>
+      <div id="inq-list" class="adm-table"></div>
+    </section>
+
+    <!-- 견적 계산 -->
+    <section class="adm-view" id="view-quote" hidden>
+      <header class="adm-head"><div><h1>견적 계산</h1><p class="small muted">요금표 v2.0으로 계산하고 할인·추가 항목을 더해 견적서를 만듭니다. 문의 상세에서 '이 문의로 견적 계산'을 누르면 조건이 채워집니다.</p></div><button class="btn btn-light btn-sm" type="button" id="q-reset">새 견적</button></header>
+      <div class="adm-quote">
+        <form class="adm-card q-form" id="q-form" novalidate>
+          <div class="q-link" id="q-link"></div>
+          <h3>고객</h3>
+          <div class="field-row three">
+            <div class="f"><label for="q-customer">이름 · 소속</label><input class="input" id="q-customer" placeholder="예: 김민지 · 성수 러닝크루"></div>
+            <div class="f"><label for="q-phone">연락처</label><input class="input" id="q-phone" type="tel"></div>
+            <div class="f"><label for="q-email">이메일</label><input class="input" id="q-email" type="email"></div>
+          </div>
+          <h3>이용 조건</h3>
+          <div class="field-row three">
+            <div class="f"><label for="q-date">이용일</label><input class="input" type="date" id="q-date"></div>
+            <div class="f"><label for="q-start">시작</label><select class="select" id="q-start"></select></div>
+            <div class="f"><label for="q-end">종료</label><select class="select" id="q-end"></select></div>
+          </div>
+          <div class="q-pkgs" id="q-pkgs"></div>
+          <div class="field-row three">
+            <div class="f"><label for="q-people">인원</label><input class="input" id="q-people" type="number" min="1" max="150" value="20"></div>
+            <div class="f"><label for="q-purpose">모임 목적</label><select class="select" id="q-purpose"></select></div>
+            <div class="f"><span class="lbl">정기 이용</span><label class="chk"><input type="checkbox" id="q-regular"> 4회 이상 예정</label></div>
+          </div>
+          <h3>옵션</h3>
+          <div class="q-opts" id="q-opts"></div>
+          <h3>조정</h3>
+          <div class="field-row three">
+            <div class="f"><label for="q-disc-type">할인</label><select class="select" id="q-disc-type"><option value="none">없음</option><option value="pct">비율 (%)</option><option value="won">금액 (원)</option></select></div>
+            <div class="f"><label for="q-disc-val">할인 값</label><input class="input" id="q-disc-val" type="number" min="0" value="0"></div>
+            <div class="f"><label for="q-disc-why">할인 사유</label><input class="input" id="q-disc-why" placeholder="예: 정기 이용 4회, 오픈 할인"></div>
+          </div>
+          <div class="f"><span class="lbl">추가 항목 <span class="tiny muted">(케이터링·장비 대여·성수기 할증 등, 빼는 금액은 앞에 -)</span></span><div id="q-extras" class="q-extras"></div><button class="btn btn-light btn-sm mt-1" type="button" id="q-extra-add">+ 항목 추가</button></div>
+          <div class="field-row three">
+            <div class="f"><label for="q-deposit">보증금 (별도)</label><input class="input" id="q-deposit" type="number" min="0" step="10000"></div>
+            <div class="f"><label for="q-valid">견적 유효기간</label><select class="select" id="q-valid"><option value="3">3일</option><option value="7" selected>7일</option><option value="14">14일</option><option value="30">30일</option></select></div>
+            <div class="f"></div>
+          </div>
+          <div class="f"><label for="q-note">고객 안내 메모 (견적서와 안내문에 들어감)</label><textarea class="textarea" id="q-note" style="min-height:70px" placeholder="예: 예약금은 견적 금액의 30%이며, 잔금은 이용 7일 전까지 입금해 주세요."></textarea></div>
+        </form>
+        <div class="q-result-wrap">
+          <div class="adm-card q-result" id="q-result"></div>
+          <div class="adm-card q-actions">
+            <label class="agree" id="q-mark-wrap" hidden><input type="checkbox" id="q-mark" checked> <span>저장하면 연결된 문의 상태를 '견적 발송'으로 바꾸기</span></label>
+            <div class="q-btns">
+              <button class="btn btn-primary" type="button" id="q-save">견적 저장</button>
+              <button class="btn btn-graphite" type="button" id="q-print">견적서 PDF·인쇄</button>
+              <button class="btn btn-kakao" type="button" id="q-copy">고객 안내문 복사</button>
+            </div>
+            <div class="form-note" id="q-msg" hidden></div>
+          </div>
+          <div class="adm-card"><h2>최근 저장한 견적</h2><div id="q-recent" class="adm-list"></div></div>
         </div>
       </div>
+    </section>
 
-      <div id="tab-reviews" hidden>
-        <div class="row between mb-2"><select class="select" id="rv-filter" style="min-width:160px"><option value="pending">승인 대기</option><option value="approved">게시 중</option><option value="hidden">숨김</option><option value="">전체</option></select><button class="btn btn-light btn-sm" id="rv-reload">새로고침</button></div>
-        <div id="rv-list" class="grid" style="gap:12px"></div>
+    <!-- 예약 관리 -->
+    <section class="adm-view" id="view-bookings" hidden>
+      <header class="adm-head"><div><h1>예약 관리</h1><p class="small muted">결제가 끝난 예약을 등록하면 예약번호가 발급되고, 이용 완료 처리 후 고객이 그 번호로 후기를 쓸 수 있습니다.</p></div><button class="btn btn-light btn-sm" type="button" id="bk-reload">새로고침</button></header>
+      <div class="adm-grid2" style="align-items:start">
+        <form class="adm-card form" id="bk-form" novalidate>
+          <h2>예약 확정 등록</h2>
+          <div class="field-row"><div class="f"><label>공간</label><select class="select" name="space_id" id="bk-space"></select></div><div class="f"><label>연결할 문의번호</label><input class="input" name="inquiry_ref" id="bk-ref" placeholder="MS-2611-XXXX"></div></div>
+          <div class="field-row"><div class="f"><label>예약자 이름 <span class="req">*</span></label><input class="input" name="customer_name" id="bk-name" required></div><div class="f"><label>연락처 <span class="req">*</span></label><input class="input" name="phone" id="bk-phone" type="tel" required placeholder="010-0000-0000"></div></div>
+          <div class="field-row three"><div class="f"><label>이용일 <span class="req">*</span></label><input class="input" type="date" name="date" id="bk-date" required></div><div class="f"><label>시간</label><select class="select" name="slot" id="bk-slot"><option value="custom">직접 입력(메모)</option><option value="pkg-day">낮 패키지 10–17시</option><option value="pkg-allday">올데이 10–24시</option><option value="pkg-allnight">올나잇 18–07시</option><option value="morning">아침 07–12시</option><option value="day">낮 12–17시</option><option value="evening">저녁 17–24시</option></select></div><div class="f"><label>인원</label><input class="input" name="headcount" id="bk-people" inputmode="numeric"></div></div>
+          <div class="f"><label>메모 (시간·금액·배치·장비 등)</label><textarea class="textarea" name="memo" id="bk-memo" style="min-height:80px"></textarea></div>
+          <label class="agree"><input type="checkbox" name="block_calendar" checked> <span>해당 날짜를 일정 달력에서 '마감'으로 표시</span></label>
+          <button class="btn btn-primary" type="submit">예약 등록</button>
+          <div class="form-note" id="bk-msg" hidden></div>
+        </form>
+        <div class="adm-card"><div class="row between"><h2>예약 목록</h2><select class="select" id="bk-filter" style="width:auto;min-height:36px"><option value="upcoming">예정</option><option value="completed">이용 완료</option><option value="cancelled">취소</option><option value="">전체</option></select></div><div id="bk-list" class="adm-list mt-2"></div></div>
       </div>
+    </section>
 
-      <div id="tab-calendar" hidden>
-        <div class="grid grid-2" style="gap:20px;align-items:start">
-          <form class="form card" id="cal-form">
-            <div><div class="eyebrow">Calendar</div><h3 class="mt-1">날짜 상태 등록</h3><p class="small muted mt-1">달력에 표시할 상태를 등록합니다. 외부 채널로 받은 예약도 여기서 '마감'으로 막아 두세요.</p></div>
-            <div class="field-row three"><div class="f"><label>공간</label><select class="select" name="space_id" id="cal-space"></select></div><div class="f"><label>날짜 <span class="req">*</span></label><input class="input" type="date" name="date" required></div><div class="f"><label>상태</label><select class="select" name="state"><option value="full">마감</option><option value="hold">임시 확보</option><option value="open">문의 가능(해제)</option></select></div></div>
-            <div class="f"><label>메모</label><input class="input" name="memo" placeholder="예: 외부 채널 예약, 내부 행사, 점검"></div>
-            <button class="btn btn-primary" type="submit">저장</button>
-            <div class="form-note" id="cal-msg" hidden></div>
-          </form>
-          <div><div class="row between mb-2"><h3 class="h-s">등록된 일정 (오늘 이후)</h3><button class="btn btn-light btn-sm" id="cal-reload">새로고침</button></div><div id="cal-list" class="grid" style="gap:8px"></div></div>
-        </div>
-      </div>
+    <!-- 일정 달력 -->
+    <section class="adm-view" id="view-calendar" hidden>
+      <header class="adm-head"><div><h1>일정 달력</h1><p class="small muted">예약과 마감·임시 확보 날짜를 한눈에 봅니다. 날짜를 누르면 아래 칸에 채워집니다.</p></div><div class="row" style="gap:6px"><button class="btn btn-light btn-sm" type="button" id="cal-prev">← 이전 달</button><b id="cal-title" class="cal-title"></b><button class="btn btn-light btn-sm" type="button" id="cal-next">다음 달 →</button></div></header>
+      <div class="adm-card"><div class="adm-cal" id="cal-grid"></div><div class="cal-legend small"><span class="lg bk">예약</span><span class="lg full">마감</span><span class="lg hold">임시 확보</span><span class="lg inq">미확정 문의 날짜</span></div></div>
+      <form class="adm-card form mt-3" id="cal-form" novalidate>
+        <h2>날짜 상태 바꾸기</h2>
+        <div class="field-row three"><div class="f"><label>공간</label><select class="select" name="space_id" id="cal-space"></select></div><div class="f"><label>날짜 <span class="req">*</span></label><input class="input" type="date" name="date" id="cal-date" required></div><div class="f"><label>상태</label><select class="select" name="state"><option value="full">마감</option><option value="hold">임시 확보</option><option value="open">문의 가능(해제)</option></select></div></div>
+        <div class="f"><label>메모</label><input class="input" name="memo" placeholder="예: 외부 채널 예약, 내부 행사, 점검"></div>
+        <button class="btn btn-primary" type="submit">저장</button>
+        <div class="form-note" id="cal-msg" hidden></div>
+      </form>
+    </section>
 
-      <div id="tab-members" hidden>
-        <div class="row between mb-2"><div class="row"><input class="input" id="mem-q" placeholder="이메일·이름·연락처·소속 검색" style="min-width:260px"><span class="small muted" id="mem-total"></span></div><button class="btn btn-light btn-sm" id="mem-reload">새로고침</button></div>
-        <p class="tiny muted mb-2">비밀번호를 잊은 회원은 가입한 이름·휴대폰 번호로 본인인지 확인한 뒤 '임시 비밀번호 발급'을 눌러 알려 주세요. 발급하면 그 회원의 기존 로그인은 모두 풀립니다.</p>
-        <div id="mem-list" class="grid" style="gap:10px"></div>
-      </div>
+    <!-- 후기 -->
+    <section class="adm-view" id="view-reviews" hidden>
+      <header class="adm-head"><div><h1>후기 관리</h1><p class="small muted">승인한 후기만 상세 페이지에 게시됩니다.</p></div><div class="row" style="gap:8px"><select class="select" id="rv-filter" style="width:auto"><option value="pending">승인 대기</option><option value="approved">게시 중</option><option value="hidden">숨김</option><option value="">전체</option></select><button class="btn btn-light btn-sm" type="button" id="rv-reload">새로고침</button></div></header>
+      <div id="rv-list" class="adm-list"></div>
+    </section>
 
-      <div id="tab-hosts" hidden>
-        <div class="row between mb-2"><h3 class="h-s">입점 문의</h3><button class="btn btn-light btn-sm" id="host-reload">새로고침</button></div>
-        <div id="host-list" class="grid" style="gap:12px"></div>
-      </div>
-    </div>
+    <!-- 회원 -->
+    <section class="adm-view" id="view-members" hidden>
+      <header class="adm-head"><div><h1>회원</h1><p class="small muted">비밀번호를 잊은 회원은 가입 이름·휴대폰 번호로 본인인지 확인한 뒤 임시 비밀번호를 발급해 알려 주세요.</p></div><div class="row" style="gap:8px"><input class="input" id="mem-q" placeholder="이메일·이름·연락처·소속" style="width:220px"><button class="btn btn-light btn-sm" type="button" id="mem-reload">검색</button></div></header>
+      <p class="small muted mb-2" id="mem-total"></p>
+      <div id="mem-list" class="adm-list"></div>
+    </section>
+
+    <!-- 입점 -->
+    <section class="adm-view" id="view-hosts" hidden>
+      <header class="adm-head"><div><h1>입점 문의</h1><p class="small muted">초대형 공간 운영자가 보낸 입점 문의입니다.</p></div><button class="btn btn-light btn-sm" type="button" id="host-reload">새로고침</button></header>
+      <div id="host-list" class="adm-list"></div>
+    </section>
+  </main>
+</div>
+
+<!-- 문의 상세 (오른쪽 패널) -->
+<div class="adm-drawer" id="adm-drawer" hidden>
+  <div class="adm-drawer-bg" data-close></div>
+  <div class="adm-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="dr-title">
+    <div class="adm-drawer-head"><h2 id="dr-title">문의 상세</h2><button class="btn btn-light btn-sm" type="button" data-close>닫기 ✕</button></div>
+    <div class="adm-drawer-body" id="dr-body"></div>
   </div>
-</section>
-</main>
-<footer class="site-footer">
-  <div class="container">
-    <div class="footer-grid">
-      <div>
-        <a class="logo inv" href="/"><span class="en">MEGA<b>SPOT</b></span><span class="ko">메가스팟</span></a>
-        <p class="mt-2" style="max-width:38ch">큰 모임에 맞는 공간을 찾다. 건대입구 170평 초대형 공간 메가스팟 건대를 직접 운영하는 대형 공간 예약 플랫폼입니다.</p>
-        <ul class="mt-3">
-          <li>상담 <a href="tel:01023849580" data-phone>010-2384-9580</a></li>
-          <li>이메일 <a href="mailto:spaceblank0100@gmail.com" data-email>spaceblank0100@gmail.com</a></li>
-          <li>카카오톡 <a href="http://pf.kakao.com/_uTiFX" target="_blank" rel="noopener" data-kakao data-kakao-url>pf.kakao.com/_uTiFX</a></li>
-          <li><span data-hours>평일 10:00–19:00</span></li>
-        </ul>
-        <a class="footer-kakao" href="http://pf.kakao.com/_uTiFX" target="_blank" rel="noopener" data-kakao aria-label="카카오톡 문의 채널 열기 (새 창)">
-          <img src="/assets/img/brand/kakao-qr.svg" width="80" height="80" alt="메가스팟 카카오톡 문의 채널 QR코드" loading="lazy">
-          <span><b>카카오톡 문의</b>휴대폰 카메라로 QR코드를 비춰 주세요. 소셜팩토리 카카오톡 채널에서 함께 응대합니다.</span>
-        </a>
-      </div>
-      <div>
-        <h4>Megaspot Gundae</h4>
-        <ul>
-          <li><a href="/spaces/megaspot-gundae/">메가스팟 건대 · 직영</a></li>
-          <li><a href="/spaces/megaspot-gundae/#intro">공간 구조와 사진</a></li>
-          <li><a href="/spaces/megaspot-gundae/#layout">내부 배치와 동선</a></li>
-          <li><a href="/spaces/megaspot-gundae/#facilities">설비와 집기</a></li>
-          <li><a href="/spaces/megaspot-gundae/pricing/">요금 안내 · 예상 금액 계산</a></li>
-          <li><a href="/spaces/megaspot-gundae/3d/">3D 둘러보기</a></li>
-        </ul>
-      </div>
-      <div>
-        <h4>Service</h4>
-        <ul>
-          <li><a href="/inquiry/">행사 조건으로 견적 문의</a></li>
-          <li><a href="/inquiry/?type=regular">정기 이용 상담</a></li>
-          <li><a href="/inquiry/?type=partner">제휴·협력 제안</a></li>
-          <li><a href="/purpose/">모임 목적별 안내</a></li>
-          <li><a href="/guide/">예약 흐름과 이용 안내</a></li>
-          <li><a href="/guide/#faq">자주 묻는 질문</a></li>
-          <li><a href="/host/">공간 등록 (호스트 입점)</a></li>
-          <li><a href="/about/">메가스팟 소개</a></li>
-        </ul>
-      </div>
-      <div>
-        <h4>Notice</h4>
-        <address class="footer-note" style="font-style:normal">메가스팟 건대 · 서울특별시 광진구 화양동 10-1 한아름건물 2층 · 지하철 2·7호선 건대입구역 인근</address>
-        <p class="footer-note">메가스팟은 직영 공간의 판매자이자, 외부 호스트 공간의 통신판매중개자입니다. 외부 호스트 공간은 상세 화면과 결제 단계에서 실제 계약 상대방(호스트 사업자)을 표시합니다. 상세 페이지의 인원·면적·시설 정보는 확인 기준(운영자 확인·도면·사진)을 함께 표기하며, 확인되지 않은 항목은 견적 단계에서 확정합니다.</p>
-      </div>
-    </div>
-    <div class="footer-bottom">
-      <div><span data-company></span></div>
-      <div class="row" style="gap:16px"><a href="/terms/">이용약관</a><a href="/privacy/">개인정보처리방침</a><a href="/admin/" rel="nofollow">운영자</a></div>
-      <div>© <span data-year>2026</span> MEGASPOT. All rights reserved.</div>
-    </div>
+</div>
+
+<!-- 문의 직접 등록 -->
+<div class="adm-drawer" id="adm-new" hidden>
+  <div class="adm-drawer-bg" data-close></div>
+  <div class="adm-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="nw-title">
+    <div class="adm-drawer-head"><h2 id="nw-title">문의 직접 등록</h2><button class="btn btn-light btn-sm" type="button" data-close>닫기 ✕</button></div>
+    <form class="adm-drawer-body form" id="nw-form" novalidate>
+      <p class="small muted">카카오톡·전화·이메일·방문으로 받은 문의도 여기에 등록해 두면 홈페이지 문의와 같은 목록에서 견적·예약까지 관리할 수 있습니다.</p>
+      <div class="field-row"><div class="f"><label>받은 경로</label><select class="select" name="channel"><option value="kakao">카카오톡</option><option value="phone">전화</option><option value="email">이메일</option><option value="visit">방문·답사</option><option value="other">기타</option></select></div><div class="f"><label>유형</label><select class="select" name="inquiry_type"><option value="event">행사 대관</option><option value="regular">정기·반복 모임</option><option value="partner">제휴·협력</option></select></div></div>
+      <div class="field-row"><div class="f"><label>고객 이름·소속 <span class="req">*</span></label><input class="input" name="name" required></div><div class="f"><label>연락처</label><input class="input" name="phone" type="tel"></div></div>
+      <div class="f"><label>이메일</label><input class="input" name="email" type="email"></div>
+      <div class="field-row three"><div class="f"><label>이용일</label><input class="input" type="date" name="date"></div><div class="f"><label>시작</label><input class="input" type="time" name="t_start" step="3600"></div><div class="f"><label>종료</label><input class="input" type="time" name="t_end" step="3600"></div></div>
+      <div class="field-row"><div class="f"><label>인원</label><input class="input" name="headcount" inputmode="numeric"></div><div class="f"><label>모임 목적</label><select class="select" name="purpose" id="nw-purpose"></select></div></div>
+      <div class="f"><label>문의 내용</label><textarea class="textarea" name="message" style="min-height:90px"></textarea></div>
+      <div class="f"><label>운영 메모</label><input class="input" name="memo"></div>
+      <button class="btn btn-primary" type="submit">등록</button>
+      <div class="form-note" id="nw-msg" hidden></div>
+    </form>
   </div>
-</footer>
+</div>
+</div><!-- /admin-root -->
+<div id="quote-print" aria-hidden="true"></div>
 <script src="/assets/js/site.js"></script>
 <script src="/assets/js/data/spaces.js"></script>
+<script src="/assets/js/data/holidays-kr.js"></script>
+<script src="/assets/js/data/pricing-gundae.js"></script>
+<script src="/assets/js/pricing-engine.js"></script>
 <script src="/assets/js/pages/admin.js"></script>
 </body>
 </html>

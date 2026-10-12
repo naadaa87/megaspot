@@ -1,3 +1,4 @@
+import { SCHEMA } from './_schema.js';   // schema.sql 에서 자동 생성 (tools/build_site.py)
 // 공통 유틸 — Cloudflare Pages Functions (D1 바인딩 이름: DB, 운영자 키: ADMIN_KEY)
 export function json(data, status = 200, extra = {}) {
   return new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...extra } });
@@ -31,15 +32,6 @@ export async function uniqueRef(env, table, column, prefix) {
     if (!row) return ref;
   }
   throw new Error('번호 생성에 실패했습니다. 다시 시도해 주세요.');
-}
-export function checkAdmin(request, env) {
-  const key = request.headers.get('x-admin-key') || '';
-  const expected = env.ADMIN_KEY || '';
-  if (!expected) return err('서버에 ADMIN_KEY가 설정되어 있지 않습니다.', 503, 'NO_ADMIN_KEY');
-  if (key.length !== expected.length) return err('운영자 키가 올바르지 않습니다.', 401, 'UNAUTHORIZED');
-  let diff = 0; for (let i = 0; i < key.length; i++) diff |= key.charCodeAt(i) ^ expected.charCodeAt(i);
-  if (diff !== 0) return err('운영자 키가 올바르지 않습니다.', 401, 'UNAUTHORIZED');
-  return null;
 }
 export async function log(env, kind, ref, actor, detail) {
   try { await env.DB.prepare('INSERT INTO event_log (kind, ref, actor, detail, created_at) VALUES (?,?,?,?,?)').bind(kind, ref || '', actor || 'system', typeof detail === 'string' ? detail : JSON.stringify(detail || {}), now()).run(); } catch {}
@@ -115,3 +107,38 @@ export async function hit(env, key, minutes) {
   else await env.DB.prepare('UPDATE auth_attempts SET count = count + 1 WHERE key = ?').bind(key).run();
 }
 export async function clearHits(env, key) { await env.DB.prepare('DELETE FROM auth_attempts WHERE key = ?').bind(key).run(); }
+
+// ---------- 표 자동 생성 ----------
+let schemaReady = false;
+export async function ensureSchema(env) {
+  if (schemaReady || !hasDb(env)) return;
+  if (typeof env.DB.batch === 'function') {
+    try { await env.DB.batch(SCHEMA.map(s => env.DB.prepare(s))); schemaReady = true; return; } catch {}
+  }
+  for (const s of SCHEMA) { try { await env.DB.prepare(s).run(); } catch {} }
+  schemaReady = true;
+}
+export const TABLES = ['inquiries', 'host_applications', 'bookings', 'reviews', 'calendar_blocks', 'event_log', 'members', 'sessions', 'auth_attempts', 'admin_sessions', 'quotes', 'inquiry_checks'];
+
+// ---------- 관리자 로그인 ----------
+// /admin 화면은 ADMIN_KEY 로 로그인하면 HttpOnly 쿠키(ms_admin)를 받아 그 뒤 요청에 씁니다.
+// 자동화·점검용으로 X-Admin-Key 헤더도 계속 받습니다.
+function keyEq(a, b) {
+  if (!a || !b || a.length !== b.length) return false;
+  let diff = 0; for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+export function adminKeyOk(key, env) { return keyEq(String(key || ''), String(env.ADMIN_KEY || '')); }
+export function adminCookie(token, hours) {
+  return `ms_admin=${token}; Path=/api/; Max-Age=${hours > 0 ? Math.round(hours * 3600) : 0}; HttpOnly; Secure; SameSite=Strict`;
+}
+export async function requireAdmin(request, env) {
+  if (!env.ADMIN_KEY) return err('Cloudflare에 ADMIN_KEY가 설정되어 있지 않습니다.', 503, 'NO_ADMIN_KEY');
+  const h = request.headers.get('x-admin-key');
+  if (h) return adminKeyOk(h, env) ? null : err('관리자 비밀번호가 올바르지 않습니다.', 401, 'UNAUTHORIZED');
+  const tok = getCookie(request, 'ms_admin');
+  if (!tok) return err('관리자 로그인이 필요합니다.', 401, 'ADMIN_LOGIN');
+  const row = await env.DB.prepare('SELECT 1 AS x FROM admin_sessions WHERE token_hash = ? AND expires_at > ?').bind(await sha256(tok), now()).first();
+  return row ? null : err('로그인이 만료되었습니다. 다시 로그인해 주세요.', 401, 'ADMIN_LOGIN');
+}
+export function kstToday(offsetDays = 0) { return new Date(Date.now() + 9 * 3600e3 + offsetDays * 864e5).toISOString().slice(0, 10); }

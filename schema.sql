@@ -104,3 +104,30 @@ CREATE TABLE IF NOT EXISTS auth_attempts (   -- 로그인 실패·가입 시도 
   window_start TEXT NOT NULL
 );
 -- 회원이 로그인한 상태로 보낸 문의는 inquiries.data 안에 member_id 가 들어가 마이페이지에 표시됩니다.
+
+-- ---------- 관리자 (2026-10-11 추가) ----------
+CREATE TABLE IF NOT EXISTS admin_sessions (  -- 관리자 로그인 상태 (쿠키 토큰의 해시만 저장)
+  token_hash TEXT PRIMARY KEY,
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  ip TEXT
+);
+
+CREATE TABLE IF NOT EXISTS quotes (          -- 관리자가 계산·저장한 견적 (문의 1건에 여러 번 저장 가능, 마지막 것이 최신)
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  quote_no TEXT NOT NULL UNIQUE,             -- Q-YYMM-XXXX
+  inquiry_ref TEXT,                          -- 연결된 문의번호 (없으면 단독 견적)
+  customer TEXT,                             -- 고객 이름·소속
+  event_date TEXT,
+  total INTEGER NOT NULL,                    -- 합계 (보증금 제외)
+  data TEXT NOT NULL,                        -- 견적 전체(JSON): 조건·항목·할인·추가 항목·안내 메모
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_quotes_ref ON quotes(inquiry_ref, created_at);
+
+CREATE TABLE IF NOT EXISTS inquiry_checks (  -- 문의별 진행 체크리스트
+  ref TEXT PRIMARY KEY,
+  checks TEXT NOT NULL,                      -- {"available":true, "quote_sent":true, ...}
+  updated_at TEXT NOT NULL
+);
+-- 서버는 처음 요청을 받을 때 위 표들이 없으면 스스로 만듭니다 (functions/api/_middleware.js).
