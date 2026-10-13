@@ -77,7 +77,7 @@
 
     + '<fieldset id="fs-people" '+FS+'><legend class="kicker">인원과 배치</legend>'
     + '<div class="field-row three">'
-    + '<div class="f"><label for="iq-people">참석자 수 <span class="req">*</span></label><input class="input" type="number" min="1" max="150" id="iq-people" name="headcount" value="'+esc(pf.people||'')+'" placeholder="예: 80 (최대 150명)" required></div>'
+    + '<div class="f"><label for="iq-people">참석자 수 <span class="req">*</span></label><input class="input" type="number" min="1" max="200" id="iq-people" name="headcount" value="'+esc(pf.people||'')+'" placeholder="예: 80 (최대 200명)" required></div>'
     + '<div class="f"><label for="iq-staff">진행자·스태프</label><input class="input" type="number" min="0" max="99" id="iq-staff" name="staff" placeholder="예: 4"></div>'
     + '<div class="f"><label for="iq-layout">배치 형태</label><select class="select" id="iq-layout" name="layout">'+opt(LAYOUTS, pf.layout||'undecided')+'</select></div>'
     + '</div></fieldset>'

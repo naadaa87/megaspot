@@ -70,7 +70,7 @@
 
   /* ---------- 인원 ---------- */
   R['people-rule'] = function(el){
-    var ex = [30, 50, 80, 100, 150].map(function(n){ return '<span class="tag">' + n + '명 <b style="margin-left:6px;color:var(--cobalt)">+' + esc(man((n - D.people.base) * D.people.extra)) + '</b></span>'; }).join('');
+    var ex = [30, 50, 100, 150, 200].map(function(n){ return '<span class="tag">' + n + '명 <b style="margin-left:6px;color:var(--cobalt)">+' + esc(man((n - D.people.base) * D.people.extra)) + '</b></span>'; }).join('');
     el.innerHTML = '<div class="card pad-s"><div class="row between" style="align-items:flex-start;gap:12px"><div><b style="font-size:17px">기준 인원 ' + D.people.base + '명 포함</b><p class="small muted mt-1">' + esc(D.people.note) + '</p></div><span class="badge badge-cobalt">1명당 ' + esc(man(D.people.extra)) + '</span></div><div class="tags mt-2">' + ex + '</div></div>';
   };
 
@@ -143,7 +143,7 @@
       // 3 인원·모임
       + '<section class="est-step"><h4><span>3</span>인원과 모임 <em>기준 20명 · 최대 ' + D.people.max + '명</em></h4>'
       + '<div class="est-row"><div class="f"><label for="est-people">인원</label><input class="input" type="number" inputmode="numeric" id="est-people" name="people" min="1" max="' + D.people.max + '" value="' + st.people + '"></div>'
-      + '<div class="f" style="flex:2 1 220px"><span class="lbl">빠른 선택</span><div class="pick" data-out="people-pick">' + [20, 30, 50, 80, 100, 150].map(function(n){ return '<button type="button" data-n="' + n + '">' + n + '명</button>'; }).join('') + '</div></div></div>'
+      + '<div class="f" style="flex:2 1 220px"><span class="lbl">빠른 선택</span><div class="pick" data-out="people-pick">' + [20, 30, 50, 100, 150, 200].map(function(n){ return '<button type="button" data-n="' + n + '">' + n + '명</button>'; }).join('') + '</div></div></div>'
       + '<div class="est-row mt-2"><div class="f" style="flex:1 1 240px"><label for="est-purpose">모임 유형</label><select class="select" id="est-purpose" name="purpose"><option value="">선택 (안 하셔도 됩니다)</option>' + PUR.map(function(p){ return '<option value="' + p.id + '"' + (st.purpose === p.id ? ' selected' : '') + '>' + esc(p.label) + '</option>'; }).join('') + '<option value="other">기타</option></select></div>'
       + '<label class="chk" style="align-self:flex-end"><input type="checkbox" name="regular"> 4회 이상 정기 이용 예정 <span class="chk-hint">별도 할인 안내</span></label></div></section>'
       // 4 옵션

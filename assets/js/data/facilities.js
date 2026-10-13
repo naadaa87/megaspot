@@ -15,7 +15,7 @@ window.MEGASPOT_FACILITIES = {
    "no": 2,
    "cat": "기본 정보",
    "item": "이용 인원",
-   "desc": "170평 · 최대 150명 이용 가능",
+   "desc": "190평 · 최대 200명 이용 가능",
    "basis": "사용자 확인",
    "note": "배치별 착석 인원은 별도 확인"
   },
@@ -271,7 +271,7 @@ window.MEGASPOT_FACILITIES = {
    "no": 34,
    "cat": "편의시설",
    "item": "주차",
-   "desc": "주차 가능",
+   "desc": "건물 주차장 120여 대",
    "basis": "사용자 확인",
    "note": "가능 대수·요금·등록 방법 별도 안내"
   },
@@ -467,7 +467,7 @@ window.MEGASPOT_FACILITIES = {
    "name": "주차",
    "qty": null,
    "unit": "",
-   "spec": "주차 가능",
+   "spec": "건물 주차장 120여 대",
    "use": "차량 방문",
    "basis": "해당 없음",
    "status": "구비 확인",
@@ -1259,14 +1259,14 @@ window.MEGASPOT_FACILITIES = {
    "no": 1,
    "cat": "이용 인원·가구",
    "detail": "배치별 착석 인원, 테이블·의자 수량",
-   "known": "전체 170평, 최대 이용 인원 150명은 확정",
+   "known": "전체 190평, 최대 이용 인원 200명은 확정",
    "purpose": "착석형·스탠딩형 구분 및 가구 수량"
   },
   {
    "no": 2,
    "cat": "주차",
-   "detail": "가능 대수·주차 위치·요금·등록 방법",
-   "known": "주차 가능은 확정",
+   "detail": "주차 위치·요금·등록 방법",
+   "known": "건물 주차장 120여 대 확정",
    "purpose": "무료 여부는 아직 확정하지 않음"
   },
   {
