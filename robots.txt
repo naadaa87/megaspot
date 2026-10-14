@@ -3,6 +3,7 @@ Allow: /
 Disallow: /admin/
 Disallow: /api/
 Disallow: /mypage/
+Disallow: /order/
 
 User-agent: Yeti
 Allow: /

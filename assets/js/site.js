@@ -19,10 +19,12 @@
     // ※ 채널 주소를 바꾸면 QR 이미지(/assets/img/brand/kakao-qr.svg)도 새 주소로 다시 만들어 교체해야 합니다.
     hours: '평일 10:00–19:00 (주말·공휴일 문의는 다음 영업일 순차 답변)',
     operatorName: '메가스팟 운영팀',
-    companyName: '',                  // 사업자 상호 (확정 후 입력) — 비우면 푸터에서 숨김
-    bizNo: '',                        // 사업자등록번호
-    ceo: '',                          // 대표자
-    bizAddress: '서울 광진구 화양동 10-1, 한아름건물 2층',
+    companyName: '주식회사 블랭크',     // 사업자 상호 (사업자등록증과 같게)
+    bizNo: '161-86-03494',            // 사업자등록번호
+    ceo: '최시준',                     // 대표자
+    bizAddress: '서울특별시 강남구 영동대로 602, 6층 제트71(삼성동, 삼성동 미켈란 107)',   // 사업장 주소 (사업자등록증)
+    mailOrderNo: '',                  // 통신판매업 신고번호 — 신고가 끝나면 '제2026-서울강남-0000호' 처럼 넣어 주세요. 비우면 '신고 진행 중'으로 표시
+    venueAddress: '서울 광진구 화양동 10-1, 한아름건물 2층',
     apiBase: '/api'
   };
 
@@ -99,6 +101,7 @@
     $$('[data-kakao]').forEach(function(el){ if(CONFIG.kakaoChannel){ el.href=CONFIG.kakaoChannel; el.hidden=false; } else { el.hidden=true; } });
     $$('[data-kakao-url]').forEach(function(el){ if(CONFIG.kakaoChannel) el.textContent=CONFIG.kakaoChannel.replace(/^https?:\/\//,''); });
     $$('[data-kakao-note]').forEach(function(el){ if(CONFIG.kakaoNote) el.textContent=CONFIG.kakaoNote; el.hidden=!CONFIG.kakaoChannel; });
+    $$('[data-mailorder]').forEach(function(el){ if(CONFIG.mailOrderNo) el.textContent=CONFIG.mailOrderNo; });
     $$('[data-company]').forEach(function(el){
       if(!CONFIG.companyName){ el.hidden=true; return; }
       el.innerHTML = esc(CONFIG.companyName) + (CONFIG.ceo?' · 대표 '+esc(CONFIG.ceo):'') + (CONFIG.bizNo?' · 사업자등록번호 '+esc(CONFIG.bizNo):'') + ' · ' + esc(CONFIG.bizAddress);

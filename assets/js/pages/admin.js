@@ -44,7 +44,7 @@
   function fail(box){ return function(e){ if(guard(e)) return; box.innerHTML='<div class="empty">'+esc(e.message||'불러오지 못했습니다.')+'</div>'; }; }
 
   /* =================== 화면 전환 =================== */
-  var LOAD={ dash:loadDash, inq:loadInq, quote:function(){ calc(); loadRecentQuotes(); }, bookings:loadBookings, calendar:loadCalendar, reviews:loadReviews, members:loadMembers, hosts:loadHosts };
+  var LOAD={ dash:loadDash, inq:loadInq, quote:function(){ calc(); loadRecentQuotes(); }, orders:loadOrders, bookings:loadBookings, calendar:loadCalendar, reviews:loadReviews, members:loadMembers, hosts:loadHosts };
   function go(v){
     if(!LOAD[v]) v='dash';
     $$('.adm-view').forEach(function(s){ s.hidden = s.id!=='view-'+v; });
@@ -81,7 +81,8 @@
       $('#dash-soon').innerHTML=(d.soon||[]).length?d.soon.map(function(i){ var dd=E?E.diffDays(d.today,i.event_date):''; return row(i, (dd===0?'오늘':'D-'+dd)+' · 아직 '+i.status); }).join(''):emptyMsg('14일 안에 미확정인 행사가 없습니다.');
       $('#dash-upcoming').innerHTML=(d.upcoming||[]).length?d.upcoming.map(function(b){ var dd=E?E.diffDays(d.today,b.date):''; return '<div class="adm-row"'+(b.inquiry_ref?' data-ref="'+esc(b.inquiry_ref)+'"':'')+'><div class="r1"><b>'+esc(b.customer_name)+'</b><span class="st st-ok">'+(dd===0?'오늘':'D-'+dd)+'</span></div><div class="r2">'+esc(kd(b.date))+' · '+esc(SLOT[b.slot]||b.slot||'')+(b.headcount?' · '+b.headcount+'명':'')+'</div><div class="r3"><span>'+esc(b.booking_code)+'</span><a href="tel:'+esc(b.phone)+'">'+esc(b.phone)+'</a></div></div>'; }).join(''):emptyMsg('14일 안에 잡힌 예약이 없습니다.');
       var mo=d.month||{};
-      $('#dash-month').innerHTML='<div><small>이번 달 들어온 문의</small><b>'+(mo.inquiries||0)+'<em>건</em></b></div><div><small>이번 달 이용 확정</small><b>'+(mo.confirmed||0)+'<em>건</em></b></div><div><small>이번 달 확정 금액</small><b>'+esc(man(mo.confirmed_amount||0))+'</b></div><div><small>견적 발송·결제 대기 금액</small><b>'+esc(man(mo.quoted_amount||0))+'</b></div>';
+      $('#dash-orders').innerHTML=(d.orders_recent||[]).length?d.orders_recent.map(function(o){ return orderRow(o); }).join(''):emptyMsg('온라인 결제 주문이 아직 없습니다.');
+      $('#dash-month').innerHTML='<div><small>이번 달 온라인 결제</small><b>'+(mo.orders_paid||0)+'<em>건 · '+esc(man(mo.orders_amount||0))+'</em></b></div><div><small>이번 달 들어온 문의</small><b>'+(mo.inquiries||0)+'<em>건</em></b></div><div><small>이번 달 이용 확정</small><b>'+(mo.confirmed||0)+'<em>건</em></b></div><div><small>이번 달 확정 금액</small><b>'+esc(man(mo.confirmed_amount||0))+'</b></div><div><small>견적 발송·결제 대기 금액</small><b>'+esc(man(mo.quoted_amount||0))+'</b></div>';
     }).catch(fail($('#dash-todo')));
   }
   function setCount(k,n){ var el=$('[data-count="'+k+'"]'); if(!el) return; el.textContent=n||''; el.hidden=!n; }
@@ -341,6 +342,30 @@
     }).catch(fail($('#q-recent')));
   }
   if(E&&D){ fillForm(); }
+
+  /* =================== 주문·결제 =================== */
+  var OST={paid:['결제 완료','st-ok'],created:['미완료','st-done'],failed:['실패·취소됨','st-cancel'],refunded:['환불','st-quote'],cancelled:['취소','st-cancel']};
+  var PM={Card:'카드',DirectBank:'계좌이체',VBank:'가상계좌',HPP:'휴대폰'};
+  function orderRow(o, full){
+    var st=OST[o.status]||[o.status,''];
+    return '<div class="adm-row ord-row" data-oid="'+esc(o.oid)+'"><div class="r1"><b>'+esc(o.buyer_name||'')+'</b><span class="st '+st[1]+'">'+st[0]+'</span>'+(o.test?'<span class="tag-ch">테스트</span>':'')+(o.pay_method?'<span class="tag-ch">'+esc(PM[o.pay_method]||o.pay_method)+'</span>':'')+'</div>'
+      +'<div class="r2">'+esc(o.title)+(o.event_date?' · '+esc(kd(o.event_date)):'')+(o.people?' · '+o.people+'명':'')+' · <b>'+esc(won(o.price))+'</b></div>'
+      +'<div class="r3"><span>'+esc(o.oid)+(o.booking_code?' · 예약 '+esc(o.booking_code):'')+(o.phone||o.buyer_phone?' · <a href="tel:'+esc(o.buyer_phone||'')+'">'+esc(o.buyer_phone||'')+'</a>':'')+'</span><span>'+esc(String(o.paid_at||o.created_at||'').slice(0,16))+'</span></div>'
+      +(full&&o.memo?'<div class="tiny muted">'+esc(o.memo)+'</div>':'')
+      +(full&&o.status==='paid'?'<div class="row mt-2" style="gap:6px"><button class="btn btn-light btn-sm" type="button" data-oact="refunded" data-oid="'+esc(o.oid)+'">환불 기록</button><button class="btn btn-light btn-sm" type="button" data-oact="cancelled" data-oid="'+esc(o.oid)+'">취소 기록</button>'+(o.inquiry_ref?'<button class="btn btn-light btn-sm" type="button" data-ref="'+esc(o.inquiry_ref)+'">문의 '+esc(o.inquiry_ref)+'</button>':'')+'</div>':'')
+      +'</div>';
+  }
+  function loadOrders(){
+    var box=$('#ord-list'); box.innerHTML='<div class="empty small">불러오는 중…</div>';
+    M.api('/pay/config').then(function(c){ var m=$('#ord-mode'); m.firstElementChild.innerHTML=c.test?'<b>지금은 테스트 결제 상태입니다.</b> KG이니시스 테스트 상점(INIpayTest)으로 결제창이 열리고 실제 승인·출금은 되지 않습니다. 계약 뒤 Cloudflare에 <code>INICIS_MID</code>·<code>INICIS_SIGNKEY</code>를 넣고 다시 배포하면 실결제로 바뀝니다.':'<b>실결제 상태입니다.</b> 결제 완료 주문은 KG이니시스 상점관리자의 거래 내역과 같아야 합니다.'; m.classList.toggle('warn-note', !!c.test); }).catch(function(){});
+    A('/orders?status='+encodeURIComponent($('#ord-status').value)+'&q='+encodeURIComponent($('#ord-q').value.trim())).then(function(r){ var list=r.items||[];
+      box.innerHTML=list.length?list.map(function(o){ return orderRow(o,true); }).join(''):emptyMsg('해당하는 주문이 없습니다.');
+    }).catch(fail(box));
+  }
+  $('#ord-reload').addEventListener('click', loadOrders); $('#ord-search').addEventListener('click', loadOrders); $('#ord-status').addEventListener('change', loadOrders); $('#ord-q').addEventListener('keydown', function(e){ if(e.key==='Enter') loadOrders(); });
+  $('#ord-list').addEventListener('click', function(e){ var b=e.target.closest('button[data-oact]'); if(!b) return;
+    var memo=prompt(b.dataset.oact==='refunded'?'환불 금액과 처리 내용을 적어 주세요 (예: 전액 환불 · 이니시스 취소 완료)':'취소 사유를 적어 주세요'); if(memo===null) return;
+    A('/orders/'+b.dataset.oid,{method:'PATCH', body:{status:b.dataset.oact, memo:memo}}).then(function(){ M.toast('기록했습니다. 연결된 예약은 취소되고 달력 마감이 풀렸습니다.'); loadOrders(); }).catch(function(x){ if(!guard(x)) M.toast(x.message); }); });
 
   /* =================== 예약 =================== */
   function fillSpaces(){ var o=spaces.map(function(s){ return '<option value="'+s.id+'">'+esc(s.name)+'</option>'; }).join(''); $('#bk-space').innerHTML=o; $('#cal-space').innerHTML=o; }

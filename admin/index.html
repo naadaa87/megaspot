@@ -65,6 +65,7 @@
       <button type="button" data-view="dash" class="on">대시보드</button>
       <button type="button" data-view="inq">문의 관리<em data-count="inq" hidden></em></button>
       <button type="button" data-view="quote">견적 계산</button>
+      <button type="button" data-view="orders">주문·결제<em data-count="orders" hidden></em></button>
       <button type="button" data-view="bookings">예약 관리</button>
       <button type="button" data-view="calendar">일정 달력</button>
       <button type="button" data-view="reviews">후기<em data-count="reviews" hidden></em></button>
@@ -85,6 +86,7 @@
         <div class="adm-card"><h2>날짜가 가까운데 아직 미확정 <small>14일 이내</small></h2><div id="dash-soon" class="adm-list"></div></div>
         <div class="adm-card"><h2>다가오는 예약 <small>14일 이내</small></h2><div id="dash-upcoming" class="adm-list"></div></div>
       </div>
+      <div class="adm-card mt-3"><h2>최근 온라인 결제 <small>결제 완료·실패</small></h2><div id="dash-orders" class="adm-list"></div></div>
       <div class="adm-card mt-3"><h2>이번 달 요약</h2><div id="dash-month" class="adm-month"></div><p class="tiny muted mt-2">금액은 각 문의에 마지막으로 저장한 견적 합계(보증금 제외)를 더한 값입니다. 견적을 저장하지 않은 문의는 금액에 들어가지 않습니다.</p></div>
     </section>
 
@@ -154,6 +156,19 @@
           <div class="adm-card"><h2>최근 저장한 견적</h2><div id="q-recent" class="adm-list"></div></div>
         </div>
       </div>
+    </section>
+
+    <!-- 주문·결제 -->
+    <section class="adm-view" id="view-orders" hidden>
+      <header class="adm-head"><div><h1>주문·결제</h1><p class="small muted">홈페이지에서 온라인으로 결제한 이용권·옵션 주문입니다. 결제가 끝나면 예약이 자동 등록되고 달력이 마감됩니다.</p></div><button class="btn btn-light btn-sm" type="button" id="ord-reload">새로고침</button></header>
+      <div class="notice mb-3" id="ord-mode"><div></div></div>
+      <div class="adm-filters">
+        <select class="select" id="ord-status"><option value="paid">결제 완료</option><option value="">전체</option><option value="created">결제창만 열림(미완료)</option><option value="failed">실패·취소됨</option><option value="refunded">환불</option><option value="cancelled">취소</option></select>
+        <input class="input" id="ord-q" placeholder="주문번호·이름·연락처·예약번호">
+        <button class="btn btn-light btn-sm" type="button" id="ord-search">검색</button>
+      </div>
+      <p class="tiny muted mb-2">환불·취소는 <b>KG이니시스 상점관리자(iniweb.inicis.com)</b>에서 먼저 처리한 뒤, 여기서 '환불 기록'을 눌러 상태를 맞춰 주세요. 기록하면 연결된 예약이 취소되고 달력 마감이 풀립니다.</p>
+      <div id="ord-list" class="adm-list"></div>
     </section>
 
     <!-- 예약 관리 -->

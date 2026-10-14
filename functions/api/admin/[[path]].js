@@ -63,7 +63,10 @@ export async function onRequest({ request, env, params }) {
           confirmed: await one("SELECT COUNT(*) AS n FROM inquiries WHERE status IN ('예약 확정', '이용 완료') AND substr(event_date, 1, 7) = ?", month),
           confirmed_amount: await one(`SELECT COALESCE(SUM(${latestQuote}), 0) AS n FROM inquiries i WHERE i.status IN ('예약 확정', '이용 완료') AND substr(i.event_date, 1, 7) = ?`, month),
           quoted_amount: await one(`SELECT COALESCE(SUM(${latestQuote}), 0) AS n FROM inquiries i WHERE i.status IN ('견적 발송', '결제 대기') `),
-        }
+          orders_paid: await one("SELECT COUNT(*) AS n FROM orders WHERE status = 'paid' AND test = 0 AND substr(paid_at, 1, 7) = ?", month),
+          orders_amount: await one("SELECT COALESCE(SUM(price), 0) AS n FROM orders WHERE status = 'paid' AND test = 0 AND substr(paid_at, 1, 7) = ?", month),
+        },
+        orders_recent: await all("SELECT oid, title, event_date, price, buyer_name, status, test, paid_at, created_at FROM orders WHERE status IN ('paid','failed') ORDER BY COALESCE(paid_at, created_at) DESC LIMIT 8")
       };
       return json({ ok: true, ...out });
     }
@@ -233,6 +236,45 @@ export async function onRequest({ request, env, params }) {
       await env.DB.prepare('DELETE FROM sessions WHERE member_id = ?').bind(id).run();
       await log(env, 'member.reset_password', String(id), 'admin', '');
       return json({ ok: true, temp_password: temp });
+    }
+
+    // ---- 주문·결제 ----
+    if (path === 'orders' && method === 'GET') {
+      const st = str(url.searchParams.get('status'), 20), q = str(url.searchParams.get('q'), 60);
+      let sql = 'SELECT oid, product_id, title, event_date, people, price, buyer_name, buyer_phone, buyer_email, status, pay_method, tid, appl_at, result_msg, booking_code, inquiry_ref, member_id, memo, test, created_at, paid_at, updated_at FROM orders WHERE 1=1'; const b = [];
+      if (st) { sql += ' AND status = ?'; b.push(st); }
+      if (q) { sql += ' AND (oid LIKE ? OR buyer_name LIKE ? OR buyer_phone LIKE ? OR booking_code LIKE ?)'; b.push('%' + q.toUpperCase() + '%', '%' + q + '%', '%' + q + '%', '%' + q.toUpperCase() + '%'); }
+      sql += ' ORDER BY created_at DESC LIMIT 300';
+      const { results } = await env.DB.prepare(sql).bind(...b).all();
+      return json({ ok: true, items: results || [] });
+    }
+    const mOrd = path.match(/^orders\/([A-Z0-9-]+)$/);
+    if (mOrd && method === 'GET') {
+      const row = await env.DB.prepare('SELECT * FROM orders WHERE oid = ?').bind(mOrd[1]).first();
+      if (!row) return err('주문을 찾을 수 없습니다.', 404, 'NOT_FOUND');
+      const { results: lg } = await env.DB.prepare('SELECT kind, actor, detail, created_at FROM event_log WHERE ref = ? ORDER BY id DESC LIMIT 20').bind(mOrd[1]).all();
+      return json({ ok: true, item: { ...row, data: safe(row.data) }, log: lg || [] });
+    }
+    if (mOrd && method === 'PATCH') {
+      // 환불·취소는 이니시스 상점관리자에서 실제 처리한 뒤 여기서 상태만 기록합니다.
+      const d = await readJson(request); const oid = mOrd[1]; const sets = [], b = [];
+      if (d.status !== undefined) {
+        if (!['paid', 'cancelled', 'refunded'].includes(d.status)) return err('상태 값이 올바르지 않습니다.');
+        sets.push('status = ?'); b.push(d.status);
+        if (d.status !== 'paid') {
+          const row = await env.DB.prepare('SELECT booking_code, event_date FROM orders WHERE oid = ?').bind(oid).first();
+          if (row && row.booking_code) {
+            await env.DB.prepare("UPDATE bookings SET status = 'cancelled', updated_at = ? WHERE booking_code = ?").bind(now(), row.booking_code).run();
+            await env.DB.prepare('DELETE FROM calendar_blocks WHERE memo = ?').bind('예약 ' + row.booking_code).run();
+          }
+        }
+      }
+      if (d.memo !== undefined) { sets.push('memo = ?'); b.push(str(d.memo, 1000)); }
+      if (!sets.length) return err('변경할 내용이 없습니다.');
+      sets.push('updated_at = ?'); b.push(now(), oid);
+      await env.DB.prepare('UPDATE orders SET ' + sets.join(', ') + ' WHERE oid = ?').bind(...b).run();
+      await log(env, 'order.updated', oid, 'admin', d);
+      return json({ ok: true });
     }
 
     // ---- 일정 ----

@@ -16,5 +16,7 @@ export const SCHEMA = [
  "CREATE TABLE IF NOT EXISTS admin_sessions ( token_hash TEXT PRIMARY KEY, created_at TEXT NOT NULL, expires_at TEXT NOT NULL, ip TEXT )",
  "CREATE TABLE IF NOT EXISTS quotes ( id INTEGER PRIMARY KEY AUTOINCREMENT, quote_no TEXT NOT NULL UNIQUE, inquiry_ref TEXT, customer TEXT, event_date TEXT, total INTEGER NOT NULL, data TEXT NOT NULL, created_at TEXT NOT NULL )",
  "CREATE INDEX IF NOT EXISTS idx_quotes_ref ON quotes(inquiry_ref, created_at)",
- "CREATE TABLE IF NOT EXISTS inquiry_checks ( ref TEXT PRIMARY KEY, checks TEXT NOT NULL, updated_at TEXT NOT NULL )"
+ "CREATE TABLE IF NOT EXISTS inquiry_checks ( ref TEXT PRIMARY KEY, checks TEXT NOT NULL, updated_at TEXT NOT NULL )",
+ "CREATE TABLE IF NOT EXISTS orders ( id INTEGER PRIMARY KEY AUTOINCREMENT, oid TEXT NOT NULL UNIQUE, product_id TEXT NOT NULL, title TEXT NOT NULL, event_date TEXT, people INTEGER, price INTEGER NOT NULL, buyer_name TEXT NOT NULL, buyer_phone TEXT NOT NULL, buyer_email TEXT, data TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'created', pay_method TEXT, tid TEXT, appl_at TEXT, result_msg TEXT, booking_code TEXT, inquiry_ref TEXT, member_id INTEGER, memo TEXT, test INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, paid_at TEXT, updated_at TEXT )",
+ "CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status, created_at)"
 ];
