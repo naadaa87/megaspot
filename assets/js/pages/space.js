@@ -66,7 +66,7 @@
   (function(){
     var box=$('#intro-zones'); if(!box) return;
     var img=$('#intro-zone-photo'), cap=$('#intro-zone-cap');
-    zoneButtons(box, function(id){ var z=zone(id); var p=photoById[z.photo]; img.src=M.photoSrc(S.id,z.photo); img.alt=p?p.title:z.label; cap.textContent=z.label+' · '+z.desc; });
+    zoneButtons(box, function(id){ var z=zone(id); var p=photoById[z.photo]; img.src=M.imgSrc(z.photo,'m'); img.alt=p?p.title:z.label; cap.textContent=z.label+' · '+z.desc; });
     box.querySelector('button').classList.add('on');
   })();
 
@@ -147,7 +147,7 @@
   function selectZone(id, fromPlan){
     planState.zone=id; var z=zone(id); if(!z) return;
     $('#plan-info').innerHTML='<b>'+z.n+' · '+esc(z.label)+' <span class="tiny muted" style="font-weight:400">'+esc(z.en)+'</span></b>'+esc(z.desc);
-    var img=$('#plan-zone-photo'), p=photoById[z.photo]; img.src=M.photoSrc(S.id,z.photo); img.alt=p?p.title:z.label; $('#plan-zone-cap').textContent=(p?p.title:z.label);
+    var img=$('#plan-zone-photo'), p=photoById[z.photo]; img.src=M.imgSrc(z.photo,'m'); img.alt=p?p.title:z.label; $('#plan-zone-cap').textContent=(p?p.title:z.label);
     $$('#plan-zones button').forEach(function(b){ b.classList.toggle('on', b.dataset.zone===id); });
     drawPlan();
   }
@@ -331,7 +331,7 @@
           if(selected===iso) cls+=' sel';
           h+='<div class="'+cls+'" data-d="'+iso+'" role="button" tabindex="'+(dt<today||info.state==='full'?'-1':'0')+'" aria-label="'+M.fmtKDate(iso)+(info.state==='full'?' 마감':info.state==='hold'?' 임시 확보':' 문의 가능')+'">'+d+(info.state?'<span class="dot"></span>':'')+'</div>';
         }
-        h+='</div><div class="cal-legend"><span><i style="background:var(--concrete-3);border:1px solid var(--concrete)"></i>문의 가능 (호스트 확인 필요)</span><span><i style="background:var(--warn-soft)"></i>임시 확보 중</span><span><i style="background:var(--concrete-2)"></i>마감</span><span><i style="background:var(--cobalt)"></i>선택한 날짜</span></div>';
+        h+='</div><div class="cal-legend"><span><i style="background:var(--concrete-3);border:1px solid var(--concrete)"></i>신청 가능 (확인 뒤 확정)</span><span><i style="background:var(--warn-soft)"></i>임시 확보 중</span><span><i style="background:var(--concrete-2)"></i>마감</span><span><i style="background:var(--cobalt)"></i>선택한 날짜</span></div>';
         h+='<p class="tiny muted mt-2">'+(M.demo.on||!Object.keys(days).length?'달력은 안내용이며 실시간 재고가 아닙니다. 희망일을 고르면 예약 신청 화면에 들어가고, 확정 여부는 상담 때 안내합니다.':'표시 상태는 운영자가 갱신한 일정 기준이며 최종 확정은 금액 확인과 결제 뒤에 이뤄집니다.')+'</p>';
         cal.innerHTML=h;
         $('#cal-prev').addEventListener('click', function(){ cur=new Date(y,m-1,1); render(); });

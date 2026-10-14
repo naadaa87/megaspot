@@ -136,5 +136,5 @@ export async function onRequest({ request, env, params }) {
     }
 
     return err('경로를 찾을 수 없습니다.', 404, 'NOT_FOUND');
-  } catch (e) { return err('처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요. (' + (e.message || '') + ')', 500, 'SERVER_ERROR'); }
+  } catch (e) { console.error('auth', e && e.message); return err('처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.', 500, 'SERVER_ERROR'); }
 }

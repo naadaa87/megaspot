@@ -1,5 +1,5 @@
 // 이용 확인 후기 — 조회(게시 승인분) / 작성(예약번호 검증 후 승인 대기)
-import { json, err, hasDb, readJson, str, num, now, log } from './_lib.js';
+import { json, err, hasDb, readJson, str, num, now, log, clientIp, tooMany, hit } from './_lib.js';
 export async function onRequestGet({ request, env }) {
   if (!hasDb(env)) return err('데이터베이스가 연결되어 있지 않습니다.', 503, 'NO_DB');
   const url = new URL(request.url); const space = str(url.searchParams.get('space'), 60) || 'megaspot-gundae';
@@ -15,6 +15,9 @@ export async function onRequestPost({ request, env }) {
   const rating = num(d.rating), title = str(d.title, 60), body = str(d.body, 1500), author = str(d.author, 40);
   const space_id = str(d.space_id, 60) || 'megaspot-gundae';
   if (!code || last4.length !== 4) return err('예약번호와 휴대폰 뒷 4자리를 확인해 주세요.');
+  // 예약번호+뒷자리 맞추기 시도를 막기 위해 같은 IP는 10분에 10번까지만 받습니다
+  const ipKey = 'rev:' + clientIp(request);
+  try { if (await tooMany(env, ipKey, 10, 10)) return err('짧은 시간에 너무 많은 시도가 있었습니다. 잠시 후 다시 시도해 주세요.', 429, 'TOO_MANY'); await hit(env, ipKey, 10); } catch {}
   if (!rating || rating < 1 || rating > 5 || !title || !body || !author) return err('필수 항목을 확인해 주세요.');
   if (!d.agree) return err('게시 기준 동의가 필요합니다.');
   try {
@@ -27,5 +30,5 @@ export async function onRequestPost({ request, env }) {
       .bind(bk.space_id || space_id, code, author, rating, title, body, str(d.event_type, 40), num(d.headcount), 'pending', now()).run();
     await log(env, 'review.created', code, 'customer', { rating });
     return json({ ok: true });
-  } catch (e) { return err('저장 중 오류가 발생했습니다. (' + (e.message || '') + ')', 500, 'DB_ERROR'); }
+  } catch (e) { console.error('review', e && e.message); return err('저장 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.', 500, 'DB_ERROR'); }
 }

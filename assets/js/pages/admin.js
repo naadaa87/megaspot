@@ -78,7 +78,7 @@
         +'<button type="button" class="kpi'+(d.reviews_pending?' hot':'')+'" data-go="reviews"><small>후기 승인 대기</small><b>'+(d.reviews_pending||0)+'</b></button>'
         +'<button type="button" class="kpi" data-go="members"><small>회원 (최근 7일 +'+(d.members_new||0)+')</small><b>'+(d.members||0)+'</b></button>'
         +'<button type="button" class="kpi" data-go="hosts"><small>입점 문의 (최근 7일)</small><b>'+(d.hosts_new||0)+'</b></button>';
-      setCount('inq', c['문의 접수']); setCount('reviews', d.reviews_pending);
+      setCount('inq', c['문의 접수']); setCount('reviews', d.reviews_pending); setCount('orders', d.orders_today_paid);
       $('#dash-todo').innerHTML=(d.todo||[]).length?d.todo.map(function(i){ return row(i); }).join(''):emptyMsg('새로 들어온 문의가 없습니다.');
       $('#dash-follow').innerHTML=(d.followup||[]).length?d.followup.map(function(i){ return row(i, '마지막 변경 '+ago(i.updated_at||i.created_at)); }).join(''):emptyMsg('연락이 밀린 견적이 없습니다.');
       $('#dash-soon').innerHTML=(d.soon||[]).length?d.soon.map(function(i){ var dd=E?E.diffDays(d.today,i.event_date):''; return row(i, (dd===0?'오늘':'D-'+dd)+' · 아직 '+i.status); }).join(''):emptyMsg('14일 안에 미확정인 행사가 없습니다.');
@@ -358,7 +358,7 @@
       +'<div class="r2">'+esc(o.title)+(o.event_date?' · '+esc(kd(o.event_date)):'')+(o.people?' · '+o.people+'명':'')+' · <b>'+esc(won(o.price))+'</b></div>'
       +'<div class="r3"><span>'+esc(o.oid)+(o.booking_code?' · 예약 '+esc(o.booking_code):'')+(o.phone||o.buyer_phone?' · <a href="tel:'+esc(o.buyer_phone||'')+'">'+esc(o.buyer_phone||'')+'</a>':'')+'</span><span>'+esc(String(o.paid_at||o.created_at||'').slice(0,16))+'</span></div>'
       +(full&&o.memo?'<div class="tiny muted">'+esc(o.memo)+'</div>':'')
-      +(full&&o.status==='paid'?'<div class="row mt-2" style="gap:6px"><button class="btn btn-light btn-sm" type="button" data-oact="refunded" data-oid="'+esc(o.oid)+'">환불 기록</button><button class="btn btn-light btn-sm" type="button" data-oact="cancelled" data-oid="'+esc(o.oid)+'">취소 기록</button>'+(o.inquiry_ref?'<button class="btn btn-light btn-sm" type="button" data-ref="'+esc(o.inquiry_ref)+'">문의 '+esc(o.inquiry_ref)+'</button>':'')+'</div>':'')
+      +(full&&o.status==='paid'?'<div class="row mt-2" style="gap:6px"><button class="btn btn-light btn-sm" type="button" data-oact="refunded" data-oid="'+esc(o.oid)+'">환불 기록</button><button class="btn btn-light btn-sm" type="button" data-oact="cancelled" data-oid="'+esc(o.oid)+'">취소 기록</button>'+(o.inquiry_ref?'<button class="btn btn-light btn-sm" type="button" data-open-ref="'+esc(o.inquiry_ref)+'">문의 '+esc(o.inquiry_ref)+'</button>':'')+'</div>':'')
       +'</div>';
   }
   function loadOrders(){
@@ -369,7 +369,7 @@
     }).catch(fail(box));
   }
   $('#ord-reload').addEventListener('click', loadOrders); $('#ord-search').addEventListener('click', loadOrders); $('#ord-status').addEventListener('change', loadOrders); $('#ord-q').addEventListener('keydown', function(e){ if(e.key==='Enter') loadOrders(); });
-  $('#ord-list').addEventListener('click', function(e){ var b=e.target.closest('button[data-oact]'); if(!b) return;
+  $('#ord-list').addEventListener('click', function(e){ var op=e.target.closest('button[data-open-ref]'); if(op){ openInquiry(op.dataset.openRef); return; } var b=e.target.closest('button[data-oact]'); if(!b) return;
     var memo=prompt(b.dataset.oact==='refunded'?'환불 금액과 처리 내용을 적어 주세요 (예: 전액 환불 · 이니시스 취소 완료)':'취소 사유를 적어 주세요'); if(memo===null) return;
     A('/orders/'+b.dataset.oid,{method:'PATCH', body:{status:b.dataset.oact, memo:memo}}).then(function(){ M.toast('기록했습니다. 연결된 예약은 취소되고 달력 마감이 풀렸습니다.'); loadOrders(); }).catch(function(x){ if(!guard(x)) M.toast(x.message); }); });
 

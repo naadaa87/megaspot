@@ -1,41 +1,49 @@
-﻿메가스팟 홈페이지 업데이트 (2026-10-14 · 예약 신청·금액 확인 통합) — GitHub 업로드 안내
+﻿메가스팟 홈페이지 최종본 업데이트 (2026-10-14 · 예약 신청·금액 확인 통합 + 전체 검토 반영) — GitHub 업로드 안내
 
-이 zip에는 이번에 바뀐 파일 60개만 들어 있습니다. (새로 생기거나 지워진 파일은 없습니다)
+이 zip에는 10월 14일 17:39에 올리신 저장소 기준으로 바뀐 파일 70개만 들어 있습니다.
+(새로 생기거나 지워진 파일은 없습니다. 앞서 드린 megaspot-update_reserve_20261014.zip 내용도 모두 포함되어 있으니 이 파일 하나만 올리시면 됩니다.)
 
 올리는 방법
-1. zip을 풀면 README.md, index.html, assets, inquiry, purpose, products, functions 등이 나옵니다.
+1. zip을 풀면 README.md, index.html, _headers, assets, inquiry, purpose, products, functions 등이 나옵니다.
 2. GitHub 저장소(naadaa87/megaspot) 첫 화면에서 Add file → Upload files 를 누릅니다.
 3. 압축을 푼 폴더 안의 파일과 폴더를 전부 선택해 업로드 화면에 끌어다 놓습니다.
    (압축 푼 폴더 자체가 아니라 '안에 있는 것'을 끌어다 놓아야 합니다. 같은 이름의 파일은 새 파일로 바뀝니다.)
 4. Commit changes 를 누르면 Cloudflare Pages가 몇 분 뒤 사이트에 반영합니다.
+5. Cloudflare 설정은 바꿀 것이 없습니다(데이터베이스 표도 그대로).
 
-이번에 바뀐 것
-- 메인·헤더·푸터의 '예상 금액 계산 / 행사 조건으로 견적 문의' → '예약신청·금액확인'
-- /inquiry/ 가 '예약 신청 · 금액 확인' 페이지로 바뀜: 시간(패키지 버튼) → 날짜 → 인원 → 금액 → 예약신청하기(이름·연락처만)
-- 건대 상세·요금 안내의 계산기도 같은 화면으로 교체, 복잡했던 행사 문의서는 아래쪽 '간단 문의'로 축소
-- 푸터·판매자 정보의 '통신판매업신고 신고 진행 중' 문구 삭제
-- 관리자 페이지: 예약 신청 건에 파란 '예약 신청' 표시, 고객이 본 예상 금액·옵션 표시
-- Cloudflare 설정은 바꿀 것이 없습니다 (데이터베이스 표도 그대로).
+올린 뒤 확인하면 좋은 것
+- /inquiry/ 에서 시간·날짜·인원을 고르고 '예약신청하기' → 이름·연락처만 적어 신청 → 접수번호가 나오는지
+- /admin/ 문의 관리에 파란 '예약 신청' 표시와 함께 들어오는지
+- 휴대폰으로 열었을 때 아래쪽에 '전화 · 카카오톡 · 예약신청·금액확인' 바가 보이는지
 
 파일 목록
 404.html
 README.md
+_headers
 _redirects
 about/index.html
+admin/index.html
 assets/css/site.css
+assets/js/data/facilities.js
 assets/js/data/spaces.js
 assets/js/inquiry-form.js
 assets/js/pages/account.js
 assets/js/pages/admin.js
+assets/js/pages/home.js
 assets/js/pages/inquiry.js
 assets/js/pages/order.js
 assets/js/pages/purpose.js
 assets/js/pages/space.js
+assets/js/pages/spaces.js
 assets/js/pricing-ui.js
 assets/js/site.js
 functions/api/admin/[[path]].js
 functions/api/auth/[[path]].js
+functions/api/availability.js
+functions/api/host.js
 functions/api/inquiry.js
+functions/api/pay/[[path]].js
+functions/api/reviews.js
 guide/index.html
 host/index.html
 index.html
@@ -75,6 +83,7 @@ rss.xml
 signup/index.html
 sitemap.xml
 spaces/index.html
+spaces/megaspot-gundae/3d/index.html
 spaces/megaspot-gundae/index.html
 spaces/megaspot-gundae/pricing/index.html
 terms/index.html

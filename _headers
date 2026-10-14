@@ -8,10 +8,10 @@
   Cache-Control: public, max-age=31536000, immutable
 
 /assets/css/*
-  Cache-Control: public, max-age=86400
+  Cache-Control: public, max-age=604800
 
 /assets/js/*
-  Cache-Control: public, max-age=3600
+  Cache-Control: public, max-age=604800
 
 /spaces/megaspot-gundae/3d/MEGASPOT_2F.glb
   Cache-Control: public, max-age=31536000, immutable

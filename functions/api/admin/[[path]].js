@@ -66,7 +66,8 @@ export async function onRequest({ request, env, params }) {
           orders_paid: await one("SELECT COUNT(*) AS n FROM orders WHERE status = 'paid' AND test = 0 AND substr(paid_at, 1, 7) = ?", month),
           orders_amount: await one("SELECT COALESCE(SUM(price), 0) AS n FROM orders WHERE status = 'paid' AND test = 0 AND substr(paid_at, 1, 7) = ?", month),
         },
-        orders_recent: await all("SELECT oid, title, event_date, price, buyer_name, status, test, paid_at, created_at FROM orders WHERE status IN ('paid','failed') ORDER BY COALESCE(paid_at, created_at) DESC LIMIT 8")
+        orders_recent: await all("SELECT oid, title, event_date, price, buyer_name, status, test, paid_at, created_at FROM orders WHERE status IN ('paid','failed') ORDER BY COALESCE(paid_at, created_at) DESC LIMIT 8"),
+        orders_today_paid: await one("SELECT COUNT(*) AS n FROM orders WHERE status = 'paid' AND substr(paid_at, 1, 10) = ?", today)
       };
       return json({ ok: true, ...out });
     }
@@ -293,6 +294,6 @@ export async function onRequest({ request, env, params }) {
     }
 
     return err('경로를 찾을 수 없습니다.', 404, 'NOT_FOUND');
-  } catch (e) { return err('처리 중 오류가 발생했습니다. (' + (e.message || '') + ')', 500, 'SERVER_ERROR'); }
+  } catch (e) { console.error('admin', e && e.message); return err('처리 중 오류가 발생했습니다. (' + String(e && e.message || '').slice(0, 120) + ')', 500, 'SERVER_ERROR'); }
 }
 function safe(s) { try { return JSON.parse(s || '{}'); } catch { return {}; } }

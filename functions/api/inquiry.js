@@ -1,11 +1,14 @@
 // 문의·예약 신청 접수 — 행사 대관(event) · 정기·반복 모임(regular) · 제휴·협력·파트너(partner)
 // reserve:true 이면 '예약 신청'(금액 확인 → 신청)으로 들어온 건입니다. 모임 유형은 선택 사항입니다.
-import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, log, getMember } from './_lib.js';
+import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, log, getMember, clientIp, tooMany, hit, kstToday } from './_lib.js';
 const TYPES = ['event', 'regular', 'partner'];
 export async function onRequestPost({ request, env }) {
   if (!hasDb(env)) return err('데이터베이스가 연결되어 있지 않습니다.', 503, 'NO_DB');
   let d; try { d = await readJson(request); } catch (e) { return err(e.message); }
-  if (d.website) return json({ ok: true, ref: 'MS-0000-SPAM' }); // 허니팟
+  if (d.website) return json({ ok: true, ref: 'MS-0000-SPAM' }); // 허니팟(사람은 채우지 않는 숨은 칸)
+  // 같은 IP에서 10분에 8건 넘게 들어오면 잠시 막습니다(자동 입력 방지)
+  const ipKey = 'inq:' + clientIp(request);
+  try { if (await tooMany(env, ipKey, 8, 10)) return err('짧은 시간에 너무 많은 요청이 들어왔습니다. 잠시 후 다시 시도해 주세요.', 429, 'TOO_MANY'); } catch {}
   const inquiry_type = TYPES.includes(d.inquiry_type) ? d.inquiry_type : 'event';
   const name = str(d.name, 80), phone = str(d.phone, 30).replace(/[^0-9-+]/g, ''), email = str(d.email, 120);
   const space_id = str(d.space_id, 60) || (inquiry_type === 'partner' ? 'megaspot-gundae' : 'request');
@@ -16,6 +19,7 @@ export async function onRequestPost({ request, env }) {
   if (phone.replace(/\D/g, '').length < 9) return err('연락처 형식을 확인해 주세요.');
   // 예약 신청은 이용일이 꼭 있어야 하고, 간단 문의는 이름·연락처만 있으면 받습니다(날짜·모임 유형은 선택).
   if (reserve && !isDate(date)) return err('이용 희망일을 확인해 주세요.');
+  if (reserve && date < kstToday()) return err('지난 날짜는 신청할 수 없습니다. 이용일을 다시 골라 주세요.');
   if (date && !isDate(date)) return err('희망일 형식을 확인해 주세요.');
   if (inquiry_type === 'partner') {
     if (!org) return err('회사·단체명을 적어 주세요.');
@@ -38,10 +42,11 @@ export async function onRequestPost({ request, env }) {
   // 로그인한 회원이 보낸 문의는 회원 번호를 붙여 마이페이지에서 진행 상태를 볼 수 있게 합니다.
   try { const m = await getMember(request, env); if (m) { data.member_id = m.id; data.member_email = m.email; } } catch {}
   try {
+    try { await hit(env, ipKey, 10); } catch {}
     const ref = await uniqueRef(env, 'inquiries', 'ref', 'MS');
     await env.DB.prepare('INSERT INTO inquiries (ref, space_id, status, name, phone, email, event_date, headcount, data, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)')
       .bind(ref, space_id, '문의 접수', name, phone, email, data.date || null, headcount, JSON.stringify(data), now()).run();
     await log(env, reserve ? 'reserve.created' : 'inquiry.created', ref, data.member_id ? 'member:' + data.member_id : 'customer', { inquiry_type, space_id, date: data.date, headcount, total: data.total });
     return json({ ok: true, ref, member: !!data.member_id });
-  } catch (e) { return err('저장 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요. (' + (e.message || '') + ')', 500, 'DB_ERROR'); }
+  } catch (e) { console.error('inquiry', e && e.message); return err('저장 중 오류가 발생했습니다. 잠시 후 다시 시도하거나 카카오톡으로 알려 주세요.', 500, 'DB_ERROR'); }
 }

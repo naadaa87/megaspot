@@ -13,7 +13,10 @@
 
   // URL → 폼
   var q=new URLSearchParams(location.search);
-  ['region','people','purpose'].forEach(function(k){ if(q.get(k)){ var el=form.elements[k]; if(el) el.value=q.get(k); } });
+  ['region','people','purpose'].forEach(function(k){ if(q.get(k)){ var el=form.elements[k]; if(!el) return; var v=q.get(k);
+    // 인원은 보기 중에서 가장 가까운(같거나 큰) 값으로 맞춥니다 (예: 60 → 80명 안팎)
+    if(k==='people' && el.tagName==='SELECT'){ var n=parseInt(v,10)||0, opts=Array.prototype.slice.call(el.options).map(function(o){ return +o.value; }).filter(Boolean).sort(function(a,b){ return a-b; }); var pick=opts.filter(function(o){ return o>=n; })[0]||opts[opts.length-1]; if(n) v=String(pick); }
+    el.value=v; } });
   q.getAll('feature').forEach(function(v){ var el=form.querySelector('input[name=feature][value="'+v+'"]'); if(el) el.checked=true; });
 
   function state(){

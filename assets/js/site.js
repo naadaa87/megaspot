@@ -14,7 +14,7 @@
     description: '인원과 목적에 맞는 대형 공간을 비교하고 문의하는 예약 플랫폼',
     phone: '010-2384-9580',          // 대표 상담 번호 — 공개 전 확인
     email: 'spaceblank0100@gmail.com', // 대표 이메일 — 공개 전 확인
-    kakaoChannel: 'http://pf.kakao.com/_uTiFX', // 카카오톡 문의 채널 — 비우면 카카오톡 버튼·링크 숨김
+    kakaoChannel: 'https://pf.kakao.com/_uTiFX', // 카카오톡 문의 채널 — 비우면 카카오톡 버튼·링크 숨김
     kakaoNote: '메가스팟 문의는 소셜팩토리 카카오톡 채널에서 함께 응대합니다.',
     // ※ 채널 주소를 바꾸면 QR 이미지(/assets/img/brand/kakao-qr.svg)도 새 주소로 다시 만들어 교체해야 합니다.
     hours: '평일 10:00–19:00 (주말·공휴일 문의는 다음 영업일 순차 답변)',
@@ -83,7 +83,13 @@
   /* ---------- header / nav ---------- */
   function initHeader(){
     var btn=$('.menu-btn'), nav=$('.mobile-nav');
-    if(btn&&nav){ btn.addEventListener('click', function(){ var open=nav.classList.toggle('open'); btn.setAttribute('aria-expanded', String(open)); document.body.style.overflow = open?'hidden':''; }); }
+    if(btn&&nav){
+      var setMenu=function(open){ nav.classList.toggle('open', open); btn.setAttribute('aria-expanded', String(open)); btn.setAttribute('aria-label', open?'메뉴 닫기':'메뉴 열기'); document.body.style.overflow = open?'hidden':''; document.body.classList.toggle('menu-open', open); if(open){ var first=nav.querySelector('a'); if(first) first.focus({preventScroll:true}); } };
+      btn.addEventListener('click', function(){ setMenu(!nav.classList.contains('open')); });
+      nav.addEventListener('click', function(e){ if(e.target.closest('a')) setMenu(false); });
+      document.addEventListener('keydown', function(e){ if(e.key==='Escape' && nav.classList.contains('open')){ setMenu(false); btn.focus(); } });
+      window.matchMedia('(min-width:1000px)').addEventListener('change', function(e){ if(e.matches) setMenu(false); });
+    }
     // current page marking
     var path=location.pathname.replace(/index\.html$/,'');
     ['.nav','.mobile-nav'].forEach(function(sel){
@@ -102,10 +108,7 @@
     $$('[data-kakao-url]').forEach(function(el){ if(CONFIG.kakaoChannel) el.textContent=CONFIG.kakaoChannel.replace(/^https?:\/\//,''); });
     $$('[data-kakao-note]').forEach(function(el){ if(CONFIG.kakaoNote) el.textContent=CONFIG.kakaoNote; el.hidden=!CONFIG.kakaoChannel; });
     $$('[data-mailorder]').forEach(function(el){ if(CONFIG.mailOrderNo) el.textContent=CONFIG.mailOrderNo; }); $$('[data-mailorder-line]').forEach(function(el){ el.hidden=!CONFIG.mailOrderNo; });
-    $$('[data-company]').forEach(function(el){
-      if(!CONFIG.companyName){ el.hidden=true; return; }
-      el.innerHTML = esc(CONFIG.companyName) + (CONFIG.ceo?' · 대표 '+esc(CONFIG.ceo):'') + (CONFIG.bizNo?' · 사업자등록번호 '+esc(CONFIG.bizNo):'') + ' · ' + esc(CONFIG.bizAddress);
-    });
+    $$('[data-company]').forEach(function(el){ el.remove(); });   // 사업자 정보는 바로 위 .footer-biz 에 있어 중복 표시하지 않습니다
     $$('[data-year]').forEach(function(el){ el.textContent=new Date().getFullYear(); });
   }
 
@@ -134,11 +137,12 @@
     $('.lb-arrow.prev',el).addEventListener('click', function(){ showLB(LB.i-1); });
     $('.lb-arrow.next',el).addEventListener('click', function(){ showLB(LB.i+1); });
     el.addEventListener('click', function(e){ if(e.target===el||e.target.classList.contains('lb-stage')) closeLB(); });
-    document.addEventListener('keydown', function(e){ if(!el.classList.contains('open')) return; if(e.key==='Escape') closeLB(); if(e.key==='ArrowLeft') showLB(LB.i-1); if(e.key==='ArrowRight') showLB(LB.i+1); });
+    document.addEventListener('keydown', function(e){ if(!el.classList.contains('open')) return; if(e.key==='Escape') closeLB(); if(e.key==='ArrowLeft') showLB(LB.i-1); if(e.key==='ArrowRight') showLB(LB.i+1);
+      if(e.key==='Tab'){ var fo=$$('button',el); if(!fo.length) return; var first=fo[0], last=fo[fo.length-1]; if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); } else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); } else if(!el.contains(document.activeElement)){ e.preventDefault(); first.focus(); } } });
     var sx=null; el.addEventListener('touchstart', function(e){ sx=e.touches[0].clientX; },{passive:true}); el.addEventListener('touchend', function(e){ if(sx==null) return; var dx=e.changedTouches[0].clientX-sx; if(Math.abs(dx)>50) showLB(LB.i+(dx<0?1:-1)); sx=null; });
   }
-  function openLB(items, i){ ensureLB(); LB.items=items; showLB(i||0); LB.el.classList.add('open'); document.body.style.overflow='hidden'; }
-  function closeLB(){ if(!LB.el) return; LB.el.classList.remove('open'); document.body.style.overflow=''; }
+  function openLB(items, i){ ensureLB(); LB.items=items; LB.returnTo=document.activeElement; showLB(i||0); LB.el.classList.add('open'); document.body.style.overflow='hidden'; setTimeout(function(){ $('.lb-close',LB.el).focus(); }, 30); }
+  function closeLB(){ if(!LB.el) return; LB.el.classList.remove('open'); document.body.style.overflow=''; if(LB.returnTo && LB.returnTo.focus){ try{ LB.returnTo.focus({preventScroll:true}); }catch(_){} } }
   function showLB(i){ var n=LB.items.length; if(!n) return; LB.i=(i+n)%n; var it=LB.items[LB.i]; var img=$('img',LB.el); img.src=it.src; img.alt=it.title||''; $('.lb-counter',LB.el).textContent=pad2(LB.i+1)+' / '+pad2(n); var tg=$('.lb-tag',LB.el); tg.textContent=it.tag||''; tg.hidden=!it.tag; tg.className='lb-tag'; $('.lb-cap b',LB.el).textContent=it.title||''; $('.lb-cap span',LB.el).textContent=it.cap||''; }
 
   /* ---------- 사진 경로 ---------- */
@@ -192,5 +196,25 @@
     validate:validate, formData:formData, account:account
   };
 
-  document.addEventListener('DOMContentLoaded', function(){ initHeader(); initAccount(); initSubnav(); });
+  /* ---------- 모바일 빠른 연락 바 + 맨 위로 ---------- */
+  // 작은 화면에서 화면 아래에 전화·카카오톡·예약 신청 버튼을 고정해 둡니다.
+  // 계산기(예약 신청 화면)가 보이는 동안과 주문·회원·관리자 화면에서는 보이지 않습니다.
+  function initQuickBar(){
+    var skip=/^\/(admin|order|login|signup|mypage)\//.test(location.pathname) || document.body.classList.contains('page-admin') || document.body.classList.contains('page-inquiry');
+    if(!skip){
+      var bar=document.createElement('nav'); bar.className='quick-bar'; bar.setAttribute('aria-label','빠른 연락');
+      bar.innerHTML='<a class="qb-call" href="tel:'+CONFIG.phone.replace(/-/g,'')+'"><span class="qb-ico" aria-hidden="true">☎</span>전화</a>'
+        +(CONFIG.kakaoChannel?'<a class="qb-kakao" href="'+esc(CONFIG.kakaoChannel)+'" target="_blank" rel="noopener"><svg class="ico-talk" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3.2C6.6 3.2 2.3 6.6 2.3 10.9c0 2.7 1.8 5.1 4.5 6.5l-.9 3.4c-.1.3.3.6.6.4l4-2.6c.5.1 1 .1 1.5.1 5.4 0 9.7-3.4 9.7-7.8S17.4 3.2 12 3.2z"/></svg>카카오톡</a>':'')
+        +'<a class="qb-main" href="'+(document.querySelector('[data-price=estimator]')?'#estimate':'/inquiry/')+'">예약신청·금액확인 <span class="arrow">→</span></a>';
+      document.body.appendChild(bar); document.body.classList.add('has-quick-bar');
+      var est=document.querySelector('[data-price=estimator]');
+      if(est && 'IntersectionObserver' in window){ new IntersectionObserver(function(en){ bar.classList.toggle('off', en[0].isIntersecting); }, { rootMargin:'0px 0px -40% 0px' }).observe(est); }
+    }
+    var top=document.createElement('button'); top.type='button'; top.className='to-top'; top.setAttribute('aria-label','맨 위로'); top.innerHTML='↑'; document.body.appendChild(top);
+    top.addEventListener('click', function(){ window.scrollTo({top:0, behavior:'smooth'}); });
+    var ticking=false; window.addEventListener('scroll', function(){ if(ticking) return; ticking=true; requestAnimationFrame(function(){ top.classList.toggle('show', window.scrollY>900); ticking=false; }); }, {passive:true});
+  }
+  function initToastRegion(){ if(!toastEl){ toastEl=document.createElement('div'); toastEl.className='toast'; toastEl.setAttribute('role','status'); toastEl.setAttribute('aria-live','polite'); document.body.appendChild(toastEl); } }
+
+  document.addEventListener('DOMContentLoaded', function(){ initHeader(); initAccount(); initSubnav(); initQuickBar(); initToastRegion(); });
 })();

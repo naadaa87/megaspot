@@ -91,10 +91,19 @@ export async function onRequest({ request, env, params }) {
         const blk = await env.DB.prepare("SELECT state FROM calendar_blocks WHERE space_id = 'megaspot-gundae' AND date = ?").bind(o.event_date).first();
         const bk = await env.DB.prepare("SELECT 1 AS x FROM bookings WHERE space_id = 'megaspot-gundae' AND date = ? AND status = 'confirmed'").bind(o.event_date).first();
         if ((blk && blk.state === 'full') || bk) return err(`${kdate(o.event_date)}은(는) 이미 예약이 있어 온라인 결제가 어렵습니다. 다른 날짜를 고르거나 카카오톡으로 문의해 주세요.`, 409, 'DATE_TAKEN');
+        // 운영자가 다른 고객을 위해 임시로 잡아 둔 날은 온라인 결제 대신 상담으로 안내합니다(이중 예약 방지)
+        if (blk && blk.state === 'hold') return err(`${kdate(o.event_date)}은(는) 다른 문의로 임시 확보 중이라 온라인 결제가 어렵습니다. 예약 신청이나 카카오톡으로 알려 주시면 가능 여부를 바로 확인해 드립니다.`, 409, 'DATE_TAKEN');
       }
       let member = null; try { member = await getMember(request, env); } catch {}
       const oid = makeOid(), t = now();
-      const data = { lines: o.lines, people: o.people, slot: o.slot, memo: str(d.memo, 500), inquiry_ref: str(d.inquiry_ref, 20).toUpperCase(), addons: d.addons || {}, qty: num(d.qty) || 1, member_email: member ? member.email : '', ua: str(request.headers.get('user-agent'), 200) };
+      // 접수번호는 같은 연락처(끝 4자리)로 들어온 문의일 때만 연결합니다(남의 문의를 결제로 바꾸지 못하게)
+      let inquiryRef = str(d.inquiry_ref, 20).toUpperCase().replace(/[^0-9A-Z-]/g, '');
+      if (inquiryRef) {
+        const iq = await env.DB.prepare('SELECT phone FROM inquiries WHERE ref = ?').bind(inquiryRef).first();
+        const same = iq && String(iq.phone || '').replace(/\D/g, '').slice(-4) === phone.replace(/\D/g, '').slice(-4);
+        if (!same) inquiryRef = '';
+      }
+      const data = { lines: o.lines, people: o.people, slot: o.slot, memo: str(d.memo, 500), inquiry_ref: inquiryRef, addons: d.addons || {}, qty: num(d.qty) || 1, member_email: member ? member.email : '', ua: str(request.headers.get('user-agent'), 200) };
       await env.DB.prepare('INSERT INTO orders (oid, product_id, title, event_date, people, price, buyer_name, buyer_phone, buyer_email, data, status, inquiry_ref, member_id, test, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
         .bind(oid, o.product.id, o.title, o.event_date, o.people, o.total, name, phone, email, JSON.stringify(data), 'created', data.inquiry_ref || null, member ? member.id : null, C.live ? 0 : 1, t).run();
       await log(env, 'order.created', oid, member ? 'member:' + member.id : 'customer', { product: o.product.id, total: o.total, date: o.event_date });
@@ -180,6 +189,6 @@ export async function onRequest({ request, env, params }) {
         lines: data.lines || [], pay_method: row.pay_method, tid: row.tid ? row.tid.slice(-8) : '', appl_at: row.appl_at, result_msg: row.result_msg, booking_code: row.booking_code, test: !!row.test, created_at: row.created_at } });
     }
     return err('경로를 찾을 수 없습니다.', 404, 'NOT_FOUND');
-  } catch (e) { return err('처리 중 오류가 발생했습니다. (' + (e.message || '') + ')', 500, 'SERVER_ERROR'); }
+  } catch (e) { console.error('pay', e && e.message); return err('처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.', 500, 'SERVER_ERROR'); }
 }
 function safe(s) { try { return JSON.parse(s || '{}'); } catch { return {}; } }

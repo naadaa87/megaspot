@@ -25,6 +25,7 @@
         $('#od-date').min=todayIso(); if(q.get('date')) $('#od-date').value=q.get('date'); if(q.get('people')) $('#od-people').value=q.get('people');
         if(q.get('ref')&&/^MS-[0-9A-Z-]{3,20}$/i.test(q.get('ref'))){ $('#od-ref').value=q.get('ref').toUpperCase(); var refNote=document.createElement('p'); refNote.className='tiny mt-1'; refNote.style.color='var(--cobalt)'; refNote.textContent='예약 신청 '+q.get('ref').toUpperCase()+' 건과 연결됩니다. 결제가 끝나면 신청 상태가 자동으로 \'예약 확정\'으로 바뀝니다.'; $('#od-ref').insertAdjacentElement('afterend', refNote); }
         $('#od-addons').innerHTML=addons.map(function(a){ return '<label class="chk od-addon"><input type="checkbox" data-addon="'+a.opt+'"> <span><b>'+esc(a.name)+'</b> <small>'+esc(won(a.price))+' / '+esc(a.unit)+'</small></span><select class="select" data-addon-qty="'+a.opt+'" aria-label="수량">'+[1,2,3,4,5].map(function(n){ return '<option value="'+n+'">'+n+'</option>'; }).join('')+'</select></label>'; }).join('');
+        var pre=(q.get('addons')||'').split(',').filter(Boolean); if(pre.length){ pre.forEach(function(k){ var cb=$('#od-addons input[data-addon="'+k+'"]'); if(cb) cb.checked=true; }); var an=document.createElement('p'); an.className='tiny mt-1'; an.style.color='var(--cobalt)'; an.textContent='예약 신청 때 고르신 옵션을 미리 담았습니다. 수량과 필요 여부를 한 번 더 확인해 주세요.'; $('#od-addons').insertAdjacentElement('afterend', an); }
       } else {
         $('#od-pass').hidden=true; $('#od-addon-only').hidden=false;
         $('#od-qty').innerHTML=[1,2,3,4,5,6,7,8,9,10].map(function(n){ return '<option value="'+n+'">'+n+' ('+esc(won(prod.price*n))+')</option>'; }).join('');
@@ -70,8 +71,11 @@
         var form=$('#ms-pay-form'); form.innerHTML=''; form.id='SendPayForm_id'; form.method='post';
         Object.keys(r.fields).forEach(function(k){ var i=document.createElement('input'); i.type='hidden'; i.name=k; i.value=r.fields[k]; form.appendChild(i); });
         return loadScript(r.script).then(function(){ if(!window.INIStdPay) throw new Error('결제 모듈을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'); window.INIStdPay.pay('SendPayForm_id'); });
-      }).catch(function(x){ er.innerHTML=esc(x.message||'결제를 시작하지 못했습니다.')+(x.code==='DATE_TAKEN'?' <a href="/inquiry/" style="text-decoration:underline">문의하기</a>':''); er.hidden=false; er.dataset.sticky='1'; })
-      .finally(function(){ btn.disabled=false; btn.innerHTML='결제하기 <span class="arrow">→</span>'; });
+      }).then(function(){
+        // 결제창이 열린 동안에는 버튼을 잠가 두어 같은 주문이 두 번 만들어지지 않게 합니다. 창을 닫으면(약 20초 뒤 또는 창 닫힘 감지) 다시 누를 수 있습니다.
+        btn.textContent='결제창에서 진행해 주세요'; var unlock=function(){ btn.disabled=false; btn.innerHTML='결제하기 <span class="arrow">→</span>'; document.removeEventListener('visibilitychange', onVis); };
+        var onVis=function(){ if(document.visibilityState==='visible') setTimeout(unlock, 1500); }; document.addEventListener('visibilitychange', onVis); setTimeout(unlock, 20000);
+      }).catch(function(x){ er.innerHTML=esc(x.message||'결제를 시작하지 못했습니다.')+(x.code==='DATE_TAKEN'?' <a href="/inquiry/" style="text-decoration:underline">예약 신청으로 문의하기</a>':''); er.hidden=false; er.dataset.sticky='1'; btn.disabled=false; btn.innerHTML='결제하기 <span class="arrow">→</span>'; });
     }
     function loadScript(src){ return new Promise(function(res, rej){ if(document.querySelector('script[src="'+src+'"]')) return res(); var s=document.createElement('script'); s.src=src; s.charset='UTF-8'; s.onload=res; s.onerror=function(){ rej(new Error('결제 모듈을 불러오지 못했습니다. 네트워크를 확인하고 다시 시도해 주세요.')); }; document.head.appendChild(s); }); }
   }
@@ -98,7 +102,7 @@
         var retry=o.status==='created'||o.status==='failed';
         $('#oc-card').innerHTML='<div class="eyebrow">'+esc(o.status==='failed'?'Not completed':o.status)+'</div><dl class="def mt-2"><dt>상품</dt><dd>'+esc(o.title)+'</dd>'+(o.event_date?'<dt>이용일</dt><dd>'+esc(E?E.kdateY(o.event_date):o.event_date)+'</dd>':'')+'<dt>금액</dt><dd>'+esc(won(o.price))+'</dd><dt>주문번호</dt><dd>'+esc(o.oid)+'</dd>'+(o.result_msg&&o.status==='failed'?'<dt>사유</dt><dd>'+esc(o.result_msg)+'</dd>':'')+'</dl>'
           +'<p class="small muted mt-2">카드 승인 문자를 받았는데 이 화면이 보인다면 승인이 자동으로 취소되었거나 처리 중일 수 있습니다. 카카오톡으로 주문번호와 함께 알려 주시면 바로 확인해 드립니다.</p>'
-          +'<div class="row mt-3" style="gap:8px">'+(retry?'<a class="btn btn-primary btn-sm" href="/order/?product='+esc(o.product_id)+(o.event_date?'&date='+esc(o.event_date):'')+(o.people?'&people='+o.people:'')+'">다시 결제하기</a>':'')+'<a class="btn btn-kakao btn-sm" href="http://pf.kakao.com/_uTiFX" target="_blank" rel="noopener" data-kakao>카카오톡 문의</a></div>';
+          +'<div class="row mt-3" style="gap:8px">'+(retry?'<a class="btn btn-primary btn-sm" href="/order/?product='+esc(o.product_id)+(o.event_date?'&date='+esc(o.event_date):'')+(o.people?'&people='+o.people:'')+'">다시 결제하기</a>':'')+'<a class="btn btn-kakao btn-sm" href="https://pf.kakao.com/_uTiFX" target="_blank" rel="noopener" data-kakao>카카오톡 문의</a></div>';
       }
     }).catch(function(){ $('#oc-missing').hidden=false; $('#oc-title').textContent='주문 정보를 찾을 수 없습니다'; });
   }

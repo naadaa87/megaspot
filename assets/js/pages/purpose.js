@@ -45,7 +45,7 @@
   host.innerHTML=PUR.map(function(p,i){
     var d=detail[p.id]||{}, list=photosOf(p); cache[p.id]=list;
     var main=list[0], rest=list.slice(1,4);
-    var thumbs=rest.length? '<div class="thumbs-row">'+rest.map(function(x,k){ var more=(k===2 && list.length>4)?'<span class="more">+'+(list.length-4)+'</span>':''; return '<button type="button" data-p="'+p.id+'" data-i="'+(k+1)+'" aria-label="'+esc(x.title)+' 크게 보기"><img src="'+M.imgSrc(x.id,'t')+'" alt="'+esc(x.title)+' — '+M.imgTag(x.id)+'" loading="lazy">'+more+'</button>'; }).join('')+'</div>' : '';
+    var thumbs=rest.length? '<div class="thumbs-row">'+rest.map(function(x,k){ var more=(k===2 && list.length>4)?'<span class="more">+'+(list.length-4)+'</span>':''; return '<button type="button" data-p="'+p.id+'" data-i="'+(k+1)+'" aria-label="'+esc(x.title)+' 크게 보기"><img src="'+M.imgSrc(x.id,'t')+'" alt="'+esc(x.title)+' — 메가스팟 건대" loading="lazy">'+more+'</button>'; }).join('')+'</div>' : '';
     return '<article class="card" style="scroll-margin-top:140px" id="'+p.id+'">'
       + '<div class="grid grid-2" style="gap:28px;align-items:start">'
       + '<div><div class="eyebrow"><span class="idx">'+M.pad2(i+1)+'</span>'+esc(p.en)+'</div><h2 class="h-m mt-1"><a href="/purpose/'+p.id+'/" style="color:inherit">'+esc(p.label)+'</a></h2><p class="muted mt-2">'+esc(p.desc)+' <a href="/purpose/'+p.id+'/" style="color:var(--cobalt);font-weight:700;white-space:nowrap">안내 페이지 →</a></p>'
