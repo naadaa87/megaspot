@@ -20,8 +20,8 @@
     var E=window.MEGASPOT_PRICE; if(!E||!E.data()||!EX[id]) return '';
     var x=EX[id], q=E.quote({ date:x.date, start:x.start, end:x.end, people:x.people, purpose:id, regular:x.regular });
     var parts=[q.pkg ? q.pkg.label+' '+E.man(q.pkg.price) : '공간료 '+E.man(q.time.fee)]; if(q.peopleFee) parts.push('인원 추가 '+E.man(q.peopleFee));
-    var url='/spaces/megaspot-gundae/pricing/#estimate';
-    return '<div class="mt-3"><div class="kicker">메가스팟 건대 요금 예시</div><p class="mt-1 small" style="font-weight:600">'+esc(x.title)+' → <b style="color:var(--cobalt);font-size:16px">'+esc(E.man(q.total))+'</b> <span class="muted">('+esc(parts.join(' + '))+')</span></p><a class="tiny" style="color:var(--cobalt);font-weight:700" href="'+url+'">조건 바꿔서 예상 금액 계산하기 →</a></div>';
+    var url='/inquiry/';
+    return '<div class="mt-3"><div class="kicker">메가스팟 건대 요금 예시</div><p class="mt-1 small" style="font-weight:600">'+esc(x.title)+' → <b style="color:var(--cobalt);font-size:16px">'+esc(E.man(q.total))+'</b> <span class="muted">('+esc(parts.join(' + '))+')</span></p><a class="tiny" style="color:var(--cobalt);font-weight:700" href="'+url+'">조건 바꿔서 금액 확인·예약 신청 →</a></div>';
   }
 
   // 목적별 사진 목록: 활용 장면 → 없으면 공간 사진
@@ -53,7 +53,7 @@
       + '<div class="mt-3"><div class="kicker">견적에 적어야 할 조건</div><ul class="tags mt-1">'+(d.quote||[]).map(function(q){return '<li class="tag">'+esc(q)+'</li>';}).join('')+'</ul></div>'
       + '<div class="notice mt-3"><div>'+esc(d.note||'')+'</div></div>'
       + priceHint(p.id)
-      + '<div class="row mt-3"><a class="btn btn-primary btn-sm" href="/inquiry/?purpose='+p.id+(d.ask?'&type='+d.ask:'')+'">'+(d.ask==='regular'?'반복 모임 상담':'이 목적으로 견적 문의')+'</a><a class="btn btn-light btn-sm" href="/spaces/?purpose='+p.id+'">공간 찾기</a>'+(SC.some(function(s){return s.purpose===p.id;})?'<a class="btn btn-light btn-sm" href="/spaces/megaspot-gundae/?scene='+list[0].id+'#scenes">빈 홀과 비교</a>':'')+'</div></div>'
+      + '<div class="row mt-3"><a class="btn btn-primary btn-sm" href="/inquiry/?purpose='+p.id+(d.ask?'&type='+d.ask:'')+'">'+(d.ask==='regular'?'정기 모임 상담':'이 목적으로 예약 신청')+'</a><a class="btn btn-light btn-sm" href="/spaces/?purpose='+p.id+'">공간 찾기</a>'+(SC.some(function(s){return s.purpose===p.id;})?'<a class="btn btn-light btn-sm" href="/spaces/megaspot-gundae/?scene='+list[0].id+'#scenes">빈 홀과 비교</a>':'')+'</div></div>'
       + '<div><button type="button" class="photo-btn" data-p="'+p.id+'" data-i="0" aria-label="'+esc(main.title)+' 크게 보기"><img src="'+M.imgSrc(main.id,'m')+'" alt="'+esc(p.label)+' — '+esc(main.title)+'" loading="lazy">'+M.tagHtml(main.id)+'<span class="cap"><b style="display:block;font-size:15px">'+esc(main.title)+'</b>메가스팟 건대</span></button>'+thumbs+'</div>'
       + '</div></article>';
   }).join('');

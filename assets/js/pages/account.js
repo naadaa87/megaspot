@@ -35,7 +35,7 @@
       delete d.password2; ['agree_age','agree_terms','agree_privacy','agree_marketing'].forEach(function(k){ d[k]=!!d[k]; });
       var btn=$('#su-submit'); busy(btn,true,'가입하는 중…');
       M.api('/auth/signup',{method:'POST', body:d}).then(function(){ M.toast('가입을 마쳤습니다. 환영합니다!'); location.href=nextUrl(); })
-      .catch(function(x){ busy(btn,false); if(x.code==='NO_API') { offline(su); return showErr(er,'지금은 회원가입을 할 수 없습니다. 문의서나 카카오톡으로 문의해 주세요.'); }
+      .catch(function(x){ busy(btn,false); if(x.code==='NO_API') { offline(su); return showErr(er,'지금은 회원가입을 할 수 없습니다. 예약 신청이나 카카오톡으로 문의해 주세요.'); }
         showErr(er, x.message||'가입하지 못했습니다. 잠시 후 다시 시도해 주세요.'); if(x.code==='EMAIL_TAKEN'){ er.innerHTML=esc(x.message)+' <a href="/login/" style="text-decoration:underline;font-weight:700">로그인하기</a>'; } });
     });
   }
@@ -82,10 +82,10 @@
     function loadInquiries(){
       M.api('/auth/inquiries').then(function(j){
         var list=j.items||[]; $('#my-count').textContent=list.length?list.length+'건':'';
-        if(!list.length){ $('#my-inquiries').innerHTML='<div class="empty"><b>아직 회원으로 보낸 문의가 없습니다</b><p class="small muted mt-1">예상 금액을 계산해 보고 그 조건 그대로 문의해 보세요.</p><div class="row mt-2" style="justify-content:center;gap:8px"><a class="btn btn-primary btn-sm" href="/spaces/megaspot-gundae/pricing/#estimate">예상 금액 계산</a><a class="btn btn-light btn-sm" href="/inquiry/">문의서 작성</a></div></div>'; return; }
+        if(!list.length){ $('#my-inquiries').innerHTML='<div class="empty"><b>아직 회원으로 보낸 예약 신청·문의가 없습니다</b><p class="small muted mt-1">시간·날짜·인원을 골라 금액을 확인하고 그 자리에서 예약을 신청해 보세요.</p><div class="row mt-2" style="justify-content:center;gap:8px"><a class="btn btn-primary btn-sm" href="/inquiry/">예약 신청 · 금액 확인</a><a class="btn btn-light btn-sm" href="/inquiry/?type=regular">정기 모임 상담</a></div></div>'; return; }
         $('#my-inquiries').innerHTML=list.map(function(it){
-          var when=[it.date?M.fmtKDate(it.date):'', (it.t_start&&it.t_end)?it.t_start+'–'+it.t_end:'', it.headcount?it.headcount+'명':''].filter(Boolean).join(' · ');
-          return '<div class="card pad-s my-inq"><div class="row between"><div class="row" style="gap:8px"><b class="ref">'+esc(it.ref)+'</b><span class="badge badge-soft">'+esc(TYPE[it.inquiry_type]||'문의')+'</span>'+(it.purpose&&PUR[it.purpose]?'<span class="badge badge-cobalt">'+esc(PUR[it.purpose])+'</span>':'')+'</div><span class="small muted">'+esc(String(it.created_at||'').slice(0,10))+' 접수</span></div>'
+          var hl=function(h){ return (h>=24?'다음 날 ':'')+('0'+(h%24)).slice(-2)+':00'; }; var when=[it.date?M.fmtKDate(it.date):'', (it.start_h&&it.end_h)?hl(+it.start_h)+'–'+hl(+it.end_h)+' ('+(it.end_h-it.start_h)+'시간)':((it.t_start&&it.t_end)?it.t_start+'–'+it.t_end:''), it.headcount?it.headcount+'명':'', it.total?'예상 '+Number(it.total).toLocaleString('ko-KR')+'원':''].filter(Boolean).join(' · ');
+          return '<div class="card pad-s my-inq"><div class="row between"><div class="row" style="gap:8px"><b class="ref">'+esc(it.ref)+'</b><span class="badge badge-soft">'+esc(it.reserve?'예약 신청':(TYPE[it.inquiry_type]||'문의'))+'</span>'+(it.purpose&&PUR[it.purpose]?'<span class="badge badge-cobalt">'+esc(PUR[it.purpose])+'</span>':'')+'</div><span class="small muted">'+esc(String(it.created_at||'').slice(0,10))+' 접수</span></div>'
             + '<div class="small mt-1"><b>'+esc(SPACE[it.space_id]||it.space_id)+'</b>'+(when?' · '+esc(when):'')+'</div>'
             + steps(it.status)
             + (it.estimate?'<details class="mt-2"><summary class="small" style="cursor:pointer;color:var(--cobalt);font-weight:700">함께 보낸 예상 금액</summary><pre class="my-est">'+esc(it.estimate)+'</pre></details>':'')

@@ -6,6 +6,9 @@
   var STATUSES=['문의 접수','조건 확인','견적 발송','결제 대기','예약 확정','이용 완료','취소·환불'];
   var ST_CLS={'문의 접수':'st-new','조건 확인':'st-check','견적 발송':'st-quote','결제 대기':'st-pay','예약 확정':'st-ok','이용 완료':'st-done','취소·환불':'st-cancel'};
   var TYPE={event:'행사 대관',regular:'정기·반복',partner:'제휴·협력'};
+  var OPTL={manager:'현장 매니저',cleaning:'뒷정리·청소',disposable:'1회용 세트',banner:'현수막',xbanner:'X배너'};
+  function timeText(d,sep){ if(d.start_h&&d.end_h){ var hl=function(h){ return (h>=24?'다음 날 ':'')+('0'+(h%24)).slice(-2)+':00'; }; return hl(+d.start_h)+sep+hl(+d.end_h)+' ('+(d.end_h-d.start_h)+'시간)'; } return d.t_start&&d.t_end?d.t_start+sep+d.t_end:(SLOT[d.slot]||''); }
+  function optText(o){ if(!o||typeof o!=='object') return ''; return Object.keys(o).filter(function(k){ return o[k]; }).map(function(k){ var v=o[k]; return (OPTL[k]||k)+(v&&typeof v==='object'?' '+(v.count||1)+'명 × '+(v.hours||'')+'시간':''); }).join(', '); }
   var CH={web:'홈페이지',kakao:'카카오톡',phone:'전화',email:'이메일',visit:'방문',other:'기타'};
   var SLOT={'pkg-day':'낮 패키지 10–17시','pkg-allday':'올데이 10–24시','pkg-allnight':'올나잇 18–07시',morning:'아침 07–12시',day:'낮 12–17시',evening:'저녁 17–24시',custom:'직접 입력',am:'오전',pm:'오후',ev:'저녁',ampm:'주간',pmev:'오후~저녁'};
   var SLOT_H={'pkg-day':[10,17],'pkg-allday':[10,24],'pkg-allnight':[18,31],morning:[7,12],day:[12,17],evening:[17,24],am:[9,13],pm:[13,18],ev:[18,23],ampm:[9,18],pmev:[14,23]};
@@ -62,7 +65,7 @@
   function row(it, extra){
     var late = it.status==='문의 접수' && hoursSince(it.created_at)>=24;
     var when=[kd(it.event_date), it.headcount?it.headcount+'명':'', PUR[it.purpose]||''].filter(Boolean).join(' · ');
-    return '<div class="adm-row" data-ref="'+esc(it.ref)+'" tabindex="0"><div class="r1"><b>'+esc(it.name||'(이름 없음)')+'</b>'+(it.channel&&it.channel!=='web'?'<span class="tag-ch">'+esc(CH[it.channel]||it.channel)+'</span>':'')+stBadge(it.status)+'</div><div class="r2">'+esc(when)+(it.quote_total?' · 견적 <b>'+esc(man(it.quote_total))+'</b>':'')+'</div><div class="r3"><span>'+esc(it.ref)+'</span><span class="'+(late?'late':'')+'">'+esc(extra||('접수 '+ago(it.created_at)))+'</span></div></div>';
+    return '<div class="adm-row" data-ref="'+esc(it.ref)+'" tabindex="0"><div class="r1"><b>'+esc(it.name||'(이름 없음)')+'</b>'+(it.reserve?'<span class="tag-rv">예약 신청</span>':'')+(it.channel&&it.channel!=='web'?'<span class="tag-ch">'+esc(CH[it.channel]||it.channel)+'</span>':'')+stBadge(it.status)+'</div><div class="r2">'+esc(when)+(it.quote_total?' · 견적 <b>'+esc(man(it.quote_total))+'</b>':(it.est_total?' · 예상 <b>'+esc(man(it.est_total))+'</b>':''))+'</div><div class="r3"><span>'+esc(it.ref)+'</span><span class="'+(late?'late':'')+'">'+esc(extra||('접수 '+ago(it.created_at)))+'</span></div></div>';
   }
   function emptyMsg(t){ return '<div class="empty small">'+esc(t)+'</div>'; }
   function loadDash(){
@@ -97,12 +100,12 @@
       if(!inqCache.length){ box.innerHTML='<div class="empty"><b>표시할 문의가 없습니다</b></div>'; return; }
       box.innerHTML='<div class="tr th"><span>문의</span><span>고객</span><span>행사 조건</span><span>상태</span><span>견적</span></div>'+inqCache.map(function(it){
         var d=it.data||{}, late=it.status==='문의 접수'&&hoursSince(it.created_at)>=24;
-        var time=d.t_start&&d.t_end?d.t_start+'–'+d.t_end:(SLOT[d.slot]||'');
+        var time=timeText(d,'–');
         return '<div class="tr" data-ref="'+esc(it.ref)+'" tabindex="0"><span><b class="ref">'+esc(it.ref)+'</b><small class="'+(late?'late':'')+'">'+esc(String(it.created_at||'').slice(5,16))+' · '+ago(it.created_at)+'</small></span>'
-          +'<span><b>'+esc(d.name||it.name||'')+'</b><small>'+esc(d.phone||it.phone||'')+'</small><small>'+esc(TYPE[d.inquiry_type]||'행사 대관')+(d.channel&&d.channel!=='web'?' · '+esc(CH[d.channel]):'')+(d.member_id?' · 회원':'')+'</small></span>'
+          +'<span><b>'+esc(d.name||it.name||'')+'</b>'+(d.reserve?' <span class="tag-rv">예약 신청</span>':'')+'<small>'+esc(d.phone||it.phone||'')+'</small><small>'+esc(TYPE[d.inquiry_type]||'행사 대관')+(d.channel&&d.channel!=='web'?' · '+esc(CH[d.channel]):'')+(d.member_id?' · 회원':'')+'</small></span>'
           +'<span>'+(d.inquiry_type==='partner'?esc(d.org||'제휴 제안'):esc(kd(d.date||it.event_date)))+'<small>'+esc([time, (d.headcount||it.headcount)?(d.headcount||it.headcount)+'명':'', PUR[d.purpose]||''].filter(Boolean).join(' · '))+'</small></span>'
           +'<span>'+stBadge(it.status)+'</span>'
-          +'<span>'+(it.quote_total?'<b>'+esc(man(it.quote_total))+'</b><small>저장한 견적</small>':(d.estimate?'<small>고객 예상 금액 첨부</small>':'<small>—</small>'))+'</span></div>';
+          +'<span>'+(it.quote_total?'<b>'+esc(man(it.quote_total))+'</b><small>저장한 견적</small>':(d.total?'<b>'+esc(man(d.total))+'</b><small>고객이 확인한 예상 금액</small>':(d.estimate?'<small>고객 예상 금액 첨부</small>':'<small>—</small>')))+'</span></div>';
       }).join('');
     }).catch(fail(box));
   }
@@ -110,8 +113,8 @@
   $('#inq-q').addEventListener('keydown', function(e){ if(e.key==='Enter') loadInq(); });
   $('#inq-csv').addEventListener('click', function(){
     if(!inqCache.length){ M.toast('내려받을 문의가 없습니다. 먼저 목록을 불러오세요.'); return; }
-    var cols=['문의번호','접수일시','상태','유형','경로','이름','연락처','이메일','행사일','시작','종료','인원','목적','저장 견적(원)','회원','운영 메모'];
-    var rows=inqCache.map(function(it){ var d=it.data||{}; return [it.ref,it.created_at,it.status,TYPE[d.inquiry_type]||'행사 대관',CH[d.channel||'web'],d.name||it.name,d.phone||it.phone,d.email||it.email,d.date||it.event_date||'',d.t_start||'',d.t_end||'',d.headcount||it.headcount||'',PUR[d.purpose]||d.purpose||'',it.quote_total||'',d.member_id?'Y':'',it.memo||'']; });
+    var cols=['문의번호','접수일시','상태','구분','유형','경로','이름','연락처','이메일','행사일','시작','종료','인원','목적','저장 견적(원)','회원','운영 메모'];
+    var rows=inqCache.map(function(it){ var d=it.data||{}; return [it.ref,it.created_at,it.status,d.reserve?'예약 신청':'문의',TYPE[d.inquiry_type]||'행사 대관',CH[d.channel||'web'],d.name||it.name,d.phone||it.phone,d.email||it.email,d.date||it.event_date||'',d.t_start||'',d.t_end||'',d.headcount||it.headcount||'',PUR[d.purpose]||d.purpose||'',it.quote_total||'',d.member_id?'Y':'',it.memo||'']; });
     var csv='﻿'+[cols].concat(rows).map(function(r){ return r.map(function(v){ v=String(v==null?'':v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }).join(','); }).join('\r\n');
     var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})); a.download='메가스팟_문의_'+todayIso()+'.csv'; document.body.appendChild(a); a.click(); a.remove();
   });
@@ -131,7 +134,7 @@
   function kv(k,v){ return v?'<div class="kv"><span>'+esc(k)+'</span><b>'+v+'</b></div>':''; }
   function renderDetail(){
     var it=cur.item, d=it.data||{}, ch=cur.checks||{};
-    var time=d.t_start&&d.t_end?d.t_start+' – '+d.t_end:(SLOT[d.slot]||'');
+    var time=timeText(d,' – ');
     var needs=(d.needs||[]).join(', ');
     $('#dr-title').textContent=it.ref+' · '+(d.name||it.name||'');
     var tel=(d.phone||it.phone||'').replace(/[^0-9+]/g,'');
@@ -143,7 +146,8 @@
       +((d.email||it.email)?'<a class="btn btn-light btn-sm" href="mailto:'+esc(d.email||it.email)+'?subject='+encodeURIComponent('[메가스팟 건대] 문의 '+it.ref+' 안내')+'">이메일</a>':'')
       +'<button class="btn btn-light btn-sm" type="button" id="dr-book">예약 확정 등록</button></div>'
       +'<div class="dr-sec"><h3>고객</h3>'+kv('이름·소속',esc(d.name||it.name||''))+kv('연락처',esc(d.phone||it.phone||''))+kv('이메일',esc(d.email||it.email||''))+kv('선호 연락',esc({kakao:'카카오톡',phone:'전화',sms:'문자',email:'이메일'}[d.contact_pref]||d.contact_pref||''))+kv('회사·단체',esc(d.org||''))+'</div>'
-      +'<div class="dr-sec"><h3>행사 조건</h3>'+kv('유형',esc(TYPE[d.inquiry_type]||'행사 대관'))+kv('목적',esc(PUR[d.purpose]||d.purpose||''))+kv('이용일',esc(d.date?kd(d.date):'')+(d.date_alt?' <small>(대체 '+esc(kd(d.date_alt))+')</small>':''))+kv('시간',esc(time))+kv('준비 입장·퇴장',esc([d.t_setup,d.t_out].filter(Boolean).join(' / ')))+kv('인원',esc(d.headcount?d.headcount+'명':''))+kv('배치',esc(d.layout||''))+kv('필요한 것',esc(needs))+kv('음식·연출',esc(d.food_fx||''))+kv('예산',esc(d.budget||''))+kv('반복 일정',esc([d.repeat_cycle,d.repeat_period,d.repeat_days].filter(Boolean).join(' · ')))+kv('서류',esc((d.docs||[]).join(', ')))+kv('제휴 형태',esc(d.partner_kind||''))
+      +(d.reserve?'<div class="notice" style="margin-bottom:12px"><div><b>홈페이지에서 금액을 확인하고 예약을 신청한 건입니다.</b>'+(d.total?' 고객이 본 예상 금액은 <b>'+esc(won(d.total))+'</b>'+(d.pkg?' ('+esc({day:'낮 패키지',allday:'올데이 패키지',allnight:'올나잇 패키지'}[d.pkg]||d.pkg)+')':'')+'입니다.':'')+' 일정이 비어 있으면 금액을 확인해 결제 방법을 안내하고, 입금·결제가 끝나면 \'예약 확정 등록\'을 눌러 주세요.</div></div>':'')
+      +'<div class="dr-sec"><h3>행사 조건</h3>'+kv('구분',d.reserve?'<b>예약 신청</b>':'문의')+kv('유형',esc(TYPE[d.inquiry_type]||'행사 대관'))+kv('목적',esc(PUR[d.purpose]||d.purpose||''))+kv('이용일',esc(d.date?kd(d.date):'')+(d.date_alt?' <small>(대체 '+esc(kd(d.date_alt))+')</small>':''))+kv('시간',esc(time))+kv('준비 입장·퇴장',esc([d.t_setup,d.t_out].filter(Boolean).join(' / ')))+kv('인원',esc(d.headcount?d.headcount+'명':''))+kv('배치',esc(d.layout||''))+kv('필요한 것',esc(needs))+kv('음식·연출',esc(d.food_fx||''))+kv('예산',esc(d.budget||''))+kv('반복 일정',esc([d.repeat_cycle,d.repeat_period,d.repeat_days].filter(Boolean).join(' · ')))+kv('서류',esc((d.docs||[]).join(', ')))+kv('제휴 형태',esc(d.partner_kind||''))+kv('선택 옵션',esc(optText(d.options)))
       +(d.message?'<div class="dr-msg">'+esc(d.message)+'</div>':'')+'</div>'
       +(d.estimate?'<details class="dr-sec"><summary><h3 style="display:inline">고객이 보낸 예상 금액</h3></summary><pre class="dr-pre">'+esc(d.estimate)+'</pre></details>':'')
       +'<div class="dr-sec"><h3>진행 체크리스트</h3><div class="dr-checks">'+CHECKS.map(function(c){ var v=ch[c[0]]; return '<label class="chk"><input type="checkbox" data-chk="'+c[0]+'"'+(v?' checked':'')+'> '+esc(c[1])+(v&&typeof v==='string'?' <small>'+esc(v.slice(5,16))+'</small>':'')+'</label>'; }).join('')+'</div></div>'
@@ -264,9 +268,11 @@
     Q.customer=d.name||it.name||''; Q.phone=d.phone||it.phone||''; Q.email=d.email||it.email||'';
     Q.date=d.date||it.event_date||todayIso(); Q.people=parseInt(d.headcount||it.headcount,10)||D.people.base; Q.purpose=d.purpose||''; Q.regular=d.inquiry_type==='regular';
     var hs=parseInt(String(d.t_start||'').slice(0,2),10), he=parseInt(String(d.t_end||'').slice(0,2),10);
+    if(d.start_h&&d.end_h){ hs=+d.start_h; he=+d.end_h; }
     if(!isNaN(hs)&&!isNaN(he)){ if(hs<D.openFrom) hs+=24; if(he<=hs) he+=24; Q.start=Math.max(D.openFrom,Math.min(hs,D.openTo-1)); Q.end=Math.max(Q.start+1,Math.min(he,D.openTo)); }
     else if(SLOT_H[d.slot]){ Q.start=SLOT_H[d.slot][0]; Q.end=SLOT_H[d.slot][1]; }
     if((d.needs||[]).indexOf('manager')>=0) Q.opts.manager.on=true;
+    var op=d.options||{}; if(op.manager){ Q.opts.manager.on=true; if(op.manager.count) Q.opts.manager.count=op.manager.count; if(op.manager.hours) Q.opts.manager.hours=op.manager.hours; } ['cleaning','disposable','banner','xbanner'].forEach(function(k){ if(op[k]) Q.opts[k]=true; });
     fillForm(); $('#q-msg').hidden=true;
   }
   function loadSavedQuote(q, ref){

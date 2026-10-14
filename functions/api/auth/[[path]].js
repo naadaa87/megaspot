@@ -130,7 +130,7 @@ export async function onRequest({ request, env, params }) {
       const items = (results || []).map(r => {
         let d = {}; try { d = JSON.parse(r.data || '{}'); } catch {}
         return { ref: r.ref, space_id: r.space_id, status: r.status, date: r.event_date || d.date || '', headcount: r.headcount, created_at: r.created_at, updated_at: r.updated_at,
-          inquiry_type: d.inquiry_type || 'event', purpose: d.purpose || '', slot: d.slot || '', t_start: d.t_start || '', t_end: d.t_end || '', estimate: d.estimate ? String(d.estimate).slice(0, 600) : '' };
+          inquiry_type: d.inquiry_type || 'event', reserve: !!d.reserve, purpose: d.purpose || '', slot: d.slot || '', t_start: d.t_start || '', t_end: d.t_end || '', start_h: d.start_h || null, end_h: d.end_h || null, pkg: d.pkg || '', total: d.total || null, estimate: d.estimate ? String(d.estimate).slice(0, 600) : '' };
       });
       return json({ ok: true, items });
     }

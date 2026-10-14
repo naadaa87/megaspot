@@ -1,4 +1,5 @@
-// 문의 접수 — 행사 대관(event) · 정기·반복 모임(regular) · 제휴·협력·파트너(partner)
+// 문의·예약 신청 접수 — 행사 대관(event) · 정기·반복 모임(regular) · 제휴·협력·파트너(partner)
+// reserve:true 이면 '예약 신청'(금액 확인 → 신청)으로 들어온 건입니다. 모임 유형은 선택 사항입니다.
 import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, log, getMember } from './_lib.js';
 const TYPES = ['event', 'regular', 'partner'];
 export async function onRequestPost({ request, env }) {
@@ -10,23 +11,21 @@ export async function onRequestPost({ request, env }) {
   const space_id = str(d.space_id, 60) || (inquiry_type === 'partner' ? 'megaspot-gundae' : 'request');
   const purpose = str(d.purpose, 40), date = str(d.date, 10), message = str(d.message, 2000), org = str(d.org, 120);
   const headcount = num(d.headcount);
+  const reserve = !!d.reserve;
   if (!name || !phone) return err('이름과 연락처는 필수입니다.');
   if (phone.replace(/\D/g, '').length < 9) return err('연락처 형식을 확인해 주세요.');
-  if (inquiry_type === 'event') {
-    if (!isDate(date)) return err('희망 날짜를 확인해 주세요.');
-    if (!purpose) return err('행사 목적을 선택해 주세요.');
-  }
-  if (inquiry_type === 'regular') {
-    if (date && !isDate(date)) return err('첫 이용 희망일을 확인해 주세요.');
-    if (!purpose) return err('모임 목적을 선택해 주세요.');
-  }
+  // 예약 신청은 이용일이 꼭 있어야 하고, 간단 문의는 이름·연락처만 있으면 받습니다(날짜·모임 유형은 선택).
+  if (reserve && !isDate(date)) return err('이용 희망일을 확인해 주세요.');
+  if (date && !isDate(date)) return err('희망일 형식을 확인해 주세요.');
   if (inquiry_type === 'partner') {
     if (!org) return err('회사·단체명을 적어 주세요.');
     if (!message) return err('제안 내용을 적어 주세요.');
   }
   if (!d.agree_privacy) return err('개인정보 수집·이용 동의가 필요합니다.');
   const data = {
-    inquiry_type, space_id, purpose, date: isDate(date) ? date : '', date_alt: str(d.date_alt, 10), slot: str(d.slot, 10),
+    inquiry_type, reserve, space_id, purpose, date: isDate(date) ? date : '', date_alt: str(d.date_alt, 10), slot: str(d.slot, 10),
+    start_h: num(d.start_h), end_h: num(d.end_h), pkg: str(d.pkg, 20), total: num(d.total),
+    options: (d.options && typeof d.options === 'object' && !Array.isArray(d.options)) ? Object.fromEntries(Object.entries(d.options).slice(0, 10).map(([k, v]) => [str(k, 20), (v && typeof v === 'object') ? { count: num(v.count), hours: num(v.hours) } : !!v])) : {},
     t_setup: str(d.t_setup, 5), t_start: str(d.t_start, 5), t_end: str(d.t_end, 5), t_out: str(d.t_out, 5),
     headcount, staff: num(d.staff), layout: str(d.layout, 20), needs: Array.isArray(d.needs) ? d.needs.map(x => str(x, 20)).slice(0, 20) : [],
     food_fx: str(d.food_fx, 300), theme: str(d.theme, 200), region: str(d.region, 30), budget: str(d.budget, 20),
@@ -42,7 +41,7 @@ export async function onRequestPost({ request, env }) {
     const ref = await uniqueRef(env, 'inquiries', 'ref', 'MS');
     await env.DB.prepare('INSERT INTO inquiries (ref, space_id, status, name, phone, email, event_date, headcount, data, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)')
       .bind(ref, space_id, '문의 접수', name, phone, email, data.date || null, headcount, JSON.stringify(data), now()).run();
-    await log(env, 'inquiry.created', ref, data.member_id ? 'member:' + data.member_id : 'customer', { inquiry_type, space_id, date: data.date, headcount });
+    await log(env, reserve ? 'reserve.created' : 'inquiry.created', ref, data.member_id ? 'member:' + data.member_id : 'customer', { inquiry_type, space_id, date: data.date, headcount, total: data.total });
     return json({ ok: true, ref, member: !!data.member_id });
   } catch (e) { return err('저장 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요. (' + (e.message || '') + ')', 500, 'DB_ERROR'); }
 }

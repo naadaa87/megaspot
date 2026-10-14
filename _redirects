@@ -3,3 +3,5 @@
 /request           /inquiry/?mode=request     302
 /pricing           /spaces/megaspot-gundae/pricing/ 302
 /partner           /inquiry/?type=partner     302
+/reserve           /inquiry/                  302
+/estimate          /inquiry/                  302

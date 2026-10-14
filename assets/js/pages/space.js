@@ -225,7 +225,7 @@
       var v=view(s.view);
       info.innerHTML='<div class="row" style="gap:6px"><span class="badge badge-cobalt">'+esc(purLabel[s.purpose]||'')+'</span>'+(s.layout&&layLabel[s.layout]?'<span class="badge badge-soft">'+esc(layLabel[s.layout])+' 배치</span>':'')+'</div>'
         + '<div class="si-title">'+esc(s.title)+'</div><p>'+esc(s.cap)+'</p>'
-        + '<div class="row mt-2"><button type="button" class="btn btn-primary btn-sm" id="scene-ask">이 모임으로 견적 문의</button><button type="button" class="btn btn-light btn-sm" id="scene-zoom">크게 보기</button></div>'
+        + '<div class="row mt-2"><button type="button" class="btn btn-primary btn-sm" id="scene-ask">이 모임으로 예약 신청</button><button type="button" class="btn btn-light btn-sm" id="scene-zoom">크게 보기</button></div>'
         + '<p class="view-desc"><b style="color:var(--graphite)">'+esc(v.label)+'</b> — '+esc(v.desc)+'</p>';
       $('#scene-ask').addEventListener('click', function(){ askWith(s); });
       $('#scene-zoom').addEventListener('click', function(){ var list=scenesOf(s.view); var items=[{src:M.imgSrc(v.real), title:v.label+' · 빈 홀', cap:'비어 있는 홀입니다. 이어지는 장면들과 같은 자리입니다.', tag:''}].concat(M.sceneItems(list)); M.openLightbox(items, list.indexOf(s)+1); });
@@ -259,11 +259,11 @@
     if(q && window.MEGASPOT_SCENE(q)) selectScene(q);
   })();
 
-  /* 장면 → 문의서 연결 */
+  /* 장면 → 예약 신청 연결 */
   function askWith(s){
-    if(inquiry){ if(inquiry.setPurpose) inquiry.setPurpose(s.purpose); if(s.layout && inquiry.setLayout) inquiry.setLayout(s.layout); }
-    var b=$('#booking'); if(b) b.scrollIntoView({behavior:'smooth', block:'start'});
-    M.toast('‘'+s.title+'’ 기준으로 행사 목적'+(s.layout?'과 배치':'')+'를 문의서에 넣었습니다.');
+    var est=M.pricing&&M.pricing.estimator; if(est&&s.purpose) est.set({purpose:s.purpose});
+    var b=$('#estimate'); if(b) b.scrollIntoView({behavior:'smooth', block:'start'});
+    M.toast('‘'+s.title+'’ 기준으로 모임 유형을 예약 신청 화면에 넣었습니다.');
   }
 
   /* ---------- 시설·장비 ---------- */
@@ -296,7 +296,7 @@
 
   /* ---------- 이용 안내 / 요금 / 접근 ---------- */
   (function(){
-    var flow=$('#flow'); if(flow) flow.innerHTML=S.booking.flow.map(function(f,i){ var d=['일자·시간·인원·모임 유형을 카카오톡·이메일·문의서로 보내 주세요. 문의서는 접수 번호와 자동 안내를 드립니다.','가능 여부와 추천 배치, 꼭 확인할 조건을 빠르게 안내합니다. 영업시간에는 보통 2시간 안에 첫 답을 드립니다.','공간료·인원 추가·옵션을 항목별로 나눈 확정 금액과 보증금·환불 기준을 안내합니다.','예약금을 결제하면 날짜가 확정됩니다. 법인 결제가 필요하면 예약금을 환급한 뒤 법인 결제로 진행할 수 있습니다.','확정 조건과 현장 준비 목록을 보내고, 이용 전 최종 인원·배치·음식·장비·반입을 다시 확인합니다.','입장·피난 동선, 화면·음향·장비 사용법을 안내하고 행사를 진행합니다. 예약한 시간 안에 준비·행사·정리를 마칩니다.','기본 정리와 파손·오염, 부착물 제거 여부를 확인한 뒤 보증금을 돌려 드리고, 완료된 예약에 후기 작성 권한을 드립니다.'][i]||''; return '<li class="step"><div class="n">'+(i+1)+'</div><h4>'+esc(f)+'</h4><p>'+esc(d)+'</p></li>'; }).join('');
+    var flow=$('#flow'); if(flow) flow.innerHTML=S.booking.flow.map(function(f,i){ var d=['시간·날짜·인원을 골라 금액을 확인하고 이름·연락처만 적어 신청합니다. 접수번호가 바로 나오고, 카카오톡·전화로 알려 주셔도 됩니다.','신청한 날짜·시간이 비어 있는지 확인하고 빠르게 연락드립니다. 영업시간에는 보통 2시간 안에 첫 답을 드립니다.','공간료·인원 추가·옵션을 항목별로 나눈 확정 금액과 보증금·환불 기준, 결제 방법(카드·계좌이체)을 안내합니다.','결제가 끝나면 예약번호가 발급되고 날짜가 확정됩니다. 패키지 시간이면 온라인 이용권으로 바로 결제할 수도 있습니다.','확정 조건과 현장 준비 목록을 보내고, 이용 전 최종 인원·배치·음식·장비·반입을 다시 확인합니다.','입장·피난 동선, 화면·음향·장비 사용법을 안내하고 행사를 진행합니다. 예약한 시간 안에 준비·행사·정리를 마칩니다.','기본 정리와 파손·오염, 부착물 제거 여부를 확인한 뒤 보증금을 돌려 드리고, 완료된 예약에 후기 작성 권한을 드립니다.'][i]||''; return '<li class="step"><div class="n">'+(i+1)+'</div><h4>'+esc(f)+'</h4><p>'+esc(d)+'</p></li>'; }).join('');
     var chips=$('#slot-chips'); if(chips) chips.innerHTML=S.booking.slots.map(function(s){ return '<span class="tag">'+esc(s.label)+' '+esc(s.time)+'</span>'; }).join('');
     var rn=$('#response-note'); if(rn) rn.textContent=S.booking.response;
     var rules=$('#rules'); if(rules) rules.innerHTML=S.rules.map(function(r){ return '<div><dt>'+esc(r.k)+'</dt><dd>'+esc(r.d)+'</dd></div>'; }).join('');
@@ -304,14 +304,10 @@
     var cp=$('#copy-address'); if(cp) cp.addEventListener('click', function(){ (navigator.clipboard?navigator.clipboard.writeText(S.address):Promise.reject()).then(function(){ M.toast('주소를 복사했습니다.'); }).catch(function(){ M.toast(S.address); }); });
   })();
 
-  /* ---------- 문의서 + 달력 ---------- */
-  var inquiry=null;
-  // 예상 금액 계산기의 '이 조건으로 견적 문의' → 아래 문의서에 날짜·시간·인원·계산 내용을 채웁니다
-  if(M.pricing){ M.pricing.onAsk=function(p){ if(inquiry&&inquiry.prefill) inquiry.prefill(p); var b=$('#booking'); if(b) b.scrollIntoView({behavior:'smooth',block:'start'}); M.toast('계산한 조건을 문의서에 넣었습니다. 연락처만 적어 보내 주세요.'); }; }
+  /* ---------- 달력 (예약 신청 화면과 연결) ---------- */
   (function(){
-    var root=$('#inquiry-root'); if(!root||!M.renderInquiry) return;
-    inquiry=M.renderInquiry(root,{spaceId:S.id, mode:'space'});
-    var grid=$('#booking-grid'); function layout(e){ grid.style.gridTemplateColumns=e.matches?'minmax(300px,.8fr) 1.2fr':'1fr'; } var mq=window.matchMedia('(min-width:900px)'); layout(mq); mq.addEventListener('change', layout);
+    var grid=$('#booking-grid'); if(!grid) return;
+    function layout(e){ grid.style.gridTemplateColumns=e.matches?'minmax(320px,1.1fr) minmax(0,.9fr)':'1fr'; } var mq=window.matchMedia('(min-width:900px)'); layout(mq); mq.addEventListener('change', layout);
   })();
   (function(){
     var cal=$('#calendar'); if(!cal) return;
@@ -336,12 +332,12 @@
           h+='<div class="'+cls+'" data-d="'+iso+'" role="button" tabindex="'+(dt<today||info.state==='full'?'-1':'0')+'" aria-label="'+M.fmtKDate(iso)+(info.state==='full'?' 마감':info.state==='hold'?' 임시 확보':' 문의 가능')+'">'+d+(info.state?'<span class="dot"></span>':'')+'</div>';
         }
         h+='</div><div class="cal-legend"><span><i style="background:var(--concrete-3);border:1px solid var(--concrete)"></i>문의 가능 (호스트 확인 필요)</span><span><i style="background:var(--warn-soft)"></i>임시 확보 중</span><span><i style="background:var(--concrete-2)"></i>마감</span><span><i style="background:var(--cobalt)"></i>선택한 날짜</span></div>';
-        h+='<p class="tiny muted mt-2">'+(M.demo.on||!Object.keys(days).length?'달력은 안내용이며 실시간 재고가 아닙니다. 희망일을 고르면 문의서에 입력되고, 확정 여부는 상담 시 안내합니다.':'표시 상태는 운영자가 갱신한 일정 기준이며 최종 확정은 견적 수락과 결제 후에 이뤄집니다.')+'</p>';
+        h+='<p class="tiny muted mt-2">'+(M.demo.on||!Object.keys(days).length?'달력은 안내용이며 실시간 재고가 아닙니다. 희망일을 고르면 예약 신청 화면에 들어가고, 확정 여부는 상담 때 안내합니다.':'표시 상태는 운영자가 갱신한 일정 기준이며 최종 확정은 금액 확인과 결제 뒤에 이뤄집니다.')+'</p>';
         cal.innerHTML=h;
         $('#cal-prev').addEventListener('click', function(){ cur=new Date(y,m-1,1); render(); });
         $('#cal-next').addEventListener('click', function(){ cur=new Date(y,m+1,1); render(); });
         $('#cal-prev').disabled = (y===today.getFullYear()&&m===today.getMonth());
-        cal.querySelectorAll('.cal-day.open,.cal-day.hold').forEach(function(el){ function pick(){ selected=el.dataset.d; if(inquiry) inquiry.setDate(selected); var est=M.pricing&&M.pricing.estimator; if(est) est.setDate(selected); render(); M.toast(M.fmtKDate(selected)+'을(를) 문의서'+(est?'와 예상 금액 계산기':'')+'에 넣었습니다.'); var f=$('#inquiry-form'); if(f&&window.matchMedia('(max-width:899px)').matches) f.scrollIntoView({behavior:'smooth',block:'start'}); } el.addEventListener('click', pick); el.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); pick(); } }); });
+        cal.querySelectorAll('.cal-day.open,.cal-day.hold').forEach(function(el){ function pick(){ selected=el.dataset.d; var est=M.pricing&&M.pricing.estimator; if(est) est.setDate(selected); render(); M.toast(M.fmtKDate(selected)+'을(를) 예약 신청 화면에 넣었습니다.'); var box=$('#estimate'); if(box) box.scrollIntoView({behavior:'smooth',block:'start'}); } el.addEventListener('click', pick); el.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); pick(); } }); });
       });
     }
     M.checkApi().then(render);

@@ -1,0 +1,80 @@
+﻿메가스팟 홈페이지 업데이트 (2026-10-14 · 예약 신청·금액 확인 통합) — GitHub 업로드 안내
+
+이 zip에는 이번에 바뀐 파일 60개만 들어 있습니다. (새로 생기거나 지워진 파일은 없습니다)
+
+올리는 방법
+1. zip을 풀면 README.md, index.html, assets, inquiry, purpose, products, functions 등이 나옵니다.
+2. GitHub 저장소(naadaa87/megaspot) 첫 화면에서 Add file → Upload files 를 누릅니다.
+3. 압축을 푼 폴더 안의 파일과 폴더를 전부 선택해 업로드 화면에 끌어다 놓습니다.
+   (압축 푼 폴더 자체가 아니라 '안에 있는 것'을 끌어다 놓아야 합니다. 같은 이름의 파일은 새 파일로 바뀝니다.)
+4. Commit changes 를 누르면 Cloudflare Pages가 몇 분 뒤 사이트에 반영합니다.
+
+이번에 바뀐 것
+- 메인·헤더·푸터의 '예상 금액 계산 / 행사 조건으로 견적 문의' → '예약신청·금액확인'
+- /inquiry/ 가 '예약 신청 · 금액 확인' 페이지로 바뀜: 시간(패키지 버튼) → 날짜 → 인원 → 금액 → 예약신청하기(이름·연락처만)
+- 건대 상세·요금 안내의 계산기도 같은 화면으로 교체, 복잡했던 행사 문의서는 아래쪽 '간단 문의'로 축소
+- 푸터·판매자 정보의 '통신판매업신고 신고 진행 중' 문구 삭제
+- 관리자 페이지: 예약 신청 건에 파란 '예약 신청' 표시, 고객이 본 예상 금액·옵션 표시
+- Cloudflare 설정은 바꿀 것이 없습니다 (데이터베이스 표도 그대로).
+
+파일 목록
+404.html
+README.md
+_redirects
+about/index.html
+assets/css/site.css
+assets/js/data/spaces.js
+assets/js/inquiry-form.js
+assets/js/pages/account.js
+assets/js/pages/admin.js
+assets/js/pages/inquiry.js
+assets/js/pages/order.js
+assets/js/pages/purpose.js
+assets/js/pages/space.js
+assets/js/pricing-ui.js
+assets/js/site.js
+functions/api/admin/[[path]].js
+functions/api/auth/[[path]].js
+functions/api/inquiry.js
+guide/index.html
+host/index.html
+index.html
+inquiry/index.html
+login/index.html
+mypage/index.html
+order/complete/index.html
+order/index.html
+privacy/index.html
+products/addon-banner/index.html
+products/addon-cleaning/index.html
+products/addon-disposable/index.html
+products/addon-manager/index.html
+products/addon-xbanner/index.html
+products/index.html
+products/pass-allday-fri/index.html
+products/pass-allday-sat/index.html
+products/pass-allday-sun/index.html
+products/pass-allday-wd/index.html
+products/pass-allnight-fri/index.html
+products/pass-allnight-sat/index.html
+products/pass-allnight-sun/index.html
+products/pass-allnight-wd/index.html
+products/pass-day-satsun/index.html
+products/pass-day-wdfri/index.html
+purpose/class/index.html
+purpose/community/index.html
+purpose/culture/index.html
+purpose/index.html
+purpose/networking/index.html
+purpose/party/index.html
+purpose/popup/index.html
+purpose/seminar/index.html
+purpose/shooting/index.html
+purpose/workshop/index.html
+rss.xml
+signup/index.html
+sitemap.xml
+spaces/index.html
+spaces/megaspot-gundae/index.html
+spaces/megaspot-gundae/pricing/index.html
+terms/index.html

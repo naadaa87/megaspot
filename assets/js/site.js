@@ -23,7 +23,7 @@
     bizNo: '161-86-03494',            // 사업자등록번호
     ceo: '최시준',                     // 대표자
     bizAddress: '서울특별시 강남구 영동대로 602, 6층 제트71(삼성동, 삼성동 미켈란 107)',   // 사업장 주소 (사업자등록증)
-    mailOrderNo: '',                  // 통신판매업 신고번호 — 신고가 끝나면 '제2026-서울강남-0000호' 처럼 넣어 주세요. 비우면 '신고 진행 중'으로 표시
+    mailOrderNo: '',                  // 통신판매업 신고번호 — 신고가 끝나면 '제2026-서울강남-0000호' 처럼 넣어 주세요. 비워 두면 푸터·판매자 정보에 아예 표시하지 않습니다
     venueAddress: '서울 광진구 화양동 10-1, 한아름건물 2층',
     apiBase: '/api'
   };
@@ -101,7 +101,7 @@
     $$('[data-kakao]').forEach(function(el){ if(CONFIG.kakaoChannel){ el.href=CONFIG.kakaoChannel; el.hidden=false; } else { el.hidden=true; } });
     $$('[data-kakao-url]').forEach(function(el){ if(CONFIG.kakaoChannel) el.textContent=CONFIG.kakaoChannel.replace(/^https?:\/\//,''); });
     $$('[data-kakao-note]').forEach(function(el){ if(CONFIG.kakaoNote) el.textContent=CONFIG.kakaoNote; el.hidden=!CONFIG.kakaoChannel; });
-    $$('[data-mailorder]').forEach(function(el){ if(CONFIG.mailOrderNo) el.textContent=CONFIG.mailOrderNo; });
+    $$('[data-mailorder]').forEach(function(el){ if(CONFIG.mailOrderNo) el.textContent=CONFIG.mailOrderNo; }); $$('[data-mailorder-line]').forEach(function(el){ el.hidden=!CONFIG.mailOrderNo; });
     $$('[data-company]').forEach(function(el){
       if(!CONFIG.companyName){ el.hidden=true; return; }
       el.innerHTML = esc(CONFIG.companyName) + (CONFIG.ceo?' · 대표 '+esc(CONFIG.ceo):'') + (CONFIG.bizNo?' · 사업자등록번호 '+esc(CONFIG.bizNo):'') + ' · ' + esc(CONFIG.bizAddress);
