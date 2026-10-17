@@ -54,7 +54,8 @@
         var hint=$('#od-date-hint'); hint.textContent=''; hint.className='hint';
         if(s.date && E){ var di=E.dayInfo(s.date); if(di){ var g=P.dayGroups[prod.group]; var ok=g.cols.indexOf(di.col)>=0;
           hint.innerHTML=esc(E.kdateY(s.date))+(di.holiday?' · '+esc(di.holiday):'')+' → <b>'+esc(COL[di.col])+'</b> 요금 적용'+(ok?' · 이 이용권으로 결제할 수 있습니다':'');
-          if(!ok){ var alt=P.items.filter(function(x){ return x.kind==='pass'&&x.pkg===prod.pkg&&P.dayGroups[x.group].cols.indexOf(di.col)>=0; })[0]; hint.className='hint err-text'; warn='이 날짜는 '+COL[di.col]+' 요금이 적용되어 <b>'+esc(prod.name)+'</b>으로는 결제할 수 없습니다.'+(alt?' <a href="/order/?product='+alt.id+'&date='+s.date+'&people='+s.people+'" style="text-decoration:underline;font-weight:700">'+esc(alt.name)+'('+esc(won(alt.price))+')으로 바꾸기</a>':''); }
+          if(di.peak){ ok=false; hint.className='hint err-text'; hint.innerHTML=esc(E.kdateY(s.date))+' → <b>성수기 요금</b>('+esc(di.peak.label)+' 기준'+(di.peak.people>P.people.base?' · 기준 '+di.peak.people+'명 포함':'')+')'; warn='이 날짜는 성수기 요금이 적용되어 이용권 금액과 다릅니다. <a href="/inquiry/?date='+s.date+'&pkg='+esc(prod.pkg)+'&people='+s.people+'" style="text-decoration:underline;font-weight:700">예약 신청 · 금액 확인에서 그날 금액 보기 →</a> 신청하시면 결제 방법을 안내해 드립니다.'; }
+          else if(!ok){ var alt=P.items.filter(function(x){ return x.kind==='pass'&&x.pkg===prod.pkg&&P.dayGroups[x.group].cols.indexOf(di.col)>=0; })[0]; hint.className='hint err-text'; warn='이 날짜는 '+COL[di.col]+' 요금이 적용되어 <b>'+esc(prod.name)+'</b>으로는 결제할 수 없습니다.'+(alt?' <a href="/order/?product='+alt.id+'&date='+s.date+'&people='+s.people+'" style="text-decoration:underline;font-weight:700">'+esc(alt.name)+'('+esc(won(alt.price))+')으로 바꾸기</a>':''); }
         } }
       } else lines.push({label:prod.name, desc:prod.unit+' × '+s.qty, amount:prod.price*s.qty});
       var total=lines.reduce(function(a,l){ return a+l.amount; },0);

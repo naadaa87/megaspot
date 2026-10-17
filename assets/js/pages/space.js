@@ -162,31 +162,120 @@
     window.matchMedia('(min-width:900px)').addEventListener('change', function(e){ grid.style.gridTemplateColumns=e.matches?'1.05fr .95fr':'1fr'; });
   })();
 
-  /* ---------- 배치 예시 ---------- */
+  /* ---------- 배치 예시 (평면 위에 테이블·의자와 설비 아이콘) ---------- */
+  // 단위 m · 좌표는 gundae-plan.js 와 같습니다. 의자·테이블은 행사 조건 상담 전의 '예시 배치'입니다.
   (function(){
     var host=$('#layouts'); if(!host) return;
     var k=9, pad=12; var W=P.width*k+pad*2, H=P.bi*k+pad*2;
-    function X(x){return (x*k+pad).toFixed(1);} function Z(z){return (z*k+pad).toFixed(1);}
-    function base(){ var poly=P.boundary.map(function(p){return X(p[0])+','+Z(p[1]);}).join(' '); var s='<polygon points="'+poly+'" fill="#F7F5F1" stroke="#262B2E" stroke-width="1.6"/>'; P.windows.forEach(function(w){ s+='<line x1="'+X(w[0][0])+'" y1="'+Z(w[0][1])+'" x2="'+X(w[1][0])+'" y2="'+Z(w[1][1])+'" stroke="#9FB7F0" stroke-width="3"/>'; }); P.columns.forEach(function(c){ s+='<rect x="'+X(c.x)+'" y="'+Z(c.z)+'" width="'+(c.w*k)+'" height="'+(c.d*k)+'" fill="#3A4046"/>'; }); s+='<rect x="'+X(15.93)+'" y="'+Z(9.586)+'" width="'+(.12*k)+'" height="'+(4.428*k)+'" fill="#1F53D5"/>'; s+='<rect x="'+X(16.045)+'" y="'+Z(8.923)+'" width="'+(.15*k)+'" height="'+((P.De-1-8.923)*k)+'" fill="#262B2E"/>'; return s; }
-    function chair(x,z){ return '<rect x="'+X(x-.22)+'" y="'+Z(z-.22)+'" width="'+(.44*k)+'" height="'+(.44*k)+'" rx="1" fill="#3A4046"/>'; }
-    function table(x,z,w,d){ return '<rect x="'+X(x-w/2)+'" y="'+Z(z-d/2)+'" width="'+(w*k)+'" height="'+(d*k)+'" fill="#C9A77A" stroke="#8E6B3F" stroke-width=".6"/>'; }
-    var draw={
-      lecture:function(){ var s=''; for(var x=14.4;x>=4.2;x-=.95){ for(var z=9.2;z<=15.2;z+=.8){ if(z>11.6&&z<12.6) continue; s+=chair(x,z); } } s+='<rect x="'+X(15.0)+'" y="'+Z(9.6)+'" width="'+(.5*k)+'" height="'+(4.4*k)+'" fill="#E6ECFB" stroke="#1F53D5" stroke-width=".6" stroke-dasharray="2 1.5"/>'; return s; },
-      classroom:function(){ var s=''; [13.6,11.3,9.0,6.7,4.4].forEach(function(x){ [[9.3,12.0],[12.6,15.3]].forEach(function(r){ var zc=(r[0]+r[1])/2, len=r[1]-r[0]; s+=table(x,zc,.75,len); for(var z=r[0]+.4; z<r[1]; z+=.7) s+=chair(x-.75,z); }); }); return s; },
-      banquet:function(){ var s=''; [10,12.3,14.4].forEach(function(z){ s+=table(8.8,z,11.5,.8); for(var x=3.4;x<14.4;x+=.7){ s+=chair(x,z-.75); s+=chair(x,z+.75);} }); [3,5.2].forEach(function(z){ s+=table(9.9,z,6.5,.75); for(var x=7;x<13;x+=.7){ s+=chair(x,z-.7); s+=chair(x,z+.7);} }); return s; },
-      standing:function(){ var s=''; var pts=[[4,10.2],[6.2,12.6],[8.6,10.6],[10.8,13.2],[13,11],[5.5,14.6],[9.8,15],[12.6,14.2],[7.6,4.6],[11.2,4.2],[14,3.4],[21.2,21],[23.5,23.2],[21.6,26]]; pts.forEach(function(p){ s+='<circle cx="'+X(p[0])+'" cy="'+Z(p[1])+'" r="'+(.4*k)+'" fill="#D9C3A3" stroke="#8E6B3F" stroke-width=".6"/>'; }); s+='<rect x="'+X(1.1)+'" y="'+Z(P.De-.87)+'" width="'+(14.4*k)+'" height="'+(.76*k)+'" rx="2" fill="#CFC8BD"/><rect x="'+X(24.35)+'" y="'+Z(19.44)+'" width="'+(.77*k)+'" height="'+(4*k)+'" rx="2" fill="#CFC8BD"/>'; s+='<rect x="'+X(14.6)+'" y="'+Z(9.6)+'" width="'+(.9*k)+'" height="'+(4.4*k)+'" fill="#E6ECFB" stroke="#1F53D5" stroke-width=".6" stroke-dasharray="2 1.5"/>'; return s; }
+    function X(x){return (x*k+pad).toFixed(1);} function Z(z){return (z*k+pad).toFixed(1);} function L(m){ return (m*k).toFixed(1); }
+    function fx(id){ return P.fixtures.filter(function(f){ return f.id===id; })[0]; }
+    function xl(z){ return 4-4*z/P.De; }                        // 메인 홀 왼쪽 사선 벽의 x
+    var OBST=P.columns.map(function(c){ return [c.x-.3,c.z-.3,c.x+c.w+.3,c.z+c.d+.3]; }).concat([[6.9,7.6,9.7,8.2]]);
+    function free(x,z,r){ r=r||.25; if(x-r<xl(z)+.3 || x+r>15.9 || z-r<.3 || z+r>P.De-1) return false; for(var i=0;i<OBST.length;i++){ var o=OBST[i]; if(x+r>o[0]&&x-r<o[2]&&z+r>o[1]&&z-r<o[3]) return false; } return true; }
+    var C={ chair:'#3A4046', table:'#C9A77A', tableEdge:'#8E6B3F', person:'#7F8EAD', cobalt:'#1F53D5' };
+    function chair(x,z){ return '<rect x="'+X(x-.21)+'" y="'+Z(z-.21)+'" width="'+L(.42)+'" height="'+L(.42)+'" rx="1" fill="'+C.chair+'"/>'; }
+    function table(x,z,w,d,fill){ return '<rect x="'+X(x-w/2)+'" y="'+Z(z-d/2)+'" width="'+L(w)+'" height="'+L(d)+'" fill="'+(fill||C.table)+'" stroke="'+C.tableEdge+'" stroke-width=".6"/>'; }
+    function person(x,z){ return '<circle cx="'+X(x)+'" cy="'+Z(z)+'" r="'+L(.17)+'" fill="'+C.person+'"/>'; }
+    /* 설비 아이콘 (글자 없이 그림으로) — 실제 크기의 윤곽 위에 알아보기 쉬운 원형 아이콘을 얹습니다 */
+    var GLYPH={
+      projector:{bg:'#262B2E', fg:'<rect x="-5.6" y="-3.4" width="8.6" height="6.8" rx="1.6" fill="#fff"/><circle cx="1.1" cy="0" r="2.1" fill="#9FB7F0" stroke="#262B2E" stroke-width=".6"/><path d="M3.4 -1.6 L6.4 -3.4 V3.4 L3.4 1.6Z" fill="#9FB7F0"/>'},
+      sink:{bg:'#fff', fg:'<path d="M-5.2 0.2 H5.2 V2.2 A3 3 0 0 1 2.2 5.2 H-2.2 A3 3 0 0 1 -5.2 2.2Z" fill="#E9EEF5" stroke="#262B2E" stroke-width=".9"/><path d="M-1.2 0.2 V-4 H2.8 V-2.4" fill="none" stroke="#1F53D5" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>'},
+      fridge:{bg:'#fff', fg:'<rect x="-3.6" y="-5.6" width="7.2" height="11.2" rx="1.2" fill="#fff" stroke="#262B2E" stroke-width=".9"/><line x1="-3.6" y1="-1.6" x2="3.6" y2="-1.6" stroke="#262B2E" stroke-width=".8"/><line x1="2" y1="-4.4" x2="2" y2="-2.8" stroke="#262B2E" stroke-width="1" stroke-linecap="round"/><line x1="2" y1="0" x2="2" y2="3" stroke="#262B2E" stroke-width="1" stroke-linecap="round"/><path d="M-1.6 -4.2 v1.6 M-2.3 -3.4 h1.4" stroke="#1F53D5" stroke-width=".6"/>'},
+      storage:{bg:'#fff', fg:'<path d="M-5.4 -1.6 L-4 -4.6 H4 L5.4 -1.6Z" fill="#E6CFA8" stroke="#8E6B3F" stroke-width=".8" stroke-linejoin="round"/><rect x="-5.4" y="-1.6" width="10.8" height="6.6" rx=".6" fill="#D9B98B" stroke="#8E6B3F" stroke-width=".8"/><rect x="-1.4" y="-1.6" width="2.8" height="2.6" fill="#F3E6CF"/>'}
     };
+    function badge(kind, x, z){ var g=GLYPH[kind]; return '<g class="lp-ico" data-fx="'+kind+'" transform="translate('+X(x)+' '+Z(z)+')"><circle r="9.6" fill="#fff" fill-opacity=".9"/><circle r="8.2" fill="'+g.bg+'" stroke="#262B2E" stroke-width=".9"/>'+g.fg+'</g>'; }
+    function outline(id, fill, dash){ var f=fx(id); if(!f) return ''; return '<rect x="'+X(f.x)+'" y="'+Z(f.z)+'" width="'+L(f.w)+'" height="'+L(f.d)+'" rx="1" fill="'+fill+'" stroke="#8A9097" stroke-width=".6"'+(dash?' stroke-dasharray="2.5 1.5"':'')+'/>'; }
+    function icoDoor(){ var f=fx('door'); if(!f) return ''; var y=f.z;
+      return '<g aria-label="주출입구"><line x1="'+X(f.x)+'" y1="'+Z(y)+'" x2="'+X(f.x+f.w)+'" y2="'+Z(y)+'" stroke="#F7F5F1" stroke-width="3.2"/><line x1="'+X(f.x)+'" y1="'+Z(y)+'" x2="'+X(f.x+f.w)+'" y2="'+Z(y)+'" stroke="'+C.cobalt+'" stroke-width="1.6" stroke-dasharray="2.5 1.5"/><path d="M'+X(f.x+f.w/2)+' '+Z(y+1.9)+' V'+Z(y+.35)+' M'+X(f.x+f.w/2-.55)+' '+Z(y+.95)+' L'+X(f.x+f.w/2)+' '+Z(y+.3)+' L'+X(f.x+f.w/2+.55)+' '+Z(y+.95)+'" stroke="'+C.cobalt+'" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>'; }
+    var PROJ={x:9.4, z:11.8};      // 천장 프로젝터 (사진 기준 대략 위치)
+    function beam(){ var f=fx('screen'); return '<polygon points="'+X(PROJ.x+.6)+','+Z(PROJ.z)+' '+X(f.x)+','+Z(f.z)+' '+X(f.x)+','+Z(f.z+f.d)+'" fill="'+C.cobalt+'" fill-opacity=".08"/>'; }
+    function icoScreen(){ var f=fx('screen'); return '<rect x="'+X(f.x-.08)+'" y="'+Z(f.z)+'" width="'+L(.24)+'" height="'+L(f.d)+'" rx="1" fill="'+C.cobalt+'"/>'; }
+    var SPOT={ sink:[17.35,10.6], fridge:[17.35,13.4], storage:[22.97,18.24] };
+    function base(){
+      var poly=P.boundary.map(function(p){return X(p[0])+','+Z(p[1]);}).join(' ');
+      var s='<polygon points="'+poly+'" fill="#F7F5F1" stroke="#262B2E" stroke-width="1.6"/>';
+      P.windows.forEach(function(w){ s+='<line x1="'+X(w[0][0])+'" y1="'+Z(w[0][1])+'" x2="'+X(w[1][0])+'" y2="'+Z(w[1][1])+'" stroke="#9FB7F0" stroke-width="3"/>'; });
+      var sw=fx('screenwall'); if(sw) s+='<rect x="'+X(sw.x)+'" y="'+Z(sw.z)+'" width="'+L(sw.w)+'" height="'+L(sw.d)+'" fill="#262B2E"/>';
+      var bo=fx('booth'); if(bo) s+='<rect x="'+X(bo.x)+'" y="'+Z(bo.z)+'" width="'+L(bo.w)+'" height="'+L(bo.d)+'" fill="#E6E2DB" stroke="#8A9097" stroke-width=".6"/>';
+      P.columns.forEach(function(c){ s+='<rect x="'+X(c.x)+'" y="'+Z(c.z)+'" width="'+L(c.w)+'" height="'+L(c.d)+'" fill="#3A4046"/>'; });
+      return s+fixtures()+beam();
+    }
+    function fixtures(){ return outline('sink','#E9EEF5')+outline('fridge1','#fff')+outline('fridge2','#fff')+outline('storage','#EFE9DF',true); }
+    function overlay(){ return icoScreen()+icoDoor()+'<g aria-label="싱크대">'+badge('sink',SPOT.sink[0],SPOT.sink[1])+'</g><g aria-label="냉장고">'+badge('fridge',SPOT.fridge[0],SPOT.fridge[1])+'</g><g aria-label="창고">'+badge('storage',SPOT.storage[0],SPOT.storage[1])+'</g><g aria-label="빔프로젝터 (천장)">'+badge('projector',PROJ.x,PROJ.z)+'</g>'; }
+    var draw={
+      // 강연형: 스크린(동쪽)을 향해 열을 맞춘 의자, 무대 앞 여유 + 강단
+      lecture:function(){ var s='<rect x="'+X(14.3)+'" y="'+Z(9.3)+'" width="'+L(1.55)+'" height="'+L(5.0)+'" fill="#E6ECFB" stroke="'+C.cobalt+'" stroke-width=".5" stroke-dasharray="2 1.5"/><rect x="'+X(14.75)+'" y="'+Z(11.45)+'" width="'+L(.55)+'" height="'+L(.7)+'" rx="1" fill="#5B6168"/>', n=0;
+        for(var x=13.7; x>=.8; x-=.95){
+          [[9.05,14.75,.55],[2.75,6.95,.55]].forEach(function(b){ if(b[0]<5 && x<8.5) return; for(var z=b[0]; z<=b[1]+.001; z+=b[2]){ if(free(x,z,.22)){ s+=chair(x,z); n++; } } });
+        }
+        return {svg:s, n:n, unit:'석'}; },
+      // 책상형: 1.8m 테이블(3인)을 스크린 방향으로 줄 맞춰 배치
+      classroom:function(){ var s='', n=0;
+        for(var x=13.5; x>=1.5; x-=1.3){
+          [9.95,11.85,13.75,3.55,5.55].forEach(function(z){ var cx=x-.52; if(z<7 && x<5) return; if(!free(x,z-.85,.3)||!free(x,z+.85,.3)||!free(cx,z-.6,.22)||!free(cx,z+.6,.22)) return;
+            s+=table(x,z,.5,1.8); [-.6,0,.6].forEach(function(dz){ s+=chair(cx,z+dz); n++; }); });
+        }
+        return {svg:s, n:n, unit:'석'}; },
+      // 연회형: 긴 테이블을 동서로 길게, 가운데 통로를 두고 양쪽에 의자
+      banquet:function(){ var s='', n=0;
+        [9.55,11.55,13.55,3.35,5.45].forEach(function(z){
+          [[null,8.15],[9.25,14.8]].forEach(function(seg){
+            var x0=seg[0]==null?Math.max(xl(z-.65),xl(z+.65))+.75:seg[0], x1=seg[1], len=x1-x0; if(len<1.2) return;
+            var m=Math.floor(len/.62); if(!m) return; var w=m*.62, start=x1-w; var okAll=true;
+            for(var i=0;i<m;i++){ var cx=start+(i+.5)*.62; if(!free(cx,z-.66,.22)||!free(cx,z+.66,.22)||!free(cx,z,.3)){ okAll=false; } }
+            if(!okAll){ while(m>1){ m--; w=m*.62; start=x1-w; var ok=true; for(var j=0;j<m;j++){ var cx2=start+(j+.5)*.62; if(!free(cx2,z-.66,.22)||!free(cx2,z+.66,.22)||!free(cx2,z,.3)) ok=false; } if(ok) break; } }
+            s+=table(start+w/2, z, w, .78);
+            for(var q=0;q<m;q++){ var cx3=start+(q+.5)*.62; s+=chair(cx3,z-.66)+chair(cx3,z+.66); n+=2; }
+          });
+        });
+        // 음식 동선: 싱크 쪽 준비 공간에 서빙 테이블
+        s+=table(19.6,10.6,.7,2.6,'#E3D3BC')+table(19.6,13.4,.7,2.0,'#E3D3BC');
+        return {svg:s, n:n, unit:'석'}; },
+      // 교류형: 하이 테이블 주위로 서서 대화, 벽면 벤치·라운지 좌석
+      standing:function(){ var s='', n=0, r=.36;
+        var pts=[]; [3.0,5.1,10.0,12.1,14.1].forEach(function(z,ri){ for(var x=(ri%2?4.1:3.0); x<=14.9; x+=2.2){ pts.push([x,z]); } });
+        [[19.6,21.2],[22.6,21.2],[20.9,23.1],[23.4,25.2],[20.6,25.4],[22.2,27.3]].forEach(function(p){ pts.push(p); });
+        pts.forEach(function(p){ var x=p[0], z=p[1], inLounge=x>19; if(!inLounge && !free(x,z,1.0)) return;
+          s+='<circle cx="'+X(x)+'" cy="'+Z(z)+'" r="'+L(r)+'" fill="#D9C3A3" stroke="'+C.tableEdge+'" stroke-width=".6"/>';
+          for(var a=0;a<5;a++){ var ang=a*2*Math.PI/5-Math.PI/2; s+=person(x+Math.cos(ang)*.72, z+Math.sin(ang)*.72); n++; } });
+        var b=fx('bench'); if(b){ s+='<rect x="'+X(b.x)+'" y="'+Z(b.z)+'" width="'+L(b.w)+'" height="'+L(b.d)+'" rx="2" fill="#CFC8BD"/>'; for(var bx=b.x+.4; bx<b.x+b.w-.2; bx+=.6){ if(bx-.2<xl(b.z)+.2) continue; s+=person(bx, b.z+b.d/2); n++; } }
+        var b2=fx('bench2'); if(b2){ s+='<rect x="'+X(b2.x)+'" y="'+Z(b2.z)+'" width="'+L(b2.w)+'" height="'+L(b2.d)+'" rx="2" fill="#CFC8BD"/>'; for(var bz=b2.z+.4; bz<b2.z+b2.d; bz+=.6){ s+=person(b2.x+b2.w/2, bz); n++; } }
+        // 음료 바: 싱크 앞 준비 공간
+        s+='<rect x="'+X(19.3)+'" y="'+Z(9.6)+'" width="'+L(.6)+'" height="'+L(4.4)+'" rx="1.5" fill="#B9A07A" stroke="'+C.tableEdge+'" stroke-width=".6"/>';
+        return {svg:s, n:n, unit:'명'}; }
+    };
+    function legend(){
+      var bi=function(kind){ var g=GLYPH[kind]; return '<svg viewBox="-10 -10 20 20" aria-hidden="true"><circle r="8.2" fill="'+g.bg+'" stroke="#262B2E" stroke-width=".9"/>'+g.fg+'</svg>'; };
+      var item=function(svg,t){ return '<span>'+svg+t+'</span>'; };
+      return '<div class="layout-legend" aria-label="평면 그림 기호">'
+        +item(bi('projector'),'빔프로젝터 (천장)')
+        +item('<svg viewBox="0 0 20 20" aria-hidden="true"><rect x="8" y="2" width="4" height="16" rx="1" fill="#1F53D5"/></svg>','200인치 스크린')
+        +item(bi('sink'),'싱크대')
+        +item(bi('fridge'),'냉장고')
+        +item(bi('storage'),'창고')
+        +item('<svg viewBox="0 0 20 20" aria-hidden="true"><line x1="2" y1="4" x2="18" y2="4" stroke="#1F53D5" stroke-width="2" stroke-dasharray="3 2"/><path d="M10 18V7M6.5 10.5L10 7l3.5 3.5" stroke="#1F53D5" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>','주출입구')
+        +item('<svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="7" width="6" height="6" rx="1" fill="#3A4046"/><rect x="11" y="4" width="6" height="12" fill="#C9A77A" stroke="#8E6B3F" stroke-width=".7"/></svg>','의자·테이블')
+        +item('<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="4" fill="#D9C3A3" stroke="#8E6B3F" stroke-width=".7"/><circle cx="10" cy="3" r="2" fill="#7F8EAD"/><circle cx="16.5" cy="12" r="2" fill="#7F8EAD"/><circle cx="3.5" cy="12" r="2" fill="#7F8EAD"/></svg>','하이 테이블·사람')
+        +'</div>';
+    }
     var withScene=S.layouts.filter(function(l){ return l.scene && window.MEGASPOT_SCENE && window.MEGASPOT_SCENE(l.scene); });
     var lbItems=withScene.map(function(l){ var sc=window.MEGASPOT_SCENE(l.scene); return { src:M.imgSrc(sc.id), title:l.label+' 배치 · '+sc.title, cap:sc.cap, tag:M.imgTag(sc.id) }; });
     host.innerHTML=S.layouts.map(function(l){
       var sc=l.scene && window.MEGASPOT_SCENE ? window.MEGASPOT_SCENE(l.scene) : null;
+      var d=draw[l.id]?draw[l.id]():{svg:'',n:0,unit:''};
       var ph=sc ? '<button type="button" class="layout-ph" data-li="'+withScene.indexOf(l)+'" aria-label="'+esc(l.label)+' 배치 장면 크게 보기"><img src="'+M.imgSrc(sc.id,'m')+'" alt="'+esc(l.label)+' 배치로 쓴 '+esc(sc.title)+'" loading="lazy">'+M.tagHtml(sc.id)+'</button>' : '';
-      return '<div class="card pad-s">'+ph+'<svg class="layout-svg" viewBox="0 0 '+W+' '+H+'" aria-label="'+esc(l.label)+' 배치 평면 예시">'+base()+(draw[l.id]?draw[l.id]():'')+'</svg>'
-        + '<div class="row between mt-2"><div><div class="eyebrow">'+esc(l.en)+'</div><h3 style="font-size:17px;margin-top:4px">'+esc(l.label)+'</h3></div><span class="badge badge-soft">인원은 '+esc(l.capacityNote)+'</span></div>'
+      return '<div class="card pad-s layout-card">'+ph+'<button type="button" class="layout-plan" data-plan="'+l.id+'" aria-label="'+esc(l.label)+' 배치 평면 크게 보기"><svg class="layout-svg" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+esc(l.label)+' 배치 평면 예시 — 의자·테이블 '+d.n+d.unit+' 기준, 빔프로젝터·스크린·싱크대·냉장고·창고·출입구 위치 표시">'+base()+d.svg+overlay()+'</svg><span class="layout-zoom" aria-hidden="true">＋</span></button>'
+        + '<div class="row between mt-2"><div><div class="eyebrow">'+esc(l.en)+'</div><h3 style="font-size:17px;margin-top:4px">'+esc(l.label)+'</h3></div>'+(d.n?'<span class="badge badge-cobalt">그림 예시 약 '+(Math.round(d.n/10)*10)+d.unit+'</span>':'')+'</div>'
         + '<p class="small muted mt-1">'+esc(l.desc)+'</p>'
         + '<p class="tiny mt-2"><b>적합</b> '+esc(l.fit)+'<br><b>확인</b> '+esc(l.check)+'</p></div>';
     }).join('');
-    host.addEventListener('click', function(e){ var b=e.target.closest('.layout-ph'); if(b) M.openLightbox(lbItems, +b.dataset.li); });
+    host.insertAdjacentHTML('afterend', legend()+'<p class="tiny muted mt-1 layout-foot">그림 속 인원은 실측 평면 위에 의자·테이블을 놓아 본 예시입니다. 실제 인원은 무대·장비·통로·운영 인력과 행사 조건을 확인한 뒤 확정합니다. 빔프로젝터 위치는 사진 기준의 대략 위치입니다.</p>');
+    host.addEventListener('click', function(e){
+      var b=e.target.closest('.layout-ph'); if(b){ M.openLightbox(lbItems, +b.dataset.li); return; }
+      var pl=e.target.closest('.layout-plan'); if(pl){
+        var items=S.layouts.map(function(l){ var el=host.querySelector('.layout-plan[data-plan="'+l.id+'"] svg'); return { src:'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(el.outerHTML.replace('class="layout-svg"','xmlns="http://www.w3.org/2000/svg" width="'+(W*3)+'" height="'+(H*3)+'"').replace(/(<svg[^>]*>)/,'$1<rect width="'+W+'" height="'+H+'" rx="6" fill="#fff"/>')), title:l.label+' 배치 평면 예시', cap:'의자·테이블 예시 배치와 설비 위치(빔프로젝터·스크린·싱크대·냉장고·창고·출입구)를 표시했습니다.' }; });
+        M.openLightbox(items, S.layouts.map(function(l){ return l.id; }).indexOf(pl.dataset.plan)); }
+    });
   })();
 
   /* ---------- 활용 장면: 같은 자리, 다른 모임 ---------- */

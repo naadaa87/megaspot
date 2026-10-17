@@ -88,7 +88,7 @@
       btn.addEventListener('click', function(){ setMenu(!nav.classList.contains('open')); });
       nav.addEventListener('click', function(e){ if(e.target.closest('a')) setMenu(false); });
       document.addEventListener('keydown', function(e){ if(e.key==='Escape' && nav.classList.contains('open')){ setMenu(false); btn.focus(); } });
-      window.matchMedia('(min-width:1000px)').addEventListener('change', function(e){ if(e.matches) setMenu(false); });
+      window.matchMedia('(min-width:1280px)').addEventListener('change', function(e){ if(e.matches) setMenu(false); });
     }
     // current page marking
     var path=location.pathname.replace(/index\.html$/,'');
@@ -115,7 +115,7 @@
   /* ---------- subnav scrollspy ---------- */
   function initSubnav(){
     var nav=$('.subnav'); if(!nav) return;
-    var links=$$('a[href^="#"]', nav); var map={};
+    var links=$$('a[href^="#"]:not(.btn)', nav); var map={};
     links.forEach(function(a){ var id=a.getAttribute('href').slice(1); var sec=document.getElementById(id); if(sec) map[id]={a:a,sec:sec}; });
     function spy(){
       var y=window.scrollY + 160, cur=null;

@@ -110,12 +110,20 @@ export async function clearHits(env, key) { await env.DB.prepare('DELETE FROM au
 
 // ---------- 표 자동 생성 ----------
 let schemaReady = false;
+// 이미 만들어진 표에 나중에 추가한 칸 — 칸이 이미 있으면 오류가 나므로 하나씩 실행하고 오류는 무시합니다.
+const MIGRATIONS = [
+  'ALTER TABLE bookings ADD COLUMN amount INTEGER',
+  'ALTER TABLE bookings ADD COLUMN start_h INTEGER',
+  'ALTER TABLE bookings ADD COLUMN end_h INTEGER'
+];
 export async function ensureSchema(env) {
   if (schemaReady || !hasDb(env)) return;
+  let done = false;
   if (typeof env.DB.batch === 'function') {
-    try { await env.DB.batch(SCHEMA.map(s => env.DB.prepare(s))); schemaReady = true; return; } catch {}
+    try { await env.DB.batch(SCHEMA.map(s => env.DB.prepare(s))); done = true; } catch {}
   }
-  for (const s of SCHEMA) { try { await env.DB.prepare(s).run(); } catch {} }
+  if (!done) for (const s of SCHEMA) { try { await env.DB.prepare(s).run(); } catch {} }
+  for (const s of MIGRATIONS) { try { await env.DB.prepare(s).run(); } catch {} }
   schemaReady = true;
 }
 export const TABLES = ['inquiries', 'host_applications', 'bookings', 'reviews', 'calendar_blocks', 'event_log', 'members', 'sessions', 'auth_attempts', 'admin_sessions', 'quotes', 'inquiry_checks', 'orders'];

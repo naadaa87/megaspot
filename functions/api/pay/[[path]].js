@@ -8,7 +8,7 @@
 // Cloudflare 설정: INICIS_MID(상점아이디), INICIS_SIGNKEY(웹결제 signkey, Secret). 둘 다 없으면 이니시스 테스트 상점으로 동작합니다
 // (결제창은 열리지만 실제 승인·출금은 되지 않음). 계약이 끝나면 두 값을 넣고 다시 배포하면 실결제로 바뀝니다.
 import { json, err, hasDb, readJson, str, num, isDate, now, log, sha256, sameOrigin, clientIp, getMember, kstToday, tooMany, hit } from '../_lib.js';
-import { PRODUCTS, HOLIDAYS } from '../_catalog.js';
+import { PRODUCTS, HOLIDAYS, PRICING } from '../_catalog.js';
 
 const TEST_MID = 'INIpayTest', TEST_SIGNKEY = 'SU5JTElURV9UUklQTEVERVNfS0VZU1RS';
 const PKG_SLOT = { day: 'pkg-day', allday: 'pkg-allday', allnight: 'pkg-allnight' };
@@ -25,6 +25,13 @@ function addDays(iso, n) { const [y, m, d] = iso.split('-').map(Number); const d
 function isOff(iso) { const [y, m, d] = iso.split('-').map(Number); const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay(); return dow === 0 || dow === 6 || !!HOLIDAYS[iso]; }
 export function dayCol(iso) { const off = isOff(iso), next = isOff(addDays(iso, 1)); return !off ? (next ? 'fri' : 'wd') : (next ? 'sat' : 'sun'); }
 const COL_LABEL = { wd: '월–목', fri: '금요일', sat: '토요일', sun: '일요일' };
+// 성수기(요금편성표 2026-10-17): 이용권 고정 금액과 달라 온라인 이용권으로는 결제하지 않고 예약 신청으로 안내합니다. 기간은 pricing-gundae.js 의 peak 에서 읽습니다.
+export function peakOf(iso) {
+  const pk = PRICING && PRICING.peak; if (!pk) return null;
+  let id = pk.dates && pk.dates[iso];
+  if (!id && pk.months) { const m = pk.months[iso.slice(0, 7)]; if (m) { const [y, mo, d] = iso.split('-').map(Number); const dow = new Date(Date.UTC(y, mo - 1, d)).getUTCDay(); id = m[dow === 0 ? 'sun' : dow === 6 ? 'sat' : dow === 5 ? 'fri' : 'wd']; } }
+  const t = id && pk.types[id]; return t ? { id, ...t } : null;
+}
 function kdate(iso) { const [y, m, d] = iso.split('-').map(Number); const dow = '일월화수목금토'[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]; return `${y}년 ${m}월 ${d}일(${dow})`; }
 function makeOid() { const d = new Date(Date.now() + 9 * 3600e3).toISOString().replace(/[-:T]/g, '').slice(0, 14); const r = crypto.getRandomValues(new Uint8Array(3)); return 'MS' + d + [...r].map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase(); }
 function html(body, status = 200) { return new Response('<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>메가스팟 결제</title></head><body style="font-family:sans-serif;padding:24px;color:#1E2225">' + body + '</body></html>', { status, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } }); }
@@ -40,6 +47,8 @@ export function buildOrder(input) {
     event_date = str(input.date, 10);
     if (!isDate(event_date)) return { error: '이용일을 선택해 주세요.' };
     if (event_date < today) return { error: '지난 날짜는 선택할 수 없습니다.' };
+    const pk = peakOf(event_date);
+    if (pk) return { error: `${kdate(event_date)}은(는) 성수기 요금(${pk.label} 기준${pk.people > P.people.base ? ' · 기준 ' + pk.people + '명 포함' : ''})이 적용되는 날이라 이용권으로 결제할 수 없습니다. '예약 신청 · 금액 확인'에서 그날 금액을 확인하고 신청해 주시면 결제 방법을 안내해 드립니다.`, code: 'PEAK', peak: pk.id };
     const col = dayCol(event_date), g = P.dayGroups[p.group];
     if (!g.cols.includes(col)) return { error: `${kdate(event_date)}은(는) ${COL_LABEL[col]} 요금이 적용되는 날이라 이 이용권(${g.label})으로 결제할 수 없습니다. 같은 패키지의 ${COL_LABEL[col]} 이용권을 골라 주세요.`, code: 'DAY_MISMATCH', col };
     people = num(input.people); if (people == null) people = P.people.base;
@@ -167,8 +176,9 @@ export async function onRequest({ request, env, params }) {
         const d = new Date(); bookingCode = `MS-${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, '0')}-${rnd}`;
         const clash = await env.DB.prepare("SELECT 1 AS x FROM bookings WHERE space_id = 'megaspot-gundae' AND date = ? AND status = 'confirmed'").bind(row.event_date).first();
         const memo = `온라인 결제 ${oid} · ${PRODUCTS.get(row.product_id).name}` + (data.memo ? ` · ${data.memo}` : '') + (clash ? ' · ※ 같은 날짜에 다른 예약이 있어 확인 필요' : '');
-        await env.DB.prepare('INSERT INTO bookings (booking_code, space_id, inquiry_ref, customer_name, phone, phone_last4, date, slot, headcount, memo, status, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
-          .bind(bookingCode, 'megaspot-gundae', row.inquiry_ref || null, row.buyer_name, row.buyer_phone, row.buyer_phone.slice(-4), row.event_date, data.slot, row.people, memo.slice(0, 2000), 'confirmed', t).run();
+        const SLOT_HOURS = { 'pkg-day': [10, 17], 'pkg-allday': [10, 24], 'pkg-allnight': [18, 31] }, sh = SLOT_HOURS[data.slot] || [null, null];
+        await env.DB.prepare('INSERT INTO bookings (booking_code, space_id, inquiry_ref, customer_name, phone, phone_last4, date, slot, headcount, memo, status, amount, start_h, end_h, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+          .bind(bookingCode, 'megaspot-gundae', row.inquiry_ref || null, row.buyer_name, row.buyer_phone, row.buyer_phone.slice(-4), row.event_date, data.slot, row.people, memo.slice(0, 2000), 'confirmed', row.price, sh[0], sh[1], t).run();
         await env.DB.prepare("INSERT INTO calendar_blocks (space_id, date, state, memo) VALUES ('megaspot-gundae', ?, 'full', ?) ON CONFLICT(space_id, date) DO UPDATE SET state = 'full', memo = excluded.memo").bind(row.event_date, '예약 ' + bookingCode).run();
         if (row.inquiry_ref) await env.DB.prepare("UPDATE inquiries SET status = '예약 확정', updated_at = ? WHERE ref = ?").bind(t, row.inquiry_ref).run();
       }

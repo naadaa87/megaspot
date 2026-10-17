@@ -37,6 +37,9 @@ CREATE TABLE IF NOT EXISTS bookings (
   headcount INTEGER,
   memo TEXT,
   status TEXT NOT NULL DEFAULT 'confirmed', -- confirmed | completed | cancelled
+  amount INTEGER,                           -- 예약 금액(원) — 2026-10-16 추가
+  start_h INTEGER,                          -- 시작 시각(7~30, 24 이상은 다음 날)
+  end_h INTEGER,                            -- 종료 시각(8~31)
   created_at TEXT NOT NULL,
   updated_at TEXT
 );

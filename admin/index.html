@@ -38,7 +38,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Black+Han+Sans&display=swap">
-<link rel="stylesheet" href="/assets/css/site.css?v=202610141130">
+<link rel="stylesheet" href="/assets/css/site.css?v=202610170524">
 <meta name="theme-color" content="#F1EFEB">
 
 </head>
@@ -64,6 +64,7 @@
     <div class="adm-brand"><a href="/admin/" class="logo inv"><span class="en">MEGA<b>SPOT</b></span></a><span class="adm-badge">관리자</span></div>
     <nav class="adm-nav" id="adm-nav" aria-label="관리 메뉴">
       <button type="button" data-view="dash" class="on">대시보드</button>
+      <button type="button" data-view="resv">예약 목록</button>
       <button type="button" data-view="inq">문의 관리<em data-count="inq" hidden></em></button>
       <button type="button" data-view="quote">견적 계산</button>
       <button type="button" data-view="orders">주문·결제<em data-count="orders" hidden></em></button>
@@ -85,27 +86,48 @@
         <div class="adm-card"><h2>답변이 필요한 문의 <small>문의 접수 · 오래된 순</small></h2><div id="dash-todo" class="adm-list"></div></div>
         <div class="adm-card"><h2>견적 후 연락이 필요한 문의 <small>견적 발송·결제 대기 2일 이상</small></h2><div id="dash-follow" class="adm-list"></div></div>
         <div class="adm-card"><h2>날짜가 가까운데 아직 미확정 <small>14일 이내</small></h2><div id="dash-soon" class="adm-list"></div></div>
-        <div class="adm-card"><h2>다가오는 예약 <small>14일 이내</small></h2><div id="dash-upcoming" class="adm-list"></div></div>
+        <div class="adm-card"><h2 class="row between" style="gap:8px"><span>다가오는 예약 <small>14일 이내</small></span><button class="btn btn-light btn-xs" type="button" data-go="resv">예약 목록 전체 →</button></h2><div id="dash-upcoming" class="adm-list"></div></div>
       </div>
       <div class="adm-card mt-3"><h2>최근 온라인 결제 <small>결제 완료·실패</small></h2><div id="dash-orders" class="adm-list"></div></div>
       <div class="adm-card mt-3"><h2>이번 달 요약</h2><div id="dash-month" class="adm-month"></div><p class="tiny muted mt-2">금액은 각 문의에 마지막으로 저장한 견적 합계(보증금 제외)를 더한 값입니다. 견적을 저장하지 않은 문의는 금액에 들어가지 않습니다.</p></div>
     </section>
 
     <!-- 문의 관리 -->
+    <!-- 예약 목록 -->
+    <section class="adm-view" id="view-resv" hidden>
+      <header class="adm-head"><div><h1>예약 목록</h1><p class="small muted">확정 예약과 날짜가 정해진 예약 신청·문의를 날짜순으로 한눈에 봅니다. 줄을 누르면 연결된 문의가 열립니다.</p></div>
+        <div class="row" style="gap:6px"><button class="btn btn-light btn-sm" type="button" id="rs-csv">CSV 내려받기</button><button class="btn btn-light btn-sm" type="button" id="rs-print">인쇄</button><button class="btn btn-light btn-sm" type="button" id="rs-reload">새로고침</button></div></header>
+      <div class="rs-bar">
+        <div class="rs-range" role="group" aria-label="기간">
+          <button type="button" class="chip" data-range="week">이번 주</button><button type="button" class="chip" data-range="month">이번 달</button><button type="button" class="chip" data-range="next">다음 달</button><button type="button" class="chip on" data-range="upcoming">앞으로 전체</button><button type="button" class="chip" data-range="past">지난 예약</button>
+        </div>
+        <div class="rs-dates"><label class="sr-only" for="rs-from">시작일</label><input class="input" type="date" id="rs-from"><span>~</span><label class="sr-only" for="rs-to">종료일</label><input class="input" type="date" id="rs-to"></div>
+      </div>
+      <div class="adm-filters rs-filters">
+        <select class="select" id="rs-kind" aria-label="보기"><option value="all">확정 + 미확정(신청·문의)</option><option value="booking">확정 예약만</option><option value="pending">미확정(신청·문의)만</option></select>
+        <select class="select" id="rs-status" aria-label="상태"><option value="active">취소 제외</option><option value="">취소 포함 전체</option><option value="confirmed">예약 확정</option><option value="completed">이용 완료</option><option value="cancelled">취소만</option></select>
+        <input class="input" id="rs-q" placeholder="이름·연락처·예약번호·문의번호" aria-label="검색">
+      </div>
+      <div class="rs-kpis" id="rs-kpis"></div>
+      <div id="rs-list" class="rs-list"></div>
+    </section>
+
     <section class="adm-view" id="view-inq" hidden>
-      <header class="adm-head"><div><h1>문의 관리</h1><p class="small muted">줄을 누르면 상세 내용·체크리스트·견적·메모를 볼 수 있습니다.</p></div><div class="row" style="gap:8px"><button class="btn btn-primary btn-sm" type="button" data-go="inq-new">+ 문의 직접 등록</button><button class="btn btn-light btn-sm" type="button" id="inq-csv">CSV 내려받기</button></div></header>
+      <header class="adm-head"><div><h1>문의 관리</h1><p class="small muted">줄을 누르면 상세 내용·체크리스트·견적·메모를 보고 수정·삭제할 수 있습니다. 왼쪽 칸을 체크하면 여러 건을 한 번에 지울 수 있습니다.</p></div><div class="row" style="gap:8px"><button class="btn btn-primary btn-sm" type="button" data-go="inq-new">+ 문의 직접 등록</button><button class="btn btn-light btn-sm" type="button" id="inq-csv">CSV 내려받기</button></div></header>
       <div class="adm-filters">
         <select class="select" id="inq-status"><option value="open">진행 중 (접수~결제 대기)</option><option value="">전체</option><option>문의 접수</option><option>조건 확인</option><option>견적 발송</option><option>결제 대기</option><option>예약 확정</option><option>이용 완료</option><option>취소·환불</option></select>
         <select class="select" id="inq-type"><option value="">모든 유형</option><option value="event">행사 대관</option><option value="regular">정기·반복 모임</option><option value="partner">제휴·협력</option></select>
         <input class="input" id="inq-q" placeholder="이름·연락처·이메일·문의번호">
         <button class="btn btn-light btn-sm" type="button" id="inq-reload">검색</button>
       </div>
+      <div class="inq-bulk" id="inq-bulk" hidden><b id="inq-sel-n">0건 선택</b><button class="btn btn-light btn-sm" type="button" id="inq-sel-clear">선택 해제</button><button class="btn btn-danger btn-sm" type="button" id="inq-sel-del">선택한 문의 삭제</button></div>
+      <div class="form-note" id="inq-bulk-msg" hidden></div>
       <div id="inq-list" class="adm-table"></div>
     </section>
 
     <!-- 견적 계산 -->
     <section class="adm-view" id="view-quote" hidden>
-      <header class="adm-head"><div><h1>견적 계산</h1><p class="small muted">요금표 v2.0으로 계산하고 할인·추가 항목을 더해 견적서를 만듭니다. 문의 상세에서 '이 문의로 견적 계산'을 누르면 조건이 채워집니다.</p></div><button class="btn btn-light btn-sm" type="button" id="q-reset">새 견적</button></header>
+      <header class="adm-head"><div><h1>견적 계산</h1><p class="small muted">요금표(성수기 포함)로 계산하고 할인·추가 항목을 더해 견적서를 만듭니다. 문의 상세에서 '이 문의로 견적 계산'을 누르면 조건이 채워집니다.</p></div><button class="btn btn-light btn-sm" type="button" id="q-reset">새 견적</button></header>
       <div class="adm-quote">
         <form class="adm-card q-form" id="q-form" novalidate>
           <div class="q-link" id="q-link"></div>
@@ -180,7 +202,10 @@
           <h2>예약 확정 등록</h2>
           <div class="field-row"><div class="f"><label>공간</label><select class="select" name="space_id" id="bk-space"></select></div><div class="f"><label>연결할 문의번호</label><input class="input" name="inquiry_ref" id="bk-ref" placeholder="MS-2611-XXXX"></div></div>
           <div class="field-row"><div class="f"><label>예약자 이름 <span class="req">*</span></label><input class="input" name="customer_name" id="bk-name" required></div><div class="f"><label>연락처 <span class="req">*</span></label><input class="input" name="phone" id="bk-phone" type="tel" required placeholder="010-0000-0000"></div></div>
-          <div class="field-row three"><div class="f"><label>이용일 <span class="req">*</span></label><input class="input" type="date" name="date" id="bk-date" required></div><div class="f"><label>시간</label><select class="select" name="slot" id="bk-slot"><option value="custom">직접 입력(메모)</option><option value="pkg-day">낮 패키지 10–17시</option><option value="pkg-allday">올데이 10–24시</option><option value="pkg-allnight">올나잇 18–07시</option><option value="morning">아침 07–12시</option><option value="day">낮 12–17시</option><option value="evening">저녁 17–24시</option></select></div><div class="f"><label>인원</label><input class="input" name="headcount" id="bk-people" inputmode="numeric"></div></div>
+          <div class="field-row three"><div class="f"><label for="bk-date">이용일 <span class="req">*</span></label><input class="input" type="date" name="date" id="bk-date" required></div><div class="f"><label for="bk-start">시작</label><select class="select" name="start_h" id="bk-start"></select></div><div class="f"><label for="bk-end">종료</label><select class="select" name="end_h" id="bk-end"></select></div></div>
+          <div class="nw-pkgs" id="bk-pkgs" aria-label="패키지 시간 빠른 선택"></div>
+          <div class="field-row"><div class="f"><label for="bk-people">인원</label><input class="input" name="headcount" id="bk-people" inputmode="numeric"></div><div class="f"><label for="bk-amount">예약 금액 (원)</label><input class="input" type="number" min="0" step="1000" name="amount" id="bk-amount" inputmode="numeric" placeholder="확정 금액"><span class="hint" id="bk-amount-hint"></span></div></div>
+          <input type="hidden" name="slot" id="bk-slot" value="custom">
           <div class="f"><label>메모 (시간·금액·배치·장비 등)</label><textarea class="textarea" name="memo" id="bk-memo" style="min-height:80px"></textarea></div>
           <label class="agree"><input type="checkbox" name="block_calendar" checked> <span>해당 날짜를 일정 달력에서 '마감'으로 표시</span></label>
           <button class="btn btn-primary" type="submit">예약 등록</button>
@@ -239,26 +264,44 @@
   <div class="adm-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="nw-title">
     <div class="adm-drawer-head"><h2 id="nw-title">문의 직접 등록</h2><button class="btn btn-light btn-sm" type="button" data-close>닫기 ✕</button></div>
     <form class="adm-drawer-body form" id="nw-form" novalidate>
-      <p class="small muted">카카오톡·전화·이메일·방문으로 받은 문의도 여기에 등록해 두면 홈페이지 문의와 같은 목록에서 견적·예약까지 관리할 수 있습니다.</p>
-      <div class="field-row"><div class="f"><label>받은 경로</label><select class="select" name="channel"><option value="kakao">카카오톡</option><option value="phone">전화</option><option value="email">이메일</option><option value="visit">방문·답사</option><option value="other">기타</option></select></div><div class="f"><label>유형</label><select class="select" name="inquiry_type"><option value="event">행사 대관</option><option value="regular">정기·반복 모임</option><option value="partner">제휴·협력</option></select></div></div>
+      <p class="small muted" id="nw-intro">카카오톡·전화·이메일·방문으로 받은 문의도 여기에 등록해 두면 홈페이지 문의와 같은 목록에서 견적·예약까지 관리할 수 있습니다.</p>
+      <div class="field-row"><div class="f"><label>받은 경로</label><select class="select" name="channel"><option value="kakao">카카오톡</option><option value="phone">전화</option><option value="email">이메일</option><option value="visit">방문·답사</option><option value="other">기타</option><option value="web" id="nw-ch-web" hidden>홈페이지</option></select></div><div class="f"><label>유형</label><select class="select" name="inquiry_type"><option value="event">행사 대관</option><option value="regular">정기·반복 모임</option><option value="partner">제휴·협력</option></select></div></div>
       <div class="field-row"><div class="f"><label>고객 이름·소속 <span class="req">*</span></label><input class="input" name="name" required></div><div class="f"><label>연락처</label><input class="input" name="phone" type="tel"></div></div>
       <div class="f"><label>이메일</label><input class="input" name="email" type="email"></div>
-      <div class="field-row three"><div class="f"><label>이용일</label><input class="input" type="date" name="date"></div><div class="f"><label>시작</label><input class="input" type="time" name="t_start" step="3600"></div><div class="f"><label>종료</label><input class="input" type="time" name="t_end" step="3600"></div></div>
-      <div class="field-row"><div class="f"><label>인원</label><input class="input" name="headcount" inputmode="numeric"></div><div class="f"><label>모임 목적</label><select class="select" name="purpose" id="nw-purpose"></select></div></div>
+      <div class="field-row three"><div class="f"><label for="nw-date">이용일</label><input class="input" type="date" name="date" id="nw-date"></div><div class="f"><label for="nw-start">시작</label><select class="select" name="start_h" id="nw-start"></select></div><div class="f"><label for="nw-end">종료</label><select class="select" name="end_h" id="nw-end"></select></div></div>
+      <div class="nw-pkgs" id="nw-pkgs" aria-label="패키지 시간 빠른 선택"></div>
+      <div class="field-row"><div class="f"><label for="nw-people">인원</label><input class="input" name="headcount" id="nw-people" inputmode="numeric" placeholder="예: 60"></div><div class="f"><label for="nw-purpose">모임 목적</label><select class="select" name="purpose" id="nw-purpose"></select></div></div>
+      <details class="nw-opts" id="nw-opts-box"><summary>옵션 · 정기 이용 <span class="muted">(선택)</span></summary><div class="nw-opts-body" id="nw-opts"></div></details>
+
+      <fieldset class="nw-amount" id="nw-amount">
+        <legend>금액</legend>
+        <div class="seg2" role="radiogroup" aria-label="금액 정하는 방법">
+          <label><input type="radio" name="amount_mode" value="auto" checked> 요금표로 자동 계산</label>
+          <label><input type="radio" name="amount_mode" value="manual"> 직접 입력</label>
+          <label><input type="radio" name="amount_mode" value="none"> 나중에 정하기</label>
+        </div>
+        <div class="nw-auto" id="nw-auto"><div class="nw-auto-empty small muted">이용일과 시작·종료 시간을 고르면 요금표(성수기 포함)로 바로 계산합니다.</div></div>
+        <div class="nw-manual" id="nw-manual" hidden>
+          <div class="field-row"><div class="f"><label for="nw-total">금액 (원, 부가세 포함)</label><input class="input" type="number" min="0" step="1000" inputmode="numeric" name="total" id="nw-total" placeholder="예: 650000"><span class="hint" id="nw-total-hint"></span></div>
+          <div class="f"><label for="nw-amount-note">금액 메모</label><input class="input" name="amount_note" id="nw-amount-note" maxlength="200" placeholder="예: 단골 10% 할인, 케이터링 포함"></div></div>
+          <button type="button" class="btn btn-light btn-sm" id="nw-use-auto">요금표 계산 금액 가져오기</button>
+        </div>
+      </fieldset>
+
       <div class="f"><label>문의 내용</label><textarea class="textarea" name="message" style="min-height:90px"></textarea></div>
       <div class="f"><label>운영 메모</label><input class="input" name="memo"></div>
-      <button class="btn btn-primary" type="submit">등록</button>
+      <button class="btn btn-primary" type="submit" id="nw-submit">등록</button>
       <div class="form-note" id="nw-msg" hidden></div>
     </form>
   </div>
 </div>
 </div><!-- /admin-root -->
 <div id="quote-print" aria-hidden="true"></div>
-<script src="/assets/js/site.js?v=202610141130"></script>
-<script src="/assets/js/data/spaces.js?v=202610141130"></script>
-<script src="/assets/js/data/holidays-kr.js?v=202610141130"></script>
-<script src="/assets/js/data/pricing-gundae.js?v=202610141130"></script>
-<script src="/assets/js/pricing-engine.js?v=202610141130"></script>
-<script src="/assets/js/pages/admin.js?v=202610141130"></script>
+<script src="/assets/js/site.js?v=202610170524"></script>
+<script src="/assets/js/data/spaces.js?v=202610170524"></script>
+<script src="/assets/js/data/holidays-kr.js?v=202610170524"></script>
+<script src="/assets/js/data/pricing-gundae.js?v=202610170524"></script>
+<script src="/assets/js/pricing-engine.js?v=202610170524"></script>
+<script src="/assets/js/pages/admin.js?v=202610170524"></script>
 </body>
 </html>

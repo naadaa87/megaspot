@@ -1,17 +1,18 @@
 // =====================================================================
-//  메가스팟 건대 · 요금표 v2.0 (가격구조도 최종본, 2026-10-11)
-//  - 숫자는 이 파일 한 곳에만 둡니다. 여기만 고치면 요금표·패키지·계산기·견적서·FAQ 예시가 함께 바뀝니다.
+//  메가스팟 건대 · 요금표 v2.1 (가격구조도 최종본 2026-10-11 + 성수기 요금편성표 2026-10-17)
+//  - 숫자는 이 파일 한 곳에만 둡니다. 여기만 고치면 요금표·패키지·계산기·요금 달력·견적서·FAQ 예시가 함께 바뀝니다.
 //  - 시간당 요금(원) × 요일 구분(월–목 / 금 / 토 / 일) + 인원 추가 + 옵션 방식입니다.
 //  - 요일 구분은 공휴일에도 같은 규칙으로 정합니다 (아래 dayRule 참고).
+//  - 성수기(2026-10-30·31, 2026년 12월, 2027년 1월)는 아래 peak 에 적힌 적용 구분의 요금을 대신 씁니다.
 // =====================================================================
 window.MEGASPOT_PRICING = window.MEGASPOT_PRICING || {};
 window.MEGASPOT_PRICING['megaspot-gundae'] = {
-  version: '요금표 v2.0 · 2026년 10월 11일 기준',
-  effectiveFrom: '2026-10-11',
+  version: '요금표 v2.1 · 2026년 10월 17일 기준',
+  effectiveFrom: '2026-10-17',
   vatNote: '표시 금액은 부가세 포함 기준입니다.',   // 가격구조도에 부가세 표기가 없어 이전 기준(부가세 포함)을 유지했습니다. 다르면 이 문장과 FAQ를 고쳐 주세요.
 
   /* ---------- 인원 ---------- */
-  people: { base: 20, extra: 10000, max: 200, note: '기준 인원 20명이 시간 요금에 들어 있고, 21명째부터 1명당 1만 원을 더합니다. 최대 200명까지 이용할 수 있습니다.' },
+  people: { base: 20, extra: 10000, max: 200, note: '기준 인원 20명이 시간 요금에 들어 있고, 21명째부터 1명당 1만 원을 더합니다. 최대 200명까지 이용할 수 있습니다. 성수기 주말·특정일은 기준 인원이 50명으로 늘어납니다(아래 성수기 요금 참고).' },
 
   /* ---------- 요일 구분 ---------- */
   cols: [
@@ -30,19 +31,22 @@ window.MEGASPOT_PRICING['megaspot-gundae'] = {
 
   /* ---------- 시간대와 시간당 요금 (원) ---------- */
   // from/to: 시각(07=07시). 24 이상은 다음 날 새벽(24=자정, 31=다음 날 07시)
+  // 새벽 05–07시(dawn)는 심야 시간대 요금으로 계산합니다. 조찬 모임은 따로 연락 주시면 추가 협찬·할인을 안내합니다.
   bands: [
     { id: 'morning', label: '아침',  time: '07–12시', from: 7,  to: 12 },
     { id: 'day',     label: '낮',    time: '12–17시', from: 12, to: 17 },
     { id: 'evening', label: '저녁',  time: '17–24시', from: 17, to: 24 },
     { id: 'night',   label: '심야',  time: '24–07시', from: 24, to: 31 }
   ],
+  dawn: { from: 5, to: 7, band: 'night', note: '새벽 05–07시는 심야 시간대 요금으로 계산합니다.' },
+  breakfastUntil: 9,   // 이 시각 전에 시작하면 '조찬 모임' 안내를 띄웁니다
   hourly: {
     wd:  { morning: 40000,  day: 60000,  evening: 100000, night: 40000 },
     fri: { morning: 60000,  day: 60000,  evening: 150000, night: 80000 },
     sat: { morning: 80000,  day: 150000, evening: 200000, night: 100000 },
     sun: { morning: 100000, day: 150000, evening: 150000, night: 60000 }
   },
-  openFrom: 7,   // 선택 가능한 시작 시각
+  openFrom: 5,   // 선택 가능한 시작 시각 (새벽 05시)
   openTo: 31,    // 선택 가능한 종료 시각 (다음 날 07시)
   minHours: 1,
 
@@ -92,12 +96,55 @@ window.MEGASPOT_PRICING['megaspot-gundae'] = {
   deposit: { amount: 150000, label: '이용 보증금', note: '기본 정리, 파손·오염, 부착물 제거 여부를 확인한 뒤 돌려 드립니다. 이용료와 따로 받습니다.' },
   corporate: '법인 결제·법인카드 결제가 필요하면 사전 예약금을 환급한 뒤 법인 결제로 진행할 수 있습니다.',
 
-  /* ---------- 별도 협의 ---------- */
+  /* ---------- 성수기 요금 (요금편성표 2026-10-17) ----------
+     - 적용 기간: 2026-10-30·31, 2026년 12월 전체, 2027년 1월 전체. 자정을 넘어도 '시작한 이용일'의 요금입니다.
+     - 날짜 → 적용 구분: dates 에 적힌 특정일이 먼저, 그다음 months 의 실제 요일(월–목/금/토/일)로 정합니다. 공휴일 규칙은 쓰지 않습니다.
+     - 시간제 = 시간당 요금 × 시간 + 1건당 가산액(surcharge). 패키지 금액에는 가산액이 이미 들어 있습니다.
+     - people = 포함 인원. 그보다 적은 인원도 같은 공간료이고, 초과 인원은 1명당 1만 원입니다. 옵션·보증금은 그대로입니다. */
+  peak: {
+    label: '성수기',
+    periods: [
+      { id: 'oct',  label: '10월 30·31일', from: '2026-10-30', to: '2026-10-31' },
+      { id: 'dec',  label: '12월',          from: '2026-12-01', to: '2026-12-31' },
+      { id: 'jan',  label: '1월',           from: '2027-01-01', to: '2027-01-31' }
+    ],
+    dates: { '2026-10-30': 'oct30', '2026-10-31': 'oct31', '2026-12-24': 'dec24', '2026-12-25': 'dec25', '2026-12-31': 'dec31', '2027-01-01': 'jan1' },
+    months: { '2026-12': { wd: 'dec_wd', fri: 'dec_fri', sat: 'dec_sat', sun: 'dec_sun' }, '2027-01': { wd: 'jan_wd', fri: 'jan_fri', sat: 'jan_sat', sun: 'jan_sun' } },
+    // base: 비교 기준이 된 평소 요일 구분 · people: 포함 인원 · pct: 목표 인상률(%) · surcharge: 시간제 1건당 가산액
+    types: {
+      oct30:   { label: '10월 30일',  short: '10/30(금)',  period: 'oct', base: 'fri', people: 20, pct: 20,  surcharge: 0,      hourly: { morning: 70000,  day: 70000,  evening: 180000, night: 95000  }, pkg: { day: 360000,  allday: 1200000, allnight: 1320000 } },
+      oct31:   { label: '10월 31일',  short: '10/31(토)',  period: 'oct', base: 'sat', people: 50, pct: 50,  surcharge: 450000, hourly: { morning: 120000, day: 225000, evening: 300000, night: 150000 }, pkg: { day: 1500000, allday: 2850000, allnight: 2700000 } },
+      dec_wd:  { label: '12월 월–목', short: '월–목',      period: 'dec', base: 'wd',  people: 20, pct: 20,  surcharge: 0,      hourly: { morning: 50000,  day: 70000,  evening: 120000, night: 50000  }, pkg: { day: 360000,  allday: 960000,  allnight: 840000  } },
+      dec_fri: { label: '12월 금요일', short: '금',        period: 'dec', base: 'fri', people: 20, pct: 40,  surcharge: 0,      hourly: { morning: 85000,  day: 85000,  evening: 210000, night: 110000 }, pkg: { day: 420000,  allday: 1400000, allnight: 1540000 } },
+      dec_sat: { label: '12월 토요일', short: '토',        period: 'dec', base: 'sat', people: 50, pct: 100, surcharge: 600000, hourly: { morning: 160000, day: 300000, evening: 400000, night: 200000 }, pkg: { day: 2000000, allday: 3800000, allnight: 3600000 } },
+      dec_sun: { label: '12월 일요일', short: '일',        period: 'dec', base: 'sun', people: 50, pct: 50,  surcharge: 450000, hourly: { morning: 150000, day: 225000, evening: 225000, night: 90000  }, pkg: { day: 1500000, allday: 2480000, allnight: 1950000 } },
+      dec24:   { label: '12월 24일',  short: '12/24',      period: 'dec', base: 'sun', people: 50, pct: 50,  surcharge: 450000, hourly: { morning: 150000, day: 225000, evening: 225000, night: 90000  }, pkg: { day: 1500000, allday: 2480000, allnight: 1950000 }, same: 'dec_sun' },
+      dec25:   { label: '12월 25일',  short: '12/25',      period: 'dec', base: 'sat', people: 50, pct: 100, surcharge: 600000, hourly: { morning: 160000, day: 300000, evening: 400000, night: 200000 }, pkg: { day: 2000000, allday: 3800000, allnight: 3600000 }, same: 'dec_sat' },
+      dec31:   { label: '12월 31일',  short: '12/31',      period: 'dec', base: 'sat', people: 50, pct: 100, surcharge: 600000, hourly: { morning: 160000, day: 300000, evening: 400000, night: 200000 }, pkg: { day: 2000000, allday: 3800000, allnight: 3600000 }, same: 'dec_sat' },
+      jan_wd:  { label: '1월 월–목',  short: '월–목',      period: 'jan', base: 'wd',  people: 20, pct: 10,  surcharge: 0,      hourly: { morning: 45000,  day: 65000,  evening: 110000, night: 45000  }, pkg: { day: 330000,  allday: 880000,  allnight: 770000  } },
+      jan_fri: { label: '1월 금요일', short: '금',         period: 'jan', base: 'fri', people: 20, pct: 20,  surcharge: 0,      hourly: { morning: 70000,  day: 70000,  evening: 180000, night: 95000  }, pkg: { day: 360000,  allday: 1200000, allnight: 1320000 } },
+      jan_sat: { label: '1월 토요일', short: '토',         period: 'jan', base: 'sat', people: 50, pct: 50,  surcharge: 450000, hourly: { morning: 120000, day: 225000, evening: 300000, night: 150000 }, pkg: { day: 1500000, allday: 2850000, allnight: 2700000 } },
+      jan_sun: { label: '1월 일요일', short: '일',         period: 'jan', base: 'sun', people: 50, pct: 30,  surcharge: 390000, hourly: { morning: 130000, day: 195000, evening: 195000, night: 80000  }, pkg: { day: 1300000, allday: 2150000, allnight: 1690000 } },
+      jan1:    { label: '1월 1일',    short: '1/1',        period: 'jan', base: 'fri', people: 50, pct: 30,  surcharge: 390000, hourly: { morning: 80000,  day: 80000,  evening: 195000, night: 105000 }, pkg: { day: 780000,  allday: 1690000, allnight: 1820000 } }
+    },
+    // 표에 보여 줄 순서 (기간별)
+    order: { oct: ['oct30', 'oct31'], dec: ['dec_wd', 'dec_fri', 'dec_sat', 'dec_sun', 'dec24', 'dec25', 'dec31'], jan: ['jan_wd', 'jan_fri', 'jan_sat', 'jan_sun', 'jan1'] },
+    notes: [
+      '성수기에도 공간료 = 시간당 요금 × 이용 시간입니다. 포함 인원이 50명인 날은 시간제에 1건당 가산액을 한 번 더하고, 패키지 금액에는 이미 들어 있습니다.',
+      '포함 인원보다 적게 와도 공간료는 같고, 초과 인원은 1명당 1만 원입니다. 옵션과 보증금은 평소와 같습니다.',
+      '12월 24일은 12월 일요일, 12월 25일·31일은 12월 토요일 요금과 같습니다. 12월 31일 올나잇은 1월 1일 요금을 다시 더하지 않습니다.',
+      '성수기에는 요일 구분을 실제 요일로 정하고, 자정을 넘어도 시작한 이용일의 요금입니다.'
+    ]
+  },
+
+  /* ---------- 별도 협의 (따로 연락 주시면 추가 협찬·할인 안내) ---------- */
   special: [
-    { id: 'regular', k: '정기 이용',            d: '4회 이상 미리 예약하면 별도 할인을 안내합니다.' },
-    { id: 'popup',   k: '팝업·전시·행사·촬영',   d: '행사 성격과 기간에 맞춰 별도 할인을 안내합니다.' },
-    { id: 'peak',    k: '성수기 12월·1월',       d: '성수기 요금은 따로 공지합니다. 문의 주시면 확정된 기준으로 안내합니다.' }
+    { id: 'breakfast', k: '조찬 모임',             en: 'Breakfast', d: '아침 일찍 시작하는 조찬 모임은 새벽 05시부터 잡을 수 있습니다. 따로 연락 주시면 추가 협찬과 할인을 안내해 드립니다.', cta: '조찬 모임 문의', href: '/inquiry/?type=regular&purpose=seminar&start=7&end=10' },
+    { id: 'regular',   k: '정기 모임',             en: 'Regulars',  d: '매주·격주·매월 여는 모임을 4회 이상 미리 예약하면 별도 할인을 안내하고, 따로 연락 주시면 추가 협찬까지 함께 안내해 드립니다.', cta: '정기 모임 문의', href: '/inquiry/?type=regular' },
+    { id: 'partner',   k: '제휴 모임',             en: 'Partners',  d: '기획·대행사, 학교·기관·커뮤니티, 브랜드와 함께 여는 제휴 모임은 조건을 듣고 따로 정합니다. 연락 주시면 추가 협찬과 할인을 안내해 드립니다.', cta: '제휴 모임 문의', href: '/inquiry/?type=partner' },
+    { id: 'popup',     k: '팝업·전시·행사·촬영',    en: 'Projects',  d: '행사 성격과 기간에 맞춰 별도 할인을 안내합니다. 기간과 규모를 알려 주세요.', cta: '조건 남기기', href: '/inquiry/?purpose=popup' }
   ],
+  specialNote: '조찬 모임 · 정기 모임 · 제휴 모임은 따로 연락 주시면 추가 협찬과 할인을 안내해 드립니다.',
   peakMonths: [12, 1],
 
   /* ---------- 목적별 요금 예시 시나리오 (어떤 모임 페이지·목적별 안내 페이지에서 계산) ---------- */
