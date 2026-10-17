@@ -934,7 +934,7 @@ section[id]{scroll-margin-top:calc(var(--header-h) - 16px)}
 body:has(.subnav) [id]{scroll-margin-top:calc(var(--header-h) + 70px)}
 body:has(.subnav) section[id]{scroll-margin-top:calc(var(--header-h) + 22px)}
 
-/* ---------- 카카오톡 문의 (소셜팩토리 채널에서 함께 응대) ---------- */
+/* ---------- 카카오톡 문의 (메가스팟 전용 채널) ---------- */
 :root{--kakao:#FEE500;--kakao-ink:#191919}
 .btn-kakao{background:var(--kakao);color:var(--kakao-ink);border-color:var(--kakao)}
 .btn-kakao:hover{background:#F2D900;border-color:#F2D900;color:var(--kakao-ink)}

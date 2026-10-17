@@ -103,7 +103,7 @@
         var retry=o.status==='created'||o.status==='failed';
         $('#oc-card').innerHTML='<div class="eyebrow">'+esc(o.status==='failed'?'Not completed':o.status)+'</div><dl class="def mt-2"><dt>상품</dt><dd>'+esc(o.title)+'</dd>'+(o.event_date?'<dt>이용일</dt><dd>'+esc(E?E.kdateY(o.event_date):o.event_date)+'</dd>':'')+'<dt>금액</dt><dd>'+esc(won(o.price))+'</dd><dt>주문번호</dt><dd>'+esc(o.oid)+'</dd>'+(o.result_msg&&o.status==='failed'?'<dt>사유</dt><dd>'+esc(o.result_msg)+'</dd>':'')+'</dl>'
           +'<p class="small muted mt-2">카드 승인 문자를 받았는데 이 화면이 보인다면 승인이 자동으로 취소되었거나 처리 중일 수 있습니다. 카카오톡으로 주문번호와 함께 알려 주시면 바로 확인해 드립니다.</p>'
-          +'<div class="row mt-3" style="gap:8px">'+(retry?'<a class="btn btn-primary btn-sm" href="/order/?product='+esc(o.product_id)+(o.event_date?'&date='+esc(o.event_date):'')+(o.people?'&people='+o.people:'')+'">다시 결제하기</a>':'')+'<a class="btn btn-kakao btn-sm" href="https://pf.kakao.com/_uTiFX" target="_blank" rel="noopener" data-kakao>카카오톡 문의</a></div>';
+          +'<div class="row mt-3" style="gap:8px">'+(retry?'<a class="btn btn-primary btn-sm" href="/order/?product='+esc(o.product_id)+(o.event_date?'&date='+esc(o.event_date):'')+(o.people?'&people='+o.people:'')+'">다시 결제하기</a>':'')+'<a class="btn btn-kakao btn-sm" href="https://pf.kakao.com/_LnxbmX/chat" target="_blank" rel="noopener" data-kakao>카카오톡 문의</a></div>';
       }
     }).catch(function(){ $('#oc-missing').hidden=false; $('#oc-title').textContent='주문 정보를 찾을 수 없습니다'; });
   }

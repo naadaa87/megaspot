@@ -14,8 +14,8 @@
     description: '인원과 목적에 맞는 대형 공간을 비교하고 문의하는 예약 플랫폼',
     phone: '010-2384-9580',          // 대표 상담 번호 — 공개 전 확인
     email: 'spaceblank0100@gmail.com', // 대표 이메일 — 공개 전 확인
-    kakaoChannel: 'https://pf.kakao.com/_uTiFX', // 카카오톡 문의 채널 — 비우면 카카오톡 버튼·링크 숨김
-    kakaoNote: '메가스팟 문의는 소셜팩토리 카카오톡 채널에서 함께 응대합니다.',
+    kakaoChannel: 'https://pf.kakao.com/_LnxbmX/chat', // 카카오톡 문의 채널 — 비우면 카카오톡 버튼·링크 숨김
+    kakaoNote: '메가스팟 전용 카카오톡 채널로 1:1 채팅이 바로 열립니다.',
     // ※ 채널 주소를 바꾸면 QR 이미지(/assets/img/brand/kakao-qr.svg)도 새 주소로 다시 만들어 교체해야 합니다.
     hours: '평일 10:00–19:00 (주말·공휴일 문의는 다음 영업일 순차 답변)',
     operatorName: '메가스팟 운영팀',

@@ -33,7 +33,7 @@
   function famAsk(d){ return ((d&&d.family)||[]).map(function(x){ return FAM_ASK[x]||x; }).join(', '); }
   // 예약 채널 바로가기 (주소를 바꾸려면 여기만 고치면 됩니다)
   var CHANNEL_LINKS=[
-    { id:'kakao', name:'카카오톡 채널', mark:'K', links:[ { k:'관리자 화면', s:'관리자', url:'https://business.kakao.com/space/10713979/dashboard' }, { k:'고객 화면 (1:1 채팅)', s:'고객', url:'https://pf.kakao.com/_uTiFX/chat' } ] },
+    { id:'kakao', name:'카카오톡 채널', mark:'K', links:[ { k:'관리자 화면', s:'관리자', url:'https://business.kakao.com/space/10713979/dashboard' }, { k:'고객 화면 (1:1 채팅)', s:'고객', url:'https://pf.kakao.com/_LnxbmX/chat' } ] },
     { id:'spacecloud', name:'스페이스클라우드', mark:'S', links:[ { k:'관리자 화면', s:'관리자', url:'https://partner.spacecloud.kr/manage/space' }, { k:'고객 화면 (공간 페이지)', s:'고객', url:'https://www.spacecloud.kr/space/81999' } ] },
     { id:'gmail', name:'구글 이메일', mark:'M', sub:'spaceblank0100@gmail.com', links:[ { k:'받은편지함 열기', s:'메일함', url:'https://mail.google.com/mail/u/0/' } ] },
     { id:'instagram', name:'인스타그램', mark:'I', sub:'@megaspot.kr', links:[ { k:'계정 열기', s:'계정', url:'https://www.instagram.com/megaspot.kr' } ] }
