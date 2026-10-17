@@ -424,7 +424,7 @@
   var Q;
   function blankQ(){ return { ref:'', customer:'', phone:'', email:'', date:todayIso(), start:13, end:17, people:20, purpose:'', regular:false,
     opts:{ manager:{on:false,count:1,hours:4}, cleaning:false, disposable:false, banner:false, xbanner:false },
-    discType:'none', discVal:0, discWhy:'', extras:[], deposit:(D?D.deposit.amount:150000), valid:7, note:'', quoteNo:'' }; }
+    discType:'none', discVal:0, discWhy:'', extras:[], deposit:(D?D.deposit.amount:150000), valid:1, note:'', quoteNo:'' }; }
   Q=blankQ();
   function hourOpts(from,to,sel){ var s=''; for(var h=from;h<=to;h++) s+='<option value="'+h+'"'+(h===sel?' selected':'')+'>'+esc(E.hourLabel(h))+'</option>'; return s; }
   function fillForm(){
@@ -457,7 +457,7 @@
     var mc=$('#q-opts [data-mgr=count]'), mh=$('#q-opts [data-mgr=hours]'); if(mc) Q.opts.manager.count=Math.max(1,parseInt(mc.value,10)||1); if(mh) Q.opts.manager.hours=Math.max(1,parseInt(mh.value,10)||1);
     Q.discType=$('#q-disc-type').value; Q.discVal=Math.max(0, Number($('#q-disc-val').value)||0); Q.discWhy=$('#q-disc-why').value.trim();
     $$('#q-extras [data-ex]').forEach(function(el){ var x=Q.extras[+el.dataset.i]; if(!x) return; if(el.dataset.ex==='label') x.label=el.value; else x.amount=Math.round(Number(el.value)||0); });
-    Q.deposit=Math.max(0, Number($('#q-deposit').value)||0); Q.valid=+$('#q-valid').value||7; Q.note=$('#q-note').value.trim();
+    Q.deposit=Math.max(0, Number($('#q-deposit').value)||0); Q.valid=+$('#q-valid').value||1; Q.note=$('#q-note').value.trim();
   }
   function compute(){
     var opts={}; if(Q.opts.manager.on) opts.manager={count:Q.opts.manager.count, hours:Q.opts.manager.hours}; ['cleaning','disposable','banner','xbanner'].forEach(function(k){ if(Q.opts[k]) opts[k]=true; });
@@ -537,11 +537,19 @@
     A('/quotes',{method:'POST', body:payload()}).then(function(r){ Q.quoteNo=r.quote_no; calc(); note($('#q-msg'),'견적 '+r.quote_no+'을(를) 저장했습니다.'+(Q.ref&&$('#q-mark').checked?' 문의 상태도 확인했습니다.':''),true); loadRecentQuotes(); })
     .catch(function(e){ if(!guard(e)) note($('#q-msg'), e.message); }).finally(function(){ b.disabled=false; });
   });
+  // '김민지 · 성수 러닝크루' → ['김민지', '성수 러닝크루'] (가운뎃점·슬래시·쉼표로 나눔, '김민지(러닝크루)'처럼 괄호로 적어도 됨)
+  function custParts(s){
+    s=String(s||'').trim(); if(!s) return ['',''];
+    var m=s.match(/^([^()]+?)\s*\(([^)]*)\)\s*$/); if(m) return [m[1].trim(), m[2].trim()];
+    var i=s.search(/\s*[·•\/,|]\s*/); if(i<0) return [s,''];
+    return [s.slice(0,i).trim(), s.slice(i).replace(/^\s*[·•\/,|]\s*/,'').trim()];
+  }
   function kakaoText(){
-    var q=R.q, L=[];
+    var q=R.q, L=[], cp=custParts(Q.customer);
     L.push('[메가스팟 건대 견적 안내]'+(Q.quoteNo?' 견적번호 '+Q.quoteNo:''));
-    L.push((Q.customer?Q.customer.split('·')[0].trim()+'님, ':'')+'문의하신 조건으로 견적 드립니다.');
+    L.push((cp[0]?cp[0]+' 님, ':'')+'문의하신 조건으로 견적 드립니다.');
     L.push('');
+    if(cp[0]) L.push('· 고객: '+cp[0]+(cp[1]?' ('+cp[1]+')':''));
     L.push('· 이용일: '+E.kdateY(q.date)+(q.day.holiday?' ('+q.day.holiday+')':''));
     L.push('· 시간: '+q.range);
     L.push('· 인원: '+q.people+'명'+(PUR[Q.purpose]?' · '+PUR[Q.purpose]:''));
@@ -552,7 +560,7 @@
     L.push('--------------------');
     L.push('합계 '+won(R.total)+' ('+D.vatNote.replace('표시 금액은 ','').replace(' 기준입니다.','')+')');
     L.push('보증금 '+won(R.deposit)+' 별도 (이용 뒤 확인 후 반환)');
-    L.push('견적 유효기간: '+E.kdateY(R.validUntil)+'까지');
+    L.push('견적 유효기간: '+E.kdateY(R.validUntil)+'까지'+(Q.valid===1?' (다음 날까지)':''));
     if(Q.note){ L.push(''); L.push(Q.note); }
     L.push(''); L.push('200인치 빔프로젝터·마이크·스피커·강단은 공간료에 포함되어 있습니다. 예약을 원하시면 편하게 말씀해 주세요.');
     return L.join('\n');
