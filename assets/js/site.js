@@ -188,12 +188,30 @@
   }
   function formData(form){ var o={}; new FormData(form).forEach(function(v,k){ if(o[k]!==undefined){ if(!Array.isArray(o[k])) o[k]=[o[k]]; o[k].push(v);} else o[k]=v; }); return o; }
 
+  /* ---------- 유입 경로 (검색·SNS·광고 링크) ----------
+     바깥 사이트에서 들어오거나 utm 값이 붙은 주소로 들어오면 그 정보를 이 브라우저에만 30일 보관하고,
+     예약 신청·문의를 보낼 때 함께 보냅니다. 관리자 화면의 '유입' 표시에 쓰입니다. 이름·연락처와는 상관없는 정보입니다. */
+  var SRC_KEY='ms_src';
+  (function(){
+    try{
+      var q=new URLSearchParams(location.search), ref=document.referrer||'', host='';
+      try{ host=ref?new URL(ref).hostname.replace(/^www\./,''):''; }catch(e){}
+      var internal=!!host && host===location.hostname.replace(/^www\./,'');
+      var utm=q.get('utm_source'), cur=null; try{ cur=JSON.parse(localStorage.getItem(SRC_KEY)||'null'); }catch(e){}
+      var stale=!cur || (Date.now()-(cur.t||0))>30*864e5;
+      if(utm || (ref && !internal) || stale){
+        localStorage.setItem(SRC_KEY, JSON.stringify({ ref:(ref && !internal)?ref.slice(0,300):'', utm_source:(utm||'').slice(0,60), utm_medium:(q.get('utm_medium')||'').slice(0,60), utm_campaign:(q.get('utm_campaign')||'').slice(0,80), landing:location.pathname.slice(0,200), t:Date.now() }));
+      }
+    }catch(e){}
+  })();
+  function source(){ try{ var v=JSON.parse(localStorage.getItem(SRC_KEY)||'null'); return v && (Date.now()-(v.t||0))<=30*864e5 ? v : null; }catch(e){ return null; } }
+
   /* ---------- 공유 내보내기 ---------- */
   window.MEGASPOT = {
     CONFIG:CONFIG, $:$, $$:$$, esc:esc, pad2:pad2, fmtDate:fmtDate, fmtKDate:fmtKDate, fmtNum:fmtNum,
     toast:toast, api:api, checkApi:checkApi, demo:demo, openLightbox:openLB, photoSrc:photoSrc, localRef:localRef,
     imgSrc:imgSrc, isStaged:isStaged, isCG:isCG, imgTag:imgTag, tagClass:tagClass, tagHtml:tagHtml, visual:visual, sceneItems:sceneItems,
-    validate:validate, formData:formData, account:account
+    validate:validate, formData:formData, account:account, source:source
   };
 
   /* ---------- 모바일 빠른 연락 바 + 맨 위로 ---------- */

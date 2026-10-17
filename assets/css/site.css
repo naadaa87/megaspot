@@ -1604,3 +1604,116 @@ body:has(.subnav) section[id]{scroll-margin-top:calc(var(--header-h) + 22px)}
 .why h4{margin:10px 0 6px;font-size:16.5px;color:var(--graphite);letter-spacing:-.01em}
 .why p{margin:0;font-size:14px;color:var(--ink-2);line-height:1.65}
 @media (max-width:640px){.peak-when{display:none}.peak-head{margin-bottom:10px}}
+
+/* ===== 관리자: 문의 경로 · 채널 바로가기 · 일자별 예약 · 예약 확정 창 (2026-10-17) ===== */
+.ch-tag{display:inline-block;width:max-content;font-size:11.5px;font-weight:700;padding:1px 7px;border-radius:3px;border:1px solid var(--concrete-2);background:var(--concrete-3);color:var(--ink-2);margin-right:4px;vertical-align:middle;line-height:1.5}
+.ch-tag.ch-web{background:var(--cobalt-soft);color:var(--cobalt-2);border-color:#C9D6F6}
+.ch-tag.ch-naver{background:#E6F6EA;color:#147A35;border-color:#BDE5C8}
+.ch-tag.ch-spacecloud{background:#EDE8FB;color:#5B3FB0;border-color:#D6CCF4}
+.ch-tag.ch-sns{background:#FCE8F1;color:#A3215B;border-color:#F3C6DA}
+.ch-tag.ch-kakao{background:#FFF7C2;color:#5A4B00;border-color:#F0DF74}
+.ch-tag.ch-phone{background:#E8F1F6;color:#245A78;border-color:#C6DCE8}
+.ch-tag.ch-online{background:#E7F4EC;color:var(--ok);border-color:#BFE0CC}
+.adm-table .tr small .ch-tag{margin-top:2px}
+.adm-table .came{display:inline-block;font-size:11px;color:var(--ink-3);margin-left:2px}
+/* 채널 바로가기 */
+.adm-links-card{margin-bottom:14px}
+.ch-links{display:grid;gap:10px;grid-template-columns:1fr}
+@media (min-width:640px){.ch-links{grid-template-columns:repeat(2,1fr)}}
+@media (min-width:1200px){.ch-links{grid-template-columns:repeat(4,1fr)}}
+.ch-link{display:flex;gap:12px;align-items:flex-start;padding:12px;border:1px solid var(--concrete-2);border-radius:var(--radius-lg);background:var(--concrete-3);min-width:0}
+.ch-mark{flex:0 0 34px;width:34px;height:34px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;font-weight:900;font-size:16px;color:#fff;background:var(--graphite)}
+.ch-kakao .ch-mark{background:#FEE500;color:#3C1E1E}
+.ch-spacecloud .ch-mark{background:#6B4FD8}
+.ch-gmail .ch-mark{background:#D93025}
+.ch-instagram .ch-mark{background:linear-gradient(135deg,#F58529,#DD2A7B 55%,#8134AF)}
+.ch-link-body{min-width:0;display:grid;gap:2px}
+.ch-link-body b{font-size:14.5px;color:var(--graphite)}
+.ch-link-body small{font-size:12px;color:var(--ink-3);overflow-wrap:anywhere}
+.ch-link-btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.ch-link-btns .btn{background:#fff}
+.adm-side-links{display:none}
+@media (min-width:1000px){
+  .adm-side-links{display:grid;gap:2px;margin-top:18px;padding-top:14px;border-top:1px solid rgba(255,255,255,.1)}
+  .adm-side-cap{font-size:11px;font-weight:800;letter-spacing:.06em;color:#8D949A;padding:0 12px 4px}
+  .adm-side-links a{display:flex;justify-content:space-between;gap:8px;align-items:baseline;padding:5px 12px;border-radius:var(--radius);color:#C9CDD1;font-size:12.5px;text-decoration:none}
+  .adm-side-links a small{font-size:11px;color:#8D949A;white-space:nowrap}
+  .adm-side-links a:hover{background:rgba(255,255,255,.07);color:#fff}
+  .adm-side-links a:hover small{color:#C9CDD1}
+}
+@media (min-width:1000px) and (max-height:820px){.adm-side-links{display:none}}
+/* 문의 경로 집계 */
+.ch-range{display:flex;flex-wrap:wrap;gap:6px}
+.ch-range .chip{font-size:12.5px;min-height:30px;padding:0 10px}
+.ch-total{font-size:14px;color:var(--ink-2);margin-bottom:10px}
+.ch-total b{color:var(--graphite);font-size:16px}
+.ch-row{display:grid;grid-template-columns:120px 1fr auto;gap:4px 12px;align-items:center;padding:7px 0;border-top:1px solid var(--concrete-3)}
+.ch-row:first-of-type{border-top:0}
+.ch-name{background:none;border:0;padding:0;font:inherit;font-weight:700;font-size:14px;color:var(--graphite);text-align:left;cursor:pointer}
+.ch-name:hover{color:var(--cobalt);text-decoration:underline}
+.ch-bar{height:12px;background:var(--concrete-3);border-radius:6px;overflow:hidden}
+.ch-bar span{display:block;height:100%;background:var(--cobalt);border-radius:6px}
+.ch-num{text-align:right;font-size:13px;color:var(--ink-2);white-space:nowrap}
+.ch-num b{font-size:16px;color:var(--graphite);margin-right:1px}
+.ch-num small{display:block;font-size:11.5px;color:var(--ink-3)}
+.ch-sub{grid-column:2 / -1;display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12px;color:var(--ink-2)}
+.ch-sub span{background:var(--concrete-3);padding:1px 8px;border-radius:10px}
+@media (max-width:560px){.ch-row{grid-template-columns:88px 1fr auto}.ch-sub{grid-column:1 / -1}}
+/* 문의 상세: 경로 */
+.dr-ch{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin-top:10px;padding:10px 12px;background:var(--concrete-3);border:1px solid var(--concrete-2);border-radius:var(--radius)}
+.dr-ch label{font-size:12.5px;font-weight:800;color:var(--ink-2)}
+.dr-ch .select{width:auto;min-height:36px;font-size:14px;font-weight:700}
+.dr-ch .input{width:auto;flex:1 1 180px;min-height:36px;font-size:14px}
+.dr-came{flex-basis:100%;font-size:12.5px;color:var(--ink-2)}
+.dr-came small{color:var(--ink-3);margin-left:4px}
+.btn-ok{border-color:#BFE0CC;color:var(--ok);font-weight:800}
+.btn-ok:hover{background:var(--ok);color:#fff;border-color:var(--ok)}
+/* 일자별 예약 */
+.rs-tabs{display:flex;gap:4px;flex-wrap:wrap;background:var(--concrete-3);border:1px solid var(--concrete-2);border-radius:999px;padding:3px}
+.rs-tabs button{min-height:36px;padding:0 14px;border:0;border-radius:999px;background:none;font:inherit;font-weight:700;font-size:13.5px;color:var(--ink-2);cursor:pointer;white-space:nowrap}
+.rs-tabs button em{font-style:normal;font-size:12px;margin-left:4px;padding:0 7px;border-radius:9px;background:#fff;color:var(--ink-2)}
+.rs-tabs button[aria-selected="true"]{background:var(--graphite);color:#fff}
+.rs-tabs button[aria-selected="true"] em{background:rgba(255,255,255,.18);color:#fff}
+.rs-tabs button[data-kind="booking"][aria-selected="true"]{background:var(--ok)}
+.rs-tabs button[data-kind="pending"][aria-selected="true"]{background:var(--cobalt)}
+.rs-filters .rs-tabs{flex:0 0 auto}
+@media (max-width:600px){.rs-filters .rs-tabs{flex:1 1 100%;justify-content:space-between}.rs-tabs button{padding:0 9px;font-size:12.5px}}
+.rs-kpis .kpi.warn{border-color:#E8C77A;background:var(--warn-soft)}
+.rs-kpis .kpi.warn b{color:var(--warn)}
+.rs-note{font-size:13px;color:var(--ink-2);background:#fff;border:1px dashed var(--concrete);border-radius:var(--radius);padding:10px 14px;margin-bottom:12px}
+.rs-day{border-top:1px solid var(--concrete-2)}
+.rs-day:first-of-type{border-top:0}
+.rs-dhead{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:10px 14px 4px}
+.rs-dhead .rs-date{font-size:15px}
+.rs-dsum{display:inline-flex;gap:4px}
+.rs-dsum .st{font-size:11.5px}
+.rs-clash{font-size:12px;font-weight:700;color:var(--warn);background:var(--warn-soft);padding:2px 8px;border-radius:3px}
+.rs-peak{font-size:11px;font-weight:800;color:#A2441E;background:#FDEBDD;padding:1px 6px;border-radius:3px}
+.rs-day.clash{background:#FFFCF3}
+.rs-day.is-today .rs-dhead{background:var(--cobalt-soft)}
+.rs-day.past .rs-dhead .rs-date{color:var(--ink-3)}
+.rs-day .rs-table thead th{padding-top:4px}
+.kind{display:inline-block;font-size:11.5px;font-weight:800;padding:2px 8px;border-radius:3px}
+.kind-bk{background:#E2F2E8;color:var(--ok)}
+.kind-pd{background:var(--cobalt-soft);color:var(--cobalt-2)}
+.rs-row.booking td{background:#FBFEFC}
+.rs-taken{color:var(--warn)!important;font-weight:700}
+@media (max-width:860px){.rs-day .rs-table thead{display:none}.rs-dhead{padding:10px 14px}}
+/* 예약 확정 창 */
+.cf-who{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:12px 14px;background:var(--concrete-3);border:1px solid var(--concrete-2);border-radius:var(--radius);font-size:14px}
+.cf-who b{font-size:16px}
+.cf-who > span:not(.st):not(.ch-tag){color:var(--ink-2)}
+.cf-warn{padding:10px 12px;background:var(--warn-soft);border:1px solid #E8C77A;border-radius:var(--radius);font-size:13.5px;color:#6E4A00;line-height:1.6}
+@media print{body.print-resv .rs-tabs,body.print-resv .rs-note{display:none!important}}
+
+@media (min-width:861px){
+  .rs-day .rs-table{table-layout:fixed}
+  .rs-day .rs-table th:nth-child(1){width:9%}.rs-day .rs-table th:nth-child(2){width:12%}.rs-day .rs-table th:nth-child(3){width:19%}.rs-day .rs-table th:nth-child(4){width:12%}
+  .rs-day .rs-table th:nth-child(5){width:7%}.rs-day .rs-table th:nth-child(6){width:11%}.rs-day .rs-table th:nth-child(7){width:10%}.rs-day .rs-table th:nth-child(8){width:11%}.rs-day .rs-table th:nth-child(9){width:9%}
+  .rs-day .rs-codes span,.rs-day .rs-codes small{white-space:nowrap;font-size:11.5px;overflow-wrap:normal}
+  .rs-day td.rs-codes{overflow-wrap:normal}
+  .rs-day .rs-table td{overflow-wrap:anywhere}
+  .rs-day .rs-acts{white-space:normal}
+  .rs-day .rs-acts .btn{margin:2px 0 2px 4px}
+}
+.adm-side-links a span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

@@ -2,6 +2,19 @@
 // reserve:true 이면 '예약 신청'(금액 확인 → 신청)으로 들어온 건입니다. 모임 유형은 선택 사항입니다.
 import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, log, getMember, clientIp, tooMany, hit, kstToday } from './_lib.js';
 const TYPES = ['event', 'regular', 'partner'];
+// 홈페이지로 들어오기 직전 어디에 있었는지(검색·SNS·광고 링크)를 분류합니다. 브라우저가 보낸 referrer·utm 값만 쓰고 개인 식별 정보는 받지 않습니다.
+const SRC_RULES = [[/instagram|^ig$/, 'instagram', '인스타그램'], [/facebook|^fb$|fb\.com/, 'facebook', '페이스북'], [/youtube|youtu\.be/, 'youtube', '유튜브'], [/spacecloud/, 'spacecloud', '스페이스클라우드'],
+  [/blog\.naver/, 'naver_blog', '네이버 블로그'], [/map\.naver|place\.naver|m\.place/, 'naver_place', '네이버 지도·플레이스'], [/naver/, 'naver', '네이버'], [/google/, 'google', '구글'], [/daum/, 'daum', '다음'],
+  [/kakao/, 'kakao', '카카오'], [/bing/, 'bing', '빙'], [/threads|twitter|x\.com|t\.co/, 'sns', 'SNS']];
+export function cameFrom(c) {
+  if (!c || typeof c !== 'object') return null;
+  const ref = str(c.ref, 300), us = str(c.utm_source, 60).toLowerCase();
+  let host = ''; try { host = ref ? new URL(ref).hostname.replace(/^www\./, '') : ''; } catch {}
+  const key = us || host;
+  let src = key ? 'site' : 'direct', label = key ? '다른 사이트' : '직접 방문';
+  for (const [re, id, lb] of SRC_RULES) if (re.test(key)) { src = id; label = lb; break; }
+  return { src, label, host, utm_source: us, utm_medium: str(c.utm_medium, 60), utm_campaign: str(c.utm_campaign, 80), landing: str(c.landing, 200) };
+}
 export async function onRequestPost({ request, env }) {
   if (!hasDb(env)) return err('데이터베이스가 연결되어 있지 않습니다.', 503, 'NO_DB');
   let d; try { d = await readJson(request); } catch (e) { return err(e.message); }
@@ -27,7 +40,7 @@ export async function onRequestPost({ request, env }) {
   }
   if (!d.agree_privacy) return err('개인정보 수집·이용 동의가 필요합니다.');
   const data = {
-    inquiry_type, reserve, space_id, purpose, date: isDate(date) ? date : '', date_alt: str(d.date_alt, 10), slot: str(d.slot, 10),
+    inquiry_type, reserve, channel: 'web', came_from: cameFrom(d.came_from), space_id, purpose, date: isDate(date) ? date : '', date_alt: str(d.date_alt, 10), slot: str(d.slot, 10),
     start_h: num(d.start_h), end_h: num(d.end_h), pkg: str(d.pkg, 20), total: num(d.total),
     options: (d.options && typeof d.options === 'object' && !Array.isArray(d.options)) ? Object.fromEntries(Object.entries(d.options).slice(0, 10).map(([k, v]) => [str(k, 20), (v && typeof v === 'object') ? { count: num(v.count), hours: num(v.hours) } : !!v])) : {},
     t_setup: str(d.t_setup, 5), t_start: str(d.t_start, 5), t_end: str(d.t_end, 5), t_out: str(d.t_out, 5),

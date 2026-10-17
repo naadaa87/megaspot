@@ -400,7 +400,7 @@
       var body = { inquiry_type: st.regular ? 'regular' : 'event', space_id: 'megaspot-gundae', reserve: true, purpose: purpose, date: r.date, slot: 'custom',
         t_start: E.hourLabel(r.start).replace(/^다음 날 /, ''), t_end: E.hourLabel(r.end).replace(/^다음 날 /, ''), start_h: r.start, end_h: r.end, headcount: r.people,
         options: options(), pkg: r.pkg ? r.pkg.id : '', total: r.total, name: who.name, phone: who.phone, email: who.email, message: who.message, contact_pref: 'kakao',
-        agree_privacy: true, estimate: E.summaryText(r, purLabel(purpose)), source: location.pathname, summary: reserveText(r, who), website: form.website.value };
+        agree_privacy: true, estimate: E.summaryText(r, purLabel(purpose)), source: location.pathname, summary: reserveText(r, who), website: form.website.value, came_from: M.source ? M.source() : null };
       var btn = el.querySelector('[data-act=submit]'); btn.disabled = true; btn.textContent = '신청하는 중…';
       M.api('/inquiry', { method: 'POST', body: body }).then(function(res){ done = { ref: res.ref, live: true, who: who, r: r, purpose: purpose, member: !!res.member }; phase = 'done'; paintDone(); })
       .catch(function(ex){

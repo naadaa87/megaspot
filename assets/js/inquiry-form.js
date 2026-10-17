@@ -143,7 +143,7 @@
       if(!M.validate(form)){ err.textContent='이름·휴대폰 번호와 동의 여부를 확인해 주세요.'; err.hidden=false; return; }
       var d=M.formData(form);
       if(d.slot==='undecided') d.slot='';
-      d.contact_pref='kakao'; d.source=location.pathname; d.summary=summary(d);
+      d.contact_pref='kakao'; d.source=location.pathname; d.summary=summary(d); d.came_from=M.source?M.source():null;
       var btn=$f('#iq-submit'); btn.disabled=true; btn.textContent='보내는 중…';
       M.api('/inquiry',{method:'POST', body:d}).then(function(r){
         form.hidden=true; done.hidden=false; done.innerHTML=(r.member?'<div class="member-line on mb-3"><span><b>회원 문의로 저장했습니다.</b> 진행 상태는 마이페이지에서 확인할 수 있습니다.</span><a class="btn btn-light btn-sm" href="/mypage/">마이페이지 →</a></div>':'')+donePanel(r.ref, d, true); bind(); done.scrollIntoView({behavior:'smooth',block:'start'});
