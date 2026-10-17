@@ -15,6 +15,9 @@
   function chLabel(ch, note){ return (CH[ch||'web']||ch||'홈페이지')+(note?' · '+note:''); }
   function chOptions(sel, first){ return (first?'<option value="">'+esc(first)+'</option>':'')+CH_LIST.map(function(c){ return '<option value="'+c[0]+'"'+(c[0]===sel?' selected':'')+'>'+esc(c[1])+'</option>'; }).join(''); }
   function chTag(ch, note){ if(!ch) return ''; return '<span class="ch-tag ch-'+esc(ch)+'">'+esc(chLabel(ch, note))+'</span>'; }
+  // '함께 알아보기' (예약 신청·문의 양식에서 고객이 체크한 패밀리 공간 — site.js FAMILY_ASK와 같은 id)
+  var FAM_ASK={socialfactory:'소셜팩토리 룸(4층)', playtion:'플레이션 뒤풀이'};
+  function famAsk(d){ return ((d&&d.family)||[]).map(function(x){ return FAM_ASK[x]||x; }).join(', '); }
   // 예약 채널 바로가기 (주소를 바꾸려면 여기만 고치면 됩니다)
   var CHANNEL_LINKS=[
     { id:'kakao', name:'카카오톡 채널', mark:'K', links:[ { k:'관리자 화면', s:'관리자', url:'https://business.kakao.com/space/10713979/dashboard' }, { k:'고객 화면 (1:1 채팅)', s:'고객', url:'https://pf.kakao.com/_uTiFX/chat' } ] },
@@ -150,7 +153,7 @@
         var d=it.data||{}, late=it.status==='문의 접수'&&hoursSince(it.created_at)>=24;
         var time=timeText(d,'–');
         return '<div class="tr'+(SEL[it.ref]?' sel':'')+'" data-ref="'+esc(it.ref)+'" tabindex="0"><span class="tr-chk"><input type="checkbox" data-sel="'+esc(it.ref)+'"'+(SEL[it.ref]?' checked':'')+' aria-label="'+esc(it.ref)+' 선택"></span><span><b class="ref">'+esc(it.ref)+'</b><small class="'+(late?'late':'')+'">'+esc(String(it.created_at||'').slice(5,16))+' · '+ago(it.created_at)+'</small></span>'
-          +'<span><b>'+esc(d.name||it.name||'')+'</b>'+(d.reserve?' <span class="tag-rv">예약 신청</span>':'')+'<small>'+esc(d.phone||it.phone||'')+'</small><small>'+chTag(d.channel||'web', d.channel_note)+(d.came_from&&d.came_from.label&&(d.channel||'web')==='web'?'<span class="came">'+esc(d.came_from.label)+' 유입</span>':'')+'</small><small>'+esc(TYPE[d.inquiry_type]||'행사 대관')+(d.member_id?' · 회원':'')+'</small></span>'
+          +'<span><b>'+esc(d.name||it.name||'')+'</b>'+(d.reserve?' <span class="tag-rv">예약 신청</span>':'')+'<small>'+esc(d.phone||it.phone||'')+'</small><small>'+chTag(d.channel||'web', d.channel_note)+(d.came_from&&d.came_from.label&&(d.channel||'web')==='web'?'<span class="came">'+esc(d.came_from.label)+' 유입</span>':'')+(famAsk(d)?'<span class="came fam">+ '+esc(famAsk(d))+'</span>':'')+'</small><small>'+esc(TYPE[d.inquiry_type]||'행사 대관')+(d.member_id?' · 회원':'')+'</small></span>'
           +'<span>'+(d.inquiry_type==='partner'?esc(d.org||'제휴 제안'):esc(kd(d.date||it.event_date)))+'<small>'+esc([time, (d.headcount||it.headcount)?(d.headcount||it.headcount)+'명':'', PUR[d.purpose]||''].filter(Boolean).join(' · '))+'</small></span>'
           +'<span>'+stBadge(it.status)+'</span>'
           +'<span>'+(it.quote_total?'<b>'+esc(man(it.quote_total))+'</b><small>저장한 견적</small>':(d.total!=null?'<b>'+esc(man(d.total))+'</b><small>'+(d.source==='admin'?'등록 금액':(d.amount_mode==='manual'?'확정 금액':'고객 예상 금액'))+'</small>':(d.estimate?'<small>고객 예상 금액 첨부</small>':'<small>—</small>')))+'</span></div>';
@@ -190,8 +193,8 @@
   $('#inq-q').addEventListener('keydown', function(e){ if(e.key==='Enter') loadInq(); });
   $('#inq-csv').addEventListener('click', function(){
     if(!inqCache.length){ M.toast('내려받을 문의가 없습니다. 먼저 목록을 불러오세요.'); return; }
-    var cols=['문의번호','접수일시','상태','구분','유형','경로','유입','이름','연락처','이메일','행사일','시작','종료','인원','목적','금액(원)','저장 견적(원)','회원','운영 메모'];
-    var rows=inqCache.map(function(it){ var d=it.data||{}; return [it.ref,it.created_at,it.status,d.reserve?'예약 신청':'문의',TYPE[d.inquiry_type]||'행사 대관',chLabel(d.channel||'web', d.channel_note),(d.came_from&&d.came_from.label)||'',d.name||it.name,d.phone||it.phone,d.email||it.email,d.date||it.event_date||'',d.t_start||'',d.t_end||'',d.headcount||it.headcount||'',PUR[d.purpose]||d.purpose||'',d.total!=null?d.total:'',it.quote_total||'',d.member_id?'Y':'',it.memo||'']; });
+    var cols=['문의번호','접수일시','상태','구분','유형','경로','유입','함께 알아보기','이름','연락처','이메일','행사일','시작','종료','인원','목적','금액(원)','저장 견적(원)','회원','운영 메모'];
+    var rows=inqCache.map(function(it){ var d=it.data||{}; return [it.ref,it.created_at,it.status,d.reserve?'예약 신청':'문의',TYPE[d.inquiry_type]||'행사 대관',chLabel(d.channel||'web', d.channel_note),(d.came_from&&d.came_from.label)||'',famAsk(d),d.name||it.name,d.phone||it.phone,d.email||it.email,d.date||it.event_date||'',d.t_start||'',d.t_end||'',d.headcount||it.headcount||'',PUR[d.purpose]||d.purpose||'',d.total!=null?d.total:'',it.quote_total||'',d.member_id?'Y':'',it.memo||'']; });
     var csv='﻿'+[cols].concat(rows).map(function(r){ return r.map(function(v){ v=String(v==null?'':v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }).join(','); }).join('\r\n');
     var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})); a.download='메가스팟_문의_'+todayIso()+'.csv'; document.body.appendChild(a); a.click(); a.remove();
   });
@@ -220,6 +223,7 @@
       +'<span class="small muted">접수 '+esc(String(it.created_at||'').slice(0,16))+(d.member_id?' · 회원 '+esc(d.member_email||''):'')+'</span></div>'
       +'<div class="dr-ch"><label for="dr-ch">문의 경로</label><select class="select" id="dr-ch">'+chOptions(d.channel||'web')+'</select><input class="input" id="dr-ch-note" maxlength="40" value="'+esc(d.channel_note||'')+'" placeholder="'+((d.channel||'web')==='other'?'기타 경로 직접 입력':'세부 경로 (선택)')+'"'+(['other','sns'].indexOf(d.channel||'web')>=0?'':' hidden')+'><button class="btn btn-light btn-xs" type="button" id="dr-ch-save" hidden>경로 저장</button>'
       +((d.channel||'web')==='web'&&d.came_from?'<span class="dr-came">유입: <b>'+esc(d.came_from.label||'')+'</b>'+(d.came_from.host?' <small>('+esc(d.came_from.host)+')</small>':'')+(d.came_from.utm_campaign?' <small>캠페인 '+esc(d.came_from.utm_campaign)+'</small>':'')+(d.came_from.landing?' <small>첫 페이지 '+esc(d.came_from.landing)+'</small>':'')+'</span>':'')+'</div>'
+      +(famAsk(d)?'<div class="dr-fam"><span class="ch-tag">함께 알아보기</span> <b>'+esc(famAsk(d))+'</b> <small class="muted">고객이 같은 날 함께 쓰고 싶다고 체크했습니다. 해당 공간 일정을 확인해 함께 안내해 주세요.</small></div>':'')
       +'<div class="dr-actions"><button class="btn btn-primary btn-sm" type="button" id="dr-quote">이 문의로 견적 계산 →</button>'
       +(tel?'<a class="btn btn-light btn-sm" href="tel:'+esc(tel)+'">전화</a><a class="btn btn-light btn-sm" href="sms:'+esc(tel)+'">문자</a>':'')
       +((d.email||it.email)?'<a class="btn btn-light btn-sm" href="mailto:'+esc(d.email||it.email)+'?subject='+encodeURIComponent('[메가스팟 건대] 문의 '+it.ref+' 안내')+'">이메일</a>':'')
@@ -718,7 +722,7 @@
     return '<tr class="rs-row '+(isB?'booking':'pending')+(it.status==='cancelled'?' cancelled':'')+(past?' past':'')+'"'+(it.ref?' data-ref="'+esc(it.ref)+'" tabindex="0"':'')+'>'
       +'<td data-th="구분">'+kind+(!isB && x.bk?'<small class="rs-taken">이 날 확정 예약 있음</small>':'')+'</td>'
       +'<td data-th="시간">'+esc(resvTime(it))+(resvHours(it)?'<small>'+esc(resvHours(it))+'</small>':'')+'</td>'
-      +'<td data-th="예약자"><b>'+esc(it.name||'')+'</b><small>'+esc(it.phone||'')+(it.purpose&&PUR[it.purpose]?' · '+esc(PUR[it.purpose]):'')+'</small></td>'
+      +'<td data-th="예약자"><b>'+esc(it.name||'')+'</b><small>'+esc(it.phone||'')+(it.purpose&&PUR[it.purpose]?' · '+esc(PUR[it.purpose]):'')+'</small>'+(famAsk(it)?'<small class="rs-fam">+ '+esc(famAsk(it))+'</small>':'')+'</td>'
       +'<td data-th="경로">'+chs+'</td>'
       +'<td data-th="인원">'+(it.headcount?it.headcount+'명':'—')+'</td>'
       +'<td data-th="금액" class="r">'+(it.amount!=null?'<b>'+esc(won(it.amount))+'</b><small>'+esc(SRC[it.amount_src]||'')+'</small>':'<span class="muted">미정</span>')+'</td>'

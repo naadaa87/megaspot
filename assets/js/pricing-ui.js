@@ -370,6 +370,7 @@
         + '<div class="field-row"><div class="f"><label for="' + pid + '-email">이메일 <span class="muted">(선택)</span></label><input class="input" type="email" id="' + pid + '-email" name="rv_email" autocomplete="email" placeholder="견적서를 받을 주소" value="' + esc(m.email || '') + '"></div>'
         + '<div class="f"><label for="' + pid + '-ptype">모임 유형 <span class="muted">(선택)</span></label><select class="select" id="' + pid + '-ptype" name="rv_purpose"><option value="">선택 안 함</option>' + PUR.map(function(p){ return '<option value="' + p.id + '"' + (st.purpose === p.id ? ' selected' : '') + '>' + esc(p.label) + '</option>'; }).join('') + '<option value="other"' + (st.purpose === 'other' ? ' selected' : '') + '>기타</option></select></div></div>'
         + '<div class="f"><label for="' + pid + '-msg">요청사항 <span class="muted">(선택)</span></label><textarea class="textarea" id="' + pid + '-msg" name="rv_message" maxlength="1000" style="min-height:64px" placeholder="행사 성격, 배치, 반입할 장비, 음식 등 미리 알려 주실 것"></textarea></div>'
+        + (M.familyAsk ? M.familyAsk('rv_family') : '')
         + '<input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">'
         + '<label class="agree"><input type="checkbox" name="rv_agree" required> <span>(필수) 예약 안내를 위해 이름·연락처·이메일·신청 내용을 수집·이용하는 데 동의합니다. 보유 기간은 처리 완료 후 1년이며 <a href="/privacy/" target="_blank" rel="noopener" style="text-decoration:underline">개인정보처리방침</a>을 따릅니다.</span></label>'
         + '<div class="err" data-out="err" role="alert" hidden></div>'
@@ -387,7 +388,7 @@
     }
     function reserveText(r, who){
       var L = [E.summaryText(r, purLabel(r.purpose))];
-      if (who) L.unshift('[메가스팟 건대 예약 신청] ' + who.name + ' / ' + who.phone + (who.email ? ' / ' + who.email : '') + (who.message ? '\n요청사항: ' + who.message : ''));
+      if (who) L.unshift('[메가스팟 건대 예약 신청] ' + who.name + ' / ' + who.phone + (who.email ? ' / ' + who.email : '') + (who.message ? '\n요청사항: ' + who.message : '') + (who.family && who.family.length && M.familyLabel ? '\n함께 알아보기: ' + M.familyLabel(who.family) : ''));
       return L.join('\n');
     }
     function submit(){
@@ -395,11 +396,11 @@
       if (!M.validate(form)){ er.textContent = '이름·휴대폰 번호와 동의 여부를 확인해 주세요.'; er.hidden = false; return; }
       read(); var r = last || calc();
       if (r.date < E.todayIso()){ er.textContent = '지난 날짜는 신청할 수 없습니다. 이용일을 다시 골라 주세요.'; er.hidden = false; return; }
-      var who = { name: form.rv_name.value.trim(), phone: form.rv_phone.value.trim(), email: form.rv_email.value.trim(), message: form.rv_message.value.trim() };
+      var who = { name: form.rv_name.value.trim(), phone: form.rv_phone.value.trim(), email: form.rv_email.value.trim(), message: form.rv_message.value.trim(), family: [].slice.call(form.querySelectorAll('[name=rv_family]:checked')).map(function(i){ return i.value; }) };
       var purpose = form.rv_purpose.value || st.purpose;
       var body = { inquiry_type: st.regular ? 'regular' : 'event', space_id: 'megaspot-gundae', reserve: true, purpose: purpose, date: r.date, slot: 'custom',
         t_start: E.hourLabel(r.start).replace(/^다음 날 /, ''), t_end: E.hourLabel(r.end).replace(/^다음 날 /, ''), start_h: r.start, end_h: r.end, headcount: r.people,
-        options: options(), pkg: r.pkg ? r.pkg.id : '', total: r.total, name: who.name, phone: who.phone, email: who.email, message: who.message, contact_pref: 'kakao',
+        options: options(), pkg: r.pkg ? r.pkg.id : '', total: r.total, name: who.name, phone: who.phone, email: who.email, message: who.message, family: who.family, contact_pref: 'kakao',
         agree_privacy: true, estimate: E.summaryText(r, purLabel(purpose)), source: location.pathname, summary: reserveText(r, who), website: form.website.value, came_from: M.source ? M.source() : null };
       var btn = el.querySelector('[data-act=submit]'); btn.disabled = true; btn.textContent = '신청하는 중…';
       M.api('/inquiry', { method: 'POST', body: body }).then(function(res){ done = { ref: res.ref, live: true, who: who, r: r, purpose: purpose, member: !!res.member }; phase = 'done'; paintDone(); })

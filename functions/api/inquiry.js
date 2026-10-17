@@ -2,8 +2,15 @@
 // reserve:true 이면 '예약 신청'(금액 확인 → 신청)으로 들어온 건입니다. 모임 유형은 선택 사항입니다.
 import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, log, getMember, clientIp, tooMany, hit, kstToday } from './_lib.js';
 const TYPES = ['event', 'regular', 'partner'];
+// '함께 알아보기'로 받을 수 있는 패밀리 공간 (assets/js/site.js의 FAMILY_ASK와 같은 id)
+export const FAMILY_ASK = ['socialfactory', 'playtion'];
 // 홈페이지로 들어오기 직전 어디에 있었는지(검색·SNS·광고 링크)를 분류합니다. 브라우저가 보낸 referrer·utm 값만 쓰고 개인 식별 정보는 받지 않습니다.
-const SRC_RULES = [[/instagram|^ig$/, 'instagram', '인스타그램'], [/facebook|^fb$|fb\.com/, 'facebook', '페이스북'], [/youtube|youtu\.be/, 'youtube', '유튜브'], [/spacecloud/, 'spacecloud', '스페이스클라우드'],
+const SRC_RULES = [
+  // 패밀리 사이트에서 넘어온 경우 (관리자 화면에 '패밀리 · 브랜드명'으로 표시)
+  [/socialfactory\.co\.kr/, 'family', '패밀리 · 소셜팩토리'], [/playtion\.kr/, 'family', '패밀리 · 플레이션'], [/ssople\.com/, 'family', '패밀리 · 쏘플파티룸'],
+  [/hellomingle\.kr/, 'family', '패밀리 · 밍글'], [/choisijun\.com/, 'family', '패밀리 · 최시준'], [/coremood\.kr/, 'family', '패밀리 · 코어무드'],
+  [/orbis-estate\.com/, 'family', '패밀리 · 오르비스'], [/vacancy\.co\.kr/, 'family', '패밀리 · 공백'], [/yeodeol\.kr/, 'family', '패밀리 · 여덟글자'],
+  [/instagram|^ig$/, 'instagram', '인스타그램'], [/facebook|^fb$|fb\.com/, 'facebook', '페이스북'], [/youtube|youtu\.be/, 'youtube', '유튜브'], [/spacecloud/, 'spacecloud', '스페이스클라우드'],
   [/blog\.naver/, 'naver_blog', '네이버 블로그'], [/map\.naver|place\.naver|m\.place/, 'naver_place', '네이버 지도·플레이스'], [/naver/, 'naver', '네이버'], [/google/, 'google', '구글'], [/daum/, 'daum', '다음'],
   [/kakao/, 'kakao', '카카오'], [/bing/, 'bing', '빙'], [/threads|twitter|x\.com|t\.co/, 'sns', 'SNS']];
 export function cameFrom(c) {
@@ -49,6 +56,7 @@ export async function onRequestPost({ request, env }) {
     repeat_cycle: str(d.repeat_cycle, 30), repeat_period: str(d.repeat_period, 30), repeat_days: str(d.repeat_days, 100),
     org, partner_kind: str(d.partner_kind, 40), estimate: str(d.estimate, 3000),
     docs: Array.isArray(d.docs) ? d.docs.map(x => str(x, 20)).slice(0, 5) : [], name, phone, email, contact_pref: str(d.contact_pref, 10),
+    family: [].concat(d.family || []).map(x => str(x, 20)).filter((x, i, a) => FAMILY_ASK.includes(x) && a.indexOf(x) === i).slice(0, 4),
     message, agree_marketing: !!d.agree_marketing, source: str(d.source, 200), summary: str(d.summary, 6000),
     ua: str(request.headers.get('user-agent'), 200)
   };

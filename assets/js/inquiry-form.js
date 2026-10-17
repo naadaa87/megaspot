@@ -61,6 +61,7 @@
     + '<div class="f"><label for="iq-theme">원하는 분위기·조건</label><input class="input" id="iq-theme" name="theme" maxlength="200" placeholder="예: 밝은 홀, 무대 설치, 야외 공간"></div>'
     + '</div>'
     + '<div class="f"><label for="iq-msg" id="iq-msg-lbl">요청사항</label><textarea class="textarea" id="iq-msg" name="message" maxlength="2000" placeholder="행사 성격, 꼭 필요한 조건, 궁금한 점을 자유롭게 적어 주세요."></textarea></div>'
+    + (M.familyAsk ? M.familyAsk('family') : '')
     + '</fieldset>'
 
     + '<label class="agree"><input type="checkbox" name="agree_privacy" required> <span>(필수) 문의 응대를 위해 이름·연락처·문의 내용을 수집·이용하는 데 동의합니다. 보유 기간은 처리 완료 후 1년이며 <a href="/privacy/" target="_blank" rel="noopener" style="text-decoration:underline">개인정보처리방침</a>을 따릅니다.</span></label>'
@@ -82,6 +83,7 @@
     if(d.theme) L.push('원하는 조건: '+d.theme);
     L.push('연락: '+(d.name||'')+' / '+(d.phone||''));
     if(d.message) L.push((t==='partner'?'제안 내용: ':'요청사항: ')+d.message);
+    if(d.family && d.family.length && M.familyLabel) L.push('함께 알아보기: '+M.familyLabel(d.family));
     return L.join('\n');
   }
 
@@ -118,6 +120,7 @@
       if(typeBox) typeBox.querySelectorAll('.iq-type').forEach(function(b){ var on=b.dataset.v===t; b.classList.toggle('on',on); b.setAttribute('aria-checked',String(on)); });
       $f('#iq-org-row').hidden = t!=='partner'; $f('#iq-org').required = t==='partner';
       $f('#iq-regular-row').hidden = t!=='regular';
+      var fam=$f('.fam-ask'); if(fam){ fam.hidden = t==='partner'; if(t==='partner') fam.querySelectorAll('input').forEach(function(i){ i.checked=false; }); }
       $f('#iq-date-lbl').textContent = t==='regular' ? '첫 이용 희망일' : '희망일';
       var msg=$f('#iq-msg'); msg.required = t==='partner';
       $f('#iq-msg-lbl').innerHTML = t==='partner' ? '제안 내용 <span class="req">*</span>' : '요청사항';
@@ -143,6 +146,7 @@
       if(!M.validate(form)){ err.textContent='이름·휴대폰 번호와 동의 여부를 확인해 주세요.'; err.hidden=false; return; }
       var d=M.formData(form);
       if(d.slot==='undecided') d.slot='';
+      d.family=[].concat(d.family||[]); if(!d.family.length) delete d.family;
       d.contact_pref='kakao'; d.source=location.pathname; d.summary=summary(d); d.came_from=M.source?M.source():null;
       var btn=$f('#iq-submit'); btn.disabled=true; btn.textContent='보내는 중…';
       M.api('/inquiry',{method:'POST', body:d}).then(function(r){

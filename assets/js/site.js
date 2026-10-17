@@ -206,12 +206,22 @@
   })();
   function source(){ try{ var v=JSON.parse(localStorage.getItem(SRC_KEY)||'null'); return v && (Date.now()-(v.t||0))<=30*864e5 ? v : null; }catch(e){ return null; } }
 
+  /* ---------- 함께 알아보기 (같은 건물·패밀리 공간) ----------
+     예약 신청·문의 양식에 붙는 선택 항목입니다. 값은 서버(functions/api/inquiry.js의 FAMILY_ASK)와 관리자 화면(admin.js)이 같은 id를 씁니다. */
+  var FAMILY_ASK=[['socialfactory','같은 건물 4층 소셜팩토리 룸(15~40명)','소셜팩토리 룸(4층)'],['playtion','행사 뒤 뒤풀이 공간(플레이션 게임파티룸)','플레이션 뒤풀이']];
+  function familyAsk(name){
+    return '<div class="f fam-ask"><span class="lbl">함께 알아보기 <span class="muted">(선택)</span></span><div class="checks">'
+      + FAMILY_ASK.map(function(f){ return '<label class="chk"><input type="checkbox" name="'+name+'" value="'+f[0]+'"> '+f[1]+'</label>'; }).join('')
+      + '</div><p class="tiny muted mt-1">체크하시면 같은 날 쓸 수 있는지 함께 확인해 안내해 드립니다. <a href="/family/" target="_blank" rel="noopener" style="text-decoration:underline">패밀리 사이트 보기</a></p></div>';
+  }
+  function familyLabel(list){ return [].concat(list||[]).map(function(id){ for(var i=0;i<FAMILY_ASK.length;i++) if(FAMILY_ASK[i][0]===id) return FAMILY_ASK[i][2]; return ''; }).filter(Boolean).join(', '); }
+
   /* ---------- 공유 내보내기 ---------- */
   window.MEGASPOT = {
     CONFIG:CONFIG, $:$, $$:$$, esc:esc, pad2:pad2, fmtDate:fmtDate, fmtKDate:fmtKDate, fmtNum:fmtNum,
     toast:toast, api:api, checkApi:checkApi, demo:demo, openLightbox:openLB, photoSrc:photoSrc, localRef:localRef,
     imgSrc:imgSrc, isStaged:isStaged, isCG:isCG, imgTag:imgTag, tagClass:tagClass, tagHtml:tagHtml, visual:visual, sceneItems:sceneItems,
-    validate:validate, formData:formData, account:account, source:source
+    validate:validate, formData:formData, account:account, source:source, familyAsk:familyAsk, familyLabel:familyLabel
   };
 
   /* ---------- 모바일 빠른 연락 바 + 맨 위로 ---------- */
