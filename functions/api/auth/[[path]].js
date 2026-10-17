@@ -126,7 +126,7 @@ export async function onRequest({ request, env, params }) {
     }
 
     if (path === 'inquiries' && method === 'GET') {
-      const { results } = await env.DB.prepare("SELECT ref, space_id, status, event_date, headcount, data, created_at, updated_at FROM inquiries WHERE json_extract(data, '$.member_id') = ? ORDER BY created_at DESC LIMIT 100").bind(me.id).all();
+      const { results } = await env.DB.prepare("SELECT ref, space_id, status, event_date, headcount, data, created_at, updated_at FROM inquiries WHERE json_extract(data, '$.member_id') = ? AND status <> '삭제됨' ORDER BY created_at DESC LIMIT 100").bind(me.id).all();
       const items = (results || []).map(r => {
         let d = {}; try { d = JSON.parse(r.data || '{}'); } catch {}
         return { ref: r.ref, space_id: r.space_id, status: r.status, date: r.event_date || d.date || '', headcount: r.headcount, created_at: r.created_at, updated_at: r.updated_at,

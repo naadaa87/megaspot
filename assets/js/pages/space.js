@@ -416,17 +416,17 @@
         for(var i=0;i<first;i++) h+='<div class="cal-day pad"></div>';
         for(var d=1; d<=n; d++){
           var iso=y+'-'+M.pad2(m+1)+'-'+M.pad2(d); var dt=new Date(y,m,d); var info=days[iso]||{}; var cls='cal-day ';
-          if(dt<today) cls+='past'; else if(info.state==='full') cls+='full'; else if(info.state==='hold') cls+='hold'; else cls+='open';
+          if(dt<today) cls+='past'; else if(info.state==='full') cls+='full'; else if(info.state==='hold') cls+='hold'; else if(info.state==='partial') cls+='partial'; else cls+='open';
           if(selected===iso) cls+=' sel';
-          h+='<div class="'+cls+'" data-d="'+iso+'" role="button" tabindex="'+(dt<today||info.state==='full'?'-1':'0')+'" aria-label="'+M.fmtKDate(iso)+(info.state==='full'?' 마감':info.state==='hold'?' 임시 확보':' 문의 가능')+'">'+d+(info.state?'<span class="dot"></span>':'')+'</div>';
+          h+='<div class="'+cls+'" data-d="'+iso+'" role="button" tabindex="'+(dt<today||info.state==='full'?'-1':'0')+'" aria-label="'+M.fmtKDate(iso)+(info.state==='full'?' 마감':info.state==='hold'?' 임시 확보':info.state==='partial'?' 일부 시간 예약 있음, 다른 시간 문의 가능':' 문의 가능')+'">'+d+(info.state?'<span class="dot"></span>':'')+'</div>';
         }
-        h+='</div><div class="cal-legend"><span><i style="background:var(--concrete-3);border:1px solid var(--concrete)"></i>신청 가능 (확인 뒤 확정)</span><span><i style="background:var(--warn-soft)"></i>임시 확보 중</span><span><i style="background:var(--concrete-2)"></i>마감</span><span><i style="background:var(--cobalt)"></i>선택한 날짜</span></div>';
+        h+='</div><div class="cal-legend"><span><i style="background:var(--concrete-3);border:1px solid var(--concrete)"></i>신청 가능 (확인 뒤 확정)</span><span><i style="background:var(--cobalt-soft);border:1px solid #BFD0F5"></i>일부 시간 예약 (다른 시간 가능)</span><span><i style="background:var(--warn-soft)"></i>임시 확보 중</span><span><i style="background:var(--concrete-2)"></i>마감</span><span><i style="background:var(--cobalt)"></i>선택한 날짜</span></div>';
         h+='<p class="tiny muted mt-2">'+(M.demo.on||!Object.keys(days).length?'달력은 안내용이며 실시간 재고가 아닙니다. 희망일을 고르면 예약 신청 화면에 들어가고, 확정 여부는 상담 때 안내합니다.':'표시 상태는 운영자가 갱신한 일정 기준이며 최종 확정은 금액 확인과 결제 뒤에 이뤄집니다.')+'</p>';
         cal.innerHTML=h;
         $('#cal-prev').addEventListener('click', function(){ cur=new Date(y,m-1,1); render(); });
         $('#cal-next').addEventListener('click', function(){ cur=new Date(y,m+1,1); render(); });
         $('#cal-prev').disabled = (y===today.getFullYear()&&m===today.getMonth());
-        cal.querySelectorAll('.cal-day.open,.cal-day.hold').forEach(function(el){ function pick(){ selected=el.dataset.d; var est=M.pricing&&M.pricing.estimator; if(est) est.setDate(selected); render(); M.toast(M.fmtKDate(selected)+'을(를) 예약 신청 화면에 넣었습니다.'); var box=$('#estimate'); if(box) box.scrollIntoView({behavior:'smooth',block:'start'}); } el.addEventListener('click', pick); el.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); pick(); } }); });
+        cal.querySelectorAll('.cal-day.open,.cal-day.hold,.cal-day.partial').forEach(function(el){ function pick(){ var part=el.classList.contains('partial'); selected=el.dataset.d; var est=M.pricing&&M.pricing.estimator; if(est) est.setDate(selected); render(); M.toast(M.fmtKDate(selected)+'을(를) 예약 신청 화면에 넣었습니다.'+(part?' 이 날은 일부 시간에 예약이 있어, 가능한 시간을 확인해 안내해 드립니다.':'')); var box=$('#estimate'); if(box) box.scrollIntoView({behavior:'smooth',block:'start'}); } el.addEventListener('click', pick); el.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); pick(); } }); });
       });
     }
     M.checkApi().then(render);

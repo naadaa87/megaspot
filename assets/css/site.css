@@ -1812,3 +1812,13 @@ body:has(.subnav) section[id]{scroll-margin-top:calc(var(--header-h) + 22px)}
 .dr-fam small{flex-basis:100%;font-size:12px}
 .fam-ask .checks{display:flex;flex-wrap:wrap;gap:6px 14px}
 .rs-fam{color:#0F7B6C!important;font-weight:700}
+
+/* 삭제된 문의 보관함 (2026-10-17) */
+.st.st-del{background:#ECEDEE;color:#6B7178;border-color:#D5D8DB}
+.dr-deleted{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 14px;margin-bottom:12px;padding:12px 14px;background:#F4F4F5;border:1px solid #D5D8DB;border-left:4px solid #6B7178;border-radius:6px;font-size:13.5px;color:var(--ink-2)}
+.dr-deleted b{color:var(--ink)}
+.dr-deleted small{display:block;font-size:12px;color:var(--ink-3);margin-top:2px}
+.cal-day.partial{background:var(--cobalt-soft);color:var(--cobalt-2);border-color:#BFD0F5;cursor:pointer}
+.cal-day.partial:hover{border-color:var(--cobalt)}
+.cal-day.partial.sel{background:var(--cobalt);color:#fff}
+.cf-warn.info{background:var(--cobalt-soft);border-color:#BFD0F5;color:var(--ink)}

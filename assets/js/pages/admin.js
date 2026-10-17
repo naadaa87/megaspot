@@ -4,7 +4,20 @@
   var M=window.MEGASPOT, $=M.$, $$=M.$$, esc=M.esc, E=window.MEGASPOT_PRICE, D=E&&E.data();
   function A(path, opts){ return M.api('/admin'+path, opts||{}); }
   var STATUSES=['문의 접수','조건 확인','견적 발송','결제 대기','예약 확정','이용 완료','취소·환불'];
-  var ST_CLS={'문의 접수':'st-new','조건 확인':'st-check','견적 발송':'st-quote','결제 대기':'st-pay','예약 확정':'st-ok','이용 완료':'st-done','취소·환불':'st-cancel'};
+  var ST_CLS={'문의 접수':'st-new','조건 확인':'st-check','견적 발송':'st-quote','결제 대기':'st-pay','예약 확정':'st-ok','이용 완료':'st-done','취소·환불':'st-cancel','삭제됨':'st-del'};
+  var DELETED='삭제됨';   // 삭제한 문의는 지우지 않고 이 상태로 보관합니다 (문의 관리 → 상태 '삭제된 문의')
+  // 휴대폰·전화번호: 숫자만 입력해도 하이픈을 자동으로 넣습니다 (010-1234-5678 · 02-123-4567 · 1544-3523)
+  function fmtPhone(v){
+    var x=String(v||'').replace(/[^0-9]/g,'').slice(0,11);
+    if(/^02/.test(x)){ x=x.slice(0,10); return x.length<3?x:x.length<6?x.slice(0,2)+'-'+x.slice(2):x.length<10?x.slice(0,2)+'-'+x.slice(2,5)+'-'+x.slice(5):x.slice(0,2)+'-'+x.slice(2,6)+'-'+x.slice(6); }
+    if(/^1[5-9]/.test(x)){ x=x.slice(0,8); return x.length<5?x:x.slice(0,4)+'-'+x.slice(4); }
+    return x.length<4?x:x.length<7?x.slice(0,3)+'-'+x.slice(3):x.length<11?x.slice(0,3)+'-'+x.slice(3,6)+'-'+x.slice(6):x.slice(0,3)+'-'+x.slice(3,7)+'-'+x.slice(7);
+  }
+  document.addEventListener('input', function(e){
+    var el=e.target; if(!el || el.tagName!=='INPUT' || !(el.type==='tel' || el.name==='phone')) return;
+    if(!el.closest || !el.closest('#admin-root')) return;
+    var nv=fmtPhone(el.value); if(nv!==el.value) el.value=nv;
+  });
   var TYPE={event:'행사 대관',regular:'정기·반복',partner:'제휴·협력'};
   var OPTL={manager:'현장 매니저',cleaning:'뒷정리·청소',disposable:'1회용 세트',banner:'현수막',xbanner:'X배너'};
   function timeText(d,sep){ if(d.start_h&&d.end_h){ var hl=function(h){ return (h>=24?'다음 날 ':'')+('0'+(h%24)).slice(-2)+':00'; }; return hl(+d.start_h)+sep+hl(+d.end_h)+' ('+(d.end_h-d.start_h)+'시간)'; } return d.t_start&&d.t_end?d.t_start+sep+d.t_end:(SLOT[d.slot]||''); }
@@ -40,7 +53,7 @@
   function todayIso(){ var d=new Date(Date.now()+9*3600e3); return d.toISOString().slice(0,10); }
   function ago(ts){ if(!ts) return ''; var t=Date.parse(String(ts).replace(' ','T')+'Z'); if(!t) return ''; var h=Math.floor((Date.now()-t)/36e5); if(h<1) return '방금'; if(h<24) return h+'시간 전'; var d=Math.floor(h/24); return d+'일 전'; }
   function hoursSince(ts){ var t=Date.parse(String(ts||'').replace(' ','T')+'Z'); return t?(Date.now()-t)/36e5:0; }
-  function stBadge(s){ return '<span class="st '+(ST_CLS[s]||'')+'">'+esc(s)+'</span>'; }
+  function stBadge(s){ return '<span class="st '+(ST_CLS[s]||'')+'">'+esc(s===DELETED?'삭제된 문의':s)+'</span>'; }
   function kd(iso){ return iso?M.fmtKDate(iso):'날짜 미정'; }
   function note(el, msg, ok){ el.textContent=msg; el.hidden=false; el.classList.toggle('ok',!!ok); }
   function purOptions(sel){ return '<option value="">선택 안 함</option>'+(window.MEGASPOT_PURPOSES||[]).map(function(p){ return '<option value="'+p.id+'"'+(p.id===sel?' selected':'')+'>'+esc(p.label)+'</option>'; }).join('')+'<option value="other"'+(sel==='other'?' selected':'')+'>기타</option>'; }
@@ -148,14 +161,14 @@
     A('/inquiries?status='+encodeURIComponent($('#inq-status').value)+'&type='+encodeURIComponent($('#inq-type').value)+'&ch='+encodeURIComponent($('#inq-ch').value)+'&q='+encodeURIComponent($('#inq-q').value.trim())).then(function(r){
       inqCache=r.items||[];
       var keep={}; inqCache.forEach(function(it){ if(SEL[it.ref]) keep[it.ref]=1; }); SEL=keep;
-      if(!inqCache.length){ box.innerHTML='<div class="empty"><b>표시할 문의가 없습니다</b></div>'; selSync(); return; }
+      if(!inqCache.length){ box.innerHTML='<div class="empty"><b>'+(delView()?'삭제된 문의가 없습니다':'표시할 문의가 없습니다')+'</b>'+(delView()?'<br><span class="small muted">문의를 삭제하면 지워지지 않고 여기에 보관됩니다.</span>':'')+'</div>'; selSync(); return; }
       box.innerHTML='<div class="tr th"><span class="tr-chk"><input type="checkbox" id="inq-sel-all" aria-label="목록 전체 선택"></span><span>문의</span><span>고객</span><span>행사 조건</span><span>상태</span><span>견적</span></div>'+inqCache.map(function(it){
         var d=it.data||{}, late=it.status==='문의 접수'&&hoursSince(it.created_at)>=24;
         var time=timeText(d,'–');
         return '<div class="tr'+(SEL[it.ref]?' sel':'')+'" data-ref="'+esc(it.ref)+'" tabindex="0"><span class="tr-chk"><input type="checkbox" data-sel="'+esc(it.ref)+'"'+(SEL[it.ref]?' checked':'')+' aria-label="'+esc(it.ref)+' 선택"></span><span><b class="ref">'+esc(it.ref)+'</b><small class="'+(late?'late':'')+'">'+esc(String(it.created_at||'').slice(5,16))+' · '+ago(it.created_at)+'</small></span>'
           +'<span><b>'+esc(d.name||it.name||'')+'</b>'+(d.reserve?' <span class="tag-rv">예약 신청</span>':'')+'<small>'+esc(d.phone||it.phone||'')+'</small><small>'+chTag(d.channel||'web', d.channel_note)+(d.came_from&&d.came_from.label&&(d.channel||'web')==='web'?'<span class="came">'+esc(d.came_from.label)+' 유입</span>':'')+(famAsk(d)?'<span class="came fam">+ '+esc(famAsk(d))+'</span>':'')+'</small><small>'+esc(TYPE[d.inquiry_type]||'행사 대관')+(d.member_id?' · 회원':'')+'</small></span>'
           +'<span>'+(d.inquiry_type==='partner'?esc(d.org||'제휴 제안'):esc(kd(d.date||it.event_date)))+'<small>'+esc([time, (d.headcount||it.headcount)?(d.headcount||it.headcount)+'명':'', PUR[d.purpose]||''].filter(Boolean).join(' · '))+'</small></span>'
-          +'<span>'+stBadge(it.status)+'</span>'
+          +'<span>'+stBadge(it.status)+(it.status===DELETED&&d.deleted_at?'<small>삭제 '+esc(String(d.deleted_at).slice(5,16))+'</small>':'')+'</span>'
           +'<span>'+(it.quote_total?'<b>'+esc(man(it.quote_total))+'</b><small>저장한 견적</small>':(d.total!=null?'<b>'+esc(man(d.total))+'</b><small>'+(d.source==='admin'?'등록 금액':(d.amount_mode==='manual'?'확정 금액':'고객 예상 금액'))+'</small>':(d.estimate?'<small>고객 예상 금액 첨부</small>':'<small>—</small>')))+'</span></div>';
       }).join('');
       selSync();
@@ -163,10 +176,12 @@
   }
   /* 목록에서 여러 건 골라 삭제 */
   var SEL={};
+  function delView(){ return $('#inq-status').value==='deleted'; }
   function selRefs(){ return Object.keys(SEL).filter(function(k){ return SEL[k]; }); }
   function selSync(){
     var n=selRefs().length, all=$('#inq-sel-all'), boxes=$$('#inq-list [data-sel]');
     $('#inq-bulk').hidden=!n; $('#inq-sel-n').textContent=n+'건 선택';
+    $('#inq-sel-del').hidden=delView(); $('#inq-sel-restore').hidden=!delView();
     if(all){ var on=boxes.filter(function(b){ return b.checked; }).length; all.checked=!!boxes.length && on===boxes.length; all.indeterminate=on>0 && on<boxes.length; }
   }
   $('#inq-list').addEventListener('change', function(e){
@@ -177,14 +192,22 @@
   $('#inq-sel-clear').addEventListener('click', function(){ SEL={}; $$('#inq-list [data-sel]').forEach(function(b){ b.checked=false; b.closest('.tr').classList.remove('sel'); }); selSync(); $('#inq-bulk-msg').hidden=true; });
   $('#inq-sel-del').addEventListener('click', function(){
     var refs=selRefs(); if(!refs.length) return;
-    if(!confirm('선택한 문의 '+refs.length+'건을 삭제할까요?\n\n삭제하면 되돌릴 수 없습니다. 저장한 견적·지난 예약·결제 기록은 남고, 확정 예약이 걸린 문의는 지우지 않습니다.')) return;
+    if(!confirm('선택한 문의 '+refs.length+'건을 삭제할까요?\n\n삭제한 문의는 지워지지 않고 \'삭제된 문의\' 보관함으로 옮겨집니다. 언제든 복원할 수 있고, 확정 예약이 걸린 문의는 옮기지 않습니다.')) return;
     var btn=this; btn.disabled=true;
     A('/inquiries/delete',{method:'POST', body:{refs:refs}}).then(function(r){
       var del=r.deleted||[], sk=r.skipped||[];
       SEL={}; sk.forEach(function(x){ SEL[x.ref]=true; });
-      M.toast(del.length+'건을 삭제했습니다.'+(sk.length?' '+sk.length+'건은 남겨 두었습니다.':''));
+      M.toast(del.length+'건을 삭제된 문의로 옮겼습니다.'+(sk.length?' '+sk.length+'건은 남겨 두었습니다.':''));
       var msg=$('#inq-bulk-msg');
       if(sk.length){ msg.innerHTML='<b>삭제하지 않은 문의</b><br>'+sk.map(function(x){ return esc(x.ref)+' — '+esc(x.reason); }).join('<br>'); msg.hidden=false; } else msg.hidden=true;
+      loadInq(); if(!$('#view-dash').hidden) loadDash();
+    }).catch(function(e){ if(!guard(e)) M.toast(e.message); }).finally(function(){ btn.disabled=false; });
+  });
+  $('#inq-sel-restore').addEventListener('click', function(){
+    var refs=selRefs(); if(!refs.length) return;
+    var btn=this; btn.disabled=true;
+    A('/inquiries/restore',{method:'POST', body:{refs:refs}}).then(function(r){
+      SEL={}; M.toast((r.restored||[]).length+'건을 복원했습니다. 삭제하기 전 상태로 돌아갔습니다.'); $('#inq-bulk-msg').hidden=true;
       loadInq(); if(!$('#view-dash').hidden) loadDash();
     }).catch(function(e){ if(!guard(e)) M.toast(e.message); }).finally(function(){ btn.disabled=false; });
   });
@@ -219,15 +242,16 @@
     $('#dr-title').textContent=it.ref+' · '+(d.name||it.name||'');
     var tel=(d.phone||it.phone||'').replace(/[^0-9+]/g,'');
     $('#dr-body').innerHTML=
-      '<div class="dr-top"><select class="select" id="dr-status">'+STATUSES.map(function(s){ return '<option'+(s===it.status?' selected':'')+'>'+s+'</option>'; }).join('')+'</select>'
+      (it.status===DELETED?'<div class="dr-deleted"><div><b>삭제된 문의입니다.</b> 목록과 집계에서는 빠지고 이 보관함에만 남아 있습니다.<small>삭제 '+esc(String(d.deleted_at||it.updated_at||'').slice(0,16))+(d.deleted_from?' · 삭제 전 상태 '+esc(d.deleted_from):'')+'</small></div><div class="row" style="gap:6px"><button class="btn btn-primary btn-sm" type="button" id="dr-restore">복원</button><button class="btn btn-danger btn-sm" type="button" id="dr-purge">완전 삭제</button></div></div>':'')
+      +'<div class="dr-top">'+(it.status===DELETED?stBadge(it.status):'<select class="select" id="dr-status">'+STATUSES.map(function(s){ return '<option'+(s===it.status?' selected':'')+'>'+s+'</option>'; }).join('')+'</select>')
       +'<span class="small muted">접수 '+esc(String(it.created_at||'').slice(0,16))+(d.member_id?' · 회원 '+esc(d.member_email||''):'')+'</span></div>'
-      +'<div class="dr-ch"><label for="dr-ch">문의 경로</label><select class="select" id="dr-ch">'+chOptions(d.channel||'web')+'</select><input class="input" id="dr-ch-note" maxlength="40" value="'+esc(d.channel_note||'')+'" placeholder="'+((d.channel||'web')==='other'?'기타 경로 직접 입력':'세부 경로 (선택)')+'"'+(['other','sns'].indexOf(d.channel||'web')>=0?'':' hidden')+'><button class="btn btn-light btn-xs" type="button" id="dr-ch-save" hidden>경로 저장</button>'
+      +'<div class="dr-ch"><label for="dr-ch">문의 경로</label><select class="select" id="dr-ch">'+chOptions(d.channel||'web')+'</select><input class="input" id="dr-ch-note" maxlength="40" value="'+esc(d.channel_note||'')+'" placeholder="'+((d.channel||'web')==='other'?'기타 경로 (선택)':'세부 경로 (선택)')+'"'+(['other','sns'].indexOf(d.channel||'web')>=0?'':' hidden')+'><button class="btn btn-light btn-xs" type="button" id="dr-ch-save" hidden>경로 저장</button>'
       +((d.channel||'web')==='web'&&d.came_from?'<span class="dr-came">유입: <b>'+esc(d.came_from.label||'')+'</b>'+(d.came_from.host?' <small>('+esc(d.came_from.host)+')</small>':'')+(d.came_from.utm_campaign?' <small>캠페인 '+esc(d.came_from.utm_campaign)+'</small>':'')+(d.came_from.landing?' <small>첫 페이지 '+esc(d.came_from.landing)+'</small>':'')+'</span>':'')+'</div>'
       +(famAsk(d)?'<div class="dr-fam"><span class="ch-tag">함께 알아보기</span> <b>'+esc(famAsk(d))+'</b> <small class="muted">고객이 같은 날 함께 쓰고 싶다고 체크했습니다. 해당 공간 일정을 확인해 함께 안내해 주세요.</small></div>':'')
       +'<div class="dr-actions"><button class="btn btn-primary btn-sm" type="button" id="dr-quote">이 문의로 견적 계산 →</button>'
       +(tel?'<a class="btn btn-light btn-sm" href="tel:'+esc(tel)+'">전화</a><a class="btn btn-light btn-sm" href="sms:'+esc(tel)+'">문자</a>':'')
       +((d.email||it.email)?'<a class="btn btn-light btn-sm" href="mailto:'+esc(d.email||it.email)+'?subject='+encodeURIComponent('[메가스팟 건대] 문의 '+it.ref+' 안내')+'">이메일</a>':'')
-      +((cur.bookings||[]).some(function(b){ return b.status!=='cancelled'; })?'':'<button class="btn btn-light btn-sm btn-ok" type="button" id="dr-book">예약 확정</button>')
+      +((it.status===DELETED||(cur.bookings||[]).some(function(b){ return b.status!=='cancelled'; }))?'':'<button class="btn btn-light btn-sm btn-ok" type="button" id="dr-book">예약 확정</button>')
       +'<button class="btn btn-light btn-sm" type="button" id="dr-edit">내용 수정</button></div>'
       +'<div class="dr-sec"><h3>고객</h3>'+kv('이름·소속',esc(d.name||it.name||''))+kv('연락처',esc(d.phone||it.phone||''))+kv('이메일',esc(d.email||it.email||''))+kv('선호 연락',esc({kakao:'카카오톡',phone:'전화',sms:'문자',email:'이메일'}[d.contact_pref]||d.contact_pref||''))+kv('회사·단체',esc(d.org||''))+'</div>'
       +(d.reserve?'<div class="notice" style="margin-bottom:12px"><div><b>홈페이지에서 금액을 확인하고 예약을 신청한 건입니다.</b>'+(d.total?' 고객이 본 예상 금액은 <b>'+esc(won(d.total))+'</b>'+(d.pkg?' ('+esc({day:'낮 패키지',allday:'올데이 패키지',allnight:'올나잇 패키지'}[d.pkg]||d.pkg)+')':'')+'입니다.':'')+' 일정이 비어 있으면 금액을 확인해 결제 방법을 안내하고, 입금·결제가 끝나면 \'예약 확정\'을 눌러 주세요.</div></div>':'')
@@ -241,14 +265,14 @@
       +((cur.bookings||[]).length?'<div class="dr-sec"><h3>연결된 예약</h3>'+cur.bookings.map(function(b){ return '<div class="small">'+esc(b.booking_code)+' · '+esc(kd(b.date))+' · '+esc({confirmed:'예약 확정',completed:'이용 완료',cancelled:'취소'}[b.status]||b.status)+'</div>'; }).join('')+'</div>':'')
       +'<div class="dr-sec"><h3>운영 메모</h3><textarea class="textarea" id="dr-memo" style="min-height:90px" placeholder="통화 내용, 확정 금액, 특이사항">'+esc(it.memo||'')+'</textarea><button class="btn btn-light btn-sm mt-1" type="button" id="dr-memo-save">메모 저장</button></div>'
       +'<details class="dr-sec"><summary><h3 style="display:inline">문의 원문 · 변경 기록</h3></summary><pre class="dr-pre">'+esc(d.summary||'')+'</pre>'+((cur.log||[]).map(logLine).join(''))+'</details>'
-      +'<div class="dr-sec dr-danger"><h3>문의 삭제</h3><p class="tiny muted">테스트·중복·스팸 문의를 지울 때 씁니다. 삭제하면 되돌릴 수 없습니다. 저장한 견적·지난 예약·결제 기록은 남기고 연결만 끊으며, 확정 예약이 걸린 문의는 예약을 먼저 취소해야 지울 수 있습니다.</p><button class="btn btn-danger btn-sm" type="button" id="dr-del">이 문의 삭제</button><div class="form-note" id="dr-del-msg" hidden></div></div>';
-    function chSave(){ var ch=$('#dr-ch').value, nt=$('#dr-ch-note').value.trim(); if(ch==='other'&&!nt){ $('#dr-ch-note').hidden=false; $('#dr-ch-save').hidden=false; $('#dr-ch-note').focus(); M.toast('기타 경로를 직접 적어 주세요.'); return; }
+      +(it.status===DELETED?'<div class="form-note" id="dr-del-msg" hidden></div>':'<div class="dr-sec dr-danger"><h3>문의 삭제</h3><p class="tiny muted">테스트·중복·스팸 문의를 목록에서 뺄 때 씁니다. 삭제한 문의는 지워지지 않고 문의 관리의 \'삭제된 문의\' 보관함에 남아, 나중에 고객 DB로 쓰거나 복원할 수 있습니다. 확정 예약이 걸린 문의는 예약을 먼저 취소해야 합니다.</p><button class="btn btn-danger btn-sm" type="button" id="dr-del">이 문의 삭제</button><div class="form-note" id="dr-del-msg" hidden></div></div>');
+    function chSave(){ var ch=$('#dr-ch').value, nt=$('#dr-ch-note').value.trim();
       A('/inquiries/'+it.ref,{method:'PATCH', body:{channel:ch, channel_note:(ch==='other'||ch==='sns')?nt:''}}).then(function(){ d.channel=ch; d.channel_note=(ch==='other'||ch==='sns')?nt:''; $('#dr-ch-save').hidden=true; M.toast('문의 경로를 "'+chLabel(ch, d.channel_note)+'"(으)로 저장했습니다.'); refreshLists(); }).catch(function(e){ if(!guard(e)) M.toast(e.message); }); }
-    $('#dr-ch').addEventListener('change', function(){ var ch=this.value, note=$('#dr-ch-note'); note.hidden=!(ch==='other'||ch==='sns'); note.placeholder=ch==='other'?'기타 경로 직접 입력 (예: 지인 소개)':'세부 경로 (예: 인스타그램)'; if(ch==='other'&&!note.value.trim()){ $('#dr-ch-save').hidden=false; note.focus(); return; } chSave(); });
+    $('#dr-ch').addEventListener('change', function(){ var ch=this.value, note=$('#dr-ch-note'); note.hidden=!(ch==='other'||ch==='sns'); note.placeholder=ch==='other'?'기타 경로 (선택, 예: 지인 소개)':'세부 경로 (예: 인스타그램)'; chSave(); });
     $('#dr-ch-note').addEventListener('input', function(){ $('#dr-ch-save').hidden=false; });
     $('#dr-ch-note').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); chSave(); } });
     $('#dr-ch-save').addEventListener('click', chSave);
-    $('#dr-status').addEventListener('change', function(){ var v=this.value;
+    var drSt=$('#dr-status'); if(drSt) drSt.addEventListener('change', function(){ var v=this.value;
       if(v==='예약 확정' && !(cur.bookings||[]).some(function(b){ return b.status!=='cancelled'; })){ this.value=it.status; openConfirm(confirmFromInquiry()); return; }
       A('/inquiries/'+it.ref,{method:'PATCH', body:{status:v}}).then(function(){ it.status=v; M.toast('상태를 "'+v+'"(으)로 바꿨습니다.'); refreshLists(); }).catch(function(e){ if(!guard(e)) M.toast(e.message); }); });
     $('#dr-amt-save').addEventListener('click', function(){ var v=$('#dr-amt').value.trim(), n=$('#dr-amt-note').value.trim();
@@ -258,11 +282,23 @@
     $('#dr-quote').addEventListener('click', function(){ quoteFromInquiry(cur.item); closeDrawer($('#adm-drawer')); go('quote'); });
     var db=$('#dr-book'); if(db) db.addEventListener('click', function(){ openConfirm(confirmFromInquiry()); });
     $('#dr-edit').addEventListener('click', function(){ openEdit(cur.item); });
-    $('#dr-del').addEventListener('click', function(){
+    var dDel=$('#dr-del'); if(dDel) dDel.addEventListener('click', function(){
       var nm=d.name||it.name||'';
-      if(!confirm('문의 '+it.ref+(nm?' ('+nm+')':'')+'을(를) 삭제할까요?\n\n삭제하면 되돌릴 수 없습니다.')) return;
+      if(!confirm('문의 '+it.ref+(nm?' ('+nm+')':'')+'을(를) 삭제할까요?\n\n삭제한 문의는 지워지지 않고 \'삭제된 문의\' 보관함으로 옮겨지며, 언제든 복원할 수 있습니다.')) return;
       var btn=this; btn.disabled=true;
-      A('/inquiries/'+encodeURIComponent(it.ref),{method:'DELETE'}).then(function(){ delete SEL[it.ref]; closeDrawer($('#adm-drawer')); M.toast('문의 '+it.ref+'을(를) 삭제했습니다.'); cur=null; refreshLists(); })
+      A('/inquiries/'+encodeURIComponent(it.ref),{method:'DELETE'}).then(function(){ delete SEL[it.ref]; closeDrawer($('#adm-drawer')); M.toast('문의 '+it.ref+'을(를) 삭제된 문의로 옮겼습니다.'); cur=null; refreshLists(); })
+      .catch(function(e){ if(!guard(e)){ note($('#dr-del-msg'), e.message); } }).finally(function(){ btn.disabled=false; });
+    });
+    var dRe=$('#dr-restore'); if(dRe) dRe.addEventListener('click', function(){
+      var btn=this; btn.disabled=true;
+      A('/inquiries/'+encodeURIComponent(it.ref)+'/restore',{method:'POST'}).then(function(r){ M.toast('문의 '+it.ref+'을(를) 복원했습니다 · 상태 "'+(r.status||'문의 접수')+'"'); openInquiry(it.ref); refreshLists(); })
+      .catch(function(e){ if(!guard(e)){ note($('#dr-del-msg'), e.message); } }).finally(function(){ btn.disabled=false; });
+    });
+    var dPu=$('#dr-purge'); if(dPu) dPu.addEventListener('click', function(){
+      var nm=d.name||it.name||'';
+      if(!confirm('문의 '+it.ref+(nm?' ('+nm+')':'')+'을(를) 완전히 삭제할까요?\n\n고객이 개인정보 삭제를 요청했거나 보유 기간이 끝났을 때만 쓰세요. 완전 삭제하면 되돌릴 수 없습니다.')) return;
+      var btn=this; btn.disabled=true;
+      A('/inquiries/'+encodeURIComponent(it.ref)+'/purge',{method:'POST'}).then(function(){ delete SEL[it.ref]; closeDrawer($('#adm-drawer')); M.toast('문의 '+it.ref+'을(를) 완전히 삭제했습니다.'); cur=null; refreshLists(); })
       .catch(function(e){ if(!guard(e)){ note($('#dr-del-msg'), e.message); } }).finally(function(){ btn.disabled=false; });
     });
     $$('#dr-body [data-openq]').forEach(function(b){ b.addEventListener('click', function(){ var q=(cur.quotes||[]).filter(function(x){ return x.quote_no===b.dataset.openq; })[0]; if(q){ loadSavedQuote(q, cur.item.ref); closeDrawer($('#adm-drawer')); go('quote'); } }); });
@@ -276,7 +312,7 @@
       +'<p class="tiny muted">정확한 항목별 금액이 필요하면 \'이 문의로 견적 계산\'에서 견적서를 만들어 저장하세요.</p></div>';
   }
   function refreshLists(){ if(!$('#view-inq').hidden) loadInq(); if(!$('#view-dash').hidden) loadDash(); if(!$('#view-resv').hidden) loadResv(); }
-  var LOGK={'inquiry.created':'접수','reserve.created':'예약 신청 접수','inquiry.updated':'상태·메모·금액 변경','inquiry.edited':'내용 수정','quote.saved':'견적 저장','booking.created':'예약 등록','inquiry.confirmed':'예약 확정 처리','booking.updated':'예약 상태 변경','order.created':'주문 생성','order.paid':'결제 완료','order.updated':'주문 변경'};
+  var LOGK={'inquiry.created':'접수','reserve.created':'예약 신청 접수','inquiry.updated':'상태·메모·금액 변경','inquiry.edited':'내용 수정','quote.saved':'견적 저장','booking.created':'예약 등록','inquiry.confirmed':'예약 확정 처리','inquiry.deleted':'삭제 (보관함으로)','inquiry.restored':'삭제 문의 복원','booking.updated':'예약 상태 변경','order.created':'주문 생성','order.paid':'결제 완료','order.updated':'주문 변경'};
   var LOGA={admin:'관리자',customer:'고객',system:'시스템'};
   function logLine(l){
     var det={}; try{ det=JSON.parse(l.detail||'{}')||{}; }catch(e){}
@@ -334,7 +370,7 @@
     $('#nw-submit').textContent=edit?'수정 저장':'등록';
   }
   $('#nw-ch').innerHTML=chOptions('', '경로 선택'); $('#nw-ch').required=true;
-  function nwChSync(){ var ch=$('#nw-ch').value, n=$('#nw-ch-note'); n.hidden=!(ch==='other'||ch==='sns'); n.required=ch==='other'; n.placeholder=ch==='other'?'기타 경로 직접 입력 (예: 지인 소개, 현수막)':'세부 경로 (예: 인스타그램, 블로그)'; if(n.hidden) n.value=''; }
+  function nwChSync(){ var ch=$('#nw-ch').value, n=$('#nw-ch-note'); n.hidden=!(ch==='other'||ch==='sns'); n.required=false; n.placeholder=ch==='other'?'기타 경로 (선택, 예: 지인 소개, 현수막)':'세부 경로 (예: 인스타그램, 블로그)'; if(n.hidden) n.value=''; }
   $('#nw-ch').addEventListener('change', nwChSync);
   function openNew(){ $('#nw-form').reset(); nwInit(); nwModeUi(null); nwChSync(); $('#nw-msg').hidden=true; nwSyncMode(); nwCalc(); openDrawer('#adm-new'); }
   function openEdit(it){
@@ -779,10 +815,13 @@
   }
   function cfSameDay(date){
     var w=$('#cf-warn'), same=RS.items.filter(function(x){ return x.kind==='booking' && x.status==='confirmed' && x.date===date; }), others=RS.items.filter(function(x){ return x.kind==='pending' && x.date===date && x.ref!==CF.ref; });
+    var sv=$('#cf-start').value, ev=$('#cf-end').value, s=sv===''?null:+sv, e=ev===''?null:+ev;
+    var clash=same.filter(function(b){ return s==null||e==null||b.start_h==null||b.end_h==null||(s<b.end_h&&b.start_h<e); });
     var msg=[];
-    if(same.length) msg.push('<b>이 날짜에 이미 확정된 예약이 있습니다.</b> '+same.map(function(b){ return esc(b.name)+' '+esc(resvTime(b)); }).join(', ')+' — 시간이 겹치지 않는지 확인해 주세요.');
+    if(clash.length) msg.push('<b>이용 시간이 겹칠 수 있는 확정 예약이 있습니다.</b> '+clash.map(function(b){ return esc(b.name)+' '+esc(resvTime(b)); }).join(', ')+' — 시간을 확인해 주세요.');
+    else if(same.length) msg.push('같은 날 다른 시간대 확정 예약 '+same.length+'건: '+same.map(function(b){ return esc(b.name)+' '+esc(resvTime(b)); }).join(', ')+' — 시간이 겹치지 않아 함께 받을 수 있습니다.');
     if(others.length) msg.push('같은 날 다른 예약 문의가 '+others.length+'건 있습니다. 확정한 뒤 그분들께는 다른 날짜를 안내해 주세요.');
-    w.innerHTML=msg.join('<br>'); w.hidden=!msg.length;
+    w.innerHTML=msg.join('<br>'); w.hidden=!msg.length; w.classList.toggle('info', !clash.length);
   }
   function openConfirm(src){
     if(!src || !src.ref) return;
@@ -792,16 +831,16 @@
     $('#cf-date').value=src.date||''; $('#cf-date').min='';
     if(D){ $('#cf-start').innerHTML=nwHourOpts(D.openFrom, D.openTo-1, src.start_h==null?'':src.start_h, '미정'); $('#cf-end').innerHTML=nwHourOpts(src.start_h!=null?+src.start_h+1:D.openFrom+1, D.openTo, src.end_h==null?'':src.end_h, '미정');
       $('#cf-pkgs').innerHTML=D.packages.map(function(p){ return '<button type="button" class="chip" data-cfpkg="'+p.id+'">'+esc(p.label)+' '+esc(p.time)+'</button>'; }).join(''); }
-    $('#cf-people').value=src.headcount||''; $('#cf-amount').value=src.amount===''||src.amount==null?'':src.amount; $('#cf-memo').value=src.memo||''; $('#cf-block').checked=true;
+    $('#cf-people').value=src.headcount||''; $('#cf-amount').value=src.amount===''||src.amount==null?'':src.amount; $('#cf-memo').value=src.memo||''; $('#cf-block').checked=false;
     $('#cf-msg').hidden=true; $('#cf-submit').textContent='예약 확정'; $('#cf-submit').disabled=false;
     cfSameDay(src.date||''); cfHint(); openDrawer('#adm-confirm');
     setTimeout(function(){ $('#cf-date').focus(); }, 50);
   }
-  $('#cf-start').addEventListener('change', function(){ var sh=this.value, eh=$('#cf-end').value; if(D) $('#cf-end').innerHTML=nwHourOpts(sh?+sh+1:D.openFrom+1, D.openTo, eh && +eh>+sh ? eh : '', '미정'); CF.force=false; $('#cf-submit').textContent='예약 확정'; cfHint(); });
-  $('#cf-end').addEventListener('change', cfHint);
+  $('#cf-start').addEventListener('change', function(){ var sh=this.value, eh=$('#cf-end').value; if(D) $('#cf-end').innerHTML=nwHourOpts(sh?+sh+1:D.openFrom+1, D.openTo, eh && +eh>+sh ? eh : '', '미정'); CF.force=false; $('#cf-submit').textContent='예약 확정'; cfHint(); cfSameDay($('#cf-date').value); });
+  $('#cf-end').addEventListener('change', function(){ CF.force=false; $('#cf-submit').textContent='예약 확정'; cfHint(); cfSameDay($('#cf-date').value); });
   $('#cf-people').addEventListener('input', cfHint);
   $('#cf-date').addEventListener('change', function(){ CF.force=false; $('#cf-submit').textContent='예약 확정'; cfSameDay(this.value); cfHint(); });
-  $('#cf-pkgs').addEventListener('click', function(e){ var b=e.target.closest('[data-cfpkg]'); if(!b||!E) return; var p=E.findPkg(b.dataset.cfpkg); $('#cf-start').value=p.start; $('#cf-end').innerHTML=nwHourOpts(p.start+1, D.openTo, p.end, '미정'); cfHint(); });
+  $('#cf-pkgs').addEventListener('click', function(e){ var b=e.target.closest('[data-cfpkg]'); if(!b||!E) return; var p=E.findPkg(b.dataset.cfpkg); $('#cf-start').value=p.start; $('#cf-end').innerHTML=nwHourOpts(p.start+1, D.openTo, p.end, '미정'); CF.force=false; $('#cf-submit').textContent='예약 확정'; cfHint(); cfSameDay($('#cf-date').value); });
   $('#cf-form').addEventListener('submit', function(e){
     e.preventDefault(); var msg=$('#cf-msg'); msg.hidden=true;
     var date=$('#cf-date').value; if(!date){ note(msg,'이용일을 골라 주세요.'); $('#cf-date').focus(); return; }
@@ -809,12 +848,12 @@
     var btn=$('#cf-submit'), ref=CF.ref; btn.disabled=true;
     A('/inquiries/'+encodeURIComponent(ref)+'/confirm',{method:'POST', body:body}).then(function(r){
       closeDrawer($('#adm-confirm'));
-      M.toast('예약을 확정했습니다 · 예약번호 '+r.booking_code+(r.others?' · 같은 날 다른 문의 '+r.others+'건이 남아 있습니다':''));
+      M.toast('예약을 확정했습니다 · 예약번호 '+r.booking_code+(r.same_day?' · 같은 날 다른 예약 '+r.same_day+'건과 함께 진행':'')+(r.others?' · 같은 날 다른 문의 '+r.others+'건이 남아 있습니다':''));
       if(!$('#adm-drawer').hidden && cur && cur.item && cur.item.ref===ref) openInquiry(ref);
       refreshLists(); if(!$('#view-bookings').hidden) loadBookings();
     }).catch(function(x){
       if(guard(x)) return;
-      if(x.code==='DATE_HAS_BOOKING'){ var w=$('#cf-warn'); var list=(x.detail&&x.detail.bookings)||[]; w.innerHTML='<b>이 날짜에 이미 확정된 예약이 있습니다.</b> '+list.map(function(b){ return esc(b.customer_name)+(b.start_h!=null?' '+esc(hl(b.start_h)+'–'+hl(b.end_h)):''); }).join(', ')+'<br>시간이 겹치지 않으면 <b>그래도 확정</b>을 눌러 주세요.'; w.hidden=false; CF.force=true; btn.textContent='그래도 확정'; return; }
+      if(x.code==='DATE_HAS_BOOKING'){ var w=$('#cf-warn'); var list=(x.detail&&x.detail.bookings)||[]; w.classList.remove('info'); w.innerHTML='<b>이용 시간이 겹치는 확정 예약이 있습니다.</b> '+list.map(function(b){ return esc(b.customer_name)+(b.start_h!=null?' '+esc(hl(b.start_h)+'–'+hl(b.end_h)):''); }).join(', ')+'<br>시간을 바꾸거나, 두 팀을 함께 받기로 했다면 <b>그래도 확정</b>을 눌러 주세요.'; w.hidden=false; CF.force=true; btn.textContent='그래도 확정'; return; }
       note(msg, x.message);
     }).finally(function(){ btn.disabled=false; });
   });

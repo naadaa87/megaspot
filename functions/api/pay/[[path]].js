@@ -98,7 +98,10 @@ export async function onRequest({ request, env, params }) {
       if (o.total < 1000) return err('결제 금액은 1,000원 이상이어야 합니다.');
       if (o.product.kind === 'pass') {
         const blk = await env.DB.prepare("SELECT state FROM calendar_blocks WHERE space_id = 'megaspot-gundae' AND date = ?").bind(o.event_date).first();
-        const bk = await env.DB.prepare("SELECT 1 AS x FROM bookings WHERE space_id = 'megaspot-gundae' AND date = ? AND status = 'confirmed'").bind(o.event_date).first();
+        // 같은 날 다른 시간대 예약은 괜찮고, 이용 시간이 겹치는 확정 예약(시간 미정 포함)이 있을 때만 막습니다
+        const PH = { 'pkg-day': [10, 17], 'pkg-allday': [10, 24], 'pkg-allnight': [18, 31] }[o.slot] || [null, null];
+        const { results: sameDay } = await env.DB.prepare("SELECT start_h, end_h FROM bookings WHERE space_id = 'megaspot-gundae' AND date = ? AND status = 'confirmed'").bind(o.event_date).all();
+        const bk = (sameDay || []).some(x => x.start_h == null || x.end_h == null || PH[0] == null || (PH[0] < x.end_h && x.start_h < PH[1]));
         if ((blk && blk.state === 'full') || bk) return err(`${kdate(o.event_date)}은(는) 이미 예약이 있어 온라인 결제가 어렵습니다. 다른 날짜를 고르거나 카카오톡으로 문의해 주세요.`, 409, 'DATE_TAKEN');
         // 운영자가 다른 고객을 위해 임시로 잡아 둔 날은 온라인 결제 대신 상담으로 안내합니다(이중 예약 방지)
         if (blk && blk.state === 'hold') return err(`${kdate(o.event_date)}은(는) 다른 문의로 임시 확보 중이라 온라인 결제가 어렵습니다. 예약 신청이나 카카오톡으로 알려 주시면 가능 여부를 바로 확인해 드립니다.`, 409, 'DATE_TAKEN');
@@ -174,12 +177,13 @@ export async function onRequest({ request, env, params }) {
       if (row.event_date && data.slot) {
         const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', rb = crypto.getRandomValues(new Uint8Array(4)); let rnd = ''; for (const x of rb) rnd += A[x % A.length];
         const d = new Date(); bookingCode = `MS-${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, '0')}-${rnd}`;
-        const clash = await env.DB.prepare("SELECT 1 AS x FROM bookings WHERE space_id = 'megaspot-gundae' AND date = ? AND status = 'confirmed'").bind(row.event_date).first();
+        const SLOT_H = { 'pkg-day': [10, 17], 'pkg-allday': [10, 24], 'pkg-allnight': [18, 31] }[data.slot] || [null, null];
+        const { results: sameDay } = await env.DB.prepare("SELECT start_h, end_h FROM bookings WHERE space_id = 'megaspot-gundae' AND date = ? AND status = 'confirmed'").bind(row.event_date).all();
+        const clash = (sameDay || []).some(x => x.start_h == null || x.end_h == null || SLOT_H[0] == null || (SLOT_H[0] < x.end_h && x.start_h < SLOT_H[1]));
         const memo = `온라인 결제 ${oid} · ${PRODUCTS.get(row.product_id).name}` + (data.memo ? ` · ${data.memo}` : '') + (clash ? ' · ※ 같은 날짜에 다른 예약이 있어 확인 필요' : '');
         const SLOT_HOURS = { 'pkg-day': [10, 17], 'pkg-allday': [10, 24], 'pkg-allnight': [18, 31] }, sh = SLOT_HOURS[data.slot] || [null, null];
         await env.DB.prepare('INSERT INTO bookings (booking_code, space_id, inquiry_ref, customer_name, phone, phone_last4, date, slot, headcount, memo, status, amount, start_h, end_h, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
           .bind(bookingCode, 'megaspot-gundae', row.inquiry_ref || null, row.buyer_name, row.buyer_phone, row.buyer_phone.slice(-4), row.event_date, data.slot, row.people, memo.slice(0, 2000), 'confirmed', row.price, sh[0], sh[1], t).run();
-        await env.DB.prepare("INSERT INTO calendar_blocks (space_id, date, state, memo) VALUES ('megaspot-gundae', ?, 'full', ?) ON CONFLICT(space_id, date) DO UPDATE SET state = 'full', memo = excluded.memo").bind(row.event_date, '예약 ' + bookingCode).run();
         if (row.inquiry_ref) await env.DB.prepare("UPDATE inquiries SET status = '예약 확정', updated_at = ? WHERE ref = ?").bind(t, row.inquiry_ref).run();
       }
       await env.DB.prepare("UPDATE orders SET status = 'paid', tid = ?, pay_method = ?, appl_at = ?, result_msg = ?, booking_code = ?, paid_at = ?, updated_at = ? WHERE oid = ?")

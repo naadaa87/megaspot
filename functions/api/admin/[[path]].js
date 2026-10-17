@@ -2,6 +2,10 @@
 import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, log, hashPassword, requireAdmin, adminKeyOk, adminCookie,
   randomToken, sha256, later, getCookie, withCookies, clientIp, sameOrigin, tooMany, hit, clearHits, kstToday } from '../_lib.js';
 const STATUSES = ['문의 접수', '조건 확인', '견적 발송', '결제 대기', '예약 확정', '이용 완료', '취소·환불'];
+// 삭제한 문의는 지우지 않고 이 상태로 보관합니다(고객 DB 관리용). 목록·집계에서는 빠지고 '삭제된 문의'에서만 보입니다.
+const DELETED = '삭제됨';
+// 두 시간대가 겹치는지 (시간 정보가 없는 예약은 겹친다고 봅니다)
+function overlaps(s1, e1, s2, e2) { if (s1 == null || e1 == null || s2 == null || e2 == null) return true; return s1 < e2 && s2 < e1; }
 const OPEN = ['문의 접수', '조건 확인', '견적 발송', '결제 대기'];
 // 문의 경로: 홈페이지 · 네이버 · 스페이스클라우드 · SNS · 카카오톡 · 전화 · 이메일 · 방문 · 기타(직접 입력은 channel_note)
 const CHANNELS = ['web', 'naver', 'spacecloud', 'sns', 'kakao', 'phone', 'email', 'visit', 'other'];
@@ -27,10 +31,35 @@ function adminSummary(d) {
     d.total != null ? '금액: ' + Number(d.total).toLocaleString('ko-KR') + '원 (' + (d.amount_mode === 'auto' ? '요금표 계산' : '직접 입력') + ')' + (d.amount_note ? ' · ' + d.amount_note : '') : '',
     d.message ? '내용: ' + d.message : ''].filter(Boolean).join('\n');
 }
-// 문의 삭제: 확정 예약·결제 완료 주문이 걸려 있으면 막고, 견적·지난 예약·주문 기록은 남긴 채 연결만 끊습니다.
+// 문의 삭제: 지우지 않고 '삭제됨' 상태로 보관합니다. 확정 예약·결제 완료 주문이 걸려 있으면 막습니다. 견적·예약·체크리스트 연결은 그대로 둬 복원하면 원래대로 돌아옵니다.
 async function deleteInquiry(env, ref) {
   const row = await env.DB.prepare('SELECT ref, status, event_date, data, created_at FROM inquiries WHERE ref = ?').bind(ref).first();
   if (!row) return { ref, ok: false, code: 'NOT_FOUND', reason: '문의를 찾을 수 없습니다.' };
+  if (row.status === DELETED) return { ref, ok: true, already: true };
+  const bk0 = await env.DB.prepare("SELECT booking_code FROM bookings WHERE inquiry_ref = ? AND status = 'confirmed' LIMIT 1").bind(ref).first();
+  if (bk0) return { ref, ok: false, code: 'HAS_BOOKING', reason: '확정 예약(' + bk0.booking_code + ')이 연결되어 있습니다. 예약 관리에서 예약을 먼저 취소해 주세요.' };
+  const od0 = await env.DB.prepare("SELECT oid FROM orders WHERE inquiry_ref = ? AND status = 'paid' LIMIT 1").bind(ref).first();
+  if (od0) return { ref, ok: false, code: 'HAS_ORDER', reason: '결제 완료된 주문(' + od0.oid + ')이 연결되어 있습니다. 주문·결제 탭에서 환불 기록을 먼저 남겨 주세요.' };
+  const t = now();
+  await env.DB.prepare("UPDATE inquiries SET status = ?, data = json_set(COALESCE(data, '{}'), '$.deleted_at', ?, '$.deleted_from', ?), updated_at = ? WHERE ref = ?").bind(DELETED, t, row.status, t, ref).run();
+  await log(env, 'inquiry.deleted', ref, 'admin', { status: row.status });
+  return { ref, ok: true };
+}
+// 삭제된 문의 복원: 삭제하기 전 상태로 되돌립니다.
+async function restoreInquiry(env, ref) {
+  const row = await env.DB.prepare('SELECT ref, status, data FROM inquiries WHERE ref = ?').bind(ref).first();
+  if (!row) return { ref, ok: false, code: 'NOT_FOUND', reason: '문의를 찾을 수 없습니다.' };
+  if (row.status !== DELETED) return { ref, ok: true, already: true };
+  const d = safe(row.data), back = STATUSES.includes(d.deleted_from) ? d.deleted_from : '문의 접수';
+  await env.DB.prepare("UPDATE inquiries SET status = ?, data = json_remove(COALESCE(data, '{}'), '$.deleted_at', '$.deleted_from'), updated_at = ? WHERE ref = ?").bind(back, now(), ref).run();
+  await log(env, 'inquiry.restored', ref, 'admin', { status: back });
+  return { ref, ok: true, status: back };
+}
+// 완전 삭제: '삭제된 문의'에 있는 건만 가능합니다(고객의 개인정보 삭제 요청·보유 기간 만료 때). 견적·지난 예약·주문 기록은 남긴 채 연결만 끊습니다.
+async function purgeInquiry(env, ref) {
+  const row = await env.DB.prepare('SELECT ref, status, event_date, data, created_at FROM inquiries WHERE ref = ?').bind(ref).first();
+  if (!row) return { ref, ok: false, code: 'NOT_FOUND', reason: '문의를 찾을 수 없습니다.' };
+  if (row.status !== DELETED) return { ref, ok: false, code: 'NOT_DELETED', reason: '먼저 삭제해 \'삭제된 문의\'로 옮긴 뒤 완전 삭제할 수 있습니다.' };
   const bk = await env.DB.prepare("SELECT booking_code FROM bookings WHERE inquiry_ref = ? AND status = 'confirmed' LIMIT 1").bind(ref).first();
   if (bk) return { ref, ok: false, code: 'HAS_BOOKING', reason: '확정 예약(' + bk.booking_code + ')이 연결되어 있습니다. 예약 관리에서 예약을 먼저 취소해 주세요.' };
   const od = await env.DB.prepare("SELECT oid FROM orders WHERE inquiry_ref = ? AND status = 'paid' LIMIT 1").bind(ref).first();
@@ -44,7 +73,7 @@ async function deleteInquiry(env, ref) {
   ];
   if (typeof env.DB.batch === 'function') await env.DB.batch(stmts); else for (const st of stmts) await st.run();
   const d = safe(row.data);
-  await log(env, 'inquiry.deleted', ref, 'admin', { status: row.status, event_date: row.event_date, channel: d.channel || 'web', created_at: row.created_at });
+  await log(env, 'inquiry.purged', ref, 'admin', { status: d.deleted_from || '', event_date: row.event_date, channel: d.channel || 'web', created_at: row.created_at });
   return { ref, ok: true };
 }
 
@@ -88,6 +117,7 @@ export async function onRequest({ request, env, params }) {
       const all = async (sql, ...b) => ((await env.DB.prepare(sql).bind(...b).all()).results || []);
       const counts = {};
       for (const s of STATUSES) counts[s] = await one('SELECT COUNT(*) AS n FROM inquiries WHERE status = ?', s);
+      counts[DELETED] = await one('SELECT COUNT(*) AS n FROM inquiries WHERE status = ?', DELETED);
       const latestQuote = "(SELECT q.total FROM quotes q WHERE q.inquiry_ref = i.ref ORDER BY q.id DESC LIMIT 1)";
       const cols = `i.ref, i.status, i.name, i.phone, i.event_date, i.headcount, i.created_at, i.updated_at, json_extract(i.data, '$.purpose') AS purpose, json_extract(i.data, '$.inquiry_type') AS inquiry_type, json_extract(i.data, '$.channel') AS channel, json_extract(i.data, '$.channel_note') AS channel_note, json_extract(i.data, '$.reserve') AS reserve, json_extract(i.data, '$.total') AS est_total, ${latestQuote} AS quote_total`;
       const out = {
@@ -102,7 +132,7 @@ export async function onRequest({ request, env, params }) {
         upcoming: await all("SELECT booking_code, inquiry_ref, customer_name, phone, date, slot, headcount, memo, amount, start_h, end_h FROM bookings WHERE status = 'confirmed' AND date >= ? AND date <= ? ORDER BY date ASC LIMIT 20", today, in14),
         month: {
           month,
-          inquiries: await one("SELECT COUNT(*) AS n FROM inquiries WHERE substr(created_at, 1, 7) = ?", month),
+          inquiries: await one("SELECT COUNT(*) AS n FROM inquiries WHERE status <> '삭제됨' AND substr(created_at, 1, 7) = ?", month),
           confirmed: await one("SELECT COUNT(*) AS n FROM inquiries WHERE status IN ('예약 확정', '이용 완료') AND substr(event_date, 1, 7) = ?", month),
           confirmed_amount: await one(`SELECT COALESCE(SUM(${latestQuote}), 0) AS n FROM inquiries i WHERE i.status IN ('예약 확정', '이용 완료') AND substr(i.event_date, 1, 7) = ?`, month),
           quoted_amount: await one(`SELECT COALESCE(SUM(${latestQuote}), 0) AS n FROM inquiries i WHERE i.status IN ('견적 발송', '결제 대기') `),
@@ -134,7 +164,6 @@ export async function onRequest({ request, env, params }) {
       const date = str(d.date, 10); if (date && !isDate(date)) return err('날짜를 확인해 주세요.');
       const channel = CHANNELS.includes(d.channel) ? d.channel : 'other';
       const channel_note = str(d.channel_note, 40);
-      if (d.channel === 'other' && !channel_note) return err('기타 경로를 직접 적어 주세요. (예: 지인 소개, 현수막)');   // 경로를 아예 안 보낸 경우는 '기타'로 받습니다
       let start_h = hourOk(d.start_h), end_h = hourOk(d.end_h);
       if (start_h !== null && (end_h === null || end_h <= start_h)) end_h = null;
       if (start_h === null) end_h = null;
@@ -184,7 +213,7 @@ export async function onRequest({ request, env, params }) {
     if (path === 'inquiries' && method === 'GET') {
       const st = str(url.searchParams.get('status'), 20), q = str(url.searchParams.get('q'), 60), ty = str(url.searchParams.get('type'), 20), ch = str(url.searchParams.get('ch'), 20);
       let sql = 'SELECT ref, space_id, status, name, phone, email, event_date, headcount, data, memo, created_at, updated_at, (SELECT q.total FROM quotes q WHERE q.inquiry_ref = inquiries.ref ORDER BY q.id DESC LIMIT 1) AS quote_total FROM inquiries WHERE 1=1'; const b = [];
-      if (st === 'open') { sql += " AND status IN ('문의 접수', '조건 확인', '견적 발송', '결제 대기')"; } else if (st) { sql += ' AND status = ?'; b.push(st); }
+      if (st === 'open') { sql += " AND status IN ('문의 접수', '조건 확인', '견적 발송', '결제 대기')"; } else if (st === 'deleted' || st === DELETED) { sql += ' AND status = ?'; b.push(DELETED); } else if (st) { sql += ' AND status = ?'; b.push(st); } else { sql += ' AND status <> ?'; b.push(DELETED); }
       if (['event', 'regular', 'partner'].includes(ty)) { sql += " AND COALESCE(json_extract(data, '$.inquiry_type'), 'event') = ?"; b.push(ty); }
       if (CHANNELS.includes(ch)) { sql += " AND COALESCE(json_extract(data, '$.channel'), 'web') = ?"; b.push(ch); }
       if (q) { sql += ' AND (name LIKE ? OR phone LIKE ? OR ref LIKE ? OR email LIKE ?)'; b.push('%' + q + '%', '%' + q + '%', '%' + q.toUpperCase() + '%', '%' + q + '%'); }
@@ -200,11 +229,25 @@ export async function onRequest({ request, env, params }) {
       const results = []; for (const r of refs) results.push(await deleteInquiry(env, r));
       return json({ ok: true, deleted: results.filter(r => r.ok).map(r => r.ref), skipped: results.filter(r => !r.ok) });
     }
+    // 선택한 삭제 문의 여러 건 복원
+    if (path === 'inquiries/restore' && method === 'POST') {
+      const d = await readJson(request);
+      const refs = Array.from(new Set((Array.isArray(d.refs) ? d.refs : []).map(r => str(r, 20).toUpperCase()).filter(r => /^[A-Z0-9-]{4,20}$/.test(r)))).slice(0, 100);
+      if (!refs.length) return err('복원할 문의를 골라 주세요.');
+      const results = []; for (const r of refs) results.push(await restoreInquiry(env, r));
+      return json({ ok: true, restored: results.filter(r => r.ok).map(r => r.ref), skipped: results.filter(r => !r.ok) });
+    }
+    const mRs = path.match(/^inquiries\/([A-Z0-9-]+)\/(restore|purge)$/);
+    if (mRs && method === 'POST') {
+      const r = mRs[2] === 'restore' ? await restoreInquiry(env, mRs[1]) : await purgeInquiry(env, mRs[1]);
+      if (!r.ok) return err(r.reason, r.code === 'NOT_FOUND' ? 404 : 409, r.code);
+      return json({ ok: true, ref: r.ref, status: r.status || '' });
+    }
     const mInq = path.match(/^inquiries\/([A-Z0-9-]+)$/);
     if (mInq && method === 'DELETE') {
       const r = await deleteInquiry(env, mInq[1]);
       if (!r.ok) return err(r.reason, r.code === 'NOT_FOUND' ? 404 : 409, r.code);
-      return json({ ok: true, ref: r.ref });
+      return json({ ok: true, ref: r.ref, kept: true });
     }
     if (mInq && method === 'PATCH') {
       const d = await readJson(request); const ref = mInq[1]; const sets = []; const b = [];
@@ -225,7 +268,7 @@ export async function onRequest({ request, env, params }) {
         const before = pick({ ...data, name: data.name || row.name, phone: data.phone || row.phone, email: data.email || row.email, date: data.date || row.event_date, headcount: data.headcount || row.headcount });
         Object.assign(data, { name, phone, email, date, headcount, purpose: str(d.purpose, 40), options: cleanOptions(d.options), regular: !!d.regular, message: str(d.message, 2000) });
         if (['event', 'regular', 'partner'].includes(d.inquiry_type)) data.inquiry_type = d.inquiry_type;
-        if (CHANNELS.includes(d.channel)) { data.channel = d.channel; data.channel_note = str(d.channel_note, 40); if (d.channel === 'other' && !data.channel_note) return err('기타 경로를 직접 적어 주세요.'); }
+        if (CHANNELS.includes(d.channel)) { data.channel = d.channel; data.channel_note = str(d.channel_note, 40); }
         if (start_h !== null) {
           Object.assign(data, { start_h, end_h, t_start: hl(start_h).replace('다음 날 ', ''), t_end: end_h !== null ? hl(end_h).replace('다음 날 ', '') : '' });
           if (!/^pkg-/.test(data.slot || '')) data.slot = 'custom';
@@ -263,7 +306,6 @@ export async function onRequest({ request, env, params }) {
       if (d.channel !== undefined) {
         if (!CHANNELS.includes(d.channel)) return err('문의 경로를 확인해 주세요.');
         const note = str(d.channel_note, 40);
-        if (d.channel === 'other' && !note) return err('기타 경로를 직접 적어 주세요.');
         jp.push("'$.channel', ?", "'$.channel_note', ?"); jb.push(d.channel, note);
       }
       if (jp.length) { sets.push("data = json_set(COALESCE(data, '{}'), " + jp.join(', ') + ')'); b.push(...jb); }
@@ -279,7 +321,7 @@ export async function onRequest({ request, env, params }) {
       const from = str(url.searchParams.get('from'), 10), to = str(url.searchParams.get('to'), 10);
       if ((from && !isDate(from)) || (to && !isDate(to))) return err('기간을 확인해 주세요.');
       const f = from || '0000-01-01', t = to || '9999-12-31';
-      const where = "date(created_at, '+9 hours') BETWEEN ? AND ?";
+      const where = "date(created_at, '+9 hours') BETWEEN ? AND ? AND status <> '삭제됨'";
       const { results } = await env.DB.prepare(`SELECT COALESCE(json_extract(data, '$.channel'), 'web') AS ch, COUNT(*) AS n,
           SUM(CASE WHEN status IN ('예약 확정', '이용 완료') THEN 1 ELSE 0 END) AS won,
           SUM(CASE WHEN status = '취소·환불' THEN 1 ELSE 0 END) AS lost
@@ -301,6 +343,7 @@ export async function onRequest({ request, env, params }) {
       const ref = mCf[1], d = await readJson(request);
       const row = await env.DB.prepare('SELECT ref, space_id, status, name, phone, event_date, headcount, data FROM inquiries WHERE ref = ?').bind(ref).first();
       if (!row) return err('문의를 찾을 수 없습니다.', 404, 'NOT_FOUND');
+      if (row.status === DELETED) return err('삭제된 문의입니다. 먼저 복원한 뒤 예약을 확정해 주세요.', 409, 'DELETED');
       const data = safe(row.data);
       const active = await env.DB.prepare("SELECT booking_code FROM bookings WHERE inquiry_ref = ? AND status <> 'cancelled' LIMIT 1").bind(ref).first();
       if (active) return err('이미 예약(' + active.booking_code + ')으로 확정된 문의입니다.', 409, 'ALREADY_BOOKED');
@@ -314,7 +357,9 @@ export async function onRequest({ request, env, params }) {
       if (d.amount !== '' && d.amount != null && amount === null) return err('금액을 확인해 주세요.');
       const space_id = row.space_id && row.space_id !== 'request' ? row.space_id : 'megaspot-gundae';
       const { results: same } = await env.DB.prepare("SELECT booking_code, customer_name, start_h, end_h FROM bookings WHERE space_id = ? AND date = ? AND status = 'confirmed'").bind(space_id, date).all();
-      if ((same || []).length && !d.force) return json({ ok: false, error: '이 날짜에 이미 확정된 예약이 있습니다. 시간이 겹치지 않는지 확인한 뒤 다시 확정해 주세요.', code: 'DATE_HAS_BOOKING', bookings: same }, 409);
+      // 같은 날 다른 팀 예약은 받을 수 있습니다. 시간이 겹치는 예약(시간 미정 포함)이 있을 때만 한 번 더 확인합니다.
+      const clash = (same || []).filter(x => overlaps(bs, be, x.start_h, x.end_h));
+      if (clash.length && !d.force) return json({ ok: false, error: bs === null ? '이 날짜에 이미 확정된 예약이 있습니다. 이용 시간을 정하거나, 시간이 겹치지 않는지 확인한 뒤 다시 확정해 주세요.' : '같은 날 이용 시간이 겹치는 확정 예약이 있습니다. 시간을 확인한 뒤 다시 확정해 주세요.', code: 'DATE_HAS_BOOKING', bookings: clash }, 409);
       const code = await uniqueRef(env, 'bookings', 'booking_code', 'MS');
       const slot = bs !== null ? (SLOT_OF[bs + '-' + be] || 'custom') : (/^pkg-/.test(data.slot || '') ? data.slot : 'custom');
       const memo = str(d.memo, 2000) || [data.amount_note || '', chText(data.channel || 'web', data.channel_note)].filter(Boolean).join(' · ');
@@ -323,12 +368,12 @@ export async function onRequest({ request, env, params }) {
           .bind(code, space_id, ref, str(row.name || data.name, 80) || '(이름 없음)', phone, digits.slice(-4), date, slot, headcount, memo, 'confirmed', amount, bs, be, now()),
         env.DB.prepare("UPDATE inquiries SET status = '예약 확정', event_date = ?, updated_at = ? WHERE ref = ?").bind(date, now(), ref)
       ];
-      if (d.block_calendar !== false) stmts.push(env.DB.prepare('INSERT INTO calendar_blocks (space_id, date, state, memo) VALUES (?,?,?,?) ON CONFLICT(space_id, date) DO UPDATE SET state = excluded.state, memo = excluded.memo').bind(space_id, date, 'full', '예약 ' + code));
+      if (d.block_calendar === true) stmts.push(env.DB.prepare('INSERT INTO calendar_blocks (space_id, date, state, memo) VALUES (?,?,?,?) ON CONFLICT(space_id, date) DO UPDATE SET state = excluded.state, memo = excluded.memo').bind(space_id, date, 'full', '예약 ' + code));
       if (typeof env.DB.batch === 'function') await env.DB.batch(stmts); else for (const st of stmts) await st.run();
       await log(env, 'booking.created', code, 'admin', { space_id, date, from: ref });
       await log(env, 'inquiry.confirmed', ref, 'admin', { booking_code: code, date, amount });
       const others = await env.DB.prepare("SELECT COUNT(*) AS n FROM inquiries WHERE event_date = ? AND ref <> ? AND status IN ('문의 접수', '조건 확인', '견적 발송', '결제 대기')").bind(date, ref).first();
-      return json({ ok: true, booking_code: code, date, others: (others || {}).n || 0 });
+      return json({ ok: true, booking_code: code, date, others: (others || {}).n || 0, same_day: (same || []).length });
     }
 
     // ---- 입점 ----
@@ -419,7 +464,7 @@ export async function onRequest({ request, env, params }) {
     // ---- 회원 ----
     if (path === 'members' && method === 'GET') {
       const q = str(url.searchParams.get('q'), 60);
-      let sql = "SELECT m.id, m.email, m.name, m.phone, m.org, m.agree_marketing, m.status, m.created_at, m.last_login_at, (SELECT COUNT(*) FROM inquiries i WHERE json_extract(i.data, '$.member_id') = m.id) AS inquiry_count FROM members m"; const b = [];
+      let sql = "SELECT m.id, m.email, m.name, m.phone, m.org, m.agree_marketing, m.status, m.created_at, m.last_login_at, (SELECT COUNT(*) FROM inquiries i WHERE json_extract(i.data, '$.member_id') = m.id AND i.status <> '삭제됨') AS inquiry_count FROM members m"; const b = [];
       if (q) { sql += ' WHERE m.email LIKE ? OR m.name LIKE ? OR m.phone LIKE ? OR m.org LIKE ?'; b.push(...Array(4).fill('%' + q + '%')); }
       sql += ' ORDER BY m.created_at DESC LIMIT 300';
       const { results } = await env.DB.prepare(sql).bind(...b).all();

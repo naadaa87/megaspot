@@ -38,7 +38,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Black+Han+Sans&display=swap">
-<link rel="stylesheet" href="/assets/css/site.css?v=202610170809">
+<link rel="stylesheet" href="/assets/css/site.css?v=202610170914">
 <meta name="theme-color" content="#F1EFEB">
 
 </head>
@@ -117,15 +117,15 @@
     </section>
 
     <section class="adm-view" id="view-inq" hidden>
-      <header class="adm-head"><div><h1>문의 관리</h1><p class="small muted">줄을 누르면 상세 내용·체크리스트·견적·메모를 보고 수정·삭제할 수 있습니다. 왼쪽 칸을 체크하면 여러 건을 한 번에 지울 수 있습니다.</p></div><div class="row" style="gap:8px"><button class="btn btn-primary btn-sm" type="button" data-go="inq-new">+ 문의 직접 등록</button><button class="btn btn-light btn-sm" type="button" id="inq-csv">CSV 내려받기</button></div></header>
+      <header class="adm-head"><div><h1>문의 관리</h1><p class="small muted">줄을 누르면 상세 내용·체크리스트·견적·메모를 보고 수정·삭제할 수 있습니다. 왼쪽 칸을 체크하면 여러 건을 한 번에 삭제할 수 있고, 삭제한 문의는 지워지지 않고 상태의 '삭제된 문의 (보관함)'에 남습니다.</p></div><div class="row" style="gap:8px"><button class="btn btn-primary btn-sm" type="button" data-go="inq-new">+ 문의 직접 등록</button><button class="btn btn-light btn-sm" type="button" id="inq-csv">CSV 내려받기</button></div></header>
       <div class="adm-filters">
-        <select class="select" id="inq-status"><option value="open">진행 중 (접수~결제 대기)</option><option value="">전체</option><option>문의 접수</option><option>조건 확인</option><option>견적 발송</option><option>결제 대기</option><option>예약 확정</option><option>이용 완료</option><option>취소·환불</option></select>
+        <select class="select" id="inq-status"><option value="open">진행 중 (접수~결제 대기)</option><option value="">전체 (삭제 제외)</option><option>문의 접수</option><option>조건 확인</option><option>견적 발송</option><option>결제 대기</option><option>예약 확정</option><option>이용 완료</option><option>취소·환불</option><option value="deleted">삭제된 문의 (보관함)</option></select>
         <select class="select" id="inq-type"><option value="">모든 유형</option><option value="event">행사 대관</option><option value="regular">정기·반복 모임</option><option value="partner">제휴·협력</option></select>
         <select class="select" id="inq-ch" aria-label="문의 경로"><option value="">모든 경로</option></select>
         <input class="input" id="inq-q" placeholder="이름·연락처·이메일·문의번호">
         <button class="btn btn-light btn-sm" type="button" id="inq-reload">검색</button>
       </div>
-      <div class="inq-bulk" id="inq-bulk" hidden><b id="inq-sel-n">0건 선택</b><button class="btn btn-light btn-sm" type="button" id="inq-sel-clear">선택 해제</button><button class="btn btn-danger btn-sm" type="button" id="inq-sel-del">선택한 문의 삭제</button></div>
+      <div class="inq-bulk" id="inq-bulk" hidden><b id="inq-sel-n">0건 선택</b><button class="btn btn-light btn-sm" type="button" id="inq-sel-clear">선택 해제</button><button class="btn btn-danger btn-sm" type="button" id="inq-sel-del">선택한 문의 삭제</button><button class="btn btn-primary btn-sm" type="button" id="inq-sel-restore" hidden>선택한 문의 복원</button></div>
       <div class="form-note" id="inq-bulk-msg" hidden></div>
       <div id="inq-list" class="adm-table"></div>
     </section>
@@ -188,7 +188,7 @@
 
     <!-- 주문·결제 -->
     <section class="adm-view" id="view-orders" hidden>
-      <header class="adm-head"><div><h1>주문·결제</h1><p class="small muted">홈페이지에서 온라인으로 결제한 이용권·옵션 주문입니다. 결제가 끝나면 예약이 자동 등록되고 달력이 마감됩니다.</p></div><button class="btn btn-light btn-sm" type="button" id="ord-reload">새로고침</button></header>
+      <header class="adm-head"><div><h1>주문·결제</h1><p class="small muted">홈페이지에서 온라인으로 결제한 이용권·옵션 주문입니다. 결제가 끝나면 예약이 자동 등록됩니다. (달력은 자동으로 마감하지 않습니다)</p></div><button class="btn btn-light btn-sm" type="button" id="ord-reload">새로고침</button></header>
       <div class="notice mb-3" id="ord-mode"><div></div></div>
       <div class="adm-filters">
         <select class="select" id="ord-status"><option value="paid">결제 완료</option><option value="">전체</option><option value="created">결제창만 열림(미완료)</option><option value="failed">실패·취소됨</option><option value="refunded">환불</option><option value="cancelled">취소</option></select>
@@ -212,7 +212,7 @@
           <div class="field-row"><div class="f"><label for="bk-people">인원</label><input class="input" name="headcount" id="bk-people" inputmode="numeric"></div><div class="f"><label for="bk-amount">예약 금액 (원)</label><input class="input" type="number" min="0" step="1000" name="amount" id="bk-amount" inputmode="numeric" placeholder="확정 금액"><span class="hint" id="bk-amount-hint"></span></div></div>
           <input type="hidden" name="slot" id="bk-slot" value="custom">
           <div class="f"><label>메모 (시간·금액·배치·장비 등)</label><textarea class="textarea" name="memo" id="bk-memo" style="min-height:80px"></textarea></div>
-          <label class="agree"><input type="checkbox" name="block_calendar" checked> <span>해당 날짜를 일정 달력에서 '마감'으로 표시</span></label>
+          <label class="agree"><input type="checkbox" name="block_calendar"> <span>이 날짜를 일정 달력에서 '마감'으로 표시 <small class="muted">— 하루에 한 팀만 받을 때만 체크하세요. 시간대가 다르면 같은 날 여러 팀을 받을 수 있습니다.</small></span></label>
           <button class="btn btn-primary" type="submit">예약 등록</button>
           <div class="form-note" id="bk-msg" hidden></div>
         </form>
@@ -270,12 +270,12 @@
     <div class="adm-drawer-head"><h2 id="cf-title">예약 확정</h2><button class="btn btn-light btn-sm" type="button" data-close>닫기 ✕</button></div>
     <form class="adm-drawer-body form" id="cf-form" novalidate>
       <div class="cf-who" id="cf-who"></div>
-      <p class="small muted">아래 내용으로 예약을 확정합니다. 예약번호가 발급되고, 문의 상태가 '예약 확정'으로 바뀌며, 일정 달력에 마감으로 표시됩니다.</p>
+      <p class="small muted">아래 내용으로 예약을 확정합니다. 예약번호가 발급되고 문의 상태가 '예약 확정'으로 바뀝니다. 시간대가 다르면 같은 날 다른 팀도 받을 수 있어 달력은 자동으로 마감하지 않습니다.</p>
       <div class="field-row three"><div class="f"><label for="cf-date">이용일 <span class="req">*</span></label><input class="input" type="date" id="cf-date" name="date" required></div><div class="f"><label for="cf-start">시작</label><select class="select" id="cf-start" name="start_h"></select></div><div class="f"><label for="cf-end">종료</label><select class="select" id="cf-end" name="end_h"></select></div></div>
       <div class="nw-pkgs" id="cf-pkgs" aria-label="패키지 시간 빠른 선택"></div>
       <div class="field-row"><div class="f"><label for="cf-people">인원</label><input class="input" id="cf-people" name="headcount" inputmode="numeric"></div><div class="f"><label for="cf-amount">확정 금액 (원)</label><input class="input" type="number" min="0" step="1000" inputmode="numeric" id="cf-amount" name="amount" placeholder="비워 두면 미정"><span class="hint" id="cf-amount-hint"></span></div></div>
       <div class="f"><label for="cf-memo">예약 메모</label><input class="input" id="cf-memo" name="memo" maxlength="300" placeholder="예: 예약금 30만 원 입금 확인, 케이터링 반입"></div>
-      <label class="chk"><input type="checkbox" id="cf-block" checked> 일정 달력에 이 날짜를 마감으로 표시</label>
+      <label class="chk"><input type="checkbox" id="cf-block"> 일정 달력에 이 날짜를 마감으로 표시 <small class="muted">(하루 한 팀만 받을 때)</small></label>
       <div class="cf-warn" id="cf-warn" hidden></div>
       <div class="row" style="gap:8px"><button class="btn btn-primary" type="submit" id="cf-submit">예약 확정</button><button class="btn btn-light" type="button" data-close>취소</button></div>
       <div class="form-note" id="cf-msg" hidden></div>
@@ -321,11 +321,11 @@
 </div>
 </div><!-- /admin-root -->
 <div id="quote-print" aria-hidden="true"></div>
-<script src="/assets/js/site.js?v=202610170809"></script>
-<script src="/assets/js/data/spaces.js?v=202610170809"></script>
-<script src="/assets/js/data/holidays-kr.js?v=202610170809"></script>
-<script src="/assets/js/data/pricing-gundae.js?v=202610170809"></script>
-<script src="/assets/js/pricing-engine.js?v=202610170809"></script>
-<script src="/assets/js/pages/admin.js?v=202610170809"></script>
+<script src="/assets/js/site.js?v=202610170914"></script>
+<script src="/assets/js/data/spaces.js?v=202610170914"></script>
+<script src="/assets/js/data/holidays-kr.js?v=202610170914"></script>
+<script src="/assets/js/data/pricing-gundae.js?v=202610170914"></script>
+<script src="/assets/js/pricing-engine.js?v=202610170914"></script>
+<script src="/assets/js/pages/admin.js?v=202610170914"></script>
 </body>
 </html>
