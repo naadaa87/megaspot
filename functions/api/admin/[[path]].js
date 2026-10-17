@@ -4,6 +4,14 @@ import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, log, hash
 const STATUSES = ['문의 접수', '조건 확인', '견적 발송', '결제 대기', '예약 확정', '이용 완료', '취소·환불'];
 // 삭제한 문의는 지우지 않고 이 상태로 보관합니다(고객 DB 관리용). 목록·집계에서는 빠지고 '삭제된 문의'에서만 보입니다.
 const DELETED = '삭제됨';
+// 예약 대기(같은 날 아직 확정되지 않은 예약 문의) — 대기 순번은 data.wait_rank, 없으면 문의가 들어온 순서
+const PENDING = "('문의 접수', '조건 확인', '견적 발송', '결제 대기')";
+const WAIT_ORDER = "CASE WHEN json_extract(i.data, '$.wait_rank') IS NULL THEN 1 ELSE 0 END, CAST(json_extract(i.data, '$.wait_rank') AS INTEGER), i.created_at, i.ref";
+async function waitList(env, date) {
+  const { results } = await env.DB.prepare(`SELECT i.ref FROM inquiries i WHERE i.status IN ${PENDING} AND i.event_date = ?
+    AND NOT EXISTS (SELECT 1 FROM bookings b2 WHERE b2.inquiry_ref = i.ref AND b2.status <> 'cancelled') ORDER BY ${WAIT_ORDER}`).bind(date).all();
+  return (results || []).map(r => r.ref);
+}
 // 두 시간대가 겹치는지 (시간 정보가 없는 예약은 겹친다고 봅니다)
 function overlaps(s1, e1, s2, e2) { if (s1 == null || e1 == null || s2 == null || e2 == null) return true; return s1 < e2 && s2 < e1; }
 const OPEN = ['문의 접수', '조건 확인', '견적 발송', '결제 대기'];
@@ -154,7 +162,9 @@ export async function onRequest({ request, env, params }) {
       const { results: qs } = await env.DB.prepare('SELECT quote_no, total, data, created_at FROM quotes WHERE inquiry_ref = ? ORDER BY id DESC LIMIT 20').bind(mDet[1]).all();
       const { results: bk } = await env.DB.prepare('SELECT booking_code, date, slot, status FROM bookings WHERE inquiry_ref = ? ORDER BY id DESC').bind(mDet[1]).all();
       const { results: lg } = await env.DB.prepare('SELECT kind, actor, detail, created_at FROM event_log WHERE ref = ? ORDER BY id DESC LIMIT 30').bind(mDet[1]).all();
-      return json({ ok: true, item: { ...r, data: safe(r.data) }, checks: safe(c && c.checks), quotes: (qs || []).map(q => ({ ...q, data: safe(q.data) })), bookings: bk || [], log: lg || [] });
+      let wait = null;
+      if (r.event_date && ['문의 접수', '조건 확인', '견적 발송', '결제 대기'].includes(r.status)) { const wl = await waitList(env, r.event_date); const no = wl.indexOf(r.ref) + 1; if (no) wait = { no, total: wl.length, date: r.event_date }; }
+      return json({ ok: true, item: { ...r, data: safe(r.data) }, checks: safe(c && c.checks), quotes: (qs || []).map(q => ({ ...q, data: safe(q.data) })), bookings: bk || [], log: lg || [], wait });
     }
     if (path === 'inquiries' && method === 'POST') {
       // 카카오톡·전화·이메일·방문으로 받은 문의를 관리자가 직접 등록합니다.
@@ -266,6 +276,7 @@ export async function onRequest({ request, env, params }) {
         if (headcount !== null && (headcount < 1 || headcount > 1000)) return err('인원을 확인해 주세요.');
         const pick = o => ({ 경로: chText(o.channel || 'web', o.channel_note), 이름: o.name || '', 연락처: o.phone || '', 이메일: o.email || '', 이용일: o.date || '', 시간: o.start_h != null ? hl(o.start_h) + '–' + (o.end_h != null ? hl(o.end_h) : '') : (o.t_start ? o.t_start + '–' + (o.t_end || '') : ''), 인원: o.headcount || '', 목적: o.purpose || '', 금액: o.total != null ? o.total : '', 옵션: JSON.stringify(o.options || {}), 내용: o.message || '' });
         const before = pick({ ...data, name: data.name || row.name, phone: data.phone || row.phone, email: data.email || row.email, date: data.date || row.event_date, headcount: data.headcount || row.headcount });
+        if ((date || '') !== (data.date || row.event_date || '')) { delete data.wait_rank; delete data.wait_rank_at; }   // 이용일이 바뀌면 그 날 대기 순번 맨 뒤로
         Object.assign(data, { name, phone, email, date, headcount, purpose: str(d.purpose, 40), options: cleanOptions(d.options), regular: !!d.regular, message: str(d.message, 2000) });
         if (['event', 'regular', 'partner'].includes(d.inquiry_type)) data.inquiry_type = d.inquiry_type;
         if (CHANNELS.includes(d.channel)) { data.channel = d.channel; data.channel_note = str(d.channel_note, 40); }
@@ -402,6 +413,21 @@ export async function onRequest({ request, env, params }) {
       return json({ ok: true, booking_code: code });
     }
     // 예약 목록 — 확정 예약(bookings)과 날짜가 정해진 미확정 문의·예약 신청을 날짜순으로 함께 돌려줍니다.
+    // 같은 날 예약 대기 순번 저장: refs 순서대로 1, 2, 3… (목록에 없는 대기자는 기존 순서대로 뒤에 붙임)
+    if (path === 'reservations/waitlist' && method === 'POST') {
+      const d = await readJson(request), date = str(d.date, 10);
+      if (!isDate(date)) return err('날짜를 확인해 주세요.');
+      const refs = Array.from(new Set((Array.isArray(d.refs) ? d.refs : []).map(r => str(r, 20).toUpperCase()).filter(r => /^[A-Z0-9-]{4,20}$/.test(r)))).slice(0, 200);
+      if (!refs.length) return err('순서를 정할 문의가 없습니다.');
+      const cur = await waitList(env, date);
+      const bad = refs.filter(r => !cur.includes(r));
+      if (bad.length) return err('이 날짜의 예약 대기 목록이 바뀌었습니다. 새로고침한 뒤 다시 정해 주세요.', 409, 'STALE');
+      const order = refs.concat(cur.filter(r => !refs.includes(r))), t = now();
+      const stmts = order.map((r, i) => env.DB.prepare("UPDATE inquiries SET data = json_set(COALESCE(data, '{}'), '$.wait_rank', ?, '$.wait_rank_at', ?) WHERE ref = ?").bind(i + 1, t, r));
+      if (typeof env.DB.batch === 'function') await env.DB.batch(stmts); else for (const st of stmts) await st.run();
+      await log(env, 'waitlist.updated', date, 'admin', { date, count: order.length });
+      return json({ ok: true, date, order });
+    }
     if (path === 'reservations' && method === 'GET') {
       const from = str(url.searchParams.get('from'), 10), to = str(url.searchParams.get('to'), 10);
       if ((from && !isDate(from)) || (to && !isDate(to))) return err('기간을 확인해 주세요.');
@@ -415,7 +441,7 @@ export async function onRequest({ request, env, params }) {
       const iqQ = "(SELECT q.total FROM quotes q WHERE q.inquiry_ref = i.ref ORDER BY q.id DESC LIMIT 1)";
       const { results: pend } = await env.DB.prepare(`SELECT i.ref, i.status, i.name, i.phone, i.event_date, i.headcount, i.created_at, ${iqQ} AS quote_total,
           json_extract(i.data, '$.total') AS inq_total, json_extract(i.data, '$.start_h') AS start_h, json_extract(i.data, '$.end_h') AS end_h, json_extract(i.data, '$.t_start') AS t_start, json_extract(i.data, '$.t_end') AS t_end,
-          json_extract(i.data, '$.slot') AS slot, json_extract(i.data, '$.reserve') AS reserve, json_extract(i.data, '$.purpose') AS purpose, json_extract(i.data, '$.channel') AS channel, json_extract(i.data, '$.channel_note') AS channel_note, json_extract(i.data, '$.inquiry_type') AS inquiry_type, json_extract(i.data, '$.family') AS family
+          json_extract(i.data, '$.slot') AS slot, json_extract(i.data, '$.reserve') AS reserve, json_extract(i.data, '$.purpose') AS purpose, json_extract(i.data, '$.channel') AS channel, json_extract(i.data, '$.channel_note') AS channel_note, json_extract(i.data, '$.inquiry_type') AS inquiry_type, json_extract(i.data, '$.family') AS family, json_extract(i.data, '$.wait_rank') AS wait_rank
         FROM inquiries i WHERE i.status IN ('문의 접수', '조건 확인', '견적 발송', '결제 대기') AND i.event_date BETWEEN ? AND ?
           AND NOT EXISTS (SELECT 1 FROM bookings b2 WHERE b2.inquiry_ref = i.ref AND b2.status <> 'cancelled')
         ORDER BY i.event_date ASC LIMIT 1000`).bind(f, t).all();
@@ -426,7 +452,7 @@ export async function onRequest({ request, env, params }) {
         amount: b.amount ?? (b.order_price && b.order_status !== 'failed' ? b.order_price : null) ?? b.quote_total ?? b.inq_total ?? null,
         amount_src: b.amount != null ? 'booking' : (b.order_price ? 'order' : (b.quote_total != null ? 'quote' : (b.inq_total != null ? 'estimate' : ''))), order: b.order_oid || '' });
       for (const p of pend || []) items.push({ family: jarr(p.family), kind: 'pending', code: '', ref: p.ref, name: p.name, phone: p.phone, date: p.event_date, slot: p.slot, start_h: p.start_h ?? null, end_h: p.end_h ?? null,
-        t_start: p.t_start || '', t_end: p.t_end || '', headcount: p.headcount, status: p.status, reserve: !!p.reserve, purpose: p.purpose || '', channel: p.channel || 'web', channel_note: p.channel_note || '', inquiry_type: p.inquiry_type || 'event',
+        t_start: p.t_start || '', t_end: p.t_end || '', headcount: p.headcount, status: p.status, reserve: !!p.reserve, purpose: p.purpose || '', channel: p.channel || 'web', channel_note: p.channel_note || '', inquiry_type: p.inquiry_type || 'event', wait_rank: p.wait_rank == null ? null : Number(p.wait_rank), created_at: p.created_at,
         amount: p.quote_total ?? p.inq_total ?? null, amount_src: p.quote_total != null ? 'quote' : (p.inq_total != null ? 'estimate' : '') });
       items.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : ((a.start_h ?? 99) - (b.start_h ?? 99)));
       const und = await env.DB.prepare("SELECT COUNT(*) AS n FROM inquiries WHERE status IN ('문의 접수', '조건 확인', '견적 발송', '결제 대기') AND (event_date IS NULL OR event_date = '')").first();

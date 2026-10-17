@@ -1822,3 +1822,16 @@ body:has(.subnav) section[id]{scroll-margin-top:calc(var(--header-h) + 22px)}
 .cal-day.partial:hover{border-color:var(--cobalt)}
 .cal-day.partial.sel{background:var(--cobalt);color:#fff}
 .cf-warn.info{background:var(--cobalt-soft);border-color:#BFD0F5;color:var(--ink)}
+
+/* 예약 대기 순번 (2026-10-17) */
+.rs-grip{display:inline-grid;place-items:center;width:22px;height:28px;margin:-2px 6px -2px -4px;padding:0;border:1px solid transparent;border-radius:4px;background:none;color:var(--ink-3);cursor:grab;touch-action:none;vertical-align:middle}
+.rs-grip svg{width:10px;height:16px;fill:currentColor}
+.rs-grip:hover,.rs-grip:focus-visible{background:var(--white);border-color:var(--concrete);color:var(--ink)}
+.rs-grip[disabled]{opacity:.35;cursor:not-allowed}
+.wait-no b{font-weight:800}
+.rs-row.dragging td{background:#FFF6DC!important;box-shadow:inset 0 1px 0 #E9C46A,inset 0 -1px 0 #E9C46A}
+.rs-row.dragging .rs-grip{cursor:grabbing;color:var(--ink)}
+body.rs-dragging,body.rs-dragging *{user-select:none;-webkit-user-select:none;cursor:grabbing!important}
+.rs-hint{margin-left:auto;font-size:12px;color:var(--ink-3);white-space:nowrap}
+.dr-wait{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:-4px 0 12px;padding:9px 12px;background:#FBF5E6;border:1px solid #EBD9A8;border-radius:6px;font-size:13.5px;color:var(--ink-2)}
+@media (max-width:899px){.rs-row.pending .rs-grip{width:30px;height:30px;margin-right:8px}.rs-hint{margin-left:0;white-space:normal}}

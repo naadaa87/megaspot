@@ -247,6 +247,7 @@
       +'<span class="small muted">접수 '+esc(String(it.created_at||'').slice(0,16))+(d.member_id?' · 회원 '+esc(d.member_email||''):'')+'</span></div>'
       +'<div class="dr-ch"><label for="dr-ch">문의 경로</label><select class="select" id="dr-ch">'+chOptions(d.channel||'web')+'</select><input class="input" id="dr-ch-note" maxlength="40" value="'+esc(d.channel_note||'')+'" placeholder="'+((d.channel||'web')==='other'?'기타 경로 (선택)':'세부 경로 (선택)')+'"'+(['other','sns'].indexOf(d.channel||'web')>=0?'':' hidden')+'><button class="btn btn-light btn-xs" type="button" id="dr-ch-save" hidden>경로 저장</button>'
       +((d.channel||'web')==='web'&&d.came_from?'<span class="dr-came">유입: <b>'+esc(d.came_from.label||'')+'</b>'+(d.came_from.host?' <small>('+esc(d.came_from.host)+')</small>':'')+(d.came_from.utm_campaign?' <small>캠페인 '+esc(d.came_from.utm_campaign)+'</small>':'')+(d.came_from.landing?' <small>첫 페이지 '+esc(d.came_from.landing)+'</small>':'')+'</span>':'')+'</div>'
+      +(cur.wait?'<div class="dr-wait"><span class="kind kind-pd wait-no">대기 <b>'+cur.wait.no+'</b>번</span><span>'+esc(kd(cur.wait.date))+' 예약 대기 '+cur.wait.total+'명 가운데 '+cur.wait.no+'번째입니다.</span>'+(cur.wait.total>1?'<button type="button" class="linkish" id="dr-wait-go">일자별 예약에서 순번 바꾸기 →</button>':'')+'</div>':'')
       +(famAsk(d)?'<div class="dr-fam"><span class="ch-tag">함께 알아보기</span> <b>'+esc(famAsk(d))+'</b> <small class="muted">고객이 같은 날 함께 쓰고 싶다고 체크했습니다. 해당 공간 일정을 확인해 함께 안내해 주세요.</small></div>':'')
       +'<div class="dr-actions"><button class="btn btn-primary btn-sm" type="button" id="dr-quote">이 문의로 견적 계산 →</button>'
       +(tel?'<a class="btn btn-light btn-sm" href="tel:'+esc(tel)+'">전화</a><a class="btn btn-light btn-sm" href="sms:'+esc(tel)+'">문자</a>':'')
@@ -281,6 +282,7 @@
     $$('#dr-body [data-chk]').forEach(function(cb){ cb.addEventListener('change', function(){ var o={}; $$('#dr-body [data-chk]').forEach(function(x){ o[x.dataset.chk]=x.checked; }); A('/inquiries/'+it.ref+'/checks',{method:'PUT', body:{checks:o}}).then(function(r){ cur.checks=r.checks; M.toast('체크리스트를 저장했습니다.'); }).catch(function(e){ if(!guard(e)) M.toast(e.message); }); }); });
     $('#dr-quote').addEventListener('click', function(){ quoteFromInquiry(cur.item); closeDrawer($('#adm-drawer')); go('quote'); });
     var db=$('#dr-book'); if(db) db.addEventListener('click', function(){ openConfirm(confirmFromInquiry()); });
+    var wg=$('#dr-wait-go'); if(wg) wg.addEventListener('click', function(){ var dt=cur.wait.date; closeDrawer($('#adm-drawer')); go('resv'); if($('#rs-from').value>dt || ($('#rs-to').value && $('#rs-to').value<dt)){ setRange('upcoming'); loadResv(); } });
     $('#dr-edit').addEventListener('click', function(){ openEdit(cur.item); });
     var dDel=$('#dr-del'); if(dDel) dDel.addEventListener('click', function(){
       var nm=d.name||it.name||'';
@@ -312,7 +314,7 @@
       +'<p class="tiny muted">정확한 항목별 금액이 필요하면 \'이 문의로 견적 계산\'에서 견적서를 만들어 저장하세요.</p></div>';
   }
   function refreshLists(){ if(!$('#view-inq').hidden) loadInq(); if(!$('#view-dash').hidden) loadDash(); if(!$('#view-resv').hidden) loadResv(); }
-  var LOGK={'inquiry.created':'접수','reserve.created':'예약 신청 접수','inquiry.updated':'상태·메모·금액 변경','inquiry.edited':'내용 수정','quote.saved':'견적 저장','booking.created':'예약 등록','inquiry.confirmed':'예약 확정 처리','inquiry.deleted':'삭제 (보관함으로)','inquiry.restored':'삭제 문의 복원','booking.updated':'예약 상태 변경','order.created':'주문 생성','order.paid':'결제 완료','order.updated':'주문 변경'};
+  var LOGK={'inquiry.created':'접수','reserve.created':'예약 신청 접수','inquiry.updated':'상태·메모·금액 변경','inquiry.edited':'내용 수정','quote.saved':'견적 저장','booking.created':'예약 등록','inquiry.confirmed':'예약 확정 처리','inquiry.deleted':'삭제 (보관함으로)','inquiry.restored':'삭제 문의 복원','waitlist.updated':'대기 순번 변경','booking.updated':'예약 상태 변경','order.created':'주문 생성','order.paid':'결제 완료','order.updated':'주문 변경'};
   var LOGA={admin:'관리자',customer:'고객',system:'시스템'};
   function logLine(l){
     var det={}; try{ det=JSON.parse(l.detail||'{}')||{}; }catch(e){}
@@ -713,8 +715,15 @@
   function resvHours(it){ return it.start_h!=null&&it.end_h!=null?(it.end_h-it.start_h)+'시간':''; }
   function dLabel(iso){ var n=E?E.diffDays(RS.today, iso):null; if(n===0) return '<em class="rs-d today">오늘</em>'; if(n===1) return '<em class="rs-d soon">내일</em>'; if(n>1&&n<=7) return '<em class="rs-d soon">D-'+n+'</em>'; return ''; }
   var SRC={booking:'예약 금액',order:'온라인 결제',quote:'견적',estimate:'예상'};
+  // 예약 대기 순번: 같은 날 확정되지 않은 예약 문의를 저장한 순번(wait_rank) → 없으면 문의가 들어온 순서로 1, 2, 3…
+  function waitCmp(a,b){ var ra=a.wait_rank==null?1e9:+a.wait_rank, rb=b.wait_rank==null?1e9:+b.wait_rank; if(ra!==rb) return ra-rb; var ca=String(a.created_at||''), cb=String(b.created_at||''); if(ca!==cb) return ca<cb?-1:1; return String(a.ref)<String(b.ref)?-1:1; }
+  function waitOrder(){ var by={}; RS.items.forEach(function(it){ if(it.kind==='pending') (by[it.date]=by[it.date]||[]).push(it); });
+    Object.keys(by).forEach(function(d){ by[d].sort(waitCmp).forEach(function(it,i){ it._wait=i+1; it._waitN=by[d].length; }); }); return by; }
+  // 검색·경로·상태 필터를 쓰는 중에는 일부만 보여서 순번을 끌어 바꾸지 않습니다
+  function waitDraggable(){ var st=$('#rs-status').value; return !$('#rs-ch').value && !$('#rs-q').value.trim() && (st===''||st==='active'); }
   function dayStats(base){ var day={}; base.forEach(function(it){ var x=day[it.date]||(day[it.date]={bk:0,pend:0,bkList:[]}); if(it.kind==='booking'){ if(it.status!=='cancelled'){ x.bk++; x.bkList.push(it); } } else x.pend++; }); return day; }
   function drawResv(){
+    waitOrder();
     var base=resvBase(), list=resvFiltered(), box=$('#rs-list'), day=dayStats(base);
     var cnt={ all:base.length, booking:base.filter(function(x){ return x.kind==='booking'; }).length, pending:base.filter(function(x){ return x.kind==='pending'; }).length };
     $$('#rs-tabs [data-kind]').forEach(function(b){ b.setAttribute('aria-selected', String(b.dataset.kind===RS.kind)); var em=b.querySelector('em'); if(em) em.textContent=cnt[b.dataset.kind]; });
@@ -736,26 +745,28 @@
       var gb=all.filter(function(x){ return x.kind==='booking'&&x.status!=='cancelled'; }), gp=all.filter(function(x){ return x.kind==='pending'; }), gs=gb.reduce(function(a,x){ return a+(+x.amount||0); },0);
       return '<div class="rs-group"><div class="rs-ghead"><b>'+(+mk.slice(0,4))+'년 '+(+mk.slice(5,7))+'월</b><span>확정 '+gb.length+'건 · '+esc(won(gs))+(gp.length?' · 예약 문의 '+gp.length+'건':'')+'</span></div>'
         +mo.order.map(function(dk){
-          var rows=mo.days[dk].slice().sort(function(a,b){ if(a.kind!==b.kind) return a.kind==='booking'?-1:1; return (a.start_h==null?99:a.start_h)-(b.start_h==null?99:b.start_h); });
+          var rows=mo.days[dk].slice().sort(function(a,b){ if(a.kind!==b.kind) return a.kind==='booking'?-1:1; if(a.kind==='pending') return (a._wait||99)-(b._wait||99); return (a.start_h==null?99:a.start_h)-(b.start_h==null?99:b.start_h); });
           var x=day[dk]||{bk:0,pend:0}, dt=new Date(dk+'T12:00:00'), dow=dt.getDay(), off=E&&E.isOff(dk), past=dk<RS.today, clash=x.pend>0 && (x.bk>0 || x.pend>1);
           var pk=E&&E.peakOf?E.peakOf(dk):null;
           return '<div class="rs-day'+(clash?' clash':'')+(past?' past':'')+(dk===RS.today?' is-today':'')+'">'
             +'<div class="rs-dhead"><b class="rs-date'+(off||dow===0?' off':'')+(dow===6?' sat':'')+'">'+(+dk.slice(5,7))+'.'+(+dk.slice(8,10))+' ('+DOWK[dow]+')</b>'+dLabel(dk)+(pk?'<span class="rs-peak">성수기</span>':'')
-            +'<span class="rs-dsum">'+(x.bk?'<span class="st st-ok">확정 '+x.bk+'</span>':'')+(x.pend?'<span class="st st-new">문의 '+x.pend+'</span>':'')+'</span>'
-            +(clash?'<span class="rs-clash">'+(x.bk?'확정 예약이 있는 날 · 후보 '+x.pend+'건':'같은 날 후보 '+x.pend+'건')+'</span>':'')+'</div>'
+            +'<span class="rs-dsum">'+(x.bk?'<span class="st st-ok">확정 '+x.bk+'</span>':'')+(x.pend?'<span class="st st-new">대기 '+x.pend+'</span>':'')+'</span>'
+            +(clash?'<span class="rs-clash">'+(x.bk?'확정 예약이 있는 날 · 대기 '+x.pend+'명':'같은 날 대기 '+x.pend+'명')+'</span>':'')
+            +(x.pend>1&&RS.kind!=='booking'?'<span class="rs-hint">'+(waitDraggable()?'⠿ 끌어서 대기 순번 변경':'검색·필터를 풀면 대기 순번을 바꿀 수 있습니다')+'</span>':'')+'</div>'
             +'<table class="rs-table">'+head+'<tbody>'+rows.map(function(it){ return resvRow(it, x, past); }).join('')+'</tbody></table></div>';
         }).join('')+'</div>';
     }).join('');
   }
   function resvRow(it, x, past){
     var isB=it.kind==='booking', st=isB?(BST[it.status]||[it.status,'']):[it.status,ST_CLS[it.status]||'st-new'];
-    var kind=isB?'<span class="kind kind-bk">확정</span>':'<span class="kind kind-pd">문의</span>'+(it.reserve?'<span class="tag-rv">예약 신청</span>':'');
+    var grip=(!isB && it._waitN>1)?'<button type="button" class="rs-grip" data-wdate="'+esc(it.date)+'"'+(waitDraggable()?'':' disabled')+' title="끌어서 대기 순번 바꾸기 (키보드: 위·아래 화살표)" aria-label="'+esc(it.name||'')+' 대기 순번 바꾸기, 현재 '+it._wait+'번"><svg viewBox="0 0 10 16" aria-hidden="true"><circle cx="2.5" cy="3" r="1.4"/><circle cx="7.5" cy="3" r="1.4"/><circle cx="2.5" cy="8" r="1.4"/><circle cx="7.5" cy="8" r="1.4"/><circle cx="2.5" cy="13" r="1.4"/><circle cx="7.5" cy="13" r="1.4"/></svg></button>':'';
+    var kind=isB?'<span class="kind kind-bk">확정</span>':grip+'<span class="kind kind-pd wait-no" title="같은 날 예약 대기 순번">대기 <b>'+(it._wait||1)+'</b>번</span>'+(it.reserve?'<span class="tag-rv">예약 신청</span>':'');
     var tel=String(it.phone||'').replace(/[^0-9+]/g,'');
     var acts=(tel?'<a class="btn btn-light btn-xs" href="tel:'+esc(tel)+'" aria-label="전화">전화</a>':'');
     if(isB && it.status==='confirmed') acts+=(past?'<button class="btn btn-light btn-xs" type="button" data-rsact="completed" data-code="'+esc(it.code)+'">이용 완료</button>':'')+'<button class="btn btn-light btn-xs" type="button" data-rsact="cancelled" data-code="'+esc(it.code)+'">취소</button>';
     if(!isB) acts+='<button class="btn btn-primary btn-xs" type="button" data-rsconfirm="'+esc(it.ref)+'">확정</button>';
     var chs=it.channel==='online'?'<span class="ch-tag ch-online">온라인 결제</span>':(it.channel?chTag(it.channel, it.channel_note):'<span class="muted">—</span>');
-    return '<tr class="rs-row '+(isB?'booking':'pending')+(it.status==='cancelled'?' cancelled':'')+(past?' past':'')+'"'+(it.ref?' data-ref="'+esc(it.ref)+'" tabindex="0"':'')+'>'
+    return '<tr class="rs-row '+(isB?'booking':'pending')+(it.status==='cancelled'?' cancelled':'')+(past?' past':'')+'" data-date="'+esc(it.date)+'"'+(it.ref?' data-ref="'+esc(it.ref)+'" tabindex="0"':'')+'>'
       +'<td data-th="구분">'+kind+(!isB && x.bk?'<small class="rs-taken">이 날 확정 예약 있음</small>':'')+'</td>'
       +'<td data-th="시간">'+esc(resvTime(it))+(resvHours(it)?'<small>'+esc(resvHours(it))+'</small>':'')+'</td>'
       +'<td data-th="예약자"><b>'+esc(it.name||'')+'</b><small>'+esc(it.phone||'')+(it.purpose&&PUR[it.purpose]?' · '+esc(PUR[it.purpose]):'')+'</small>'+(famAsk(it)?'<small class="rs-fam">+ '+esc(famAsk(it))+'</small>':'')+'</td>'
@@ -776,12 +787,56 @@
   $('#rs-print').addEventListener('click', function(){ document.body.classList.add('print-resv'); window.print(); setTimeout(function(){ document.body.classList.remove('print-resv'); }, 800); });
   $('#rs-csv').addEventListener('click', function(){
     var list=resvFiltered(); if(!list.length){ M.toast('내려받을 예약이 없습니다.'); return; }
-    var cols=['이용일','요일','시간','구분','진행 상태','예약자','연락처','문의 경로','인원','금액(원)','금액 기준','예약번호','문의번호','목적','메모'];
-    var rows=list.map(function(it){ var dow=DOWK[new Date(it.date+'T12:00:00').getDay()]; return [it.date,dow,resvTime(it),it.kind==='booking'?'예약 확정':(it.reserve?'예약 문의(홈페이지 예약 신청)':'예약 문의'),it.kind==='booking'?(BST[it.status]||[it.status])[0]:it.status,it.name,it.phone,it.channel==='online'?'온라인 결제':(it.channel?chLabel(it.channel,it.channel_note):''),it.headcount||'',it.amount!=null?it.amount:'',SRC[it.amount_src]||'',it.code||'',it.ref||'',PUR[it.purpose]||it.purpose||'',it.memo||'']; });
+    var cols=['이용일','요일','시간','구분','대기 순번','진행 상태','예약자','연락처','문의 경로','인원','금액(원)','금액 기준','예약번호','문의번호','목적','메모'];
+    var rows=list.map(function(it){ var dow=DOWK[new Date(it.date+'T12:00:00').getDay()]; return [it.date,dow,resvTime(it),it.kind==='booking'?'예약 확정':(it.reserve?'예약 문의(홈페이지 예약 신청)':'예약 문의'),it.kind==='booking'?'':(it._wait||''),it.kind==='booking'?(BST[it.status]||[it.status])[0]:it.status,it.name,it.phone,it.channel==='online'?'온라인 결제':(it.channel?chLabel(it.channel,it.channel_note):''),it.headcount||'',it.amount!=null?it.amount:'',SRC[it.amount_src]||'',it.code||'',it.ref||'',PUR[it.purpose]||it.purpose||'',it.memo||'']; });
     var csv='﻿'+[cols].concat(rows).map(function(r){ return r.map(function(v){ v=String(v==null?'':v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }).join(','); }).join('\r\n');
     var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})); a.download='메가스팟_일자별예약_'+($('#rs-from').value||'처음')+'_'+($('#rs-to').value||'이후')+'.csv'; document.body.appendChild(a); a.click(); a.remove();
   });
+  /* 예약 대기 순번 — 손잡이(⠿)를 끌거나, 손잡이에서 위·아래 화살표로 바꿉니다 (마우스·터치 모두) */
+  var DRAG=null;
+  function waitRows(tb){ return [].slice.call(tb.querySelectorAll('tr.rs-row.pending')); }
+  function waitRenumber(tb){ waitRows(tb).forEach(function(r,i){ var b=r.querySelector('.wait-no b'); if(b) b.textContent=i+1; }); }
+  function waitSave(date, refs, focusRef){
+    A('/reservations/waitlist',{method:'POST', body:{date:date, refs:refs}}).then(function(r){
+      (r.order||refs).forEach(function(ref,i){ RS.items.forEach(function(it){ if(it.kind==='pending' && it.ref===ref) it.wait_rank=i+1; }); });
+      M.toast((+date.slice(5,7))+'월 '+(+date.slice(8,10))+'일 대기 순번을 저장했습니다.'); drawResv();
+      if(focusRef){ var g=$('#rs-list tr[data-ref="'+focusRef+'"] .rs-grip'); if(g) g.focus(); }
+    }).catch(function(x){ if(guard(x)) return; M.toast(x.message||'순번을 저장하지 못했습니다.'); loadResv(); });
+  }
+  $('#rs-list').addEventListener('pointerdown', function(e){
+    var g=e.target.closest('.rs-grip'); if(!g || g.disabled || (e.pointerType==='mouse' && e.button!==0)) return;
+    e.preventDefault(); e.stopPropagation();
+    var tr=g.closest('tr.rs-row'), tb=tr.parentNode;
+    DRAG={ tr:tr, tb:tb, date:g.dataset.wdate, orig:waitRows(tb).map(function(r){ return r.dataset.ref; }), y:e.clientY };
+    try{ g.setPointerCapture(e.pointerId); }catch(_){}
+    tr.classList.add('dragging'); document.body.classList.add('rs-dragging');
+  });
+  document.addEventListener('pointermove', function(e){
+    if(!DRAG) return; e.preventDefault();
+    var others=waitRows(DRAG.tb).filter(function(r){ return r!==DRAG.tr; }), before=null;
+    for(var i=0;i<others.length;i++){ var rc=others[i].getBoundingClientRect(); if(e.clientY < rc.top+rc.height/2){ before=others[i]; break; } }
+    if(before){ if(DRAG.tr.nextSibling!==before) DRAG.tb.insertBefore(DRAG.tr, before); }
+    else if(others.length){ var last=others[others.length-1]; if(last.nextSibling!==DRAG.tr) last.parentNode.insertBefore(DRAG.tr, last.nextSibling); }
+    waitRenumber(DRAG.tb);
+    if(e.clientY<70) window.scrollBy(0,-14); else if(e.clientY>window.innerHeight-70) window.scrollBy(0,14);
+  }, { passive:false });
+  function dragEnd(){
+    if(!DRAG) return; var d=DRAG; DRAG=null;
+    d.tr.classList.remove('dragging'); document.body.classList.remove('rs-dragging');
+    var now=waitRows(d.tb).map(function(r){ return r.dataset.ref; });
+    if(now.join()!==d.orig.join()) waitSave(d.date, now);
+  }
+  document.addEventListener('pointerup', dragEnd); document.addEventListener('pointercancel', dragEnd);
+  $('#rs-list').addEventListener('keydown', function(e){
+    var g=e.target.closest('.rs-grip'); if(!g || g.disabled || (e.key!=='ArrowUp' && e.key!=='ArrowDown')) return;
+    e.preventDefault();
+    var tr=g.closest('tr.rs-row'), tb=tr.parentNode, rows=waitRows(tb), i=rows.indexOf(tr), j=e.key==='ArrowUp'?i-1:i+1;
+    if(j<0 || j>=rows.length) return;
+    if(e.key==='ArrowUp') tb.insertBefore(tr, rows[j]); else tb.insertBefore(tr, rows[j].nextSibling);
+    waitRenumber(tb); waitSave(g.dataset.wdate, waitRows(tb).map(function(r){ return r.dataset.ref; }), tr.dataset.ref);
+  });
   $('#rs-list').addEventListener('click', function(e){
+    if(e.target.closest('.rs-grip')){ e.stopPropagation(); return; }
     var c=e.target.closest('button[data-rsconfirm]');
     if(c){ e.stopPropagation(); var it=RS.items.filter(function(x){ return x.kind==='pending' && x.ref===c.dataset.rsconfirm; })[0]; if(it) openConfirm(confirmFromRs(it)); return; }
     var b=e.target.closest('button[data-rsact]');
@@ -820,7 +875,9 @@
     var msg=[];
     if(clash.length) msg.push('<b>이용 시간이 겹칠 수 있는 확정 예약이 있습니다.</b> '+clash.map(function(b){ return esc(b.name)+' '+esc(resvTime(b)); }).join(', ')+' — 시간을 확인해 주세요.');
     else if(same.length) msg.push('같은 날 다른 시간대 확정 예약 '+same.length+'건: '+same.map(function(b){ return esc(b.name)+' '+esc(resvTime(b)); }).join(', ')+' — 시간이 겹치지 않아 함께 받을 수 있습니다.');
-    if(others.length) msg.push('같은 날 다른 예약 문의가 '+others.length+'건 있습니다. 확정한 뒤 그분들께는 다른 날짜를 안내해 주세요.');
+    var me=RS.items.filter(function(x){ return x.kind==='pending' && x.ref===CF.ref; })[0];
+    if(me && me.date===date && me._wait>1){ var ahead=RS.items.filter(function(x){ return x.kind==='pending' && x.date===date && x._wait<me._wait; }).sort(function(a,b){ return a._wait-b._wait; }); msg.push('이 문의는 <b>대기 '+me._wait+'번</b>입니다. 앞 순번: '+ahead.map(function(x){ return esc(x.name||'')+'('+x._wait+'번)'; }).join(', ')); }
+    if(others.length) msg.push('같은 날 다른 예약 대기 '+others.length+'명이 있습니다. 확정한 뒤 그분들께는 다른 시간이나 날짜를 안내해 주세요.');
     w.innerHTML=msg.join('<br>'); w.hidden=!msg.length; w.classList.toggle('info', !clash.length);
   }
   function openConfirm(src){
