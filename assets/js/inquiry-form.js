@@ -7,7 +7,7 @@
    - API 연결 시 /api/inquiry 로 저장, 미연결 시 체험 모드(내용 복사·카카오톡)로 전환
    ===================================================================== */
 (function(){
-  var M=window.MEGASPOT, esc=M.esc;
+  var M=window.MEGASPOT, esc=M.esc, CC=window.MEGASPOT_CATERING_CALC||null;   // CC: 출장뷔페 계산 (catering-calc.js)
   var PUR=window.MEGASPOT_PURPOSES||[], REG=window.MEGASPOT_REGIONS||[];
   var TYPES=[['event','행사 한 번','날짜가 정해진 모임·행사'],['regular','정기·반복 모임','매주·격주·매월 여는 모임'],['partner','제휴·협력','함께 행사를 만드는 기업·기관·업체']];
   var SLOTS=[['pkg-day','낮 10–17시'],['pkg-allday','올데이 10–24시'],['pkg-allnight','올나잇 18–07시'],['morning','아침'],['day','낮'],['evening','저녁'],['undecided','미정']];
@@ -61,6 +61,7 @@
     + '<div class="f"><label for="iq-theme">원하는 분위기·조건</label><input class="input" id="iq-theme" name="theme" maxlength="200" placeholder="예: 밝은 홀, 무대 설치, 야외 공간"></div>'
     + '</div>'
     + '<div class="f"><label for="iq-msg" id="iq-msg-lbl">요청사항</label><textarea class="textarea" id="iq-msg" name="message" maxlength="2000" placeholder="행사 성격, 꼭 필요한 조건, 궁금한 점을 자유롭게 적어 주세요."></textarea></div>'
+    + (CC ? CC.formBlock('cat') : '')
     + (M.familyAsk ? M.familyAsk('family') : '')
     + '</fieldset>'
 
@@ -84,6 +85,7 @@
     L.push('연락: '+(d.name||'')+' / '+(d.phone||''));
     if(d.message) L.push((t==='partner'?'제안 내용: ':'요청사항: ')+d.message);
     if(d.family && d.family.length && M.familyLabel) L.push('함께 알아보기: '+M.familyLabel(d.family));
+    if(d.catering) L.push('출장뷔페: '+d.catering.summary);
     return L.join('\n');
   }
 
@@ -121,6 +123,7 @@
       $f('#iq-org-row').hidden = t!=='partner'; $f('#iq-org').required = t==='partner';
       $f('#iq-regular-row').hidden = t!=='regular';
       var fam=$f('.fam-ask'); if(fam){ fam.hidden = t==='partner'; if(t==='partner') fam.querySelectorAll('input').forEach(function(i){ i.checked=false; }); }
+      var cat=$f('.cat-ask'); if(cat){ cat.hidden = t==='partner'; if(t==='partner'){ var co=cat.querySelector('input[type=checkbox]'); if(co && co.checked){ co.checked=false; co.dispatchEvent(new Event('change',{bubbles:true})); } } }
       $f('#iq-date-lbl').textContent = t==='regular' ? '첫 이용 희망일' : '희망일';
       var msg=$f('#iq-msg'); msg.required = t==='partner';
       $f('#iq-msg-lbl').innerHTML = t==='partner' ? '제안 내용 <span class="req">*</span>' : '요청사항';
@@ -131,6 +134,7 @@
       form.querySelectorAll('.invalid').forEach(function(el){ el.classList.remove('invalid'); });
     }
     if(typeBox) typeBox.addEventListener('click', function(e){ var b=e.target.closest('.iq-type'); if(b) setType(b.dataset.v); });
+    if(CC) CC.bind(form, 'cat', function(){ return $f('#iq-people').value; });
     setType(o.type || (o.prefill&&o.prefill.type) || 'event');
 
     var seg=$f('#iq-slot'), slotIn=$f('input[name=slot]');
@@ -147,6 +151,7 @@
       var d=M.formData(form);
       if(d.slot==='undecided') d.slot='';
       d.family=[].concat(d.family||[]); if(!d.family.length) delete d.family;
+      var cat=CC?CC.read(form,'cat',d.headcount):null; Object.keys(d).forEach(function(k){ if(k.indexOf('cat_')===0) delete d[k]; }); if(cat) d.catering=cat;
       d.contact_pref='kakao'; d.source=location.pathname; d.summary=summary(d); d.came_from=M.source?M.source():null;
       var btn=$f('#iq-submit'); btn.disabled=true; btn.textContent='보내는 중…';
       M.api('/inquiry',{method:'POST', body:d}).then(function(r){

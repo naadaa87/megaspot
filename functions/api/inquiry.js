@@ -1,6 +1,7 @@
 // 문의·예약 신청 접수 — 행사 대관(event) · 정기·반복 모임(regular) · 제휴·협력·파트너(partner)
 // reserve:true 이면 '예약 신청'(금액 확인 → 신청)으로 들어온 건입니다. 모임 유형은 선택 사항입니다.
 import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, log, getMember, clientIp, tooMany, hit, kstToday } from './_lib.js';
+import { cateringFrom } from './_catering.js';
 const TYPES = ['event', 'regular', 'partner'];
 // '함께 알아보기'로 받을 수 있는 패밀리 공간 (assets/js/site.js의 FAMILY_ASK와 같은 id)
 export const FAMILY_ASK = ['socialfactory', 'playtion'];
@@ -57,6 +58,7 @@ export async function onRequestPost({ request, env }) {
     org, partner_kind: str(d.partner_kind, 40), estimate: str(d.estimate, 3000),
     docs: Array.isArray(d.docs) ? d.docs.map(x => str(x, 20)).slice(0, 5) : [], name, phone, email, contact_pref: str(d.contact_pref, 10),
     family: [].concat(d.family || []).map(x => str(x, 20)).filter((x, i, a) => FAMILY_ASK.includes(x) && a.indexOf(x) === i).slice(0, 4),
+    catering: cateringFrom(d.catering),   // '출장뷔페도 함께 상담받기' (코스·인원·바베큐·생맥주 — 금액은 서버에서 다시 계산)
     message, agree_marketing: !!d.agree_marketing, source: str(d.source, 200), summary: str(d.summary, 6000),
     ua: str(request.headers.get('user-agent'), 200)
   };
@@ -67,7 +69,7 @@ export async function onRequestPost({ request, env }) {
     const ref = await uniqueRef(env, 'inquiries', 'ref', 'MS');
     await env.DB.prepare('INSERT INTO inquiries (ref, space_id, status, name, phone, email, event_date, headcount, data, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)')
       .bind(ref, space_id, '문의 접수', name, phone, email, data.date || null, headcount, JSON.stringify(data), now()).run();
-    await log(env, reserve ? 'reserve.created' : 'inquiry.created', ref, data.member_id ? 'member:' + data.member_id : 'customer', { inquiry_type, space_id, date: data.date, headcount, total: data.total });
+    await log(env, reserve ? 'reserve.created' : 'inquiry.created', ref, data.member_id ? 'member:' + data.member_id : 'customer', { inquiry_type, space_id, date: data.date, headcount, total: data.total, catering: data.catering ? data.catering.total || true : undefined });
     return json({ ok: true, ref, member: !!data.member_id });
   } catch (e) { console.error('inquiry', e && e.message); return err('저장 중 오류가 발생했습니다. 잠시 후 다시 시도하거나 카카오톡으로 알려 주세요.', 500, 'DB_ERROR'); }
 }

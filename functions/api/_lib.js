@@ -126,7 +126,7 @@ export async function ensureSchema(env) {
   for (const s of MIGRATIONS) { try { await env.DB.prepare(s).run(); } catch {} }
   schemaReady = true;
 }
-export const TABLES = ['inquiries', 'host_applications', 'bookings', 'reviews', 'calendar_blocks', 'event_log', 'members', 'sessions', 'auth_attempts', 'admin_sessions', 'quotes', 'inquiry_checks', 'orders'];
+export const TABLES = ['inquiries', 'host_applications', 'bookings', 'reviews', 'calendar_blocks', 'event_log', 'members', 'sessions', 'auth_attempts', 'admin_sessions', 'quotes', 'inquiry_checks', 'orders', 'settings'];
 
 // ---------- 관리자 로그인 ----------
 // /admin 화면은 ADMIN_KEY 로 로그인하면 HttpOnly 쿠키(ms_admin)를 받아 그 뒤 요청에 씁니다.

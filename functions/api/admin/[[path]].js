@@ -1,6 +1,22 @@
 // 운영자 API — 모든 경로는 X-Admin-Key 헤더 검증을 거칩니다.
 import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, log, hashPassword, requireAdmin, adminKeyOk, adminCookie,
   randomToken, sha256, later, getCookie, withCookies, clientIp, sameOrigin, tooMany, hit, clearHits, kstToday } from '../_lib.js';
+import { cateringAdmin } from '../_catering.js';
+// 운영 설정 (settings 표에 JSON으로 저장) — 공개 저장소·홈페이지 파일에 두지 않을 값은 관리자 화면에서 입력해 여기에 둡니다.
+const SETTINGS = {
+  catering: {   // 출장뷔페: 발주처 연락처와 1인 수수료, 발주처 코스 이름
+    defaults: { markup: 5000, vendor_name: '', vendor_manager: '', vendor_phone: '', vendor_kakao: '', vendor_email: '', order_note: '',
+      codes: { small: '소수 스페셜', basic: 'B코스', classic: 'C코스', deluxe: 'D코스', premium: 'E코스', signature: 'F코스', vip: '스페셜코스', partyA: '다과A', partyB: '다과B', galbi: '특선갈비탕' } },
+    clean(v, def) {
+      const o = { markup: Math.max(0, Math.min(100000, Math.round(num(v.markup) ?? def.markup))) };
+      for (const k of ['vendor_name', 'vendor_manager', 'vendor_phone', 'vendor_kakao', 'vendor_email']) o[k] = str(v[k], 120);
+      o.order_note = str(v.order_note, 1000);
+      o.codes = {}; const c = (v.codes && typeof v.codes === 'object') ? v.codes : {};
+      for (const k of Object.keys(def.codes)) o.codes[k] = str(c[k], 40) || def.codes[k];
+      return o;
+    } }
+};
+function settingsValue(key, raw) { const S = SETTINGS[key]; let v = {}; try { v = raw ? JSON.parse(raw) : {}; } catch {} return S.clean({ ...S.defaults, ...v, codes: { ...S.defaults.codes, ...(v.codes || {}) } }, S.defaults); }
 const STATUSES = ['문의 접수', '조건 확인', '견적 발송', '결제 대기', '예약 확정', '이용 완료', '취소·환불'];
 // 삭제한 문의는 지우지 않고 이 상태로 보관합니다(고객 DB 관리용). 목록·집계에서는 빠지고 '삭제된 문의'에서만 보입니다.
 const DELETED = '삭제됨';
@@ -127,7 +143,7 @@ export async function onRequest({ request, env, params }) {
       for (const s of STATUSES) counts[s] = await one('SELECT COUNT(*) AS n FROM inquiries WHERE status = ?', s);
       counts[DELETED] = await one('SELECT COUNT(*) AS n FROM inquiries WHERE status = ?', DELETED);
       const latestQuote = "(SELECT q.total FROM quotes q WHERE q.inquiry_ref = i.ref ORDER BY q.id DESC LIMIT 1)";
-      const cols = `i.ref, i.status, i.name, i.phone, i.event_date, i.headcount, i.created_at, i.updated_at, json_extract(i.data, '$.purpose') AS purpose, json_extract(i.data, '$.inquiry_type') AS inquiry_type, json_extract(i.data, '$.channel') AS channel, json_extract(i.data, '$.channel_note') AS channel_note, json_extract(i.data, '$.reserve') AS reserve, json_extract(i.data, '$.total') AS est_total, ${latestQuote} AS quote_total`;
+      const cols = `i.ref, i.status, i.name, i.phone, i.event_date, i.headcount, i.created_at, i.updated_at, json_extract(i.data, '$.purpose') AS purpose, json_extract(i.data, '$.inquiry_type') AS inquiry_type, json_extract(i.data, '$.channel') AS channel, json_extract(i.data, '$.channel_note') AS channel_note, json_extract(i.data, '$.reserve') AS reserve, json_extract(i.data, '$.total') AS est_total, json_extract(i.data, '$.catering.summary') AS catering, ${latestQuote} AS quote_total`;
       const out = {
         today, counts,
         upcoming_count: await one("SELECT COUNT(*) AS n FROM bookings WHERE status = 'confirmed' AND date >= ? AND date <= ?", today, in14),
@@ -319,12 +335,33 @@ export async function onRequest({ request, env, params }) {
         const note = str(d.channel_note, 40);
         jp.push("'$.channel', ?", "'$.channel_note', ?"); jb.push(d.channel, note);
       }
+      if (d.catering !== undefined) {   // 관리자 화면 '출장뷔페'에서 이 문의의 출장뷔페 구성을 저장 (null 이면 지움)
+        const c = d.catering === null ? null : cateringAdmin(d.catering);
+        if (d.catering !== null && !c) return err('출장뷔페 구성을 확인해 주세요.');
+        jp.push("'$.catering', json(?)"); jb.push(JSON.stringify(c));
+      }
       if (jp.length) { sets.push("data = json_set(COALESCE(data, '{}'), " + jp.join(', ') + ')'); b.push(...jb); }
       if (!sets.length) return err('변경할 내용이 없습니다.');
       sets.push('updated_at = ?'); b.push(now(), ref);
       await env.DB.prepare('UPDATE inquiries SET ' + sets.join(', ') + ' WHERE ref = ?').bind(...b).run();
       await log(env, 'inquiry.updated', ref, 'admin', d);
       return json({ ok: true });
+    }
+
+    // ---- 운영 설정 (출장뷔페 발주처·수수료 등) ----
+    const mSet = path.match(/^settings\/([a-z_]+)$/);
+    if (mSet && SETTINGS[mSet[1]]) {
+      const key = mSet[1];
+      if (method === 'GET') {
+        const row = await env.DB.prepare('SELECT value, updated_at FROM settings WHERE key = ?').bind(key).first();
+        return json({ ok: true, key, value: settingsValue(key, row && row.value), saved: !!row, updated_at: row ? row.updated_at : null });
+      }
+      if (method === 'PUT') {
+        const d = await readJson(request); const v = SETTINGS[key].clean({ ...SETTINGS[key].defaults, ...(d.value || {}) }, SETTINGS[key].defaults);
+        await env.DB.prepare('INSERT INTO settings (key, value, updated_at) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at').bind(key, JSON.stringify(v), now()).run();
+        await log(env, 'settings.updated', key, 'admin', {});
+        return json({ ok: true, key, value: v });
+      }
     }
 
     // ---- 문의 경로별 집계 (문의 접수일 기준, 한국 시간) ----

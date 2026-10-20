@@ -155,3 +155,10 @@ CREATE TABLE IF NOT EXISTS orders (          -- 이용권·옵션 온라인 주�
   created_at TEXT NOT NULL, paid_at TEXT, updated_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status, created_at);
+
+-- ---------- 운영 설정 (2026-10-20 추가) ----------
+CREATE TABLE IF NOT EXISTS settings (        -- 관리자 화면에서 바꾸는 운영 설정 (출장뷔페 발주처 연락처·1인 수수료 등). 공개 저장소에 두지 않을 값은 여기에 둡니다.
+  key TEXT PRIMARY KEY,                      -- 'catering'
+  value TEXT NOT NULL,                       -- JSON
+  updated_at TEXT NOT NULL
+);

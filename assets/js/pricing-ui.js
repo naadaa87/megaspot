@@ -15,6 +15,7 @@
   var PUR = window.MEGASPOT_PURPOSES || [];
   var PAGE = '/spaces/megaspot-gundae/pricing/';
   var KAKAO = (M.CONFIG && M.CONFIG.kakaoChannel) || '';
+  var CC = window.MEGASPOT_CATERING_CALC || null;   // 출장뷔페 계산 (catering-calc.js) — 예약 신청서의 '출장뷔페도 함께 상담' 칸
 
   function tbl(head, rows, cls){
     return '<div class="tbl-wrap"><table class="tbl' + (cls ? ' ' + cls : '') + '"><thead><tr>' + head.map(function(h){ return '<th>' + h + '</th>'; }).join('') + '</tr></thead><tbody>'
@@ -354,7 +355,9 @@
     function paintHead(r){ ensureCard(); var was = out('head').querySelector('.rv-lines'); var keepOpen = !!(was && was.open); out('head').innerHTML = headBlock(r); if (keepOpen){ var d = out('head').querySelector('.rv-lines'); if (d) d.open = true; } }   // 인원을 고친 뒤 '금액 구성 보기'를 눌러도 다시 닫히지 않게 열림 상태를 유지
     function paintResult(r){
       ensureCard(); paintHead(r);
-      out('body').innerHTML = '<button type="button" class="btn btn-primary btn-lg rv-go" data-act="reserve">예약신청하기 <span class="arrow">→</span></button>'
+      var cp = CC && CC.preset(), cq = cp && (cp.course || cp.bbq || cp.beer) ? CC.quote(cp) : null;
+      out('body').innerHTML = (cq && !cq.empty ? '<p class="rv-cat-note"><span class="badge badge-direct">출장뷔페</span> ' + esc(CC.parts(cq)) + ' · 예상 ' + esc(won(cq.total)) + ' <small class="muted">부가세 포함 · 대관료와 별도 · 예약 신청서에 함께 담깁니다</small></p>' : '')
+        + '<button type="button" class="btn btn-primary btn-lg rv-go" data-act="reserve">예약신청하기 <span class="arrow">→</span></button>'
         + '<div class="rv-sub"><button type="button" class="btn btn-light btn-sm" data-act="pdf">견적서 PDF 저장</button>' + (KAKAO ? '<a class="btn btn-kakao btn-sm" data-act="kakao" href="' + esc(KAKAO) + '" target="_blank" rel="noopener">카카오톡으로 문의</a>' : '') + '</div>'
         + '<p class="tiny muted mt-2">예약 신청은 결제가 아닙니다. 담당자가 일정을 확인한 뒤 확정 금액과 결제 방법을 안내드리고, 결제가 끝나면 예약이 확정됩니다.</p>'
         + (D.specialNote ? '<p class="rv-special"><span class="badge badge-rust">추가 협찬 · 할인</span>' + esc(D.specialNote) + '</p>' : '');
@@ -370,6 +373,7 @@
         + '<div class="field-row"><div class="f"><label for="' + pid + '-email">이메일 <span class="muted">(선택)</span></label><input class="input" type="email" id="' + pid + '-email" name="rv_email" autocomplete="email" placeholder="견적서를 받을 주소" value="' + esc(m.email || '') + '"></div>'
         + '<div class="f"><label for="' + pid + '-ptype">모임 유형 <span class="muted">(선택)</span></label><select class="select" id="' + pid + '-ptype" name="rv_purpose"><option value="">선택 안 함</option>' + PUR.map(function(p){ return '<option value="' + p.id + '"' + (st.purpose === p.id ? ' selected' : '') + '>' + esc(p.label) + '</option>'; }).join('') + '<option value="other"' + (st.purpose === 'other' ? ' selected' : '') + '>기타</option></select></div></div>'
         + '<div class="f"><label for="' + pid + '-msg">요청사항 <span class="muted">(선택)</span></label><textarea class="textarea" id="' + pid + '-msg" name="rv_message" maxlength="1000" style="min-height:64px" placeholder="행사 성격, 배치, 반입할 장비, 음식 등 미리 알려 주실 것"></textarea></div>'
+        + (CC ? CC.formBlock('rv_cat') : '')
         + (M.familyAsk ? M.familyAsk('rv_family') : '')
         + '<input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">'
         + '<label class="agree"><input type="checkbox" name="rv_agree" required> <span>(필수) 예약 안내를 위해 이름·연락처·이메일·신청 내용을 수집·이용하는 데 동의합니다. 보유 기간은 처리 완료 후 1년이며 <a href="/privacy/" target="_blank" rel="noopener" style="text-decoration:underline">개인정보처리방침</a>을 따릅니다.</span></label>'
@@ -378,6 +382,7 @@
         + '</form>';
       var ph = el.querySelector('[name=rv_phone]'); ph.addEventListener('input', function(){ var v = this.value.replace(/[^0-9]/g, '').slice(0, 11); if (v.length > 7) v = v.replace(/(\d{3})(\d{3,4})(\d{4})/, '$1-$2-$3'); else if (v.length > 3) v = v.replace(/(\d{3})(\d+)/, '$1-$2'); this.value = v; });
       el.querySelector('.rv-apply').addEventListener('submit', function(e){ e.preventDefault(); submit(); });
+      if (CC) CC.bind(el.querySelector('.rv-apply'), 'rv_cat', function(){ return (last || {}).people || st.people; });
       // 모바일에서는 화면이 움직이는 중이라 자동 포커스를 하지 않습니다(키보드가 튀어 올라 위치가 흔들림)
       if (window.matchMedia('(min-width:960px) and (hover:hover)').matches) setTimeout(function(){ var n = el.querySelector('[name=rv_name]'); if (n && !n.value) n.focus(); }, 50);
     }
@@ -388,7 +393,7 @@
     }
     function reserveText(r, who){
       var L = [E.summaryText(r, purLabel(r.purpose))];
-      if (who) L.unshift('[메가스팟 건대 예약 신청] ' + who.name + ' / ' + who.phone + (who.email ? ' / ' + who.email : '') + (who.message ? '\n요청사항: ' + who.message : '') + (who.family && who.family.length && M.familyLabel ? '\n함께 알아보기: ' + M.familyLabel(who.family) : ''));
+      if (who) L.unshift('[메가스팟 건대 예약 신청] ' + who.name + ' / ' + who.phone + (who.email ? ' / ' + who.email : '') + (who.message ? '\n요청사항: ' + who.message : '') + (who.family && who.family.length && M.familyLabel ? '\n함께 알아보기: ' + M.familyLabel(who.family) : '') + (who.catering ? '\n출장뷔페: ' + who.catering.summary : ''));
       return L.join('\n');
     }
     function submit(){
@@ -396,11 +401,11 @@
       if (!M.validate(form)){ er.textContent = '이름·휴대폰 번호와 동의 여부를 확인해 주세요.'; er.hidden = false; return; }
       read(); var r = last || calc();
       if (r.date < E.todayIso()){ er.textContent = '지난 날짜는 신청할 수 없습니다. 이용일을 다시 골라 주세요.'; er.hidden = false; return; }
-      var who = { name: form.rv_name.value.trim(), phone: form.rv_phone.value.trim(), email: form.rv_email.value.trim(), message: form.rv_message.value.trim(), family: [].slice.call(form.querySelectorAll('[name=rv_family]:checked')).map(function(i){ return i.value; }) };
+      var who = { name: form.rv_name.value.trim(), phone: form.rv_phone.value.trim(), email: form.rv_email.value.trim(), message: form.rv_message.value.trim(), family: [].slice.call(form.querySelectorAll('[name=rv_family]:checked')).map(function(i){ return i.value; }), catering: CC ? CC.read(form, 'rv_cat', r.people) : null };
       var purpose = form.rv_purpose.value || st.purpose;
       var body = { inquiry_type: st.regular ? 'regular' : 'event', space_id: 'megaspot-gundae', reserve: true, purpose: purpose, date: r.date, slot: 'custom',
         t_start: E.hourLabel(r.start).replace(/^다음 날 /, ''), t_end: E.hourLabel(r.end).replace(/^다음 날 /, ''), start_h: r.start, end_h: r.end, headcount: r.people,
-        options: options(), pkg: r.pkg ? r.pkg.id : '', total: r.total, name: who.name, phone: who.phone, email: who.email, message: who.message, family: who.family, contact_pref: 'kakao',
+        options: options(), pkg: r.pkg ? r.pkg.id : '', total: r.total, name: who.name, phone: who.phone, email: who.email, message: who.message, family: who.family, catering: who.catering, contact_pref: 'kakao',
         agree_privacy: true, estimate: E.summaryText(r, purLabel(purpose)), source: location.pathname, summary: reserveText(r, who), website: form.website.value, came_from: M.source ? M.source() : null };
       var btn = el.querySelector('[data-act=submit]'); btn.disabled = true; btn.textContent = '신청하는 중…';
       M.api('/inquiry', { method: 'POST', body: body }).then(function(res){ done = { ref: res.ref, live: true, who: who, r: r, purpose: purpose, member: !!res.member }; phase = 'done'; paintDone(); })
@@ -418,7 +423,7 @@
         + '<div class="row between"><div class="eyebrow">' + (done.live ? 'Received' : 'Draft') + '</div><span class="badge ' + (done.live ? 'badge-ok' : 'badge-warn') + '">' + (done.live ? '예약 신청 접수' : '체험 모드 · 전송 대기') + '</span></div>'
         + '<h3 class="est-title">' + (done.live ? '예약 신청이 접수되었습니다' : '예약 신청 내용이 준비되었습니다') + '</h3>'
         + '<div class="oc-code mt-2"><small>접수번호</small><b>' + esc(done.ref) + '</b></div>'
-        + '<dl class="def mt-3"><div><dt>이용일</dt><dd>' + esc(E.kdateY(r.date)) + '</dd></div><div><dt>시간</dt><dd>' + esc(r.range) + (r.pkg ? ' · ' + esc(r.pkg.label) : '') + '</dd></div><div><dt>인원</dt><dd>' + r.people + '명</dd></div><div><dt>예상 금액</dt><dd><b>' + esc(won(r.total)) + '</b> <span class="muted">(' + esc(D.deposit.label) + ' ' + esc(won(r.deposit)) + ' 별도)</span></dd></div><div><dt>예약자</dt><dd>' + esc(done.who.name) + ' · ' + esc(done.who.phone) + '</dd></div></dl>'
+        + '<dl class="def mt-3"><div><dt>이용일</dt><dd>' + esc(E.kdateY(r.date)) + '</dd></div><div><dt>시간</dt><dd>' + esc(r.range) + (r.pkg ? ' · ' + esc(r.pkg.label) : '') + '</dd></div><div><dt>인원</dt><dd>' + r.people + '명</dd></div><div><dt>예상 금액</dt><dd><b>' + esc(won(r.total)) + '</b> <span class="muted">(' + esc(D.deposit.label) + ' ' + esc(won(r.deposit)) + ' 별도)</span></dd></div>' + (done.who.catering ? '<div><dt>출장뷔페</dt><dd>' + esc(done.who.catering.summary) + ' <span class="muted">(대관료와 별도)</span></dd></div>' : '') + '<div><dt>예약자</dt><dd>' + esc(done.who.name) + ' · ' + esc(done.who.phone) + '</dd></div></dl>'
         + (done.live
           ? '<ol class="steps-mini mt-3"><li><b>일정 확인</b><span>담당자가 신청하신 날짜·시간이 비어 있는지 확인하고 영업시간 기준 2시간 안에 카카오톡·문자로 연락드립니다.</span></li><li><b>금액 확인·결제 안내</b><span>확정 금액과 결제 방법(카드·계좌이체)을 안내드립니다.</span></li><li><b>예약 확정</b><span>결제가 끝나면 예약번호가 발급되고 현장 안내를 보내 드립니다.</span></li></ol>'
           : '<p class="small muted mt-2">지금은 서버가 연결되지 않아 자동 저장되지 않았습니다. 아래 내용을 카카오톡으로 보내 주시면 같은 순서로 안내해 드립니다.</p>')

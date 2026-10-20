@@ -52,7 +52,8 @@
 │   ├─ health.js  inquiry.js  host.js  reviews.js  availability.js
 │   ├─ auth/[[path]].js   회원 API (가입·로그인·로그아웃·내 정보·비밀번호·탈퇴·내 문의)
 │   ├─ pay/[[path]].js    결제 API (주문 생성·이니시스 결제창 값·승인 처리·주문 조회)
-│   ├─ _catalog.js        상품·공휴일 데이터 복사본 (자동 생성 · 금액 검증용)
+│   ├─ _catalog.js        상품·공휴일·요금·출장뷔페 데이터 복사본 (자동 생성 · 금액 검증용)
+│   ├─ _catering.js       출장뷔페 신청 금액 재계산
 │   ├─ admin/[[path]].js  관리자 API (ADMIN_KEY 로그인 쿠키 인증 · 대시보드·문의 경로 집계·일자별 예약·문의 확정·문의·견적·예약·일정·후기·회원)
 │   ├─ _middleware.js     모든 API 앞에서 필요한 표를 자동으로 만듦
 │   └─ _schema.js         schema.sql 에서 자동 생성 (고치지 않음)
@@ -266,6 +267,20 @@ QR 이미지는 `assets/img/brand/kakao-qr.svg` 입니다. **채널 주소를 �
 
 브랜드 주소나 소개가 바뀌면 위 파일의 링크를 함께 바꾸고 다시 빌드합니다. 다른 브랜드 사이트에 붙일 공통 블록은 업로드 zip에 함께 든 `family-sites-block.html`을 쓰세요.
 
+### 출장뷔페 (`/catering/`, 2026-10-20)
+대관 고객에게 메가스팟이 출장뷔페를 함께 준비해 주는 서비스입니다. 홈페이지·소개서에 나오는 금액은 모두 **고객 안내 판매가(부가세 별도)** 이고, 주문 1건마다 출장·세팅비가 더해집니다.
+
+| 위치 | 내용 | 고칠 곳 |
+|---|---|---|
+| 코스·가격·메뉴 원본 | 뷔페 7코스(소규모 스페셜 정액, 베이직~시그니처, VIP 스페셜), 다과 파티 A·B, 특선 갈비탕 상차림, 바베큐(실내형), 생맥주, 출장·세팅비, 행사 소품 | `assets/js/data/catering.js` (여기만 고치고 다시 빌드) |
+| 금액 계산 | 코스·인원·바베큐·생맥주 → 공급가·부가세·합계 (홈페이지 계산기·신청서·관리자 공통) | `assets/js/catering-calc.js`, 서버 재계산 `functions/api/_catering.js` |
+| `/catering/` | 코스 표, 인원별 고르는 법, 코스별 메뉴, 예상 금액 계산기, 바베큐·생맥주, 사진, 진행 순서, 안내사항, FAQ, 서비스 소개서 PDF | `tools/gen_catering_page.py` → `src/pages/catering.html` |
+| 예약 신청서·간단 문의서 | '출장뷔페도 함께 상담받기' 체크와 코스·인원·바베큐·생맥주 선택 → 서버가 금액을 다시 계산해 문의에 `catering`으로 저장 | `assets/js/pricing-ui.js`, `assets/js/inquiry-form.js`, `functions/api/inquiry.js` |
+| 관리자 '출장뷔페' | 계산기, 고객 안내문·코스 메뉴·발주 메모 복사, 대관 견적에 넣기, 문의에 저장, 상담 체크리스트, 답변 복사, 가격표, 발주처 정보·1인 수수료 | `assets/js/pages/admin.js`, 서버 `settings/catering` |
+| 홈·건대 상세·요금·이용 안내·목적별 6개 | 출장뷔페 안내 띠·FAQ·링크 | `src/pages/*.html`, `tools/gen_purpose_pages.py`의 `CATER_FOR` |
+
+발주처 이름·연락처와 1인 수수료는 공개 저장소에 두지 않고 관리자 화면 **출장뷔페 → 발주처 정보 · 수수료**에서 저장합니다(DB `settings` 표). 수수료를 바꾸면 관리자 화면의 '발주 금액'과 '발주 메모'만 바뀌고, 고객 판매가는 `catering.js`에서 따로 고칩니다. 서비스 소개서 PDF는 `assets/docs/megaspot-catering-guide.pdf` 입니다.
+
 ### 공간 추가 (외부 호스트·2호점) — `assets/js/data/spaces.js`
 `MEGASPOT_SPACES` 배열의 건대 객체를 복사해 `id`, `name`, `type`('direct' | 'managed' | 'host'), 주소, 면적·인원, 사진 목록 등을 채우면 공간 찾기 목록과 홈에 자동으로 나타납니다. 사진은 `assets/img/<공간id>/` 폴더에 `p01.jpg…` 와 썸네일 `t/p01.jpg…` 로 넣습니다. 상세 페이지는 `spaces/megaspot-gundae/index.html` 을 복사해 만들고 `space.js`의 공간 id 한 줄만 바꾸면 됩니다. (확인되지 않은 수치는 비워 두거나 '확인 필요'로 적습니다 — 사업계획서 12장 입점 기준)
 
@@ -298,6 +313,7 @@ QR 이미지는 `assets/img/brand/kakao-qr.svg` 입니다. **채널 주소를 �
 | `quotes` | 관리자가 저장한 견적 (견적번호·문의번호·고객·이용일·합계·견적 전체 내용) |
 | `inquiry_checks` | 문의별 진행 체크리스트 |
 | `orders` | 온라인 결제 주문 (주문번호·상품·이용일·금액·결제 결과·자동 등록된 예약번호·테스트 여부) |
+| `settings` | 관리자 화면에서 바꾸는 운영 설정 (출장뷔페 발주처 연락처·1인 수수료·발주처 코스 이름) |
 
 데이터 백업: D1 Console에서 `SELECT * FROM inquiries;` 등을 실행해 내보내거나, 대시보드의 Export 기능을 사용합니다.
 
