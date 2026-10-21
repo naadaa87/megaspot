@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS event_log (                -- 모든 상태·금액·
   kind TEXT NOT NULL, ref TEXT, actor TEXT, detail TEXT,
   created_at TEXT NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_event_log_ref_kind ON event_log(ref, kind);
 
 -- ---------- 회원 (2026-10-11 추가) ----------
 -- 이미 위 표들을 만들어 둔 데이터베이스에도 이 파일 전체를 다시 실행하면 됩니다 (IF NOT EXISTS 라 기존 데이터는 그대로).

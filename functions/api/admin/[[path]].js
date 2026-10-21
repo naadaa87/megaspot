@@ -2,6 +2,7 @@
 import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, log, hashPassword, requireAdmin, adminKeyOk, adminCookie,
   randomToken, sha256, later, getCookie, withCookies, clientIp, sameOrigin, tooMany, hit, clearHits, kstToday } from '../_lib.js';
 import { cateringAdmin } from '../_catering.js';
+import { inquiryAmountSql, bookingAmountSql, amountOverrideSql } from '../_amounts.js';
 // 운영 설정 (settings 표에 JSON으로 저장) — 공개 저장소·홈페이지 파일에 두지 않을 값은 관리자 화면에서 입력해 여기에 둡니다.
 const SETTINGS = {
   catering: {   // 출장뷔페: 발주처 연락처와 1인 수수료, 발주처 코스 이름
@@ -143,7 +144,7 @@ export async function onRequest({ request, env, params }) {
       for (const s of STATUSES) counts[s] = await one('SELECT COUNT(*) AS n FROM inquiries WHERE status = ?', s);
       counts[DELETED] = await one('SELECT COUNT(*) AS n FROM inquiries WHERE status = ?', DELETED);
       const latestQuote = "(SELECT q.total FROM quotes q WHERE q.inquiry_ref = i.ref ORDER BY q.id DESC LIMIT 1)";
-      const cols = `i.ref, i.status, i.name, i.phone, i.event_date, i.headcount, i.created_at, i.updated_at, json_extract(i.data, '$.purpose') AS purpose, json_extract(i.data, '$.inquiry_type') AS inquiry_type, json_extract(i.data, '$.channel') AS channel, json_extract(i.data, '$.channel_note') AS channel_note, json_extract(i.data, '$.reserve') AS reserve, json_extract(i.data, '$.total') AS est_total, json_extract(i.data, '$.catering.summary') AS catering, ${latestQuote} AS quote_total`;
+      const cols = `i.ref, i.status, i.name, i.phone, i.event_date, i.headcount, i.created_at, i.updated_at, json_extract(i.data, '$.purpose') AS purpose, json_extract(i.data, '$.inquiry_type') AS inquiry_type, json_extract(i.data, '$.channel') AS channel, json_extract(i.data, '$.channel_note') AS channel_note, json_extract(i.data, '$.reserve') AS reserve, json_extract(i.data, '$.total') AS est_total, json_extract(i.data, '$.catering.summary') AS catering, ${latestQuote} AS quote_total, ${inquiryAmountSql()} AS effective_amount`;
       const out = {
         today, counts,
         upcoming_count: await one("SELECT COUNT(*) AS n FROM bookings WHERE status = 'confirmed' AND date >= ? AND date <= ?", today, in14),
@@ -153,13 +154,13 @@ export async function onRequest({ request, env, params }) {
         todo: await all(`SELECT ${cols} FROM inquiries i WHERE i.status = '문의 접수' ORDER BY i.created_at ASC LIMIT 15`),
         followup: await all(`SELECT ${cols} FROM inquiries i WHERE i.status IN ('견적 발송', '결제 대기') AND COALESCE(i.updated_at, i.created_at) <= ? ORDER BY COALESCE(i.updated_at, i.created_at) ASC LIMIT 15`, ago2),
         soon: await all(`SELECT ${cols} FROM inquiries i WHERE i.status IN ('문의 접수', '조건 확인', '견적 발송', '결제 대기') AND i.event_date >= ? AND i.event_date <= ? ORDER BY i.event_date ASC LIMIT 15`, today, in14),
-        upcoming: await all("SELECT booking_code, inquiry_ref, customer_name, phone, date, slot, headcount, memo, amount, start_h, end_h FROM bookings WHERE status = 'confirmed' AND date >= ? AND date <= ? ORDER BY date ASC LIMIT 20", today, in14),
+        upcoming: await all(`SELECT booking_code, inquiry_ref, customer_name, phone, date, slot, headcount, memo, ${bookingAmountSql()} AS amount, start_h, end_h FROM bookings b WHERE status = 'confirmed' AND date >= ? AND date <= ? ORDER BY date ASC LIMIT 20`, today, in14),
         month: {
           month,
           inquiries: await one("SELECT COUNT(*) AS n FROM inquiries WHERE status <> '삭제됨' AND substr(created_at, 1, 7) = ?", month),
           confirmed: await one("SELECT COUNT(*) AS n FROM inquiries WHERE status IN ('예약 확정', '이용 완료') AND substr(event_date, 1, 7) = ?", month),
-          confirmed_amount: await one(`SELECT COALESCE(SUM(${latestQuote}), 0) AS n FROM inquiries i WHERE i.status IN ('예약 확정', '이용 완료') AND substr(i.event_date, 1, 7) = ?`, month),
-          quoted_amount: await one(`SELECT COALESCE(SUM(${latestQuote}), 0) AS n FROM inquiries i WHERE i.status IN ('견적 발송', '결제 대기') `),
+          confirmed_amount: await one(`SELECT COALESCE(SUM(${inquiryAmountSql()}), 0) AS n FROM inquiries i WHERE i.status IN ('예약 확정', '이용 완료') AND substr(i.event_date, 1, 7) = ?`, month),
+          quoted_amount: await one(`SELECT COALESCE(SUM(${inquiryAmountSql()}), 0) AS n FROM inquiries i WHERE i.status IN ('견적 발송', '결제 대기') `),
           orders_paid: await one("SELECT COUNT(*) AS n FROM orders WHERE status = 'paid' AND test = 0 AND substr(paid_at, 1, 7) = ?", month),
           orders_amount: await one("SELECT COALESCE(SUM(price), 0) AS n FROM orders WHERE status = 'paid' AND test = 0 AND substr(paid_at, 1, 7) = ?", month),
         },
@@ -172,7 +173,7 @@ export async function onRequest({ request, env, params }) {
     // ---- 문의 상세 · 직접 등록 · 체크리스트 ----
     const mDet = path.match(/^inquiries\/([A-Z0-9-]+)$/);
     if (mDet && method === 'GET') {
-      const r = await env.DB.prepare('SELECT ref, space_id, status, name, phone, email, event_date, headcount, data, memo, created_at, updated_at FROM inquiries WHERE ref = ?').bind(mDet[1]).first();
+      const r = await env.DB.prepare(`SELECT ref, space_id, status, name, phone, email, event_date, headcount, data, memo, created_at, updated_at, ${inquiryAmountSql()} AS effective_amount FROM inquiries i WHERE ref = ?`).bind(mDet[1]).first();
       if (!r) return err('문의를 찾을 수 없습니다.', 404, 'NOT_FOUND');
       const c = await env.DB.prepare('SELECT checks FROM inquiry_checks WHERE ref = ?').bind(mDet[1]).first();
       const { results: qs } = await env.DB.prepare('SELECT quote_no, total, data, created_at FROM quotes WHERE inquiry_ref = ? ORDER BY id DESC LIMIT 20').bind(mDet[1]).all();
@@ -238,7 +239,7 @@ export async function onRequest({ request, env, params }) {
     // ---- 문의 ----
     if (path === 'inquiries' && method === 'GET') {
       const st = str(url.searchParams.get('status'), 20), q = str(url.searchParams.get('q'), 60), ty = str(url.searchParams.get('type'), 20), ch = str(url.searchParams.get('ch'), 20);
-      let sql = 'SELECT ref, space_id, status, name, phone, email, event_date, headcount, data, memo, created_at, updated_at, (SELECT q.total FROM quotes q WHERE q.inquiry_ref = inquiries.ref ORDER BY q.id DESC LIMIT 1) AS quote_total FROM inquiries WHERE 1=1'; const b = [];
+      let sql = `SELECT ref, space_id, status, name, phone, email, event_date, headcount, data, memo, created_at, updated_at, (SELECT q.total FROM quotes q WHERE q.inquiry_ref = i.ref ORDER BY q.id DESC LIMIT 1) AS quote_total, ${inquiryAmountSql()} AS effective_amount FROM inquiries i WHERE 1=1`; const b = [];
       if (st === 'open') { sql += " AND status IN ('문의 접수', '조건 확인', '견적 발송', '결제 대기')"; } else if (st === 'deleted' || st === DELETED) { sql += ' AND status = ?'; b.push(DELETED); } else if (st) { sql += ' AND status = ?'; b.push(st); } else { sql += ' AND status <> ?'; b.push(DELETED); }
       if (['event', 'regular', 'partner'].includes(ty)) { sql += " AND COALESCE(json_extract(data, '$.inquiry_type'), 'event') = ?"; b.push(ty); }
       if (CHANNELS.includes(ch)) { sql += " AND COALESCE(json_extract(data, '$.channel'), 'web') = ?"; b.push(ch); }
@@ -307,10 +308,10 @@ export async function onRequest({ request, env, params }) {
         if (mode === 'auto' || mode === 'manual') {
           const t = amountOk(d.total); if (t === null) return err('금액을 확인해 주세요.');
           if (data.estimate && data.source !== 'admin' && !data.estimate_admin && !data.estimate_customer) data.estimate_customer = data.estimate;
-          Object.assign(data, { total: t, amount_mode: mode, amount_note: str(d.amount_note, 200) });
+          Object.assign(data, { total: t, amount_override: true, amount_mode: mode, amount_note: str(d.amount_note, 200) });
           if (d.estimate !== undefined) { data.estimate = str(d.estimate, 3000); data.estimate_admin = true; data.pkg = str(d.pkg, 20); }
         } else if (mode === 'none') {
-          Object.assign(data, { total: null, amount_mode: '', amount_note: '' });
+          Object.assign(data, { total: null, amount_override: true, amount_mode: '', amount_note: '' });
         }
         if (data.source === 'admin') data.summary = adminSummary(data);
         data.edited_at = now();
@@ -328,7 +329,7 @@ export async function onRequest({ request, env, params }) {
       if (d.total !== undefined) {
         const t = d.total === '' || d.total === null ? null : amountOk(d.total);
         if (d.total !== '' && d.total !== null && t === null) return err('금액을 확인해 주세요.');
-        jp.push("'$.total', ?", "'$.amount_mode', ?", "'$.amount_note', ?"); jb.push(t, t === null ? '' : 'manual', str(d.amount_note, 200));
+        jp.push("'$.total', ?", "'$.amount_override', 1", "'$.amount_mode', ?", "'$.amount_note', ?"); jb.push(t, t === null ? '' : 'manual', str(d.amount_note, 200));
       }
       if (d.channel !== undefined) {
         if (!CHANNELS.includes(d.channel)) return err('문의 경로를 확인해 주세요.');
@@ -414,7 +415,7 @@ export async function onRequest({ request, env, params }) {
       const stmts = [
         env.DB.prepare('INSERT INTO bookings (booking_code, space_id, inquiry_ref, customer_name, phone, phone_last4, date, slot, headcount, memo, status, amount, start_h, end_h, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
           .bind(code, space_id, ref, str(row.name || data.name, 80) || '(이름 없음)', phone, digits.slice(-4), date, slot, headcount, memo, 'confirmed', amount, bs, be, now()),
-        env.DB.prepare("UPDATE inquiries SET status = '예약 확정', event_date = ?, updated_at = ? WHERE ref = ?").bind(date, now(), ref)
+        env.DB.prepare("UPDATE inquiries SET status = '예약 확정', event_date = ?, data = json_set(data, '$.total', ?, '$.amount_override', json('true')), updated_at = ? WHERE ref = ?").bind(date, amount, now(), ref)
       ];
       if (d.block_calendar === true) stmts.push(env.DB.prepare('INSERT INTO calendar_blocks (space_id, date, state, memo) VALUES (?,?,?,?) ON CONFLICT(space_id, date) DO UPDATE SET state = excluded.state, memo = excluded.memo').bind(space_id, date, 'full', '예약 ' + code));
       if (typeof env.DB.batch === 'function') await env.DB.batch(stmts); else for (const st of stmts) await st.run();
@@ -432,7 +433,7 @@ export async function onRequest({ request, env, params }) {
 
     // ---- 예약 ----
     if (path === 'bookings' && method === 'GET') {
-      const { results } = await env.DB.prepare('SELECT booking_code, space_id, inquiry_ref, customer_name, phone, date, slot, headcount, memo, status, amount, start_h, end_h, created_at FROM bookings ORDER BY date DESC, created_at DESC LIMIT 300').all();
+      const { results } = await env.DB.prepare(`SELECT booking_code, space_id, inquiry_ref, customer_name, phone, date, slot, headcount, memo, status, ${bookingAmountSql()} AS amount, start_h, end_h, created_at FROM bookings b ORDER BY date DESC, created_at DESC LIMIT 300`).all();
       return json({ ok: true, items: results || [] });
     }
     if (path === 'bookings' && method === 'POST') {
@@ -445,7 +446,7 @@ export async function onRequest({ request, env, params }) {
       await env.DB.prepare('INSERT INTO bookings (booking_code, space_id, inquiry_ref, customer_name, phone, phone_last4, date, slot, headcount, memo, status, amount, start_h, end_h, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
         .bind(code, space_id, str(d.inquiry_ref, 20).toUpperCase() || null, name, phone, digits.slice(-4), date, str(d.slot, 20) || 'custom', num(d.headcount), str(d.memo, 2000), 'confirmed', amountOk(d.amount), bs, be, now()).run();
       if (d.block_calendar) await env.DB.prepare('INSERT INTO calendar_blocks (space_id, date, state, memo) VALUES (?,?,?,?) ON CONFLICT(space_id, date) DO UPDATE SET state = excluded.state, memo = excluded.memo').bind(space_id, date, 'full', '예약 ' + code).run();
-      if (d.inquiry_ref) await env.DB.prepare("UPDATE inquiries SET status = '예약 확정', updated_at = ? WHERE ref = ?").bind(now(), str(d.inquiry_ref, 20).toUpperCase()).run();
+      if (d.inquiry_ref) await env.DB.prepare("UPDATE inquiries SET status = '예약 확정', data = json_set(data, '$.total', ?, '$.amount_override', json('true')), updated_at = ? WHERE ref = ?").bind(amountOk(d.amount), now(), str(d.inquiry_ref, 20).toUpperCase()).run();
       await log(env, 'booking.created', code, 'admin', { space_id, date });
       return json({ ok: true, booking_code: code });
     }
@@ -472,11 +473,12 @@ export async function onRequest({ request, env, params }) {
       const latestQ = "(SELECT q.total FROM quotes q WHERE q.inquiry_ref = b.inquiry_ref ORDER BY q.id DESC LIMIT 1)";
       const { results: bks } = await env.DB.prepare(`SELECT b.booking_code, b.space_id, b.inquiry_ref, b.customer_name, b.phone, b.date, b.slot, b.headcount, b.memo, b.status, b.amount, b.start_h, b.end_h, b.created_at,
           o.oid AS order_oid, o.price AS order_price, o.status AS order_status, ${latestQ} AS quote_total,
+          ${bookingAmountSql()} AS effective_amount, ${amountOverrideSql()} AS amount_override,
           json_extract(i.data, '$.total') AS inq_total, json_extract(i.data, '$.start_h') AS inq_start, json_extract(i.data, '$.end_h') AS inq_end, json_extract(i.data, '$.purpose') AS purpose, json_extract(i.data, '$.channel') AS channel, json_extract(i.data, '$.channel_note') AS channel_note, json_extract(i.data, '$.family') AS family
         FROM bookings b LEFT JOIN orders o ON o.booking_code = b.booking_code LEFT JOIN inquiries i ON i.ref = b.inquiry_ref
         WHERE b.date BETWEEN ? AND ? ORDER BY b.date ASC, COALESCE(b.start_h, json_extract(i.data, '$.start_h'), 99) ASC LIMIT 1000`).bind(f, t).all();
       const iqQ = "(SELECT q.total FROM quotes q WHERE q.inquiry_ref = i.ref ORDER BY q.id DESC LIMIT 1)";
-      const { results: pend } = await env.DB.prepare(`SELECT i.ref, i.status, i.name, i.phone, i.event_date, i.headcount, i.created_at, ${iqQ} AS quote_total,
+      const { results: pend } = await env.DB.prepare(`SELECT i.ref, i.status, i.name, i.phone, i.event_date, i.headcount, i.created_at, ${iqQ} AS quote_total, ${inquiryAmountSql()} AS effective_amount, ${amountOverrideSql()} AS amount_override,
           json_extract(i.data, '$.total') AS inq_total, json_extract(i.data, '$.start_h') AS start_h, json_extract(i.data, '$.end_h') AS end_h, json_extract(i.data, '$.t_start') AS t_start, json_extract(i.data, '$.t_end') AS t_end,
           json_extract(i.data, '$.slot') AS slot, json_extract(i.data, '$.reserve') AS reserve, json_extract(i.data, '$.purpose') AS purpose, json_extract(i.data, '$.channel') AS channel, json_extract(i.data, '$.channel_note') AS channel_note, json_extract(i.data, '$.inquiry_type') AS inquiry_type, json_extract(i.data, '$.family') AS family, json_extract(i.data, '$.wait_rank') AS wait_rank
         FROM inquiries i WHERE i.status IN ('문의 접수', '조건 확인', '견적 발송', '결제 대기') AND i.event_date BETWEEN ? AND ?
@@ -486,11 +488,11 @@ export async function onRequest({ request, env, params }) {
       const jarr = v => { try { const a = JSON.parse(v || '[]'); return Array.isArray(a) ? a.slice(0, 4) : []; } catch { return []; } };
       for (const b of bks || []) items.push({ family: jarr(b.family), kind: 'booking', code: b.booking_code, ref: b.inquiry_ref, name: b.customer_name, phone: b.phone, date: b.date, slot: b.slot,
         start_h: b.start_h ?? b.inq_start ?? null, end_h: b.end_h ?? b.inq_end ?? null, headcount: b.headcount, memo: b.memo, status: b.status, purpose: b.purpose || '', channel: b.order_oid ? 'online' : (b.channel || (b.inquiry_ref ? 'web' : '')), channel_note: b.channel_note || '',
-        amount: b.amount ?? (b.order_price && b.order_status !== 'failed' ? b.order_price : null) ?? b.quote_total ?? b.inq_total ?? null,
-        amount_src: b.amount != null ? 'booking' : (b.order_price ? 'order' : (b.quote_total != null ? 'quote' : (b.inq_total != null ? 'estimate' : ''))), order: b.order_oid || '' });
+        amount: b.effective_amount,
+        amount_src: b.amount_override ? 'adjusted' : (b.amount != null ? 'booking' : (b.order_price != null && b.order_status !== 'failed' ? 'order' : (b.quote_total != null ? 'quote' : (b.inq_total != null ? 'estimate' : '')))), order: b.order_oid || '' });
       for (const p of pend || []) items.push({ family: jarr(p.family), kind: 'pending', code: '', ref: p.ref, name: p.name, phone: p.phone, date: p.event_date, slot: p.slot, start_h: p.start_h ?? null, end_h: p.end_h ?? null,
         t_start: p.t_start || '', t_end: p.t_end || '', headcount: p.headcount, status: p.status, reserve: !!p.reserve, purpose: p.purpose || '', channel: p.channel || 'web', channel_note: p.channel_note || '', inquiry_type: p.inquiry_type || 'event', wait_rank: p.wait_rank == null ? null : Number(p.wait_rank), created_at: p.created_at,
-        amount: p.quote_total ?? p.inq_total ?? null, amount_src: p.quote_total != null ? 'quote' : (p.inq_total != null ? 'estimate' : '') });
+        amount: p.effective_amount, amount_src: p.amount_override ? 'adjusted' : (p.quote_total != null ? 'quote' : (p.inq_total != null ? 'estimate' : '')) });
       items.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : ((a.start_h ?? 99) - (b.start_h ?? 99)));
       const und = await env.DB.prepare("SELECT COUNT(*) AS n FROM inquiries WHERE status IN ('문의 접수', '조건 확인', '견적 발송', '결제 대기') AND (event_date IS NULL OR event_date = '')").first();
       return json({ ok: true, from: f, to: t, today: kstToday(), items, undated: (und || {}).n || 0 });
