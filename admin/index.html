@@ -38,7 +38,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Black+Han+Sans&display=swap">
-<link rel="stylesheet" href="/assets/css/site.css?v=2026102201">
+<link rel="stylesheet" href="/assets/css/site.css?v=202610221107">
 <meta name="theme-color" content="#F1EFEB">
 
 </head>
@@ -342,6 +342,7 @@
       <div class="field-row"><div class="f"><label for="cf-people">인원</label><input class="input" id="cf-people" name="headcount" inputmode="numeric"></div><div class="f"><label for="cf-amount">확정 금액 (원)</label><input class="input" type="number" min="0" step="1000" inputmode="numeric" id="cf-amount" name="amount" placeholder="비워 두면 미정"><span class="hint" id="cf-amount-hint"></span></div></div>
       <div class="f"><label for="cf-memo">예약 메모</label><input class="input" id="cf-memo" name="memo" maxlength="300" placeholder="예: 예약금 30만 원 입금 확인, 케이터링 반입"></div>
       <label class="chk"><input type="checkbox" id="cf-block"> 일정 달력에 이 날짜를 마감으로 표시 <small class="muted">(하루 한 팀만 받을 때)</small></label>
+      <label class="chk"><input type="checkbox" id="cf-cdoc" checked> 확정한 뒤 예약확정서 바로 만들기 <small class="muted">(PDF·이미지 저장, 고객에게 공유)</small></label>
       <div class="cf-warn" id="cf-warn" hidden></div>
       <div class="row" style="gap:8px"><button class="btn btn-primary" type="submit" id="cf-submit">예약 확정</button><button class="btn btn-light" type="button" data-close>취소</button></div>
       <div class="form-note" id="cf-msg" hidden></div>
@@ -385,15 +386,54 @@
     </form>
   </div>
 </div>
+
+<!-- ===== 예약확정서 (발급 · PDF·이미지 저장 · 공유) ===== -->
+<div class="adm-drawer cdoc-drawer" id="adm-cdoc" hidden>
+  <div class="adm-drawer-bg" data-close></div>
+  <div class="adm-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="cd-title">
+    <div class="adm-drawer-head"><h2 id="cd-title">예약확정서</h2><button class="btn btn-light btn-sm" type="button" data-close>닫기 ✕</button></div>
+    <div class="adm-drawer-body cdoc-body">
+      <form class="cdoc-form form" id="cd-form" novalidate>
+        <div class="cd-sum" id="cd-sum"></div>
+        <div class="f"><label for="cd-customer">예약자 표시 <span class="tiny muted">(이름 · 소속)</span></label><input class="input" id="cd-customer" maxlength="80"></div>
+        <div class="f"><label for="cd-event">행사 이름 <span class="tiny muted">(선택)</span></label><input class="input" id="cd-event" maxlength="80" placeholder="예: 2026 송년회, 신입사원 워크숍"></div>
+        <div class="f"><label for="cd-time-note">시간 안내 <span class="tiny muted">(선택 · 이용 시간 아래에 들어감)</span></label><input class="input" id="cd-time-note" maxlength="80" placeholder="예: 세팅은 12:30부터 들어오실 수 있습니다."></div>
+        <h3>금액 · 결제</h3>
+        <label class="chk"><input type="checkbox" id="cd-show-amount" checked> 확정서에 금액 표시 <small class="muted">(참석자에게 돌릴 때는 끄세요)</small></label>
+        <div class="field-row"><div class="f"><label for="cd-amount">확정 금액 (원)</label><input class="input" id="cd-amount" type="number" min="0" step="1000"></div><div class="f"><label for="cd-amount-note">금액 설명</label><input class="input" id="cd-amount-note" maxlength="40" placeholder="부가세 포함"></div></div>
+        <div class="field-row"><div class="f"><label for="cd-pay">결제 상태</label><select class="select" id="cd-pay"><option value="paid">결제 완료</option><option value="deposit">예약금 입금 완료 (잔금 안내 예정)</option><option value="onsite">현장 결제</option><option value="pending">결제 방법 안내 예정</option></select></div><div class="f"><label for="cd-paid">받은 금액 (원 · 선택)</label><input class="input" id="cd-paid" type="number" min="0" step="1000"></div></div>
+        <div class="f"><label for="cd-deposit">보증금 (원 · 0이면 '없음', 비우면 표시 안 함)</label><input class="input" id="cd-deposit" type="number" min="0" step="10000"></div>
+        <h3>포함 내역 · 안내</h3>
+        <div class="f"><label for="cd-items">포함 내역 <span class="tiny muted">(한 줄에 하나 · 최대 12줄)</span></label><textarea class="textarea" id="cd-items" style="min-height:130px"></textarea></div>
+        <div class="f"><label for="cd-note">안내 메모 <span class="tiny muted">(고객에게 보이는 문장 · 선택)</span></label><textarea class="textarea" id="cd-note" maxlength="500" style="min-height:70px" placeholder="예: 행사 당일 담당 매니저 연락처는 하루 전에 문자로 보내 드립니다."></textarea></div>
+        <p class="tiny muted">이용일·시간·인원은 예약 내용을 그대로 씁니다(바꾸려면 예약을 먼저 고치세요). 취소·환불 기준은 이용일과 발급일로 자동 계산하고, 연락처는 가운데 4자리를 가려 표시합니다.</p>
+      </form>
+      <div class="cdoc-side">
+        <div class="cdoc-actions">
+          <button class="btn btn-primary" type="button" id="cd-save">확정서 발급·저장</button>
+          <button class="btn btn-graphite" type="button" id="cd-pdf">PDF 다운로드</button>
+          <button class="btn btn-light" type="button" id="cd-png">이미지 다운로드</button>
+          <button class="btn btn-kakao" type="button" id="cd-share">공유하기</button>
+          <button class="btn btn-light" type="button" id="cd-link">고객용 링크 복사</button>
+          <button class="btn btn-light" type="button" id="cd-text">카카오톡 안내문 복사</button>
+        </div>
+        <div class="cd-state" id="cd-state"></div>
+        <div class="form-note" id="cd-msg" hidden></div>
+        <div class="cdoc-preview"><canvas id="cd-canvas" role="img" aria-label="예약확정서 미리보기"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
 </div><!-- /admin-root -->
 <div id="quote-print" aria-hidden="true"></div>
-<script src="/assets/js/site.js?v=202610201322"></script>
-<script src="/assets/js/data/spaces.js?v=202610201322"></script>
-<script src="/assets/js/data/holidays-kr.js?v=202610201322"></script>
-<script src="/assets/js/data/pricing-gundae.js?v=202610201322"></script>
-<script src="/assets/js/pricing-engine.js?v=202610201322"></script>
-<script src="/assets/js/data/catering.js?v=202610201322"></script>
-<script src="/assets/js/catering-calc.js?v=202610201322"></script>
-<script src="/assets/js/pages/admin.js?v=2026102202"></script>
+<script src="/assets/js/site.js?v=202610221107"></script>
+<script src="/assets/js/data/spaces.js?v=202610221107"></script>
+<script src="/assets/js/data/holidays-kr.js?v=202610221107"></script>
+<script src="/assets/js/data/pricing-gundae.js?v=202610221107"></script>
+<script src="/assets/js/pricing-engine.js?v=202610221107"></script>
+<script src="/assets/js/data/catering.js?v=202610221107"></script>
+<script src="/assets/js/catering-calc.js?v=202610221107"></script>
+<script src="/assets/js/confirm-doc.js?v=202610221107"></script>
+<script src="/assets/js/pages/admin.js?v=202610221107"></script>
 </body>
 </html>

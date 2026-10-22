@@ -271,7 +271,7 @@
       +(d.estimate_customer?'<details class="dr-sec"><summary><h3 style="display:inline">고객이 처음 보낸 예상 금액</h3></summary><pre class="dr-pre">'+esc(d.estimate_customer)+'</pre></details>':'')
       +'<div class="dr-sec"><h3>진행 체크리스트</h3><div class="dr-checks">'+CHECKS.map(function(c){ var v=ch[c[0]]; return '<label class="chk"><input type="checkbox" data-chk="'+c[0]+'"'+(v?' checked':'')+'> '+esc(c[1])+(v&&typeof v==='string'?' <small>'+esc(v.slice(5,16))+'</small>':'')+'</label>'; }).join('')+'</div></div>'
       +'<div class="dr-sec"><h3>저장한 견적</h3>'+((cur.quotes||[]).length?cur.quotes.map(function(q){ return '<div class="dr-quote"><div><b>'+esc(q.quote_no)+'</b> <span class="small muted">'+esc(String(q.created_at).slice(0,16))+'</span></div><b>'+esc(won(q.total))+'</b><button class="btn btn-light btn-sm" type="button" data-openq="'+esc(q.quote_no)+'">열기</button></div>'; }).join(''):'<p class="small muted">아직 저장한 견적이 없습니다.</p>')+'</div>'
-      +((cur.bookings||[]).length?'<div class="dr-sec"><h3>연결된 예약</h3>'+cur.bookings.map(function(b){ return '<div class="small">'+esc(b.booking_code)+' · '+esc(kd(b.date))+' · '+esc({confirmed:'예약 확정',completed:'이용 완료',cancelled:'취소'}[b.status]||b.status)+'</div>'; }).join('')+'</div>':'')
+      +((cur.bookings||[]).length?'<div class="dr-sec"><h3>연결된 예약</h3>'+cur.bookings.map(function(b){ return '<div class="dr-bk"><span class="small">'+esc(b.booking_code)+' · '+esc(kd(b.date))+' · '+esc({confirmed:'예약 확정',completed:'이용 완료',cancelled:'취소'}[b.status]||b.status)+'</span>'+(b.status!=='cancelled'?cdBtn(b.booking_code, b.confirm_issued, 'btn-sm')+(b.confirm_issued?'':' <span class="tiny muted">고객에게 보낼 예약확정서를 만들 수 있습니다</span>'):'')+'</div>'; }).join('')+'</div>':'')
       +'<div class="dr-sec"><h3>운영 메모</h3><textarea class="textarea" id="dr-memo" style="min-height:90px" placeholder="통화 내용, 확정 금액, 특이사항">'+esc(it.memo||'')+'</textarea><button class="btn btn-light btn-sm mt-1" type="button" id="dr-memo-save">메모 저장</button></div>'
       +'<details class="dr-sec"><summary><h3 style="display:inline">문의 원문 · 변경 기록</h3></summary><pre class="dr-pre">'+esc(d.summary||'')+'</pre>'+((cur.log||[]).map(logLine).join(''))+'</details>'
       +(it.status===DELETED?'<div class="form-note" id="dr-del-msg" hidden></div>':'<div class="dr-sec dr-danger"><h3>문의 삭제</h3><p class="tiny muted">테스트·중복·스팸 문의를 목록에서 뺄 때 씁니다. 삭제한 문의는 지워지지 않고 문의 관리의 \'삭제된 문의\' 보관함에 남아, 나중에 고객 DB로 쓰거나 복원할 수 있습니다. 확정 예약이 걸린 문의는 예약을 먼저 취소해야 합니다.</p><button class="btn btn-danger btn-sm" type="button" id="dr-del">이 문의 삭제</button><div class="form-note" id="dr-del-msg" hidden></div></div>');
@@ -895,7 +895,7 @@
     if(f==='upcoming') list.sort(function(a,b){ return a.date<b.date?-1:1; });
     $('#bk-list').innerHTML=list.length?list.map(function(b){
       var st={confirmed:['예약 확정','st-ok'],completed:['이용 완료','st-done'],cancelled:['취소','st-cancel']}[b.status]||[b.status,''];
-      return '<div class="adm-row"'+(b.inquiry_ref?' data-ref="'+esc(b.inquiry_ref)+'"':'')+'><div class="r1"><b>'+esc(b.customer_name)+'</b><span class="st '+st[1]+'">'+st[0]+'</span></div><div class="r2">'+esc(kd(b.date))+' · '+esc(b.start_h!=null&&b.end_h!=null?hl(b.start_h)+'–'+hl(b.end_h):(SLOT[b.slot]||b.slot||''))+(b.headcount?' · '+b.headcount+'명':'')+(b.amount!=null?' · <b>'+esc(won(b.amount))+'</b>':'')+'</div>'+(b.memo?'<div class="tiny muted">'+esc(b.memo)+'</div>':'')+'<div class="r3"><span>'+esc(b.booking_code)+(b.inquiry_ref?' · '+esc(b.inquiry_ref):'')+' · <a href="tel:'+esc(b.phone)+'">'+esc(b.phone)+'</a></span><span>'+(b.status==='confirmed'?'<button class="btn btn-light btn-sm" type="button" data-bk="completed" data-code="'+esc(b.booking_code)+'">이용 완료</button> <button class="btn btn-light btn-sm" type="button" data-bk="cancelled" data-code="'+esc(b.booking_code)+'">취소</button>':'')+'</span></div></div>';
+      return '<div class="adm-row"'+(b.inquiry_ref?' data-ref="'+esc(b.inquiry_ref)+'"':'')+'><div class="r1"><b>'+esc(b.customer_name)+'</b><span class="st '+st[1]+'">'+st[0]+'</span></div><div class="r2">'+esc(kd(b.date))+' · '+esc(b.start_h!=null&&b.end_h!=null?hl(b.start_h)+'–'+hl(b.end_h):(SLOT[b.slot]||b.slot||''))+(b.headcount?' · '+b.headcount+'명':'')+(b.amount!=null?' · <b>'+esc(won(b.amount))+'</b>':'')+'</div>'+(b.memo?'<div class="tiny muted">'+esc(b.memo)+'</div>':'')+'<div class="r3"><span>'+esc(b.booking_code)+(b.inquiry_ref?' · '+esc(b.inquiry_ref):'')+' · <a href="tel:'+esc(b.phone)+'">'+esc(b.phone)+'</a></span><span>'+(b.status!=='cancelled'?cdBtn(b.booking_code, b.confirm_issued, 'btn-sm')+' ':'')+(b.status==='confirmed'?'<button class="btn btn-light btn-sm" type="button" data-bk="completed" data-code="'+esc(b.booking_code)+'">이용 완료</button> <button class="btn btn-light btn-sm" type="button" data-bk="cancelled" data-code="'+esc(b.booking_code)+'">취소</button>':'')+'</span></div></div>';
     }).join(''):emptyMsg('해당하는 예약이 없습니다.');
   }
   $('#bk-filter').addEventListener('change', drawBookings); $('#bk-reload').addEventListener('click', loadBookings);
@@ -903,7 +903,7 @@
     if(!confirm(s==='completed'?'이용 완료로 처리할까요? 처리 후 고객이 예약번호로 후기를 쓸 수 있습니다.':'이 예약을 취소할까요? 달력의 마감 표시도 풀립니다.')) return;
     A('/bookings/'+b.dataset.code,{method:'PATCH', body:{status:s}}).then(function(){ M.toast('변경했습니다.'); loadBookings(); }).catch(function(x){ if(!guard(x)) M.toast(x.message); }); });
   $('#bk-form').addEventListener('submit', function(e){ e.preventDefault(); var f=e.target; if(!M.validate(f)) return; var d=M.formData(f); d.block_calendar=!!f.block_calendar.checked;
-    A('/bookings',{method:'POST', body:d}).then(function(r){ note($('#bk-msg'),'예약을 등록했습니다. 예약번호 '+r.booking_code+' — 고객에게 안내해 주세요.',true); f.reset(); fillSpaces(); bkTimes(); loadBookings(); })
+    A('/bookings',{method:'POST', body:d}).then(function(r){ var m=$('#bk-msg'); note(m,'예약을 등록했습니다. 예약번호 '+r.booking_code+' — 고객에게 안내해 주세요. ',true); m.insertAdjacentHTML('beforeend', cdBtn(r.booking_code, false, 'btn-sm')); f.reset(); fillSpaces(); bkTimes(); loadBookings(); })
     .catch(function(x){ if(!guard(x)) note($('#bk-msg'), x.message); }); });
 
   /* =================== 일자별 예약 · 문의 (예약 확정 / 예약 문의 후보) =================== */
@@ -994,6 +994,7 @@
     var kind=isB?'<span class="kind kind-bk">확정</span>':grip+'<span class="kind kind-pd wait-no" title="같은 날 예약 대기 순번">대기 <b>'+(it._wait||1)+'</b>번</span>'+(it.reserve?'<span class="tag-rv">예약 신청</span>':'');
     var tel=String(it.phone||'').replace(/[^0-9+]/g,'');
     var acts=(tel?'<a class="btn btn-light btn-xs" href="tel:'+esc(tel)+'" aria-label="전화">전화</a>':'');
+    if(isB && it.status!=='cancelled' && it.code) acts+=cdBtn(it.code, it.confirm_issued);
     if(isB && it.status==='confirmed') acts+=(past?'<button class="btn btn-light btn-xs" type="button" data-rsact="completed" data-code="'+esc(it.code)+'">이용 완료</button>':'')+'<button class="btn btn-light btn-xs" type="button" data-rsact="cancelled" data-code="'+esc(it.code)+'">취소</button>';
     if(!isB) acts+='<button class="btn btn-primary btn-xs" type="button" data-rsconfirm="'+esc(it.ref)+'">확정</button>';
     var chs=it.channel==='online'?'<span class="ch-tag ch-online">온라인 결제</span>':(it.channel?chTag(it.channel, it.channel_note):'<span class="muted">—</span>');
@@ -1138,12 +1139,100 @@
       M.toast('예약을 확정했습니다 · 예약번호 '+r.booking_code+(r.same_day?' · 같은 날 다른 예약 '+r.same_day+'건과 함께 진행':'')+(r.others?' · 같은 날 다른 문의 '+r.others+'건이 남아 있습니다':''));
       if(!$('#adm-drawer').hidden && cur && cur.item && cur.item.ref===ref) openInquiry(ref);
       refreshLists(); if(!$('#view-bookings').hidden) loadBookings();
+      if($('#cf-cdoc') && $('#cf-cdoc').checked && r.booking_code) openConfirmDoc(r.booking_code);
     }).catch(function(x){
       if(guard(x)) return;
       if(x.code==='DATE_HAS_BOOKING'){ var w=$('#cf-warn'); var list=(x.detail&&x.detail.bookings)||[]; w.classList.remove('info'); w.innerHTML='<b>이용 시간이 겹치는 확정 예약이 있습니다.</b> '+list.map(function(b){ return esc(b.customer_name)+(b.start_h!=null?' '+esc(hl(b.start_h)+'–'+hl(b.end_h)):''); }).join(', ')+'<br>시간을 바꾸거나, 두 팀을 함께 받기로 했다면 <b>그래도 확정</b>을 눌러 주세요.'; w.hidden=false; CF.force=true; btn.textContent='그래도 확정'; return; }
       note(msg, x.message);
     }).finally(function(){ btn.disabled=false; });
   });
+
+  /* =================== 예약확정서 (발급 · PDF·이미지 저장 · 공유) =================== */
+  // 그림은 assets/js/confirm-doc.js 가 그립니다. 발급 내용은 bookings.confirm_doc 에 저장되고, 고객은 링크(/confirm/)로 같은 확정서를 봅니다.
+  var CDX=window.MEGASPOT_CONFIRM||null, CDS=null, cdDirty=false, cdTimer=null;
+  function cdDefaults(r){
+    var bk=r.booking, iq=r.inquiry||{}, L=[], h=(bk.start_h!=null&&bk.end_h!=null)?(bk.end_h-bk.start_h):null;
+    L.push('메가스팟 건대 공간 전체 대관'+(h?' '+h+'시간':''));
+    var o=iq.options||{}; Object.keys(o).forEach(function(k){ var v=o[k]; if(!v) return; L.push((OPTL[k]||k)+(v&&typeof v==='object'?' '+(v.count||1)+'명 × '+(v.hours||1)+'시간':'')); });
+    if(iq.catering && iq.catering.summary && iq.catering.total) L.push('출장뷔페 · '+String(iq.catering.summary).replace(/\s*—\s*예상.*$/,''));
+    if(D && D.included) L.push(D.included.slice(0,4).map(function(x){ return x.label; }).join('·')+' 기본 제공');
+    var nm=iq.name||bk.name||'';
+    return { customer: nm+(iq.org&&nm.indexOf(iq.org)<0?' ('+iq.org+')':''), event: PUR[iq.purpose]||'', time_note:'', show_amount:true, amount: bk.amount==null?null:bk.amount, amount_note:'부가세 포함',
+      pay_status: 'paid', paid: bk.order_status==='paid'&&bk.amount!=null?bk.amount:null, deposit: D?D.deposit.amount:150000, items:L, note:'' };
+  }
+  function cdFill(v){
+    $('#cd-customer').value=v.customer||''; $('#cd-event').value=v.event||''; $('#cd-time-note').value=v.time_note||'';
+    $('#cd-show-amount').checked=v.show_amount!==false; $('#cd-amount').value=v.amount==null?'':v.amount; $('#cd-amount-note').value=v.amount_note||'부가세 포함';
+    $('#cd-pay').value=v.pay_status||'paid'; $('#cd-paid').value=v.paid==null?'':v.paid; $('#cd-deposit').value=v.deposit==null?'':v.deposit;
+    $('#cd-items').value=(v.items||[]).join('\n'); $('#cd-note').value=v.note||'';
+    cdAmountToggle();
+  }
+  function cdAmountToggle(){ var on=$('#cd-show-amount').checked; ['#cd-amount','#cd-amount-note','#cd-pay','#cd-paid','#cd-deposit'].forEach(function(s){ $(s).disabled=!on; }); }
+  function cdNum(sel){ var v=$(sel).value.trim(); if(v==='') return null; var n=Math.round(Number(v)); return isFinite(n)&&n>=0?n:null; }
+  function cdRefund(){ var bk=CDS&&CDS.booking; if(!bk||!D||!bk.date||bk.date<todayIso()) return []; return refundSchedule(bk.date).map(function(x){ return { k:x.k, rate:x.rate }; }); }
+  function cdSettings(){
+    return { customer:$('#cd-customer').value.trim(), event:$('#cd-event').value.trim(), time_note:$('#cd-time-note').value.trim(), show_amount:$('#cd-show-amount').checked,
+      amount:cdNum('#cd-amount'), amount_note:$('#cd-amount-note').value.trim()||'부가세 포함', pay_status:$('#cd-pay').value, paid:cdNum('#cd-paid'), deposit:cdNum('#cd-deposit'),
+      items:$('#cd-items').value.split('\n').map(function(x){ return x.trim(); }).filter(Boolean).slice(0,12), refund:cdRefund(), note:$('#cd-note').value.trim() };
+  }
+  function cdDoc(){ var p=CDS.preview||{}, s=cdSettings(), d={}; Object.keys(p).forEach(function(k){ d[k]=p[k]; }); Object.keys(s).forEach(function(k){ d[k]=s[k]; }); d.issued_at=(CDS.doc&&CDS.doc.issued_at)||''; return d; }
+  function cdState(){
+    var d=CDS&&CDS.doc, st=$('#cd-state');
+    st.className='cd-state'+(d&&d.issued_at?' on':'');
+    st.innerHTML=d&&d.issued_at
+      ? '<b>발급됨</b> '+esc(String(d.issued_at).slice(0,16))+(d.updated_at&&d.updated_at!==d.issued_at?' · 마지막 저장 '+esc(String(d.updated_at).slice(0,16)):'')+(cdDirty?' · <span class="warn">고친 내용이 아직 저장되지 않았습니다</span>':'')+'<br><span class="muted">고객은 링크나 megaspot.kr/confirm (예약번호 + 휴대폰 뒷 4자리)에서 같은 확정서를 볼 수 있습니다.</span>'
+      : '<b>아직 발급하지 않았습니다.</b> <span class="muted">다운로드·공유·링크 복사를 누르면 지금 내용으로 발급(저장)한 뒤 진행합니다.</span>';
+  }
+  function cdPreview(){ if(!CDS||!CDX) return Promise.resolve(); return CDX.render(cdDoc(), $('#cd-canvas')); }
+  function cdQueue(){ cdDirty=true; cdState(); clearTimeout(cdTimer); cdTimer=setTimeout(cdPreview, 250); }
+  function openConfirmDoc(code){
+    if(!code) return;
+    if(!CDX){ M.toast('확정서 도구(confirm-doc.js)를 불러오지 못했습니다. 새로고침해 주세요.'); return; }
+    openDrawer('#adm-cdoc'); $('#cd-title').textContent='예약확정서 · '+code; $('#cd-msg').hidden=true; $('#cd-sum').innerHTML='<div class="empty small">불러오는 중…</div>';
+    CDS=null; cdDirty=false;
+    A('/bookings/'+encodeURIComponent(code)+'/confirm-doc').then(function(r){
+      CDS=r; var bk=r.booking;
+      var stl={confirmed:'예약 확정',completed:'이용 완료',cancelled:'취소'}[bk.status]||bk.status;
+      $('#cd-sum').innerHTML='<div><b>'+esc(bk.name||'')+'</b> <span class="st '+(bk.status==='cancelled'?'st-cancel':bk.status==='completed'?'st-done':'st-ok')+'">'+esc(stl)+'</span></div>'
+        +'<div class="small">'+esc(CDX.dateText(bk.date))+' · '+esc(CDX.timeText(bk))+(bk.headcount?' · '+bk.headcount+'명':'')+'</div>'
+        +'<div class="tiny muted">예약번호 '+esc(bk.code)+(r.inquiry&&r.inquiry.ref?' · 문의 '+esc(r.inquiry.ref):'')+' · '+esc(bk.phone||'')+'</div>';
+      cdFill(r.doc&&r.doc.issued_at?r.doc:cdDefaults(r)); cdDirty=false; cdState();
+      var off=bk.status==='cancelled'; ['#cd-save','#cd-pdf','#cd-png','#cd-share','#cd-link','#cd-text'].forEach(function(s){ $(s).disabled=off; });
+      if(off) note($('#cd-msg'), '취소된 예약은 확정서를 발급할 수 없습니다.');
+      cdPreview();
+    }).catch(function(e){ if(guard(e)) return; $('#cd-sum').innerHTML='<div class="empty">'+esc(e.message||'불러오지 못했습니다.')+'</div>'; });
+  }
+  // 저장(발급) — 고친 내용이 없고 이미 발급된 확정서면 다시 저장하지 않습니다
+  function cdSave(force){
+    if(!CDS) return Promise.reject(new Error('예약 정보를 불러오는 중입니다.'));
+    if(!force && !cdDirty && CDS.doc && CDS.doc.issued_at && CDS.link) return Promise.resolve(CDS);
+    return A('/bookings/'+encodeURIComponent(CDS.booking.code)+'/confirm-doc',{method:'PUT', body:{doc:cdSettings()}}).then(function(r){
+      CDS.doc=r.doc; CDS.preview=r.preview; CDS.link=r.link; cdDirty=false; cdState(); refreshLists(); return CDS;
+    });
+  }
+  function cdBusy(btn, on, label){ btn.disabled=on; if(on){ btn.dataset.label=btn.textContent; btn.textContent=label||'만드는 중…'; } else if(btn.dataset.label){ btn.textContent=btn.dataset.label; } }
+  function cdRun(btn, job){
+    var m=$('#cd-msg'); m.hidden=true; cdBusy(btn, true);
+    return cdSave().then(function(){ return cdPreview(); }).then(function(){ return job($('#cd-canvas'), cdDoc()); })
+      .catch(function(e){ if(!guard(e)) note(m, e.message||'처리하지 못했습니다.'); }).finally(function(){ cdBusy(btn, false); });
+  }
+  function cdCopy(t, msg){ return (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){ M.toast(msg); }).catch(function(){ window.prompt('아래 내용을 복사해 주세요.', t); }); }
+  if($('#cd-form')){
+    $('#cd-form').addEventListener('input', cdQueue); $('#cd-form').addEventListener('change', function(e){ if(e.target.id==='cd-show-amount') cdAmountToggle(); cdQueue(); });
+    $('#cd-save').addEventListener('click', function(){ var b=this, m=$('#cd-msg'); m.hidden=true; cdBusy(b, true, '저장하는 중…');
+      cdSave(true).then(function(){ cdPreview(); note(m, '확정서를 발급했습니다. PDF·이미지로 내려받거나 고객용 링크를 보내 주세요.', true); }).catch(function(e){ if(!guard(e)) note(m, e.message); }).finally(function(){ cdBusy(b, false); }); });
+    $('#cd-pdf').addEventListener('click', function(){ cdRun(this, function(cv, d){ return CDX.pdfBlob(cv, '메가스팟 예약확정서 '+d.code).then(function(b){ CDX.download(b, CDX.fileName(d,'pdf')); M.toast('PDF를 내려받았습니다.'); }); }); });
+    $('#cd-png').addEventListener('click', function(){ cdRun(this, function(cv, d){ return CDX.pngBlob(cv).then(function(b){ CDX.download(b, CDX.fileName(d,'png')); M.toast('이미지를 내려받았습니다.'); }); }); });
+    $('#cd-share').addEventListener('click', function(){ cdRun(this, function(cv, d){ return CDX.share(cv, d, CDS.link).then(function(res){
+      if(res==='shared'||res==='shared-link') M.toast('공유했습니다.');
+      else if(res==='unsupported'||res==='error'){ return cdCopy(CDX.kakaoText(d, CDS.link), '이 브라우저는 바로 공유가 되지 않아 안내문과 링크를 복사했습니다. 카카오톡에 붙여 넣어 주세요.'); }
+    }); }); });
+    $('#cd-link').addEventListener('click', function(){ cdRun(this, function(){ return cdCopy(CDS.link, '고객용 확정서 링크를 복사했습니다.'); }); });
+    $('#cd-text').addEventListener('click', function(){ cdRun(this, function(cv, d){ return cdCopy(CDX.kakaoText(d, CDS.link), '카카오톡 안내문(확정서 링크 포함)을 복사했습니다.'); }); });
+  }
+  // 어디서든 data-cdoc="예약번호" 버튼을 누르면 확정서 창을 엽니다 (목록 행 클릭보다 먼저 처리)
+  document.addEventListener('click', function(e){ var b=e.target.closest && e.target.closest('[data-cdoc]'); if(!b) return; e.preventDefault(); e.stopPropagation(); openConfirmDoc(b.dataset.cdoc); }, true);
+  function cdBtn(code, issued, cls){ return '<button class="btn btn-light '+(cls||'btn-xs')+' cdoc-btn'+(issued?' on':'')+'" type="button" data-cdoc="'+esc(code)+'" title="'+(issued?'예약확정서 발급됨 · 다시 열기':'예약확정서 만들기')+'">'+(issued?'확정서 ✓':'확정서')+'</button>'; }
 
   /* =================== 일정 달력 =================== */
   var calMonth=todayIso().slice(0,7);

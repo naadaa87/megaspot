@@ -2028,3 +2028,38 @@ body.rs-dragging,body.rs-dragging *{user-select:none;-webkit-user-select:none;cu
 .cat-group-h{margin:22px 0 4px}
 .cat-props{display:grid;gap:14px;align-items:center;background:var(--white);border:1px solid var(--concrete);border-radius:var(--radius-lg);padding:20px 22px}
 @media (min-width:900px){.cat-props{grid-template-columns:.9fr 1.1fr;gap:28px}}
+
+/* ---------- 관리자 · 예약확정서 (2026-10-22) ---------- */
+.cdoc-drawer .adm-drawer-panel{width:min(1180px,100%)}
+.cdoc-body{display:grid;gap:18px;align-items:start}
+@media (min-width:960px){.cdoc-body{grid-template-columns:minmax(300px,390px) minmax(0,1fr)}.cdoc-side{position:sticky;top:0}}
+.cdoc-form{display:grid;gap:12px}
+.cdoc-form h3{font-size:13px;color:var(--cobalt);margin-top:6px;padding-top:10px;border-top:1px solid var(--concrete-2)}
+.cdoc-form input:disabled,.cdoc-form select:disabled{background:var(--concrete-3);color:var(--ink-3)}
+.cd-sum{display:grid;gap:3px;background:#fff;border:1px solid var(--concrete-2);border-radius:8px;padding:10px 12px}
+.cd-sum .st{margin-left:6px}
+.cdoc-actions{display:grid;gap:8px;grid-template-columns:repeat(3,1fr)}
+.cdoc-actions #cd-save{grid-column:1/-1}
+@media (max-width:560px){.cdoc-actions{grid-template-columns:1fr 1fr}}
+.cd-state{margin-top:10px;font-size:12.5px;line-height:1.55;background:#FBF5E6;border:1px solid #EBD9A8;border-radius:6px;padding:8px 11px}
+.cd-state.on{background:#EEF6EC;border-color:#C8DEC4}
+.cd-state .warn{color:var(--warn);font-weight:700}
+.cdoc-preview{margin-top:12px;background:#E9E6E0;border-radius:8px;padding:14px}
+.cdoc-preview canvas{display:block;width:100%;height:auto;max-width:620px;margin:0 auto;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.12),0 8px 24px rgba(0,0,0,.08)}
+.cdoc-btn.on{border-color:#9CC79A;color:#2E6B2C;background:#F1F8F0}
+.dr-bk{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:4px 0}
+/* 고객용 예약확정서 (/confirm/) */
+.cfd-wrap{display:grid;gap:20px;justify-items:center}
+.cfd-find{width:min(460px,100%);display:grid;gap:14px}
+.cfd-view{width:min(860px,100%)}
+.cfd-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.cfd-head b{font-size:17px}
+.cfd-acts{display:flex;flex-wrap:wrap;gap:8px}
+.cfd-paper{background:#E9E6E0;border-radius:var(--radius-lg);padding:16px}
+.cfd-paper canvas{display:block;width:100%;height:auto;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.12),0 10px 30px rgba(0,0,0,.08)}
+@media (max-width:560px){.cfd-paper{padding:8px}.cfd-acts .btn{flex:1 1 30%}}
+.linkish{font:inherit;background:none;border:0;padding:0;color:var(--cobalt);font-weight:700;text-decoration:underline;cursor:pointer}
+.cfd-info{margin-bottom:14px;background:#fff;border:1px solid var(--concrete);border-radius:var(--radius-lg);padding:4px 16px}
+.cfd-info > div:last-child{border-bottom:0}
+@media (max-width:560px){.cfd-acts{display:grid;grid-template-columns:repeat(3,1fr);width:100%}.cfd-acts .btn{padding:0 8px}}
+@media (max-width:959px){.cdoc-side{order:-1}.cdoc-preview canvas{max-width:420px}}

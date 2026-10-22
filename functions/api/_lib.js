@@ -114,7 +114,8 @@ let schemaReady = false;
 const MIGRATIONS = [
   'ALTER TABLE bookings ADD COLUMN amount INTEGER',
   'ALTER TABLE bookings ADD COLUMN start_h INTEGER',
-  'ALTER TABLE bookings ADD COLUMN end_h INTEGER'
+  'ALTER TABLE bookings ADD COLUMN end_h INTEGER',
+  'ALTER TABLE bookings ADD COLUMN confirm_doc TEXT'   // 예약확정서 (2026-10-22)
 ];
 export async function ensureSchema(env) {
   if (schemaReady || !hasDb(env)) return;

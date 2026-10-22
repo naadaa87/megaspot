@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS bookings (
   amount INTEGER,                           -- 예약 금액(원) — 2026-10-16 추가
   start_h INTEGER,                          -- 시작 시각(7~30, 24 이상은 다음 날)
   end_h INTEGER,                            -- 종료 시각(8~31)
+  confirm_doc TEXT,                         -- 예약확정서 발급 내용 JSON (2026-10-22 추가 · 관리자 '예약확정서')
   created_at TEXT NOT NULL,
   updated_at TEXT
 );

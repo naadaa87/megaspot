@@ -16,3 +16,7 @@
 /spaces/megaspot-gundae/3d/MEGASPOT_2F.glb
   Cache-Control: public, max-age=31536000, immutable
   Content-Type: model/gltf-binary
+
+/confirm/*
+  X-Robots-Tag: noindex, nofollow
+  Referrer-Policy: no-referrer

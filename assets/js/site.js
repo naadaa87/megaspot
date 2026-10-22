@@ -228,7 +228,7 @@
   // 작은 화면에서 화면 아래에 전화·카카오톡·예약 신청 버튼을 고정해 둡니다.
   // 계산기(예약 신청 화면)가 보이는 동안과 주문·회원·관리자 화면에서는 보이지 않습니다.
   function initQuickBar(){
-    var skip=/^\/(admin|order|login|signup|mypage)\//.test(location.pathname) || document.body.classList.contains('page-admin') || document.body.classList.contains('page-inquiry');
+    var skip=/^\/(admin|order|login|signup|mypage|confirm)\//.test(location.pathname) || document.body.classList.contains('page-admin') || document.body.classList.contains('page-inquiry');
     if(!skip){
       var bar=document.createElement('nav'); bar.className='quick-bar'; bar.setAttribute('aria-label','빠른 연락');
       bar.innerHTML='<a class="qb-call" href="tel:'+CONFIG.phone.replace(/-/g,'')+'"><span class="qb-ico" aria-hidden="true">☎</span>전화</a>'
