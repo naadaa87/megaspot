@@ -46,7 +46,8 @@
   var SLOT={'pkg-day':'낮 패키지 10–17시','pkg-allday':'올데이 10–24시','pkg-allnight':'올나잇 18–07시',morning:'아침 07–12시',day:'낮 12–17시',evening:'저녁 17–24시',custom:'직접 입력',am:'오전',pm:'오후',ev:'저녁',ampm:'주간',pmev:'오후~저녁'};
   var SLOT_H={'pkg-day':[10,17],'pkg-allday':[10,24],'pkg-allnight':[18,31],morning:[7,12],day:[12,17],evening:[17,24],am:[9,13],pm:[13,18],ev:[18,23],ampm:[9,18],pmev:[14,23]};
   var CHECKS=[['available','일정 가능 여부 확인'],['quote_sent','견적 안내'],['deposit_paid','예약금 입금 확인'],['guarantee_paid','보증금 입금 확인'],['guide_sent','현장 안내 발송 (입장·주차·반입)'],['checkin','이용 당일 체크인'],['guarantee_returned','보증금 반환'],['review_asked','후기 요청']];
-  var PUR={}; (window.MEGASPOT_PURPOSES||[]).forEach(function(p){ PUR[p.id]=p.label; });
+  var ADMIN_PURPOSES=(window.MEGASPOT_PURPOSES||[]).concat([{ id:'year-end', label:'송년회' }]);
+  var PUR={}; ADMIN_PURPOSES.forEach(function(p){ PUR[p.id]=p.label; });
   var spaces=window.MEGASPOT_SPACES||[];
   var won=function(n){ return (E?E.won(n):(Number(n||0).toLocaleString('ko-KR')+'원')); };
   var man=function(n){ return E?E.man(n):won(n); };
@@ -56,7 +57,7 @@
   function stBadge(s){ return '<span class="st '+(ST_CLS[s]||'')+'">'+esc(s===DELETED?'삭제된 문의':s)+'</span>'; }
   function kd(iso){ return iso?M.fmtKDate(iso):'날짜 미정'; }
   function note(el, msg, ok){ el.textContent=msg; el.hidden=false; el.classList.toggle('ok',!!ok); }
-  function purOptions(sel){ return '<option value="">선택 안 함</option>'+(window.MEGASPOT_PURPOSES||[]).map(function(p){ return '<option value="'+p.id+'"'+(p.id===sel?' selected':'')+'>'+esc(p.label)+'</option>'; }).join('')+'<option value="other"'+(sel==='other'?' selected':'')+'>기타</option>'; }
+  function purOptions(sel){ return '<option value="">선택 안 함</option>'+ADMIN_PURPOSES.map(function(p){ return '<option value="'+p.id+'"'+(p.id===sel?' selected':'')+'>'+esc(p.label)+'</option>'; }).join('')+'<option value="other"'+(sel==='other'?' selected':'')+'>기타</option>'; }
 
   /* =================== 로그인 =================== */
   var app=$('#adm-app'), login=$('#adm-login');
