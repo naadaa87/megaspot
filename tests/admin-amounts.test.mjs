@@ -173,3 +173,24 @@ test('관리자 최초 등록액은 기존 견적 우선순위를 변경하지 �
   db.exec("UPDATE inquiries SET data = json_set(data, '$.source', 'admin', '$.amount_mode', 'manual')");
   await checkViews(api, 600000, { confirmed: false });
 });
+
+test('운영 메모 수정·비우기가 확정 예약과 문의 목록에 동일하게 반영', async t => {
+  const { db, api } = fixture(); t.after(() => db.close());
+  db.prepare('UPDATE bookings SET memo = ?').run('예약 생성 시 남은 이전 메모');
+  for (const memo of ['주차 안내 완료\n장비 <추가> 요청', '']) {
+    await api('inquiries/MS-TEST', 'PATCH', { memo });
+    assert.equal((await api('reservations')).items[0].memo, memo, '확정 예약의 현재 운영 메모');
+    assert.equal((await api('inquiries')).items[0].memo, memo, '문의 목록의 현재 운영 메모');
+    assert.equal((await api('inquiries/MS-TEST')).item.memo, memo, '상세 화면의 현재 운영 메모');
+  }
+});
+test('미확정 문의의 운영 메모도 일자별 예약에서 조회', async t => {
+  const { db, api } = fixture({ status: '문의 접수', booking: false }); t.after(() => db.close());
+  await api('inquiries/MS-TEST', 'PATCH', { memo: '방문 상담 예정' });
+  assert.equal((await api('reservations')).items[0].memo, '방문 상담 예정');
+});
+test('연결 문의가 없는 직접 예약은 예약 자체 메모 유지', async t => {
+  const { db, api } = fixture(); t.after(() => db.close());
+  db.prepare('UPDATE bookings SET inquiry_ref = NULL, memo = ?').run('직접 예약 메모');
+  assert.equal((await api('reservations')).items[0].memo, '직접 예약 메모');
+});
