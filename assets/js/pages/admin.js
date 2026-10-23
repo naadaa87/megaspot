@@ -1255,12 +1255,23 @@
   function cdBtn(code, issued, cls){ return '<button class="btn btn-light '+(cls||'btn-xs')+' cdoc-btn'+(issued?' on':'')+'" type="button" data-cdoc="'+esc(code)+'" title="'+(issued?'예약확정서 발급됨 · 다시 열기':'예약확정서 만들기')+'">'+(issued?'확정서 ✓':'확정서')+'</button>'; }
 
   /* =================== 일정 달력 =================== */
-  var calMonth=todayIso().slice(0,7);
+  var calMonth=todayIso().slice(0,7), calRequest=0;
   function loadCalendar(){
-    var grid=$('#cal-grid'); grid.innerHTML='<div class="empty small">불러오는 중…</div>';
-    Promise.all([A('/calendar'), A('/bookings'), A('/inquiries?status=open')]).then(function(res){ drawCalendar(res[0].items||[], res[1].items||[], res[2].items||[]); }).catch(fail(grid));
+    var grid=$('#cal-grid'), request=++calRequest;
+    drawCalendar([], [], [], true);
+    grid.setAttribute('aria-busy', 'true');
+    $('#cal-status').textContent=$('#cal-title').textContent+' 일정을 불러오는 중입니다.';
+    return Promise.all([A('/calendar'), A('/bookings'), A('/inquiries?status=open')]).then(function(res){
+      if(request!==calRequest) return;
+      drawCalendar(res[0].items||[], res[1].items||[], res[2].items||[]);
+      $('#cal-status').textContent=$('#cal-title').textContent+' 일정을 불러왔습니다.';
+    }).catch(function(e){
+      if(request!==calRequest || guard(e)) return;
+      grid.innerHTML='<div class="cal-error" role="alert"><span>'+esc(e.message||'일정을 불러오지 못했습니다.')+'</span><button class="btn btn-light btn-sm" type="button" data-cal-retry>다시 불러오기</button></div>';
+      $('#cal-status').textContent='일정을 불러오지 못했습니다.';
+    }).finally(function(){ if(request===calRequest) grid.setAttribute('aria-busy', 'false'); });
   }
-  function drawCalendar(blocks, bookings, inqs){
+  function drawCalendar(blocks, bookings, inqs, loading){
     var y=+calMonth.slice(0,4), m=+calMonth.slice(5,7), first=new Date(y,m-1,1), days=new Date(y,m,0).getDate(), pad=first.getDay(), t=todayIso();
     $('#cal-title').textContent=y+'년 '+m+'월';
     var by={}; function add(d,html){ (by[d]=by[d]||[]).push(html); }
@@ -1268,14 +1279,18 @@
     bookings.forEach(function(b){ if(b.status==='cancelled') return; add(b.date,'<i class="ev bk"'+(b.inquiry_ref?' data-ref="'+esc(b.inquiry_ref)+'"':'')+'>'+esc(b.customer_name)+(b.headcount?' '+b.headcount+'명':'')+'</i>'); });
     inqs.forEach(function(i){ var d=(i.data&&i.data.date)||i.event_date; if(d) add(d,'<i class="ev inq" data-ref="'+esc(i.ref)+'">'+esc(i.name||'')+' · '+esc(i.status)+'</i>'); });
     var h='<div class="dw">일</div><div class="dw">월</div><div class="dw">화</div><div class="dw">수</div><div class="dw">목</div><div class="dw">금</div><div class="dw">토</div>';
-    for(var i=0;i<pad;i++) h+='<div class="dc empty"></div>';
-    for(var d=1; d<=days; d++){ var iso=calMonth+'-'+M.pad2(d), off=E&&E.isOff(iso), dow=(pad+d-1)%7;
-      h+='<div class="dc'+(iso===t?' today':'')+(iso<t?' past':'')+(off||dow===0?' off':'')+(dow===6?' sat':'')+'" data-day="'+iso+'"><b>'+d+'</b>'+(by[iso]||[]).join('')+'</div>'; }
+    for(var cell=0; cell<42; cell++){
+      var d=cell-pad+1;
+      if(d<1 || d>days){ h+='<div class="dc empty" aria-hidden="true"></div>'; continue; }
+      if(loading){ h+='<div class="dc cal-skeleton" aria-hidden="true"><span class="cal-sk-date"></span><span class="cal-sk-event"></span><span class="cal-sk-event short"></span></div>'; continue; }
+      var iso=calMonth+'-'+M.pad2(d), off=E&&E.isOff(iso), dow=cell%7;
+      h+='<div class="dc'+(iso===t?' today':'')+(iso<t?' past':'')+(off||dow===0?' off':'')+(dow===6?' sat':'')+'" data-day="'+iso+'"><b>'+d+'</b>'+(by[iso]||[]).join('')+'</div>';
+    }
     $('#cal-grid').innerHTML=h;
   }
   $('#cal-prev').addEventListener('click', function(){ var y=+calMonth.slice(0,4), m=+calMonth.slice(5,7)-1; if(m<1){ m=12; y--; } calMonth=y+'-'+M.pad2(m); loadCalendar(); });
   $('#cal-next').addEventListener('click', function(){ var y=+calMonth.slice(0,4), m=+calMonth.slice(5,7)+1; if(m>12){ m=1; y++; } calMonth=y+'-'+M.pad2(m); loadCalendar(); });
-  $('#cal-grid').addEventListener('click', function(e){ if(e.target.closest('[data-ref]')) return; var c=e.target.closest('[data-day]'); if(!c) return; $('#cal-date').value=c.dataset.day; $('#cal-form').scrollIntoView({behavior:'smooth',block:'center'}); });
+  $('#cal-grid').addEventListener('click', function(e){ if(e.target.closest('[data-cal-retry]')){ loadCalendar(); return; } if(e.target.closest('[data-ref]')) return; var c=e.target.closest('[data-day]'); if(!c) return; $('#cal-date').value=c.dataset.day; $('#cal-form').scrollIntoView({behavior:'smooth',block:'center'}); });
   $('#cal-form').addEventListener('submit', function(e){ e.preventDefault(); var f=e.target; if(!M.validate(f)) return;
     A('/calendar',{method:'POST', body:M.formData(f)}).then(function(){ note($('#cal-msg'),'저장했습니다.',true); loadCalendar(); }).catch(function(x){ if(!guard(x)) note($('#cal-msg'), x.message); }); });
 

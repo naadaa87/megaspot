@@ -1335,16 +1335,16 @@ body:has(.subnav) section[id]{scroll-margin-top:calc(var(--header-h) + 22px)}
 @media (min-width:560px){.q-btns{grid-template-columns:repeat(3,1fr)}}
 /* 달력 */
 .cal-title{font-size:16px;min-width:110px;text-align:center}
-.adm-cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.adm-cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-template-rows:26px repeat(6,86px);gap:4px}
 .adm-cal .dw{font-size:12px;font-weight:700;color:var(--ink-3);text-align:center;padding:4px 0}
-.adm-cal .dc{min-height:86px;border:1px solid var(--concrete-2);border-radius:var(--radius);padding:4px;display:flex;flex-direction:column;gap:3px;background:#fff;cursor:pointer;min-width:0}
+.adm-cal .dc{min-height:0;overflow-y:auto;overscroll-behavior:contain;border:1px solid var(--concrete-2);border-radius:var(--radius);padding:4px;display:flex;flex-direction:column;gap:3px;background:#fff;cursor:pointer;min-width:0}
 .adm-cal .dc.empty{background:transparent;border:0;cursor:default}
-.adm-cal .dc b{font-size:12.5px}
+.adm-cal .dc b{font-size:12.5px;flex-shrink:0}
 .adm-cal .dc.off b{color:var(--rust)}
 .adm-cal .dc.sat b{color:var(--cobalt)}
 .adm-cal .dc.past{background:var(--concrete-3);opacity:.75}
 .adm-cal .dc.today{border:2px solid var(--cobalt)}
-.adm-cal .ev{font-style:normal;font-size:11px;line-height:1.35;border-radius:3px;padding:2px 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.adm-cal .ev{flex-shrink:0;font-style:normal;font-size:11px;line-height:1.35;border-radius:3px;padding:2px 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ev.bk,.lg.bk::before{background:var(--ok-soft);color:var(--ok)}
 .ev.full,.lg.full::before{background:var(--graphite);color:#fff}
 .ev.hold,.lg.hold::before{background:var(--warn-soft);color:var(--warn)}
@@ -1352,7 +1352,15 @@ body:has(.subnav) section[id]{scroll-margin-top:calc(var(--header-h) + 22px)}
 .ev[data-ref]{cursor:pointer}
 .cal-legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px;color:var(--ink-2)}
 .lg::before{content:"";display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px}
-@media (max-width:640px){.adm-cal .dc{min-height:64px}.adm-cal .ev{font-size:10px;padding:1px 3px}}
+.adm-cal .cal-skeleton{cursor:default;overflow:hidden;gap:5px}
+.cal-skeleton span{display:block;flex-shrink:0;border-radius:3px;background:var(--concrete-2);animation:cal-pulse 1.4s ease-in-out infinite}
+.cal-sk-date{width:18px;height:12px;margin:0 0 2px}
+.cal-sk-event{width:90%;height:12px}
+.cal-sk-event.short{width:65%}
+.cal-error{grid-area:1 / 1 / -1 / -1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;color:var(--ink-2)}
+@keyframes cal-pulse{0%,100%{opacity:.45}50%{opacity:.9}}
+@media (prefers-reduced-motion:reduce){.cal-skeleton span{animation:none}}
+@media (max-width:640px){.adm-cal{grid-template-rows:26px repeat(6,64px)}.adm-cal .ev{font-size:10px;padding:1px 3px}}
 .temp-pw{font-family:ui-monospace,Menlo,monospace;font-size:15px;color:var(--cobalt);letter-spacing:.04em}
 @media print{.page-admin{background:#fff}}
 /* 관리자 · 문의 직접 등록 금액 */

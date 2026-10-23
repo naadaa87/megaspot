@@ -38,7 +38,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Black+Han+Sans&display=swap">
-<link rel="stylesheet" href="/assets/css/site.css?v=202610221107">
+<link rel="stylesheet" href="/assets/css/site.css?v=2026102303">
 <meta name="theme-color" content="#F1EFEB">
 
 </head>
@@ -289,7 +289,7 @@
     <!-- 일정 달력 -->
     <section class="adm-view" id="view-calendar" hidden>
       <header class="adm-head"><div><h1>일정 달력</h1><p class="small muted">예약과 마감·임시 확보 날짜를 한눈에 봅니다. 날짜를 누르면 아래 칸에 채워집니다.</p></div><div class="row" style="gap:6px"><button class="btn btn-light btn-sm" type="button" id="cal-prev">← 이전 달</button><b id="cal-title" class="cal-title"></b><button class="btn btn-light btn-sm" type="button" id="cal-next">다음 달 →</button></div></header>
-      <div class="adm-card"><div class="adm-cal" id="cal-grid"></div><div class="cal-legend small"><span class="lg bk">예약</span><span class="lg full">마감</span><span class="lg hold">임시 확보</span><span class="lg inq">미확정 문의 날짜</span></div></div>
+      <div class="adm-card"><div class="adm-cal" id="cal-grid" aria-busy="false"></div><span class="sr-only" id="cal-status" role="status" aria-live="polite"></span><div class="cal-legend small"><span class="lg bk">예약</span><span class="lg full">마감</span><span class="lg hold">임시 확보</span><span class="lg inq">미확정 문의 날짜</span></div></div>
       <form class="adm-card form mt-3" id="cal-form" novalidate>
         <h2>날짜 상태 바꾸기</h2>
         <div class="field-row three"><div class="f"><label>공간</label><select class="select" name="space_id" id="cal-space"></select></div><div class="f"><label>날짜 <span class="req">*</span></label><input class="input" type="date" name="date" id="cal-date" required></div><div class="f"><label>상태</label><select class="select" name="state"><option value="full">마감</option><option value="hold">임시 확보</option><option value="open">문의 가능(해제)</option></select></div></div>
@@ -434,6 +434,6 @@
 <script src="/assets/js/data/catering.js?v=202610221107"></script>
 <script src="/assets/js/catering-calc.js?v=202610221107"></script>
 <script src="/assets/js/confirm-doc.js?v=202610221107"></script>
-<script src="/assets/js/pages/admin.js?v=2026102302"></script>
+<script src="/assets/js/pages/admin.js?v=2026102303"></script>
 </body>
 </html>
