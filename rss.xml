@@ -64,10 +64,38 @@
    <pubDate>Fri, 23 Oct 2026 09:00:00 +0900</pubDate>
   </item>
   <item>
-   <title>공간 등록 · 호스트 입점 | 메가스팟 — 100평 이상 초대형 공간 모집</title>
+   <title>모임 모집 | 메가스팟 — 세미나·네트워킹·동호회 모임 참가 신청</title>
+   <link>https://megaspot.kr/meetups/</link>
+   <guid isPermaLink="true">https://megaspot.kr/meetups/</guid>
+   <description>메가스팟 건대 1호·2호 같은 큰 공간에서 열리는 세미나·네트워킹·동호회·파티 모임을 모았습니다. 바로 참가 신청하고, 정원이 차면 대기 신청을 걸어 두세요. 내 모임을 올려 참가자를 모을 수도 있습니다.</description>
+   <pubDate>Fri, 23 Oct 2026 09:00:00 +0900</pubDate>
+  </item>
+  <item>
+   <title>모임 등록 | 메가스팟 — 참가자 모집 페이지를 무료로 만드세요</title>
+   <link>https://megaspot.kr/meetups/new/</link>
+   <guid isPermaLink="true">https://megaspot.kr/meetups/new/</guid>
+   <description>모임 소개와 날짜·장소·정원만 적으면 참가 신청과 대기 신청을 받는 페이지가 만들어집니다. 선착순·승인제, 최소 진행 인원, 참가비 안내, 신청자 명단 관리까지. 메가스팟 예약번호를 적으면 예약 확인 표시가 붙습니다.</description>
+   <pubDate>Fri, 23 Oct 2026 09:00:00 +0900</pubDate>
+  </item>
+  <item>
+   <title>호스트 입점 · 공간 등록 | 메가스팟 — 100평 이상 초대형 공간 모집</title>
    <link>https://megaspot.kr/host/</link>
    <guid isPermaLink="true">https://megaspot.kr/host/</guid>
-   <description>100평 이상 또는 100명 이상 모임이 가능한 초대형 공간을 운영하시나요. 메가스팟 입점 기준과 절차, 호스트에게 드리는 것을 안내합니다. 서울 동부권부터 시작합니다.</description>
+   <description>100평 이상 또는 100명 이상 모임이 가능한 초대형 공간을 운영하시나요. 공간 등록 신청, 입점 상담, 운영 위탁 상담, 배너 광고·제휴까지 메가스팟과 함께하는 방법과 입점 기준·절차를 안내합니다. 서울 동부권부터 시작합니다.</description>
+   <pubDate>Fri, 23 Oct 2026 09:00:00 +0900</pubDate>
+  </item>
+  <item>
+   <title>공간 등록 신청 | 메가스팟 — 초대형 공간을 6단계로 등록하세요</title>
+   <link>https://megaspot.kr/host/register/</link>
+   <guid isPermaLink="true">https://megaspot.kr/host/register/</guid>
+   <description>주소·면적·배치별 인원·시설·요금·사진을 6단계로 적어 메가스팟에 공간 등록을 신청합니다. 작성 중인 내용은 브라우저에 임시 저장되고, 운영팀 검토 후 상세 페이지로 정리해 공개합니다.</description>
+   <pubDate>Fri, 23 Oct 2026 09:00:00 +0900</pubDate>
+  </item>
+  <item>
+   <title>배너 광고 · 제휴 | 메가스팟 — 큰 모임을 준비하는 사람에게 알리기</title>
+   <link>https://megaspot.kr/advertise/</link>
+   <guid isPermaLink="true">https://megaspot.kr/advertise/</guid>
+   <description>행사를 준비하는 기업 담당자·커뮤니티 운영자·주최자가 보는 메가스팟에 배너 광고를 싣고 제휴하세요. 홈 중간 배너, 목록 위 띠 배너, 목록 사이 카드, 안내 페이지 아래 배너 네 자리와 광고 기준을 안내합니다.</description>
    <pubDate>Fri, 23 Oct 2026 09:00:00 +0900</pubDate>
   </item>
   <item>
@@ -267,10 +295,10 @@
    <pubDate>Fri, 23 Oct 2026 09:00:00 +0900</pubDate>
   </item>
   <item>
-   <title>공간 찾기 | 메가스팟 — 서울 동부권 대형 모임 공간</title>
+   <title>공간 찾기 | 메가스팟 — 서울 동부권 초대형 모임 공간</title>
    <link>https://megaspot.kr/spaces/</link>
    <guid isPermaLink="true">https://megaspot.kr/spaces/</guid>
-   <description>지역·인원·목적·기능으로 대형 공간을 찾습니다. 건대입구 190평 메가스팟 건대 1호(최대 200명)를 직접 운영하고 400평 건대 2호(최대 350명)가 11월 13일 문을 엽니다. 조건에 맞는 공간이 없으면 행사 조건을 남겨 주세요.</description>
+   <description>지역·인원·목적·기능으로 초대형 공간을 찾고 찜해 두세요. 건대입구 190평 메가스팟 건대 1호(최대 200명)를 직접 운영하고 400평 건대 2호(최대 350명)가 11월 13일 문을 엽니다. 확인을 마친 외부 호스트 공간도 함께 보여 드리고, 맞는 공간이 없으면 조건만 남겨 주세요.</description>
    <pubDate>Fri, 23 Oct 2026 09:00:00 +0900</pubDate>
   </item>
  </channel>

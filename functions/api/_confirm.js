@@ -14,14 +14,16 @@ function b64url(buf) {
   for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
   return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
-// 링크 토큰: 예약번호를 서버 비밀값(CONFIRM_SECRET, 없으면 ADMIN_KEY)으로 서명한 값의 앞 22자
-export async function confirmToken(env, code) {
+// 링크 토큰: 서버 비밀값(CONFIRM_SECRET, 없으면 ADMIN_KEY)으로 서명한 값의 앞 22자
+// 예약확정서는 'confirm:예약번호', 모임 관리 링크는 'meetup:모임번호'를 서명합니다.
+export async function hmacToken(env, msg) {
   const secret = String((env && (env.CONFIRM_SECRET || env.ADMIN_KEY)) || '');
-  if (!secret || !code) return '';
+  if (!secret || !msg) return '';
   const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const sig = await crypto.subtle.sign('HMAC', key, enc.encode('confirm:' + code));
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(msg));
   return b64url(sig).slice(0, 22);
 }
+export async function confirmToken(env, code) { return code ? hmacToken(env, 'confirm:' + code) : ''; }
 export function tokenEq(a, b) {
   a = String(a || ''); b = String(b || '');
   if (!a || a.length !== b.length) return false;

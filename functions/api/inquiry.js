@@ -32,6 +32,13 @@ export async function onRequestPost({ request, env }) {
   try { if (await tooMany(env, ipKey, 8, 10)) return err('짧은 시간에 너무 많은 요청이 들어왔습니다. 잠시 후 다시 시도해 주세요.', 429, 'TOO_MANY'); } catch {}
   const inquiry_type = TYPES.includes(d.inquiry_type) ? d.inquiry_type : 'event';
   const name = str(d.name, 80), phone = str(d.phone, 30).replace(/[^0-9-+]/g, ''), email = str(d.email, 120);
+  // 등록 공간(호스트 공간)에 대한 문의는 맞춤 공간 요청(request)으로 받고 어떤 공간인지 함께 남깁니다
+  let listing = null;
+  const lid = str(d.listing && d.listing.id, 20).toUpperCase();
+  if (/^L-\d{4}-[A-Z0-9]{4}$/.test(lid)) {
+    try { const l = await env.DB.prepare("SELECT slug, name FROM listings WHERE slug = ? AND status = 'published'").bind(lid).first(); if (l) listing = { id: l.slug, name: l.name }; } catch {}
+  }
+  if (listing) d.space_id = 'request';
   const space_id = str(d.space_id, 60) === 'request' ? 'request' : (str(d.space_id, 60) ? spaceOk(d.space_id) : (inquiry_type === 'partner' ? 'megaspot-gundae' : 'request'));
   const purpose = str(d.purpose, 40), date = str(d.date, 10), message = str(d.message, 2000), org = str(d.org, 120);
   const headcount = num(d.headcount);
@@ -59,7 +66,8 @@ export async function onRequestPost({ request, env }) {
     org, partner_kind: str(d.partner_kind, 40), estimate: str(d.estimate, 3000),
     docs: Array.isArray(d.docs) ? d.docs.map(x => str(x, 20)).slice(0, 5) : [], name, phone, email, contact_pref: str(d.contact_pref, 10),
     family: [].concat(d.family || []).map(x => str(x, 20)).filter((x, i, a) => FAMILY_ASK.includes(x) && a.indexOf(x) === i).slice(0, 4),
-    catering: cateringFrom(d.catering),   // '출장뷔페도 함께 상담받기' (코스·인원·바베큐·생맥주 — 금액은 서버에서 다시 계산)
+    catering: cateringFrom(d.catering),
+    listing,   // 등록 공간 문의일 때 { id, name }   // '출장뷔페도 함께 상담받기' (코스·인원·바베큐·생맥주 — 금액은 서버에서 다시 계산)
     message, agree_marketing: !!d.agree_marketing, source: str(d.source, 200), summary: str(d.summary, 6000),
     ua: str(request.headers.get('user-agent'), 200)
   };
@@ -70,7 +78,7 @@ export async function onRequestPost({ request, env }) {
     const ref = await uniqueRef(env, 'inquiries', 'ref', 'MS');
     await env.DB.prepare('INSERT INTO inquiries (ref, space_id, status, name, phone, email, event_date, headcount, data, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)')
       .bind(ref, space_id, '문의 접수', name, phone, email, data.date || null, headcount, JSON.stringify(data), now()).run();
-    await log(env, reserve ? 'reserve.created' : 'inquiry.created', ref, data.member_id ? 'member:' + data.member_id : 'customer', { inquiry_type, space_id, date: data.date, headcount, total: data.total, catering: data.catering ? data.catering.total || true : undefined });
+    await log(env, reserve ? 'reserve.created' : 'inquiry.created', ref, data.member_id ? 'member:' + data.member_id : 'customer', { inquiry_type, space_id, date: data.date, headcount, total: data.total, catering: data.catering ? data.catering.total || true : undefined, listing: listing ? listing.id : undefined });
     return json({ ok: true, ref, member: !!data.member_id });
   } catch (e) { console.error('inquiry', e && e.message); return err('저장 중 오류가 발생했습니다. 잠시 후 다시 시도하거나 카카오톡으로 알려 주세요.', 500, 'DB_ERROR'); }
 }

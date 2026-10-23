@@ -20,3 +20,7 @@
 /confirm/*
   X-Robots-Tag: noindex, nofollow
   Referrer-Policy: no-referrer
+
+/meetups/manage/*
+  X-Robots-Tag: noindex, nofollow
+  Referrer-Policy: no-referrer

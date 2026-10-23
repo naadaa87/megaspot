@@ -121,7 +121,10 @@ const MIGRATIONS = [
   'ALTER TABLE bookings ADD COLUMN amount INTEGER',
   'ALTER TABLE bookings ADD COLUMN start_h INTEGER',
   'ALTER TABLE bookings ADD COLUMN end_h INTEGER',
-  'ALTER TABLE bookings ADD COLUMN confirm_doc TEXT'   // 예약확정서 (2026-10-22)
+  'ALTER TABLE bookings ADD COLUMN confirm_doc TEXT',  // 예약확정서 (2026-10-22)
+  'ALTER TABLE host_applications ADD COLUMN kind TEXT',   // 입점 상담·공간 등록·광고 문의 구분 (2026-10-24)
+  'ALTER TABLE host_applications ADD COLUMN memo TEXT',
+  'ALTER TABLE host_applications ADD COLUMN updated_at TEXT'
 ];
 export async function ensureSchema(env) {
   if (schemaReady || !hasDb(env)) return;
@@ -133,7 +136,7 @@ export async function ensureSchema(env) {
   for (const s of MIGRATIONS) { try { await env.DB.prepare(s).run(); } catch {} }
   schemaReady = true;
 }
-export const TABLES = ['inquiries', 'host_applications', 'bookings', 'reviews', 'calendar_blocks', 'event_log', 'members', 'sessions', 'auth_attempts', 'admin_sessions', 'quotes', 'inquiry_checks', 'orders', 'settings'];
+export const TABLES = ['inquiries', 'host_applications', 'bookings', 'reviews', 'calendar_blocks', 'event_log', 'members', 'sessions', 'auth_attempts', 'admin_sessions', 'quotes', 'inquiry_checks', 'orders', 'settings', 'listings', 'meetups', 'meetup_apps', 'ads'];
 
 // ---------- 관리자 로그인 ----------
 // /admin 화면은 ADMIN_KEY 로 로그인하면 HttpOnly 쿠키(ms_admin)를 받아 그 뒤 요청에 씁니다.

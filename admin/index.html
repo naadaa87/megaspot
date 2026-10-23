@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>메가스팟 관리자</title>
-<meta name="description" content="문의·견적·예약·일정·후기·회원을 관리하는 메가스팟 관리자 화면입니다.">
+<meta name="description" content="문의·견적·예약·일정·후기·회원과 모임·입점·등록 공간·배너 광고를 관리하는 메가스팟 관리자 화면입니다.">
 <meta name="keywords" content="메가스팟, MEGASPOT, 메가스팟 건대, 메가스팟 건대 1호, 메가스팟 건대 2호, 소셜팩토리, 건대 대관, 건대입구 행사장, 건대 파티룸, 광진구 대형 공간, 서울 세미나실 대관, 워크숍 장소, 네트워킹 공간, 200명 행사장, 190평 대관, 200인치 빔프로젝터, 주차 가능 행사장, 대형 파티룸, 단체 모임 공간, 화양동 공간 대여, 건대입구역 행사장">
 <meta name="author" content="메가스팟 MEGASPOT">
 <meta name="robots" content="noindex,nofollow">
@@ -21,7 +21,7 @@
 <meta property="og:site_name" content="메가스팟 MEGASPOT">
 <meta property="og:locale" content="ko_KR">
 <meta property="og:title" content="메가스팟 관리자">
-<meta property="og:description" content="문의·견적·예약·일정·후기·회원을 관리하는 메가스팟 관리자 화면입니다.">
+<meta property="og:description" content="문의·견적·예약·일정·후기·회원과 모임·입점·등록 공간·배너 광고를 관리하는 메가스팟 관리자 화면입니다.">
 <meta property="og:url" content="https://megaspot.kr/admin/">
 <meta property="og:image" content="https://megaspot.kr/assets/img/brand/og-megaspot.jpg">
 <meta property="og:image:width" content="1200">
@@ -29,7 +29,7 @@
 <meta property="og:image:alt" content="메가스팟 — 큰 모임에 맞는 공간을 찾다">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="메가스팟 관리자">
-<meta name="twitter:description" content="문의·견적·예약·일정·후기·회원을 관리하는 메가스팟 관리자 화면입니다.">
+<meta name="twitter:description" content="문의·견적·예약·일정·후기·회원과 모임·입점·등록 공간·배너 광고를 관리하는 메가스팟 관리자 화면입니다.">
 <meta name="twitter:image" content="https://megaspot.kr/assets/img/brand/og-megaspot.jpg">
 <link rel="icon" href="/assets/img/brand/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/assets/img/brand/apple-touch-icon.png">
@@ -38,7 +38,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Black+Han+Sans&display=swap">
-<link rel="stylesheet" href="/assets/css/site.css?v=202610231403">
+<link rel="stylesheet" href="/assets/css/site.css?v=202610231745">
 <meta name="theme-color" content="#F1EFEB">
 
 </head>
@@ -73,7 +73,11 @@
       <button type="button" data-view="calendar">일정 달력</button>
       <button type="button" data-view="reviews">후기<em data-count="reviews" hidden></em></button>
       <button type="button" data-view="members">회원</button>
-      <button type="button" data-view="hosts">입점 문의</button>
+      <span class="adm-nav-cap">플랫폼</span>
+      <button type="button" data-view="meetups">모임 관리<em data-count="meetups" hidden></em></button>
+      <button type="button" data-view="hosts">입점·광고 신청<em data-count="hosts" hidden></em></button>
+      <button type="button" data-view="listings">등록 공간</button>
+      <button type="button" data-view="ads">배너 광고</button>
     </nav>
     <div class="adm-side-links" id="adm-side-links" aria-label="채널 바로가기"></div>
     <div class="adm-side-foot"><a href="/" target="_blank" rel="noopener">홈페이지 보기 ↗</a><button type="button" id="adm-logout">로그아웃</button></div>
@@ -314,10 +318,36 @@
       <div id="mem-list" class="adm-list"></div>
     </section>
 
-    <!-- 입점 -->
+    <!-- 모임 관리 -->
+    <section class="adm-view" id="view-meetups" hidden>
+      <header class="adm-head"><div><h1>모임 관리</h1><p class="small muted">주최자가 올린 모임은 <b>검토 중</b>으로 들어옵니다. 내용을 확인하고 <b>공개(모집 중)</b>로 바꾸면 모임 모집 화면에 보입니다. 줄을 누르면 신청자 명단과 주최자 관리 링크가 열립니다.</p></div><button class="btn btn-light btn-sm" type="button" id="mt-reload">새로고침</button></header>
+      <div class="pf-filter" id="mt-filter" role="group" aria-label="상태">
+        <button type="button" class="chip on" data-st="pending">검토 중</button><button type="button" class="chip" data-st="open">모집 중</button><button type="button" class="chip" data-st="closed">모집 마감</button><button type="button" class="chip" data-st="past">지난 모임</button><button type="button" class="chip" data-st="cancelled">주최자 취소</button><button type="button" class="chip" data-st="rejected">반려</button><button type="button" class="chip" data-st="hidden">숨김</button><button type="button" class="chip" data-st="">전체</button>
+      </div>
+      <div id="mt-admin-list" class="adm-list"></div>
+    </section>
+
+    <!-- 입점·공간 등록·광고 신청 -->
     <section class="adm-view" id="view-hosts" hidden>
-      <header class="adm-head"><div><h1>입점 문의</h1><p class="small muted">초대형 공간 운영자가 보낸 입점 문의입니다.</p></div><button class="btn btn-light btn-sm" type="button" id="host-reload">새로고침</button></header>
+      <header class="adm-head"><div><h1>입점·광고 신청</h1><p class="small muted">입점 상담, 공간 등록 신청, 광고·제휴 문의가 함께 들어옵니다. 공간 등록 신청은 상세 화면에서 <b>등록 공간 초안</b>으로 바로 옮길 수 있습니다.</p></div><button class="btn btn-light btn-sm" type="button" id="host-reload">새로고침</button></header>
+      <div class="pf-filter" id="host-filter" role="group" aria-label="종류">
+        <button type="button" class="chip on" data-kind="">전체</button><button type="button" class="chip" data-kind="space">공간 등록 신청</button><button type="button" class="chip" data-kind="host">입점 상담</button><button type="button" class="chip" data-kind="ad">광고·제휴 문의</button>
+        <select class="select select-sm" id="host-status" aria-label="상태"><option value="">모든 상태</option></select>
+      </div>
       <div id="host-list" class="adm-list"></div>
+    </section>
+
+    <!-- 등록 공간 -->
+    <section class="adm-view" id="view-listings" hidden>
+      <header class="adm-head"><div><h1>등록 공간</h1><p class="small muted">외부 호스트 공간을 문의형으로 소개합니다. <b>공개</b>로 바꾼 공간만 공간 찾기 목록에 보이고, 문의는 '문의 관리'에 맞춤 요청으로 들어옵니다.</p></div><div class="row" style="gap:6px"><button class="btn btn-primary btn-sm" type="button" id="ls-new">+ 새 공간</button><button class="btn btn-light btn-sm" type="button" id="ls-reload">새로고침</button></div></header>
+      <div id="ls-admin-list" class="adm-list"></div>
+    </section>
+
+    <!-- 배너 광고 -->
+    <section class="adm-view" id="view-ads" hidden>
+      <header class="adm-head"><div><h1>배너 광고</h1><p class="small muted">자리마다 게재 중인 배너가 없으면 홈페이지가 건대 1호·2호·모임 모집 안내 배너를 대신 보여 줍니다. 유료 광고에는 '광고'와 광고주 이름이 자동으로 붙습니다.</p></div><div class="row" style="gap:6px"><button class="btn btn-primary btn-sm" type="button" id="ad-new">+ 새 배너</button><button class="btn btn-light btn-sm" type="button" id="ad-reload">새로고침</button></div></header>
+      <div class="adm-kpis" id="ad-slots"></div>
+      <div id="ad-admin-list" class="adm-list mt-3"></div>
     </section>
   </main>
 </div>
@@ -426,17 +456,28 @@
     </div>
   </div>
 </div>
+
+<!-- 플랫폼 상세·수정 (오른쪽 패널) -->
+<div class="adm-drawer" id="adm-pf" hidden>
+  <div class="adm-drawer-bg" data-close></div>
+  <div class="adm-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="pf-title">
+    <div class="adm-drawer-head"><h2 id="pf-title">상세</h2><button class="btn btn-light btn-sm" type="button" data-close>닫기 ✕</button></div>
+    <div class="adm-drawer-body" id="pf-body"></div>
+  </div>
+</div>
 </div><!-- /admin-root -->
 <div id="quote-print" aria-hidden="true"></div>
-<script src="/assets/js/site.js?v=202610231403"></script>
-<script src="/assets/js/data/spaces.js?v=202610231403"></script>
-<script src="/assets/js/data/pricing-gundae2.js?v=202610231403"></script>
-<script src="/assets/js/data/holidays-kr.js?v=202610231403"></script>
-<script src="/assets/js/data/pricing-gundae.js?v=202610231403"></script>
-<script src="/assets/js/pricing-engine.js?v=202610231403"></script>
-<script src="/assets/js/data/catering.js?v=202610231403"></script>
-<script src="/assets/js/catering-calc.js?v=202610231403"></script>
-<script src="/assets/js/confirm-doc.js?v=202610231403"></script>
-<script src="/assets/js/pages/admin.js?v=202610231403"></script>
+<script src="/assets/js/site.js?v=202610231745"></script>
+<script src="/assets/js/data/spaces.js?v=202610231745"></script>
+<script src="/assets/js/data/pricing-gundae2.js?v=202610231745"></script>
+<script src="/assets/js/data/holidays-kr.js?v=202610231745"></script>
+<script src="/assets/js/data/pricing-gundae.js?v=202610231745"></script>
+<script src="/assets/js/pricing-engine.js?v=202610231745"></script>
+<script src="/assets/js/data/catering.js?v=202610231745"></script>
+<script src="/assets/js/catering-calc.js?v=202610231745"></script>
+<script src="/assets/js/confirm-doc.js?v=202610231745"></script>
+<script src="/assets/js/cards.js?v=202610231745"></script>
+<script src="/assets/js/pages/admin.js?v=202610231745"></script>
+<script src="/assets/js/pages/admin-platform.js?v=202610231745"></script>
 </body>
 </html>

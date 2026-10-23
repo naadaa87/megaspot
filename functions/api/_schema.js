@@ -2,7 +2,7 @@
 export const SCHEMA = [
  "CREATE TABLE IF NOT EXISTS inquiries ( id INTEGER PRIMARY KEY AUTOINCREMENT, ref TEXT NOT NULL UNIQUE, space_id TEXT NOT NULL, status TEXT NOT NULL DEFAULT '문의 접수', name TEXT, phone TEXT, email TEXT, event_date TEXT, headcount INTEGER, data TEXT NOT NULL, memo TEXT, created_at TEXT NOT NULL, updated_at TEXT )",
  "CREATE INDEX IF NOT EXISTS idx_inquiries_status ON inquiries(status, created_at)",
- "CREATE TABLE IF NOT EXISTS host_applications ( id INTEGER PRIMARY KEY AUTOINCREMENT, ref TEXT NOT NULL UNIQUE, status TEXT NOT NULL DEFAULT '접수', data TEXT NOT NULL, created_at TEXT NOT NULL )",
+ "CREATE TABLE IF NOT EXISTS host_applications ( id INTEGER PRIMARY KEY AUTOINCREMENT, ref TEXT NOT NULL UNIQUE, status TEXT NOT NULL DEFAULT '접수', data TEXT NOT NULL, kind TEXT, memo TEXT, created_at TEXT NOT NULL, updated_at TEXT )",
  "CREATE TABLE IF NOT EXISTS bookings ( id INTEGER PRIMARY KEY AUTOINCREMENT, booking_code TEXT NOT NULL UNIQUE, space_id TEXT NOT NULL, inquiry_ref TEXT, customer_name TEXT NOT NULL, phone TEXT NOT NULL, phone_last4 TEXT NOT NULL, date TEXT NOT NULL, slot TEXT, headcount INTEGER, memo TEXT, status TEXT NOT NULL DEFAULT 'confirmed', amount INTEGER, start_h INTEGER, end_h INTEGER, confirm_doc TEXT, created_at TEXT NOT NULL, updated_at TEXT )",
  "CREATE INDEX IF NOT EXISTS idx_bookings_date ON bookings(space_id, date)",
  "CREATE TABLE IF NOT EXISTS reviews ( id INTEGER PRIMARY KEY AUTOINCREMENT, space_id TEXT NOT NULL, booking_code TEXT NOT NULL UNIQUE, author TEXT NOT NULL, rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5), title TEXT NOT NULL, body TEXT NOT NULL, event_type TEXT, headcount INTEGER, status TEXT NOT NULL DEFAULT 'pending', reply TEXT, created_at TEXT NOT NULL, updated_at TEXT )",
@@ -20,5 +20,13 @@ export const SCHEMA = [
  "CREATE TABLE IF NOT EXISTS inquiry_checks ( ref TEXT PRIMARY KEY, checks TEXT NOT NULL, updated_at TEXT NOT NULL )",
  "CREATE TABLE IF NOT EXISTS orders ( id INTEGER PRIMARY KEY AUTOINCREMENT, oid TEXT NOT NULL UNIQUE, product_id TEXT NOT NULL, title TEXT NOT NULL, event_date TEXT, people INTEGER, price INTEGER NOT NULL, buyer_name TEXT NOT NULL, buyer_phone TEXT NOT NULL, buyer_email TEXT, data TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'created', pay_method TEXT, tid TEXT, appl_at TEXT, result_msg TEXT, booking_code TEXT, inquiry_ref TEXT, member_id INTEGER, memo TEXT, test INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, paid_at TEXT, updated_at TEXT )",
  "CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status, created_at)",
- "CREATE TABLE IF NOT EXISTS settings ( key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL )"
+ "CREATE TABLE IF NOT EXISTS settings ( key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL )",
+ "CREATE TABLE IF NOT EXISTS listings ( id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT NOT NULL UNIQUE, status TEXT NOT NULL DEFAULT 'draft', name TEXT NOT NULL, region TEXT, address TEXT, area INTEGER, capacity INTEGER, host_ref TEXT, sort INTEGER NOT NULL DEFAULT 0, data TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT )",
+ "CREATE INDEX IF NOT EXISTS idx_listings_status ON listings(status, sort)",
+ "CREATE TABLE IF NOT EXISTS meetups ( id INTEGER PRIMARY KEY AUTOINCREMENT, ref TEXT NOT NULL UNIQUE, status TEXT NOT NULL DEFAULT 'pending', title TEXT NOT NULL, category TEXT, venue TEXT, event_date TEXT, capacity INTEGER, featured INTEGER NOT NULL DEFAULT 0, verified INTEGER NOT NULL DEFAULT 0, data TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT )",
+ "CREATE INDEX IF NOT EXISTS idx_meetups_status ON meetups(status, event_date)",
+ "CREATE TABLE IF NOT EXISTS meetup_apps ( id INTEGER PRIMARY KEY AUTOINCREMENT, ref TEXT NOT NULL UNIQUE, meetup_ref TEXT NOT NULL, status TEXT NOT NULL, name TEXT NOT NULL, phone TEXT NOT NULL, phone_last4 TEXT NOT NULL, people INTEGER NOT NULL DEFAULT 1, data TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT )",
+ "CREATE INDEX IF NOT EXISTS idx_meetup_apps ON meetup_apps(meetup_ref, status, created_at)",
+ "CREATE TABLE IF NOT EXISTS ads ( id INTEGER PRIMARY KEY AUTOINCREMENT, slot TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'off', kind TEXT NOT NULL DEFAULT 'paid', title TEXT NOT NULL, advertiser TEXT, link TEXT NOT NULL, start_date TEXT, end_date TEXT, priority INTEGER NOT NULL DEFAULT 0, imps INTEGER NOT NULL DEFAULT 0, clicks INTEGER NOT NULL DEFAULT 0, data TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT )",
+ "CREATE INDEX IF NOT EXISTS idx_ads_slot ON ads(slot, status)"
 ];

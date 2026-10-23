@@ -76,6 +76,14 @@
   </url>
   <url><loc>https://megaspot.kr/host/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
   </url>
+  <url><loc>https://megaspot.kr/host/register/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url><loc>https://megaspot.kr/advertise/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.5</priority>
+  </url>
+  <url><loc>https://megaspot.kr/meetups/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>
+  </url>
+  <url><loc>https://megaspot.kr/meetups/new/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
   <url><loc>https://megaspot.kr/about/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
     <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s04.jpg</image:loc><image:title>메가스팟 건대 1호 네트워킹 행사 — 접수 테이블과 서서 대화하는 참석자들</image:title></image:image>
   </url>

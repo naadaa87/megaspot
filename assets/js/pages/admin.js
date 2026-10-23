@@ -95,7 +95,8 @@
   function fail(box){ return function(e){ if(guard(e)) return; box.innerHTML='<div class="empty">'+esc(e.message||'불러오지 못했습니다.')+'</div>'; }; }
 
   /* =================== 화면 전환 =================== */
-  var LOAD={ dash:loadDash, resv:loadResv, inq:loadInq, quote:function(){ calc(); loadRecentQuotes(); }, catering:loadCatering, orders:loadOrders, bookings:loadBookings, calendar:loadCalendar, reviews:loadReviews, members:loadMembers, hosts:loadHosts };
+  // 모임·입점·등록 공간·광고 화면은 admin-platform.js 가 MEGASPOT_ADMIN.register 로 붙입니다
+  var LOAD={ dash:loadDash, resv:loadResv, inq:loadInq, quote:function(){ calc(); loadRecentQuotes(); }, catering:loadCatering, orders:loadOrders, bookings:loadBookings, calendar:loadCalendar, reviews:loadReviews, members:loadMembers };
   function go(v){
     if(!LOAD[v]) v='dash';
     $$('.adm-view').forEach(function(s){ s.hidden = s.id!=='view-'+v; });
@@ -123,15 +124,17 @@
   function emptyMsg(t){ return '<div class="empty small">'+esc(t)+'</div>'; }
   function loadDash(){
     A('/dashboard').then(function(d){
-      var c=d.counts||{};
+      var c=d.counts||{}, pf=d.platform||{};
       $('#dash-date').textContent=E?E.kdateY(d.today)+' 기준':d.today;
       var k=[['문의 접수','새 문의','inq:문의 접수'],['조건 확인','조건 확인 중','inq:조건 확인'],['견적 발송','견적 발송','inq:견적 발송'],['결제 대기','결제 대기','inq:결제 대기']];
       $('#dash-kpis').innerHTML=k.map(function(x){ return '<button type="button" class="kpi'+(x[0]==='문의 접수'&&c[x[0]]?' hot':'')+'" data-go="'+x[2]+'"><small>'+x[1]+'</small><b>'+(c[x[0]]||0)+'</b></button>'; }).join('')
         +'<button type="button" class="kpi" data-go="bookings"><small>다가오는 예약 (14일)</small><b>'+(d.upcoming_count||0)+'</b></button>'
         +'<button type="button" class="kpi'+(d.reviews_pending?' hot':'')+'" data-go="reviews"><small>후기 승인 대기</small><b>'+(d.reviews_pending||0)+'</b></button>'
         +'<button type="button" class="kpi" data-go="members"><small>회원 (최근 7일 +'+(d.members_new||0)+')</small><b>'+(d.members||0)+'</b></button>'
-        +'<button type="button" class="kpi" data-go="hosts"><small>입점 문의 (최근 7일)</small><b>'+(d.hosts_new||0)+'</b></button>';
-      setCount('inq', c['문의 접수']); setCount('reviews', d.reviews_pending); setCount('orders', d.orders_today_paid);
+        +'<button type="button" class="kpi'+(pf.meetups_pending?' hot':'')+'" data-go="meetups"><small>모임 공개 검토 대기</small><b>'+(pf.meetups_pending||0)+'</b></button>'
+        +'<button type="button" class="kpi'+(pf.partners_new?' hot':'')+'" data-go="hosts"><small>새 입점·광고 신청</small><b>'+(pf.partners_new||0)+'</b></button>'
+        +'<button type="button" class="kpi" data-go="ads"><small>게재 중 배너 · 공개 공간</small><b>'+(pf.ads_on||0)+'<em style="font-size:15px;font-style:normal"> · '+(pf.listings_published||0)+'</em></b></button>';
+      setCount('inq', c['문의 접수']); setCount('reviews', d.reviews_pending); setCount('orders', d.orders_today_paid); setCount('meetups', pf.meetups_pending); setCount('hosts', pf.partners_new);
       $('#dash-todo').innerHTML=(d.todo||[]).length?d.todo.map(function(i){ return row(i); }).join(''):emptyMsg('새로 들어온 문의가 없습니다.');
       $('#dash-follow').innerHTML=(d.followup||[]).length?d.followup.map(function(i){ return row(i, '마지막 변경 '+ago(i.updated_at||i.created_at)); }).join(''):emptyMsg('연락이 밀린 견적이 없습니다.');
       $('#dash-soon').innerHTML=(d.soon||[]).length?d.soon.map(function(i){ var dd=E?E.diffDays(d.today,i.event_date):''; return row(i, (dd===0?'오늘':'D-'+dd)+' · 아직 '+i.status); }).join(''):emptyMsg('14일 안에 미확정인 행사가 없습니다.');
@@ -1367,12 +1370,8 @@
       A('/members/'+id,{method:'PATCH', body:{status:st}}).then(function(){ M.toast('변경했습니다.'); loadMembers(); }).catch(function(x){ if(!guard(x)) M.toast(x.message); }); }
   });
 
-  /* =================== 입점 =================== */
-  function loadHosts(){
-    var box=$('#host-list');
-    A('/hosts').then(function(r){ var list=r.items||[];
-      box.innerHTML=list.length?list.map(function(h){ var d=h.data||{}; return '<div class="adm-row"><div class="r1"><b>'+esc(d.space_name||'(공간명 없음)')+'</b><span class="small muted">'+esc(d.address||'')+'</span></div><div class="r2">'+esc(d.area||'-')+'평 · 최대 '+esc(d.capacity||'-')+'명 · '+esc(d.space_type||'-')+' · '+esc(d.role||'')+'</div><div class="r3"><span>'+esc(d.name||'')+' · <a href="tel:'+esc(d.phone||'')+'">'+esc(d.phone||'')+'</a>'+(d.email?' · '+esc(d.email):'')+(d.link?' · <a href="'+esc(d.link)+'" target="_blank" rel="noopener">링크</a>':'')+'</span><span>'+esc(h.ref)+' · '+esc(String(h.created_at||'').slice(0,10))+'</span></div>'+(d.message?'<div class="tiny muted">'+esc(d.message)+'</div>':'')+'</div>'; }).join(''):emptyMsg('입점 문의가 없습니다.');
-    }).catch(fail(box));
-  }
-  $('#host-reload').addEventListener('click', loadHosts);
+  /* =================== 플랫폼 화면 연결 (admin-platform.js) =================== */
+  window.MEGASPOT_ADMIN={ A:A, esc:esc, guard:guard, fail:fail, note:note, ago:ago, kd:kd, emptyMsg:emptyMsg, setCount:setCount, spaceName:spaceName,
+    openDrawer:openDrawer, closeDrawer:closeDrawer, go:function(v){ go(v); }, register:function(view, fn){ LOAD[view]=fn; },
+    current:function(){ var v=location.hash.replace('#',''); return LOAD[v]?v:''; }, visible:function(){ return !app.hidden; } };
 })();

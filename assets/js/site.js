@@ -98,8 +98,10 @@
         var href=(a.getAttribute('href')||'').replace(/index\.html$/,''); if(!href||href.charAt(0)==='#'||href==='/') return;
         if(path.indexOf(href)===0 && href.length>bestLen){ best=a; bestLen=href.length; }
       });
-      if(best) best.setAttribute('aria-current','page');
+      if(best){ best.setAttribute('aria-current','page'); var grp=best.closest('.nav-group, .mnav-sec'); if(grp) grp.classList.add('has-current'); }
     });
+    // 드롭다운 메뉴: Esc 로 닫기 (마우스를 올리거나 Tab 으로 들어가면 열립니다)
+    $$('.nav-group').forEach(function(g){ g.addEventListener('keydown', function(e){ if(e.key==='Escape'){ var t=$('.nav-top',g); g.classList.add('closed'); if(t) t.focus(); } }); g.addEventListener('mouseleave', function(){ g.classList.remove('closed'); }); g.addEventListener('focusout', function(e){ if(!g.contains(e.relatedTarget)) g.classList.remove('closed'); }); });
     // contact placeholders
     $$('[data-phone]').forEach(function(el){ el.textContent=CONFIG.phone; if(el.tagName==='A') el.href='tel:'+CONFIG.phone.replace(/-/g,''); });
     $$('[data-email]').forEach(function(el){ el.textContent=CONFIG.email; if(el.tagName==='A') el.href='mailto:'+CONFIG.email; });
@@ -217,19 +219,108 @@
   }
   function familyLabel(list){ return [].concat(list||[]).map(function(id){ for(var i=0;i<FAMILY_ASK.length;i++) if(FAMILY_ASK[i][0]===id) return FAMILY_ASK[i][2]; return ''; }).filter(Boolean).join(', '); }
 
+  /* ---------- 찜 (이 브라우저에만 저장) ----------
+     공간·모임을 찜하면 이 기기의 브라우저에 목록만 남깁니다. 로그인과 상관없고 서버로 보내지 않습니다. */
+  var FAV_KEY='ms_fav';
+  function favAll(){ try{ var v=JSON.parse(localStorage.getItem(FAV_KEY)||'{}'); return v&&typeof v==='object'?v:{}; }catch(e){ return {}; } }
+  var fav={
+    list:function(type){ var v=favAll()[type]; return Array.isArray(v)?v:[]; },
+    has:function(type,id){ return fav.list(type).indexOf(id)>=0; },
+    toggle:function(type,id){ var all=favAll(), l=Array.isArray(all[type])?all[type]:[], i=l.indexOf(id); if(i>=0) l.splice(i,1); else l.unshift(id); all[type]=l.slice(0,100); try{ localStorage.setItem(FAV_KEY, JSON.stringify(all)); }catch(e){} return i<0; },
+    button:function(type,id,label){ var on=fav.has(type,id); return '<button type="button" class="fav-btn'+(on?' on':'')+'" data-fav="'+esc(type)+'" data-fav-id="'+esc(id)+'" aria-pressed="'+on+'" aria-label="'+esc(label||'')+' 찜하기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.3s-7.5-4.4-9.3-9.2C1.5 7.8 3.6 4.5 7 4.5c2 0 3.5 1.1 5 2.9 1.5-1.8 3-2.9 5-2.9 3.4 0 5.5 3.3 4.3 6.6-1.8 4.8-9.3 9.2-9.3 9.2z"/></svg></button>'; }
+  };
+  document.addEventListener('click', function(e){
+    var b=e.target.closest && e.target.closest('[data-fav]'); if(!b) return;
+    e.preventDefault(); e.stopPropagation();
+    var on=fav.toggle(b.dataset.fav, b.dataset.favId); b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on));
+    toast(on?'찜 목록에 담았습니다. 이 브라우저에서만 보입니다.':'찜 목록에서 뺐습니다.');
+    document.dispatchEvent(new CustomEvent('ms:fav', { detail:{ type:b.dataset.fav, id:b.dataset.favId, on:on } }));
+  }, true);
+
+  /* ---------- 공유 · 복사 ---------- */
+  function copyText(t){
+    if(navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(t).then(function(){ return true; }, function(){ return false; });
+    try{ var ta=document.createElement('textarea'); ta.value=t; ta.setAttribute('readonly',''); ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); var ok=document.execCommand('copy'); ta.remove(); return Promise.resolve(ok); }catch(e){ return Promise.resolve(false); }
+  }
+  function share(url, title){
+    url=url||location.href;
+    if(navigator.share){ return navigator.share({ title:title||document.title, url:url }).catch(function(){}); }
+    return copyText(url).then(function(ok){ toast(ok?'주소를 복사했습니다. 카카오톡·문자에 붙여 넣어 보내세요.':'주소를 복사하지 못했습니다. 주소창의 주소를 직접 복사해 주세요.'); });
+  }
+  // 모임·등록 공간 대표 이미지: 미리 준비된 사진 id(s01, r01 …) 또는 https 주소
+  function coverSrc(c, size){ c=String(c||''); return /^https:\/\//.test(c) ? c : (/^\//.test(c) ? c : imgSrc(c||'p14', size||'m')); }
+
+  /* ---------- 배너 광고 ----------
+     [data-ad-slot] 자리에 관리자 화면 '광고 관리'에서 게재 중인 배너를 넣습니다. 게재 중인 광고가 없거나 서버가 연결되지 않으면
+     아래 메가스팟 안내 배너(건대 1호·2호·모임 모집·공간 등록)를 대신 보여 줍니다. 유료 광고에는 항상 '광고' 표시를 붙입니다. */
+  var HOUSE_ADS={
+    'home-mid':[
+      { title:'400평 메가스팟 건대 2호, 11월 13일 문을 엽니다', sub:'최대 350명 · 200인치 레이저 빔프로젝터 · 기준 50명 포함. 오픈일 이후 날짜는 지금 사전 예약을 받습니다.', cta:'2호 사전 예약', href:'/spaces/megaspot-gundae-2/', image:'/assets/img/gundae2/m/r07.jpg', theme:'graphite' },
+      { title:'대관을 정했다면, 참가자 모집도 메가스팟에서', sub:'모임 소개와 참가 신청·대기 신청을 받는 페이지를 무료로 만들 수 있습니다. 신청자 명단은 주최자 관리 화면에서 봅니다.', cta:'모임 등록하기', href:'/meetups/new/', image:'/assets/img/scenes/m/s04.jpg', theme:'cobalt' }],
+    'list-top':[
+      { title:'바로 쓸 수 있는 190평, 메가스팟 건대 1호', sub:'최대 200명 · 시간당 4만 원부터 · 200인치 빔프로젝터와 음향 무료', cta:'1호 보기', href:'/spaces/megaspot-gundae/', theme:'light' },
+      { title:'100명이 넘는 행사라면 400평 건대 2호', sub:'11월 13일 오픈 · 최대 350명 · 지금 사전 예약 중', cta:'2호 보기', href:'/spaces/megaspot-gundae-2/', theme:'light' }],
+    'list-card':[
+      { title:'우리 공간도 여기에 올리고 싶다면', sub:'100평 이상이거나 100명 이상 모일 수 있는 공간이면 등록을 검토합니다.', cta:'공간 등록 신청', href:'/host/register/', image:'/assets/img/gundae2/m/r02.jpg', theme:'rust' },
+      { title:'함께할 사람을 모으는 중인가요', sub:'세미나·네트워킹·동호회 모임을 올리고 참가 신청을 받아 보세요.', cta:'모임 등록하기', href:'/meetups/new/', image:'/assets/img/scenes/m/s13.jpg', theme:'cobalt' }],
+    'content-bottom':[
+      { title:'건대입구 190평 · 400평, 메가스팟 건대 1호·2호', sub:'20명 소모임부터 350명 행사까지. 날짜·시간·인원을 넣으면 요금표 그대로 금액이 나옵니다.', cta:'금액 확인하기', href:'/inquiry/', image:'/assets/img/views/m/v01.jpg', theme:'graphite' },
+      { title:'메가스팟 건대 2호 사전 예약', sub:'11월 13일 오픈 · 400평 · 최대 350명 · 송년회·시상식·대규모 세미나', cta:'2호 보기', href:'/spaces/megaspot-gundae-2/', image:'/assets/img/gundae2/m/r05.jpg', theme:'cobalt' }]
+  };
+  var adsReq=null, adSeen={}, adQueue=[], adTimer=null, adIO=null;
+  function adsLoad(slots){
+    if(!adsReq) adsReq=api('/ads/list?slots='+encodeURIComponent(slots.join(','))).then(function(j){ return j.items||[]; }).catch(function(){ return []; });
+    return adsReq;
+  }
+  function adPick(items, slot, idx){
+    var paid=items.filter(function(a){ return a.slot===slot; });
+    var pool=paid.length?paid:(HOUSE_ADS[slot]||[]).map(function(a){ return Object.assign({ kind:'house', local:true }, a); });
+    if(!pool.length) return null;
+    if(paid.length) return pool[(idx||0)%pool.length];
+    return pool[((idx||0)+Math.floor(Math.random()*pool.length))%pool.length];
+  }
+  function adHtml(a, slot){
+    var card=slot==='list-card', paid=a.kind==='paid';
+    var label=paid?'<span class="ad-label">광고'+(a.advertiser?' · '+esc(a.advertiser):'')+'</span>':'<span class="ad-label house">메가스팟 안내</span>';
+    var ext=paid && a.ext;
+    var img=a.image?'<span class="ad-img"><img src="'+esc(a.image)+'" alt="" loading="lazy" decoding="async"></span>':'';
+    return '<a class="'+(card?'ad-card':'ad-banner')+' theme-'+esc(a.theme||'cobalt')+(a.image?' has-img':'')+'" href="'+esc(a.href)+'"'+(ext?' target="_blank" rel="sponsored noopener"':(paid?' rel="sponsored"':''))+(a.id?' data-ad-id="'+(+a.id)+'"':'')+'>'
+      + img + '<span class="ad-body">'+label+'<b class="ad-title">'+esc(a.title)+'</b>'+(a.sub?'<span class="ad-sub">'+esc(a.sub)+'</span>':'')+'</span>'
+      + '<span class="ad-cta">'+esc(a.cta||'자세히 보기')+' <span class="arrow">→</span></span></a>';
+  }
+  function adImp(el){
+    var id=+el.getAttribute('data-ad-id'); if(!id || adSeen[id]) return; adSeen[id]=1; adQueue.push(id);
+    clearTimeout(adTimer); adTimer=setTimeout(function(){ var ids=adQueue.splice(0,8); if(ids.length) api('/ads/imp',{method:'POST', body:{ids:ids}}).catch(function(){}); }, 800);
+  }
+  function adRender(el){
+    var slot=el.getAttribute('data-ad-slot'), idx=+(el.getAttribute('data-ad-index')||0);
+    var all=$$('[data-ad-slot]').map(function(x){ return x.getAttribute('data-ad-slot'); }).filter(function(v,i,l){ return l.indexOf(v)===i; });
+    if(all.indexOf(slot)<0) all.push(slot);
+    return adsLoad(all).then(function(items){
+      var a=adPick(items, slot, idx); if(!a){ el.hidden=true; return; }
+      el.innerHTML=adHtml(a, slot); el.classList.add('ad-on');
+      var link=el.firstChild; if(link && link.getAttribute('data-ad-id')){
+        if('IntersectionObserver' in window){ if(!adIO) adIO=new IntersectionObserver(function(en){ en.forEach(function(x){ if(x.isIntersecting){ adImp(x.target); adIO.unobserve(x.target); } }); }, { threshold:.5 }); adIO.observe(link); }
+        else adImp(link);
+      }
+    });
+  }
+  function initAds(){ $$('[data-ad-slot]').forEach(function(el){ if(!el.classList.contains('ad-on')) adRender(el); }); }
+
   /* ---------- 공유 내보내기 ---------- */
   window.MEGASPOT = {
     CONFIG:CONFIG, $:$, $$:$$, esc:esc, pad2:pad2, fmtDate:fmtDate, fmtKDate:fmtKDate, fmtNum:fmtNum,
     toast:toast, api:api, checkApi:checkApi, demo:demo, openLightbox:openLB, photoSrc:photoSrc, localRef:localRef,
     imgSrc:imgSrc, isStaged:isStaged, isCG:isCG, imgTag:imgTag, tagClass:tagClass, tagHtml:tagHtml, visual:visual, sceneItems:sceneItems,
-    validate:validate, formData:formData, account:account, source:source, familyAsk:familyAsk, familyLabel:familyLabel
+    validate:validate, formData:formData, account:account, source:source, familyAsk:familyAsk, familyLabel:familyLabel,
+    fav:fav, share:share, copy:copyText, coverSrc:coverSrc, ads:{ render:adRender, init:initAds, house:HOUSE_ADS, html:adHtml }
   };
 
   /* ---------- 모바일 빠른 연락 바 + 맨 위로 ---------- */
   // 작은 화면에서 화면 아래에 전화·카카오톡·예약 신청 버튼을 고정해 둡니다.
   // 계산기(예약 신청 화면)가 보이는 동안과 주문·회원·관리자 화면에서는 보이지 않습니다.
   function initQuickBar(){
-    var skip=/^\/(admin|order|login|signup|mypage|confirm)\//.test(location.pathname) || document.body.classList.contains('page-admin') || document.body.classList.contains('page-inquiry');
+    var skip=/^\/(admin|order|login|signup|mypage|confirm)\//.test(location.pathname) || /^\/meetups\/(manage|new|view)\//.test(location.pathname) || /^\/spaces\/listing\//.test(location.pathname) || /^\/host\/register\//.test(location.pathname) || document.body.classList.contains('page-admin') || document.body.classList.contains('page-inquiry');
     if(!skip){
       var bar=document.createElement('nav'); bar.className='quick-bar'; bar.setAttribute('aria-label','빠른 연락');
       bar.innerHTML='<a class="qb-call" href="tel:'+CONFIG.phone.replace(/-/g,'')+'"><span class="qb-ico" aria-hidden="true">☎</span>전화</a>'
@@ -245,5 +336,5 @@
   }
   function initToastRegion(){ if(!toastEl){ toastEl=document.createElement('div'); toastEl.className='toast'; toastEl.setAttribute('role','status'); toastEl.setAttribute('aria-live','polite'); document.body.appendChild(toastEl); } }
 
-  document.addEventListener('DOMContentLoaded', function(){ initHeader(); initAccount(); initSubnav(); initQuickBar(); initToastRegion(); });
+  document.addEventListener('DOMContentLoaded', function(){ initHeader(); initAccount(); initSubnav(); initQuickBar(); initToastRegion(); initAds(); });
 })();

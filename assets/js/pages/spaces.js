@@ -19,34 +19,48 @@
     el.value=v; } });
   q.getAll('feature').forEach(function(v){ var el=form.querySelector('input[name=feature][value="'+v+'"]'); if(el) el.checked=true; });
 
+  var LST=[];   // 관리자가 공개한 외부 호스트 공간 (/api/listings/list)
   function state(){
     var d=M.formData(form);
-    return { region:d.region||'', people:+d.people||0, purpose:d.purpose||'', features:[].concat(d.feature||[]), themes:[].concat(d.theme||[]) };
+    return { region:d.region||'', people:+d.people||0, purpose:d.purpose||'', features:[].concat(d.feature||[]), themes:[].concat(d.theme||[]), sort:d.sort||'', fav:!!d.fav };
+  }
+  // 직영 공간(s)과 등록 공간(l)을 같은 모양으로 맞춰 거릅니다
+  function norm(x, kind){
+    if(kind==='direct') return { kind:kind, id:x.id, region:x.region, cap:x.capacity.max, area:x.area.pyeong, purposes:x.purposes||[], features:x.features||[], themes:x.themes||[], rank:x.status==='open'?3:x.status==='opening'?2:0, src:x };
+    return { kind:kind, id:x.id, region:x.region, cap:+x.capacity||0, area:+x.area||0, purposes:x.purposes||[], features:x.features||[], themes:x.themes||[], rank:1, src:x };
   }
   function match(s, st){
     if(st.region && s.region!==st.region) return false;
-    if(st.people && s.capacity.max < st.people) return false;
+    if(st.people && s.cap < st.people) return false;
     if(st.purpose && s.purposes.indexOf(st.purpose)<0) return false;
     for(var i=0;i<st.features.length;i++){ if(s.features.indexOf(st.features[i])<0) return false; }
     for(var j=0;j<st.themes.length;j++){ if(s.themes.indexOf(st.themes[j])<0) return false; }
+    if(st.fav && !M.fav.has('space', s.id)) return false;
     return true;
   }
   function render(){
     var st=state();
-    var list=SP.filter(function(s){ return match(s,st); });
-    // 정렬: 운영 중 → 오픈 예정(사전 예약) → 준비 중, 같은 상태면 인원 큰 순 (직영 우대가 아니라 상태·확인도 기준임을 안내)
-    var rank=function(s){ return s.status==='open'?2:s.status==='opening'?1:0; };
-    list.sort(function(a,b){ return rank(b)-rank(a) || b.capacity.max-a.capacity.max; });
-    $('#results').innerHTML=list.map(function(s){ return M.spaceCard(s); }).join('');
+    var all=SP.map(function(s){ return norm(s,'direct'); }).concat(LST.map(function(l){ return norm(l,'listing'); }));
+    var list=all.filter(function(s){ return match(s,st); });
+    // 추천순: 운영 중(직영) → 오픈 예정(사전 예약) → 등록 공간(문의형) → 준비 중, 같은 단계면 인원 큰 순
+    list.sort(function(a,b){ if(st.sort==='cap') return b.cap-a.cap; if(st.sort==='area') return b.area-a.area; return b.rank-a.rank || b.cap-a.cap; });
+    var html=list.map(function(s){ var card=s.kind==='direct'?M.spaceCard(s.src):M.listingCard(s.src); return '<div class="card-wrap">'+card+M.fav.button('space', s.id, s.src.name)+'</div>'; });
+    if(list.length) html.splice(Math.min(list.length, 2), 0, '<div class="ad-slot ad-in-grid" data-ad-slot="list-card"></div>');
+    $('#results').innerHTML=html.join('');
+    Array.prototype.forEach.call($('#results').querySelectorAll('[data-ad-slot]'), function(el){ M.ads.render(el); });
     $('#results-empty').hidden = list.length>0;
-    $('#result-count').textContent = list.length ? list.length+'개 공간 · 상태와 확인 범위 순으로 표시합니다' : '조건에 맞는 공간이 없습니다';
+    var nl=list.filter(function(s){ return s.kind==='listing'; }).length;
+    $('#result-count').textContent = list.length ? list.length+'개 공간'+(nl?' (외부 호스트 '+nl+'곳 포함)':'')+(st.fav?' · 찜한 공간':'') : (st.fav?'찜한 공간이 없습니다':'조건에 맞는 공간이 없습니다');
     // 맞춤 요청 링크에 조건 전달
     var p=new URLSearchParams({mode:'request'}); if(st.purpose) p.set('purpose',st.purpose); if(st.people) p.set('people',st.people); if(st.region) p.set('region',st.region);
     $('#empty-request').href='/inquiry/?'+p.toString();
     // URL 동기화
-    var u=new URLSearchParams(); if(st.region) u.set('region',st.region); if(st.people) u.set('people',st.people); if(st.purpose) u.set('purpose',st.purpose); st.features.forEach(function(f){ u.append('feature',f); });
+    var u=new URLSearchParams(); if(st.region) u.set('region',st.region); if(st.people) u.set('people',st.people); if(st.purpose) u.set('purpose',st.purpose); st.features.forEach(function(f){ u.append('feature',f); }); if(st.sort) u.set('sort',st.sort);
     history.replaceState(null,'', location.pathname+(u.toString()?'?'+u.toString():''));
   }
+  if(q.get('sort')) $('#f-sort').value=q.get('sort');
+  document.addEventListener('ms:fav', function(){ if($('#f-fav').checked) render(); });
+  M.api('/listings/list').then(function(j){ LST=j.items||[]; if(LST.length) render(); }).catch(function(){});
   form.addEventListener('submit', function(e){ e.preventDefault(); render(); });
   form.addEventListener('change', render);
   form.addEventListener('reset', function(){ setTimeout(render,0); });

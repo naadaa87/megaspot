@@ -38,7 +38,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Black+Han+Sans&display=swap">
-<link rel="stylesheet" href="/assets/css/site.css?v=202610231403">
+<link rel="stylesheet" href="/assets/css/site.css?v=202610231745">
 <meta name="theme-color" content="#F1EFEB">
 
 </head>
@@ -50,14 +50,43 @@
     <nav class="nav" aria-label="주요 메뉴">
       <a href="/spaces/megaspot-gundae/">건대 1호</a>
       <a href="/spaces/megaspot-gundae-2/">건대 2호 <small class="nav-new">11/13 오픈</small></a>
-      <a href="/spaces/megaspot-gundae/pricing/">요금</a>
+      <div class="nav-group">
+        <a class="nav-top" href="/spaces/">공간 찾기</a>
+        <div class="nav-menu">
+          <a href="/spaces/"><b>전체 공간 둘러보기</b><small>지역·인원·목적으로 찾기</small></a>
+          <a href="/spaces/megaspot-gundae/pricing/"><b>건대 1호 요금</b><small>시간당 4만 원부터 · 190평</small></a>
+          <a href="/spaces/megaspot-gundae-2/pricing/"><b>건대 2호 요금</b><small>기준 50명 포함 · 400평</small></a>
+          <a href="/purpose/"><b>모임 목적별 안내</b><small>세미나·워크숍·파티·클래스</small></a>
+          <a href="/inquiry/?mode=request"><b>맞춤 공간 요청</b><small>조건만 남기면 찾아 드려요</small></a>
+        </div>
+      </div>
+      <div class="nav-group">
+        <a class="nav-top" href="/meetups/">모임 모집</a>
+        <div class="nav-menu">
+          <a href="/meetups/"><b>모집 중인 모임</b><small>참가 신청 · 대기 신청</small></a>
+          <a href="/meetups/new/"><b>모임 등록하기</b><small>참가자 모집 페이지 무료 개설</small></a>
+        </div>
+      </div>
       <a href="/catering/">출장뷔페</a>
       <a href="/products/">이용권 구매</a>
-      <a href="/purpose/">어떤 모임</a>
-      <a href="/guide/">이용 안내</a>
-      <a href="/parking/">주차 안내</a>
-      <a href="/host/">공간 등록</a>
-      <a href="/about/">소개</a>
+      <div class="nav-group">
+        <a class="nav-top" href="/guide/">이용 안내</a>
+        <div class="nav-menu">
+          <a href="/guide/"><b>예약 흐름 · 자주 묻는 질문</b><small>보증금 · 환불 · 음식 반입</small></a>
+          <a href="/parking/"><b>주차 안내</b><small>1시간 무료 · 차량 등록</small></a>
+          <a href="/confirm/"><b>예약확정서 조회</b><small>예약번호와 휴대폰 뒷자리로</small></a>
+          <a href="/about/"><b>메가스팟 소개</b><small>대형 공간 플랫폼</small></a>
+          <a href="/family/"><b>패밀리 사이트</b><small>함께하는 브랜드</small></a>
+        </div>
+      </div>
+      <div class="nav-group">
+        <a class="nav-top" href="/host/">호스트·광고</a>
+        <div class="nav-menu nav-menu-end">
+          <a href="/host/"><b>호스트 입점 안내</b><small>입점 기준 · 절차 · 상담</small></a>
+          <a href="/host/register/"><b>공간 등록 신청</b><small>100평 · 100명 이상 공간</small></a>
+          <a href="/advertise/"><b>배너 광고 · 제휴</b><small>행사 준비하는 사람에게 알리기</small></a>
+        </div>
+      </div>
     </nav>
     <div class="header-cta">
       <a class="hdr-account" href="/login/" data-account>로그인</a>
@@ -69,22 +98,29 @@
   </div>
 </header>
 <nav class="mobile-nav" id="mobile-nav" aria-label="모바일 메뉴">
-  <a href="/spaces/megaspot-gundae/">메가스팟 건대 1호 <span class="badge badge-direct" style="margin-left:8px">직영</span></a>
-  <a href="/spaces/megaspot-gundae-2/">메가스팟 건대 2호 <span class="badge badge-cobalt" style="margin-left:8px">11월 13일 오픈</span></a>
-  <a href="/spaces/megaspot-gundae/pricing/">건대 1호 요금 안내</a>
-  <a href="/spaces/megaspot-gundae-2/pricing/">건대 2호 요금 안내</a>
-  <a href="/inquiry/">예약 신청 · 금액 확인</a>
-  <a href="/products/">이용권 구매 · 온라인 결제</a>
-  <a href="/catering/">출장뷔페 · 1인 3만 5천 원부터</a>
-  <a href="/purpose/">어떤 모임</a>
-  <a href="/guide/">이용 안내</a>
-      <a href="/parking/">주차 안내</a>
-  <a href="/spaces/">공간 찾기</a>
-  <a href="/host/">공간 등록 (호스트)</a>
-  <a href="/inquiry/?type=partner">정기 이용·제휴 문의</a>
-  <a href="/about/">메가스팟 소개</a>
-  <a href="/family/">패밀리 사이트 · 함께하는 브랜드</a>
-  <a href="/login/" data-account="full">로그인 · 회원가입</a>
+  <div class="mnav-sec">
+    <div class="mnav-h">공간</div>
+    <a class="mnav-main" href="/spaces/megaspot-gundae/">메가스팟 건대 1호 <span class="badge badge-direct">직영 · 190평</span></a>
+    <a class="mnav-main" href="/spaces/megaspot-gundae-2/">메가스팟 건대 2호 <span class="badge badge-cobalt">11월 13일 오픈</span></a>
+    <div class="mnav-grid"><a href="/spaces/">전체 공간 찾기</a><a href="/purpose/">모임 목적별 안내</a><a href="/spaces/megaspot-gundae/pricing/">건대 1호 요금</a><a href="/spaces/megaspot-gundae-2/pricing/">건대 2호 요금</a></div>
+  </div>
+  <div class="mnav-sec">
+    <div class="mnav-h">예약</div>
+    <div class="mnav-grid"><a href="/inquiry/">예약 신청 · 금액 확인</a><a href="/products/">이용권 구매 · 결제</a><a href="/catering/">출장뷔페</a><a href="/inquiry/?mode=request">맞춤 공간 요청</a></div>
+  </div>
+  <div class="mnav-sec">
+    <div class="mnav-h">모임</div>
+    <div class="mnav-grid"><a href="/meetups/">모집 중인 모임</a><a href="/meetups/new/">모임 등록하기</a></div>
+  </div>
+  <div class="mnav-sec">
+    <div class="mnav-h">안내</div>
+    <div class="mnav-grid"><a href="/guide/">이용 안내 · FAQ</a><a href="/parking/">주차 안내</a><a href="/confirm/">예약확정서 조회</a><a href="/inquiry/?type=partner">정기 이용 · 제휴</a><a href="/about/">메가스팟 소개</a><a href="/family/">패밀리 사이트</a></div>
+  </div>
+  <div class="mnav-sec">
+    <div class="mnav-h">호스트 · 광고</div>
+    <div class="mnav-grid"><a href="/host/">호스트 입점 안내</a><a href="/host/register/">공간 등록 신청</a><a href="/advertise/">배너 광고 · 제휴</a></div>
+  </div>
+  <a class="mnav-account" href="/login/" data-account="full">로그인 · 회원가입</a>
   <a class="btn btn-primary btn-lg" href="/inquiry/">예약신청·금액확인</a>
   <a class="btn btn-ghost" href="tel:01023849580" data-phone>전화 상담</a>
   <a class="btn btn-kakao" href="https://pf.kakao.com/_LnxbmX/chat" target="_blank" rel="noopener" data-kakao><svg class="ico-talk" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3.2C6.6 3.2 2.3 6.6 2.3 10.9c0 2.7 1.8 5.1 4.5 6.5l-.9 3.4c-.1.3.3.6.6.4l4-2.6c.5.1 1 .1 1.5.1 5.4 0 9.7-3.4 9.7-7.8S17.4 3.2 12 3.2z"/></svg>카카오톡 문의</a>
@@ -102,6 +138,8 @@
 <div><h3>제6조의2 (온라인 결제와 이용권)</h3><p class="muted">① 이용자는 홈페이지의 이용권 구매 화면에서 패키지 이용권과 옵션 상품을 신용·체크카드, 실시간 계좌이체, 가상계좌로 결제할 수 있습니다. 결제는 전자지급결제대행사(KG이니시스)의 결제창에서 이루어지며, 메가스팟은 카드번호 등 결제 수단 정보를 저장하지 않습니다.<br>② 결제가 완료되면 예약번호가 발급되고 선택한 이용일·시간의 예약이 확정됩니다. 결제 금액은 공개된 요금표(요일 구분·기준 인원 20명·인원 추가·옵션)로 서버가 다시 계산해 확인하며, 결제창 금액과 다르면 승인을 취소합니다.<br>③ 이용권은 실물 배송이 없는 서비스 상품으로, 결제 때 선택한 이용일에 메가스팟 건대 1호 현장에서 제공됩니다. 일정 변경은 이용일 8일 전까지 1회 요청할 수 있습니다.<br>④ 온라인 결제의 취소·환불은 제5조의 비율을 따르며, 결제 후 2시간 이내 취소는 이용일과 관계없이 전액 환불합니다. 환불 요청은 카카오톡 채널 또는 이메일로 접수하고, 카드 결제는 승인 취소로 처리되어 카드사 기준 3~7영업일 안에 반영됩니다. 현수막·X배너 등 제작 상품은 제작에 들어간 뒤 환불이 어렵습니다.<br>⑤ 메가스팟 사정으로 이용이 어려워진 경우에는 결제 금액을 전액 환불합니다.</p></div>
 <div><h3>제7조 (이용자의 의무)</h3><p class="muted">이용자는 예약 신청과 문의에 행사 조건을 사실대로 기재하고, 확정된 배치·인원·반입·소음·정리 규정을 준수합니다. 허용되지 않은 행사 목적이나 인원 초과, 안전을 해치는 행위는 이용 중지 사유가 됩니다.</p></div>
 <div><h3>제7조의2 (회원)</h3><p class="muted">① 회원가입은 만 14세 이상인 사람이 이 약관과 개인정보 수집·이용에 동의하고 이메일·비밀번호·이름·휴대폰 번호를 입력해 신청하면 바로 이루어집니다. 회원이 아니어도 문의·견적·예약은 똑같이 이용할 수 있습니다.<br>② 회원은 자신의 비밀번호를 관리할 책임이 있으며, 다른 사람의 정보로 가입하거나 계정을 다른 사람에게 넘겨서는 안 됩니다.<br>③ 회원은 언제든 마이페이지에서 탈퇴할 수 있고, 탈퇴하면 회원 정보는 바로 삭제됩니다. 이미 접수된 문의·예약 기록은 개인정보처리방침의 보유 기간에 따라 처리합니다.<br>④ 다른 사람의 정보를 도용하거나 서비스 운영을 방해한 경우, 운영자는 사전 안내 후 회원 이용을 제한할 수 있습니다.</p></div>
+<div><h3>제7조의3 (모임 모집)</h3><p class="muted">① 이용자는 모임 모집 화면에서 모임을 소개하고 참가 신청을 받는 페이지를 무료로 만들 수 있습니다. 등록한 모임은 회사가 운영 기준에 맞는지 확인한 뒤 공개하며, 불법·사행성·다단계·유흥 목적의 모임, 특정인을 비방하거나 차별하는 모임, 실제와 다른 내용은 공개하지 않거나 공개 후에도 내릴 수 있습니다.<br>② 모임의 내용, 진행, 참가비 안내는 주최자가 책임집니다. 참가비가 있는 모임의 결제와 환불은 주최자와 참가자 사이에서 이뤄지며, 회사는 그 거래의 당사자가 아닙니다. 다만 회사가 운영하는 공간에서 열리는 모임의 공간 이용은 이 약관의 대관 조건을 따릅니다.<br>③ 주최자는 등록할 때 받은 관리 링크로 신청자 명단을 보고 참가 확정·대기·모집 마감·모임 취소를 정합니다. 관리 링크를 다른 사람에게 넘기지 않을 책임은 주최자에게 있습니다.<br>④ 주최자는 신청자가 제공에 동의한 이름·연락처·인원·답변을 참가 확인과 모임 안내 목적으로만 쓰고, 모임이 끝나고 30일 안에 지워야 합니다. 이를 어기면 회사는 해당 주최자의 모임 등록을 제한할 수 있습니다.<br>⑤ 참가자는 신청번호와 휴대폰 뒷 4자리로 신청 상태를 확인하고 취소할 수 있습니다. 정원이 찬 모임의 대기 신청은 취소가 생기면 신청한 순서대로 확정되며, 주최자가 승인하는 모임은 주최자가 확정한 때 참가가 확정됩니다.</p></div>
+<div><h3>제7조의4 (공간 등록과 배너 광고)</h3><p class="muted">① 공간 등록 신청과 입점 상담은 등록·계약을 약속하지 않습니다. 회사는 입점 기준에 따라 검토하고, 확인한 정보만 상세 페이지에 공개합니다. 외부 호스트 공간의 계약 상대방과 사업자 정보는 상세 화면에 표시합니다.<br>② 유료 배너에는 '광고' 표시와 광고주 이름을 함께 보여 주며, 배너를 누르면 광고주가 정한 페이지로 이동합니다. 광고주의 상품·서비스에 대한 책임은 광고주에게 있고, 회사는 불법·과장 광고 등 게재 기준에 맞지 않는 광고를 싣지 않거나 내릴 수 있습니다.</p></div>
 <div><h3>제8조 (후기)</h3><p class="muted">후기는 이용 완료가 확인된 예약에 한하여 작성할 수 있습니다. 회사는 개인정보 노출, 허위 주장, 권리침해에 해당하는 내용을 게시 기준에 따라 제한할 수 있으며, 비판적인 후기도 같은 기준으로 게시합니다.</p></div>
 <div><h3>제9조 (책임의 범위)</h3><p class="muted">회사는 상세 페이지의 정보를 확인 기준(운영자 확인·도면·사진)과 함께 표기하며, 확인되지 않은 항목은 견적 단계에서 확정합니다. 호스트가 제공한 정보의 오류로 발생한 손해는 관련 법령과 호스트 계약에 따라 처리합니다.</p></div>
 <div><h3>제10조 (분쟁 처리)</h3><p class="muted">분쟁은 접수 → 양측 증빙 확인 → 적용 기준·환불 산식 안내 → 처리 → 이의 제기의 순서로 처리합니다. 관할 법원은 민사소송법에 따릅니다.</p></div>
@@ -113,7 +151,7 @@
     <div class="footer-grid">
       <div>
         <a class="logo inv" href="/"><span class="en">MEGA<b>SPOT</b></span><span class="ko">메가스팟</span></a>
-        <p class="mt-2" style="max-width:38ch">큰 모임에 맞는 공간을 찾다. 건대입구 190평 메가스팟 건대 1호와 400평 건대 2호(11월 13일 오픈)를 직접 운영하는 대형 공간 예약 플랫폼입니다.</p>
+        <p class="mt-2" style="max-width:38ch">큰 모임에 맞는 공간을 찾다. 건대입구 190평 메가스팟 건대 1호와 400평 건대 2호(11월 13일 오픈)를 직접 운영하며, 초대형 공간을 찾고 예약하고 모임을 여는 플랫폼입니다.</p>
         <ul class="mt-3">
           <li>상담 <a href="tel:01023849580" data-phone>010-2384-9580</a></li>
           <li>이메일 <a href="mailto:spaceblank0100@gmail.com" data-email>spaceblank0100@gmail.com</a></li>
@@ -143,21 +181,31 @@
           <li><a href="/inquiry/">예약 신청 · 금액 확인</a></li>
           <li><a href="/products/">이용권 구매 · 온라인 결제</a></li>
           <li><a href="/catering/">출장뷔페 · 바베큐 · 생맥주</a></li>
-          <li><a href="/inquiry/?type=regular">정기 이용 상담</a></li>
-          <li><a href="/inquiry/?type=partner">제휴·협력 제안</a></li>
+          <li><a href="/spaces/">공간 찾기</a> · <a href="/inquiry/?mode=request">맞춤 공간 요청</a></li>
           <li><a href="/purpose/">모임 목적별 안내</a></li>
           <li><a href="/guide/">예약 흐름과 이용 안내</a></li>
-          <li><a href="/guide/#faq">자주 묻는 질문</a></li>
-          <li><a href="/parking/">주차 안내</a></li>
-          <li><a href="/host/">공간 등록 (호스트 입점)</a></li>
-          <li><a href="/about/">메가스팟 소개</a></li>
-          <li><a href="/family/">패밀리 사이트</a></li>
+          <li><a href="/guide/#faq">자주 묻는 질문</a> · <a href="/parking/">주차 안내</a></li>
+          <li><a href="/confirm/">예약확정서 조회</a></li>
+          <li><a href="/about/">메가스팟 소개</a> · <a href="/family/">패밀리 사이트</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Platform</h4>
+        <ul>
+          <li><a href="/meetups/">모집 중인 모임</a></li>
+          <li><a href="/meetups/new/">모임 등록 · 참가자 모집</a></li>
+          <li><a href="/host/">호스트 입점 안내</a></li>
+          <li><a href="/host/register/">공간 등록 신청</a></li>
+          <li><a href="/advertise/">배너 광고 · 제휴</a></li>
+          <li><a href="/inquiry/?type=regular">정기 이용 상담</a></li>
+          <li><a href="/inquiry/?type=partner">제휴·협력 제안</a></li>
         </ul>
       </div>
       <div>
         <h4>Notice</h4>
         <address class="footer-note" style="font-style:normal">메가스팟 건대 1호·2호 · 서울특별시 광진구 화양동 10-1 한아름건물 2층 · 지하철 2·7호선 건대입구역 인근</address>
         <p class="footer-note">메가스팟은 직영 공간의 판매자이자, 외부 호스트 공간의 통신판매중개자입니다. 외부 호스트 공간은 상세 화면과 결제 단계에서 실제 계약 상대방(호스트 사업자)을 표시합니다. 상세 페이지의 인원·면적·시설 정보는 확인 기준(운영자 확인·도면·사진)을 함께 표기하며, 확인되지 않은 항목은 견적 단계에서 확정합니다.</p>
+        <p class="footer-note">모임 모집 페이지의 내용과 참가비 안내는 주최자가 작성하며, 참가비 결제·환불은 주최자와 참가자 사이에서 이뤄집니다. 유료 배너에는 '광고'와 광고주를 표시합니다.</p>
       </div>
     </div>
     <div class="footer-family">
@@ -175,7 +223,7 @@
     </div>
   </div>
 </footer>
-<script src="/assets/js/site.js?v=202610231403"></script>
+<script src="/assets/js/site.js?v=202610231745"></script>
 
 </body>
 </html>

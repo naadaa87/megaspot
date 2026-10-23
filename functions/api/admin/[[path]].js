@@ -5,6 +5,7 @@ import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, log, hash
 import { cateringAdmin } from '../_catering.js';
 import { cleanDoc, parseDoc, publicDoc, confirmToken } from '../_confirm.js';
 import { inquiryAmountSql, bookingAmountSql, amountOverrideSql } from '../_amounts.js';
+import { platformAdmin, platformCounts } from '../_platform_admin.js';   // 입점·공간 등록·광고 신청, 등록 공간, 모임, 배너 광고
 // 운영 설정 (settings 표에 JSON으로 저장) — 공개 저장소·홈페이지 파일에 두지 않을 값은 관리자 화면에서 입력해 여기에 둡니다.
 const SETTINGS = {
   catering: {   // 출장뷔페: 발주처 연락처와 1인 수수료, 발주처 코스 이름
@@ -170,7 +171,8 @@ export async function onRequest({ request, env, params }) {
           orders_amount: await one("SELECT COALESCE(SUM(price), 0) AS n FROM orders WHERE status = 'paid' AND test = 0 AND substr(paid_at, 1, 7) = ?", month),
         },
         orders_recent: await all("SELECT oid, title, event_date, price, buyer_name, status, test, paid_at, created_at FROM orders WHERE status IN ('paid','failed') ORDER BY COALESCE(paid_at, created_at) DESC LIMIT 8"),
-        orders_today_paid: await one("SELECT COUNT(*) AS n FROM orders WHERE status = 'paid' AND substr(paid_at, 1, 10) = ?", today)
+        orders_today_paid: await one("SELECT COUNT(*) AS n FROM orders WHERE status = 'paid' AND substr(paid_at, 1, 10) = ?", today),
+        platform: await platformCounts(env)   // 모임 승인 대기 · 새 입점·광고 신청 · 공개 공간 · 게재 중 광고
       };
       return json({ ok: true, ...out });
     }
@@ -463,12 +465,6 @@ export async function onRequest({ request, env, params }) {
       return json({ ok: true, booking_code: code, date, others: (others || {}).n || 0, same_day: (same || []).length });
     }
 
-    // ---- 입점 ----
-    if (path === 'hosts' && method === 'GET') {
-      const { results } = await env.DB.prepare('SELECT ref, status, data, created_at FROM host_applications ORDER BY created_at DESC LIMIT 200').all();
-      return json({ ok: true, items: (results || []).map(r => ({ ...r, data: safe(r.data) })) });
-    }
-
     // ---- 예약 ----
     if (path === 'bookings' && method === 'GET') {
       const { results } = await env.DB.prepare(`SELECT booking_code, space_id, inquiry_ref, customer_name, phone, date, slot, headcount, memo, status, ${bookingAmountSql()} AS amount, start_h, end_h, created_at, json_extract(confirm_doc, '$.issued_at') AS confirm_issued FROM bookings b ORDER BY date DESC, created_at DESC LIMIT 300`).all();
@@ -678,6 +674,8 @@ export async function onRequest({ request, env, params }) {
       await log(env, 'calendar.updated', space_id + ':' + date, 'admin', d);
       return json({ ok: true });
     }
+
+    const pf = await platformAdmin(request, env, path, method, url); if (pf) return pf;
 
     return err('경로를 찾을 수 없습니다.', 404, 'NOT_FOUND');
   } catch (e) { console.error('admin', e && e.message); return err('처리 중 오류가 발생했습니다. (' + String(e && e.message || '').slice(0, 120) + ')', 500, 'SERVER_ERROR'); }

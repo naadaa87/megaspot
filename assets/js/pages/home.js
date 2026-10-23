@@ -11,6 +11,13 @@
   // 1호(운영 중)를 먼저, 오픈 예정인 2호를 그 다음에 보여 줍니다
   var fs=$('#featured-space'); if(fs){ var open=(window.MEGASPOT_SPACES||[]).filter(function(s){return s.status==='open'||s.status==='opening';}); open.sort(function(a,b){ return (b.status==='open')-(a.status==='open'); }); fs.innerHTML=open.map(function(s){ return M.spaceCard(s,{wide:true}); }).join(''); }
 
+  /* ---------- 모집 중인 모임 (최대 3개 · 없으면 모임 등록 안내) ---------- */
+  (function(){
+    var box=$('#home-meetups'); if(!box) return;
+    function empty(){ box.innerHTML='<div class="mt-empty-home"><b>첫 모임을 기다리고 있어요</b><p>메가스팟 공간에서 세미나·네트워킹·동호회 모임을 준비 중이라면 모임 페이지를 무료로 열어 참가자를 모아 보세요. 대관을 확정했다면 예약번호로 \'메가스팟 예약 확인\' 표시도 붙습니다.</p><a class="btn btn-primary btn-sm" href="/meetups/new/">모임 등록하기 →</a></div>'; }
+    M.api('/meetups/list?limit=6').then(function(j){ var l=(j.items||[]).filter(function(m){ return m.status==='open'; }).slice(0,3); if(!l.length) return empty(); box.innerHTML=l.map(function(m){ return M.meetupCard(m); }).join(''); }).catch(empty);
+  })();
+
   /* ---------- 히어로 슬라이드 ---------- */
   (function(){
     var box=$('#hero-slides'); if(!box) return;

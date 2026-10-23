@@ -16,12 +16,15 @@ CREATE TABLE IF NOT EXISTS inquiries (
 );
 CREATE INDEX IF NOT EXISTS idx_inquiries_status ON inquiries(status, created_at);
 
-CREATE TABLE IF NOT EXISTS host_applications (
+CREATE TABLE IF NOT EXISTS host_applications (   -- 입점 상담 · 공간 등록 신청 · 광고·제휴 문의
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   ref TEXT NOT NULL UNIQUE,                 -- HS-YYMM-XXXX
-  status TEXT NOT NULL DEFAULT '접수',
+  status TEXT NOT NULL DEFAULT '접수',      -- 접수 → 검토 중 → 보완 요청 → 진행 확정 / 보류 / 반려·종료
   data TEXT NOT NULL,
-  created_at TEXT NOT NULL
+  kind TEXT,                                -- host(입점 상담) | space(공간 등록 신청) | ad(광고·제휴 문의) — 2026-10-24 추가
+  memo TEXT,                                -- 운영 메모
+  created_at TEXT NOT NULL,
+  updated_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS bookings (
@@ -164,3 +167,66 @@ CREATE TABLE IF NOT EXISTS settings (        -- 관리자 화면에서 바꾸는
   value TEXT NOT NULL,                       -- JSON
   updated_at TEXT NOT NULL
 );
+
+-- ---------- 플랫폼 (2026-10-24 추가) ----------
+CREATE TABLE IF NOT EXISTS listings (        -- 등록 공간 (외부 호스트 공간 · 문의형). 공간 등록 신청을 검토한 뒤 관리자가 만들고 공개합니다.
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  slug TEXT NOT NULL UNIQUE,                 -- 공개 주소용 번호 L-YYMM-XXXX (/spaces/listing/?id=)
+  status TEXT NOT NULL DEFAULT 'draft',      -- draft(작성 중) | published(공개) | hidden(숨김)
+  name TEXT NOT NULL,
+  region TEXT, address TEXT,
+  area INTEGER, capacity INTEGER,            -- 평 · 최대 인원
+  host_ref TEXT,                             -- 연결된 공간 등록 신청 번호 (HS-)
+  sort INTEGER NOT NULL DEFAULT 0,           -- 클수록 먼저 보임
+  data TEXT NOT NULL,                        -- 소개·시설·목적·사진 주소·요금 안내·호스트 정보 JSON
+  created_at TEXT NOT NULL,
+  updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_listings_status ON listings(status, sort);
+
+CREATE TABLE IF NOT EXISTS meetups (         -- 모임 홍보·참가자 모집 (운영팀 확인 뒤 공개)
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ref TEXT NOT NULL UNIQUE,                  -- 모임번호 MO-YYMM-XXXX
+  status TEXT NOT NULL DEFAULT 'pending',    -- pending(검토 중) | open(모집 중) | closed(모집 마감) | cancelled(주최자 취소) | rejected(반려) | hidden(숨김)
+  title TEXT NOT NULL,
+  category TEXT, venue TEXT,                 -- venue: megaspot-gundae | megaspot-gundae-2 | tbd(협의 중) | other
+  event_date TEXT,                           -- 모임 날짜 YYYY-MM-DD
+  capacity INTEGER,                          -- 정원
+  featured INTEGER NOT NULL DEFAULT 0,       -- 1 = 추천 모임 (목록 위에 먼저)
+  verified INTEGER NOT NULL DEFAULT 0,       -- 1 = 메가스팟 예약 확인 (예약번호로 확인한 모임)
+  data TEXT NOT NULL,                        -- 소개·시간·참가비·질문·대표 이미지 + 주최자 연락처(비공개)
+  created_at TEXT NOT NULL,
+  updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_meetups_status ON meetups(status, event_date);
+
+CREATE TABLE IF NOT EXISTS meetup_apps (     -- 모임 참가 신청 (이름·연락처는 신청자 동의를 받아 주최자에게 보입니다)
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ref TEXT NOT NULL UNIQUE,                  -- 신청번호 AP-YYMM-XXXX
+  meetup_ref TEXT NOT NULL,
+  status TEXT NOT NULL,                      -- confirmed(참가 확정) | pending(승인 대기) | waitlist(대기) | cancelled(취소) | rejected(참가 불가)
+  name TEXT NOT NULL, phone TEXT NOT NULL, phone_last4 TEXT NOT NULL,
+  people INTEGER NOT NULL DEFAULT 1,
+  data TEXT NOT NULL,                        -- 질문 답변·메모·동의 시각
+  created_at TEXT NOT NULL,
+  updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_meetup_apps ON meetup_apps(meetup_ref, status, created_at);
+
+CREATE TABLE IF NOT EXISTS ads (             -- 배너 광고 · 메가스팟 안내 배너
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  slot TEXT NOT NULL,                        -- home-mid | list-top | list-card | content-bottom
+  status TEXT NOT NULL DEFAULT 'off',        -- on | off
+  kind TEXT NOT NULL DEFAULT 'paid',         -- paid(광고 — 화면에 '광고' 표시) | house(메가스팟 안내)
+  title TEXT NOT NULL,
+  advertiser TEXT,
+  link TEXT NOT NULL,                        -- https:// 주소 또는 /로 시작하는 홈페이지 경로
+  start_date TEXT, end_date TEXT,            -- 게재 기간 (비우면 제한 없음)
+  priority INTEGER NOT NULL DEFAULT 0,       -- 같은 자리에 여러 개면 큰 값 먼저
+  imps INTEGER NOT NULL DEFAULT 0,           -- 노출 수
+  clicks INTEGER NOT NULL DEFAULT 0,         -- 클릭 수
+  data TEXT NOT NULL,                        -- 보조 문구·버튼 문구·이미지 주소·색·메모
+  created_at TEXT NOT NULL,
+  updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_ads_slot ON ads(slot, status);
