@@ -118,7 +118,7 @@
     </section>
 
     <section class="adm-view" id="view-inq" hidden>
-      <header class="adm-head"><div><h1>문의 관리</h1><p class="small muted">줄을 누르면 상세 내용·체크리스트·견적·메모를 보고 수정·삭제할 수 있습니다. 왼쪽 칸을 체크하면 여러 건을 한 번에 삭제할 수 있고, 삭제한 문의는 지워지지 않고 상태의 '삭제된 문의 (보관함)'에 남습니다.</p></div><div class="row" style="gap:8px"><button class="btn btn-primary btn-sm" type="button" data-go="inq-new">+ 문의 직접 등록</button><button class="btn btn-light btn-sm" type="button" id="inq-csv">CSV 내려받기</button></div></header>
+      <header class="adm-head"><div><h1>문의 관리</h1><p class="small muted">줄을 누르면 상세 내용·체크리스트·견적·메모를 보고 수정·삭제할 수 있습니다. 왼쪽 칸을 체크하면 문의를 복사하거나 여러 건을 한 번에 삭제할 수 있고, 삭제한 문의는 지워지지 않고 상태의 '삭제된 문의 (보관함)'에 남습니다.</p></div><div class="row" style="gap:8px"><button class="btn btn-primary btn-sm" type="button" data-go="inq-new">+ 문의 직접 등록</button><button class="btn btn-light btn-sm" type="button" id="inq-csv">CSV 내려받기</button></div></header>
       <div class="adm-filters">
         <select class="select" id="inq-status"><option value="open">진행 중 (접수~결제 대기)</option><option value="">전체 (삭제 제외)</option><option>문의 접수</option><option>조건 확인</option><option>견적 발송</option><option>결제 대기</option><option>예약 확정</option><option>이용 완료</option><option>취소·환불</option><option value="deleted">삭제된 문의 (보관함)</option></select>
         <select class="select" id="inq-type"><option value="">모든 유형</option><option value="event">행사 대관</option><option value="regular">정기·반복 모임</option><option value="partner">제휴·협력</option></select>
@@ -126,7 +126,7 @@
         <input class="input" id="inq-q" placeholder="이름·연락처·이메일·문의번호">
         <button class="btn btn-light btn-sm" type="button" id="inq-reload">검색</button>
       </div>
-      <div class="inq-bulk" id="inq-bulk" hidden><b id="inq-sel-n">0건 선택</b><button class="btn btn-light btn-sm" type="button" id="inq-sel-clear">선택 해제</button><button class="btn btn-danger btn-sm" type="button" id="inq-sel-del">선택한 문의 삭제</button><button class="btn btn-primary btn-sm" type="button" id="inq-sel-restore" hidden>선택한 문의 복원</button></div>
+      <div class="inq-bulk" id="inq-bulk" hidden><b id="inq-sel-n">0건 선택</b><button class="btn btn-primary btn-sm" type="button" id="inq-sel-copy" disabled>선택한 문의 복사</button><button class="btn btn-light btn-sm" type="button" id="inq-sel-clear">선택 해제</button><button class="btn btn-danger btn-sm" type="button" id="inq-sel-del">선택한 문의 삭제</button><button class="btn btn-primary btn-sm" type="button" id="inq-sel-restore" hidden>선택한 문의 복원</button></div>
       <div class="form-note" id="inq-bulk-msg" hidden></div>
       <div id="inq-list" class="adm-table"></div>
     </section>
@@ -434,6 +434,6 @@
 <script src="/assets/js/data/catering.js?v=202610221107"></script>
 <script src="/assets/js/catering-calc.js?v=202610221107"></script>
 <script src="/assets/js/confirm-doc.js?v=202610221107"></script>
-<script src="/assets/js/pages/admin.js?v=2026102303"></script>
+<script src="/assets/js/pages/admin.js?v=2026102304"></script>
 </body>
 </html>

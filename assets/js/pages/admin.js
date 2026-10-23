@@ -181,13 +181,14 @@
       selSync();
     }).catch(fail(box));
   }
-  /* 목록에서 여러 건 골라 삭제 */
-  var SEL={};
+  /* 목록에서 선택한 문의 복사 · 여러 건 삭제 */
+  var SEL={}, inqCopyBusy=false;
   function delView(){ return $('#inq-status').value==='deleted'; }
   function selRefs(){ return Object.keys(SEL).filter(function(k){ return SEL[k]; }); }
   function selSync(){
     var n=selRefs().length, all=$('#inq-sel-all'), boxes=$$('#inq-list [data-sel]');
     $('#inq-bulk').hidden=!n; $('#inq-sel-n').textContent=n+'건 선택';
+    var copy=$('#inq-sel-copy'); copy.disabled=n!==1 || inqCopyBusy; copy.textContent=inqCopyBusy?'불러오는 중…':'선택한 문의 복사'; copy.title=n>1?'복사할 문의를 한 건만 선택해 주세요.':'';
     $('#inq-sel-del').hidden=delView(); $('#inq-sel-restore').hidden=!delView();
     if(all){ var on=boxes.filter(function(b){ return b.checked; }).length; all.checked=!!boxes.length && on===boxes.length; all.indeterminate=on>0 && on<boxes.length; }
   }
@@ -197,6 +198,12 @@
     if(t.dataset.sel){ SEL[t.dataset.sel]=t.checked; t.closest('.tr').classList.toggle('sel', t.checked); selSync(); }
   });
   $('#inq-sel-clear').addEventListener('click', function(){ SEL={}; $$('#inq-list [data-sel]').forEach(function(b){ b.checked=false; b.closest('.tr').classList.remove('sel'); }); selSync(); $('#inq-bulk-msg').hidden=true; });
+  $('#inq-sel-copy').addEventListener('click', function(){
+    var refs=selRefs(); if(refs.length!==1 || inqCopyBusy) return;
+    inqCopyBusy=true; selSync();
+    A('/inquiries/'+encodeURIComponent(refs[0])).then(function(r){ openEdit(copyInquiryDraft(r.item, (r.quotes||[])[0]), true); })
+    .catch(function(e){ if(!guard(e)) M.toast(e.message); }).finally(function(){ inqCopyBusy=false; selSync(); });
+  });
   $('#inq-sel-del').addEventListener('click', function(){
     var refs=selRefs(); if(!refs.length) return;
     if(!confirm('선택한 문의 '+refs.length+'건을 삭제할까요?\n\n삭제한 문의는 지워지지 않고 \'삭제된 문의\' 보관함으로 옮겨집니다. 언제든 복원할 수 있고, 확정 예약이 걸린 문의는 옮기지 않습니다.')) return;
