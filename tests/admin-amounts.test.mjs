@@ -194,3 +194,61 @@ test('연결 문의가 없는 직접 예약은 예약 자체 메모 유지', asy
   db.prepare('UPDATE bookings SET inquiry_ref = NULL, memo = ?').run('직접 예약 메모');
   assert.equal((await api('reservations')).items[0].memo, '직접 예약 메모');
 });
+
+function copyContext() {
+  const context = vm.createContext({});
+  const amountStart = source.indexOf('  function currentAmount(');
+  const copyStart = source.indexOf('  function copyInquiryDraft(');
+  const slotStart = source.indexOf('  var SLOT_H=');
+  vm.runInContext(source.slice(slotStart, source.indexOf('\n', slotStart)) + '\n'
+    + source.slice(amountStart, source.indexOf('  function row(', amountStart))
+    + source.slice(copyStart, source.indexOf('  function openEdit(', copyStart)), context);
+  return context;
+}
+for (const amount of [800000, 0, null]) {
+  test(`문의 복사는 현재 금액을 유지하고 새 날짜·진행 상태를 초기화: ${amount}`, () => {
+    const it = { ref: 'MS-ORIGINAL', status: '예약 확정', event_date: date, effective_amount: amount, memo: '운영 메모',
+      data: { total: 450000, amount_mode: 'auto', date, purpose: 'year-end', slot: 'pkg-allnight', wait_rank: 1,
+        options: { manager: { count: 2, hours: 4 } }, member_id: 'original-member', reserve: true } };
+    const before = JSON.stringify(it);
+    const draft = copyContext().copyInquiryDraft(it, { total: 600000 });
+    assert.equal(draft.data.date, '');
+    assert.equal(draft.event_date, undefined);
+    assert.equal(draft.status, undefined);
+    assert.equal(draft.data.total, amount);
+    assert.equal(draft.data.amount_mode, amount === null ? 'none' : 'manual');
+    assert.equal(draft.data.start_h, 18);
+    assert.equal(draft.data.end_h, 31);
+    assert.equal(draft.data.purpose, 'year-end');
+    assert.equal(draft.data.wait_rank, undefined);
+    assert.equal(draft.data.member_id, undefined);
+    assert.equal(draft.data.reserve, undefined);
+    draft.data.options.manager.count = 3;
+    assert.equal(JSON.stringify(it), before, '복사본 수정이 원본 데이터에 영향을 주지 않음');
+  });
+}
+test('다른 날짜로 복사 등록하면 원본 예약·견적을 보존하고 새 문의로 대기', async t => {
+  const { db, api } = fixture(); t.after(() => db.close());
+  await api('inquiries/MS-TEST', 'PATCH', { total: 830000, memo: '장비 반입 협의' });
+  const original = await api('inquiries/MS-TEST');
+  const draft = copyContext().copyInquiryDraft(original.item, original.quotes[0]);
+  const newDate = new Date(Date.parse(date + 'T00:00:00Z') + 7 * 86400000).toISOString().slice(0, 10);
+  const created = await api('inquiries', 'POST', { ...draft.data, name: draft.data.name || draft.name,
+    phone: draft.data.phone || draft.phone, memo: draft.memo, date: newDate, status: '문의 접수' });
+  assert.notEqual(created.ref, original.item.ref);
+  const copied = await api('inquiries/' + created.ref);
+  assert.equal(copied.item.event_date, newDate);
+  assert.equal(copied.item.status, '문의 접수');
+  assert.equal(copied.item.effective_amount, 830000);
+  assert.equal(copied.item.memo, '장비 반입 협의');
+  assert.equal(copied.wait.date, newDate);
+  assert.equal(copied.wait.no, 1);
+  assert.equal(copied.bookings.length, 0);
+  assert.equal(copied.quotes.length, 0);
+  assert.deepEqual(copied.checks, {});
+  const pending = (await api('reservations')).items.find(it => it.ref === created.ref);
+  assert.equal(pending.kind, 'pending');
+  assert.equal(pending.date, newDate);
+  assert.equal(pending.amount, 830000);
+  assert.deepEqual(await api('inquiries/MS-TEST'), original, '원본 상태·예약·견적·변경 기록 보존');
+});

@@ -261,7 +261,7 @@
       +(tel?'<a class="btn btn-light btn-sm" href="tel:'+esc(tel)+'">전화</a><a class="btn btn-light btn-sm" href="sms:'+esc(tel)+'">문자</a>':'')
       +((d.email||it.email)?'<a class="btn btn-light btn-sm" href="mailto:'+esc(d.email||it.email)+'?subject='+encodeURIComponent('[메가스팟 건대] 문의 '+it.ref+' 안내')+'">이메일</a>':'')
       +((it.status===DELETED||(cur.bookings||[]).some(function(b){ return b.status!=='cancelled'; }))?'':'<button class="btn btn-light btn-sm btn-ok" type="button" id="dr-book">예약 확정</button>')
-      +'<button class="btn btn-light btn-sm" type="button" id="dr-edit">내용 수정</button></div>'
+      +'<button class="btn btn-light btn-sm" type="button" id="dr-edit">내용 수정</button><button class="btn btn-light btn-sm" type="button" id="dr-copy">복사해서 새 문의 만들기</button></div>'
       +'<div class="dr-sec"><h3>고객</h3>'+kv('이름·소속',esc(d.name||it.name||''))+kv('연락처',esc(d.phone||it.phone||''))+kv('이메일',esc(d.email||it.email||''))+kv('선호 연락',esc({kakao:'카카오톡',phone:'전화',sms:'문자',email:'이메일'}[d.contact_pref]||d.contact_pref||''))+kv('회사·단체',esc(d.org||''))+'</div>'
       +(d.reserve?'<div class="notice" style="margin-bottom:12px"><div><b>홈페이지에서 금액을 확인하고 예약을 신청한 건입니다.</b>'+(d.total?' 고객이 본 예상 금액은 <b>'+esc(won(d.total))+'</b>'+(d.pkg?' ('+esc({day:'낮 패키지',allday:'올데이 패키지',allnight:'올나잇 패키지'}[d.pkg]||d.pkg)+')':'')+'입니다.':'')+' 일정이 비어 있으면 금액을 확인해 결제 방법을 안내하고, 입금·결제가 끝나면 \'예약 확정\'을 눌러 주세요.</div></div>':'')
       +'<div class="dr-sec"><h3>행사 조건</h3>'+kv('구분',d.reserve?'<b>예약 신청</b>':'문의')+kv('유형',esc(TYPE[d.inquiry_type]||'행사 대관'))+kv('목적',esc(PUR[d.purpose]||d.purpose||''))+kv('이용일',esc(d.date?kd(d.date):'')+(d.date_alt?' <small>(대체 '+esc(kd(d.date_alt))+')</small>':''))+kv('시간',esc(time))+kv('준비 입장·퇴장',esc([d.t_setup,d.t_out].filter(Boolean).join(' / ')))+kv('인원',esc(d.headcount?d.headcount+'명':''))+kv('배치',esc(d.layout||''))+kv('필요한 것',esc(needs))+kv('음식·연출',esc(d.food_fx||''))+kv('예산',esc(d.budget||''))+kv('반복 일정',esc([d.repeat_cycle,d.repeat_period,d.repeat_days].filter(Boolean).join(' · ')))+kv('서류',esc((d.docs||[]).join(', ')))+kv('제휴 형태',esc(d.partner_kind||''))+kv('선택 옵션',esc(optText(d.options)))
@@ -294,6 +294,7 @@
     var db=$('#dr-book'); if(db) db.addEventListener('click', function(){ openConfirm(confirmFromInquiry()); });
     var wg=$('#dr-wait-go'); if(wg) wg.addEventListener('click', function(){ var dt=cur.wait.date; closeDrawer($('#adm-drawer')); go('resv'); if($('#rs-from').value>dt || ($('#rs-to').value && $('#rs-to').value<dt)){ setRange('upcoming'); loadResv(); } });
     $('#dr-edit').addEventListener('click', function(){ openEdit(cur.item); });
+    $('#dr-copy').addEventListener('click', function(){ openEdit(copyInquiryDraft(cur.item, (cur.quotes||[])[0]), true); });
     var dDel=$('#dr-del'); if(dDel) dDel.addEventListener('click', function(){
       var nm=d.name||it.name||'';
       if(!confirm('문의 '+it.ref+(nm?' ('+nm+')':'')+'을(를) 삭제할까요?\n\n삭제한 문의는 지워지지 않고 \'삭제된 문의\' 보관함으로 옮겨지며, 언제든 복원할 수 있습니다.')) return;
@@ -376,19 +377,37 @@
   }
   function nwHint(){ var h=$('#nw-total-hint'); if(!h) return; h.textContent=NW.last?'요금표 계산 금액: '+won(NW.last.total):''; }
   function nwSyncMode(){ var m=nwMode(); $('#nw-auto').hidden=m!=='auto'; $('#nw-manual').hidden=m!=='manual'; if(m==='manual' && !$('#nw-total').value && NW.last){ $('#nw-total').value=NW.last.total; } }
-  function nwModeUi(edit){
+  function nwModeUi(edit, copy){
     NW.edit=edit||null;
+    NW.copy=copy||null;
+    $('#nw-date').required=!!copy;
+    $('label[for="nw-date"]').innerHTML=copy?'이용일 <span class="req">*</span>':'이용일';
     $('#nw-title').textContent=edit?'문의 수정 · '+edit:'문의 직접 등록';
     $('#nw-intro').textContent=edit?'고객 정보·행사 조건·금액을 고칩니다. 고객이 처음 보낸 원문은 그대로 남고, 무엇을 고쳤는지는 변경 기록에 남습니다.':'카카오톡·전화·이메일·방문으로 받은 문의도 여기에 등록해 두면 홈페이지 문의와 같은 목록에서 견적·예약까지 관리할 수 있습니다.';
     $('#nw-submit').textContent=edit?'수정 저장':'등록';
+    if(copy){
+      $('#nw-title').textContent='문의 복사 · '+copy;
+      $('#nw-intro').textContent='고객 정보·시간·인원·목적·옵션·운영 메모·현재 금액을 복사했습니다. 새 이용일을 선택하면 별도 문의 접수로 등록되어 해당 날짜의 예약 대기 목록에 들어갑니다. 날짜별 요금이 달라지면 요금표로 자동 계산을 선택해 주세요.';
+      $('#nw-submit').textContent='복사본 대기 등록';
+    }
   }
   $('#nw-ch').innerHTML=chOptions('', '경로 선택'); $('#nw-ch').required=true;
   function nwChSync(){ var ch=$('#nw-ch').value, n=$('#nw-ch-note'); n.hidden=!(ch==='other'||ch==='sns'); n.required=false; n.placeholder=ch==='other'?'기타 경로 (선택, 예: 지인 소개, 현수막)':'세부 경로 (예: 인스타그램, 블로그)'; if(n.hidden) n.value=''; }
   $('#nw-ch').addEventListener('change', nwChSync);
   function openNew(){ $('#nw-form').reset(); nwInit(); nwModeUi(null); nwChSync(); $('#nw-msg').hidden=true; nwSyncMode(); nwCalc(); openDrawer('#adm-new'); }
-  function openEdit(it){
+  function copyInquiryDraft(it, lastQ){
+    var d=it.data||{}, amount=currentAmount(it, lastQ), hours=SLOT_H[d.slot]||[];
+    return { ref:it.ref, name:it.name, phone:it.phone, email:it.email, headcount:it.headcount, memo:it.memo||'', data:{
+      channel:d.channel, channel_note:d.channel_note, inquiry_type:d.inquiry_type,
+      name:d.name, phone:d.phone, email:d.email, date:'',
+      start_h:d.start_h!=null?d.start_h:hours[0], end_h:d.end_h!=null?d.end_h:hours[1], t_start:d.t_start, t_end:d.t_end,
+      headcount:d.headcount, purpose:d.purpose, regular:d.regular, options:JSON.parse(JSON.stringify(d.options||{})),
+      total:amount==null?null:amount, amount_mode:amount==null?'none':'manual', amount_note:d.amount_note||'', message:d.message||''
+    } };
+  }
+  function openEdit(it, copy){
     var d=it.data||{}, f=$('#nw-form');
-    f.reset(); nwInit(); nwModeUi(it.ref); $('#nw-msg').hidden=true;
+    f.reset(); nwInit(); nwModeUi(copy?null:it.ref, copy?it.ref:null); $('#nw-msg').hidden=true;
     f.channel.value=CH[d.channel]&&d.channel!=='online'?d.channel:'web'; f.channel_note.value=d.channel_note||''; nwChSync(); f.channel_note.value=d.channel_note||''; f.inquiry_type.value=TYPE[d.inquiry_type]?d.inquiry_type:'event';
     f.name.value=d.name||it.name||''; f.phone.value=d.phone||it.phone||''; f.email.value=d.email||it.email||'';
     f.date.value=d.date||it.event_date||'';
@@ -407,7 +426,7 @@
     f.querySelector('input[name=amount_mode][value='+mode+']').checked=true;
     if(mode==='manual'){ f.total.value=d.total; f.amount_note.value=d.amount_note||''; }
     f.message.value=d.message||''; f.memo.value=it.memo||'';
-    nwCalc(); nwSyncMode(); openDrawer('#adm-new'); setTimeout(function(){ f.name.focus(); }, 50);
+    nwCalc(); nwSyncMode(); openDrawer('#adm-new'); setTimeout(function(){ (copy?f.date:f.name).focus(); }, 50);
   }
   $('#nw-form').addEventListener('change', function(e){ if(e.target.name==='amount_mode'){ nwSyncMode(); return; } if(e.target.name==='total'||e.target.name==='amount_note') return; nwCalc(); });
   $('#nw-form').addEventListener('input', function(e){ if(e.target.name==='headcount'||e.target.dataset.nwmgr) nwCalc(); });
@@ -417,6 +436,7 @@
     e.preventDefault(); var f=e.target; if(!M.validate(f)) return; var d=M.formData(f), m=nwMode();
     d.regular=!!(f.regular && f.regular.checked); d.options=nwOptions(); delete d.manager;
     var edit=NW.edit;
+    if(NW.copy) d.status='문의 접수';
     if(m==='auto'){ if(NW.last){ d.total=NW.last.total; d.pkg=NW.last.pkg?NW.last.pkg.id:''; d.estimate=E.summaryText(NW.last, PUR[d.purpose]||''); d.amount_mode='auto'; } else { delete d.total; d.amount_mode=edit?'keep':''; } }
     else if(m==='manual'){ if(d.total===''||d.total==null){ note($('#nw-msg'),'금액을 입력하거나 \'나중에 정하기\'를 골라 주세요.'); $('#nw-total').focus(); return; } d.amount_mode='manual'; if(NW.last && !edit){ d.pkg=NW.last.pkg?NW.last.pkg.id:''; d.estimate=E.summaryText(NW.last, PUR[d.purpose]||''); } }
     else { delete d.total; d.amount_mode=edit?'none':''; }
