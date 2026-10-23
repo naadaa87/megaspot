@@ -32,13 +32,13 @@ function fixture({ status = '예약 확정', booking = true, amount = 500000, qu
       catch (e) { db.exec('ROLLBACK'); throw e; }
     }
   } };
-  async function api(path, method = 'GET', body) {
+  async function api(path, method = 'GET', body, expectedStatus = 200) {
     const response = await onRequest({ env, params: { path: path.split('?')[0].split('/') }, request: new Request('https://megaspot.test/api/admin/' + path, {
       method, headers: { 'x-admin-key': env.ADMIN_KEY, origin: 'https://megaspot.test', 'content-type': 'application/json' },
       ...(body === undefined ? {} : { body: JSON.stringify(body) })
     }) });
     const result = await response.json();
-    assert.equal(response.status, 200, JSON.stringify(result));
+    assert.equal(response.status, expectedStatus, JSON.stringify(result));
     return result;
   }
   return { db, api };
@@ -251,4 +251,51 @@ test('다른 날짜로 복사 등록하면 원본 예약·견적을 보존하고
   assert.equal(pending.date, newDate);
   assert.equal(pending.amount, 830000);
   assert.deepEqual(await api('inquiries/MS-TEST'), original, '원본 상태·예약·견적·변경 기록 보존');
+});
+
+test('대기 취소는 기록·견적·금액을 보존하고 순번·현재 대기 집계에서 제외', async t => {
+  const { db, api } = fixture({ status: '견적 발송', booking: false }); t.after(() => db.close());
+  await api('inquiries/MS-TEST', 'PATCH', { memo: '보존할 운영 메모', total: 700000 });
+  await api('inquiries/MS-TEST/wait-cancel', 'POST');
+  const cancelled = await api('inquiries/MS-TEST');
+  assert.equal(cancelled.item.status, '대기 취소');
+  assert.equal(cancelled.item.memo, '보존할 운영 메모');
+  assert.equal(cancelled.item.effective_amount, 700000);
+  assert.equal(cancelled.quotes.length, 1);
+  assert.equal(cancelled.wait, null);
+  assert.equal((await api('inquiries?status=open')).items.length, 0);
+  const records = (await api('reservations')).items;
+  assert.equal(records[0].status, '대기 취소');
+  assert.equal(records[0].amount, 700000);
+  assert.equal((await api('dashboard')).month.quoted_amount, 0);
+  await api('inquiries/MS-TEST/confirm', 'POST', { date, amount: 700000 }, 409);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM bookings').get().n, 0);
+  const other = await api('inquiries', 'POST', { name: '다른 대기', date });
+  await api('inquiries/MS-TEST/wait-restore', 'POST');
+  const restored = await api('inquiries/MS-TEST');
+  assert.equal(restored.item.status, '견적 발송');
+  assert.equal(restored.wait.no, 2, '복원하면 신규 대기 뒤로 이동');
+  assert.equal((await api('inquiries/' + other.ref)).wait.no, 1);
+});
+test('확정 예약이 연결된 문의는 대기 취소로 바꾸지 않음', async t => {
+  const { db, api } = fixture(); t.after(() => db.close());
+  await api('inquiries/MS-TEST/wait-cancel', 'POST', {}, 409);
+  await api('inquiries/MS-TEST/wait-restore', 'POST', {}, 409);
+  assert.equal((await api('inquiries/MS-TEST')).item.status, '예약 확정');
+  assert.equal(db.prepare('SELECT status FROM bookings').get().status, 'confirmed');
+});
+test('대기 취소 행은 회색 기록·복원 버튼만 표시하고 집계·순번에서 제외', () => {
+  const active = {kind:'pending',ref:'MS-A',date,name:'대기',status:'문의 접수'};
+  const cancelled = {kind:'pending',ref:'MS-B',date,name:'취소',status:'대기 취소',amount:500000};
+  const context = vm.createContext({ RS:{items:[active,cancelled]}, BST:{}, ST_CLS:{'대기 취소':'st-cancel'}, esc:String, famAsk:()=>'', PUR:{}, SRC:{}, resvTime:()=>'', resvHours:()=>'', waitDraggable:()=>true, won:String, chTag:()=>'' });
+  vm.runInContext(source.slice(source.indexOf('  function waitCmp('),source.indexOf('  function drawResv(')) + '\n'
+    + source.slice(source.indexOf('  function resvRow('),source.indexOf("  $('#rs-ch').innerHTML")), context);
+  context.waitOrder();
+  assert.equal(active._waitN,1);
+  assert.equal(cancelled._wait,undefined);
+  assert.equal(context.dayStats([active,cancelled])[date].pend,1);
+  const html=context.resvRow(cancelled,{bk:0},false);
+  assert.match(html,/wait-cancelled/);
+  assert.match(html,/data-waitact="restore"/);
+  assert.doesNotMatch(html,/data-rsconfirm=|rs-grip|data-waitact="cancel"/);
 });

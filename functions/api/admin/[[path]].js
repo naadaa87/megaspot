@@ -19,12 +19,12 @@ const SETTINGS = {
     } }
 };
 function settingsValue(key, raw) { const S = SETTINGS[key]; let v = {}; try { v = raw ? JSON.parse(raw) : {}; } catch {} return S.clean({ ...S.defaults, ...v, codes: { ...S.defaults.codes, ...(v.codes || {}) } }, S.defaults); }
-const STATUSES = ['문의 접수', '조건 확인', '견적 발송', '결제 대기', '예약 확정', '이용 완료', '취소·환불'];
+const STATUSES = ['문의 접수', '조건 확인', '견적 발송', '결제 대기', '예약 확정', '이용 완료', '취소·환불', '대기 취소'];
 // 삭제한 문의는 지우지 않고 이 상태로 보관합니다(고객 DB 관리용). 목록·집계에서는 빠지고 '삭제된 문의'에서만 보입니다.
 const DELETED = '삭제됨';
 // 예약 대기(같은 날 아직 확정되지 않은 예약 문의) — 대기 순번은 data.wait_rank, 없으면 문의가 들어온 순서
 const PENDING = "('문의 접수', '조건 확인', '견적 발송', '결제 대기')";
-const WAIT_ORDER = "CASE WHEN json_extract(i.data, '$.wait_rank') IS NULL THEN 1 ELSE 0 END, CAST(json_extract(i.data, '$.wait_rank') AS INTEGER), i.created_at, i.ref";
+const WAIT_ORDER = "CASE WHEN json_extract(i.data, '$.wait_rank') IS NULL THEN 1 ELSE 0 END, CAST(json_extract(i.data, '$.wait_rank') AS INTEGER), COALESCE(json_extract(i.data, '$.wait_restored_at'), i.created_at), i.ref";
 async function waitList(env, date) {
   const { results } = await env.DB.prepare(`SELECT i.ref FROM inquiries i WHERE i.status IN ${PENDING} AND i.event_date = ?
     AND NOT EXISTS (SELECT 1 FROM bookings b2 WHERE b2.inquiry_ref = i.ref AND b2.status <> 'cancelled') ORDER BY ${WAIT_ORDER}`).bind(date).all();
@@ -271,6 +271,23 @@ export async function onRequest({ request, env, params }) {
       if (!r.ok) return err(r.reason, r.code === 'NOT_FOUND' ? 404 : 409, r.code);
       return json({ ok: true, ref: r.ref, status: r.status || '' });
     }
+    const mWait = path.match(/^inquiries\/([A-Z0-9-]+)\/wait-(cancel|restore)$/);
+    if (mWait && method === 'POST') {
+      const ref = mWait[1], cancel = mWait[2] === 'cancel';
+      const row = await env.DB.prepare('SELECT status, data FROM inquiries WHERE ref = ?').bind(ref).first();
+      if (!row) return err('문의를 찾을 수 없습니다.', 404, 'NOT_FOUND');
+      if (cancel ? !OPEN.includes(row.status) : row.status !== '대기 취소') return err('현재 상태에서는 대기를 변경할 수 없습니다.', 409, 'WAIT_STATUS');
+      const active = await env.DB.prepare("SELECT booking_code FROM bookings WHERE inquiry_ref = ? AND status <> 'cancelled' LIMIT 1").bind(ref).first();
+      if (active) return err('확정된 예약은 예약 취소 기능을 이용해 주세요.', 409, 'HAS_BOOKING');
+      const data = safe(row.data), t = now(), status = cancel ? '대기 취소' : (OPEN.includes(data.wait_cancelled_from) ? data.wait_cancelled_from : '문의 접수');
+      delete data.wait_rank; delete data.wait_rank_at;
+      if (cancel) { data.wait_cancelled_from = row.status; data.wait_cancelled_at = t; }
+      else { delete data.wait_cancelled_from; delete data.wait_cancelled_at; data.wait_restored_at = t; }
+      const result = await env.DB.prepare("UPDATE inquiries SET status = ?, data = ?, updated_at = ? WHERE ref = ? AND status = ? AND NOT EXISTS (SELECT 1 FROM bookings WHERE inquiry_ref = ? AND status <> 'cancelled')").bind(status, JSON.stringify(data), t, ref, row.status, ref).run();
+      if ((result.meta?.changes ?? result.changes) === 0) return err('상태가 변경되었습니다. 새로고침 후 다시 시도해 주세요.', 409, 'WAIT_STATUS');
+      await log(env, cancel ? 'waitlist.cancelled' : 'waitlist.restored', ref, 'admin', { from: row.status, status });
+      return json({ ok: true, ref, status });
+    }
     const mInq = path.match(/^inquiries\/([A-Z0-9-]+)$/);
     if (mInq && method === 'DELETE') {
       const r = await deleteInquiry(env, mInq[1]);
@@ -324,6 +341,7 @@ export async function onRequest({ request, env, params }) {
         await log(env, 'inquiry.edited', ref, 'admin', { changed });
         return json({ ok: true, changed });
       }
+      if (d.status === '대기 취소') return err('일자별 예약의 대기 취소 버튼을 이용해 주세요.');
       if (d.status !== undefined) { if (!STATUSES.includes(d.status)) return err('상태 값이 올바르지 않습니다.'); sets.push('status = ?'); b.push(d.status); }
       if (d.memo !== undefined) { sets.push('memo = ?'); b.push(str(d.memo, 2000)); }
       const jp = [], jb = [];   // data(JSON) 안의 값은 json_set 하나로 모아 바꿉니다(같은 칸을 두 번 SET 하면 앞의 것이 무시됨)
@@ -374,7 +392,7 @@ export async function onRequest({ request, env, params }) {
       const where = "date(created_at, '+9 hours') BETWEEN ? AND ? AND status <> '삭제됨'";
       const { results } = await env.DB.prepare(`SELECT COALESCE(json_extract(data, '$.channel'), 'web') AS ch, COUNT(*) AS n,
           SUM(CASE WHEN status IN ('예약 확정', '이용 완료') THEN 1 ELSE 0 END) AS won,
-          SUM(CASE WHEN status = '취소·환불' THEN 1 ELSE 0 END) AS lost
+          SUM(CASE WHEN status IN ('취소·환불', '대기 취소') THEN 1 ELSE 0 END) AS lost
         FROM inquiries WHERE ${where} GROUP BY ch`).bind(f, t).all();
       const { results: notes } = await env.DB.prepare(`SELECT COALESCE(json_extract(data, '$.channel'), 'web') AS ch, json_extract(data, '$.channel_note') AS note, COUNT(*) AS n
         FROM inquiries WHERE ${where} AND COALESCE(json_extract(data, '$.channel_note'), '') <> '' GROUP BY ch, note ORDER BY n DESC LIMIT 60`).bind(f, t).all();
@@ -393,6 +411,7 @@ export async function onRequest({ request, env, params }) {
       const ref = mCf[1], d = await readJson(request);
       const row = await env.DB.prepare('SELECT ref, space_id, status, name, phone, event_date, headcount, data FROM inquiries WHERE ref = ?').bind(ref).first();
       if (!row) return err('문의를 찾을 수 없습니다.', 404, 'NOT_FOUND');
+      if (row.status === '대기 취소') return err('대기 취소된 문의입니다. 대기를 복원한 뒤 확정해 주세요.', 409, 'WAIT_CANCELLED');
       if (row.status === DELETED) return err('삭제된 문의입니다. 먼저 복원한 뒤 예약을 확정해 주세요.', 409, 'DELETED');
       const data = safe(row.data);
       const active = await env.DB.prepare("SELECT booking_code FROM bookings WHERE inquiry_ref = ? AND status <> 'cancelled' LIMIT 1").bind(ref).first();
@@ -481,8 +500,8 @@ export async function onRequest({ request, env, params }) {
       const iqQ = "(SELECT q.total FROM quotes q WHERE q.inquiry_ref = i.ref ORDER BY q.id DESC LIMIT 1)";
       const { results: pend } = await env.DB.prepare(`SELECT i.ref, i.status, i.name, i.phone, i.event_date, i.headcount, i.memo, i.created_at, ${iqQ} AS quote_total, ${inquiryAmountSql()} AS effective_amount, ${amountOverrideSql()} AS amount_override,
           json_extract(i.data, '$.total') AS inq_total, json_extract(i.data, '$.start_h') AS start_h, json_extract(i.data, '$.end_h') AS end_h, json_extract(i.data, '$.t_start') AS t_start, json_extract(i.data, '$.t_end') AS t_end,
-          json_extract(i.data, '$.slot') AS slot, json_extract(i.data, '$.reserve') AS reserve, json_extract(i.data, '$.purpose') AS purpose, json_extract(i.data, '$.channel') AS channel, json_extract(i.data, '$.channel_note') AS channel_note, json_extract(i.data, '$.inquiry_type') AS inquiry_type, json_extract(i.data, '$.family') AS family, json_extract(i.data, '$.wait_rank') AS wait_rank
-        FROM inquiries i WHERE i.status IN ('문의 접수', '조건 확인', '견적 발송', '결제 대기') AND i.event_date BETWEEN ? AND ?
+          json_extract(i.data, '$.slot') AS slot, json_extract(i.data, '$.reserve') AS reserve, json_extract(i.data, '$.purpose') AS purpose, json_extract(i.data, '$.channel') AS channel, json_extract(i.data, '$.channel_note') AS channel_note, json_extract(i.data, '$.inquiry_type') AS inquiry_type, json_extract(i.data, '$.family') AS family, json_extract(i.data, '$.wait_rank') AS wait_rank, json_extract(i.data, '$.wait_restored_at') AS wait_restored_at
+        FROM inquiries i WHERE i.status IN ('문의 접수', '조건 확인', '견적 발송', '결제 대기', '대기 취소') AND i.event_date BETWEEN ? AND ?
           AND NOT EXISTS (SELECT 1 FROM bookings b2 WHERE b2.inquiry_ref = i.ref AND b2.status <> 'cancelled')
         ORDER BY i.event_date ASC LIMIT 1000`).bind(f, t).all();
       const items = [];
@@ -492,7 +511,7 @@ export async function onRequest({ request, env, params }) {
         amount: b.effective_amount,
         confirm_issued: b.confirm_issued || '', amount_src: b.amount_override ? 'adjusted' : (b.amount != null ? 'booking' : (b.order_price != null && b.order_status !== 'failed' ? 'order' : (b.quote_total != null ? 'quote' : (b.inq_total != null ? 'estimate' : '')))), order: b.order_oid || '' });
       for (const p of pend || []) items.push({ family: jarr(p.family), kind: 'pending', code: '', ref: p.ref, name: p.name, phone: p.phone, date: p.event_date, slot: p.slot, start_h: p.start_h ?? null, end_h: p.end_h ?? null,
-        t_start: p.t_start || '', t_end: p.t_end || '', headcount: p.headcount, memo: p.memo || '', status: p.status, reserve: !!p.reserve, purpose: p.purpose || '', channel: p.channel || 'web', channel_note: p.channel_note || '', inquiry_type: p.inquiry_type || 'event', wait_rank: p.wait_rank == null ? null : Number(p.wait_rank), created_at: p.created_at,
+        t_start: p.t_start || '', t_end: p.t_end || '', headcount: p.headcount, memo: p.memo || '', status: p.status, reserve: !!p.reserve, purpose: p.purpose || '', channel: p.channel || 'web', channel_note: p.channel_note || '', inquiry_type: p.inquiry_type || 'event', wait_rank: p.wait_rank == null ? null : Number(p.wait_rank), created_at: p.created_at, wait_restored_at: p.wait_restored_at || '',
         amount: p.effective_amount, amount_src: p.amount_override ? 'adjusted' : (p.quote_total != null ? 'quote' : (p.inq_total != null ? 'estimate' : '')) });
       items.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : ((a.start_h ?? 99) - (b.start_h ?? 99)));
       const und = await env.DB.prepare("SELECT COUNT(*) AS n FROM inquiries WHERE status IN ('문의 접수', '조건 확인', '견적 발송', '결제 대기') AND (event_date IS NULL OR event_date = '')").first();

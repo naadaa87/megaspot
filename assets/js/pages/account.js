@@ -75,7 +75,7 @@
       $('#mp-email').value=m.email; $('#mp-name').value=m.name; $('#mp-phone').value=m.phone; $('#mp-org').value=m.org; $('#mp-mkt').checked=!!m.agree_marketing;
     }
     function steps(st){
-      if(st==='취소·환불') return '<div class="my-steps"><span class="cancel">취소·환불</span></div>';
+      if(st==='취소·환불'||st==='대기 취소') return '<div class="my-steps"><span class="cancel">'+esc(st)+'</span></div>';
       var at=STEPS.indexOf(st);
       return '<ol class="my-steps">'+STEPS.map(function(s,i){ return '<li class="'+(i<at?'done':i===at?'now':'')+'">'+s+'</li>'; }).join('')+'</ol>';
     }

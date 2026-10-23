@@ -38,7 +38,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Black+Han+Sans&display=swap">
-<link rel="stylesheet" href="/assets/css/site.css?v=2026102303">
+<link rel="stylesheet" href="/assets/css/site.css?v=2026102305">
 <meta name="theme-color" content="#F1EFEB">
 
 </head>
@@ -99,7 +99,7 @@
     <!-- 문의 관리 -->
     <!-- 예약 목록 -->
     <section class="adm-view" id="view-resv" hidden>
-      <header class="adm-head"><div><h1>일자별 예약 · 문의</h1><p class="small muted">날짜마다 <b>예약 확정</b>과 아직 정해지지 않은 <b>예약 문의(후보)</b>를 나눠 봅니다. 후보 줄의 <b>확정</b>을 누르면 예약이 바로 확정되고 달력도 마감됩니다. 줄을 누르면 문의 상세가 열립니다.</p></div>
+      <header class="adm-head"><div><h1>일자별 예약 · 문의</h1><p class="small muted">날짜마다 <b>예약 확정</b>과 아직 정해지지 않은 <b>예약 문의(후보)</b>를 나눠 봅니다. 후보 줄의 <b>확정</b>을 누르면 예약이 바로 확정되고 달력도 마감됩니다. 대기 취소 건은 회색으로 남고 대기 인원·순번에서 제외됩니다. 줄을 누르면 문의 상세가 열립니다.</p></div>
         <div class="row" style="gap:6px"><button class="btn btn-light btn-sm" type="button" id="rs-csv">CSV 내려받기</button><button class="btn btn-light btn-sm" type="button" id="rs-print">인쇄</button><button class="btn btn-light btn-sm" type="button" id="rs-reload">새로고침</button></div></header>
       <div class="rs-bar">
         <div class="rs-range" role="group" aria-label="기간">
@@ -110,7 +110,7 @@
       <div class="adm-filters rs-filters">
         <div class="rs-tabs" id="rs-tabs" role="tablist" aria-label="구분"><button type="button" role="tab" data-kind="all" aria-selected="true">전체 <em data-kc="all">0</em></button><button type="button" role="tab" data-kind="booking" aria-selected="false">예약 확정 <em data-kc="booking">0</em></button><button type="button" role="tab" data-kind="pending" aria-selected="false">예약 문의 (미정) <em data-kc="pending">0</em></button></div>
         <select class="select" id="rs-ch" aria-label="문의 경로"><option value="">모든 경로</option></select>
-        <select class="select" id="rs-status" aria-label="상태"><option value="active">취소 제외</option><option value="">취소 포함 전체</option><option value="confirmed">예약 확정</option><option value="completed">이용 완료</option><option value="cancelled">취소만</option></select>
+        <select class="select" id="rs-status" aria-label="상태"><option value="">전체 · 취소 기록 포함</option><option value="active">취소 제외</option><option value="confirmed">예약 확정</option><option value="completed">이용 완료</option><option value="cancelled">취소만</option></select>
         <input class="input" id="rs-q" placeholder="이름·연락처·예약번호·문의번호" aria-label="검색">
       </div>
       <div class="rs-kpis" id="rs-kpis"></div>
@@ -120,7 +120,7 @@
     <section class="adm-view" id="view-inq" hidden>
       <header class="adm-head"><div><h1>문의 관리</h1><p class="small muted">줄을 누르면 상세 내용·체크리스트·견적·메모를 보고 수정·삭제할 수 있습니다. 왼쪽 칸을 체크하면 문의를 복사하거나 여러 건을 한 번에 삭제할 수 있고, 삭제한 문의는 지워지지 않고 상태의 '삭제된 문의 (보관함)'에 남습니다.</p></div><div class="row" style="gap:8px"><button class="btn btn-primary btn-sm" type="button" data-go="inq-new">+ 문의 직접 등록</button><button class="btn btn-light btn-sm" type="button" id="inq-csv">CSV 내려받기</button></div></header>
       <div class="adm-filters">
-        <select class="select" id="inq-status"><option value="open">진행 중 (접수~결제 대기)</option><option value="">전체 (삭제 제외)</option><option>문의 접수</option><option>조건 확인</option><option>견적 발송</option><option>결제 대기</option><option>예약 확정</option><option>이용 완료</option><option>취소·환불</option><option value="deleted">삭제된 문의 (보관함)</option></select>
+        <select class="select" id="inq-status"><option value="open">진행 중 (접수~결제 대기)</option><option value="">전체 (삭제 제외)</option><option>문의 접수</option><option>조건 확인</option><option>견적 발송</option><option>결제 대기</option><option>예약 확정</option><option>이용 완료</option><option>취소·환불</option><option>대기 취소</option><option value="deleted">삭제된 문의 (보관함)</option></select>
         <select class="select" id="inq-type"><option value="">모든 유형</option><option value="event">행사 대관</option><option value="regular">정기·반복 모임</option><option value="partner">제휴·협력</option></select>
         <select class="select" id="inq-ch" aria-label="문의 경로"><option value="">모든 경로</option></select>
         <input class="input" id="inq-q" placeholder="이름·연락처·이메일·문의번호">
@@ -427,13 +427,13 @@
 </div><!-- /admin-root -->
 <div id="quote-print" aria-hidden="true"></div>
 <script src="/assets/js/site.js?v=202610221107"></script>
-<script src="/assets/js/data/spaces.js?v=202610221107"></script>
+<script src="/assets/js/data/spaces.js?v=2026102305"></script>
 <script src="/assets/js/data/holidays-kr.js?v=202610221107"></script>
 <script src="/assets/js/data/pricing-gundae.js?v=202610221107"></script>
 <script src="/assets/js/pricing-engine.js?v=202610221107"></script>
 <script src="/assets/js/data/catering.js?v=202610221107"></script>
 <script src="/assets/js/catering-calc.js?v=202610221107"></script>
-<script src="/assets/js/confirm-doc.js?v=202610221107"></script>
-<script src="/assets/js/pages/admin.js?v=2026102304"></script>
+<script src="/assets/js/confirm-doc.js?v=2026102305"></script>
+<script src="/assets/js/pages/admin.js?v=2026102305"></script>
 </body>
 </html>

@@ -2071,3 +2071,8 @@ body.rs-dragging,body.rs-dragging *{user-select:none;-webkit-user-select:none;cu
 .cfd-info > div:last-child{border-bottom:0}
 @media (max-width:560px){.cfd-acts{display:grid;grid-template-columns:repeat(3,1fr);width:100%}.cfd-acts .btn{padding:0 8px}}
 @media (max-width:959px){.cdoc-side{order:-1}.cdoc-preview canvas{max-width:420px}}
+
+/* 대기 취소 기록은 읽을 수 있는 회색 행으로 보존 */
+.rs-day .rs-row.wait-cancelled td{background:var(--concrete-3);color:var(--ink-3);text-decoration:none}
+.rs-day .rs-row.wait-cancelled td:not(.rs-acts){opacity:.65}
+.kind-cancel{background:var(--concrete-2);color:var(--ink-2)}
