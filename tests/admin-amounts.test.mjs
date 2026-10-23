@@ -299,3 +299,31 @@ test('대기 취소 행은 회색 기록·복원 버튼만 표시하고 집계·
   assert.match(html,/data-waitact="restore"/);
   assert.doesNotMatch(html,/data-rsconfirm=|rs-grip|data-waitact="cancel"/);
 });
+
+for (const [start,end] of [[0,1],[3,8],[18,40],[23,47]]) {
+  test(`24시간 선택: 문의 등록·수정·확정·목록·확정서에서 ${start}~${end}시 보존`, async t => {
+    const {db,api}=fixture({status:'문의 접수',booking:false}); t.after(()=>db.close());
+    const created=await api('inquiries','POST',{name:'시간 테스트',phone:'010-1234-5678',date,start_h:start,end_h:end,total:500000});
+    assert.equal((await api('inquiries/'+created.ref)).item.data.start_h,start);
+    await api('inquiries/MS-TEST','PATCH',{edit:true,name:'테스트',phone:'010-1234-5678',date,start_h:start,end_h:end,amount_mode:'keep'});
+    const edited=(await api('inquiries/MS-TEST')).item;
+    assert.equal(edited.data.start_h,start); assert.equal(edited.data.end_h,end);
+    await api('inquiries/MS-TEST/confirm','POST',{date,start_h:start,end_h:end,amount:500000});
+    const booking=(await api('bookings')).items[0];
+    assert.equal(booking.start_h,start); assert.equal(booking.end_h,end);
+    const detail=(await api('inquiries/MS-TEST')).item;
+    assert.equal(detail.data.start_h,start); assert.equal(detail.data.end_h,end);
+    const doc=(await api('bookings/'+booking.booking_code+'/confirm-doc')).booking;
+    assert.equal(doc.start_h,start); assert.equal(doc.end_h,end);
+  });
+}
+test('전날 시작해 익일 오후에 끝나는 예약과 다음 날짜 예약의 겹침 확인', async t=>{
+  const {db,api}=fixture();t.after(()=>db.close());
+  db.prepare('UPDATE bookings SET start_h=18,end_h=40').run();
+  const next=new Date(Date.parse(date+'T00:00:00Z')+86400000).toISOString().slice(0,10);
+  const pending=await api('inquiries','POST',{name:'다음 날',phone:'010-1234-5678',date:next,start_h:8,end_h:12});
+  const conflict=await api('inquiries/'+pending.ref+'/confirm','POST',{date:next,start_h:8,end_h:12,amount:100000},409);
+  assert.equal(conflict.code,'DATE_HAS_BOOKING');
+  await api('inquiries/'+pending.ref+'/confirm','POST',{date:next,start_h:16,end_h:18,amount:100000});
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM bookings').get().n,2);
+});

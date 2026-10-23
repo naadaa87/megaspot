@@ -3,6 +3,7 @@
   'use strict';
   var M=window.MEGASPOT, $=M.$, $$=M.$$, esc=M.esc, E=window.MEGASPOT_PRICE, D=E&&E.data();
   function A(path, opts){ return M.api('/admin'+path, opts||{}); }
+  var ADMIN_HOURS={from:0,to:47}; // 이용일 00시부터 익일 23시까지, 기존 심야 예약도 유지
   var STATUSES=['문의 접수','조건 확인','견적 발송','결제 대기','예약 확정','이용 완료','취소·환불','대기 취소'];
   var ST_CLS={'문의 접수':'st-new','조건 확인':'st-check','견적 발송':'st-quote','결제 대기':'st-pay','예약 확정':'st-ok','이용 완료':'st-done','취소·환불':'st-cancel','대기 취소':'st-cancel','삭제됨':'st-del'};
   var DELETED='삭제됨';   // 삭제한 문의는 지우지 않고 이 상태로 보관합니다 (문의 관리 → 상태 '삭제된 문의')
@@ -20,7 +21,7 @@
   });
   var TYPE={event:'행사 대관',regular:'정기·반복',partner:'제휴·협력'};
   var OPTL={manager:'현장 매니저',cleaning:'뒷정리·청소',disposable:'1회용 세트',banner:'현수막',xbanner:'X배너'};
-  function timeText(d,sep){ if(d.start_h&&d.end_h){ var hl=function(h){ return (h>=24?'다음 날 ':'')+('0'+(h%24)).slice(-2)+':00'; }; return hl(+d.start_h)+sep+hl(+d.end_h)+' ('+(d.end_h-d.start_h)+'시간)'; } return d.t_start&&d.t_end?d.t_start+sep+d.t_end:(SLOT[d.slot]||''); }
+  function timeText(d,sep){ if(d.start_h!=null && d.start_h!=='' && d.end_h!=null && d.end_h!==''){ var hl=function(h){ return (h>=24?'다음 날 ':'')+('0'+(h%24)).slice(-2)+':00'; }; return hl(+d.start_h)+sep+hl(+d.end_h)+' ('+(d.end_h-d.start_h)+'시간)'; } return d.t_start&&d.t_end?d.t_start+sep+d.t_end:(SLOT[d.slot]||''); }
   function optText(o){ if(!o||typeof o!=='object') return ''; return Object.keys(o).filter(function(k){ return o[k]; }).map(function(k){ var v=o[k]; return (OPTL[k]||k)+(v&&typeof v==='object'?' '+(v.count||1)+'명 × '+(v.hours||'')+'시간':''); }).join(', '); }
   // 문의 경로 (서버 CHANNELS 와 같은 순서). 기타는 channel_note 에 직접 입력한 내용을 함께 보여 줍니다.
   var CH_LIST=[['web','홈페이지'],['naver','네이버'],['spacecloud','스페이스클라우드'],['sns','SNS'],['kakao','카카오톡'],['phone','전화'],['email','이메일'],['visit','방문'],['other','기타 (직접 입력)']];
@@ -349,8 +350,8 @@
   function nwHourOpts(from,to,sel,blank){ var s=blank?'<option value="">'+blank+'</option>':''; for(var h=from;h<=to;h++) s+='<option value="'+h+'"'+(String(h)===String(sel)?' selected':'')+'>'+esc(E?E.hourLabel(h):h+':00')+'</option>'; return s; }
   function nwInit(){
     if(!E||!D) return;
-    $('#nw-start').innerHTML=nwHourOpts(D.openFrom, D.openTo-1, '', '미정');
-    $('#nw-end').innerHTML=nwHourOpts(D.openFrom+1, D.openTo, '', '미정');
+    $('#nw-start').innerHTML=nwHourOpts(ADMIN_HOURS.from, ADMIN_HOURS.to-1, '', '미정');
+    $('#nw-end').innerHTML=nwHourOpts(ADMIN_HOURS.from+1, ADMIN_HOURS.to, '', '미정');
     $('#nw-pkgs').innerHTML=D.packages.map(function(p){ return '<button type="button" class="chip" data-nwpkg="'+p.id+'">'+esc(p.label)+' '+esc(p.time)+'</button>'; }).join('');
     $('#nw-opts').innerHTML='<label class="chk"><input type="checkbox" name="regular"> 4회 이상 정기 이용 <small>별도 할인 안내</small></label>'+D.options.map(function(o){
       if(o.per==='manager') return '<div class="q-opt"><label class="chk"><input type="checkbox" data-nwopt="manager"> '+esc(o.label)+' <small>'+esc(won(o.price))+'/'+esc(o.unit)+'</small></label><span class="q-mini">인원 <input class="input" type="number" min="1" max="10" data-nwmgr="count" value="1"> 시간 <input class="input" type="number" min="1" max="24" data-nwmgr="hours" value="4"></span></div>';
@@ -364,12 +365,12 @@
     if(!E||!D) return;
     var f=$('#nw-form'), date=f.date.value, sh=f.start_h.value, eh=f.end_h.value, box=$('#nw-auto');
     // 시작을 고르면 종료 목록을 시작 뒤로 맞춥니다
-    if(sh){ var cur=eh; $('#nw-end').innerHTML=nwHourOpts(+sh+1, D.openTo, cur && +cur>+sh ? cur : '', '미정'); eh=$('#nw-end').value; }
+    if(sh){ var cur=eh; $('#nw-end').innerHTML=nwHourOpts(+sh+1, ADMIN_HOURS.to, cur && +cur>+sh ? cur : '', '미정'); eh=$('#nw-end').value; }
     $$('#nw-pkgs [data-nwpkg]').forEach(function(b){ var p=E.findPkg(b.dataset.nwpkg); b.classList.toggle('on', !!sh && +sh===p.start && +eh===p.end); });
     NW.last=null;
     if(!date || !sh || !eh){ box.innerHTML='<div class="nw-auto-empty small muted">이용일과 시작·종료 시간을 고르면 요금표(성수기 포함)로 바로 계산합니다.</div>'; nwHint(); return; }
     var people=Math.max(1, Math.min(D.people.max, parseInt(f.headcount.value,10)||D.people.base));
-    var q=E.quote({ date:date, start:+sh, end:+eh, people:people, purpose:f.purpose.value, regular:f.regular?f.regular.checked:false, options:nwOptions() }); if(!q){ box.innerHTML=''; return; }
+    var q=E.quote({ adminHours:true, date:date, start:+sh, end:+eh, people:people, purpose:f.purpose.value, regular:f.regular?f.regular.checked:false, options:nwOptions() }); if(!q){ box.innerHTML=''; return; }
     NW.last=q;
     var rows=[];
     if(q.pkg) rows.push([q.pkg.label+' 공간료', q.pkg.time+' · '+q.pkg.pct+'% 할인', q.pkg.price]);
@@ -419,8 +420,8 @@
     f.name.value=d.name||it.name||''; f.phone.value=d.phone||it.phone||''; f.email.value=d.email||it.email||'';
     f.date.value=d.date||it.event_date||'';
     var sh=d.start_h, eh=d.end_h;
-    if(sh==null && d.t_start && d.t_end && /^\d{1,2}:\d{2}$/.test(d.t_start) && /^\d{1,2}:\d{2}$/.test(d.t_end)){ var a=parseInt(d.t_start,10), b=parseInt(d.t_end,10); if(a<7) a+=24; if(b<=a) b+=24; if(a>=7&&b<=31){ sh=a; eh=b; } }
-    if(sh!=null && D){ $('#nw-start').value=String(sh); $('#nw-end').innerHTML=nwHourOpts(+sh+1, D.openTo, eh!=null?eh:'', '미정'); }
+    if(sh==null && d.t_start && d.t_end && /^\d{1,2}:\d{2}$/.test(d.t_start) && /^\d{1,2}:\d{2}$/.test(d.t_end)){ var a=parseInt(d.t_start,10), b=parseInt(d.t_end,10); if(b<=a) b+=24; if(a>=ADMIN_HOURS.from&&b<=ADMIN_HOURS.to){ sh=a; eh=b; } }
+    if(sh!=null && D){ $('#nw-start').value=String(sh); $('#nw-end').innerHTML=nwHourOpts(+sh+1, ADMIN_HOURS.to, eh!=null?eh:'', '미정'); }
     f.headcount.value=d.headcount||it.headcount||'';
     if(d.purpose && !Array.prototype.some.call(f.purpose.options, function(o){ return o.value===d.purpose; })){ var op=document.createElement('option'); op.value=d.purpose; op.textContent=PUR[d.purpose]||d.purpose; f.purpose.appendChild(op); }
     f.purpose.value=d.purpose||'';
@@ -437,7 +438,7 @@
   }
   $('#nw-form').addEventListener('change', function(e){ if(e.target.name==='amount_mode'){ nwSyncMode(); return; } if(e.target.name==='total'||e.target.name==='amount_note') return; nwCalc(); });
   $('#nw-form').addEventListener('input', function(e){ if(e.target.name==='headcount'||e.target.dataset.nwmgr) nwCalc(); });
-  $('#nw-pkgs').addEventListener('click', function(e){ var b=e.target.closest('[data-nwpkg]'); if(!b) return; var p=E.findPkg(b.dataset.nwpkg); $('#nw-start').value=p.start; $('#nw-end').innerHTML=nwHourOpts(p.start+1, D.openTo, p.end, '미정'); nwCalc(); });
+  $('#nw-pkgs').addEventListener('click', function(e){ var b=e.target.closest('[data-nwpkg]'); if(!b) return; var p=E.findPkg(b.dataset.nwpkg); $('#nw-start').value=p.start; $('#nw-end').innerHTML=nwHourOpts(p.start+1, ADMIN_HOURS.to, p.end, '미정'); nwCalc(); });
   $('#nw-use-auto').addEventListener('click', function(){ if(!NW.last){ M.toast('이용일과 시간을 먼저 골라 주세요.'); return; } $('#nw-total').value=NW.last.total; });
   $('#nw-form').addEventListener('submit', function(e){
     e.preventDefault(); var f=e.target; if(!M.validate(f)) return; var d=M.formData(f), m=nwMode();
@@ -467,7 +468,7 @@
   function hourOpts(from,to,sel){ var s=''; for(var h=from;h<=to;h++) s+='<option value="'+h+'"'+(h===sel?' selected':'')+'>'+esc(E.hourLabel(h))+'</option>'; return s; }
   function fillForm(){
     $('#q-customer').value=Q.customer; $('#q-phone').value=Q.phone; $('#q-email').value=Q.email; $('#q-date').value=Q.date;
-    $('#q-start').innerHTML=hourOpts(D.openFrom, D.openTo-1, Q.start); $('#q-end').innerHTML=hourOpts(Q.start+1, D.openTo, Q.end);
+    $('#q-start').innerHTML=hourOpts(ADMIN_HOURS.from, ADMIN_HOURS.to-1, Q.start); $('#q-end').innerHTML=hourOpts(Q.start+1, ADMIN_HOURS.to, Q.end);
     $('#q-people').value=Q.people; $('#q-purpose').innerHTML=purOptions(Q.purpose); $('#q-regular').checked=Q.regular;
     $('#q-disc-type').value=Q.discType; $('#q-disc-val').value=Q.discVal; $('#q-disc-why').value=Q.discWhy; $('#q-deposit').value=Q.deposit; $('#q-valid').value=String(Q.valid); $('#q-note').value=Q.note;
     $('#q-pkgs').innerHTML=D.packages.map(function(p){ return '<button type="button" class="chip" data-pkg="'+p.id+'">'+esc(p.label)+' '+esc(p.time)+'</button>'; }).join('');
@@ -489,7 +490,7 @@
   function readForm(){
     Q.customer=$('#q-customer').value.trim(); Q.phone=$('#q-phone').value.trim(); Q.email=$('#q-email').value.trim();
     Q.date=$('#q-date').value||todayIso(); Q.start=+$('#q-start').value; Q.end=+$('#q-end').value;
-    if(Q.end<=Q.start){ Q.end=Math.min(Q.start+1, D.openTo); }
+    if(Q.end<=Q.start){ Q.end=Math.min(Q.start+1, ADMIN_HOURS.to); }
     Q.people=Math.max(1, Math.min(D.people.max, parseInt($('#q-people').value,10)||D.people.base)); Q.purpose=$('#q-purpose').value; Q.regular=$('#q-regular').checked;
     $$('#q-opts [data-opt]').forEach(function(cb){ if(cb.dataset.opt==='manager') Q.opts.manager.on=cb.checked; else Q.opts[cb.dataset.opt]=cb.checked; });
     var mc=$('#q-opts [data-mgr=count]'), mh=$('#q-opts [data-mgr=hours]'); if(mc) Q.opts.manager.count=Math.max(1,parseInt(mc.value,10)||1); if(mh) Q.opts.manager.hours=Math.max(1,parseInt(mh.value,10)||1);
@@ -499,7 +500,7 @@
   }
   function compute(){
     var opts={}; if(Q.opts.manager.on) opts.manager={count:Q.opts.manager.count, hours:Q.opts.manager.hours}; ['cleaning','disposable','banner','xbanner'].forEach(function(k){ if(Q.opts[k]) opts[k]=true; });
-    var q=E.quote({ date:Q.date, start:Q.start, end:Q.end, people:Q.people, purpose:Q.purpose, regular:Q.regular, options:opts }); if(!q) return null;
+    var q=E.quote({ adminHours:true, date:Q.date, start:Q.start, end:Q.end, people:Q.people, purpose:Q.purpose, regular:Q.regular, options:opts }); if(!q) return null;
     var lines=[];
     if(q.pkg) lines.push({ label:'공간료 · '+q.pkg.label+(q.peak?' ('+q.peak.seasonLabel+')':''), desc:q.pkg.time+' · '+q.pkg.hours+'시간'+(q.pkg.pct?' (시간 요금 '+won(q.pkg.regular)+' → '+q.pkg.pct+'% 할인)':''), amount:q.pkg.price });
     else { q.time.lines.forEach(function(l){ lines.push({ label:'공간료 · '+l.label, desc:E.hourLabel(l.from)+'–'+E.hourLabel(l.to)+' · '+l.hours+'시간 × '+won(l.rate), amount:l.sum }); }); if(q.surcharge) lines.push({ label:'성수기 포함 인원 가산', desc:q.peak.label+' · 기준 '+q.peopleBase+'명 · 1건당', amount:q.surcharge }); }
@@ -541,9 +542,9 @@
       +'<div class="q-refund"><b>취소 시 환불</b>'+(R.refund.length?R.refund.map(function(x){ return '<span>'+esc(x.k)+' <b>'+Math.round(x.rate*100)+'%</b></span>'; }).join(''):'<span>이용일이 지났습니다</span>')+'</div>'
       +'<p class="tiny muted mt-2">견적 유효기간 '+esc(E.kdateY(R.validUntil))+'까지'+(Q.quoteNo?' · 저장된 견적번호 <b>'+esc(Q.quoteNo)+'</b>':' · 아직 저장하지 않음')+'</p>';
   }
-  $('#q-form').addEventListener('input', function(e){ if(e.target.id==='q-start'){ readForm(); $('#q-end').innerHTML=hourOpts(Q.start+1, D.openTo, Math.max(Q.end, Q.start+1)); } Q.quoteNo=''; calc(); });
-  $('#q-form').addEventListener('change', function(e){ if(e.target.id==='q-start'){ readForm(); $('#q-end').innerHTML=hourOpts(Q.start+1, D.openTo, Math.max(Q.end, Q.start+1)); } Q.quoteNo=''; calc(); });
-  $('#q-pkgs').addEventListener('click', function(e){ var b=e.target.closest('[data-pkg]'); if(!b) return; var p=E.findPkg(b.dataset.pkg); readForm(); Q.start=p.start; Q.end=p.end; $('#q-start').innerHTML=hourOpts(D.openFrom, D.openTo-1, Q.start); $('#q-end').innerHTML=hourOpts(Q.start+1, D.openTo, Q.end); Q.quoteNo=''; calc(); });
+  $('#q-form').addEventListener('input', function(e){ if(e.target.id==='q-start'){ readForm(); $('#q-end').innerHTML=hourOpts(Q.start+1, ADMIN_HOURS.to, Math.max(Q.end, Q.start+1)); } Q.quoteNo=''; calc(); });
+  $('#q-form').addEventListener('change', function(e){ if(e.target.id==='q-start'){ readForm(); $('#q-end').innerHTML=hourOpts(Q.start+1, ADMIN_HOURS.to, Math.max(Q.end, Q.start+1)); } Q.quoteNo=''; calc(); });
+  $('#q-pkgs').addEventListener('click', function(e){ var b=e.target.closest('[data-pkg]'); if(!b) return; var p=E.findPkg(b.dataset.pkg); readForm(); Q.start=p.start; Q.end=p.end; $('#q-start').innerHTML=hourOpts(ADMIN_HOURS.from, ADMIN_HOURS.to-1, Q.start); $('#q-end').innerHTML=hourOpts(Q.start+1, ADMIN_HOURS.to, Q.end); Q.quoteNo=''; calc(); });
   $('#q-extra-add').addEventListener('click', function(){ readForm(); Q.extras.push({label:'',amount:0}); renderExtras(); var l=$$('#q-extras [data-ex=label]'); if(l.length) l[l.length-1].focus(); });
   $('#q-extras').addEventListener('click', function(e){ var b=e.target.closest('[data-ex-del]'); if(!b) return; readForm(); Q.extras.splice(+b.dataset.exDel,1); renderExtras(); calc(); });
   $('#q-reset').addEventListener('click', function(){ Q=blankQ(); fillForm(); calc(); $('#q-msg').hidden=true; });
@@ -553,8 +554,8 @@
     Q.customer=d.name||it.name||''; Q.phone=d.phone||it.phone||''; Q.email=d.email||it.email||'';
     Q.date=d.date||it.event_date||todayIso(); Q.people=parseInt(d.headcount||it.headcount,10)||D.people.base; Q.purpose=d.purpose||''; Q.regular=d.inquiry_type==='regular';
     var hs=parseInt(String(d.t_start||'').slice(0,2),10), he=parseInt(String(d.t_end||'').slice(0,2),10);
-    if(d.start_h&&d.end_h){ hs=+d.start_h; he=+d.end_h; }
-    if(!isNaN(hs)&&!isNaN(he)){ if(hs<D.openFrom) hs+=24; if(he<=hs) he+=24; Q.start=Math.max(D.openFrom,Math.min(hs,D.openTo-1)); Q.end=Math.max(Q.start+1,Math.min(he,D.openTo)); }
+    if(d.start_h!=null && d.start_h!=='' && d.end_h!=null && d.end_h!==''){ hs=+d.start_h; he=+d.end_h; }
+    if(!isNaN(hs)&&!isNaN(he)){ if(hs<ADMIN_HOURS.from) hs+=24; if(he<=hs) he+=24; Q.start=Math.max(ADMIN_HOURS.from,Math.min(hs,ADMIN_HOURS.to-1)); Q.end=Math.max(Q.start+1,Math.min(he,ADMIN_HOURS.to)); }
     else if(SLOT_H[d.slot]){ Q.start=SLOT_H[d.slot][0]; Q.end=SLOT_H[d.slot][1]; }
     if((d.needs||[]).indexOf('manager')>=0) Q.opts.manager.on=true;
     var op=d.options||{}; if(op.manager){ Q.opts.manager.on=true; if(op.manager.count) Q.opts.manager.count=op.manager.count; if(op.manager.hours) Q.opts.manager.hours=op.manager.hours; } ['cleaning','disposable','banner','xbanner'].forEach(function(k){ if(op[k]) Q.opts[k]=true; });
@@ -881,12 +882,12 @@
   /* =================== 예약 =================== */
   function fillSpaces(){ var o=spaces.map(function(s){ return '<option value="'+s.id+'">'+esc(s.name)+'</option>'; }).join(''); $('#bk-space').innerHTML=o; $('#cal-space').innerHTML=o; }
   fillSpaces();
-  // 짧은 시각 표기: 24시는 24:00, 다음 날 새벽은 '익일 07:00'
-  function hl(h){ h=+h; return (h>24?'익일 ':'')+('0'+(h>24?h-24:h)).slice(-2)+':00'; }
+  // 0시는 00:00, 다음 날 시각은 '익일 00:00'부터 표시
+  function hl(h){ h=+h; return (h>=24?'익일 ':'')+('0'+(h%24)).slice(-2)+':00'; }
   function bkTimes(sh, eh){
     if(!E||!D) return;
-    $('#bk-start').innerHTML=nwHourOpts(D.openFrom, D.openTo-1, sh==null?'':sh, '미정');
-    $('#bk-end').innerHTML=nwHourOpts(sh?+sh+1:D.openFrom+1, D.openTo, eh==null?'':eh, '미정');
+    $('#bk-start').innerHTML=nwHourOpts(ADMIN_HOURS.from, ADMIN_HOURS.to-1, sh==null?'':sh, '미정');
+    $('#bk-end').innerHTML=nwHourOpts(sh?+sh+1:ADMIN_HOURS.from+1, ADMIN_HOURS.to, eh==null?'':eh, '미정');
     $('#bk-pkgs').innerHTML=D.packages.map(function(p){ return '<button type="button" class="chip" data-bkpkg="'+p.id+'">'+esc(p.label)+' '+esc(p.time)+'</button>'; }).join('');
     bkSync();
   }
@@ -896,17 +897,17 @@
     D.packages.forEach(function(p){ var on=sh && +sh===p.start && +eh===p.end; if(on) slot='pkg-'+p.id; var b=$('#bk-pkgs [data-bkpkg="'+p.id+'"]'); if(b) b.classList.toggle('on', !!on); });
     $('#bk-slot').value=slot;
     var date=$('#bk-date').value, h=$('#bk-amount-hint');
-    if(date && sh && eh){ var q=E.quote({ date:date, start:+sh, end:+eh, people:Math.max(1,parseInt($('#bk-people').value,10)||D.people.base) }); h.innerHTML=q?'요금표 기준 '+esc(won(q.total))+' (옵션·할인 제외) <button type="button" class="linkish" id="bk-use-calc">넣기</button>':''; var u=$('#bk-use-calc'); if(u&&q) u.addEventListener('click', function(){ $('#bk-amount').value=q.total; }); }
+    if(date && sh && eh){ var q=E.quote({ adminHours:true, date:date, start:+sh, end:+eh, people:Math.max(1,parseInt($('#bk-people').value,10)||D.people.base) }); h.innerHTML=q?'요금표 기준 '+esc(won(q.total))+' (옵션·할인 제외) <button type="button" class="linkish" id="bk-use-calc">넣기</button>':''; var u=$('#bk-use-calc'); if(u&&q) u.addEventListener('click', function(){ $('#bk-amount').value=q.total; }); }
     else h.textContent='';
   }
   bkTimes();
-  $('#bk-start').addEventListener('change', function(){ var sh=this.value, eh=$('#bk-end').value; $('#bk-end').innerHTML=nwHourOpts(sh?+sh+1:D.openFrom+1, D.openTo, eh&&+eh>+sh?eh:'', '미정'); bkSync(); });
+  $('#bk-start').addEventListener('change', function(){ var sh=this.value, eh=$('#bk-end').value; $('#bk-end').innerHTML=nwHourOpts(sh?+sh+1:ADMIN_HOURS.from+1, ADMIN_HOURS.to, eh&&+eh>+sh?eh:'', '미정'); bkSync(); });
   ['#bk-end','#bk-date','#bk-people'].forEach(function(sel){ $(sel).addEventListener('change', bkSync); });
   $('#bk-pkgs').addEventListener('click', function(e){ var b=e.target.closest('[data-bkpkg]'); if(!b) return; var p=E.findPkg(b.dataset.bkpkg); bkTimes(p.start, p.end); });
   function bookingFromInquiry(it){
     var d=it.data||{}; $('#bk-ref').value=it.ref; $('#bk-name').value=d.name||it.name||''; $('#bk-phone').value=d.phone||it.phone||''; $('#bk-date').value=d.date||it.event_date||''; $('#bk-people').value=d.headcount||it.headcount||'';
     var sh=d.start_h, eh=d.end_h; if(sh==null && SLOT_H[d.slot]){ sh=SLOT_H[d.slot][0]; eh=SLOT_H[d.slot][1]; }
-    if(sh==null && d.t_start && d.t_end){ var a=parseInt(d.t_start,10), b=parseInt(d.t_end,10); if(!isNaN(a)&&!isNaN(b)){ if(a<7) a+=24; if(b<=a) b+=24; sh=a; eh=b; } }
+    if(sh==null && d.t_start && d.t_end){ var a=parseInt(d.t_start,10), b=parseInt(d.t_end,10); if(!isNaN(a)&&!isNaN(b)){ if(b<=a) b+=24; sh=a; eh=b; } }
     bkTimes(sh, eh);
     var lastQ=(cur&&cur.quotes&&cur.quotes[0]); $('#bk-amount').value=currentAmount(it,lastQ)==null?'':currentAmount(it,lastQ); bkSync();
     $('#bk-memo').value=[lastQ?'견적 '+lastQ.quote_no+' · '+won(lastQ.total):'', d.amount_note||''].filter(Boolean).join(' · ');
@@ -1115,7 +1116,7 @@
   var CF={ ref:null, force:false };
   function inqHours(d){
     var sh=d.start_h, eh=d.end_h; if(sh==null && SLOT_H[d.slot]){ sh=SLOT_H[d.slot][0]; eh=SLOT_H[d.slot][1]; }
-    if(sh==null && d.t_start && d.t_end){ var a=parseInt(d.t_start,10), b=parseInt(d.t_end,10); if(!isNaN(a)&&!isNaN(b)){ if(a<5) a+=24; if(b<=a) b+=24; sh=a; eh=b; } }
+    if(sh==null && d.t_start && d.t_end){ var a=parseInt(d.t_start,10), b=parseInt(d.t_end,10); if(!isNaN(a)&&!isNaN(b)){ if(b<=a) b+=24; sh=a; eh=b; } }
     return [sh==null?null:+sh, eh==null?null:+eh];
   }
   function confirmFromInquiry(){
@@ -1130,12 +1131,12 @@
     var h=$('#cf-amount-hint'), date=$('#cf-date').value, sh=$('#cf-start').value, eh=$('#cf-end').value; h.innerHTML='';
     $$('#cf-pkgs [data-cfpkg]').forEach(function(b){ var p=E&&E.findPkg(b.dataset.cfpkg); b.classList.toggle('on', !!p && !!sh && +sh===p.start && +eh===p.end); });
     if(!E||!date||!sh||!eh) return;
-    var q=E.quote({ date:date, start:+sh, end:+eh, people:Math.max(1,parseInt($('#cf-people').value,10)||D.people.base) }); if(!q) return;
+    var q=E.quote({ adminHours:true, date:date, start:+sh, end:+eh, people:Math.max(1,parseInt($('#cf-people').value,10)||D.people.base) }); if(!q) return;
     h.innerHTML='요금표 기준 '+esc(won(q.total))+(q.peak?' (성수기)':'')+' · 옵션·할인 제외 <button type="button" class="linkish" id="cf-use-calc">넣기</button>';
     $('#cf-use-calc').addEventListener('click', function(){ $('#cf-amount').value=q.total; });
   }
   function cfSameDay(date){
-    var w=$('#cf-warn'), same=RS.items.filter(function(x){ return x.kind==='booking' && x.status==='confirmed' && x.date===date; }), others=RS.items.filter(function(x){ return x.kind==='pending' && x.date===date && x.ref!==CF.ref; });
+    var w=$('#cf-warn'), same=RS.items.filter(function(x){ return x.kind==='booking' && x.status==='confirmed' && x.date===date; }), others=RS.items.filter(function(x){ return x.kind==='pending' && x.status!=='대기 취소' && x.date===date && x.ref!==CF.ref; });
     var sv=$('#cf-start').value, ev=$('#cf-end').value, s=sv===''?null:+sv, e=ev===''?null:+ev;
     var clash=same.filter(function(b){ return s==null||e==null||b.start_h==null||b.end_h==null||(s<b.end_h&&b.start_h<e); });
     var msg=[];
@@ -1152,18 +1153,18 @@
     $('#cf-title').textContent='예약 확정 · '+src.ref;
     $('#cf-who').innerHTML='<b>'+esc(src.name||'(이름 없음)')+'</b><span>'+esc(src.phone||'연락처 없음')+'</span>'+chTag(src.channel, src.channel_note)+(src.status?stBadge(src.status):'');
     $('#cf-date').value=src.date||''; $('#cf-date').min='';
-    if(D){ $('#cf-start').innerHTML=nwHourOpts(D.openFrom, D.openTo-1, src.start_h==null?'':src.start_h, '미정'); $('#cf-end').innerHTML=nwHourOpts(src.start_h!=null?+src.start_h+1:D.openFrom+1, D.openTo, src.end_h==null?'':src.end_h, '미정');
+    if(D){ $('#cf-start').innerHTML=nwHourOpts(ADMIN_HOURS.from, ADMIN_HOURS.to-1, src.start_h==null?'':src.start_h, '미정'); $('#cf-end').innerHTML=nwHourOpts(src.start_h!=null?+src.start_h+1:ADMIN_HOURS.from+1, ADMIN_HOURS.to, src.end_h==null?'':src.end_h, '미정');
       $('#cf-pkgs').innerHTML=D.packages.map(function(p){ return '<button type="button" class="chip" data-cfpkg="'+p.id+'">'+esc(p.label)+' '+esc(p.time)+'</button>'; }).join(''); }
     $('#cf-people').value=src.headcount||''; $('#cf-amount').value=src.amount===''||src.amount==null?'':src.amount; $('#cf-memo').value=src.memo||''; $('#cf-block').checked=false;
     $('#cf-msg').hidden=true; $('#cf-submit').textContent='예약 확정'; $('#cf-submit').disabled=false;
     cfSameDay(src.date||''); cfHint(); openDrawer('#adm-confirm');
     setTimeout(function(){ $('#cf-date').focus(); }, 50);
   }
-  $('#cf-start').addEventListener('change', function(){ var sh=this.value, eh=$('#cf-end').value; if(D) $('#cf-end').innerHTML=nwHourOpts(sh?+sh+1:D.openFrom+1, D.openTo, eh && +eh>+sh ? eh : '', '미정'); CF.force=false; $('#cf-submit').textContent='예약 확정'; cfHint(); cfSameDay($('#cf-date').value); });
+  $('#cf-start').addEventListener('change', function(){ var sh=this.value, eh=$('#cf-end').value; if(D) $('#cf-end').innerHTML=nwHourOpts(sh?+sh+1:ADMIN_HOURS.from+1, ADMIN_HOURS.to, eh && +eh>+sh ? eh : '', '미정'); CF.force=false; $('#cf-submit').textContent='예약 확정'; cfHint(); cfSameDay($('#cf-date').value); });
   $('#cf-end').addEventListener('change', function(){ CF.force=false; $('#cf-submit').textContent='예약 확정'; cfHint(); cfSameDay($('#cf-date').value); });
   $('#cf-people').addEventListener('input', cfHint);
   $('#cf-date').addEventListener('change', function(){ CF.force=false; $('#cf-submit').textContent='예약 확정'; cfSameDay(this.value); cfHint(); });
-  $('#cf-pkgs').addEventListener('click', function(e){ var b=e.target.closest('[data-cfpkg]'); if(!b||!E) return; var p=E.findPkg(b.dataset.cfpkg); $('#cf-start').value=p.start; $('#cf-end').innerHTML=nwHourOpts(p.start+1, D.openTo, p.end, '미정'); CF.force=false; $('#cf-submit').textContent='예약 확정'; cfHint(); cfSameDay($('#cf-date').value); });
+  $('#cf-pkgs').addEventListener('click', function(e){ var b=e.target.closest('[data-cfpkg]'); if(!b||!E) return; var p=E.findPkg(b.dataset.cfpkg); $('#cf-start').value=p.start; $('#cf-end').innerHTML=nwHourOpts(p.start+1, ADMIN_HOURS.to, p.end, '미정'); CF.force=false; $('#cf-submit').textContent='예약 확정'; cfHint(); cfSameDay($('#cf-date').value); });
   $('#cf-form').addEventListener('submit', function(e){
     e.preventDefault(); var msg=$('#cf-msg'); msg.hidden=true;
     var date=$('#cf-date').value; if(!date){ note(msg,'이용일을 골라 주세요.'); $('#cf-date').focus(); return; }
@@ -1177,7 +1178,7 @@
       if($('#cf-cdoc') && $('#cf-cdoc').checked && r.booking_code) openConfirmDoc(r.booking_code);
     }).catch(function(x){
       if(guard(x)) return;
-      if(x.code==='DATE_HAS_BOOKING'){ var w=$('#cf-warn'); var list=(x.detail&&x.detail.bookings)||[]; w.classList.remove('info'); w.innerHTML='<b>이용 시간이 겹치는 확정 예약이 있습니다.</b> '+list.map(function(b){ return esc(b.customer_name)+(b.start_h!=null?' '+esc(hl(b.start_h)+'–'+hl(b.end_h)):''); }).join(', ')+'<br>시간을 바꾸거나, 두 팀을 함께 받기로 했다면 <b>그래도 확정</b>을 눌러 주세요.'; w.hidden=false; CF.force=true; btn.textContent='그래도 확정'; return; }
+      if(x.code==='DATE_HAS_BOOKING'){ var w=$('#cf-warn'); var list=(x.detail&&x.detail.bookings)||[]; w.classList.remove('info'); w.innerHTML='<b>이용 시간이 겹치는 확정 예약이 있습니다.</b> '+list.map(function(b){ return esc(b.customer_name)+(b.date?' '+esc(kd(b.date)):'')+(b.start_h!=null?' '+esc(hl(b.start_h)+'–'+hl(b.end_h)):''); }).join(', ')+'<br>시간을 바꾸거나, 두 팀을 함께 받기로 했다면 <b>그래도 확정</b>을 눌러 주세요.'; w.hidden=false; CF.force=true; btn.textContent='그래도 확정'; return; }
       note(msg, x.message);
     }).finally(function(){ btn.disabled=false; });
   });

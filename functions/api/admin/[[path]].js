@@ -41,7 +41,7 @@ function cleanOptions(o) {
   for (const k of OPT_KEYS) { const v = o[k]; if (!v) continue; out[k] = (typeof v === 'object') ? { count: Math.max(1, Math.min(10, num(v.count) || 1)), hours: Math.max(1, Math.min(24, num(v.hours) || 1)) } : true; }
   return out;
 }
-function hourOk(h) { h = num(h); return h !== null && h >= 7 && h <= 31 ? h : null; }
+function hourOk(h) { h = num(h); return h !== null && h >= 0 && h <= 47 ? h : null; }
 function hl(h) { return (h >= 24 ? '다음 날 ' : '') + String(h % 24).padStart(2, '0') + ':00'; }
 function amountOk(v) { const n = num(v); return n !== null && n >= 0 && n <= 1e9 ? Math.round(n) : null; }
 const CH_LABEL = { web: '홈페이지', naver: '네이버', spacecloud: '스페이스클라우드', sns: 'SNS', kakao: '카카오톡', phone: '전화', email: '이메일', visit: '방문', other: '기타' };
@@ -425,17 +425,21 @@ export async function onRequest({ request, env, params }) {
       const amount = d.amount === '' || d.amount == null ? null : amountOk(d.amount);
       if (d.amount !== '' && d.amount != null && amount === null) return err('금액을 확인해 주세요.');
       const space_id = row.space_id && row.space_id !== 'request' ? row.space_id : 'megaspot-gundae';
-      const { results: same } = await env.DB.prepare("SELECT booking_code, customer_name, start_h, end_h FROM bookings WHERE space_id = ? AND date = ? AND status = 'confirmed'").bind(space_id, date).all();
-      // 같은 날 다른 팀 예약은 받을 수 있습니다. 시간이 겹치는 예약(시간 미정 포함)이 있을 때만 한 번 더 확인합니다.
-      const clash = (same || []).filter(x => overlaps(bs, be, x.start_h, x.end_h));
-      if (clash.length && !d.force) return json({ ok: false, error: bs === null ? '이 날짜에 이미 확정된 예약이 있습니다. 이용 시간을 정하거나, 시간이 겹치지 않는지 확인한 뒤 다시 확정해 주세요.' : '같은 날 이용 시간이 겹치는 확정 예약이 있습니다. 시간을 확인한 뒤 다시 확정해 주세요.', code: 'DATE_HAS_BOOKING', bookings: clash }, 409);
+      const { results: same } = await env.DB.prepare("SELECT booking_code, customer_name, date, start_h, end_h FROM bookings WHERE space_id = ? AND date BETWEEN date(?, '-1 day') AND date(?, '+1 day') AND status = 'confirmed'").bind(space_id, date, date).all();
+      // 날짜를 넘어 이어지는 예약까지 비교합니다. 시간이 미정이면 같은 이용일의 예약만 확인합니다.
+      const clash = (same || []).filter(x => {
+        if (bs === null || be === null || x.start_h == null || x.end_h == null) return x.date === date;
+        const offset = (Date.parse(x.date + 'T00:00:00Z') - Date.parse(date + 'T00:00:00Z')) / 36e5;
+        return overlaps(bs, be, x.start_h + offset, x.end_h + offset);
+      });
+      if (clash.length && !d.force) return json({ ok: false, error: bs === null ? '이 날짜에 이미 확정된 예약이 있습니다. 이용 시간을 정하거나, 시간이 겹치지 않는지 확인한 뒤 다시 확정해 주세요.' : '이용 시간이 겹치는 확정 예약이 있습니다. 시간을 확인한 뒤 다시 확정해 주세요.', code: 'DATE_HAS_BOOKING', bookings: clash }, 409);
       const code = await uniqueRef(env, 'bookings', 'booking_code', 'MS');
       const slot = bs !== null ? (SLOT_OF[bs + '-' + be] || 'custom') : (/^pkg-/.test(data.slot || '') ? data.slot : 'custom');
       const memo = str(d.memo, 2000) || [data.amount_note || '', chText(data.channel || 'web', data.channel_note)].filter(Boolean).join(' · ');
       const stmts = [
         env.DB.prepare('INSERT INTO bookings (booking_code, space_id, inquiry_ref, customer_name, phone, phone_last4, date, slot, headcount, memo, status, amount, start_h, end_h, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
           .bind(code, space_id, ref, str(row.name || data.name, 80) || '(이름 없음)', phone, digits.slice(-4), date, slot, headcount, memo, 'confirmed', amount, bs, be, now()),
-        env.DB.prepare("UPDATE inquiries SET status = '예약 확정', event_date = ?, data = json_set(data, '$.total', ?, '$.amount_override', json('true')), updated_at = ? WHERE ref = ?").bind(date, amount, now(), ref)
+        env.DB.prepare("UPDATE inquiries SET status = '예약 확정', event_date = ?, headcount = ?, data = json_set(data, '$.date', ?, '$.headcount', ?, '$.start_h', ?, '$.end_h', ?, '$.t_start', ?, '$.t_end', ?, '$.total', ?, '$.amount_override', json('true')), updated_at = ? WHERE ref = ?").bind(date, headcount, date, headcount, bs, be, bs === null ? '' : hl(bs).replace('다음 날 ', ''), be === null ? '' : hl(be).replace('다음 날 ', ''), amount, now(), ref)
       ];
       if (d.block_calendar === true) stmts.push(env.DB.prepare('INSERT INTO calendar_blocks (space_id, date, state, memo) VALUES (?,?,?,?) ON CONFLICT(space_id, date) DO UPDATE SET state = excluded.state, memo = excluded.memo').bind(space_id, date, 'full', '예약 ' + code));
       if (typeof env.DB.batch === 'function') await env.DB.batch(stmts); else for (const st of stmts) await st.run();

@@ -77,9 +77,9 @@
   function rangeLabel(start, end){ return hourLabel(start) + ' – ' + hourLabel(end) + ' (' + (end - start) + '시간)'; }
   function isDawn(h){ var dw = P().dawn; return !!dw && h >= dw.from && h < dw.to; }
   function bandOf(h){
-    var D = P(), b = D.bands;
+    var D = P(), b = D.bands, clock = h % 24, bandHour = clock < 7 ? clock + 24 : clock;
     if (isDawn(h)){ var nb = b.filter(function(x){ return x.id === D.dawn.band; })[0]; return nb || null; }
-    for (var i = 0; i < b.length; i++) if (h >= b[i].from && h < b[i].to) return b[i];
+    for (var i = 0; i < b.length; i++) if (bandHour >= b[i].from && bandHour < b[i].to) return b[i];
     return null;
   }
   // 요금표: 성수기 적용 구분이 있으면 그 시간당 요금, 아니면 요일 구분의 요금
@@ -145,7 +145,8 @@
   function quote(input){
     var D = P(); if (!D) return null;
     var date = input.date || todayIso(), day = dayInfo(date); if (!day) return null;
-    var start = clampInt(input.start, D.openFrom, D.openTo - 1, 13), end = clampInt(input.end, start + D.minHours, D.openTo, Math.min(start + 4, D.openTo));
+    var from = input.adminHours === true ? 0 : D.openFrom, to = input.adminHours === true ? 47 : D.openTo;
+    var start = clampInt(input.start, from, to - 1, 13), end = clampInt(input.end, start + D.minHours, to, Math.min(start + 4, to));
     var people = clampInt(input.people, 1, D.people.max, D.people.base);
     var pk = day.peak, col = day.col, hours = end - start;
     var hf = hoursFee(day, start, end);
@@ -170,7 +171,7 @@
     if (input.regular) notes.push('4회 이상 미리 예약하는 정기 모임은 별도 할인과 추가 협찬을 안내합니다. 아래 금액은 1회 기준입니다.');
     if (input.purpose === 'popup' || input.purpose === 'shooting') notes.push('팝업·전시·행사·촬영은 성격과 기간에 맞춰 별도 할인을 안내합니다. 아래 금액은 기본 요금표 기준입니다.');
     if (suggest) notes.push(suggest.pkg.label + '(' + suggest.pkg.time + ')로 잡으면 ' + man(suggest.saving) + ' 더 저렴합니다. 시간이 더 길어도 같은 금액입니다.');
-    if (end > 24) notes.push('자정을 넘기는 시간은 이용일 기준 심야 요금(24–07시)으로 계산합니다.' + (pk ? ' 성수기에도 시작한 이용일의 요금만 적용됩니다.' : ''));
+    if (end > 24) notes.push(input.adminHours === true ? '자정을 넘긴 시간도 시작한 이용일의 요일·성수기 요금으로 각 시간대를 계산합니다.' : '자정을 넘기는 시간은 이용일 기준 심야 요금(24–07시)으로 계산합니다.' + (pk ? ' 성수기에도 시작한 이용일의 요금만 적용됩니다.' : ''));
     return {
       date: date, day: day, col: col, colLabel: day.colLabel, start: start, end: end, hours: hours, range: rangeLabel(start, end),
       people: people, peopleBase: peopleBase, purpose: input.purpose || '', regular: !!input.regular, breakfast: breakfast,
