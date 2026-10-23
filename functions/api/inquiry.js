@@ -1,6 +1,6 @@
 // 문의·예약 신청 접수 — 행사 대관(event) · 정기·반복 모임(regular) · 제휴·협력·파트너(partner)
 // reserve:true 이면 '예약 신청'(금액 확인 → 신청)으로 들어온 건입니다. 모임 유형은 선택 사항입니다.
-import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, log, getMember, clientIp, tooMany, hit, kstToday } from './_lib.js';
+import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, log, getMember, clientIp, tooMany, hit, kstToday, spaceOk, SPACE_OPENING } from './_lib.js';
 import { cateringFrom } from './_catering.js';
 const TYPES = ['event', 'regular', 'partner'];
 // '함께 알아보기'로 받을 수 있는 패밀리 공간 (assets/js/site.js의 FAMILY_ASK와 같은 id)
@@ -32,7 +32,7 @@ export async function onRequestPost({ request, env }) {
   try { if (await tooMany(env, ipKey, 8, 10)) return err('짧은 시간에 너무 많은 요청이 들어왔습니다. 잠시 후 다시 시도해 주세요.', 429, 'TOO_MANY'); } catch {}
   const inquiry_type = TYPES.includes(d.inquiry_type) ? d.inquiry_type : 'event';
   const name = str(d.name, 80), phone = str(d.phone, 30).replace(/[^0-9-+]/g, ''), email = str(d.email, 120);
-  const space_id = str(d.space_id, 60) || (inquiry_type === 'partner' ? 'megaspot-gundae' : 'request');
+  const space_id = str(d.space_id, 60) === 'request' ? 'request' : (str(d.space_id, 60) ? spaceOk(d.space_id) : (inquiry_type === 'partner' ? 'megaspot-gundae' : 'request'));
   const purpose = str(d.purpose, 40), date = str(d.date, 10), message = str(d.message, 2000), org = str(d.org, 120);
   const headcount = num(d.headcount);
   const reserve = !!d.reserve;
@@ -41,6 +41,7 @@ export async function onRequestPost({ request, env }) {
   // 예약 신청은 이용일이 꼭 있어야 하고, 간단 문의는 이름·연락처만 있으면 받습니다(날짜·모임 유형은 선택).
   if (reserve && !isDate(date)) return err('이용 희망일을 확인해 주세요.');
   if (reserve && date < kstToday()) return err('지난 날짜는 신청할 수 없습니다. 이용일을 다시 골라 주세요.');
+  if (reserve && SPACE_OPENING[space_id] && date && date < SPACE_OPENING[space_id]) return err('오픈 전 날짜입니다. ' + SPACE_OPENING[space_id].replace(/-/g, '. ') + ' 오픈일 이후 날짜로 신청해 주세요.', 400, 'BEFORE_OPENING');
   if (date && !isDate(date)) return err('희망일 형식을 확인해 주세요.');
   if (inquiry_type === 'partner') {
     if (!org) return err('회사·단체명을 적어 주세요.');

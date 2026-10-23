@@ -8,7 +8,8 @@
   var pg=$('#purpose-grid'); if(pg){ pg.innerHTML=PUR.map(function(p){ return M.purposeCard(p); }).join(''); }
 
   /* ---------- 지금 문의할 수 있는 공간 ---------- */
-  var fs=$('#featured-space'); if(fs){ var open=(window.MEGASPOT_SPACES||[]).filter(function(s){return s.status==='open';}); fs.innerHTML=open.map(function(s){ return M.spaceCard(s,{wide:true}); }).join(''); }
+  // 1호(운영 중)를 먼저, 오픈 예정인 2호를 그 다음에 보여 줍니다
+  var fs=$('#featured-space'); if(fs){ var open=(window.MEGASPOT_SPACES||[]).filter(function(s){return s.status==='open'||s.status==='opening';}); open.sort(function(a,b){ return (b.status==='open')-(a.status==='open'); }); fs.innerHTML=open.map(function(s){ return M.spaceCard(s,{wide:true}); }).join(''); }
 
   /* ---------- 히어로 슬라이드 ---------- */
   (function(){
@@ -46,7 +47,7 @@
     var list=pick.map(function(id){ return window.MEGASPOT_SCENE(id); }).filter(Boolean);
     box.innerHTML=list.map(function(s,k){
       return '<button type="button" class="tile '+size[k]+'" data-i="'+k+'" aria-label="'+esc(s.title)+' 장면 크게 보기">'
-        + '<img src="'+M.imgSrc(s.id,'m')+'" alt="'+esc(s.title)+' — 메가스팟 건대" loading="lazy" decoding="async">'
+        + '<img src="'+M.imgSrc(s.id,'m')+'" alt="'+esc(s.title)+' — 메가스팟 건대 1호" loading="lazy" decoding="async">'
         + M.tagHtml(s.id)
         + '<span class="lab">'+esc(purLabel[s.purpose]||'')+'<b>'+esc(s.title)+'</b></span></button>';
     }).join('');

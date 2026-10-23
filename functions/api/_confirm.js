@@ -5,7 +5,8 @@ import { str, num } from './_lib.js';
 const enc = new TextEncoder();
 export const PAY_STATUS = ['paid', 'deposit', 'onsite', 'pending'];   // 결제 완료 · 예약금 입금 · 현장 결제 · 결제 안내 예정
 export const SPACES = {
-  'megaspot-gundae': { name: '메가스팟 건대', address: '서울특별시 광진구 화양동 10-1 한아름건물 2층', sub: '190평 개방형 홀 · 최대 200명 · 건대입구역 인근' }
+  'megaspot-gundae': { name: '메가스팟 건대 1호', address: '서울특별시 광진구 화양동 10-1 한아름건물 2층', sub: '190평 개방형 홀 · 최대 200명 · 건대입구역 인근' },
+  'megaspot-gundae-2': { name: '메가스팟 건대 2호', address: '서울특별시 광진구 화양동 10-1 한아름건물 2층 (1호 옆 호실)', sub: '400평 개방형 홀 · 최대 350명 · 건대입구역 인근 · 2026년 11월 13일 오픈' }
 };
 
 function b64url(buf) {

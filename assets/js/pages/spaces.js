@@ -34,8 +34,9 @@
   function render(){
     var st=state();
     var list=SP.filter(function(s){ return match(s,st); });
-    // 정렬: 운영 중 → 직영 → 인원 큰 순 (직영 우대가 아니라 상태·확인도 기준임을 안내)
-    list.sort(function(a,b){ return (b.status==='open')-(a.status==='open') || b.capacity.max-a.capacity.max; });
+    // 정렬: 운영 중 → 오픈 예정(사전 예약) → 준비 중, 같은 상태면 인원 큰 순 (직영 우대가 아니라 상태·확인도 기준임을 안내)
+    var rank=function(s){ return s.status==='open'?2:s.status==='opening'?1:0; };
+    list.sort(function(a,b){ return rank(b)-rank(a) || b.capacity.max-a.capacity.max; });
     $('#results').innerHTML=list.map(function(s){ return M.spaceCard(s); }).join('');
     $('#results-empty').hidden = list.length>0;
     $('#result-count').textContent = list.length ? list.length+'개 공간 · 상태와 확인 범위 순으로 표시합니다' : '조건에 맞는 공간이 없습니다';

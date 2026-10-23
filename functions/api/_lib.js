@@ -43,6 +43,12 @@ export async function log(env, kind, ref, actor, detail) {
 // ms_in=1 쿠키는 화면에서 '마이페이지' 버튼을 보여 주기 위한 표시일 뿐이며 권한과는 관계없습니다.
 const PBKDF2_ITER = 100000;   // Cloudflare Workers 의 PBKDF2 상한
 export const SESSION_DAYS = 30;
+// 직영 공간 — 문의·예약·달력·후기의 space_id 는 이 목록 안의 값만 씁니다 ('request' 는 맞춤 공간 요청)
+export const SPACES = { 'megaspot-gundae': '메가스팟 건대 1호', 'megaspot-gundae-2': '메가스팟 건대 2호' };
+export const DEFAULT_SPACE = 'megaspot-gundae';
+// 오픈 전 공간: 오픈일 이전 이용일은 예약 신청을 받지 않습니다 (2호 · 2026-11-13 오픈)
+export const SPACE_OPENING = { 'megaspot-gundae-2': '2026-11-13' };
+export function spaceOk(v, fallback = DEFAULT_SPACE) { const s = str(v, 60); return Object.prototype.hasOwnProperty.call(SPACES, s) ? s : fallback; }
 const b64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));
 const unb64 = (s) => Uint8Array.from(atob(s), c => c.charCodeAt(0));
 async function pbkdf2(password, salt, iter) {

@@ -1,139 +1,159 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
-  <url><loc>https://megaspot.kr/</loc><lastmod>2026-10-22</lastmod><changefreq>weekly</changefreq><priority>1.0</priority>
-    <image:image><image:loc>https://megaspot.kr/assets/img/views/m/v01.jpg</image:loc><image:title>메가스팟 건대 메인 홀 — 연속창으로 낮빛이 드는 190평 홀과 긴 테이블</image:title></image:image>
-    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s14.jpg</image:loc><image:title>메가스팟 건대 저녁 리셉션 — 연속창 앞에서 서서 대화하는 참석자들</image:title></image:image>
-    <image:image><image:loc>https://megaspot.kr/assets/img/views/m/v08.jpg</image:loc><image:title>메가스팟 건대 — 샹들리에가 켜진 저녁의 홀</image:title></image:image>
-    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s09.jpg</image:loc><image:title>메가스팟 건대 전문가 강연 — 200인치 스크린을 향한 긴 테이블</image:title></image:image>
-    <image:image><image:loc>https://megaspot.kr/assets/img/views/m/v03.jpg</image:loc><image:title>메가스팟 건대 — 스크린을 향해 놓은 긴 테이블 세 줄</image:title></image:image>
-    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s02.jpg</image:loc><image:title>메가스팟 건대 가족 기념 만찬 — 긴 테이블에 둘러앉은 가족</image:title></image:image>
-    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s15.jpg</image:loc><image:title>메가스팟 건대 보태니컬 수채화 클래스 — 샹들리에 아래 작업 테이블</image:title></image:image>
-    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s17.jpg</image:loc><image:title>메가스팟 건대 어쿠스틱 라이브 — 스크린 앞 작은 무대와 객석</image:title></image:image>
-    <image:image><image:loc>https://megaspot.kr/assets/img/aerial/m/a02.jpg</image:loc><image:title>메가스팟 건대 조감도 — 라운지 쪽에서 내려다본 190평 홀 전체</image:title></image:image>
+  <url><loc>https://megaspot.kr/</loc><lastmod>2026-10-23</lastmod><changefreq>weekly</changefreq><priority>1.0</priority>
+    <image:image><image:loc>https://megaspot.kr/assets/img/views/m/v01.jpg</image:loc><image:title>메가스팟 건대 1호 메인 홀 — 연속창으로 낮빛이 드는 190평 홀과 긴 테이블</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s14.jpg</image:loc><image:title>메가스팟 건대 1호 저녁 리셉션 — 연속창 앞에서 서서 대화하는 참석자들</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/views/m/v08.jpg</image:loc><image:title>메가스팟 건대 1호 — 샹들리에가 켜진 저녁의 홀</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s09.jpg</image:loc><image:title>메가스팟 건대 1호 전문가 강연 — 200인치 스크린을 향한 긴 테이블</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/views/m/v03.jpg</image:loc><image:title>메가스팟 건대 1호 — 스크린을 향해 놓은 긴 테이블 세 줄</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s02.jpg</image:loc><image:title>메가스팟 건대 1호 가족 기념 만찬 — 긴 테이블에 둘러앉은 가족</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s15.jpg</image:loc><image:title>메가스팟 건대 1호 보태니컬 수채화 클래스 — 샹들리에 아래 작업 테이블</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s17.jpg</image:loc><image:title>메가스팟 건대 1호 어쿠스틱 라이브 — 스크린 앞 작은 무대와 객석</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/aerial/m/a02.jpg</image:loc><image:title>메가스팟 건대 1호 조감도 — 라운지 쪽에서 내려다본 190평 홀 전체</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae2/m/r01.jpg</image:loc><image:title>메가스팟 건대 2호 메인 홀 완공 예상 이미지 — 낮빛이 들어오는 400평 홀</image:title></image:image>
     <image:image><image:loc>https://megaspot.kr/assets/img/catering/m/c10.jpg</image:loc><image:title>메가스팟 출장뷔페 — 긴 뷔페 테이블 세팅</image:title></image:image>
   </url>
-  <url><loc>https://megaspot.kr/spaces/</loc><lastmod>2026-10-22</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
+  <url><loc>https://megaspot.kr/spaces/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
   </url>
-  <url><loc>https://megaspot.kr/spaces/megaspot-gundae/</loc><lastmod>2026-10-22</lastmod><changefreq>weekly</changefreq><priority>1.0</priority>
-    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p14.jpg</image:loc><image:title>메가스팟 건대 메인 홀 전경</image:title></image:image>
-    <image:image><image:loc>https://megaspot.kr/assets/img/aerial/m/a01.jpg</image:loc><image:title>메가스팟 건대 조감도 — 위에서 본 평면</image:title></image:image>
-    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p13.jpg</image:loc><image:title>메가스팟 건대 — 비어 있는 홀</image:title></image:image>
+  <url><loc>https://megaspot.kr/spaces/megaspot-gundae/</loc><lastmod>2026-10-23</lastmod><changefreq>weekly</changefreq><priority>1.0</priority>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p14.jpg</image:loc><image:title>메가스팟 건대 1호 메인 홀 전경</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/aerial/m/a01.jpg</image:loc><image:title>메가스팟 건대 1호 조감도 — 위에서 본 평면</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p13.jpg</image:loc><image:title>메가스팟 건대 1호 — 비어 있는 홀</image:title></image:image>
     <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s01.jpg</image:loc><image:title></image:title></image:image>
-    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p01.jpg</image:loc><image:title>메가스팟 건대 — 스크린 옆에서 본 메인 홀</image:title></image:image>
-    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p10.jpg</image:loc><image:title>메가스팟 건대 — 샹들리에와 공간 중심</image:title></image:image>
-    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p12.jpg</image:loc><image:title>메가스팟 건대 — 연속창을 따라 이어지는 홀</image:title></image:image>
-    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p02.jpg</image:loc><image:title>메가스팟 건대 — 메인 홀과 전신거울</image:title></image:image>
-    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p07.jpg</image:loc><image:title>메가스팟 건대 — 진행부스 방향</image:title></image:image>
-    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p05.jpg</image:loc><image:title>메가스팟 건대 — 창가 좌석과 메인 홀</image:title></image:image>
-    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p04.jpg</image:loc><image:title>메가스팟 건대 — 창가 좌석</image:title></image:image>
-    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p03.jpg</image:loc><image:title>메가스팟 건대 — 창가 테이블</image:title></image:image>
-    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p08.jpg</image:loc><image:title>메가스팟 건대 — 긴 테이블과 좌석</image:title></image:image>
-    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p09.jpg</image:loc><image:title>메가스팟 건대 — 조명과 테이블</image:title></image:image>
-    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p06.jpg</image:loc><image:title>메가스팟 건대 — 행거와 메인 홀</image:title></image:image>
-    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p11.jpg</image:loc><image:title>메가스팟 건대 — 행사 소품과 보조 테이블</image:title></image:image>
-    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p15.jpg</image:loc><image:title>메가스팟 건대 — 벽돌 벽면의 라운지</image:title></image:image>
-    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p16.jpg</image:loc><image:title>메가스팟 건대 — 라운지 다른 각도</image:title></image:image>
-    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p17.jpg</image:loc><image:title>메가스팟 건대 — 공간을 잇는 통로</image:title></image:image>
-    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p22.jpg</image:loc><image:title>메가스팟 건대 — 200인치 스크린 (측면)</image:title></image:image>
-    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p23.jpg</image:loc><image:title>메가스팟 건대 — 200인치 스크린 (정면)</image:title></image:image>
-    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p21.jpg</image:loc><image:title>메가스팟 건대 — 진행부스와 장비</image:title></image:image>
-    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p18.jpg</image:loc><image:title>메가스팟 건대 — 싱크대와 준비 공간</image:title></image:image>
-    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p19.jpg</image:loc><image:title>메가스팟 건대 — 냉장고 구역</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p01.jpg</image:loc><image:title>메가스팟 건대 1호 — 스크린 옆에서 본 메인 홀</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p10.jpg</image:loc><image:title>메가스팟 건대 1호 — 샹들리에와 공간 중심</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p12.jpg</image:loc><image:title>메가스팟 건대 1호 — 연속창을 따라 이어지는 홀</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p02.jpg</image:loc><image:title>메가스팟 건대 1호 — 메인 홀과 전신거울</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p07.jpg</image:loc><image:title>메가스팟 건대 1호 — 진행부스 방향</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p05.jpg</image:loc><image:title>메가스팟 건대 1호 — 창가 좌석과 메인 홀</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p04.jpg</image:loc><image:title>메가스팟 건대 1호 — 창가 좌석</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p03.jpg</image:loc><image:title>메가스팟 건대 1호 — 창가 테이블</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p08.jpg</image:loc><image:title>메가스팟 건대 1호 — 긴 테이블과 좌석</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p09.jpg</image:loc><image:title>메가스팟 건대 1호 — 조명과 테이블</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p06.jpg</image:loc><image:title>메가스팟 건대 1호 — 행거와 메인 홀</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p11.jpg</image:loc><image:title>메가스팟 건대 1호 — 행사 소품과 보조 테이블</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p15.jpg</image:loc><image:title>메가스팟 건대 1호 — 벽돌 벽면의 라운지</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p16.jpg</image:loc><image:title>메가스팟 건대 1호 — 라운지 다른 각도</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p17.jpg</image:loc><image:title>메가스팟 건대 1호 — 공간을 잇는 통로</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p22.jpg</image:loc><image:title>메가스팟 건대 1호 — 200인치 스크린 (측면)</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p23.jpg</image:loc><image:title>메가스팟 건대 1호 — 200인치 스크린 (정면)</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p21.jpg</image:loc><image:title>메가스팟 건대 1호 — 진행부스와 장비</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p18.jpg</image:loc><image:title>메가스팟 건대 1호 — 싱크대와 준비 공간</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p19.jpg</image:loc><image:title>메가스팟 건대 1호 — 냉장고 구역</image:title></image:image>
   </url>
-  <url><loc>https://megaspot.kr/spaces/megaspot-gundae/pricing/</loc><lastmod>2026-10-22</lastmod><changefreq>weekly</changefreq><priority>0.9</priority>
-    <image:image><image:loc>https://megaspot.kr/assets/img/aerial/m/a03.jpg</image:loc><image:title>메가스팟 건대 조감도 — 준비 공간 쪽에서 내려다본 190평 홀 전체</image:title></image:image>
+  <url><loc>https://megaspot.kr/spaces/megaspot-gundae/pricing/</loc><lastmod>2026-10-23</lastmod><changefreq>weekly</changefreq><priority>0.9</priority>
+    <image:image><image:loc>https://megaspot.kr/assets/img/aerial/m/a03.jpg</image:loc><image:title>메가스팟 건대 1호 조감도 — 준비 공간 쪽에서 내려다본 190평 홀 전체</image:title></image:image>
   </url>
-  <url><loc>https://megaspot.kr/catering/</loc><lastmod>2026-10-22</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>
+  <url><loc>https://megaspot.kr/spaces/megaspot-gundae-2/</loc><lastmod>2026-10-23</lastmod><changefreq>weekly</changefreq><priority>1.0</priority>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae2/m/r01.jpg</image:loc><image:title>메가스팟 건대 2호 메인 홀 완공 예상 이미지</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae2/m/r02.jpg</image:loc><image:title>메가스팟 건대 2호 — 비워 둔 홀 전체 (완공 예상 이미지)</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae2/m/r03.jpg</image:loc><image:title>메가스팟 건대 2호 — 200인치 스크린과 워크숍 배치 (완공 예상 이미지)</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae2/m/r04.jpg</image:loc><image:title>메가스팟 건대 2호 — 강연·교육 배치 (완공 예상 이미지)</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae2/m/r05.jpg</image:loc><image:title>메가스팟 건대 2호 — 긴 테이블 행렬 (완공 예상 이미지)</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae2/m/r06.jpg</image:loc><image:title>메가스팟 건대 2호 — 창가에서 본 홀 (완공 예상 이미지)</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae2/m/r07.jpg</image:loc><image:title>메가스팟 건대 2호 — 저녁 조명의 디너 세팅 (완공 예상 이미지)</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae2/m/r08.jpg</image:loc><image:title>메가스팟 건대 2호 — 대형 모임 테이블 세팅 (완공 예상 이미지)</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae2/m/r09.jpg</image:loc><image:title>메가스팟 건대 2호 — 파티 조명 (완공 예상 이미지)</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae2/m/r10.jpg</image:loc><image:title>메가스팟 건대 2호 — 상영·공연 조명 (완공 예상 이미지)</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae2/m/r11.jpg</image:loc><image:title>메가스팟 건대 2호 — 밝은 낮의 소규모 배치 (완공 예상 이미지)</image:title></image:image>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae2/m/r12.jpg</image:loc><image:title>메가스팟 건대 2호 — 스크린과 파티 조명 (완공 예상 이미지)</image:title></image:image>
+  </url>
+  <url><loc>https://megaspot.kr/spaces/megaspot-gundae-2/pricing/</loc><lastmod>2026-10-23</lastmod><changefreq>weekly</changefreq><priority>0.9</priority>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae2/m/r01.jpg</image:loc><image:title>메가스팟 건대 2호 메인 홀 완공 예상 이미지 — 낮빛이 들어오는 400평 홀</image:title></image:image>
+  </url>
+  <url><loc>https://megaspot.kr/catering/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>
     <image:image><image:loc>https://megaspot.kr/assets/img/catering/m/hero.jpg</image:loc><image:title>메가스팟 출장뷔페 — 긴 뷔페 라인 세팅</image:title></image:image>
     <image:image><image:loc>https://megaspot.kr/assets/img/catering/m/c01.jpg</image:loc><image:title>메가스팟 출장뷔페 긴 뷔페 라인 — 보온 그릇에 담긴 더운 요리</image:title></image:image>
   </url>
-  <url><loc>https://megaspot.kr/inquiry/</loc><lastmod>2026-10-22</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>
+  <url><loc>https://megaspot.kr/inquiry/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>
   </url>
-  <url><loc>https://megaspot.kr/purpose/</loc><lastmod>2026-10-22</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>
+  <url><loc>https://megaspot.kr/purpose/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>
   </url>
-  <url><loc>https://megaspot.kr/guide/</loc><lastmod>2026-10-22</lastmod><changefreq>monthly</changefreq><priority>0.7</priority>
+  <url><loc>https://megaspot.kr/guide/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.7</priority>
   </url>
-  <url><loc>https://megaspot.kr/host/</loc><lastmod>2026-10-22</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
+  <url><loc>https://megaspot.kr/parking/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p14.jpg</image:loc><image:title>메가스팟 건대 1호 행사장 전경</image:title></image:image>
   </url>
-  <url><loc>https://megaspot.kr/about/</loc><lastmod>2026-10-22</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
-    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s04.jpg</image:loc><image:title>메가스팟 건대 네트워킹 행사 — 접수 테이블과 서서 대화하는 참석자들</image:title></image:image>
+  <url><loc>https://megaspot.kr/host/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
   </url>
-  <url><loc>https://megaspot.kr/family/</loc><lastmod>2026-10-22</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
+  <url><loc>https://megaspot.kr/about/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
+    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s04.jpg</image:loc><image:title>메가스팟 건대 1호 네트워킹 행사 — 접수 테이블과 서서 대화하는 참석자들</image:title></image:image>
   </url>
-  <url><loc>https://megaspot.kr/products/</loc><lastmod>2026-10-22</lastmod><changefreq>weekly</changefreq><priority>0.9</priority>
+  <url><loc>https://megaspot.kr/family/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
   </url>
-  <url><loc>https://megaspot.kr/purpose/seminar/</loc><lastmod>2026-10-22</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>
-    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s01.jpg</image:loc><image:title>메가스팟 건대 강연·세미나 — 지식 세미나</image:title></image:image>
+  <url><loc>https://megaspot.kr/products/</loc><lastmod>2026-10-23</lastmod><changefreq>weekly</changefreq><priority>0.9</priority>
   </url>
-  <url><loc>https://megaspot.kr/purpose/workshop/</loc><lastmod>2026-10-22</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>
-    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s05.jpg</image:loc><image:title>메가스팟 건대 워크숍·팀빌딩 — 기업 전략 워크숍</image:title></image:image>
+  <url><loc>https://megaspot.kr/purpose/seminar/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>
+    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s01.jpg</image:loc><image:title>메가스팟 건대 1호 강연·세미나 — 지식 세미나</image:title></image:image>
   </url>
-  <url><loc>https://megaspot.kr/purpose/networking/</loc><lastmod>2026-10-22</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>
-    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s04.jpg</image:loc><image:title>메가스팟 건대 네트워킹·리셉션 — 글로벌 네트워킹</image:title></image:image>
+  <url><loc>https://megaspot.kr/purpose/workshop/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>
+    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s05.jpg</image:loc><image:title>메가스팟 건대 1호 워크숍·팀빌딩 — 기업 전략 워크숍</image:title></image:image>
   </url>
-  <url><loc>https://megaspot.kr/purpose/community/</loc><lastmod>2026-10-22</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>
-    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s13.jpg</image:loc><image:title>메가스팟 건대 커뮤니티 정기 모임 — 보드게임 나이트</image:title></image:image>
+  <url><loc>https://megaspot.kr/purpose/networking/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>
+    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s04.jpg</image:loc><image:title>메가스팟 건대 1호 네트워킹·리셉션 — 글로벌 네트워킹</image:title></image:image>
   </url>
-  <url><loc>https://megaspot.kr/purpose/class/</loc><lastmod>2026-10-22</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>
-    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s11.jpg</image:loc><image:title>메가스팟 건대 원데이 클래스·멘토링 — 플라워 원데이 클래스</image:title></image:image>
+  <url><loc>https://megaspot.kr/purpose/community/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>
+    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s13.jpg</image:loc><image:title>메가스팟 건대 1호 커뮤니티 정기 모임 — 보드게임 나이트</image:title></image:image>
   </url>
-  <url><loc>https://megaspot.kr/purpose/culture/</loc><lastmod>2026-10-22</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>
-    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s07.jpg</image:loc><image:title>메가스팟 건대 공연·상영회 — 어쿠스틱 공연</image:title></image:image>
+  <url><loc>https://megaspot.kr/purpose/class/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>
+    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s11.jpg</image:loc><image:title>메가스팟 건대 1호 원데이 클래스·멘토링 — 플라워 원데이 클래스</image:title></image:image>
   </url>
-  <url><loc>https://megaspot.kr/purpose/party/</loc><lastmod>2026-10-22</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>
-    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s02.jpg</image:loc><image:title>메가스팟 건대 단체 파티·기념행사 — 가족 기념 만찬</image:title></image:image>
+  <url><loc>https://megaspot.kr/purpose/culture/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>
+    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s07.jpg</image:loc><image:title>메가스팟 건대 1호 공연·상영회 — 어쿠스틱 공연</image:title></image:image>
   </url>
-  <url><loc>https://megaspot.kr/purpose/popup/</loc><lastmod>2026-10-22</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>
-    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s16.jpg</image:loc><image:title>메가스팟 건대 팝업·마켓·전시 — 수공예 전시 마켓</image:title></image:image>
+  <url><loc>https://megaspot.kr/purpose/party/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>
+    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s02.jpg</image:loc><image:title>메가스팟 건대 1호 단체 파티·기념행사 — 가족 기념 만찬</image:title></image:image>
   </url>
-  <url><loc>https://megaspot.kr/purpose/shooting/</loc><lastmod>2026-10-22</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>
-    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p05.jpg</image:loc><image:title>메가스팟 건대 촬영·콘텐츠 — 창가 좌석과 메인 홀</image:title></image:image>
+  <url><loc>https://megaspot.kr/purpose/popup/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>
+    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s16.jpg</image:loc><image:title>메가스팟 건대 1호 팝업·마켓·전시 — 수공예 전시 마켓</image:title></image:image>
   </url>
-  <url><loc>https://megaspot.kr/products/pass-day-wdfri/</loc><lastmod>2026-10-22</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
-    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s01.jpg</image:loc><image:title>메가스팟 건대 — 지식 세미나</image:title></image:image>
+  <url><loc>https://megaspot.kr/purpose/shooting/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p05.jpg</image:loc><image:title>메가스팟 건대 1호 촬영·콘텐츠 — 창가 좌석과 메인 홀</image:title></image:image>
   </url>
-  <url><loc>https://megaspot.kr/products/pass-day-satsun/</loc><lastmod>2026-10-22</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
-    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s11.jpg</image:loc><image:title>메가스팟 건대 — 플라워 원데이 클래스</image:title></image:image>
+  <url><loc>https://megaspot.kr/products/pass-day-wdfri/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
+    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s01.jpg</image:loc><image:title>메가스팟 건대 1호 — 지식 세미나</image:title></image:image>
   </url>
-  <url><loc>https://megaspot.kr/products/pass-allday-wd/</loc><lastmod>2026-10-22</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
-    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s05.jpg</image:loc><image:title>메가스팟 건대 — 기업 전략 워크숍</image:title></image:image>
+  <url><loc>https://megaspot.kr/products/pass-day-satsun/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
+    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s11.jpg</image:loc><image:title>메가스팟 건대 1호 — 플라워 원데이 클래스</image:title></image:image>
   </url>
-  <url><loc>https://megaspot.kr/products/pass-allday-fri/</loc><lastmod>2026-10-22</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
-    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s04.jpg</image:loc><image:title>메가스팟 건대 — 글로벌 네트워킹</image:title></image:image>
+  <url><loc>https://megaspot.kr/products/pass-allday-wd/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
+    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s05.jpg</image:loc><image:title>메가스팟 건대 1호 — 기업 전략 워크숍</image:title></image:image>
   </url>
-  <url><loc>https://megaspot.kr/products/pass-allday-sat/</loc><lastmod>2026-10-22</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
-    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s02.jpg</image:loc><image:title>메가스팟 건대 — 가족 기념 만찬</image:title></image:image>
+  <url><loc>https://megaspot.kr/products/pass-allday-fri/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
+    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s04.jpg</image:loc><image:title>메가스팟 건대 1호 — 글로벌 네트워킹</image:title></image:image>
   </url>
-  <url><loc>https://megaspot.kr/products/pass-allday-sun/</loc><lastmod>2026-10-22</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
-    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s13.jpg</image:loc><image:title>메가스팟 건대 — 보드게임 나이트</image:title></image:image>
+  <url><loc>https://megaspot.kr/products/pass-allday-sat/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
+    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s02.jpg</image:loc><image:title>메가스팟 건대 1호 — 가족 기념 만찬</image:title></image:image>
   </url>
-  <url><loc>https://megaspot.kr/products/pass-allnight-wd/</loc><lastmod>2026-10-22</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
-    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s14.jpg</image:loc><image:title>메가스팟 건대 — 저녁 리셉션</image:title></image:image>
+  <url><loc>https://megaspot.kr/products/pass-allday-sun/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
+    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s13.jpg</image:loc><image:title>메가스팟 건대 1호 — 보드게임 나이트</image:title></image:image>
   </url>
-  <url><loc>https://megaspot.kr/products/pass-allnight-fri/</loc><lastmod>2026-10-22</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
-    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s22.jpg</image:loc><image:title>메가스팟 건대 — 가족 생일 파티</image:title></image:image>
+  <url><loc>https://megaspot.kr/products/pass-allnight-wd/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
+    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s14.jpg</image:loc><image:title>메가스팟 건대 1호 — 저녁 리셉션</image:title></image:image>
   </url>
-  <url><loc>https://megaspot.kr/products/pass-allnight-sat/</loc><lastmod>2026-10-22</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
-    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s17.jpg</image:loc><image:title>메가스팟 건대 — 어쿠스틱 트리오 라이브</image:title></image:image>
+  <url><loc>https://megaspot.kr/products/pass-allnight-fri/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
+    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s22.jpg</image:loc><image:title>메가스팟 건대 1호 — 가족 생일 파티</image:title></image:image>
   </url>
-  <url><loc>https://megaspot.kr/products/pass-allnight-sun/</loc><lastmod>2026-10-22</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
-    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s15.jpg</image:loc><image:title>메가스팟 건대 — 보태니컬 수채화 클래스</image:title></image:image>
+  <url><loc>https://megaspot.kr/products/pass-allnight-sat/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
+    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s17.jpg</image:loc><image:title>메가스팟 건대 1호 — 어쿠스틱 트리오 라이브</image:title></image:image>
   </url>
-  <url><loc>https://megaspot.kr/products/addon-cleaning/</loc><lastmod>2026-10-22</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
-    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p08.jpg</image:loc><image:title>메가스팟 건대 — 긴 테이블과 좌석</image:title></image:image>
+  <url><loc>https://megaspot.kr/products/pass-allnight-sun/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
+    <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s15.jpg</image:loc><image:title>메가스팟 건대 1호 — 보태니컬 수채화 클래스</image:title></image:image>
   </url>
-  <url><loc>https://megaspot.kr/products/addon-banner/</loc><lastmod>2026-10-22</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
-    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p13.jpg</image:loc><image:title>메가스팟 건대 — 스크린과 행사 좌석</image:title></image:image>
+  <url><loc>https://megaspot.kr/products/addon-cleaning/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p08.jpg</image:loc><image:title>메가스팟 건대 1호 — 긴 테이블과 좌석</image:title></image:image>
   </url>
-  <url><loc>https://megaspot.kr/products/addon-xbanner/</loc><lastmod>2026-10-22</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
-    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p05.jpg</image:loc><image:title>메가스팟 건대 — 창가 좌석과 메인 홀</image:title></image:image>
+  <url><loc>https://megaspot.kr/products/addon-banner/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p13.jpg</image:loc><image:title>메가스팟 건대 1호 — 스크린과 행사 좌석</image:title></image:image>
   </url>
-  <url><loc>https://megaspot.kr/products/addon-disposable/</loc><lastmod>2026-10-22</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
-    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p16.jpg</image:loc><image:title>메가스팟 건대 — 라운지 다른 각도</image:title></image:image>
+  <url><loc>https://megaspot.kr/products/addon-xbanner/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p05.jpg</image:loc><image:title>메가스팟 건대 1호 — 창가 좌석과 메인 홀</image:title></image:image>
   </url>
-  <url><loc>https://megaspot.kr/products/addon-manager/</loc><lastmod>2026-10-22</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
-    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p10.jpg</image:loc><image:title>메가스팟 건대 — 샹들리에와 공간 중심</image:title></image:image>
+  <url><loc>https://megaspot.kr/products/addon-disposable/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p16.jpg</image:loc><image:title>메가스팟 건대 1호 — 라운지 다른 각도</image:title></image:image>
   </url>
-  <url><loc>https://megaspot.kr/spaces/megaspot-gundae/3d/</loc><lastmod>2026-10-22</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
-  <url><loc>https://megaspot.kr/parking/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://megaspot.kr/products/addon-manager/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
+    <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p10.jpg</image:loc><image:title>메가스팟 건대 1호 — 샹들리에와 공간 중심</image:title></image:image>
+  </url>
+  <url><loc>https://megaspot.kr/spaces/megaspot-gundae/3d/</loc><lastmod>2026-10-23</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
 </urlset>

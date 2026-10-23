@@ -7,9 +7,23 @@
   var q=new URLSearchParams(location.search);
   var mode=q.get('mode')==='request'?'request':'space';
   var type=['event','regular','partner'].indexOf(q.get('type'))>=0 ? q.get('type') : 'event';
+  // 공간 선택: ?space=megaspot-gundae-2 로 열면 2호 계산기부터 보여 줍니다 (pricing-ui.js 가 data-space-query 자리를 보고 고릅니다)
+  var SPACES=(window.MEGASPOT_PRICING||{}); var space=SPACES[q.get('space')] ? q.get('space') : 'megaspot-gundae';
+  var sw=$('#space-switch'), est=$('#estimator');
+  function markSpace(id){ if(!sw) return; sw.querySelectorAll('[data-space]').forEach(function(b){ var on=b.dataset.space===id; b.setAttribute('aria-selected',String(on)); b.classList.toggle('on',on); }); var hid=document.querySelector('#inquiry-form [name=space_id]'); if(hid && hid.value!=='request') hid.value=id; }
+  markSpace(space);
+  if(sw && est){
+    sw.addEventListener('click', function(e){
+      var b=e.target.closest('[data-space]'); if(!b || b.dataset.space===space) return;
+      space=b.dataset.space; markSpace(space);
+      if(M.pricing && M.pricing.rerender){ var fresh=M.pricing.rerender(est, space); if(fresh) est=fresh; }
+      var u=new URL(location.href); u.searchParams.set('space', space); history.replaceState(null,'',u.pathname+u.search+u.hash);
+      var d=SPACES[space]||{}; M.toast((d.spaceName||'')+' 요금표로 다시 계산합니다.'+(d.opening&&d.opening>new Date().toISOString().slice(0,10)?' 오픈일('+d.opening.replace(/-/g,'. ')+') 이후 날짜로 잡아 주세요.':''));
+    });
+  }
   var root=$('#inquiry-root');
   if(root && M.renderInquiry){
-    M.renderInquiry(root,{ spaceId: mode==='request'?'request':'megaspot-gundae', mode:mode, type:type, prefill:{ purpose:q.get('purpose')||'', people:q.get('people')||'', region:q.get('region')||'', date:q.get('date')||'' } });
+    M.renderInquiry(root,{ spaceId: mode==='request'?'request':space, mode:mode, type:type, prefill:{ purpose:q.get('purpose')||'', people:q.get('people')||'', region:q.get('region')||'', date:q.get('date')||'' } });
     var grid=$('#inq-grid'); var mq=window.matchMedia('(min-width:960px)'); function lay(e){ grid.style.gridTemplateColumns=e.matches?'1.4fr .7fr':'1fr'; } lay(mq); mq.addEventListener('change',lay);
   }
   var HEAD={

@@ -1,8 +1,8 @@
 // 이용 확인 후기 — 조회(게시 승인분) / 작성(예약번호 검증 후 승인 대기)
-import { json, err, hasDb, readJson, str, num, now, log, clientIp, tooMany, hit } from './_lib.js';
+import { json, err, hasDb, readJson, str, num, now, log, clientIp, tooMany, hit, spaceOk } from './_lib.js';
 export async function onRequestGet({ request, env }) {
   if (!hasDb(env)) return err('데이터베이스가 연결되어 있지 않습니다.', 503, 'NO_DB');
-  const url = new URL(request.url); const space = str(url.searchParams.get('space'), 60) || 'megaspot-gundae';
+  const url = new URL(request.url); const space = spaceOk(url.searchParams.get('space'));
   try {
     const { results } = await env.DB.prepare("SELECT id, author, rating, title, body, event_type, headcount, reply, substr(created_at,1,10) AS created_at, (SELECT substr(b.date,1,7) FROM bookings b WHERE b.booking_code = r.booking_code) AS used_at FROM reviews r WHERE space_id = ? AND status = 'approved' ORDER BY created_at DESC LIMIT 100").bind(space).all();
     return json({ ok: true, reviews: results || [] }, 200, { 'cache-control': 'public, max-age=60' });
@@ -13,7 +13,7 @@ export async function onRequestPost({ request, env }) {
   let d; try { d = await readJson(request); } catch (e) { return err(e.message); }
   const code = str(d.booking_code, 20).toUpperCase(), last4 = str(d.phone_last4, 4).replace(/\D/g, '');
   const rating = num(d.rating), title = str(d.title, 60), body = str(d.body, 1500), author = str(d.author, 40);
-  const space_id = str(d.space_id, 60) || 'megaspot-gundae';
+  const space_id = spaceOk(d.space_id);
   if (!code || last4.length !== 4) return err('예약번호와 휴대폰 뒷 4자리를 확인해 주세요.');
   // 예약번호+뒷자리 맞추기 시도를 막기 위해 같은 IP는 10분에 10번까지만 받습니다
   const ipKey = 'rev:' + clientIp(request);

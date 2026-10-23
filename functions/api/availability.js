@@ -1,9 +1,9 @@
 // 달력 상태 조회 — 운영자가 등록한 마감/임시 확보 날짜 + 확정 예약이 있는 날(일부 시간 예약)
-import { json, err, hasDb, str, isDate } from './_lib.js';
+import { json, err, hasDb, str, isDate, spaceOk } from './_lib.js';
 export async function onRequestGet({ request, env }) {
   if (!hasDb(env)) return err('데이터베이스가 연결되어 있지 않습니다.', 503, 'NO_DB');
   const url = new URL(request.url);
-  const space = str(url.searchParams.get('space'), 60) || 'megaspot-gundae';
+  const space = spaceOk(url.searchParams.get('space'));
   const from = str(url.searchParams.get('from'), 10), to = str(url.searchParams.get('to'), 10);
   if (!isDate(from) || !isDate(to)) return err('기간을 확인해 주세요.');
   try {

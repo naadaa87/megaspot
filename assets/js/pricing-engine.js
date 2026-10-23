@@ -1,15 +1,20 @@
 /* =====================================================================
-   메가스팟 건대 · 요금 계산 (요금표 v2.1 · 성수기 포함)
-   - 데이터는 data/pricing-gundae.js, 공휴일은 data/holidays-kr.js 에 있습니다.
-   - 계산 순서: 날짜 → (성수기면 적용 구분) → 요일 구분 → 시간당 요금 합계(+성수기 가산액) → 패키지와 같으면 패키지 금액
+   메가스팟 · 요금 계산 (건대 1호 요금표 v2.1 · 건대 2호 요금표 v1.1 · 성수기 포함)
+   - 데이터는 data/pricing-gundae.js(1호), data/pricing-gundae2.js(2호), 공휴일은 data/holidays-kr.js 에 있습니다.
+   - 계산 순서: 날짜 → (성수기면 적용 구분) → 요일 구분 → 시간당 요금 합계(+1건당 가산액) → 패키지와 같으면 패키지 금액
                 → 포함 인원을 넘는 만큼 인원 추가 → 옵션 → 합계. 보증금은 따로.
+   - 공간마다 계산기를 하나씩 만듭니다. window.MEGASPOT_PRICE 는 1호 계산기이고, MEGASPOT_PRICE.forSpace('megaspot-gundae-2') 로 2호 계산기를 얻습니다.
    - 화면(pricing-ui.js)과 예약 신청, 목적별 요금 예시(purpose.js), 관리자 견적(admin.js)이 모두 이 파일의 계산을 씁니다.
    ===================================================================== */
 (function(root){
   'use strict';
-  var SPACE = 'megaspot-gundae';
+  var DEFAULT_SPACE = 'megaspot-gundae', engines = {};
+  function makeEngine(SPACE){
   function P(){ return ((root.MEGASPOT_PRICING || {})[SPACE]) || null; }
   function HOL(){ return root.MEGASPOT_HOLIDAYS || {}; }
+  // 시간제 예약 1건당 가산액 — 성수기는 그날의 적용 구분, 평소는 요금표의 surcharge(2호: 기본 인원 가산액)
+  function baseSurcharge(){ var D = P(), s = D && D.surcharge; return s ? (typeof s === 'object' ? (s.amount || 0) : (+s || 0)) : 0; }
+  function surchargeFor(day){ return day && day.peak ? (day.peak.surcharge || 0) : baseSurcharge(); }
 
   /* ---------- 숫자·표기 ---------- */
   function fmt(n){ return Math.round(n).toLocaleString('ko-KR'); }
@@ -107,7 +112,7 @@
   }
   function pkg_(pk, id){ return pk.pkg && pk.pkg[id] != null ? pk.pkg[id] : null; }
   // 그날 그 패키지 시간을 시간제로 계산한 정상가 (성수기 가산액 포함)
-  function pkgRegular(day, pkg){ if (typeof pkg === 'string') pkg = findPkg(pkg); return hoursFee(day, pkg.start, pkg.end).total + (day.peak ? day.peak.surcharge : 0); }
+  function pkgRegular(day, pkg){ if (typeof pkg === 'string') pkg = findPkg(pkg); return hoursFee(day, pkg.start, pkg.end).total + surchargeFor(day); }
   // 선택한 시간을 모두 포함하면서 더 싼 패키지가 있으면 알려 줍니다
   function suggestPackage(day, start, end, fee){
     var best = null;
@@ -150,7 +155,7 @@
     var people = clampInt(input.people, 1, D.people.max, D.people.base);
     var pk = day.peak, col = day.col, hours = end - start;
     var hf = hoursFee(day, start, end);
-    var surcharge = pk ? (pk.surcharge || 0) : 0, hourlyTotal = hf.total + surcharge;
+    var surcharge = surchargeFor(day), hourlyTotal = hf.total + surcharge;
     var pkg = matchPackage(start, end), pkgInfo = null, spaceFee = hourlyTotal;
     if (pkg){
       var price = pkgPrice(day, pkg);
@@ -167,6 +172,7 @@
     var notes = [], warns = [];
     if (pk) notes.push(pk.seasonLabel + ' 요금(' + pk.label + ' 기준)으로 계산했습니다. 기준 인원 ' + pk.people + '명이 공간료에 들어 있고' + (pk.people > D.people.base ? ' 그보다 적게 오셔도 공간료는 같습니다.' : ' ' + (pk.people + 1) + '명째부터 1명당 ' + man(D.people.extra) + '을 더합니다.') + (surcharge && !pkgInfo ? ' 시간제에는 1건당 가산액 ' + man(surcharge) + '이 더해져 있습니다.' : ''));
     else if (day.why) notes.push(day.why);
+    if (!pk && surcharge && !pkgInfo) notes.push((D.surcharge && D.surcharge.note) || ('시간제 예약은 1건당 가산액 ' + man(surcharge) + '을 한 번 더합니다. 패키지 금액에는 이미 들어 있습니다.'));
     if (breakfast) notes.push('조찬 모임은 따로 연락 주시면 추가 협찬과 할인을 안내해 드립니다.' + (dawnHours ? ' 새벽 05–07시는 심야 시간대 요금으로 계산했습니다.' : ''));
     if (input.regular) notes.push('4회 이상 미리 예약하는 정기 모임은 별도 할인과 추가 협찬을 안내합니다. 아래 금액은 1회 기준입니다.');
     if (input.purpose === 'popup' || input.purpose === 'shooting') notes.push('팝업·전시·행사·촬영은 성격과 기간에 맞춰 별도 할인을 안내합니다. 아래 금액은 기본 요금표 기준입니다.');
@@ -178,7 +184,7 @@
       peak: pk, surcharge: surcharge,
       time: { fee: hf.total, lines: hf.lines, total: hourlyTotal }, pkg: pkgInfo, suggest: suggest,
       spaceFee: spaceFee, peopleExtra: extraPeople, peopleFee: peopleFee, options: opts, optionFee: optFee,
-      total: total, deposit: D.deposit.amount, notes: notes, warnings: warns, version: D.version
+      total: total, deposit: D.deposit.amount, notes: notes, warnings: warns, version: D.version, space: SPACE, spaceName: D.spaceName || ''
     };
   }
 
@@ -198,7 +204,7 @@
   function summaryText(r, purposeLabel){
     if (!r) return '';
     var D = P(), L = [];
-    L.push('[메가스팟 건대 예상 금액] ' + r.version);
+    L.push('[' + (D.spaceName || '메가스팟 건대 1호') + ' 예상 금액] ' + r.version);
     L.push('이용일: ' + kdateY(r.date) + (r.day.holiday ? ' · ' + r.day.holiday : '') + ' → ' + r.colLabel + ' 요금');
     L.push('시간: ' + r.range + (r.pkg ? ' · ' + r.pkg.label : ''));
     L.push('인원: ' + r.people + '명' + (r.peopleExtra ? ' (기준 ' + r.peopleBase + '명 + ' + r.peopleExtra + '명)' : ' (기준 ' + r.peopleBase + '명 포함)'));
@@ -208,7 +214,7 @@
     else {
       L.push('공간료 ' + won(r.time.total));
       r.time.lines.forEach(function(l){ L.push('  · ' + l.label + ' ' + hourLabel(l.from) + '–' + hourLabel(l.to) + ' ' + l.hours + '시간 × ' + won(l.rate)); });
-      if (r.surcharge) L.push('  · 성수기 포함 인원 ' + r.peopleBase + '명 가산 ' + won(r.surcharge));
+      if (r.surcharge) L.push('  · ' + (r.peak ? '성수기 포함 인원 ' + r.peopleBase + '명 가산 ' : ((D.surcharge && D.surcharge.label) || '기본 인원 가산액') + '(' + r.peopleBase + '명 포함 · 1건당) ') + won(r.surcharge));
     }
     if (r.peopleFee) L.push('인원 추가 ' + r.peopleExtra + '명 × ' + won(D.people.extra) + ' = ' + won(r.peopleFee));
     r.options.forEach(function(o){ L.push(o.label + ' ' + o.qty + ' = ' + won(o.amount)); });
@@ -219,12 +225,19 @@
     return L.join('\n');
   }
 
-  root.MEGASPOT_PRICE = {
-    data: P, fmt: fmt, won: won, man: man, clampInt: clampInt,
+  return {
+    space: SPACE, data: P, surcharge: baseSurcharge, fmt: fmt, won: won, man: man, clampInt: clampInt,
     parse: parse, iso: iso, addDays: addDays, diffDays: diffDays, todayIso: todayIso, kdate: kdate, kdateY: kdateY, isOff: isOff,
     dayInfo: dayInfo, colLabel: colLabel, hourLabel: hourLabel, rangeLabel: rangeLabel, bandOf: bandOf, isDawn: isDawn, ratesFor: ratesFor, rateAt: rateAt, hoursFee: hoursFee,
     findPkg: findPkg, matchPackage: matchPackage, pkgPrice: pkgPrice, pkgRegular: pkgRegular, suggestPackage: suggestPackage, optDef: optDef, refundFor: refundFor,
     peakOf: peakOf, peakPeriods: peakPeriods, inPeakPeriod: inPeakPeriod, monthDays: monthDays, monthPrices: monthPrices,
     quote: quote, summaryText: summaryText
   };
+  }
+  function forSpace(id){ id = id || DEFAULT_SPACE; if (!engines[id]) engines[id] = makeEngine(id); return engines[id]; }
+  // 요금표가 올라와 있는 공간 목록 (스크립트에 포함된 data/pricing-*.js 기준)
+  function spaces(){ var all = root.MEGASPOT_PRICING || {}; return Object.keys(all).map(function(k){ return { id: k, name: all[k].spaceName || k, short: all[k].shortName || k, page: all[k].page || '' }; }); }
+  var main = forSpace(DEFAULT_SPACE);
+  main.forSpace = forSpace; main.spaces = spaces; main.defaultSpace = DEFAULT_SPACE;
+  root.MEGASPOT_PRICE = main;
 })(typeof window !== 'undefined' ? window : globalThis);

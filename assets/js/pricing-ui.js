@@ -1,6 +1,8 @@
 /* =====================================================================
-   메가스팟 건대 · 요금 화면 (요금표 v2.1 · 성수기 포함)
+   메가스팟 · 요금 화면 (건대 1호 요금표 v2.1 · 건대 2호 요금표 v1.1 · 성수기 포함)
    - HTML에 <div data-price="rate-table"></div>처럼 자리만 두면 이 파일이 내용을 채웁니다.
+   - 어느 공간의 요금인지는 자리의 data-space, 감싸는 요소의 data-space, <body data-space> 순서로 정하고, 없으면 1호입니다.
+     (예: <div data-price="packages" data-space="megaspot-gundae-2"></div>) 계산기는 data-space 를 바꿔 다시 그릴 수 있습니다(예약 신청 화면의 공간 선택).
    - 쓸 수 있는 자리: version, facts, rate-table, day-rule, packages(data-opt="compact"), people-rule,
      options, included, deposit, refund-table, special, examples, estimator,
      peak-table(성수기 요금표), price-calendar(요금 달력 · data-opt="compact"), season-note(성수기 한 줄 안내)
@@ -8,14 +10,22 @@
    ===================================================================== */
 (function(){
   'use strict';
-  var M = window.MEGASPOT, E = window.MEGASPOT_PRICE;
-  if (!M || !E || !E.data()) return;
+  var M = window.MEGASPOT, E0 = window.MEGASPOT_PRICE;
+  if (!M || !E0 || !E0.data()) return;
   var esc = M.esc, $ = M.$, $$ = M.$$;
-  var D = E.data(), won = E.won, man = E.man;
   var PUR = window.MEGASPOT_PURPOSES || [];
-  var PAGE = '/spaces/megaspot-gundae/pricing/';
   var KAKAO = (M.CONFIG && M.CONFIG.kakaoChannel) || '';
   var CC = window.MEGASPOT_CATERING_CALC || null;   // 출장뷔페 계산 (catering-calc.js) — 예약 신청서의 '출장뷔페도 함께 상담' 칸
+  var DEFAULT_SPACE = E0.defaultSpace || 'megaspot-gundae';
+
+  /* 공간 하나의 요금 화면 묶음 — 1호·2호가 같은 코드를 쓰고 숫자·이름만 요금표(D)에서 읽습니다 */
+  function buildUI(E){
+  var D = E.data(), won = E.won, man = E.man;
+  var PAGE = D.page || '/spaces/megaspot-gundae/pricing/';
+  var SPACE_ID = E.space || DEFAULT_SPACE, NAME = D.spaceName || '메가스팟 건대 1호', ADDR = D.address || '서울 광진구 화양동 10-1 한아름건물 2층';
+  var BASE_SUR = E.surcharge ? E.surcharge() : 0;   // 평소에도 시간제 1건당 더하는 가산액 (2호)
+  function minPkgPct(){ var m = 100; D.packages.forEach(function(p){ D.cols.forEach(function(c){ m = Math.min(m, pct(p, c.id)); }); }); return m; }
+  function peakBig(){ var pk = D.peak; if (!pk) return false; return Object.keys(pk.types).some(function(k){ return pk.types[k].people > D.people.base; }); }
 
   function tbl(head, rows, cls){
     return '<div class="tbl-wrap"><table class="tbl' + (cls ? ' ' + cls : '') + '"><thead><tr>' + head.map(function(h){ return '<th>' + h + '</th>'; }).join('') + '</tr></thead><tbody>'
@@ -32,8 +42,8 @@
     var minPkg = Math.min.apply(null, D.cols.map(function(c){ return D.packages[0].price[c.id]; }));
     el.innerHTML = [
       ['<small>시간당</small>' + esc(man(minRate)) + '<small>부터</small>', '월–목 아침 기준 · 요일·시간대별로 다릅니다'],
-      ['<small>낮 7시간</small>' + esc(man(minPkg)), '낮 패키지(10–17시) 월–금 · 시간 요금보다 21% 이상 저렴'],
-      ['<small>기준</small>20명<small>포함</small>', '21명째부터 1명당 ' + esc(man(D.people.extra)) + ' · 최대 ' + D.people.max + '명 · 성수기 주말·특정일은 50명 포함'],
+      ['<small>낮 7시간</small>' + esc(man(minPkg)), '낮 패키지(10–17시) 월–금 · 시간 요금보다 ' + Math.floor(Math.min.apply(null, D.cols.map(function(c){ return pct(D.packages[0], c.id); }))) + '% 이상 저렴'],
+      ['<small>기준</small>' + D.people.base + '명<small>포함</small>', (D.people.base + 1) + '명째부터 1명당 ' + esc(man(D.people.extra)) + ' · 최대 ' + D.people.max + '명' + (peakBig() ? ' · 성수기 주말·특정일은 50명 포함' : (BASE_SUR ? ' · 시간제는 1건당 가산액 ' + esc(man(BASE_SUR)) : ''))],
       ['<small>보증금</small>' + esc(man(D.deposit.amount)), '이용료와 따로 받고, 이용 뒤 확인 후 돌려 드립니다']
     ].map(function(f){ return '<div><b>' + f[0] + '</b><span>' + f[1] + '</span></div>'; }).join('');
     el.classList.add('facts-4');
@@ -66,14 +76,14 @@
         + '<ul class="pkg-cols">' + rows + '</ul>'
         + '<button type="button" class="btn btn-light btn-sm pkg-use" data-pkg="' + p.id + '">이 패키지로 예약 신청</button></article>';
     }).join('') + '</div>'
-      + '<p class="tiny muted mt-2">패키지 금액은 기준 인원 20명의 공간료입니다. 인원 추가와 옵션은 따로 더해집니다. 계산기에서 같은 시간을 고르면 자동으로 패키지 할인가가 적용됩니다.' + (D.peak ? ' <b>' + esc(peakRangeText()) + '</b>은 성수기 패키지 금액이 적용됩니다. <a href="' + (location.pathname === PAGE ? '#peak' : PAGE + '#peak') + '" style="text-decoration:underline;font-weight:700;color:var(--cobalt)">성수기 요금 보기</a>' : '') + '</p>';
-    el.addEventListener('click', function(e){ var b = e.target.closest('.pkg-use'); if (!b) return; if (M.pricing.estimator){ M.pricing.estimator.setPackage(b.dataset.pkg); var est = document.querySelector('[data-price=estimator]'); if (est) est.scrollIntoView({ behavior: 'smooth', block: 'start' }); } else { location.href = '/inquiry/?pkg=' + b.dataset.pkg; } });
+      + '<p class="tiny muted mt-2">패키지 금액은 기준 인원 ' + D.people.base + '명의 공간료입니다. 인원 추가와 옵션은 따로 더해집니다. 계산기에서 같은 시간을 고르면 자동으로 패키지 할인가가 적용됩니다.' + (D.peak ? ' <b>' + esc(peakRangeText()) + '</b>은 성수기 패키지 금액이 적용됩니다. <a href="' + (location.pathname === PAGE ? '#peak' : PAGE + '#peak') + '" style="text-decoration:underline;font-weight:700;color:var(--cobalt)">성수기 요금 보기</a>' : '') + '</p>';
+    el.addEventListener('click', function(e){ var b = e.target.closest('.pkg-use'); if (!b) return; if (M.pricing.estimator){ M.pricing.estimator.setPackage(b.dataset.pkg); var est = document.querySelector('[data-price=estimator]'); if (est) est.scrollIntoView({ behavior: 'smooth', block: 'start' }); } else { location.href = '/inquiry/?space=' + SPACE_ID + '&pkg=' + b.dataset.pkg; } });
   };
 
   /* ---------- 인원 ---------- */
   R['people-rule'] = function(el){
-    var ex = [30, 50, 100, 150, 200].map(function(n){ return '<span class="tag">' + n + '명 <b style="margin-left:6px;color:var(--cobalt)">+' + esc(man((n - D.people.base) * D.people.extra)) + '</b></span>'; }).join('');
-    el.innerHTML = '<div class="card pad-s"><div class="row between" style="align-items:flex-start;gap:12px"><div><b style="font-size:17px">기준 인원 ' + D.people.base + '명 포함</b><p class="small muted mt-1">' + esc(D.people.note) + '</p></div><span class="badge badge-cobalt">1명당 ' + esc(man(D.people.extra)) + '</span></div><div class="tags mt-2">' + ex + '</div>' + (D.peak ? '<p class="tiny muted mt-2">성수기 토·일과 10/31 · 12/24 · 12/25 · 12/31 · 1/1은 기준 인원이 <b>50명</b>이라 50명까지는 추가 요금이 없고, 그보다 적게 오셔도 공간료는 같습니다.</p>' : '') + '</div>';
+    var ex = (D.people.examples || [30, 50, 100, 150, 200]).map(function(n){ return '<span class="tag">' + n + '명 <b style="margin-left:6px;color:var(--cobalt)">+' + esc(man((n - D.people.base) * D.people.extra)) + '</b></span>'; }).join('');
+    el.innerHTML = '<div class="card pad-s"><div class="row between" style="align-items:flex-start;gap:12px"><div><b style="font-size:17px">기준 인원 ' + D.people.base + '명 포함</b><p class="small muted mt-1">' + esc(D.people.note) + '</p></div><span class="badge badge-cobalt">1명당 ' + esc(man(D.people.extra)) + '</span></div><div class="tags mt-2">' + ex + '</div>' + (BASE_SUR ? '<p class="tiny muted mt-2">' + esc((D.surcharge && D.surcharge.note) || '') + '</p>' : '') + (D.peak && D.peak.peopleNote ? '<p class="tiny muted mt-2">' + esc(D.peak.peopleNote) + '</p>' : '') + '</div>';
   };
 
   /* ---------- 옵션 ---------- */
@@ -84,7 +94,7 @@
       + '<p class="tiny muted mt-2">옵션은 필요한 것만 고르시면 됩니다. 금액이 적힌 항목은 계산기에서 바로 더해 볼 수 있고, \'상담 시 안내\' 항목은 행사 내용을 듣고 금액을 정합니다.</p>';
   };
   R.included = function(el){
-    el.innerHTML = '<div class="inc-grid">' + D.included.map(function(i){ return '<div class="inc' + (i.big ? ' big' : '') + '"><span class="inc-check" aria-hidden="true">✓</span>' + esc(i.label) + (i.big ? '<small>초대형 화면 · 무료</small>' : '') + '</div>'; }).join('') + '</div><p class="tiny muted mt-2">' + esc(D.includedNote) + '</p>';
+    el.innerHTML = '<div class="inc-grid">' + D.included.map(function(i){ return '<div class="inc' + (i.big ? ' big' : '') + '"><span class="inc-check" aria-hidden="true">✓</span>' + esc(i.label) + (i.big ? '<small>' + esc(i.sub || '초대형 화면 · 무료') + '</small>' : '') + '</div>'; }).join('') + '</div><p class="tiny muted mt-2">' + esc(D.includedNote) + '</p>';
   };
 
   /* ---------- 보증금·환불·별도 협의 ---------- */
@@ -103,7 +113,7 @@
   };
   R['season-note'] = function(el){
     if (!D.peak) { el.hidden = true; return; }
-    el.innerHTML = '<div class="season-note"><span class="badge badge-season">성수기 요금</span><div><b>' + esc(peakRangeText()) + '</b>은 성수기 요금이 적용됩니다. 포함 인원이 50명인 날도 있어, 날짜를 고르면 계산기가 그날 기준으로 바로 계산합니다.</div><a class="btn btn-light btn-sm" href="' + (location.pathname === PAGE ? '#peak' : PAGE + '#peak') + '">성수기 요금표 · 요금 달력 →</a></div>';
+    el.innerHTML = '<div class="season-note"><span class="badge badge-season">성수기 요금</span><div><b>' + esc(peakRangeText()) + '</b>은 성수기 요금이 적용됩니다. ' + (peakBig() ? '포함 인원이 50명인 날도 있어, ' : '') + '날짜를 고르면 계산기가 그날 기준으로 바로 계산합니다.</div><a class="btn btn-light btn-sm" href="' + (location.pathname === PAGE ? '#peak' : PAGE + '#peak') + '">성수기 요금표 · 요금 달력 →</a></div>';
   };
 
   /* ---------- 성수기 요금표 ---------- */
@@ -171,7 +181,7 @@
       var c = e.target.closest('.pc-cell[data-d]'); if (!c || c.disabled) return;
       var pkg = E.findPkg(pkgId), est = M.pricing.estimator;
       if (est){ est.set({ date: c.dataset.d, start: pkg.start, end: pkg.end }); var box = document.querySelector('[data-price=estimator]'); if (box) box.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
-      else location.href = '/inquiry/?date=' + c.dataset.d + '&pkg=' + pkgId;
+      else location.href = '/inquiry/?space=' + SPACE_ID + '&date=' + c.dataset.d + '&pkg=' + pkgId;
     });
     draw();
   };
@@ -188,17 +198,11 @@
     return null;
   }
   R.examples = function(el){
-    var ex = [
-      { t: '평일 세미나 50명', d: nextDow(4), s: 10, e: 17, p: 50, pu: 'seminar' },
-      { t: '금요일 저녁 네트워킹 60명', d: nextDow(5), s: 19, e: 23, p: 60, pu: 'networking' },
-      { t: '토요일 하루 종일 동문회 100명', d: nextDow(6), s: 10, e: 24, p: 100, pu: 'party', o: { cleaning: true } },
-      { t: '평일 저녁 정기 모임 30명', d: nextDow(2), s: 19, e: 22, p: 30, pu: 'community', regular: true },
-      { t: '일요일 낮 원데이 클래스 25명', d: nextDow(0), s: 13, e: 16, p: 25, pu: 'class' },
-      { t: '금요일 밤샘 MT 40명', d: nextDow(5, 21), s: 18, e: 31, p: 40, pu: 'party', o: { disposable: true } }
-    ];
-    var peakSat = peakSample(6), peakFri = peakSample(5);
-    if (peakSat) ex.push({ t: '성수기 토요일 송년회 100명 올데이', d: peakSat, s: 10, e: 24, p: 100, pu: 'party', o: { cleaning: true }, peak: true });
-    if (peakFri) ex.push({ t: '성수기 금요일 저녁 네트워킹 60명', d: peakFri, s: 19, e: 23, p: 60, pu: 'networking', peak: true });
+    var minDay = D.opening && D.opening > E.todayIso() ? Math.max(14, E.diffDays(E.todayIso(), D.opening)) : 14;   // 오픈 전 공간은 오픈일 이후 날짜로 예시를 만듭니다
+    var ex = (D.exampleCases || []).map(function(c){ return { t: c.t, d: nextDow(c.dow, Math.max(minDay, c.min || 0)), s: c.s, e: c.e, p: c.p, pu: c.pu, o: c.o, regular: c.regular }; });
+    var peakSat = peakSample(6), peakFri = peakSample(5), big = Math.min(D.people.max, D.people.base * 2), mid = Math.min(D.people.max, Math.round(D.people.base * 1.2 / 10) * 10 || D.people.base);
+    if (peakSat) ex.push({ t: '성수기 토요일 송년회 ' + big + '명 올데이', d: peakSat, s: 10, e: 24, p: big, pu: 'party', o: { cleaning: true }, peak: true });
+    if (peakFri) ex.push({ t: '성수기 금요일 저녁 네트워킹 ' + mid + '명', d: peakFri, s: 19, e: 23, p: mid, pu: 'networking', peak: true });
     ex = ex.map(function(x){
       var q = E.quote({ date: x.d, start: x.s, end: x.e, people: x.p, purpose: x.pu, options: x.o, regular: x.regular });
       var parts = [q.pkg ? q.pkg.label + ' ' + man(q.pkg.price) : '공간료 ' + man(q.time.fee)];
@@ -213,11 +217,12 @@
      예약 신청 · 금액 확인 (계산기 + 예약 신청을 한 화면에)
      ① 시간(패키지 버튼 포함) → ② 이용일 → ③ 인원 → (선택) 옵션 → 금액 → 예약신청하기 → 이름·연락처 → 접수
      ===================================================================== */
-  function defaultDate(){ return E.addDays(E.todayIso(), 14); }
+  function defaultDate(){ var d = E.addDays(E.todayIso(), 14); return D.opening && D.opening > d ? D.opening : d; }   // 오픈 전 공간은 오픈일이 기본 이용일
   function hourOpts(from, to, val){ var o = ''; for (var h = from; h <= to; h++) o += '<option value="' + h + '"' + (h === val ? ' selected' : '') + '>' + esc(E.hourLabel(h)) + '</option>'; return o; }
   function purLabel(id){ var p = PUR.filter(function(x){ return x.id === id; })[0]; return p ? p.label : (id === 'other' ? '기타' : ''); }
+  function minDate(){ var t = E.todayIso(); return D.opening && D.opening > t ? D.opening : t; }   // 오픈 전 공간은 오픈일부터
   function quickDates(){
-    var out = [], today = E.parse(E.todayIso());
+    var out = [], today = E.parse(minDate());
     function next(dow, minDays){ var d = new Date(today); d.setDate(d.getDate() + (minDays || 0)); while (d.getDay() !== dow) d.setDate(d.getDate() + 1); return E.iso(d); }
     out.push({ label: '이번 주 토', iso: next(6, 1) });
     out.push({ label: '다음 주 금', iso: next(5, 8) });
@@ -231,7 +236,7 @@
   function renderEstimator(el, cfg){
     cfg = cfg || {};
     var q0 = {}; try { q0 = Object.fromEntries(new URLSearchParams(location.search)); } catch (_) {}
-    var st = { date: cfg.date || q0.date || defaultDate(), start: 13, end: 17, people: E.clampInt(q0.people, 1, D.people.max, 30), purpose: cfg.purpose || q0.purpose || '', regular: q0.type === 'regular',
+    var st = { date: cfg.date || q0.date || defaultDate(), start: 13, end: 17, people: E.clampInt(q0.people, 1, D.people.max, D.people.defaultPick || 30), purpose: cfg.purpose || q0.purpose || '', regular: q0.type === 'regular',
                opt: { manager: false, managerCount: 1, managerHours: 0, cleaning: false, disposable: false, banner: false, xbanner: false } };
     if (q0.pkg){ var pk0 = E.findPkg(q0.pkg); if (pk0){ st.start = pk0.start; st.end = pk0.end; } }
     if (q0.start && q0.end){ st.start = E.clampInt(q0.start, D.openFrom, D.openTo - 1, 13); st.end = E.clampInt(q0.end, st.start + 1, D.openTo, st.start + 4); }
@@ -246,17 +251,17 @@
       + '<div class="rv-arrow" aria-hidden="true">→</div>'
       + '<div class="f"><label for="' + pid + '-end">종료</label><select class="select" id="' + pid + '-end" name="end">' + hourOpts(D.openFrom + 1, D.openTo, st.end) + '</select></div>'
       + '<div class="rv-hours" data-out="hours"></div></div>'
-      + '<div class="rv-pkg-head"><b>패키지도 가능합니다.</b> <span class="muted">시간을 묶으면 20% 이상 저렴합니다. 누르면 시간이 자동으로 들어갑니다.</span></div>'
+      + '<div class="rv-pkg-head"><b>패키지도 가능합니다.</b> <span class="muted">시간을 묶으면 ' + Math.floor(minPkgPct()) + '% 이상 저렴합니다. 누르면 시간이 자동으로 들어갑니다.</span></div>'
       + '<div class="slot-pick" data-out="pkgs">' + D.packages.map(function(p){ return '<button type="button" class="slot-btn" data-pkg="' + p.id + '" aria-pressed="false"><b>' + esc(p.label) + '</b><span>' + esc(p.time) + ' · ' + p.hours + '시간</span><em data-out="pkg-' + p.id + '"></em></button>'; }).join('') + '</div>'
       + '<p class="hint mt-1">준비·정리 시간까지 넣어 잡아 주세요. 새벽 ' + esc(E.hourLabel(D.openFrom)) + '부터 다음 날 ' + esc(E.hourLabel(D.openTo).replace('다음 날 ', '')) + '까지 1시간 단위입니다.' + (D.dawn ? ' ' + esc(D.dawn.note) : '') + ' 조찬 모임은 따로 연락 주시면 추가 협찬·할인을 안내해 드립니다.</p></section>'
       // ② 날짜
       + '<section class="rv-step"><h4><span>2</span>이용일</h4>'
-      + '<div class="est-row"><div class="f" style="flex:0 1 220px"><label for="' + pid + '-date" class="sr-only">이용일</label><input class="input" type="date" id="' + pid + '-date" name="date" value="' + esc(st.date) + '" min="' + E.todayIso() + '"></div><div class="est-daytag" data-out="daytag"></div></div>'
+      + '<div class="est-row"><div class="f" style="flex:0 1 220px"><label for="' + pid + '-date" class="sr-only">이용일</label><input class="input" type="date" id="' + pid + '-date" name="date" value="' + esc(st.date) + '" min="' + minDate() + '"></div><div class="est-daytag" data-out="daytag"></div></div>'
       + '<div class="pick mt-2" data-out="date-pick">' + quickDates().map(function(q){ return '<button type="button" data-d="' + q.iso + '">' + esc(q.label) + '<small>' + esc(E.kdate(q.iso)) + '</small></button>'; }).join('') + '</div></section>'
       // ③ 인원
       + '<section class="rv-step"><h4><span>3</span>인원 <em data-out="people-base">기준 ' + D.people.base + '명 포함 · ' + (D.people.base + 1) + '명째부터 1명당 ' + esc(man(D.people.extra)) + ' · 최대 ' + D.people.max + '명</em></h4>'
       + '<div class="est-row"><div class="f" style="flex:0 1 140px"><label for="' + pid + '-people" class="sr-only">인원</label><input class="input" type="number" inputmode="numeric" id="' + pid + '-people" name="people" min="1" max="' + D.people.max + '" value="' + st.people + '"></div>'
-      + '<div class="pick" data-out="people-pick">' + [20, 30, 50, 100, 150, 200].map(function(n){ return '<button type="button" data-n="' + n + '">' + n + '명</button>'; }).join('') + '</div></div></section>'
+      + '<div class="pick" data-out="people-pick">' + (D.people.picks || [20, 30, 50, 100, 150, 200]).map(function(n){ return '<button type="button" data-n="' + n + '">' + n + '명</button>'; }).join('') + '</div></div></section>'
       // 옵션 (접힘)
       + '<details class="rv-more"><summary>옵션 · 모임 유형 · 정기 이용 <span class="muted">(선택)</span></summary><div class="rv-more-body">'
       + '<div class="est-row"><div class="f" style="flex:1 1 220px"><label for="' + pid + '-purpose">모임 유형</label><select class="select" id="' + pid + '-purpose" name="purpose"><option value="">선택 안 함</option>' + PUR.map(function(p){ return '<option value="' + p.id + '"' + (st.purpose === p.id ? ' selected' : '') + '>' + esc(p.label) + '</option>'; }).join('') + '<option value="other">기타</option></select></div>'
@@ -269,7 +274,7 @@
       + '<label class="chk"><input type="checkbox" name="xbanner"> X배너 제작 <span class="chk-hint">' + esc(man(70000)) + '</span></label>'
       + '</div>'
       + '<div class="est-row mt-2" data-out="manager-row" hidden><div class="f inline"><label for="' + pid + '-mcount">매니저</label><input class="input" type="number" id="' + pid + '-mcount" name="managerCount" min="1" max="10" value="1"><span class="small">명</span></div><div class="f inline"><label for="' + pid + '-mhours">시간</label><input class="input" type="number" id="' + pid + '-mhours" name="managerHours" min="1" max="24" value="" placeholder="이용 시간"><span class="small">시간</span></div></div>'
-      + '<p class="tiny muted mt-2">' + esc(D.askOptions.map(function(o){ return o.label; }).join(' · ')) + '은 예약 신청 뒤 상담에서 안내합니다. 200인치 빔프로젝터·마이크·스피커·강단은 공간료에 들어 있습니다.</p>'
+      + '<p class="tiny muted mt-2">' + esc(D.askOptions.map(function(o){ return o.label; }).join(' · ')) + '은 예약 신청 뒤 상담에서 안내합니다. ' + esc(D.includedShort || '') + '</p>'
       + '</div></details>'
       + '</div>'
       // 결과 + 예약 신청
@@ -293,7 +298,7 @@
       st.date = f('date').value || E.todayIso();
       st.start = +f('start').value; st.end = +f('end').value;
       if (st.end <= st.start){ st.end = Math.min(st.start + 1, D.openTo); f('end').value = st.end; }
-      st.people = E.clampInt(f('people').value, 1, D.people.max, 20);
+      st.people = E.clampInt(f('people').value, 1, D.people.max, D.people.base);
       st.purpose = f('purpose').value; st.regular = f('regular').checked;
       ['manager', 'cleaning', 'disposable', 'banner', 'xbanner'].forEach(function(k){ st.opt[k] = f(k).checked; });
       st.opt.managerCount = E.clampInt(f('managerCount').value, 1, 10, 1);
@@ -315,7 +320,8 @@
       if (r.pkg) lines += '<tr class="pkg"><td><span class="ln">' + esc(r.pkg.label) + ' 공간료' + (r.peak ? ' <small class="muted">(' + esc(r.peak.seasonLabel) + ')</small>' : '') + '</span><span class="nt">' + esc(r.pkg.time) + ' · ' + r.pkg.hours + '시간' + (r.pkg.pct ? ' · 시간 요금 ' + esc(won(r.pkg.regular)) + '에서 ' + r.pkg.pct + '% 할인' : '') + (r.peak && r.peak.people > D.people.base ? ' · 기준 ' + r.peak.people + '명 포함' : '') + '</span></td><td class="pr">' + esc(won(r.pkg.price)) + '</td></tr>';
       else {
         r.time.lines.forEach(function(l){ lines += '<tr><td><span class="ln">공간료 · ' + esc(l.label) + (l.dawn ? ' <small class="muted">(심야 요금)</small>' : '') + '</span><span class="nt">' + esc(E.hourLabel(l.from)) + '–' + esc(E.hourLabel(l.to)) + ' · ' + l.hours + '시간 × ' + esc(won(l.rate)) + '</span></td><td class="pr">' + esc(won(l.sum)) + '</td></tr>'; });
-        if (r.surcharge) lines += '<tr><td><span class="ln">성수기 포함 인원 ' + r.peopleBase + '명 가산</span><span class="nt">' + esc(r.peak.label) + ' · 1건당 · 시간제에만 더해집니다</span></td><td class="pr">' + esc(won(r.surcharge)) + '</td></tr>';
+        if (r.surcharge) lines += r.peak ? '<tr><td><span class="ln">성수기 포함 인원 ' + r.peopleBase + '명 가산</span><span class="nt">' + esc(r.peak.label) + ' · 1건당 · 시간제에만 더해집니다</span></td><td class="pr">' + esc(won(r.surcharge)) + '</td></tr>'
+          : '<tr><td><span class="ln">' + esc((D.surcharge && D.surcharge.label) || '기본 인원 가산액') + '</span><span class="nt">기준 ' + r.peopleBase + '명 포함 · 시간제 예약 1건당 · 패키지에는 들어 있습니다</span></td><td class="pr">' + esc(won(r.surcharge)) + '</td></tr>';
       }
       lines += '<tr><td><span class="ln">인원 ' + r.people + '명</span><span class="nt">' + (r.peopleExtra ? '기준 ' + r.peopleBase + '명 포함 · 추가 ' + r.peopleExtra + '명 × ' + esc(won(D.people.extra)) : '기준 ' + r.peopleBase + '명 안이라 추가 요금 없음') + '</span></td><td class="pr">' + (r.peopleFee ? esc(won(r.peopleFee)) : '0원') + '</td></tr>';
       r.options.forEach(function(o){ lines += '<tr class="adj"><td><span class="ln">' + esc(o.label) + '</span><span class="nt">' + esc(o.qty) + ' · ' + esc(won(o.unitPrice)) + ' / ' + esc(o.unit) + '</span></td><td class="pr">' + esc(won(o.amount)) + '</td></tr>'; });
@@ -330,6 +336,7 @@
       $$('button', out('people-pick')).forEach(function(b){ var on = +b.dataset.n === r.people; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
       $$('button', out('date-pick')).forEach(function(b){ var on = b.dataset.d === r.date; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
       if (r.date < E.todayIso()) out('daytag').insertAdjacentHTML('beforeend', '<span class="badge badge-rust">지난 날짜</span><span class="tiny" style="flex-basis:100%;color:var(--rust)">지난 날짜입니다. 이용일을 다시 골라 주세요.</span>');
+      else if (D.opening && r.date < D.opening) out('daytag').insertAdjacentHTML('beforeend', '<span class="badge badge-rust">오픈 전</span><span class="tiny" style="flex-basis:100%;color:var(--rust)">' + esc(NAME) + '은 ' + esc(E.kdateY(D.opening)) + ' 문을 엽니다. 오픈일 이후 날짜를 골라 주세요. 그 전 날짜는 <a href="/inquiry/?space=' + DEFAULT_SPACE + '&date=' + esc(r.date) + '" style="text-decoration:underline">건대 1호</a>로 신청할 수 있습니다.</span>');
       out('manager-row').hidden = !st.opt.manager;
       $$('.rate-table td.rc').forEach(function(td){ td.classList.remove('hl'); });
       var bands = {}; r.time.lines.forEach(function(l){ bands[l.band] = true; });
@@ -393,7 +400,7 @@
     }
     function reserveText(r, who){
       var L = [E.summaryText(r, purLabel(r.purpose))];
-      if (who) L.unshift('[메가스팟 건대 예약 신청] ' + who.name + ' / ' + who.phone + (who.email ? ' / ' + who.email : '') + (who.message ? '\n요청사항: ' + who.message : '') + (who.family && who.family.length && M.familyLabel ? '\n함께 알아보기: ' + M.familyLabel(who.family) : '') + (who.catering ? '\n출장뷔페: ' + who.catering.summary : ''));
+      if (who) L.unshift('[' + NAME + ' 예약 신청] ' + who.name + ' / ' + who.phone + (who.email ? ' / ' + who.email : '') + (who.message ? '\n요청사항: ' + who.message : '') + (who.family && who.family.length && M.familyLabel ? '\n함께 알아보기: ' + M.familyLabel(who.family) : '') + (who.catering ? '\n출장뷔페: ' + who.catering.summary : ''));
       return L.join('\n');
     }
     function submit(){
@@ -401,9 +408,10 @@
       if (!M.validate(form)){ er.textContent = '이름·휴대폰 번호와 동의 여부를 확인해 주세요.'; er.hidden = false; return; }
       read(); var r = last || calc();
       if (r.date < E.todayIso()){ er.textContent = '지난 날짜는 신청할 수 없습니다. 이용일을 다시 골라 주세요.'; er.hidden = false; return; }
+      if (D.opening && r.date < D.opening){ er.textContent = NAME + '은 ' + E.kdateY(D.opening) + ' 오픈합니다. 오픈일 이후 날짜를 골라 주세요.'; er.hidden = false; return; }
       var who = { name: form.rv_name.value.trim(), phone: form.rv_phone.value.trim(), email: form.rv_email.value.trim(), message: form.rv_message.value.trim(), family: [].slice.call(form.querySelectorAll('[name=rv_family]:checked')).map(function(i){ return i.value; }), catering: CC ? CC.read(form, 'rv_cat', r.people) : null };
       var purpose = form.rv_purpose.value || st.purpose;
-      var body = { inquiry_type: st.regular ? 'regular' : 'event', space_id: 'megaspot-gundae', reserve: true, purpose: purpose, date: r.date, slot: 'custom',
+      var body = { inquiry_type: st.regular ? 'regular' : 'event', space_id: SPACE_ID, reserve: true, purpose: purpose, date: r.date, slot: 'custom',
         t_start: E.hourLabel(r.start).replace(/^다음 날 /, ''), t_end: E.hourLabel(r.end).replace(/^다음 날 /, ''), start_h: r.start, end_h: r.end, headcount: r.people,
         options: options(), pkg: r.pkg ? r.pkg.id : '', total: r.total, name: who.name, phone: who.phone, email: who.email, message: who.message, family: who.family, catering: who.catering, contact_pref: 'kakao',
         agree_privacy: true, estimate: E.summaryText(r, purLabel(purpose)), source: location.pathname, summary: reserveText(r, who), website: form.website.value, came_from: M.source ? M.source() : null };
@@ -416,7 +424,7 @@
     }
     function paintDone(){
       var r = done.r, text = reserveText(r, done.who);
-      var passId = r.pkg && !r.peak ? PASS_ID[r.pkg.id][r.col] : null;   // 성수기는 이용권 금액과 달라 온라인 이용권으로 결제하지 않습니다
+      var passId = D.onlinePass && r.pkg && !r.peak ? PASS_ID[r.pkg.id][r.col] : null;   // 성수기는 이용권 금액과 달라 온라인 이용권으로 결제하지 않습니다 · 온라인 이용권은 1호만
       var addons = Object.keys(options());
       var payLink = passId ? '/order/?product=' + passId + '&date=' + r.date + '&people=' + r.people + '&ref=' + encodeURIComponent(done.ref) + (addons.length ? '&addons=' + addons.join(',') : '') : '';
       out('result').innerHTML = '<div class="est-card rv-card rv-done">'
@@ -440,8 +448,8 @@
       var now = new Date(), stamp = now.toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';
       var desc = ('접수번호 ' + done.ref + '\\n' + E.summaryText(r, purLabel(done.purpose)).replace(/\n/g, '\\n') + '\\n예약 신청 상태이며 결제가 끝나면 확정됩니다.');
       var lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//MEGASPOT//reserve//KO', 'CALSCALE:GREGORIAN', 'BEGIN:VEVENT', 'UID:' + done.ref + '@megaspot.kr', 'DTSTAMP:' + stamp,
-        'DTSTART;TZID=Asia/Seoul:' + dt(r.date, r.start), 'DTEND;TZID=Asia/Seoul:' + dt(r.date, r.end), 'SUMMARY:메가스팟 건대 예약 신청 (' + r.people + '명)',
-        'LOCATION:' + (C.venueAddress || '서울특별시 광진구 화양동 10-1 한아름건물 2층'), 'DESCRIPTION:' + desc, 'STATUS:TENTATIVE', 'END:VEVENT', 'END:VCALENDAR'];
+        'DTSTART;TZID=Asia/Seoul:' + dt(r.date, r.start), 'DTEND;TZID=Asia/Seoul:' + dt(r.date, r.end), 'SUMMARY:' + NAME + ' 예약 신청 (' + r.people + '명)',
+        'LOCATION:' + (D.address ? NAME + ' · ' + D.address : (C.venueAddress || '서울특별시 광진구 화양동 10-1 한아름건물 2층')), 'DESCRIPTION:' + desc, 'STATUS:TENTATIVE', 'END:VEVENT', 'END:VCALENDAR'];
       var blob = new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' }), a = document.createElement('a');
       a.href = URL.createObjectURL(blob); a.download = 'megaspot_' + r.date + '.ics'; document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 500);
       M.toast('캘린더 파일을 저장했습니다. 열면 일정에 추가됩니다.');
@@ -503,15 +511,16 @@
     if (r.pkg) rows += '<tr><td>공간료 · ' + esc(r.pkg.label) + (r.peak ? ' (' + esc(r.peak.seasonLabel) + ')' : '') + '</td><td>' + esc(r.pkg.time) + ' · ' + r.pkg.hours + '시간' + (r.pkg.pct ? ' (시간 요금 ' + esc(won(r.pkg.regular)) + ' → ' + r.pkg.pct + '% 할인)' : '') + '</td><td>' + esc(won(r.pkg.price)) + '</td></tr>';
     else {
       r.time.lines.forEach(function(l){ rows += '<tr><td>공간료 · ' + esc(l.label) + '</td><td>' + esc(E.hourLabel(l.from)) + '–' + esc(E.hourLabel(l.to)) + ' · ' + l.hours + '시간 × ' + esc(won(l.rate)) + '</td><td>' + esc(won(l.sum)) + '</td></tr>'; });
-      if (r.surcharge) rows += '<tr><td>성수기 포함 인원 가산</td><td>' + esc(r.peak.label) + ' · 기준 ' + r.peopleBase + '명 · 1건당</td><td>' + esc(won(r.surcharge)) + '</td></tr>';
+      if (r.surcharge) rows += r.peak ? '<tr><td>성수기 포함 인원 가산</td><td>' + esc(r.peak.label) + ' · 기준 ' + r.peopleBase + '명 · 1건당</td><td>' + esc(won(r.surcharge)) + '</td></tr>'
+        : '<tr><td>' + esc((D.surcharge && D.surcharge.label) || '기본 인원 가산액') + '</td><td>기준 ' + r.peopleBase + '명 포함 · 시간제 1건당</td><td>' + esc(won(r.surcharge)) + '</td></tr>';
     }
     rows += '<tr><td>인원</td><td>' + r.people + '명 (기준 ' + r.peopleBase + '명 포함' + (r.peopleExtra ? ' · 추가 ' + r.peopleExtra + '명 × ' + esc(won(D.people.extra)) : '') + ')</td><td>' + esc(won(r.peopleFee)) + '</td></tr>';
     r.options.forEach(function(o){ rows += '<tr><td>' + esc(o.label) + '</td><td>' + esc(o.qty) + ' · ' + esc(won(o.unitPrice)) + ' / ' + esc(o.unit) + '</td><td>' + esc(won(o.amount)) + '</td></tr>'; });
     var notes = r.warnings.concat(r.notes).map(function(n){ return '<li>' + esc(n) + '</li>'; }).join('');
     var refund = D.refund.map(function(x){ return '<span>' + esc(x.k) + ' <b>' + Math.round(x.rate * 100) + '%</b></span>'; }).join('');
     sheet().innerHTML = '<div class="qp">'
-      + '<header class="qp-head"><div><div class="qp-logo">MEGA<b>SPOT</b></div><div class="qp-sub">메가스팟 건대 · 서울 광진구 화양동 10-1 한아름건물 2층</div></div><div class="qp-meta"><b>예상 금액 안내</b><span>문서번호 ' + no + '</span><span>작성 ' + esc(stamp) + '</span><span>' + esc(D.version) + '</span></div></header>'
-      + '<div class="qp-title" role="heading" aria-level="2">메가스팟 건대 이용 예상 금액</div>'
+      + '<header class="qp-head"><div><div class="qp-logo">MEGA<b>SPOT</b></div><div class="qp-sub">' + esc(NAME) + ' · ' + esc(ADDR) + '</div></div><div class="qp-meta"><b>예상 금액 안내</b><span>문서번호 ' + no + '</span><span>작성 ' + esc(stamp) + '</span><span>' + esc(D.version) + '</span></div></header>'
+      + '<div class="qp-title" role="heading" aria-level="2">' + esc(NAME) + ' 이용 예상 금액</div>'
       + '<table class="qp-cond"><tbody>'
       + '<tr><th>이용일</th><td>' + esc(E.kdateY(r.date)) + (r.day.holiday ? ' · ' + esc(r.day.holiday) : '') + ' <span class="qp-tag">' + esc(r.colLabel) + ' 요금</span></td><th>이용 시간</th><td>' + esc(r.range) + '</td></tr>'
       + '<tr><th>인원</th><td>' + r.people + '명</td><th>모임 유형</th><td>' + esc(pl || '미정') + (r.regular ? ' · 정기 이용(4회 이상) 예정' : '') + '</td></tr>'
@@ -529,21 +538,49 @@
   function printQuote(r){
     renderQuoteSheet(r, purLabel(r.purpose));
     var old = document.title;
-    document.title = '메가스팟건대_예상금액_' + r.date.replace(/-/g, '');
+    document.title = (D.fileTag || '메가스팟건대') + '_예상금액_' + r.date.replace(/-/g, '');
     var restore = function(){ document.title = old; window.removeEventListener('afterprint', restore); };
     window.addEventListener('afterprint', restore);
     setTimeout(function(){ window.print(); setTimeout(restore, 1500); }, 50);
+  }
+
+  return { E: E, D: D, R: R, renderEstimator: renderEstimator, printQuote: printQuote, renderQuoteSheet: renderQuoteSheet, page: PAGE, space: SPACE_ID, name: NAME };
+  }
+
+  /* ---------- 공간별 화면 묶음 ---------- */
+  var UIS = {};
+  function uiFor(id){
+    id = id || DEFAULT_SPACE;
+    if (!UIS[id]){ var E = E0.forSpace ? E0.forSpace(id) : E0; if (!E.data()) return null; UIS[id] = buildUI(E); }
+    return UIS[id];
+  }
+  // 자리(el)가 어느 공간의 요금을 보여 줄지: data-space → 감싸는 요소의 data-space → body data-space → 1호
+  function spaceOf(el){
+    if (el && el.dataset && el.dataset.space) return el.dataset.space;
+    if (el && el.hasAttribute && el.hasAttribute('data-space-query')){ try { var qs = new URLSearchParams(location.search).get('space'); if (qs && (window.MEGASPOT_PRICING || {})[qs]) return qs; } catch (_) {} }
+    var wrap = el && el.closest ? el.closest('[data-space]') : null;
+    if (wrap && wrap.dataset.space) return wrap.dataset.space;
+    return (document.body && document.body.dataset.space) || DEFAULT_SPACE;
   }
 
   /* ---------- 초기화 ---------- */
   function init(root){
     $$('[data-price]', root || document).forEach(function(el){
       var key = el.dataset.price; if (el.dataset.ready) return; el.dataset.ready = '1';
-      if (key === 'estimator'){ renderEstimator(el, { onAsk: null }); return; }
-      if (R[key]) R[key](el, el.dataset.opt);
+      var ui = uiFor(spaceOf(el)); if (!ui){ el.hidden = true; return; }
+      if (key === 'estimator'){ ui.renderEstimator(el, { onAsk: null }); return; }
+      if (ui.R[key]) ui.R[key](el, el.dataset.opt);
     });
   }
+  // 자리의 공간을 바꿔 다시 그립니다 (예약 신청 화면의 1호·2호 선택). 자리를 새 요소로 바꿔 이전 공간의 이벤트 처리기를 떼어 내므로, 돌려주는 요소를 다시 잡아 써야 합니다.
+  function rerender(el, spaceId){
+    if (!el || !el.parentNode) return null;
+    var fresh = el.cloneNode(false); fresh.innerHTML = ''; fresh.dataset.space = spaceId; delete fresh.dataset.ready;
+    el.parentNode.replaceChild(fresh, el); init(fresh.parentNode || document); return fresh;
+  }
+  var main = uiFor(DEFAULT_SPACE);
   M.pricing = M.pricing || {};
-  M.pricing.init = init; M.pricing.renderEstimator = renderEstimator; M.pricing.renderers = R; M.pricing.page = PAGE; M.pricing.printQuote = printQuote;
+  M.pricing.init = init; M.pricing.rerender = rerender; M.pricing.forSpace = uiFor; M.pricing.spaceOf = spaceOf;
+  if (main){ M.pricing.renderEstimator = main.renderEstimator; M.pricing.renderers = main.R; M.pricing.page = main.page; M.pricing.printQuote = main.printQuote; }
   init(document);
 })();

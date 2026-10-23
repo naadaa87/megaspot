@@ -4,7 +4,7 @@
   var PUR={}; (window.MEGASPOT_PURPOSES||[]).forEach(function(p){ PUR[p.id]=p.label; });
   var STEPS=['문의 접수','조건 확인','견적 발송','결제 대기','예약 확정','이용 완료'];
   var TYPE={event:'행사 대관',regular:'정기·반복 모임',partner:'제휴·협력'};
-  var SPACE={'megaspot-gundae':'메가스팟 건대', request:'맞춤 공간 요청'};
+  var SPACE={'megaspot-gundae':'메가스팟 건대 1호', 'megaspot-gundae-2':'메가스팟 건대 2호', request:'맞춤 공간 요청'};
 
   function nextUrl(){
     var n=new URLSearchParams(location.search).get('next')||'';

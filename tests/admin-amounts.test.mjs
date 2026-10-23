@@ -134,9 +134,10 @@ test('수정 금액이 일자별 목록·월 소계·확정 금액 합계에 렌
   await api('inquiries/MS-TEST', 'PATCH', { total: 800000 });
   const items = (await api('reservations')).items;
   const nodes = {};
-  const context = vm.createContext({ RS: { items, today: date, kind: 'all', undated: 0 }, E: null, DOWK: ['일','월','화','수','목','금','토'],
+  const context = vm.createContext({ RS: { items, today: date, kind: 'all', undated: 0 }, E: null, E0: null, DOWK: ['일','월','화','수','목','금','토'],
     $: sel => nodes[sel] ||= { innerHTML: '' }, $$: () => [], resvBase: () => items, resvFiltered: () => items,
     waitOrder() {}, dLabel: () => '', esc: String, man: n => n + '원', won: n => n + '원',
+    DEFAULT_SPACE: 'megaspot-gundae', SPACE_IDS: ['megaspot-gundae', 'megaspot-gundae-2'], useSpace: () => null, spaceTag: () => '', spKey: id => id === 'megaspot-gundae-2' ? id : 'megaspot-gundae',
     resvRow: it => '<tr><td>' + it.amount + '원</td></tr>' });
   const start = source.indexOf('  function dayStats('), end = source.indexOf('  function resvRow(', start);
   vm.runInContext(source.slice(start, end) + '\ndrawResv();', context);
@@ -287,7 +288,8 @@ test('확정 예약이 연결된 문의는 대기 취소로 바꾸지 않음', a
 test('대기 취소 행은 회색 기록·복원 버튼만 표시하고 집계·순번에서 제외', () => {
   const active = {kind:'pending',ref:'MS-A',date,name:'대기',status:'문의 접수'};
   const cancelled = {kind:'pending',ref:'MS-B',date,name:'취소',status:'대기 취소',amount:500000};
-  const context = vm.createContext({ RS:{items:[active,cancelled]}, BST:{}, ST_CLS:{'대기 취소':'st-cancel'}, esc:String, famAsk:()=>'', PUR:{}, SRC:{}, resvTime:()=>'', resvHours:()=>'', waitDraggable:()=>true, won:String, chTag:()=>'' });
+  const context = vm.createContext({ RS:{items:[active,cancelled]}, BST:{}, ST_CLS:{'대기 취소':'st-cancel'}, esc:String, famAsk:()=>'', PUR:{}, SRC:{}, resvTime:()=>'', resvHours:()=>'', waitDraggable:()=>true, won:String, chTag:()=>'',
+    DEFAULT_SPACE:'megaspot-gundae', SPACE_IDS:['megaspot-gundae','megaspot-gundae-2'], spaceTag:()=>'', spKey:id=>id==='megaspot-gundae-2'?id:'megaspot-gundae' });
   vm.runInContext(source.slice(source.indexOf('  function waitCmp('),source.indexOf('  function drawResv(')) + '\n'
     + source.slice(source.indexOf('  function resvRow('),source.indexOf("  $('#rs-ch').innerHTML")), context);
   context.waitOrder();

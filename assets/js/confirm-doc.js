@@ -70,7 +70,7 @@
     // 머리말
     var lw = width('MEGA', 400, 34, LOGO);
     text('MEGA', L, 50, { sz: 34, fam: LOGO, c: C.graphite }); text('SPOT', L + lw, 50, { sz: 34, fam: LOGO, c: C.cobalt });
-    text('메가스팟 건대', L + 1, 96, { sz: 11, w: 700, c: C.ink3, ls: 4 });
+    text((doc.space && doc.space.name) || '메가스팟 건대 1호', L + 1, 96, { sz: 11, w: 700, c: C.ink3, ls: 4 });
     text('예약 확정서', R, 50, { sz: 32, w: 800, align: 'right' });
     text('RESERVATION CONFIRMATION', R, 94, { sz: 10, w: 700, c: C.ink3, align: 'right', ls: 2 });
     hr(124, C.graphite, 2);
@@ -111,7 +111,7 @@
 
     section('이용 정보');
     var sp0 = doc.space || {};
-    row('공간', sp0.name || '메가스팟 건대', { w: 700, sub: sp0.sub || '' });
+    row('공간', sp0.name || '메가스팟 건대 1호', { w: 700, sub: sp0.sub || '' });
     if (sp0.address) row('주소', sp0.address);
     row('이용일', dateText(doc.date), { w: 700 });
     row('이용 시간', timeText(doc), { w: 700, sub: doc.time_note || '입장·세팅·정리·퇴장을 모두 포함한 시간입니다.' });
@@ -151,7 +151,7 @@
     text('이메일  ' + c.email, L + 22, by + 62, { sz: 13.5, w: 600 });
     if (qr) { ctx.drawImage(qr, R - 22 - 72, by + 14, 72, 72); text('휴대폰 카메라로 비추면', R - 22 - 72 - 12, by + 38, { sz: 10.5, w: 600, c: C.ink3, align: 'right' }); text('카카오톡 채팅이 열립니다', R - 22 - 72 - 12, by + 54, { sz: 10.5, w: 600, c: C.ink3, align: 'right' }); }
     text('확정서 다시 보기: megaspot.kr/confirm  (예약번호 + 휴대폰 뒷 4자리)', L, H - 64, { sz: 11, w: 600, c: C.ink2 });
-    text('이 확정서는 메가스팟 건대 예약이 확정되었음을 알려 드리는 문서이며, 세금계산서·현금영수증 등 결제 증빙은 따로 발급됩니다.', L, H - 46, { sz: 10, c: C.ink3 });
+    text('이 확정서는 ' + ((doc.space && doc.space.name) || '메가스팟 건대 1호') + ' 예약이 확정되었음을 알려 드리는 문서이며, 세금계산서·현금영수증 등 결제 증빙은 따로 발급됩니다.', L, H - 46, { sz: 10, c: C.ink3 });
     text('주식회사 블랭크 · 대표 최시준 · 사업자등록번호 161-86-03494 · megaspot.kr', L, H - 30, { sz: 10, c: C.ink3 });
     return contentEnd <= by - 14;
   }
@@ -195,7 +195,7 @@
     setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 1500);
   }
   function kakaoText(doc, link){
-    var L = ['[메가스팟 건대 예약 확정 안내]'];
+    var L = ['[' + ((doc.space && doc.space.name) || '메가스팟 건대 1호') + ' 예약 확정 안내]'];
     var nm = String(doc.customer || '').replace(/\s*\(.*\)\s*$/, '');
     L.push((nm ? nm + ' 님, ' : '') + '예약이 확정되었습니다.');
     L.push('');

@@ -146,14 +146,15 @@
   function showLB(i){ var n=LB.items.length; if(!n) return; LB.i=(i+n)%n; var it=LB.items[LB.i]; var img=$('img',LB.el); img.src=it.src; img.alt=it.title||''; $('.lb-counter',LB.el).textContent=pad2(LB.i+1)+' / '+pad2(n); var tg=$('.lb-tag',LB.el); tg.textContent=it.tag||''; tg.hidden=!it.tag; tg.className='lb-tag'; $('.lb-cap b',LB.el).textContent=it.title||''; $('.lb-cap span',LB.el).textContent=it.cap||''; }
 
   /* ---------- 사진 경로 ---------- */
-  function photoSrc(spaceId, pid, thumb){ return '/assets/img/'+ (spaceId==='megaspot-gundae'?'gundae':spaceId) +'/'+(thumb?'t/':'')+pid+'.jpg'; }
+  var SPACE_DIR={ 'megaspot-gundae':'gundae', 'megaspot-gundae-2':'gundae2' };
+  function photoSrc(spaceId, pid, thumb){ return '/assets/img/'+ (SPACE_DIR[spaceId]||spaceId) +'/'+(thumb?'t/':'')+pid+'.jpg'; }
   // 이미지 id 첫 글자로 종류를 구분합니다. size: '' | 'm' | 't'
-  //  p: 공간 사진 · s: 활용 장면 · v: 공간 전경 · a: 조감도 (화면에는 이미지 종류 표시를 붙이지 않습니다)
-  var IMG_DIR={ p:'gundae', s:'scenes', v:'views', a:'aerial' };
+  //  p: 1호 공간 사진 · s: 활용 장면 · v: 1호 공간 전경 · a: 1호 조감도 · r: 2호 완공 예상 이미지 (화면에는 이미지 종류 표시를 붙이지 않습니다)
+  var IMG_DIR={ p:'gundae', s:'scenes', v:'views', a:'aerial', r:'gundae2' };
   function kind(id){ var c=String(id).charAt(0); return IMG_DIR[c] ? c : 'p'; }
   function imgSrc(id, size){ var sub=size?size+'/':''; return '/assets/img/'+IMG_DIR[kind(id)]+'/'+sub+id+'.jpg'; }
   function isStaged(id){ if(kind(id)!=='s') return false; var sc=window.MEGASPOT_SCENE && window.MEGASPOT_SCENE(id); return !sc || sc.staged!==false; }
-  function isCG(id){ var k=kind(id); return k==='v' || k==='a'; }
+  function isCG(id){ var k=kind(id); return k==='v' || k==='a' || k==='r'; }
   function imgTag(id){ return ''; }
   function tagClass(id){ return isStaged(id) ? 'staged' : isCG(id) ? 'cg' : ''; }
   function tagHtml(id, extra){ return ''; }
@@ -163,7 +164,7 @@
     if(k==='s') return window.MEGASPOT_SCENE ? window.MEGASPOT_SCENE(id) : null;
     if(k==='v') return find(window.MEGASPOT_VIEWS);
     if(k==='a') return find(window.MEGASPOT_AERIALS);
-    var sp=window.MEGASPOT_GET_SPACE && window.MEGASPOT_GET_SPACE('megaspot-gundae'); return sp ? find(sp.photos) : null;
+    var sp=window.MEGASPOT_GET_SPACE && window.MEGASPOT_GET_SPACE(k==='r' ? 'megaspot-gundae-2' : 'megaspot-gundae'); return sp ? find(sp.photos) : null;
   }
   // 이미지 목록({id,title,cap}) → 라이트박스 항목
   function sceneItems(list){ return (list||[]).map(function(s){ return { src:imgSrc(s.id), title:s.title, cap:s.cap, tag:imgTag(s.id) }; }); }

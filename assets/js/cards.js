@@ -17,9 +17,10 @@
     var feats = (s.features||[]).slice(0, opt.wide?8:4).map(function(f){ return '<span class="tag">'+esc(FEAT[f]||f)+'</span>'; }).join('');
     var plim = opt.wide?5:3, pall=(s.purposes||[]);
     var purs = pall.slice(0, plim).map(function(p){ return esc(PUR[p]||p); }).join(' · ') + (pall.length>plim ? ' 외 '+(pall.length-plim)+'가지' : '');
-    var status = s.status==='open' ? '<span class="badge badge-ok">문의 가능</span>' : '<span class="badge badge-soft">준비 중</span>';
+    var status = s.status==='open' ? '<span class="badge badge-ok">'+esc(s.statusLabel||'문의 가능')+'</span>' : s.status==='opening' ? '<span class="badge badge-cobalt">'+esc(s.statusLabel||'오픈 예정 · 사전 예약')+'</span>' : '<span class="badge badge-soft">준비 중</span>';
+    var cgNote = s.renders ? '<span class="ph-note">완공 예상 이미지</span>' : '';
     return '<a class="space-card'+(opt.wide?' wide':'')+'" href="'+url+'">'
-      + '<div class="ph"><img src="'+cover+'" alt="'+esc(s.name)+' 대표 이미지" loading="lazy">'+typeBadge(s)+M.tagHtml(s.cover)+'</div>'
+      + '<div class="ph"><img src="'+cover+'" alt="'+esc(s.name)+' 대표 이미지'+(s.renders?' (완공 예상 이미지)':'')+'" loading="lazy">'+typeBadge(s)+cgNote+M.tagHtml(s.cover)+'</div>'
       + '<div class="bd">'
       + '<div class="row between"><h3>'+esc(s.name)+'</h3>'+status+'</div>'
       + '<div class="loc">'+esc(s.addressShort||s.address)+'</div>'
@@ -27,7 +28,7 @@
       + '<div class="specs">'
       + '<span><b>'+esc(s.area.pyeong)+'</b>평</span>'
       + '<span>최대 <b>'+esc(s.capacity.max)+'</b>명</span>'
-      + '<span>H <b>'+(s.ceiling.mm/1000).toFixed(1)+'</b>m</span>'
+      + (s.ceiling && s.ceiling.mm ? '<span>H <b>'+(s.ceiling.mm/1000).toFixed(1)+'</b>m</span>' : (s.capacity.base ? '<span>기준 <b>'+esc(s.capacity.base)+'</b>명 포함</span>' : ''))
       + (s.price ? '<span class="price">시간당 <b>'+M.fmtNum(s.price.from/10000)+'</b>만 원부터</span>' : '')
       + '</div>'
       + '<div class="tags mt-2">'+feats+'</div>'
@@ -41,7 +42,7 @@
     var href = opt.href || ('/purpose/'+p.id+'/');
     if(p.cover){
       return '<a class="pcard" href="'+href+'">'
-        + '<div class="ph"><img src="'+M.imgSrc(p.cover,'m')+'" alt="'+esc(p.label)+' — 메가스팟 건대" loading="lazy">'+M.tagHtml(p.cover)+'</div>'
+        + '<div class="ph"><img src="'+M.imgSrc(p.cover,'m')+'" alt="'+esc(p.label)+' — 메가스팟 건대 1호" loading="lazy">'+M.tagHtml(p.cover)+'</div>'
         + '<div class="bd"><div class="eyebrow">'+esc(p.en)+'</div><h3>'+esc(p.label)+'</h3><p>'+esc(p.desc)+'</p><span class="go">'+esc(opt.go||'어떻게 쓰는지 보기')+' →</span></div>'
         + '</a>';
     }

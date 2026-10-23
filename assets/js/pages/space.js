@@ -1,4 +1,4 @@
-/* 메가스팟 건대 · 상세 페이지 */
+/* 메가스팟 건대 1호 · 상세 페이지 */
 (function(){
   var M=window.MEGASPOT, $=M.$, $$=M.$$, esc=M.esc;
   var S=window.MEGASPOT_GET_SPACE('megaspot-gundae'); if(!S) return;
@@ -23,7 +23,7 @@
       g.classList.toggle('is-aerial', k==='aerial');
       g.innerHTML=show.map(function(p,i){
         var more = i===6 && list.length>7 ? '<span class="more">+'+(list.length-7)+'장 더 보기</span>' : '';
-        return '<button type="button" class="'+(i===0?'big':'')+'" data-i="'+i+'" aria-label="'+esc(p.title)+' 크게 보기"><img src="'+M.imgSrc(p.id, i===0?'m':'t')+'" alt="메가스팟 건대 — '+esc(p.title)+'" '+(i===0?'':'loading="lazy"')+'>'+(i===0?M.tagHtml(p.id):'')+more+'</button>';
+        return '<button type="button" class="'+(i===0?'big':'')+'" data-i="'+i+'" aria-label="'+esc(p.title)+' 크게 보기"><img src="'+M.imgSrc(p.id, i===0?'m':'t')+'" alt="메가스팟 건대 1호 — '+esc(p.title)+'" '+(i===0?'':'loading="lazy"')+'>'+(i===0?M.tagHtml(p.id):'')+more+'</button>';
       }).join('');
       if(tabs) $$('button',tabs).forEach(function(b){ var on=b.dataset.set===k; b.classList.toggle('on',on); b.setAttribute('aria-selected',String(on)); });
       if(note) note.innerHTML=sets[k].note;
@@ -41,7 +41,7 @@
     box.innerHTML=A.map(function(a,i){ return '<button type="button" role="tab" data-i="'+i+'" aria-selected="false"><img src="'+M.imgSrc(a.id,'t')+'" alt="" loading="lazy"><span>'+esc(a.angle)+'</span></button>'; }).join('');
     function show(i){
       k=i; var a=A[i];
-      img.src=M.imgSrc(a.id,'m'); img.alt='메가스팟 건대 조감도 — '+a.title;
+      img.src=M.imgSrc(a.id,'m'); img.alt='메가스팟 건대 1호 조감도 — '+a.title;
       ttl.textContent=a.title; cap.textContent=a.cap;
       $$('button',box).forEach(function(b){ var on=+b.dataset.i===i; b.classList.toggle('on',on); b.setAttribute('aria-selected',String(on)); });
     }
@@ -77,7 +77,7 @@
     var k=30, pad=50;
     var W=P.width*k+pad*2, H=P.bi*k+pad*2;
     function X(x){return (x*k+pad).toFixed(1);} function Z(z){return (z*k+pad).toFixed(1);}
-    var s='<svg viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="메가스팟 건대 평면도">';
+    var s='<svg viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="메가스팟 건대 1호 평면도">';
     s+='<defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#3A4046"/><line x1="0" y1="0" x2="0" y2="6" stroke="#8A9097" stroke-width="2"/></pattern>'
       +'<pattern id="brickp" width="10" height="6" patternUnits="userSpaceOnUse"><rect width="10" height="6" fill="#F5E6DF"/><path d="M0 3h10M5 0v3M0 3v3M10 3v3" stroke="#B35632" stroke-width=".8" fill="none"/></pattern></defs>';
     // 바닥
@@ -298,7 +298,7 @@
     function selectView(id, fromUser){
       state.view=id; var v=view(id), list=scenesOf(id);
       $$('.view-btn',viewList).forEach(function(b){ var on=b.dataset.view===id; b.classList.toggle('on',on); b.setAttribute('aria-pressed',String(on)); });
-      before.src=M.imgSrc(v.real,'m'); before.alt='메가스팟 건대 — '+v.label+'에서 본 빈 홀';
+      before.src=M.imgSrc(v.real,'m'); before.alt='메가스팟 건대 1호 — '+v.label+'에서 본 빈 홀';
       chips.innerHTML=list.map(function(s){ return '<button type="button" class="chip" data-scene="'+s.id+'">'+esc(s.title)+'</button>'; }).join('');
       selectScene(list[0].id);
       if(fromUser) setPos(50);
@@ -308,7 +308,7 @@
     function selectScene(id){
       var s=window.MEGASPOT_SCENE(id); if(!s) return; state.scene=id;
       if(s.view!==state.view){ state.view=s.view; selectView(s.view); return selectScene(id); }
-      after.src=M.imgSrc(s.id,'m'); after.alt='메가스팟 건대 — '+s.title;
+      after.src=M.imgSrc(s.id,'m'); after.alt='메가스팟 건대 1호 — '+s.title;
       rlbl.textContent=s.title; rlbl.classList.toggle('r', true);
       $$('.chip',chips).forEach(function(c){ var on=c.dataset.scene===id; c.classList.toggle('on',on); c.setAttribute('aria-pressed',String(on)); });
       var v=view(s.view);
@@ -335,7 +335,7 @@
     var shown=SC.slice();
     function renderGrid(pid){
       shown=SC.filter(function(s){ return !pid||s.purpose===pid; });
-      grid.innerHTML=shown.map(function(s,k){ return '<button type="button" class="tile" data-k="'+k+'" aria-label="'+esc(s.title)+' 크게 보기"><img src="'+M.imgSrc(s.id,'t')+'" srcset="'+M.imgSrc(s.id,'t')+' 480w, '+M.imgSrc(s.id,'m')+' 960w" sizes="(min-width:1100px) 300px, (min-width:760px) 33vw, 50vw" alt="메가스팟 건대 — '+esc(s.title)+'" loading="lazy"><span class="lab">'+esc(purLabel[s.purpose]||'')+'<b>'+esc(s.title)+'</b></span></button>'; }).join('');
+      grid.innerHTML=shown.map(function(s,k){ return '<button type="button" class="tile" data-k="'+k+'" aria-label="'+esc(s.title)+' 크게 보기"><img src="'+M.imgSrc(s.id,'t')+'" srcset="'+M.imgSrc(s.id,'t')+' 480w, '+M.imgSrc(s.id,'m')+' 960w" sizes="(min-width:1100px) 300px, (min-width:760px) 33vw, 50vw" alt="메가스팟 건대 1호 — '+esc(s.title)+'" loading="lazy"><span class="lab">'+esc(purLabel[s.purpose]||'')+'<b>'+esc(s.title)+'</b></span></button>'; }).join('');
       $$('.chip',filter).forEach(function(c){ var on=c.dataset.p===(pid||''); c.classList.toggle('on',on); c.setAttribute('aria-pressed',String(on)); });
     }
     filter.addEventListener('click', function(e){ var b=e.target.closest('.chip'); if(b) renderGrid(b.dataset.p); });

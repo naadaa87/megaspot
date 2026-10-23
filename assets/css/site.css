@@ -2076,3 +2076,57 @@ body.rs-dragging,body.rs-dragging *{user-select:none;-webkit-user-select:none;cu
 .rs-day .rs-row.wait-cancelled td{background:var(--concrete-3);color:var(--ink-3);text-decoration:none}
 .rs-day .rs-row.wait-cancelled td:not(.rs-acts){opacity:.65}
 .kind-cancel{background:var(--concrete-2);color:var(--ink-2)}
+
+/* ===== 메가스팟 건대 2호 (2026-10-23) — 공간 선택 · 오픈 띠 · 비교표 · 완공 예상 이미지 표시 ===== */
+.nav-new{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.02em;padding:2px 6px;border-radius:3px;background:var(--cobalt);color:#fff;margin-left:4px;vertical-align:1px;line-height:1.3}
+.ph-note{position:absolute;left:10px;bottom:10px;z-index:2;font-size:11.5px;font-weight:700;padding:4px 8px;border-radius:3px;background:rgba(20,22,24,.72);color:#fff;letter-spacing:.01em;pointer-events:none}
+.gallery button .ph-note,.layout-ph .ph-note{left:12px;bottom:12px}
+.facts.six{grid-template-columns:repeat(2,1fr)}
+@media (min-width:700px){.facts.six{grid-template-columns:repeat(3,1fr)}}
+@media (min-width:1100px){.facts.six{grid-template-columns:repeat(6,1fr)}}
+/* 공간 선택 (예약 신청 · 금액 확인) */
+.sp-switch{display:grid;gap:10px;grid-template-columns:1fr}
+@media (min-width:640px){.sp-switch{grid-template-columns:1fr 1fr}}
+.sp-switch button{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:14px 16px;border:2px solid var(--concrete);border-radius:var(--radius-lg);background:var(--white);text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.sp-switch button:hover{border-color:var(--graphite)}
+.sp-switch button.on,.sp-switch button[aria-selected="true"]{border-color:var(--cobalt);box-shadow:0 0 0 3px var(--cobalt-soft)}
+.sp-switch .sp-name{font-size:17px;font-weight:800;color:var(--graphite);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sp-switch .sp-sub{font-size:13px;color:var(--ink-3);line-height:1.5}
+.sp-switch button.on .sp-name{color:var(--cobalt-2)}
+/* 홈 · 2호 소개 띠 */
+.g2-band{display:grid;gap:22px;align-items:center;background:var(--white);border:1px solid var(--concrete);border-radius:var(--radius-lg);overflow:hidden}
+.g2-photo{position:relative;display:block;min-height:240px;background:var(--concrete-3)}
+.g2-photo img{width:100%;height:100%;object-fit:cover;display:block;aspect-ratio:4/3}
+.g2-copy{padding:8px 22px 22px}
+@media (min-width:900px){.g2-band{grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr)}.g2-photo{height:100%}.g2-photo img{height:100%;aspect-ratio:auto}.g2-copy{padding:28px 32px 28px 8px}}
+/* 2호 상세 · 오픈 띠 */
+.open-band{display:grid;gap:18px;padding:22px;border:1px solid var(--concrete);border-radius:var(--radius-lg);background:linear-gradient(135deg,#fff 0%,var(--cobalt-soft) 100%)}
+.ob-dday{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:16px;border-radius:var(--radius-lg);background:var(--graphite);color:#fff;min-width:150px}
+.ob-dday small{font-size:12px;color:#B7BEC7;font-weight:700;letter-spacing:.08em}
+.ob-dday b{font-family:var(--font-display);font-size:44px;line-height:1;letter-spacing:.02em;color:#A8B9FF}
+.ob-dday span{font-size:13px;color:#CDD3DB}
+.ob-steps{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.ob-steps li{display:grid;gap:3px;padding:12px 14px;border-radius:var(--radius);background:rgba(255,255,255,.75);border:1px solid var(--concrete-2);counter-increment:ob}
+.ob-steps li b{font-size:14.5px}
+.ob-steps li b::before{content:counter(ob) " ";display:inline-block;min-width:20px;height:20px;line-height:20px;text-align:center;border-radius:50%;background:var(--cobalt);color:#fff;font-size:12px;margin-right:6px}
+.ob-steps li span{font-size:13px;color:var(--ink-2);line-height:1.55}
+@media (min-width:900px){.open-band{grid-template-columns:minmax(0,1.3fr) auto;grid-template-areas:"main dday" "steps steps";align-items:center}.ob-main{grid-area:main}.ob-dday{grid-area:dday}.ob-steps{grid-area:steps;grid-template-columns:repeat(3,1fr)}}
+/* 1호·2호 비교표 */
+.cmp-table th:first-child,.cmp-table td.k{width:150px}
+.cmp-table th{white-space:nowrap}
+.cmp-table th a{color:var(--cobalt);text-decoration:underline}
+.cmp-table td b{color:var(--cobalt-2)}
+.cmp-table tr:last-child td{background:var(--concrete-3);color:var(--ink-2)}
+@media (max-width:640px){.cmp-table th:first-child,.cmp-table td.k{width:96px}}
+/* 공간 카드 상태 */
+.space-card .ph .ph-note{left:auto;right:10px;bottom:10px}
+/* 관리자 · 공간 표시 (2호·맞춤 요청) */
+.tag-sp{display:inline-block;font-size:11px;font-weight:800;padding:2px 7px;border-radius:3px;background:var(--cobalt);color:#fff;margin-left:6px;vertical-align:1px;letter-spacing:.01em}
+.tag-sp-req{background:var(--concrete-2);color:var(--ink-2)}
+.dr-space{color:var(--cobalt-2)}
+#q-space-hint{display:block;margin-top:4px}
+/* 머리말 — 메뉴가 10개(건대 1호·2호·주차 안내 포함)가 되어 1280px 이상에서 한 줄에 들어가도록 간격을 줄입니다 */
+@media (min-width:1280px){.site-header .container{gap:14px}.nav{gap:0}.nav a{padding:10px 8px;font-size:14px;white-space:nowrap}.header-cta{gap:6px}.hdr-account{padding:8px 4px}}
+@media (min-width:1280px) and (max-width:1439px){.nav a{padding:9px 6px;font-size:13.5px}.site-header .container{gap:10px}.hdr-account{display:none}}
+@media (max-width:1599px){.nav .nav-new{display:none}}
+@media (min-width:1600px){.nav a{padding:10px 9px;font-size:14.5px}.nav .nav-new{margin-left:2px}}
