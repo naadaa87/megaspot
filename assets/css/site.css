@@ -1046,6 +1046,48 @@ body:has(.subnav) section[id]{scroll-margin-top:calc(var(--header-h) + 22px)}
 .hero-mega span{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:999px;background:var(--cobalt-soft);color:var(--cobalt-2);font-size:13px;font-weight:700}
 .hero-mega span b{font-family:var(--font-display);font-weight:400;font-size:16px;letter-spacing:.01em;color:var(--cobalt)}
 
+/* 건대 1·2호 상세: 제목, 핵심 정보, 예약 행동과 사진 사이의 리듬 */
+.venue-page-hero{padding:34px 0 20px;border-bottom:0}
+.venue-hero-badges{gap:6px;margin-top:18px}
+.venue-hero-main{display:grid;grid-template-columns:minmax(0,1fr) minmax(270px,320px);align-items:center;gap:clamp(28px,5vw,76px);margin-top:20px}
+.venue-hero-copy{min-width:0}
+.venue-page-hero .h-xl{font-size:clamp(36px,4.5vw,58px);line-height:1.12;margin:0 0 12px;letter-spacing:-.04em}
+.venue-page-hero .h1-sub{margin-top:8px;line-height:1.45}
+.venue-page-hero .lead{font-size:16px;line-height:1.55;margin:0;color:var(--ink-2)}
+.venue-page-hero .hero-mega{gap:8px;margin-top:18px}
+.venue-page-hero .hero-mega span{padding:7px 11px;line-height:1.3}
+.venue-page-hero .price-line{margin-top:20px;gap:6px 12px;line-height:1.5}
+.venue-page-hero .price-line b{line-height:1.2}
+.venue-hero-cta{grid-template-columns:repeat(2,minmax(0,1fr));align-self:center;padding:18px;border:1px solid var(--concrete);border-radius:var(--radius-lg);background:var(--chalk)}
+.venue-hero-cta .btn{min-width:0}
+.venue-hero-gallery{padding:14px 0 36px}
+@media (max-width:899px){
+  .venue-page-hero{padding:26px 0 12px}
+  .venue-hero-main{grid-template-columns:1fr;gap:18px;margin-top:18px}
+  .venue-hero-cta{padding:0;border:0;background:none}
+}
+@media (max-width:599px){
+  .venue-page-hero{padding:22px 0 10px}
+  .venue-hero-badges{margin-top:14px;gap:5px}
+  .venue-hero-badges .badge{font-size:11px;padding:5px 7px;line-height:1.25}
+  .venue-hero-badges .venue-location-badge{display:none}
+  .venue-hero-main{gap:14px;margin-top:16px}
+  .venue-page-hero .h-xl{font-size:34px;line-height:1.16;margin-bottom:10px}
+  .venue-page-hero .h1-sub{font-size:15px;line-height:1.4;margin-top:5px}
+  .venue-page-hero .lead{font-size:14px;line-height:1.5}
+  .venue-page-hero .hero-mega{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:14px}
+  .venue-page-hero .hero-mega span{justify-content:center;padding:7px 5px;font-size:11.5px;text-align:center}
+  .venue-page-hero .hero-mega span b{font-size:15px}
+  .venue-page-hero .price-line{margin-top:16px;gap:2px 8px;font-size:12.5px}
+  .venue-page-hero .price-line b{font-size:25px}
+  .venue-page-hero .price-line > span:not(.pl-k){flex-basis:100%}
+  .venue-hero-cta{display:block}
+  .venue-hero-cta .btn-primary{display:flex;width:100%;justify-content:center}
+  .venue-hero-cta .btn-kakao,.venue-hero-cta .btn-ghost{display:none}
+  .venue-hero-gallery{padding-top:10px}
+  .venue-hero-gallery .media-tabs{margin-bottom:10px}
+}
+
 /* 문의 유도 띠: 네 가지만 알려 주세요 */
 .ask-band{position:relative;overflow:hidden;background:var(--graphite);color:#fff;border-radius:var(--radius-lg);padding:28px 24px;display:grid;gap:22px;grid-template-columns:1fr}
 .ask-band::after{content:"";position:absolute;right:-60px;top:-60px;width:220px;height:220px;border-radius:50%;background:var(--cobalt);opacity:.35;pointer-events:none}
