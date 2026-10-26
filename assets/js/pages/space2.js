@@ -21,7 +21,7 @@
     var g=$('#gallery'); if(!g) return;
     var list=S.photos, tabs=$('#media-tabs');
     if(tabs) tabs.innerHTML='<button type="button" role="tab" class="on" aria-selected="true" data-set="photos">완공 예상 이미지<span class="n">'+list.length+'</span></button>';
-    var items=list.map(function(p){ return { src:M.imgSrc(p.id), title:p.title, cap:p.cap+' '+S.photoNote, tag:'완공 예상 이미지' }; });
+    var items=list.map(function(p){ return { src:M.imgSrc(p.id,'m'), title:p.title, cap:p.cap+' '+S.photoNote, tag:'완공 예상 이미지' }; });
     var show=list.slice(0,7);
     g.innerHTML=show.map(function(p,i){
       var more = i===6 && list.length>7 ? '<span class="more">+'+(list.length-7)+'장 더 보기</span>' : '';
@@ -50,7 +50,7 @@
   /* ---------- 배치 예시 (완공 예상 이미지 + 설명) ---------- */
   (function(){
     var host=$('#layouts'); if(!host) return;
-    var lb=S.layouts.map(function(l){ var p=photoById[l.photo]||{}; return { src:M.imgSrc(l.photo), title:l.label+' 배치 · '+(p.title||''), cap:(p.cap||'')+' '+S.photoNote, tag:'완공 예상 이미지' }; });
+    var lb=S.layouts.map(function(l){ var p=photoById[l.photo]||{}; return { src:M.imgSrc(l.photo,'m'), title:l.label+' 배치 · '+(p.title||''), cap:(p.cap||'')+' '+S.photoNote, tag:'완공 예상 이미지' }; });
     host.innerHTML=S.layouts.map(function(l,i){
       var p=photoById[l.photo]||{};
       return '<div class="card pad-s layout-card"><button type="button" class="layout-ph" data-li="'+i+'" aria-label="'+esc(l.label)+' 배치 이미지 크게 보기"><img src="'+M.imgSrc(l.photo,'m')+'" alt="'+esc(l.label)+' 배치 — '+esc(p.title||'')+CG+'" loading="lazy"><span class="ph-note">완공 예상 이미지</span></button>'
