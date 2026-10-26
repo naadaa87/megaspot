@@ -217,6 +217,18 @@ export async function onRequest({ request, env, params }) {
       return json({ ok: true, ref });
     }
     const mChk = path.match(/^inquiries\/([A-Z0-9-]+)\/checks$/);
+    const mInquiryDeposit = path.match(/^inquiries\/([A-Z0-9-]+)\/deposit-paid$/);
+    if (mInquiryDeposit && method === 'PUT') {
+      const d = await readJson(request);
+      if (typeof d.paid !== 'boolean') return err('보증금 입금 여부를 확인해 주세요.');
+      const i = await env.DB.prepare('SELECT status FROM inquiries WHERE ref = ?').bind(mInquiryDeposit[1]).first();
+      if (!i) return err('문의를 찾을 수 없습니다.', 404, 'NOT_FOUND');
+      if (['삭제됨', '대기 취소', '취소·환불'].includes(i.status)) return err('취소·삭제된 문의는 변경할 수 없습니다.');
+      await env.DB.prepare("INSERT INTO inquiry_checks (ref, checks, updated_at) VALUES (?, json_object('guarantee_paid', json(?)), ?) ON CONFLICT(ref) DO UPDATE SET checks = json_set(inquiry_checks.checks, '$.guarantee_paid', json(?)), updated_at = excluded.updated_at")
+        .bind(mInquiryDeposit[1], d.paid ? 'true' : 'false', now(), d.paid ? 'true' : 'false').run();
+      await log(env, 'inquiry.deposit_paid', mInquiryDeposit[1], 'admin', { paid: d.paid });
+      return json({ ok: true, paid: d.paid });
+    }
     if (mChk && method === 'PUT') {
       const d = await readJson(request); const checks = {};
       for (const [k, v] of Object.entries(d.checks || {})) if (/^[a-z_]{1,30}$/.test(k)) checks[k] = v ? now() : false;
@@ -467,7 +479,10 @@ export async function onRequest({ request, env, params }) {
 
     // ---- 예약 ----
     if (path === 'bookings' && method === 'GET') {
-      const { results } = await env.DB.prepare(`SELECT booking_code, space_id, inquiry_ref, customer_name, phone, date, slot, headcount, memo, status, ${bookingAmountSql()} AS amount, start_h, end_h, created_at, json_extract(confirm_doc, '$.issued_at') AS confirm_issued FROM bookings b ORDER BY date DESC, created_at DESC LIMIT 300`).all();
+      const { results } = await env.DB.prepare(`SELECT booking_code, space_id, inquiry_ref, customer_name, phone, date, slot, headcount, memo, status, ${bookingAmountSql()} AS amount, start_h, end_h, created_at, json_extract(confirm_doc, '$.issued_at') AS confirm_issued,
+        CASE WHEN b.inquiry_ref IS NOT NULL THEN (SELECT CASE WHEN json_extract(ic.checks, '$.guarantee_paid') IS NULL THEN NULL WHEN json_extract(ic.checks, '$.guarantee_paid') = 0 THEN 0 ELSE 1 END FROM inquiry_checks ic WHERE ic.ref = b.inquiry_ref)
+             ELSE (SELECT dc.paid FROM booking_deposit_checks dc WHERE dc.booking_code = b.booking_code) END AS deposit_paid
+        FROM bookings b ORDER BY date DESC, created_at DESC LIMIT 300`).all();
       return json({ ok: true, items: results || [] });
     }
     if (path === 'bookings' && method === 'POST') {
@@ -506,13 +521,15 @@ export async function onRequest({ request, env, params }) {
       const f = from || '0000-01-01', t = to || '9999-12-31';
       const latestQ = "(SELECT q.total FROM quotes q WHERE q.inquiry_ref = b.inquiry_ref ORDER BY q.id DESC LIMIT 1)";
       const { results: bks } = await env.DB.prepare(`SELECT b.booking_code, b.space_id, b.inquiry_ref, b.customer_name, b.phone, b.date, b.slot, b.headcount, CASE WHEN i.ref IS NOT NULL THEN COALESCE(i.memo, '') ELSE COALESCE(b.memo, '') END AS operation_memo, b.status, b.amount, b.start_h, b.end_h, b.created_at, json_extract(b.confirm_doc, '$.issued_at') AS confirm_issued,
+          CASE WHEN b.inquiry_ref IS NOT NULL THEN (SELECT CASE WHEN json_extract(ic.checks, '$.guarantee_paid') IS NULL THEN NULL WHEN json_extract(ic.checks, '$.guarantee_paid') = 0 THEN 0 ELSE 1 END FROM inquiry_checks ic WHERE ic.ref = b.inquiry_ref)
+               ELSE (SELECT dc.paid FROM booking_deposit_checks dc WHERE dc.booking_code = b.booking_code) END AS deposit_paid,
           o.oid AS order_oid, o.price AS order_price, o.status AS order_status, ${latestQ} AS quote_total,
           ${bookingAmountSql()} AS effective_amount, ${amountOverrideSql()} AS amount_override,
           json_extract(i.data, '$.total') AS inq_total, json_extract(i.data, '$.start_h') AS inq_start, json_extract(i.data, '$.end_h') AS inq_end, json_extract(i.data, '$.purpose') AS purpose, json_extract(i.data, '$.channel') AS channel, json_extract(i.data, '$.channel_note') AS channel_note, json_extract(i.data, '$.family') AS family
         FROM bookings b LEFT JOIN orders o ON o.booking_code = b.booking_code LEFT JOIN inquiries i ON i.ref = b.inquiry_ref
         WHERE b.date BETWEEN ? AND ? ORDER BY b.date ASC, COALESCE(b.start_h, json_extract(i.data, '$.start_h'), 99) ASC LIMIT 1000`).bind(f, t).all();
       const iqQ = "(SELECT q.total FROM quotes q WHERE q.inquiry_ref = i.ref ORDER BY q.id DESC LIMIT 1)";
-      const { results: pend } = await env.DB.prepare(`SELECT i.ref, i.space_id, i.status, i.name, i.phone, i.event_date, i.headcount, i.memo, i.created_at, ${iqQ} AS quote_total, ${inquiryAmountSql()} AS effective_amount, ${amountOverrideSql()} AS amount_override,
+      const { results: pend } = await env.DB.prepare(`SELECT i.ref, i.space_id, i.status, i.name, i.phone, i.event_date, i.headcount, i.memo, i.created_at, (SELECT CASE WHEN json_extract(ic.checks, '$.guarantee_paid') IS NULL THEN NULL WHEN json_extract(ic.checks, '$.guarantee_paid') = 0 THEN 0 ELSE 1 END FROM inquiry_checks ic WHERE ic.ref = i.ref) AS deposit_paid, ${iqQ} AS quote_total, ${inquiryAmountSql()} AS effective_amount, ${amountOverrideSql()} AS amount_override,
           json_extract(i.data, '$.total') AS inq_total, json_extract(i.data, '$.start_h') AS start_h, json_extract(i.data, '$.end_h') AS end_h, json_extract(i.data, '$.t_start') AS t_start, json_extract(i.data, '$.t_end') AS t_end,
           json_extract(i.data, '$.slot') AS slot, json_extract(i.data, '$.reserve') AS reserve, json_extract(i.data, '$.purpose') AS purpose, json_extract(i.data, '$.channel') AS channel, json_extract(i.data, '$.channel_note') AS channel_note, json_extract(i.data, '$.inquiry_type') AS inquiry_type, json_extract(i.data, '$.family') AS family, json_extract(i.data, '$.wait_rank') AS wait_rank, json_extract(i.data, '$.wait_restored_at') AS wait_restored_at
         FROM inquiries i WHERE i.status IN ('문의 접수', '조건 확인', '견적 발송', '결제 대기', '대기 취소') AND i.event_date BETWEEN ? AND ?
@@ -522,16 +539,33 @@ export async function onRequest({ request, env, params }) {
       const jarr = v => { try { const a = JSON.parse(v || '[]'); return Array.isArray(a) ? a.slice(0, 4) : []; } catch { return []; } };
       for (const b of bks || []) items.push({ family: jarr(b.family), kind: 'booking', code: b.booking_code, space_id: b.space_id || '', ref: b.inquiry_ref, name: b.customer_name, phone: b.phone, date: b.date, slot: b.slot,
         start_h: b.start_h ?? b.inq_start ?? null, end_h: b.end_h ?? b.inq_end ?? null, headcount: b.headcount, memo: b.operation_memo, status: b.status, purpose: b.purpose || '', channel: b.order_oid ? 'online' : (b.channel || (b.inquiry_ref ? 'web' : '')), channel_note: b.channel_note || '',
-        amount: b.effective_amount,
+        amount: b.effective_amount, deposit_paid: b.deposit_paid,
         confirm_issued: b.confirm_issued || '', amount_src: b.amount_override ? 'adjusted' : (b.amount != null ? 'booking' : (b.order_price != null && b.order_status !== 'failed' ? 'order' : (b.quote_total != null ? 'quote' : (b.inq_total != null ? 'estimate' : '')))), order: b.order_oid || '' });
       for (const p of pend || []) items.push({ family: jarr(p.family), kind: 'pending', code: '', ref: p.ref, space_id: p.space_id || '', name: p.name, phone: p.phone, date: p.event_date, slot: p.slot, start_h: p.start_h ?? null, end_h: p.end_h ?? null,
         t_start: p.t_start || '', t_end: p.t_end || '', headcount: p.headcount, memo: p.memo || '', status: p.status, reserve: !!p.reserve, purpose: p.purpose || '', channel: p.channel || 'web', channel_note: p.channel_note || '', inquiry_type: p.inquiry_type || 'event', wait_rank: p.wait_rank == null ? null : Number(p.wait_rank), created_at: p.created_at, wait_restored_at: p.wait_restored_at || '',
-        amount: p.effective_amount, amount_src: p.amount_override ? 'adjusted' : (p.quote_total != null ? 'quote' : (p.inq_total != null ? 'estimate' : '')) });
+        amount: p.effective_amount, deposit_paid: p.deposit_paid, amount_src: p.amount_override ? 'adjusted' : (p.quote_total != null ? 'quote' : (p.inq_total != null ? 'estimate' : '')) });
       items.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : ((a.start_h ?? 99) - (b.start_h ?? 99)));
       const und = await env.DB.prepare("SELECT COUNT(*) AS n FROM inquiries WHERE status IN ('문의 접수', '조건 확인', '견적 발송', '결제 대기') AND (event_date IS NULL OR event_date = '')").first();
       return json({ ok: true, from: f, to: t, today: kstToday(), items, undated: (und || {}).n || 0 });
     }
     // ---- 예약확정서 (발급 내용 조회·저장, 고객용 링크) ----
+    const mDeposit = path.match(/^bookings\/([A-Z0-9-]+)\/deposit-paid$/);
+    if (mDeposit && method === 'PUT') {
+      const d = await readJson(request);
+      if (typeof d.paid !== 'boolean') return err('보증금 입금 여부를 확인해 주세요.');
+      const b = await env.DB.prepare('SELECT inquiry_ref, status FROM bookings WHERE booking_code = ?').bind(mDeposit[1]).first();
+      if (!b) return err('예약을 찾을 수 없습니다.', 404, 'NOT_FOUND');
+      if (b.status === 'cancelled') return err('취소된 예약은 변경할 수 없습니다.');
+      if (b.inquiry_ref) {
+        await env.DB.prepare("INSERT INTO inquiry_checks (ref, checks, updated_at) VALUES (?, json_object('guarantee_paid', json(?)), ?) ON CONFLICT(ref) DO UPDATE SET checks = json_set(inquiry_checks.checks, '$.guarantee_paid', json(?)), updated_at = excluded.updated_at")
+          .bind(b.inquiry_ref, d.paid ? 'true' : 'false', now(), d.paid ? 'true' : 'false').run();
+      } else {
+        await env.DB.prepare('INSERT INTO booking_deposit_checks (booking_code, paid, updated_at) VALUES (?,?,?) ON CONFLICT(booking_code) DO UPDATE SET paid = excluded.paid, updated_at = excluded.updated_at')
+          .bind(mDeposit[1], d.paid ? 1 : 0, now()).run();
+      }
+      await log(env, 'booking.deposit_paid', mDeposit[1], 'admin', { paid: d.paid });
+      return json({ ok: true, paid: d.paid });
+    }
     const mCd = path.match(/^bookings\/([A-Z0-9-]+)\/confirm-doc$/);
     if (mCd) {
       const code = mCd[1];

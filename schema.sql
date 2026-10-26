@@ -49,6 +49,12 @@ CREATE TABLE IF NOT EXISTS bookings (
 );
 CREATE INDEX IF NOT EXISTS idx_bookings_date ON bookings(space_id, date);
 
+CREATE TABLE IF NOT EXISTS booking_deposit_checks (
+  booking_code TEXT PRIMARY KEY,
+  paid INTEGER NOT NULL CHECK (paid IN (0, 1)),
+  updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS reviews (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   space_id TEXT NOT NULL,

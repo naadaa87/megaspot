@@ -106,6 +106,32 @@ test('문의가 없는 직접 예약도 금액 유지', async t => {
   assert.equal((await api('bookings')).items[0].amount, 500000);
   assert.equal((await api('reservations')).items[0].amount, 500000);
 });
+test('연결된 예약의 보증금 체크가 문의 상세와 두 예약 목록에 동기화됨', async t => {
+  const { db, api } = fixture(); t.after(() => db.close());
+  assert.equal((await api('bookings')).items[0].deposit_paid, null);
+  await api('inquiries/MS-TEST/checks', 'PUT', { checks: { quote_sent: true, guarantee_paid: true } });
+  assert.equal((await api('reservations')).items[0].deposit_paid, 1);
+  assert.equal((await api('bookings')).items[0].deposit_paid, 1);
+  await api('bookings/BK-TEST/deposit-paid', 'PUT', { paid: false });
+  const checks = (await api('inquiries/MS-TEST')).checks;
+  assert.equal(checks.guarantee_paid, false);
+  assert.ok(checks.quote_sent, '다른 체크리스트 항목 유지');
+  assert.equal((await api('reservations')).items[0].deposit_paid, 0);
+  assert.equal((await api('bookings')).items[0].deposit_paid, 0);
+});
+test('미확정 문의와 직접 예약도 보증금 입금 상태를 각각 저장함', async t => {
+  const { db, api } = fixture({ status: '문의 접수', booking: false }); t.after(() => db.close());
+  assert.equal((await api('reservations')).items[0].deposit_paid, null);
+  await api('inquiries/MS-TEST/deposit-paid', 'PUT', { paid: true });
+  assert.equal((await api('reservations')).items[0].deposit_paid, 1);
+  db.prepare('INSERT INTO bookings (booking_code,space_id,customer_name,phone,phone_last4,date,status,amount,created_at) VALUES (?,?,?,?,?,?,?,?,?)')
+    .run('BK-DIRECT', 'megaspot-gundae', '직접 예약', '010-1111-2222', '2222', date, 'confirmed', 900000, date);
+  assert.equal((await api('bookings')).items.find(x => x.booking_code === 'BK-DIRECT').deposit_paid, null);
+  await api('bookings/BK-DIRECT/deposit-paid', 'PUT', { paid: true });
+  assert.equal((await api('bookings')).items.find(x => x.booking_code === 'BK-DIRECT').deposit_paid, 1);
+  assert.equal((await api('reservations')).items.find(x => x.code === 'BK-DIRECT').deposit_paid, 1);
+  assert.equal((await api('inquiries/MS-TEST')).checks.guarantee_paid, true);
+});
 test('확정 창에서 다시 정한 금액이 이전 수정액보다 우선', async t => {
   const { db, api } = fixture({ status: '견적 발송', booking: false }); t.after(() => db.close());
   await api('inquiries/MS-TEST', 'PATCH', { total: 750000 });
@@ -288,7 +314,7 @@ test('확정 예약이 연결된 문의는 대기 취소로 바꾸지 않음', a
 test('대기 취소 행은 회색 기록·복원 버튼만 표시하고 집계·순번에서 제외', () => {
   const active = {kind:'pending',ref:'MS-A',date,name:'대기',status:'문의 접수'};
   const cancelled = {kind:'pending',ref:'MS-B',date,name:'취소',status:'대기 취소',amount:500000};
-  const context = vm.createContext({ RS:{items:[active,cancelled]}, BST:{}, ST_CLS:{'대기 취소':'st-cancel'}, esc:String, famAsk:()=>'', PUR:{}, SRC:{}, resvTime:()=>'', resvHours:()=>'', waitDraggable:()=>true, won:String, chTag:()=>'',
+  const context = vm.createContext({ RS:{items:[active,cancelled]}, BST:{}, ST_CLS:{'대기 취소':'st-cancel'}, esc:String, famAsk:()=>'', PUR:{}, SRC:{}, resvTime:()=>'', resvHours:()=>'', waitDraggable:()=>true, won:String, chTag:()=>'', depositControl:()=>'',
     DEFAULT_SPACE:'megaspot-gundae', SPACE_IDS:['megaspot-gundae','megaspot-gundae-2'], spaceTag:()=>'', spKey:id=>id==='megaspot-gundae-2'?id:'megaspot-gundae' });
   vm.runInContext(source.slice(source.indexOf('  function waitCmp('),source.indexOf('  function drawResv(')) + '\n'
     + source.slice(source.indexOf('  function resvRow('),source.indexOf("  $('#rs-ch').innerHTML")), context);

@@ -5,6 +5,7 @@ export const SCHEMA = [
  "CREATE TABLE IF NOT EXISTS host_applications ( id INTEGER PRIMARY KEY AUTOINCREMENT, ref TEXT NOT NULL UNIQUE, status TEXT NOT NULL DEFAULT '접수', data TEXT NOT NULL, kind TEXT, memo TEXT, created_at TEXT NOT NULL, updated_at TEXT )",
  "CREATE TABLE IF NOT EXISTS bookings ( id INTEGER PRIMARY KEY AUTOINCREMENT, booking_code TEXT NOT NULL UNIQUE, space_id TEXT NOT NULL, inquiry_ref TEXT, customer_name TEXT NOT NULL, phone TEXT NOT NULL, phone_last4 TEXT NOT NULL, date TEXT NOT NULL, slot TEXT, headcount INTEGER, memo TEXT, status TEXT NOT NULL DEFAULT 'confirmed', amount INTEGER, start_h INTEGER, end_h INTEGER, confirm_doc TEXT, created_at TEXT NOT NULL, updated_at TEXT )",
  "CREATE INDEX IF NOT EXISTS idx_bookings_date ON bookings(space_id, date)",
+ "CREATE TABLE IF NOT EXISTS booking_deposit_checks ( booking_code TEXT PRIMARY KEY, paid INTEGER NOT NULL CHECK (paid IN (0, 1)), updated_at TEXT NOT NULL )",
  "CREATE TABLE IF NOT EXISTS reviews ( id INTEGER PRIMARY KEY AUTOINCREMENT, space_id TEXT NOT NULL, booking_code TEXT NOT NULL UNIQUE, author TEXT NOT NULL, rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5), title TEXT NOT NULL, body TEXT NOT NULL, event_type TEXT, headcount INTEGER, status TEXT NOT NULL DEFAULT 'pending', reply TEXT, created_at TEXT NOT NULL, updated_at TEXT )",
  "CREATE INDEX IF NOT EXISTS idx_reviews_space ON reviews(space_id, status)",
  "CREATE TABLE IF NOT EXISTS calendar_blocks ( space_id TEXT NOT NULL, date TEXT NOT NULL, state TEXT NOT NULL, memo TEXT, PRIMARY KEY (space_id, date) )",
