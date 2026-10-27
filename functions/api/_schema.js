@@ -32,5 +32,9 @@ export const SCHEMA = [
  "CREATE INDEX IF NOT EXISTS idx_ads_slot ON ads(slot, status)",
  "CREATE TABLE IF NOT EXISTS site_visits ( id INTEGER PRIMARY KEY AUTOINCREMENT, ref TEXT NOT NULL UNIQUE, inquiry_ref TEXT, space_id TEXT NOT NULL, visit_date TEXT, start_time TEXT, duration INTEGER NOT NULL DEFAULT 30, status TEXT NOT NULL DEFAULT 'scheduled', name TEXT NOT NULL, phone TEXT, people INTEGER, staff TEXT, memo TEXT, data TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT )",
  "CREATE INDEX IF NOT EXISTS idx_site_visits_date ON site_visits(visit_date, status)",
- "CREATE INDEX IF NOT EXISTS idx_site_visits_inquiry ON site_visits(inquiry_ref)"
+ "CREATE INDEX IF NOT EXISTS idx_site_visits_inquiry ON site_visits(inquiry_ref)",
+ "CREATE TABLE IF NOT EXISTS catering_orders ( id INTEGER PRIMARY KEY AUTOINCREMENT, ref TEXT NOT NULL UNIQUE, inquiry_ref TEXT, booking_code TEXT, space_id TEXT, event_date TEXT, meal_time TEXT, customer TEXT NOT NULL, phone TEXT, people INTEGER, status TEXT NOT NULL DEFAULT 'pending', total INTEGER, data TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT )",
+ "CREATE INDEX IF NOT EXISTS idx_catering_orders_date ON catering_orders(event_date, status)",
+ "CREATE INDEX IF NOT EXISTS idx_catering_orders_inquiry ON catering_orders(inquiry_ref)",
+ "CREATE INDEX IF NOT EXISTS idx_catering_orders_booking ON catering_orders(booking_code)"
 ];

@@ -2609,3 +2609,75 @@ body.rs-dragging,body.rs-dragging *{user-select:none;-webkit-user-select:none;cu
 .visit-ask-body{display:grid;gap:10px;padding-top:8px;border-top:1px dashed var(--concrete-2)}
 .visit-done{display:grid;gap:2px;padding:10px 12px;background:var(--cobalt-soft);border:1px solid #BFD0F5;border-radius:var(--radius);font-size:13.5px}
 .visit-done b{color:var(--cobalt-2)}
+/* ===== 출장뷔페 — 예약·문의 불러오기 · 대기/확정 저장 · 진행 현황 (2026-10-27) ===== */
+.cat-st{display:inline-block;width:max-content;font-size:11.5px;font-weight:800;padding:1px 8px;border-radius:999px;border:1px solid transparent;white-space:nowrap;vertical-align:middle}
+.cat-st.cat-pending{background:var(--warn-soft);color:#7A4E00;border-color:#E8C77A}
+.cat-st.cat-confirmed{background:var(--ok-soft);color:var(--ok);border-color:#B9DCC6}
+.cat-st.cat-cancelled{background:var(--concrete-3);color:var(--ink-3);border-color:var(--concrete-2);text-decoration:line-through}
+.cat-st.cat-req{background:#FFF1E4;color:var(--rust);border-color:#F1D2B6}
+.tag-cat.s-confirmed{background:var(--ok-soft);color:var(--ok);border-color:#B9DCC6}
+.tag-cat.s-pending{background:var(--warn-soft);color:#7A4E00;border-color:#E8C77A}
+.tag-cat.s-cancelled{background:var(--concrete-3);color:var(--ink-3);border-color:var(--concrete-2)}
+.adm-table .came.cat.s-confirmed{color:var(--ok)}
+.adm-table .came.cat.s-pending{color:#7A4E00}
+.adm-table .came.cat.s-cancelled{color:var(--ink-3);font-weight:600}
+.dr-cat .cat-st{margin-left:4px}
+.ct-pick{margin-bottom:14px}
+.ct-pick-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px}
+.ct-pick-head h2{margin:0}
+.ct-pick-body{margin-top:10px;display:grid;gap:10px}
+.ct-pick.picked{padding-top:12px;padding-bottom:12px}
+.ct-pick-bar{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between}
+.ct-pick-bar .input{flex:1 1 240px;max-width:360px;min-height:38px}
+.ct-pick-list{display:grid;gap:6px;max-height:380px;overflow-y:auto;overscroll-behavior:contain;padding:2px}
+.ct-tg{display:grid;grid-template-columns:110px minmax(0,1.3fr) minmax(0,1fr) minmax(0,1.5fr);gap:4px 14px;align-items:center;text-align:left;width:100%;border:1px solid var(--concrete-2);border-radius:var(--radius);padding:9px 12px;background:#fff;font-size:13.5px}
+.ct-tg:hover,.ct-tg:focus-visible{border-color:var(--cobalt);outline:none}
+.ct-tg.on{border-color:var(--cobalt);background:var(--cobalt-soft);box-shadow:inset 0 0 0 1px var(--cobalt)}
+.ct-tg > span{display:flex;flex-wrap:wrap;align-items:center;gap:3px 6px;min-width:0}
+.ct-tg small{display:block;width:100%;font-size:11.5px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ct-tg-d b{font-size:14px}
+.ct-tg .tag-sp,.ct-tg .tag-rv{margin-left:0}
+@media (max-width:760px){
+  .ct-tg{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 10px}
+  .ct-tg-c{grid-column:1 / -1}
+  .ct-pick-list{max-height:420px}
+  .ct-pick-bar .input{max-width:none}
+}
+.ct-target{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;flex:1 1 auto;min-width:0}
+.ct-target-k{font-size:11.5px;font-weight:800;padding:1px 7px;border-radius:3px;background:#fff;border:1px solid #BFD0F5;color:var(--cobalt-2)}
+.ct-target-k.bk{background:var(--ok-soft);border-color:#B9DCC6;color:var(--ok)}
+.ct-save{display:grid;gap:10px;border-color:#BFD0F5}
+.ct-save.off{background:var(--concrete-3);border-color:var(--concrete-2)}
+.ct-save-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px}
+.ct-save-head b{font-size:15px}
+.ct-st{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.ct-st-o{position:relative;display:grid;gap:1px;border:1px solid var(--concrete);border-radius:6px;padding:9px 11px;background:#fff;cursor:pointer}
+.ct-st-o input{position:absolute;opacity:0;pointer-events:none}
+.ct-st-o span{font-weight:800;font-size:15px}
+.ct-st-o small{font-size:11.5px;color:var(--ink-3)}
+.ct-st-o:focus-within{outline:2px solid var(--cobalt);outline-offset:1px}
+.ct-st-o.on.pending{border-color:#E8C77A;background:var(--warn-soft);box-shadow:inset 0 0 0 1px #E8C77A}
+.ct-st-o.on.pending span{color:#7A4E00}
+.ct-st-o.on.confirmed{border-color:var(--ok);background:var(--ok-soft);box-shadow:inset 0 0 0 1px var(--ok)}
+.ct-st-o.on.confirmed span{color:var(--ok)}
+.ct-st-o.on.cancelled{border-color:var(--ink-3);background:var(--concrete-3)}
+.ct-save.off .ct-st-o{cursor:not-allowed;opacity:.6}
+.ct-board h2{margin-bottom:12px}
+.ct-board .rs-kpis .kpi{cursor:pointer;text-align:left}
+.ct-board .rs-kpis div.kpi{cursor:default}
+.ct-sum{font-size:22px;white-space:nowrap}
+@media (max-width:600px){.ct-sum{font-size:17px}}
+.ct-orow{cursor:pointer}
+.ct-orow:focus-visible{outline:2px solid var(--cobalt);outline-offset:-2px}
+.ct-orow.is-cur td{background:var(--cobalt-soft)}
+.ct-orow.co-cancelled td{color:var(--ink-3)}
+.rs-cat{display:block;margin-top:3px}
+@media (min-width:861px){
+  .ct-otable{table-layout:fixed}
+  .ct-otable th:nth-child(1){width:13%}.ct-otable th:nth-child(2){width:16%}.ct-otable th:nth-child(3){width:14%}.ct-otable th:nth-child(4){width:25%}
+  .ct-otable th:nth-child(5){width:11%}.ct-otable th:nth-child(6){width:8%}.ct-otable th:nth-child(7){width:13%}
+  .ct-otable td{overflow-wrap:anywhere}
+  .ct-otable .rs-acts{white-space:normal}
+  .ct-otable .rs-acts .btn{margin:2px 0 2px 4px}
+}
+@media (max-width:860px){ .ct-otable .rs-row td[data-th]::before{width:64px} }

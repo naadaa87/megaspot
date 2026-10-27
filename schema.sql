@@ -257,3 +257,25 @@ CREATE TABLE IF NOT EXISTS site_visits (     -- 예약 문의 고객의 현장�
 );
 CREATE INDEX IF NOT EXISTS idx_site_visits_date ON site_visits(visit_date, status);
 CREATE INDEX IF NOT EXISTS idx_site_visits_inquiry ON site_visits(inquiry_ref);
+
+-- 출장뷔페 진행 건 (2026-10-27) — 관리자 '출장뷔페'에서 예약·문의를 골라 계산한 구성과 대기·확정·취소 상태
+CREATE TABLE IF NOT EXISTS catering_orders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ref TEXT NOT NULL UNIQUE,                 -- 진행 번호 CO-YYMM-XXXX
+  inquiry_ref TEXT,                         -- 연결된 문의번호
+  booking_code TEXT,                        -- 연결된 예약번호 (문의 없이 등록한 예약도 연결)
+  space_id TEXT,
+  event_date TEXT,                          -- 행사일 YYYY-MM-DD
+  meal_time TEXT,                           -- 식사 시작 시간 (예: 18:30)
+  customer TEXT NOT NULL,
+  phone TEXT,
+  people INTEGER,
+  status TEXT NOT NULL DEFAULT 'pending',   -- pending 대기 | confirmed 확정 | cancelled 취소
+  total INTEGER,                            -- 고객 금액 (부가세 포함)
+  data TEXT NOT NULL,                       -- 구성·계산 결과 JSON (코스·인원·바베큐·생맥주·출장비·메모·공급가·부가세)
+  created_at TEXT NOT NULL,
+  updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_catering_orders_date ON catering_orders(event_date, status);
+CREATE INDEX IF NOT EXISTS idx_catering_orders_inquiry ON catering_orders(inquiry_ref);
+CREATE INDEX IF NOT EXISTS idx_catering_orders_booking ON catering_orders(booking_code);
