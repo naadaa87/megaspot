@@ -38,7 +38,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Black+Han+Sans&display=swap">
-<link rel="stylesheet" href="/assets/css/site.css?v=2026102603">
+<link rel="stylesheet" href="/assets/css/site.css?v=202610270316">
 <meta name="theme-color" content="#F1EFEB">
 
 </head>
@@ -65,6 +65,7 @@
     <nav class="adm-nav" id="adm-nav" aria-label="관리 메뉴">
       <button type="button" data-view="dash" class="on">대시보드</button>
       <button type="button" data-view="resv">일자별 예약</button>
+      <button type="button" data-view="visits">일자별 현장답사<em data-count="visits" hidden></em></button>
       <button type="button" data-view="inq">문의 관리<em data-count="inq" hidden></em></button>
       <button type="button" data-view="quote">견적 계산</button>
       <button type="button" data-view="catering">출장뷔페</button>
@@ -95,9 +96,30 @@
         <div class="adm-card"><h2>날짜가 가까운데 아직 미확정 <small>14일 이내</small></h2><div id="dash-soon" class="adm-list"></div></div>
         <div class="adm-card"><h2 class="row between" style="gap:8px"><span>다가오는 예약 <small>14일 이내</small></span><button class="btn btn-light btn-xs" type="button" data-go="resv">일자별 예약 전체 →</button></h2><div id="dash-upcoming" class="adm-list"></div></div>
       </div>
+      <div class="adm-card mt-3"><h2 class="row between" style="gap:8px;flex-wrap:wrap"><span>다가오는 현장답사 <small>7일 이내 · 조율 중 포함</small></span><span class="row" style="gap:6px"><button class="btn btn-light btn-xs" type="button" data-go="visit-new">+ 현장답사 등록</button><button class="btn btn-light btn-xs" type="button" data-go="visits">일자별 현장답사 전체 →</button></span></h2><div id="dash-visits" class="adm-list"></div></div>
       <div class="adm-card mt-3"><h2 class="row between" style="gap:8px;flex-wrap:wrap"><span>문의 경로 <small>어디서 문의가 왔는지 · 문의 접수일 기준</small></span><span class="ch-range" id="ch-range" role="group" aria-label="기간"><button type="button" class="chip on" data-chr="month">이번 달</button><button type="button" class="chip" data-chr="last">지난 달</button><button type="button" class="chip" data-chr="90">최근 90일</button><button type="button" class="chip" data-chr="all">전체</button></span></h2><div id="dash-ch" class="ch-stats"></div><p class="tiny muted mt-2">확정은 지금 상태가 '예약 확정'·'이용 완료'인 문의입니다. 경로는 문의 상세에서 바로 바꿀 수 있고, 홈페이지 문의는 들어오기 전 어디에 있었는지(네이버·인스타그램 등)가 자동으로 함께 기록됩니다.</p></div>
       <div class="adm-card mt-3"><h2>최근 온라인 결제 <small>결제 완료·실패</small></h2><div id="dash-orders" class="adm-list"></div></div>
       <div class="adm-card mt-3"><h2>이번 달 요약</h2><div id="dash-month" class="adm-month"></div><p class="tiny muted mt-2">금액은 각 문의에 마지막으로 저장한 견적 합계(보증금 제외)를 더한 값입니다. 견적을 저장하지 않은 문의는 금액에 들어가지 않습니다.</p></div>
+    </section>
+
+    <!-- 일자별 현장답사 -->
+    <section class="adm-view" id="view-visits" hidden>
+      <header class="adm-head"><div><h1>일자별 현장답사</h1><p class="small muted">고객이 공간을 보러 오는 일정을 날짜별로 모았습니다. 날짜와 시간이 정해지면 <b>예정</b>, 아직 못 정했으면 <b>조율 중</b>으로 표시됩니다. 같은 시간에 다른 답사나 행사 예약이 잡혀 있으면 경고가 붙습니다. 줄을 누르면 일정을 고칠 수 있고, 문의번호를 누르면 연결된 문의가 열립니다.</p></div>
+        <div class="row" style="gap:6px"><button class="btn btn-primary btn-sm" type="button" id="vs-new">+ 현장답사 등록</button><button class="btn btn-light btn-sm" type="button" id="vs-csv">CSV 내려받기</button><button class="btn btn-light btn-sm" type="button" id="vs-print">인쇄</button><button class="btn btn-light btn-sm" type="button" id="vs-reload">새로고침</button></div></header>
+      <div class="rs-bar">
+        <div class="rs-range" role="group" aria-label="기간">
+          <button type="button" class="chip" data-vrange="today">오늘</button><button type="button" class="chip" data-vrange="week">이번 주</button><button type="button" class="chip" data-vrange="month">이번 달</button><button type="button" class="chip" data-vrange="next">다음 달</button><button type="button" class="chip on" data-vrange="upcoming">앞으로 전체</button><button type="button" class="chip" data-vrange="past">지난 답사</button>
+        </div>
+        <div class="rs-dates"><label class="sr-only" for="vs-from">시작일</label><input class="input" type="date" id="vs-from"><span>~</span><label class="sr-only" for="vs-to">종료일</label><input class="input" type="date" id="vs-to"></div>
+      </div>
+      <div class="adm-filters rs-filters">
+        <select class="select" id="vs-status" aria-label="상태"><option value="active">진행 중 (조율 중·예정)</option><option value="">전체</option><option value="requested">조율 중</option><option value="scheduled">예정</option><option value="done">완료</option><option value="noshow">노쇼</option><option value="cancelled">취소</option></select>
+        <select class="select" id="vs-space" aria-label="공간"><option value="">1호·2호 전체</option></select>
+        <input class="input" id="vs-q" placeholder="이름·연락처·답사번호·문의번호·담당자" aria-label="검색">
+      </div>
+      <div class="vs-strip" id="vs-strip" aria-label="2주 일정 한눈에"></div>
+      <div class="rs-kpis" id="vs-kpis"></div>
+      <div id="vs-list"></div>
     </section>
 
     <!-- 문의 관리 -->
@@ -413,6 +435,18 @@
 
       <div class="f"><label>문의 내용</label><textarea class="textarea" name="message" style="min-height:90px"></textarea></div>
       <div class="f"><label>운영 메모</label><textarea class="textarea" name="memo" maxlength="2000" style="min-height:70px"></textarea></div>
+
+      <fieldset class="nw-visit" id="nw-visit">
+        <legend>현장답사</legend>
+        <label class="chk"><input type="checkbox" id="nw-visit-on"> 현장답사 일정도 함께 등록 <small class="muted">(고객이 공간을 먼저 보고 싶어 할 때)</small></label>
+        <div class="nw-visit-body" id="nw-visit-body" hidden>
+          <div class="field-row three"><div class="f"><label for="nw-v-date">답사 날짜</label><input class="input" type="date" id="nw-v-date"></div><div class="f"><label for="nw-v-time">시간</label><select class="select" id="nw-v-time"></select></div><div class="f"><label for="nw-v-dur">소요</label><select class="select" id="nw-v-dur"><option value="30">30분</option><option value="60">1시간</option><option value="90">1시간 30분</option><option value="120">2시간</option></select></div></div>
+          <div class="field-row three"><div class="f"><label for="nw-v-people">방문 인원</label><input class="input" id="nw-v-people" inputmode="numeric" placeholder="예: 2"></div><div class="f"><label for="nw-v-staff">안내 담당자</label><input class="input" id="nw-v-staff" maxlength="30" placeholder="예: 최매니저"></div><div class="f"><label for="nw-v-space">답사 공간</label><select class="select" id="nw-v-space"></select></div></div>
+          <div class="f"><label for="nw-v-memo">답사 메모</label><input class="input" id="nw-v-memo" maxlength="300" placeholder="예: 차량 1대 등록, 2호 공사 현장도 보고 싶어 함"></div>
+          <p class="tiny muted">날짜·시간을 비워 두면 '조율 중'으로 저장되고, 일자별 현장답사 맨 위 '조율이 필요한 답사'에 모입니다. 이름·연락처는 위 고객 정보를 그대로 씁니다.</p>
+          <div class="cf-warn" id="nw-v-warn" hidden></div>
+        </div>
+      </fieldset>
       <button class="btn btn-primary" type="submit" id="nw-submit">등록</button>
       <div class="form-note" id="nw-msg" hidden></div>
     </form>
@@ -457,6 +491,29 @@
   </div>
 </div>
 
+<!-- 현장답사 등록·수정 -->
+<div class="adm-drawer" id="adm-visit" hidden>
+  <div class="adm-drawer-bg" data-close></div>
+  <div class="adm-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="vt-title">
+    <div class="adm-drawer-head"><h2 id="vt-title">현장답사 등록</h2><button class="btn btn-light btn-sm" type="button" data-close>닫기 ✕</button></div>
+    <form class="adm-drawer-body form" id="vt-form" novalidate>
+      <div class="vt-link" id="vt-link"></div>
+      <div class="field-row"><div class="f"><label for="vt-space">공간</label><select class="select" id="vt-space" name="space_id"></select></div><div class="f"><label for="vt-status">상태</label><select class="select" id="vt-status" name="status"><option value="scheduled">예정</option><option value="requested">조율 중</option><option value="done">완료</option><option value="noshow">노쇼</option><option value="cancelled">취소</option></select></div></div>
+      <div class="vt-wish" id="vt-wish" hidden></div>
+      <div class="field-row three"><div class="f"><label for="vt-date">답사 날짜</label><input class="input" type="date" id="vt-date" name="date"></div><div class="f"><label for="vt-time">시간</label><select class="select" id="vt-time" name="time"></select></div><div class="f"><label for="vt-dur">소요</label><select class="select" id="vt-dur" name="duration"><option value="30">30분</option><option value="60">1시간</option><option value="90">1시간 30분</option><option value="120">2시간</option></select></div></div>
+      <div class="vt-quick" id="vt-quick" aria-label="날짜 빠른 선택"></div>
+      <div class="field-row"><div class="f"><label for="vt-name">오시는 분 <span class="req">*</span></label><input class="input" id="vt-name" name="name" maxlength="60" required></div><div class="f"><label for="vt-phone">연락처</label><input class="input" type="tel" id="vt-phone" name="phone"></div></div>
+      <div class="field-row"><div class="f"><label for="vt-people">방문 인원</label><input class="input" id="vt-people" name="people" inputmode="numeric" placeholder="예: 2"></div><div class="f"><label for="vt-staff">안내 담당자</label><input class="input" id="vt-staff" name="staff" maxlength="30"></div></div>
+      <div class="f"><label for="vt-iref">연결 문의번호 <span class="muted">(선택)</span></label><input class="input" id="vt-iref" name="inquiry_ref" maxlength="20" placeholder="MS-0000-XXXX — 비워 두면 단독 답사"></div>
+      <div class="f"><label for="vt-memo">메모</label><textarea class="textarea" id="vt-memo" name="memo" maxlength="1000" style="min-height:70px" placeholder="차량번호, 보고 싶은 곳, 함께 오는 사람"></textarea></div>
+      <div class="field-row vt-result" id="vt-result"><div class="f"><label for="vt-res">답사 후 결과</label><select class="select" id="vt-res" name="result"><option value="">아직 모름</option><option value="booked">예약 진행</option><option value="thinking">고민 중</option><option value="other">다른 곳 선택</option><option value="etc">기타</option></select></div><div class="f"><label for="vt-resnote">결과 메모</label><input class="input" id="vt-resnote" name="result_note" maxlength="300" placeholder="예: 2호 12월 송년회로 견적 요청"></div></div>
+      <div class="cf-warn" id="vt-warn" hidden></div>
+      <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-primary" type="submit" id="vt-submit">저장</button><button class="btn btn-light" type="button" id="vt-guide">답사 안내문 복사</button><button class="btn btn-light" type="button" id="vt-open-inq" hidden>연결 문의 열기</button><button class="btn btn-danger btn-sm" type="button" id="vt-del" hidden style="margin-left:auto">삭제</button></div>
+      <div class="form-note" id="vt-msg" hidden></div>
+    </form>
+  </div>
+</div>
+
 <!-- 플랫폼 상세·수정 (오른쪽 패널) -->
 <div class="adm-drawer" id="adm-pf" hidden>
   <div class="adm-drawer-bg" data-close></div>
@@ -467,17 +524,17 @@
 </div>
 </div><!-- /admin-root -->
 <div id="quote-print" aria-hidden="true"></div>
-<script src="/assets/js/site.js?v=202610231745"></script>
-<script src="/assets/js/data/spaces.js?v=202610231745"></script>
-<script src="/assets/js/data/pricing-gundae2.js?v=202610231745"></script>
-<script src="/assets/js/data/holidays-kr.js?v=202610231745"></script>
-<script src="/assets/js/data/pricing-gundae.js?v=202610231745"></script>
-<script src="/assets/js/pricing-engine.js?v=202610231745"></script>
-<script src="/assets/js/data/catering.js?v=202610231745"></script>
-<script src="/assets/js/catering-calc.js?v=202610231745"></script>
-<script src="/assets/js/confirm-doc.js?v=202610231745"></script>
-<script src="/assets/js/cards.js?v=202610231745"></script>
-<script src="/assets/js/pages/admin.js?v=2026102603"></script>
-<script src="/assets/js/pages/admin-platform.js?v=202610231745"></script>
+<script src="/assets/js/site.js?v=202610270316"></script>
+<script src="/assets/js/data/spaces.js?v=202610270316"></script>
+<script src="/assets/js/data/pricing-gundae2.js?v=202610270316"></script>
+<script src="/assets/js/data/holidays-kr.js?v=202610270316"></script>
+<script src="/assets/js/data/pricing-gundae.js?v=202610270316"></script>
+<script src="/assets/js/pricing-engine.js?v=202610270316"></script>
+<script src="/assets/js/data/catering.js?v=202610270316"></script>
+<script src="/assets/js/catering-calc.js?v=202610270316"></script>
+<script src="/assets/js/confirm-doc.js?v=202610270316"></script>
+<script src="/assets/js/cards.js?v=202610270316"></script>
+<script src="/assets/js/pages/admin.js?v=202610270316"></script>
+<script src="/assets/js/pages/admin-platform.js?v=202610270316"></script>
 </body>
 </html>

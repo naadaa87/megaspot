@@ -236,3 +236,24 @@ CREATE TABLE IF NOT EXISTS ads (             -- 배너 광고 · 메가스팟 �
   updated_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_ads_slot ON ads(slot, status);
+
+-- ---------- 현장답사 일정 (2026-10-27 추가) ----------
+CREATE TABLE IF NOT EXISTS site_visits (     -- 예약 문의 고객의 현장답사 (관리자 등록 · 홈페이지 답사 희망)
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ref TEXT NOT NULL UNIQUE,                  -- 답사번호 SV-YYMM-XXXX
+  inquiry_ref TEXT,                          -- 연결된 문의번호 (없으면 단독 답사)
+  space_id TEXT NOT NULL,                    -- megaspot-gundae | megaspot-gundae-2
+  visit_date TEXT,                           -- 답사 날짜 YYYY-MM-DD (조율 중이면 비어 있을 수 있음)
+  start_time TEXT,                           -- 시작 시각 HH:MM (조율 중이면 비어 있음)
+  duration INTEGER NOT NULL DEFAULT 30,      -- 예상 소요 시간(분)
+  status TEXT NOT NULL DEFAULT 'scheduled',  -- requested(조율 중) | scheduled(예정) | done(완료) | noshow(노쇼) | cancelled(취소)
+  name TEXT NOT NULL, phone TEXT,
+  people INTEGER,                            -- 방문 인원
+  staff TEXT,                                -- 안내 담당자
+  memo TEXT,                                 -- 운영 메모
+  data TEXT NOT NULL,                        -- 출처(admin/web) · 고객 희망 일시 · 답사 후 결과
+  created_at TEXT NOT NULL,
+  updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_site_visits_date ON site_visits(visit_date, status);
+CREATE INDEX IF NOT EXISTS idx_site_visits_inquiry ON site_visits(inquiry_ref);

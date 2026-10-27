@@ -382,6 +382,7 @@
         + '<div class="f"><label for="' + pid + '-msg">요청사항 <span class="muted">(선택)</span></label><textarea class="textarea" id="' + pid + '-msg" name="rv_message" maxlength="1000" style="min-height:64px" placeholder="행사 성격, 배치, 반입할 장비, 음식 등 미리 알려 주실 것"></textarea></div>'
         + (CC ? CC.formBlock('rv_cat') : '')
         + (M.familyAsk ? M.familyAsk('rv_family') : '')
+        + (M.visitAsk ? M.visitAsk('rv_visit') : '')
         + '<input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">'
         + '<label class="agree"><input type="checkbox" name="rv_agree" required> <span>(필수) 예약 안내를 위해 이름·연락처·이메일·신청 내용을 수집·이용하는 데 동의합니다. 보유 기간은 처리 완료 후 1년이며 <a href="/privacy/" target="_blank" rel="noopener" style="text-decoration:underline">개인정보처리방침</a>을 따릅니다.</span></label>'
         + '<div class="err" data-out="err" role="alert" hidden></div>'
@@ -390,6 +391,7 @@
       var ph = el.querySelector('[name=rv_phone]'); ph.addEventListener('input', function(){ var v = this.value.replace(/[^0-9]/g, '').slice(0, 11); if (v.length > 7) v = v.replace(/(\d{3})(\d{3,4})(\d{4})/, '$1-$2-$3'); else if (v.length > 3) v = v.replace(/(\d{3})(\d+)/, '$1-$2'); this.value = v; });
       el.querySelector('.rv-apply').addEventListener('submit', function(e){ e.preventDefault(); submit(); });
       if (CC) CC.bind(el.querySelector('.rv-apply'), 'rv_cat', function(){ return (last || {}).people || st.people; });
+      if (M.visitBind) M.visitBind(el.querySelector('.rv-apply'), 'rv_visit');
       // 모바일에서는 화면이 움직이는 중이라 자동 포커스를 하지 않습니다(키보드가 튀어 올라 위치가 흔들림)
       if (window.matchMedia('(min-width:960px) and (hover:hover)').matches) setTimeout(function(){ var n = el.querySelector('[name=rv_name]'); if (n && !n.value) n.focus(); }, 50);
     }
@@ -400,7 +402,7 @@
     }
     function reserveText(r, who){
       var L = [E.summaryText(r, purLabel(r.purpose))];
-      if (who) L.unshift('[' + NAME + ' 예약 신청] ' + who.name + ' / ' + who.phone + (who.email ? ' / ' + who.email : '') + (who.message ? '\n요청사항: ' + who.message : '') + (who.family && who.family.length && M.familyLabel ? '\n함께 알아보기: ' + M.familyLabel(who.family) : '') + (who.catering ? '\n출장뷔페: ' + who.catering.summary : ''));
+      if (who) L.unshift('[' + NAME + ' 예약 신청] ' + who.name + ' / ' + who.phone + (who.email ? ' / ' + who.email : '') + (who.message ? '\n요청사항: ' + who.message : '') + (who.family && who.family.length && M.familyLabel ? '\n함께 알아보기: ' + M.familyLabel(who.family) : '') + (who.catering ? '\n출장뷔페: ' + who.catering.summary : '') + (who.visit && M.visitLabel ? '\n현장답사 희망: ' + M.visitLabel(who.visit) : ''));
       return L.join('\n');
     }
     function submit(){
@@ -409,11 +411,11 @@
       read(); var r = last || calc();
       if (r.date < E.todayIso()){ er.textContent = '지난 날짜는 신청할 수 없습니다. 이용일을 다시 골라 주세요.'; er.hidden = false; return; }
       if (D.opening && r.date < D.opening){ er.textContent = NAME + '은 ' + E.kdateY(D.opening) + ' 오픈합니다. 오픈일 이후 날짜를 골라 주세요.'; er.hidden = false; return; }
-      var who = { name: form.rv_name.value.trim(), phone: form.rv_phone.value.trim(), email: form.rv_email.value.trim(), message: form.rv_message.value.trim(), family: [].slice.call(form.querySelectorAll('[name=rv_family]:checked')).map(function(i){ return i.value; }), catering: CC ? CC.read(form, 'rv_cat', r.people) : null };
+      var who = { name: form.rv_name.value.trim(), phone: form.rv_phone.value.trim(), email: form.rv_email.value.trim(), message: form.rv_message.value.trim(), family: [].slice.call(form.querySelectorAll('[name=rv_family]:checked')).map(function(i){ return i.value; }), catering: CC ? CC.read(form, 'rv_cat', r.people) : null, visit: M.visitRead ? M.visitRead(form, 'rv_visit') : null };
       var purpose = form.rv_purpose.value || st.purpose;
       var body = { inquiry_type: st.regular ? 'regular' : 'event', space_id: SPACE_ID, reserve: true, purpose: purpose, date: r.date, slot: 'custom',
         t_start: E.hourLabel(r.start).replace(/^다음 날 /, ''), t_end: E.hourLabel(r.end).replace(/^다음 날 /, ''), start_h: r.start, end_h: r.end, headcount: r.people,
-        options: options(), pkg: r.pkg ? r.pkg.id : '', total: r.total, name: who.name, phone: who.phone, email: who.email, message: who.message, family: who.family, catering: who.catering, contact_pref: 'kakao',
+        options: options(), pkg: r.pkg ? r.pkg.id : '', total: r.total, name: who.name, phone: who.phone, email: who.email, message: who.message, family: who.family, catering: who.catering, visit_wish: who.visit, contact_pref: 'kakao',
         agree_privacy: true, estimate: E.summaryText(r, purLabel(purpose)), source: location.pathname, summary: reserveText(r, who), website: form.website.value, came_from: M.source ? M.source() : null };
       var btn = el.querySelector('[data-act=submit]'); btn.disabled = true; btn.textContent = '신청하는 중…';
       M.api('/inquiry', { method: 'POST', body: body }).then(function(res){ done = { ref: res.ref, live: true, who: who, r: r, purpose: purpose, member: !!res.member }; phase = 'done'; paintDone(); })
@@ -431,6 +433,7 @@
         + '<div class="row between"><div class="eyebrow">' + (done.live ? 'Received' : 'Draft') + '</div><span class="badge ' + (done.live ? 'badge-ok' : 'badge-warn') + '">' + (done.live ? '예약 신청 접수' : '체험 모드 · 전송 대기') + '</span></div>'
         + '<h3 class="est-title">' + (done.live ? '예약 신청이 접수되었습니다' : '예약 신청 내용이 준비되었습니다') + '</h3>'
         + '<div class="oc-code mt-2"><small>접수번호</small><b>' + esc(done.ref) + '</b></div>'
+        + (done.who && done.who.visit && M.visitLabel ? '<div class="visit-done mt-2"><b>현장답사 희망도 함께 받았습니다</b><span>' + esc(M.visitLabel(done.who.visit)) + ' — 담당자가 연락드려 답사 시간을 확정합니다.</span></div>' : '')
         + '<dl class="def mt-3"><div><dt>이용일</dt><dd>' + esc(E.kdateY(r.date)) + '</dd></div><div><dt>시간</dt><dd>' + esc(r.range) + (r.pkg ? ' · ' + esc(r.pkg.label) : '') + '</dd></div><div><dt>인원</dt><dd>' + r.people + '명</dd></div><div><dt>예상 금액</dt><dd><b>' + esc(won(r.total)) + '</b> <span class="muted">(' + esc(D.deposit.label) + ' ' + esc(won(r.deposit)) + ' 별도)</span></dd></div>' + (done.who.catering ? '<div><dt>출장뷔페</dt><dd>' + esc(done.who.catering.summary) + ' <span class="muted">(대관료와 별도)</span></dd></div>' : '') + '<div><dt>예약자</dt><dd>' + esc(done.who.name) + ' · ' + esc(done.who.phone) + '</dd></div></dl>'
         + (done.live
           ? '<ol class="steps-mini mt-3"><li><b>일정 확인</b><span>담당자가 신청하신 날짜·시간이 비어 있는지 확인하고 영업시간 기준 2시간 안에 카카오톡·문자로 연락드립니다.</span></li><li><b>금액 확인·결제 안내</b><span>확정 금액과 결제 방법(카드·계좌이체)을 안내드립니다.</span></li><li><b>예약 확정</b><span>결제가 끝나면 예약번호가 발급되고 현장 안내를 보내 드립니다.</span></li></ol>'

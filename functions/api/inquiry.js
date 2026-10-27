@@ -2,6 +2,7 @@
 // reserve:true 이면 '예약 신청'(금액 확인 → 신청)으로 들어온 건입니다. 모임 유형은 선택 사항입니다.
 import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, log, getMember, clientIp, tooMany, hit, kstToday, spaceOk, SPACE_OPENING } from './_lib.js';
 import { cateringFrom } from './_catering.js';
+import { createVisit, timeOk } from './_visits.js';
 const TYPES = ['event', 'regular', 'partner'];
 // '함께 알아보기'로 받을 수 있는 패밀리 공간 (assets/js/site.js의 FAMILY_ASK와 같은 id)
 export const FAMILY_ASK = ['socialfactory', 'playtion'];
@@ -55,6 +56,10 @@ export async function onRequestPost({ request, env }) {
     if (!message) return err('제안 내용을 적어 주세요.');
   }
   if (!d.agree_privacy) return err('개인정보 수집·이용 동의가 필요합니다.');
+  // '현장답사 먼저 하고 싶어요' — 희망 날짜·시간은 운영자가 연락해 확정합니다
+  const vw = d.visit_wish && typeof d.visit_wish === 'object' && d.visit_wish.want ? d.visit_wish : null;
+  const visit_wish = vw ? { date: str(vw.date, 10), time: timeOk(vw.time), people: num(vw.people), note: str(vw.note, 200) } : null;
+  if (visit_wish && visit_wish.date && (!isDate(visit_wish.date) || visit_wish.date < kstToday())) return err('현장답사 희망 날짜를 확인해 주세요.');
   const data = {
     inquiry_type, reserve, channel: 'web', came_from: cameFrom(d.came_from), space_id, purpose, date: isDate(date) ? date : '', date_alt: str(d.date_alt, 10), slot: str(d.slot, 10),
     start_h: num(d.start_h), end_h: num(d.end_h), pkg: str(d.pkg, 20), total: num(d.total),
@@ -67,7 +72,8 @@ export async function onRequestPost({ request, env }) {
     docs: Array.isArray(d.docs) ? d.docs.map(x => str(x, 20)).slice(0, 5) : [], name, phone, email, contact_pref: str(d.contact_pref, 10),
     family: [].concat(d.family || []).map(x => str(x, 20)).filter((x, i, a) => FAMILY_ASK.includes(x) && a.indexOf(x) === i).slice(0, 4),
     catering: cateringFrom(d.catering),
-    listing,   // 등록 공간 문의일 때 { id, name }   // '출장뷔페도 함께 상담받기' (코스·인원·바베큐·생맥주 — 금액은 서버에서 다시 계산)
+    listing,   // 등록 공간 문의일 때 { id, name }
+    visit_wish,   // 현장답사 희망 { date, time, people, note }   // '출장뷔페도 함께 상담받기' (코스·인원·바베큐·생맥주 — 금액은 서버에서 다시 계산)
     message, agree_marketing: !!d.agree_marketing, source: str(d.source, 200), summary: str(d.summary, 6000),
     ua: str(request.headers.get('user-agent'), 200)
   };
@@ -79,6 +85,14 @@ export async function onRequestPost({ request, env }) {
     await env.DB.prepare('INSERT INTO inquiries (ref, space_id, status, name, phone, email, event_date, headcount, data, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)')
       .bind(ref, space_id, '문의 접수', name, phone, email, data.date || null, headcount, JSON.stringify(data), now()).run();
     await log(env, reserve ? 'reserve.created' : 'inquiry.created', ref, data.member_id ? 'member:' + data.member_id : 'customer', { inquiry_type, space_id, date: data.date, headcount, total: data.total, catering: data.catering ? data.catering.total || true : undefined, listing: listing ? listing.id : undefined });
-    return json({ ok: true, ref, member: !!data.member_id });
+    let visit = '';
+    if (visit_wish) {
+      try {
+        const vr = await createVisit(env, { inquiry_ref: ref, date: visit_wish.date, time: '', name, phone, people: visit_wish.people, space_id: space_id === 'request' ? '' : space_id },
+          { actor: 'customer', source: 'web', wish: { date: visit_wish.date, time: visit_wish.time, note: visit_wish.note } });
+        if (vr.item) visit = vr.item.ref;
+      } catch (e) { console.error('visit', e && e.message); }
+    }
+    return json({ ok: true, ref, member: !!data.member_id, visit });
   } catch (e) { console.error('inquiry', e && e.message); return err('저장 중 오류가 발생했습니다. 잠시 후 다시 시도하거나 카카오톡으로 알려 주세요.', 500, 'DB_ERROR'); }
 }

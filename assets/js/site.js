@@ -219,6 +219,35 @@
   }
   function familyLabel(list){ return [].concat(list||[]).map(function(id){ for(var i=0;i<FAMILY_ASK.length;i++) if(FAMILY_ASK[i][0]===id) return FAMILY_ASK[i][2]; return ''; }).filter(Boolean).join(', '); }
 
+  /* ---------- 현장답사 희망 ----------
+     예약 신청·문의 양식에 붙는 선택 항목입니다. 체크하면 서버(functions/api/inquiry.js의 visit_wish)가 '조율 중' 답사로 저장하고,
+     관리자 화면 '일자별 현장답사'에 바로 올라갑니다. 시간은 희망일 뿐이고 담당자가 연락해 확정합니다. */
+  function visitAsk(p){
+    var t=['<option value="">시간은 상관없어요</option>'];
+    for(var h=10;h<=21;h++) t.push('<option value="'+pad2(h)+':00">'+(h<12?'오전 '+h:'오후 '+(h===12?12:h-12))+'시</option>');
+    return '<div class="f visit-ask" data-visit="'+p+'"><label class="chk visit-ask-on"><input type="checkbox" name="'+p+'_on" value="1"> <span><b>현장답사를 먼저 하고 싶어요</b> <span class="muted">(선택)</span></span></label>'
+      + '<div class="visit-ask-body" hidden><div class="field-row three">'
+      + '<div class="f"><label for="'+p+'-date">답사 희망일</label><input class="input" type="date" id="'+p+'-date" name="'+p+'_date" min="'+fmtDate(new Date())+'"></div>'
+      + '<div class="f"><label for="'+p+'-time">희망 시간</label><select class="select" id="'+p+'-time" name="'+p+'_time">'+t.join('')+'</select></div>'
+      + '<div class="f"><label for="'+p+'-people">오실 인원</label><select class="select" id="'+p+'-people" name="'+p+'_people"><option value="">선택 안 함</option><option value="1">1명</option><option value="2">2명</option><option value="3">3명</option><option value="4">4명</option><option value="5">5명 이상</option></select></div></div>'
+      + '<div class="f"><label for="'+p+'-note">편한 요일·시간대 <span class="muted">(선택)</span></label><input class="input" id="'+p+'-note" name="'+p+'_note" maxlength="200" placeholder="예: 평일 저녁 7시 이후, 이번 주 토요일 오전"></div>'
+      + '<p class="tiny muted">날짜를 비워 두셔도 됩니다. 남겨 주신 희망 일정을 보고 담당자가 연락드려 답사 시간을 확정합니다.</p></div></div>';
+  }
+  function visitBind(form, p){
+    var on=form.querySelector('[name="'+p+'_on"]'), body=form.querySelector('[data-visit="'+p+'"] .visit-ask-body'); if(!on||!body) return;
+    on.addEventListener('change', function(){ body.hidden=!on.checked; });
+  }
+  function visitRead(form, p){
+    var on=form.querySelector('[name="'+p+'_on"]'); if(!on||!on.checked||on.closest('[hidden]')) return null;
+    var v=function(k){ var el=form.querySelector('[name="'+p+'_'+k+'"]'); return el?String(el.value||'').trim():''; };
+    return { want:true, date:v('date'), time:v('time'), people:+v('people')||'', note:v('note') };
+  }
+  function visitLabel(w){
+    if(!w) return '';
+    var dt=w.date?fmtKDate(w.date):'', parts=[dt, w.time?w.time+' 무렵':'', w.people?(w.people>=5?'5명 이상':w.people+'명'):'', w.note||''].filter(Boolean);
+    return parts.length?parts.join(' · '):'일정은 연락 주시면 맞출게요';
+  }
+
   /* ---------- 찜 (이 브라우저에만 저장) ----------
      공간·모임을 찜하면 이 기기의 브라우저에 목록만 남깁니다. 로그인과 상관없고 서버로 보내지 않습니다. */
   var FAV_KEY='ms_fav';
@@ -312,7 +341,7 @@
     CONFIG:CONFIG, $:$, $$:$$, esc:esc, pad2:pad2, fmtDate:fmtDate, fmtKDate:fmtKDate, fmtNum:fmtNum,
     toast:toast, api:api, checkApi:checkApi, demo:demo, openLightbox:openLB, photoSrc:photoSrc, localRef:localRef,
     imgSrc:imgSrc, isStaged:isStaged, isCG:isCG, imgTag:imgTag, tagClass:tagClass, tagHtml:tagHtml, visual:visual, sceneItems:sceneItems,
-    validate:validate, formData:formData, account:account, source:source, familyAsk:familyAsk, familyLabel:familyLabel,
+    validate:validate, formData:formData, account:account, source:source, familyAsk:familyAsk, familyLabel:familyLabel, visitAsk:visitAsk, visitBind:visitBind, visitRead:visitRead, visitLabel:visitLabel,
     fav:fav, share:share, copy:copyText, coverSrc:coverSrc, ads:{ render:adRender, init:initAds, house:HOUSE_ADS, html:adHtml }
   };
 

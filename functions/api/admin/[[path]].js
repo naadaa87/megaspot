@@ -6,6 +6,7 @@ import { cateringAdmin } from '../_catering.js';
 import { cleanDoc, parseDoc, publicDoc, confirmToken } from '../_confirm.js';
 import { inquiryAmountSql, bookingAmountSql, amountOverrideSql } from '../_amounts.js';
 import { platformAdmin, platformCounts } from '../_platform_admin.js';   // 입점·공간 등록·광고 신청, 등록 공간, 모임, 배너 광고
+import { visitsAdmin, createVisit, visitsForInquiry, visitCounts, timeOk } from '../_visits.js';   // 현장답사 일정
 // 운영 설정 (settings 표에 JSON으로 저장) — 공개 저장소·홈페이지 파일에 두지 않을 값은 관리자 화면에서 입력해 여기에 둡니다.
 const SETTINGS = {
   catering: {   // 출장뷔페: 발주처 연락처와 1인 수수료, 발주처 코스 이름
@@ -172,7 +173,8 @@ export async function onRequest({ request, env, params }) {
         },
         orders_recent: await all("SELECT oid, title, event_date, price, buyer_name, status, test, paid_at, created_at FROM orders WHERE status IN ('paid','failed') ORDER BY COALESCE(paid_at, created_at) DESC LIMIT 8"),
         orders_today_paid: await one("SELECT COUNT(*) AS n FROM orders WHERE status = 'paid' AND substr(paid_at, 1, 10) = ?", today),
-        platform: await platformCounts(env)   // 모임 승인 대기 · 새 입점·광고 신청 · 공개 공간 · 게재 중 광고
+        platform: await platformCounts(env),  // 모임 승인 대기 · 새 입점·광고 신청 · 공개 공간 · 게재 중 광고
+        visits: await visitCounts(env)        // 현장답사: 조율 필요 · 오늘 · 7일 안 일정
       };
       return json({ ok: true, ...out });
     }
@@ -188,7 +190,7 @@ export async function onRequest({ request, env, params }) {
       const { results: lg } = await env.DB.prepare('SELECT kind, actor, detail, created_at FROM event_log WHERE ref = ? ORDER BY id DESC LIMIT 30').bind(mDet[1]).all();
       let wait = null;
       if (r.event_date && ['문의 접수', '조건 확인', '견적 발송', '결제 대기'].includes(r.status)) { const wl = await waitList(env, r.event_date, r.space_id); const no = wl.indexOf(r.ref) + 1; if (no) wait = { no, total: wl.length, date: r.event_date, space_id: spaceOk(r.space_id) }; }
-      return json({ ok: true, item: { ...r, data: safe(r.data) }, checks: safe(c && c.checks), quotes: (qs || []).map(q => ({ ...q, data: safe(q.data) })), bookings: bk || [], log: lg || [], wait });
+      return json({ ok: true, item: { ...r, data: safe(r.data) }, checks: safe(c && c.checks), quotes: (qs || []).map(q => ({ ...q, data: safe(q.data) })), bookings: bk || [], log: lg || [], wait, visits: await visitsForInquiry(env, mDet[1]) });
     }
     if (path === 'inquiries' && method === 'POST') {
       // 카카오톡·전화·이메일·방문으로 받은 문의를 관리자가 직접 등록합니다.
@@ -210,10 +212,21 @@ export async function onRequest({ request, env, params }) {
         pkg: str(d.pkg, 20), total, amount_mode: total !== null ? (amount_mode || 'manual') : '', amount_note: str(d.amount_note, 200), estimate: str(d.estimate, 3000),
         org: str(d.org, 120), message: str(d.message, 2000), source: 'admin', summary: '' };
       data.summary = adminSummary(data);
+      // 현장답사 일정을 함께 등록할 때는 문의를 저장하기 전에 날짜·시간부터 확인합니다
+      const visit = d.visit && typeof d.visit === 'object' ? d.visit : null;
+      if (visit) {
+        if (str(visit.date, 10) && !isDate(str(visit.date, 10))) return err('현장답사 날짜를 확인해 주세요.');
+        if (str(visit.time, 5) && !timeOk(visit.time)) return err('현장답사 시간을 확인해 주세요. (예: 14:00)');
+      }
       const ref = await uniqueRef(env, 'inquiries', 'ref', 'MS');
       await env.DB.prepare('INSERT INTO inquiries (ref, space_id, status, name, phone, email, event_date, headcount, data, memo, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
         .bind(ref, space_id, STATUSES.includes(d.status) ? d.status : '문의 접수', name, phone, email, date || null, data.headcount, JSON.stringify(data), str(d.memo, 2000), now()).run();
-      await log(env, 'inquiry.created', ref, 'admin', { channel, space_id });
+      await log(env, 'inquiry.created', ref, 'admin', { channel, space_id, visit: visit ? true : undefined });
+      if (visit) {
+        const vr = await createVisit(env, { ...visit, inquiry_ref: ref, name: str(visit.name, 60) || name, phone: str(visit.phone, 30) || phone, space_id: visit.space_id || space_id }, { actor: 'admin', source: 'admin' });
+        if (vr.error) return json({ ok: true, ref, visit_error: vr.error });
+        return json({ ok: true, ref, visit: vr.item, clashes: vr.clashes });
+      }
       return json({ ok: true, ref });
     }
     const mChk = path.match(/^inquiries\/([A-Z0-9-]+)\/checks$/);
@@ -546,7 +559,9 @@ export async function onRequest({ request, env, params }) {
         amount: p.effective_amount, deposit_paid: p.deposit_paid, amount_src: p.amount_override ? 'adjusted' : (p.quote_total != null ? 'quote' : (p.inq_total != null ? 'estimate' : '')) });
       items.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : ((a.start_h ?? 99) - (b.start_h ?? 99)));
       const und = await env.DB.prepare("SELECT COUNT(*) AS n FROM inquiries WHERE status IN ('문의 접수', '조건 확인', '견적 발송', '결제 대기') AND (event_date IS NULL OR event_date = '')").first();
-      return json({ ok: true, from: f, to: t, today: kstToday(), items, undated: (und || {}).n || 0 });
+      // 같은 기간의 현장답사 (날짜 머리에 '현장답사 n건'으로 표시)
+      const { results: vis } = await env.DB.prepare("SELECT id, ref, inquiry_ref, space_id, visit_date AS date, start_time AS time, duration, status, name FROM site_visits WHERE visit_date BETWEEN ? AND ? AND status IN ('requested','scheduled','done') ORDER BY visit_date, start_time LIMIT 500").bind(f, t).all();
+      return json({ ok: true, from: f, to: t, today: kstToday(), items, undated: (und || {}).n || 0, visits: vis || [] });
     }
     // ---- 예약확정서 (발급 내용 조회·저장, 고객용 링크) ----
     const mDeposit = path.match(/^bookings\/([A-Z0-9-]+)\/deposit-paid$/);
@@ -709,6 +724,7 @@ export async function onRequest({ request, env, params }) {
       return json({ ok: true });
     }
 
+    const vs = await visitsAdmin(request, env, path, method, url); if (vs) return vs;
     const pf = await platformAdmin(request, env, path, method, url); if (pf) return pf;
 
     return err('경로를 찾을 수 없습니다.', 404, 'NOT_FOUND');

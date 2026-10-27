@@ -115,7 +115,7 @@
 
   /* =================== 화면 전환 =================== */
   // 모임·입점·등록 공간·광고 화면은 admin-platform.js 가 MEGASPOT_ADMIN.register 로 붙입니다
-  var LOAD={ dash:loadDash, resv:loadResv, inq:loadInq, quote:function(){ calc(); loadRecentQuotes(); }, catering:loadCatering, orders:loadOrders, bookings:loadBookings, calendar:loadCalendar, reviews:loadReviews, members:loadMembers };
+  var LOAD={ dash:loadDash, resv:loadResv, visits:loadVisits, inq:loadInq, quote:function(){ calc(); loadRecentQuotes(); }, catering:loadCatering, orders:loadOrders, bookings:loadBookings, calendar:loadCalendar, reviews:loadReviews, members:loadMembers };
   function go(v){
     if(!LOAD[v]) v='dash';
     $$('.adm-view').forEach(function(s){ s.hidden = s.id!=='view-'+v; });
@@ -125,7 +125,7 @@
   }
   $('#adm-nav').addEventListener('click', function(e){ var b=e.target.closest('button[data-view]'); if(b) go(b.dataset.view); });
   document.addEventListener('click', function(e){
-    var g=e.target.closest('[data-go]'); if(g){ e.preventDefault(); var t=g.dataset.go; if(t==='inq-new') openNew(); else if(t.indexOf('inq:')===0){ $('#inq-status').value=t.slice(4); go('inq'); } else go(t); return; }
+    var g=e.target.closest('[data-go]'); if(g){ e.preventDefault(); var t=g.dataset.go; if(t==='inq-new') openNew(); else if(t==='visit-new') openVisit(null); else if(t.indexOf('inq:')===0){ $('#inq-status').value=t.slice(4); go('inq'); } else go(t); return; }
     var r=e.target.closest('[data-ref]'); if(r && !e.target.closest('select,input,button,a,.tr-chk')){ openInquiry(r.dataset.ref); }
   });
 
@@ -143,7 +143,7 @@
   function emptyMsg(t){ return '<div class="empty small">'+esc(t)+'</div>'; }
   function loadDash(){
     A('/dashboard').then(function(d){
-      var c=d.counts||{}, pf=d.platform||{};
+      var c=d.counts||{}, pf=d.platform||{}, vc=d.visits||{};
       $('#dash-date').textContent=E?E.kdateY(d.today)+' 기준':d.today;
       var k=[['문의 접수','새 문의','inq:문의 접수'],['조건 확인','조건 확인 중','inq:조건 확인'],['견적 발송','견적 발송','inq:견적 발송'],['결제 대기','결제 대기','inq:결제 대기']];
       $('#dash-kpis').innerHTML=k.map(function(x){ return '<button type="button" class="kpi'+(x[0]==='문의 접수'&&c[x[0]]?' hot':'')+'" data-go="'+x[2]+'"><small>'+x[1]+'</small><b>'+(c[x[0]]||0)+'</b></button>'; }).join('')
@@ -152,8 +152,10 @@
         +'<button type="button" class="kpi" data-go="members"><small>회원 (최근 7일 +'+(d.members_new||0)+')</small><b>'+(d.members||0)+'</b></button>'
         +'<button type="button" class="kpi'+(pf.meetups_pending?' hot':'')+'" data-go="meetups"><small>모임 공개 검토 대기</small><b>'+(pf.meetups_pending||0)+'</b></button>'
         +'<button type="button" class="kpi'+(pf.partners_new?' hot':'')+'" data-go="hosts"><small>새 입점·광고 신청</small><b>'+(pf.partners_new||0)+'</b></button>'
+        +'<button type="button" class="kpi'+(vc.visits_requested?' hot':'')+'" data-go="visits"><small>현장답사 (조율 필요 · 오늘)</small><b>'+(vc.visits_requested||0)+'<em style="font-size:15px;font-style:normal"> · 오늘 '+(vc.visits_today||0)+'</em></b></button>'
         +'<button type="button" class="kpi" data-go="ads"><small>게재 중 배너 · 공개 공간</small><b>'+(pf.ads_on||0)+'<em style="font-size:15px;font-style:normal"> · '+(pf.listings_published||0)+'</em></b></button>';
-      setCount('inq', c['문의 접수']); setCount('reviews', d.reviews_pending); setCount('orders', d.orders_today_paid); setCount('meetups', pf.meetups_pending); setCount('hosts', pf.partners_new);
+      setCount('inq', c['문의 접수']); setCount('reviews', d.reviews_pending); setCount('orders', d.orders_today_paid); setCount('meetups', pf.meetups_pending); setCount('hosts', pf.partners_new); setCount('visits', vc.visits_requested);
+      VS.dash=vc.visits_upcoming||[]; $('#dash-visits').innerHTML=VS.dash.length?VS.dash.map(function(v){ return visitCard(v, d.today); }).join(''):emptyMsg('7일 안에 잡힌 현장답사가 없습니다.');
       $('#dash-todo').innerHTML=(d.todo||[]).length?d.todo.map(function(i){ return row(i); }).join(''):emptyMsg('새로 들어온 문의가 없습니다.');
       $('#dash-follow').innerHTML=(d.followup||[]).length?d.followup.map(function(i){ return row(i, '마지막 변경 '+ago(i.updated_at||i.created_at)); }).join(''):emptyMsg('연락이 밀린 견적이 없습니다.');
       $('#dash-soon').innerHTML=(d.soon||[]).length?d.soon.map(function(i){ var dd=E?E.diffDays(d.today,i.event_date):''; return row(i, (dd===0?'오늘':'D-'+dd)+' · 아직 '+i.status); }).join(''):emptyMsg('14일 안에 미확정인 행사가 없습니다.');
@@ -309,6 +311,7 @@
       +(d.reserve?'<div class="notice" style="margin-bottom:12px"><div><b>홈페이지에서 금액을 확인하고 예약을 신청한 건입니다.</b>'+(d.total?' 고객이 본 예상 금액은 <b>'+esc(won(d.total))+'</b>'+(d.pkg?' ('+esc({day:'낮 패키지',allday:'올데이 패키지',allnight:'올나잇 패키지'}[d.pkg]||d.pkg)+')':'')+'입니다.':'')+' 일정이 비어 있으면 금액을 확인해 결제 방법을 안내하고, 입금·결제가 끝나면 \'예약 확정\'을 눌러 주세요.</div></div>':'')
       +'<div class="dr-sec"><h3>행사 조건</h3>'+kv('구분',d.reserve?'<b>예약 신청</b>':'문의')+kv('유형',esc(TYPE[d.inquiry_type]||'행사 대관'))+kv('목적',esc(PUR[d.purpose]||d.purpose||''))+kv('이용일',esc(d.date?kd(d.date):'')+(d.date_alt?' <small>(대체 '+esc(kd(d.date_alt))+')</small>':''))+kv('시간',esc(time))+kv('준비 입장·퇴장',esc([d.t_setup,d.t_out].filter(Boolean).join(' / ')))+kv('인원',esc(d.headcount?d.headcount+'명':''))+kv('배치',esc(d.layout||''))+kv('필요한 것',esc(needs))+kv('음식·연출',esc(d.food_fx||''))+kv('예산',esc(d.budget||''))+kv('반복 일정',esc([d.repeat_cycle,d.repeat_period,d.repeat_days].filter(Boolean).join(' · ')))+kv('서류',esc((d.docs||[]).join(', ')))+kv('제휴 형태',esc(d.partner_kind||''))+kv('선택 옵션',esc(optText(d.options)))
       +(d.message?'<div class="dr-msg">'+esc(d.message)+'</div>':'')+'</div>'
+      +visitSection(it, d)
       +amountSection(it, d)
       +(d.estimate?'<details class="dr-sec"><summary><h3 style="display:inline">'+((d.source==='admin'||d.estimate_admin)?'요금표 계산 내역':'고객이 보낸 예상 금액')+'</h3></summary><pre class="dr-pre">'+esc(d.estimate)+'</pre></details>':'')
       +(d.estimate_customer?'<details class="dr-sec"><summary><h3 style="display:inline">고객이 처음 보낸 예상 금액</h3></summary><pre class="dr-pre">'+esc(d.estimate_customer)+'</pre></details>':'')
@@ -329,6 +332,8 @@
       A('/inquiries/'+it.ref,{method:'PATCH', body:{status:v}}).then(function(){ it.status=v; M.toast('상태를 "'+v+'"(으)로 바꿨습니다.'); refreshLists(); }).catch(function(e){ if(!guard(e)) M.toast(e.message); }); });
     $('#dr-amt-save').addEventListener('click', function(){ var v=$('#dr-amt').value.trim(), n=$('#dr-amt-note').value.trim();
       A('/inquiries/'+it.ref,{method:'PATCH', body:{total:v===''?'':Number(v), amount_note:n}}).then(function(){ d.total=v===''?null:Number(v); d.amount_override=true; it.effective_amount=d.total; d.amount_mode=v===''?'':'manual'; d.amount_note=n; M.toast(v===''?'금액을 비웠습니다.':'금액을 '+won(Number(v))+'(으)로 저장했습니다.'); renderDetail(); refreshLists(); }).catch(function(e){ if(!guard(e)) M.toast(e.message); }); });
+    var dva=$('#dr-visit-add'); if(dva) dva.addEventListener('click', function(){ var w=d.visit_wish||{}; openVisit({ inquiry_ref:it.ref, name:d.name||it.name||'', phone:d.phone||it.phone||'', space_id:spaceOk(it.space_id||d.space_id), date:w.date||'', time:w.time||'', people:w.people||'' }); });
+    $$('#dr-body [data-dvid]').forEach(function(b){ b.addEventListener('click', function(){ var v=(cur.visits||[]).filter(function(x){ return String(x.id)===b.dataset.dvid; })[0]; if(v) openVisit(v); }); });
     $('#dr-memo-save').addEventListener('click', function(){ var v=$('#dr-memo').value; A('/inquiries/'+it.ref,{method:'PATCH', body:{memo:v}}).then(function(){ it.memo=v; refreshLists(); M.toast('메모를 저장했습니다.'); }).catch(function(e){ if(!guard(e)) M.toast(e.message); }); });
     $$('#dr-body [data-chk]').forEach(function(cb){ cb.addEventListener('change', function(){ var o={}; $$('#dr-body [data-chk]').forEach(function(x){ o[x.dataset.chk]=x.checked; }); A('/inquiries/'+it.ref+'/checks',{method:'PUT', body:{checks:o}}).then(function(r){ cur.checks=r.checks; M.toast('체크리스트를 저장했습니다.'); if(!$('#view-resv').hidden) loadResv(); if(!$('#view-bookings').hidden) loadBookings(); }).catch(function(e){ if(!guard(e)) M.toast(e.message); }); }); });
     $('#dr-quote').addEventListener('click', function(){ quoteFromInquiry(cur.item); closeDrawer($('#adm-drawer')); go('quote'); });
@@ -368,8 +373,8 @@
       +'<div class="dr-amt-edit"><input class="input" type="number" min="0" step="1000" id="dr-amt" value="'+(amount!=null?amount:'')+'" placeholder="금액(원)" aria-label="금액(원)"><input class="input" id="dr-amt-note" maxlength="200" value="'+esc(d.amount_note||'')+'" placeholder="메모 (예: 10% 할인 확정)" aria-label="금액 메모"><button class="btn btn-light btn-sm" type="button" id="dr-amt-save">금액 저장</button></div>'
       +'<p class="tiny muted">정확한 항목별 금액이 필요하면 \'이 문의로 견적 계산\'에서 견적서를 만들어 저장하세요.</p></div>';
   }
-  function refreshLists(){ if(!$('#view-inq').hidden) loadInq(); if(!$('#view-dash').hidden) loadDash(); if(!$('#view-resv').hidden) loadResv(); if(!$('#view-bookings').hidden) loadBookings(); }
-  var LOGK={'inquiry.created':'접수','reserve.created':'예약 신청 접수','inquiry.updated':'상태·메모·금액 변경','inquiry.edited':'내용 수정','quote.saved':'견적 저장','booking.created':'예약 등록','inquiry.confirmed':'예약 확정 처리','inquiry.deleted':'삭제 (보관함으로)','inquiry.restored':'삭제 문의 복원','waitlist.updated':'대기 순번 변경','waitlist.cancelled':'대기 취소','waitlist.restored':'대기 복원','booking.updated':'예약 상태 변경','order.created':'주문 생성','order.paid':'결제 완료','order.updated':'주문 변경'};
+  function refreshLists(){ if(!$('#view-visits').hidden) loadVisits(); if(!$('#view-inq').hidden) loadInq(); if(!$('#view-dash').hidden) loadDash(); if(!$('#view-resv').hidden) loadResv(); if(!$('#view-bookings').hidden) loadBookings(); }
+  var LOGK={'inquiry.created':'접수','reserve.created':'예약 신청 접수','inquiry.updated':'상태·메모·금액 변경','inquiry.edited':'내용 수정','quote.saved':'견적 저장','booking.created':'예약 등록','inquiry.confirmed':'예약 확정 처리','inquiry.deleted':'삭제 (보관함으로)','inquiry.restored':'삭제 문의 복원','waitlist.updated':'대기 순번 변경','waitlist.cancelled':'대기 취소','waitlist.restored':'대기 복원','booking.updated':'예약 상태 변경','order.created':'주문 생성','order.paid':'결제 완료','order.updated':'주문 변경','visit.created':'현장답사 등록','visit.updated':'현장답사 변경','visit.deleted':'현장답사 삭제'};
   var LOGA={admin:'관리자',customer:'고객',system:'시스템'};
   function logLine(l){
     var det={}; try{ det=JSON.parse(l.detail||'{}')||{}; }catch(e){}
@@ -431,6 +436,7 @@
     $('#nw-title').textContent=edit?'문의 수정 · '+edit:'문의 직접 등록';
     $('#nw-intro').textContent=edit?'고객 정보·행사 조건·금액을 고칩니다. 고객이 처음 보낸 원문은 그대로 남고, 무엇을 고쳤는지는 변경 기록에 남습니다.':'카카오톡·전화·이메일·방문으로 받은 문의도 여기에 등록해 두면 홈페이지 문의와 같은 목록에서 견적·예약까지 관리할 수 있습니다.';
     $('#nw-submit').textContent=edit?'수정 저장':'등록';
+    $('#nw-visit').hidden=!!edit; $('#nw-visit-on').checked=false; $('#nw-visit-body').hidden=true; $('#nw-v-warn').hidden=true;
     if(copy){
       $('#nw-title').textContent='문의 복사 · '+copy;
       $('#nw-intro').textContent='고객 정보·시간·인원·목적·옵션·운영 메모·현재 금액을 복사했습니다. 새 이용일을 선택하면 별도 문의 접수로 등록되어 해당 날짜의 예약 대기 목록에 들어갑니다. 날짜별 요금이 달라지면 요금표로 자동 계산을 선택해 주세요.';
@@ -484,6 +490,7 @@
     d.regular=!!(f.regular && f.regular.checked); d.options=nwOptions(); delete d.manager;
     var edit=NW.edit;
     if(NW.copy) d.status='문의 접수';
+    if(!edit && $('#nw-visit-on').checked){ d.visit={ date:$('#nw-v-date').value, time:$('#nw-v-time').value, duration:$('#nw-v-dur').value, people:$('#nw-v-people').value.trim(), staff:$('#nw-v-staff').value.trim(), space_id:$('#nw-v-space').value, memo:$('#nw-v-memo').value.trim() }; }
     if(m==='auto'){ if(NW.last){ d.total=NW.last.total; d.pkg=NW.last.pkg?NW.last.pkg.id:''; d.estimate=E.summaryText(NW.last, PUR[d.purpose]||''); d.amount_mode='auto'; } else { delete d.total; d.amount_mode=edit?'keep':''; } }
     else if(m==='manual'){ if(d.total===''||d.total==null){ note($('#nw-msg'),'금액을 입력하거나 \'나중에 정하기\'를 골라 주세요.'); $('#nw-total').focus(); return; } d.amount_mode='manual'; if(NW.last && !edit){ d.pkg=NW.last.pkg?NW.last.pkg.id:''; d.estimate=E.summaryText(NW.last, PUR[d.purpose]||''); } }
     else { delete d.total; d.amount_mode=edit?'none':''; }
@@ -494,7 +501,10 @@
       .catch(function(x){ if(!guard(x)) note($('#nw-msg'), x.message); }).finally(function(){ btn.disabled=false; });
       return;
     }
-    A('/inquiries',{method:'POST', body:d}).then(function(r){ closeDrawer($('#adm-new')); M.toast('문의 '+r.ref+'을(를) 등록했습니다.'); refreshLists(); openInquiry(r.ref); })
+    A('/inquiries',{method:'POST', body:d}).then(function(r){ closeDrawer($('#adm-new'));
+      var vmsg=r.visit?' 현장답사 '+(r.visit.status==='scheduled'?vWhen(r.visit,true)+' 일정':'요청(조율 중)')+'도 함께 등록했습니다.':(r.visit_error?' 현장답사는 저장하지 못했습니다: '+r.visit_error:'');
+      var cl=vClash(r.clashes); M.toast('문의 '+r.ref+'을(를) 등록했습니다.'+vmsg+(cl.length?' ⚠ '+cl[0]:''));
+      refreshLists(); if(r.visit && !$('#view-visits').hidden) loadVisits(); openInquiry(r.ref); })
     .catch(function(x){ if(!guard(x)) note($('#nw-msg'), x.message); }).finally(function(){ btn.disabled=false; });
   });
 
@@ -996,7 +1006,7 @@
   function loadResv(){
     if(!$('#rs-from').value && !$('#rs-to').value) setRange(RS.range);
     var box=$('#rs-list'); box.innerHTML='<div class="empty small">불러오는 중…</div>';
-    A('/reservations?from='+encodeURIComponent($('#rs-from').value)+'&to='+encodeURIComponent($('#rs-to').value)).then(function(r){ RS.items=r.items||[]; RS.today=r.today||todayIso(); RS.undated=r.undated||0; drawResv(); }).catch(fail(box));
+    A('/reservations?from='+encodeURIComponent($('#rs-from').value)+'&to='+encodeURIComponent($('#rs-to').value)).then(function(r){ RS.items=r.items||[]; RS.visits=r.visits||[]; RS.today=r.today||todayIso(); RS.undated=r.undated||0; drawResv(); }).catch(fail(box));
   }
   var BST={confirmed:['예약 확정','st-ok'],completed:['이용 완료','st-done'],cancelled:['취소','st-cancel']};
   // 상태·경로·검색으로 거른 목록 (구분 탭은 아직 적용 전) — 날짜별 확정/후보 개수는 이 목록으로 셉니다
@@ -1056,10 +1066,12 @@
           var rows=mo.days[dk].slice().sort(function(a,b){ if(a.kind!==b.kind) return a.kind==='booking'?-1:1; if(a.kind==='pending'){ if((a.status==='대기 취소')!==(b.status==='대기 취소')) return a.status==='대기 취소'?1:-1; return (a._wait||99)-(b._wait||99); } return (a.start_h==null?99:a.start_h)-(b.start_h==null?99:b.start_h); });
           var x=day[dk]||{bk:0,pend:0}, dt=new Date(dk+'T12:00:00'), dow=dt.getDay(), off=E&&E.isOff(dk), past=dk<RS.today, clash=spClash(x);
           var pk=(E0&&E0.peakOf)?E0.peakOf(dk):null;   // 성수기 표시는 1호 요금표 기준 (12월·1월은 두 공간이 같고 10/30·31만 1호)
+          var vn=(RS.visits||[]).filter(function(v){ return v.date===dk && v.status!=='done' && (!$('#rs-space')||!$('#rs-space').value||spKey(v.space_id)===$('#rs-space').value); }).length;
           return '<div class="rs-day'+(clash?' clash':'')+(past?' past':'')+(dk===RS.today?' is-today':'')+'">'
             +'<div class="rs-dhead"><b class="rs-date'+(off||dow===0?' off':'')+(dow===6?' sat':'')+'">'+(+dk.slice(5,7))+'.'+(+dk.slice(8,10))+' ('+DOWK[dow]+')</b>'+dLabel(dk)+(pk?'<span class="rs-peak">성수기</span>':'')
             +'<span class="rs-dsum">'+(x.bk?'<span class="st st-ok">확정 '+x.bk+'</span>':'')+(x.pend?'<span class="st st-new">대기 '+x.pend+'</span>':'')+(x.cancelled?'<span class="st st-done">대기 취소 '+x.cancelled+'</span>':'')+'</span>'
             +(clash?'<span class="rs-clash">'+(x.bk?'확정 예약이 있는 날 · 대기 '+x.pend+'명':'같은 날 대기 '+x.pend+'명')+'</span>':'')
+            +(vn?'<button type="button" class="rs-vchip" data-vday="'+esc(dk)+'" title="이날 현장답사 일정 보기">현장답사 '+vn+'건 →</button>':'')
             +(x.pend>1&&RS.kind!=='booking'?'<span class="rs-hint">'+(waitDraggable()?'⠿ 끌어서 대기 순번 변경':'검색·필터를 풀면 대기 순번을 바꿀 수 있습니다')+'</span>':'')+'</div>'
             +'<table class="rs-table">'+head+'<tbody>'+rows.map(function(it){ return resvRow(it, x, past); }).join('')+'</tbody></table></div>';
         }).join('')+'</div>';
@@ -1090,7 +1102,7 @@
       +'<td class="rs-acts">'+acts+'</td></tr>';
   }
   $('#rs-ch').innerHTML=chOptions('', '모든 경로').replace('<option value="web">', '<option value="online">온라인 결제</option><option value="web">');
-  $('#view-resv').addEventListener('click', function(e){ var r=e.target.closest('[data-range]'); if(r){ setRange(r.dataset.range); loadResv(); return; } var t=e.target.closest('#rs-tabs [data-kind]'); if(t){ RS.kind=t.dataset.kind; drawResv(); } });
+  $('#view-resv').addEventListener('click', function(e){ var vd=e.target.closest('[data-vday]'); if(vd){ e.stopPropagation(); $('#vs-from').value=vd.dataset.vday; $('#vs-to').value=vd.dataset.vday; VS.range='custom'; $$('#view-visits [data-vrange]').forEach(function(b){ b.classList.remove('on'); }); go('visits'); return; } var r=e.target.closest('[data-range]'); if(r){ setRange(r.dataset.range); loadResv(); return; } var t=e.target.closest('#rs-tabs [data-kind]'); if(t){ RS.kind=t.dataset.kind; drawResv(); } });
   ['#rs-from','#rs-to'].forEach(function(sel){ $(sel).addEventListener('change', function(){ RS.range='custom'; $$('#view-resv [data-range]').forEach(function(b){ b.classList.remove('on'); }); loadResv(); }); });
   if($('#rs-space')) $('#rs-space').insertAdjacentHTML('beforeend', spaceOptions(''));
   ['#rs-status','#rs-ch','#rs-space'].forEach(function(sel){ if($(sel)) $(sel).addEventListener('change', drawResv); });
@@ -1391,6 +1403,195 @@
     } else { var st=b.dataset.mact==='suspend'?'suspended':'active'; if(st==='suspended'&&!confirm('이 회원의 로그인을 막을까요?')) return;
       A('/members/'+id,{method:'PATCH', body:{status:st}}).then(function(){ M.toast('변경했습니다.'); loadMembers(); }).catch(function(x){ if(!guard(x)) M.toast(x.message); }); }
   });
+
+  /* =================== 현장답사 (문의 직접 등록 · 문의 상세 · 일자별 현장답사 · 대시보드) =================== */
+  var VST={requested:['조율 중','st-new'],scheduled:['예정','st-ok'],done:['완료','st-done'],noshow:['노쇼','st-cancel'],cancelled:['취소','st-cancel']};
+  var VRES={booked:'예약 진행',thinking:'고민 중',other:'다른 곳 선택',etc:'기타'};
+  var VS={ range:'upcoming', items:[], undated:[], today:todayIso(), counts:{}, dash:[], strip:[] };
+  function vTimeOpts(sel){ var o='<option value="">시간 미정 (조율 중)</option>', has=false; for(var m=7*60;m<=22*60;m+=30){ var t=M.pad2(Math.floor(m/60))+':'+M.pad2(m%60); if(t===sel) has=true; o+='<option value="'+t+'"'+(t===sel?' selected':'')+'>'+t+'</option>'; } if(sel && !has) o+='<option value="'+esc(sel)+'" selected>'+esc(sel)+'</option>'; return o; }
+  function vDurOpts(sel){ sel=+sel||30; var L=[[30,'30분'],[60,'1시간'],[90,'1시간 30분'],[120,'2시간']]; if(!L.some(function(x){ return x[0]===sel; })) L.push([sel, sel+'분']); return L.map(function(x){ return '<option value="'+x[0]+'"'+(x[0]===sel?' selected':'')+'>'+x[1]+'</option>'; }).join(''); }
+  function durText(m){ m=+m||30; return m<60?m+'분':Math.floor(m/60)+'시간'+(m%60?' '+(m%60)+'분':''); }
+  function vEnd(t,dur){ if(!t) return ''; var m=(+t.slice(0,2))*60+(+t.slice(3,5))+(+dur||30); return M.pad2(Math.floor(m/60)%24)+':'+M.pad2(m%60); }
+  function vBadge(v){ var s=VST[v.status]||[v.status,'']; return '<span class="st '+s[1]+'">'+esc(s[0])+'</span>'; }
+  function vWhen(v, withDate){ var t=v.time?v.time+'–'+vEnd(v.time,v.duration):'시간 조율 중'; return (withDate?(v.date?kd(v.date)+' ':'날짜 미정 · '):'')+t; }
+  function vWish(v){ var w=v.wish; if(!w) return ''; var p=[w.date?kd(w.date):'', w.time?w.time+' 무렵':'', w.note||''].filter(Boolean).join(' · '); return '고객 희망'+(p?': '+p:' (일시는 협의)'); }
+  function vClash(cl){ return (cl||[]).map(function(c){ return c.type==='booking'?'같은 시간 행사 예약 — '+c.name+' ('+c.time+')':'같은 시간 다른 답사 — '+c.name+' ('+c.time+')'; }); }
+  function vActive(v){ return v.status==='requested'||v.status==='scheduled'; }
+  // 고객에게 보낼 답사 안내문 (카카오톡·문자에 붙여 넣기)
+  function vGuide(v){
+    var sp=spaceInfo(v.space_id)||{}, nm=sp.name||spaceName(v.space_id);
+    var when=v.date?(E?E.kdateY(v.date):v.date)+(v.time?' '+v.time+' (약 '+durText(v.duration)+')':' · 시간은 따로 안내드립니다'):'따로 안내드립니다';
+    var L=['[메가스팟 현장답사 안내]', (v.name||'고객')+' 님, 현장답사 일정을 안내드립니다.', '', '· 일시: '+when, '· 장소: '+nm+' — 서울 광진구 화양동 10-1 한아름건물 2층 (지하철 2·7호선 건대입구역 인근)', '· 주차: 건물 주차장 이용 가능 — 차량번호를 미리 알려 주시면 1시간 무료로 등록해 드립니다.'];
+    if(sp.opening && v.date && v.date<sp.opening) L.push('· '+nm+'는 '+(E?E.kdate(sp.opening):sp.opening)+' 오픈 전 공사 중이라, 공사 진행 상황에 맞춰 안내해 드립니다.');
+    L.push('· 안내 연락처: '+(v.staff?v.staff+' ':'')+M.CONFIG.phone, '', '도착하시면 2층 입구에서 연락 주세요. 일정이 바뀌면 카카오톡이나 전화로 알려 주세요.', '주차 안내: '+location.origin+'/parking/');
+    return L.join('\n');
+  }
+  function visitCard(v, today){
+    var dd=(v.date&&E)?E.diffDays(today||todayIso(), v.date):null;
+    return '<div class="adm-row vs-card" data-dvisit="'+v.id+'" tabindex="0"><div class="r1"><b>'+esc(v.name)+'</b>'+spaceTag(v.space_id)+vBadge(v)+(dd===0?'<span class="st st-pay">오늘</span>':dd!=null&&dd>0?'<span class="tiny muted">D-'+dd+'</span>':'')+'</div>'
+      +'<div class="r2">'+esc(vWhen(v,true))+(v.people?' · '+v.people+'명':'')+(v.staff?' · 담당 '+esc(v.staff):'')+'</div>'
+      +'<div class="r3"><span>'+esc(v.ref)+(v.inquiry_ref?' · 문의 '+esc(v.inquiry_ref):'')+'</span>'+(v.phone?'<a href="tel:'+esc(v.phone)+'">'+esc(v.phone)+'</a>':'')+'</div></div>';
+  }
+  // 문의 상세의 '현장답사' 칸
+  function visitSection(it, d){
+    var vs=cur.visits||[];
+    return '<div class="dr-sec dr-visits"><h3 class="row between" style="gap:8px">현장답사 <button class="btn btn-light btn-xs" type="button" id="dr-visit-add">+ 답사 일정 추가</button></h3>'
+      +(d.visit_wish&&!vs.length?'<div class="dr-vwish">고객이 홈페이지에서 <b>현장답사를 먼저 하고 싶다</b>고 체크했습니다. '+esc([d.visit_wish.date?kd(d.visit_wish.date):'', d.visit_wish.time?d.visit_wish.time+' 무렵':'', d.visit_wish.note||''].filter(Boolean).join(' · '))+'</div>':'')
+      +(vs.length?vs.map(function(v){ var cl=vClash(v.clashes); return '<button type="button" class="dr-visit" data-dvid="'+v.id+'"><span class="dv1">'+vBadge(v)+'<b>'+esc(vWhen(v,true))+'</b>'+(v.people?' · '+v.people+'명':'')+(v.staff?' · 담당 '+esc(v.staff):'')+spaceTag(v.space_id)+'</span>'
+        +'<span class="dv2">'+esc([v.ref, vWish(v), v.memo, v.result_label?'결과: '+v.result_label+(v.result_note?' ('+v.result_note+')':''):''].filter(Boolean).join(' · '))+'</span>'+(cl.length?'<span class="dv-warn">⚠ '+esc(cl.join(' / '))+'</span>':'')+'</button>'; }).join('')
+        :'<p class="small muted">아직 잡힌 현장답사가 없습니다. 고객이 공간을 먼저 보고 싶어 하면 일정을 추가해 두세요. 일자별 현장답사에서 한눈에 볼 수 있습니다.</p>')
+      +'</div>';
+  }
+  // ---- 등록·수정 패널 ----
+  var VT={ cur:null };
+  function vtWarn(cl){ var w=$('#vt-warn'), L=vClash(cl); w.innerHTML=L.length?'<b>같은 시간 일정이 있습니다.</b> '+L.map(esc).join('<br>')+'<br><small>그래도 괜찮다면 그대로 두셔도 됩니다. 행사 중 답사는 손님께 미리 양해를 구해 주세요.</small>':''; w.hidden=!L.length; }
+  function vtLink(x){
+    var b=$('#vt-link');
+    if(!x.inquiry_ref){ b.innerHTML='<span class="small muted">문의와 연결되지 않은 단독 답사입니다. 연결하려면 아래 \'연결 문의번호\'에 문의번호를 적어 주세요.</span>'; return; }
+    b.innerHTML='<span class="small">연결 문의 <b>'+esc(x.inquiry_ref)+'</b>'+(x.inq_status?' · '+esc(x.inq_status):'')+(x.inq_date?' · 이용일 '+esc(kd(x.inq_date)):'')+(x.inq_headcount?' · '+x.inq_headcount+'명':'')+(x.booking_code?' · 예약 '+esc(x.booking_code):'')+'</span>';
+  }
+  function vtQuick(){
+    var t=todayIso(), L=[[t,'오늘'],[isoAdd(t,1),'내일'],[isoAdd(t,2),'모레']], d=new Date(t+'T12:00:00'), add=(6-d.getDay()+7)%7||7; L.push([isoAdd(t,add),'이번 토요일']);
+    $('#vt-quick').innerHTML=L.map(function(x){ return '<button type="button" class="chip" data-vtd="'+x[0]+'">'+x[1]+' <span class="n">'+(+x[0].slice(5,7))+'.'+(+x[0].slice(8,10))+'</span></button>'; }).join('');
+  }
+  function openVisit(v){
+    var f=$('#vt-form'); f.reset(); var x=v||{}; VT.cur=x.id?x:null; VT.base=x;
+    $('#vt-title').textContent=VT.cur?'현장답사 · '+x.ref:'현장답사 등록';
+    $('#vt-space').innerHTML=spaceOptions(spaceOk(x.space_id));
+    $('#vt-status').value=x.status||'scheduled'; $('#vt-status').closest('.f').hidden=!VT.cur;
+    $('#vt-date').value=x.date||''; $('#vt-time').innerHTML=vTimeOpts(x.time||''); $('#vt-dur').innerHTML=vDurOpts(x.duration||30);
+    $('#vt-name').value=x.name||''; $('#vt-phone').value=x.phone||''; $('#vt-people').value=x.people||''; $('#vt-staff').value=x.staff||'';
+    $('#vt-iref').value=x.inquiry_ref||''; $('#vt-memo').value=x.memo||''; $('#vt-res').value=x.result||''; $('#vt-resnote').value=x.result_note||'';
+    $('#vt-result').hidden=!VT.cur; $('#vt-del').hidden=!VT.cur; $('#vt-open-inq').hidden=!x.inquiry_ref; $('#vt-msg').hidden=true;
+    var w=$('#vt-wish'); w.textContent=x.wish?vWish(x)+(x.source==='web'?' — 홈페이지 예약 신청에서 받은 요청입니다. 고객과 통화해 일시를 정하면 날짜·시간을 넣어 주세요.':''):''; w.hidden=!x.wish;
+    $('#vt-submit').textContent=VT.cur?'저장':'답사 일정 등록';
+    vtLink(x); vtQuick(); vtWarn(x.clashes||[]);
+    openDrawer('#adm-visit'); setTimeout(function(){ (x.name?$('#vt-date'):$('#vt-name')).focus(); }, 50);
+    if(VT.cur) A('/visits/'+VT.cur.id).then(function(r){ if(VT.cur && r.item.id===VT.cur.id) vtWarn(r.clashes); }).catch(function(){});
+  }
+  function vtData(){ var d=M.formData($('#vt-form')); if(!VT.cur) delete d.status; return d; }
+  function afterVisitSaved(item, clashes, msg){
+    var cl=vClash(clashes); M.toast(msg+(cl.length?' ⚠ '+cl[0]:''));
+    if(cl.length){ VT.cur=item; VT.base=item; $('#vt-title').textContent='현장답사 · '+item.ref; $('#vt-status').closest('.f').hidden=false; $('#vt-status').value=item.status; $('#vt-result').hidden=false; $('#vt-del').hidden=false; $('#vt-submit').textContent='저장'; vtWarn(clashes); }
+    else closeDrawer($('#adm-visit'));
+    if(!$('#view-visits').hidden) loadVisits(); if(!$('#view-dash').hidden) loadDash(); if(!$('#view-resv').hidden) loadResv();
+    if(!$('#adm-drawer').hidden && cur && cur.item && item.inquiry_ref===cur.item.ref) openInquiry(cur.item.ref);
+  }
+  $('#vt-form').addEventListener('submit', function(e){
+    e.preventDefault(); var f=e.target, msg=$('#vt-msg'); msg.hidden=true; if(!M.validate(f)) return;
+    var d=vtData(), b=$('#vt-submit'); b.disabled=true;
+    (VT.cur?A('/visits/'+VT.cur.id,{method:'PATCH', body:d}):A('/visits',{method:'POST', body:d})).then(function(r){
+      afterVisitSaved(r.item, r.clashes, (VT.cur?'현장답사 일정을 저장했습니다.':'현장답사 '+r.item.ref+'을(를) 등록했습니다.')+(r.item.status==='requested'?' (날짜·시간이 정해지지 않아 조율 중)':''));
+    }).catch(function(x){ if(!guard(x)) note(msg, x.message); }).finally(function(){ b.disabled=false; });
+  });
+  $('#vt-quick').addEventListener('click', function(e){ var c=e.target.closest('[data-vtd]'); if(c){ $('#vt-date').value=c.dataset.vtd; if(!$('#vt-time').value) $('#vt-time').focus(); } });
+  $('#vt-guide').addEventListener('click', function(){ var v=Object.assign({}, VT.base||{}, vtData()); M.copy(vGuide(v)).then(function(ok){ M.toast(ok?'답사 안내문을 복사했습니다. 카카오톡·문자에 붙여 넣어 보내세요.':'복사하지 못했습니다.'); }); });
+  $('#vt-open-inq').addEventListener('click', function(){ var r=(VT.base||{}).inquiry_ref; if(r){ closeDrawer($('#adm-visit')); openInquiry(r); } });
+  $('#vt-del').addEventListener('click', function(){ if(!VT.cur) return; if(!confirm('이 현장답사 일정을 지울까요? 고객이 취소한 경우라면 상태를 \'취소\'로 바꾸는 편이 기록이 남습니다.')) return;
+    var it=VT.cur; A('/visits/'+it.id,{method:'DELETE'}).then(function(){ M.toast('현장답사 일정을 지웠습니다.'); closeDrawer($('#adm-visit')); if(!$('#view-visits').hidden) loadVisits(); if(!$('#view-dash').hidden) loadDash(); if(!$('#adm-drawer').hidden && cur && cur.item && it.inquiry_ref===cur.item.ref) openInquiry(cur.item.ref); }).catch(function(x){ if(!guard(x)) M.toast(x.message); }); });
+  // ---- 문의 직접 등록의 '현장답사' 칸 ----
+  $('#nw-v-time').innerHTML=vTimeOpts(''); $('#nw-v-space').innerHTML=spaceOptions(DEFAULT_SPACE);
+  $('#nw-visit-on').addEventListener('change', function(){ $('#nw-visit-body').hidden=!this.checked; if(this.checked){ $('#nw-v-space').value=spaceOk($('#nw-space')?$('#nw-space').value:DEFAULT_SPACE); setTimeout(function(){ $('#nw-v-date').focus(); }, 30); } });
+  if($('#nw-space')) $('#nw-space').addEventListener('change', function(){ $('#nw-v-space').value=spaceOk(this.value); });
+  // ---- 일자별 현장답사 화면 ----
+  function vSetRange(k){ VS.range=k; var r=k==='today'?[todayIso(),todayIso()]:rangeOf(k); $('#vs-from').value=r[0]; $('#vs-to').value=r[1]; $$('#view-visits [data-vrange]').forEach(function(b){ b.classList.toggle('on', b.dataset.vrange===k); }); }
+  function loadVisits(){
+    if(!$('#vs-from').value && !$('#vs-to').value && VS.range!=='custom') vSetRange(VS.range);
+    var box=$('#vs-list'); if(!VS.items.length) box.innerHTML='<div class="empty small">불러오는 중…</div>';
+    A('/visits?from='+encodeURIComponent($('#vs-from').value)+'&to='+encodeURIComponent($('#vs-to').value)).then(function(r){
+      VS.items=r.items||[]; VS.undated=r.undated||[]; VS.today=r.today||todayIso(); VS.counts={ requested:r.visits_requested||0, today:r.visits_today||0 }; setCount('visits', r.visits_requested); drawVisits();
+    }).catch(fail(box));
+    var t=todayIso(); A('/visits?from='+t+'&to='+isoAdd(t,13)).then(function(r){ VS.strip=r.items||[]; drawStrip(); }).catch(function(){});
+  }
+  function vFilter(list){
+    var st=$('#vs-status').value, sp=$('#vs-space').value, q=$('#vs-q').value.trim().toLowerCase().replace(/-/g,'');
+    return list.filter(function(v){
+      if(st==='active'){ if(!vActive(v)) return false; } else if(st && v.status!==st) return false;
+      if(sp && spKey(v.space_id)!==sp) return false;
+      if(q){ var hay=[v.name,v.phone,v.ref,v.inquiry_ref,v.staff,v.memo].join(' ').toLowerCase().replace(/-/g,''); if(hay.indexOf(q)<0) return false; }
+      return true;
+    });
+  }
+  function drawStrip(){
+    var t=todayIso(), cells=[], sp=$('#vs-space').value;
+    for(var i=0;i<14;i++){ var dk=isoAdd(t,i), dt=new Date(dk+'T12:00:00'), dow=dt.getDay();
+      var day=VS.strip.filter(function(v){ return v.date===dk && vActive(v) && (!sp||spKey(v.space_id)===sp); }), n=day.length, rq=day.filter(function(v){ return v.status==='requested'; }).length;
+      cells.push('<button type="button" class="vs-cell'+(n?' has':'')+(i===0?' today':'')+(dow===0||(E&&E.isOff(dk))?' off':'')+(dow===6?' sat':'')+(($('#vs-from').value===dk&&$('#vs-to').value===dk)?' on':'')+'" data-vsday="'+dk+'" aria-label="'+esc(kd(dk))+' 현장답사 '+n+'건"><small>'+(i===0?'오늘':DOWK[dow])+'</small><b>'+(+dk.slice(5,7))+'.'+(+dk.slice(8,10))+'</b><span>'+(n?n+'건':'–')+'</span>'+(rq?'<em>조율 '+rq+'</em>':'')+'</button>'); }
+    $('#vs-strip').innerHTML='<div class="vs-strip-head"><b>앞으로 2주</b><span class="tiny muted">날짜를 누르면 그날 답사만 봅니다</span></div><div class="vs-cells">'+cells.join('')+'</div>';
+  }
+  function visitRow(v, past){
+    var tel=String(v.phone||'').replace(/[^0-9+]/g,''), cl=vClash(v.clashes), act='';
+    if(tel) act+='<a class="btn btn-light btn-xs" href="tel:'+esc(tel)+'">전화</a>';
+    if(v.status==='scheduled') act+='<button class="btn btn-light btn-xs" type="button" data-vsact="done" data-vid="'+v.id+'">완료</button><button class="btn btn-light btn-xs" type="button" data-vsact="noshow" data-vid="'+v.id+'">노쇼</button>';
+    if(v.status==='requested') act+='<button class="btn btn-light btn-xs btn-ok" type="button" data-vsedit="'+v.id+'">일정 잡기</button>';
+    if(vActive(v)) act+='<button class="btn btn-light btn-xs" type="button" data-vsguide="'+v.id+'">안내문</button><button class="btn btn-light btn-xs" type="button" data-vsact="cancelled" data-vid="'+v.id+'">취소</button>';
+    return '<tr class="rs-row vs-row v-'+esc(v.status)+(v.status==='cancelled'?' cancelled':'')+(past?' past':'')+(cl.length?' clash':'')+'" data-vrow="'+v.id+'" tabindex="0">'
+      +'<td class="vs-time" data-th="시간"><b>'+(v.time?esc(v.time):'미정')+'</b>'+(v.time?'<small>~'+esc(vEnd(v.time,v.duration))+' · '+esc(durText(v.duration))+'</small>':'<small>시간 조율 중</small>')+'</td>'
+      +'<td data-th="상태">'+vBadge(v)+(v.source==='web'?'<span class="tag-rv">홈페이지</span>':'')+'</td>'
+      +'<td data-th="오시는 분"><b>'+esc(v.name)+'</b>'+spaceTag(v.space_id)+(v.phone?'<small>'+esc(v.phone)+'</small>':'')+'</td>'
+      +'<td data-th="인원">'+(v.people?v.people+'명':'-')+'</td>'
+      +'<td data-th="문의">'+(v.inquiry_ref?'<button type="button" class="linkish" data-vinq="'+esc(v.inquiry_ref)+'">'+esc(v.inquiry_ref)+'</button><small>'+esc([v.inq_status, v.inq_date?'이용일 '+kd(v.inq_date):'', v.inq_headcount?v.inq_headcount+'명':'', v.booking_code?'예약 '+v.booking_code:''].filter(Boolean).join(' · '))+'</small>':'<span class="tiny muted">단독 답사</span>')+'</td>'
+      +'<td data-th="담당">'+esc(v.staff||'-')+'</td>'
+      +'<td class="vs-memo"'+(v.memo||v.wish||v.result_label||cl.length?' data-th="메모"':'')+'>'+esc(v.memo||'')+(v.wish?'<small>'+esc(vWish(v))+'</small>':'')+(v.result_label?'<small>결과: '+esc(v.result_label)+(v.result_note?' · '+esc(v.result_note):'')+'</small>':'')+(cl.length?'<span class="vs-clash">⚠ '+esc(cl.join(' / '))+'</span>':'')+'</td>'
+      +'<td class="rs-acts">'+act+'</td></tr>';
+  }
+  function drawVisits(){
+    var list=vFilter(VS.items), und=vFilter(VS.undated), box=$('#vs-list');
+    var sched=list.filter(function(v){ return v.status==='scheduled'; }).length, done=list.filter(function(v){ return v.status==='done'; }).length, ns=list.filter(function(v){ return v.status==='noshow'; }).length;
+    var clashN=list.filter(function(v){ return (v.clashes||[]).length; }).length, booked=list.filter(function(v){ return v.result==='booked'; }).length;
+    $('#vs-kpis').innerHTML='<div class="kpi'+(VS.counts.requested?' hot':'')+'"><small>조율이 필요한 답사</small><b>'+(VS.counts.requested||0)+'<span class="small">건</span></b><span class="tiny muted">날짜·시간을 아직 정하지 않은 요청 (전체)</span></div>'
+      +'<div class="kpi"><small>오늘 답사</small><b>'+(VS.counts.today||0)+'<span class="small">건</span></b></div>'
+      +'<div class="kpi"><small>이 기간 예정 · 완료</small><b>'+sched+'<span class="small">건</span> · '+done+'<span class="small">건</span></b>'+(ns?'<span class="tiny muted">노쇼 '+ns+'건</span>':'')+(booked?'<span class="tiny">답사 후 예약 진행 '+booked+'건</span>':'')+'</div>'
+      +'<div class="kpi'+(clashN?' warn':'')+'"><small>시간이 겹치는 답사</small><b>'+clashN+'<span class="small">건</span></b><span class="tiny muted">같은 시간 다른 답사 또는 행사 예약</span></div>';
+    var head='<thead><tr><th>시간</th><th>상태</th><th>오시는 분</th><th>인원</th><th>연결 문의</th><th>담당</th><th>메모</th><th></th></tr></thead>';
+    var html='';
+    if(und.length) html+='<div class="rs-group vs-und"><div class="rs-ghead"><b>조율이 필요한 답사 요청</b><span>날짜를 아직 정하지 않았습니다 · '+und.length+'건 · 고객과 통화해 일정을 잡아 주세요</span></div><table class="rs-table vs-table">'+head+'<tbody>'+und.map(function(v){ return visitRow(v); }).join('')+'</tbody></table></div>';
+    if(!list.length){ box.innerHTML=html+emptyMsg('이 기간에 해당하는 현장답사가 없습니다. 위 [+ 현장답사 등록] 또는 문의 상세의 \'답사 일정 추가\'로 넣을 수 있습니다.'); return; }
+    var months={}, mOrder=[];
+    list.forEach(function(v){ var mk=v.date.slice(0,7); if(!months[mk]){ months[mk]={ days:{}, order:[] }; mOrder.push(mk); } var mo=months[mk]; if(!mo.days[v.date]){ mo.days[v.date]=[]; mo.order.push(v.date); } mo.days[v.date].push(v); });
+    html+=mOrder.map(function(mk){
+      var mo=months[mk], all=[]; mo.order.forEach(function(dk){ all=all.concat(mo.days[dk]); });
+      return '<div class="rs-group"><div class="rs-ghead"><b>'+(+mk.slice(0,4))+'년 '+(+mk.slice(5,7))+'월</b><span>현장답사 '+all.length+'건'+(all.filter(vActive).length!==all.length?' · 진행 중 '+all.filter(vActive).length+'건':'')+'</span></div>'
+        +mo.order.map(function(dk){
+          var rows=mo.days[dk].slice().sort(function(a,b){ return (a.time||'99').localeCompare(b.time||'99'); }), dt=new Date(dk+'T12:00:00'), dow=dt.getDay(), off=E&&E.isOff(dk), past=dk<VS.today;
+          var act=rows.filter(vActive).length, cl=rows.some(function(v){ return (v.clashes||[]).length; });
+          return '<div class="rs-day'+(past?' past':'')+(dk===VS.today?' is-today':'')+(cl?' clash':'')+'"><div class="rs-dhead"><b class="rs-date'+(off||dow===0?' off':'')+(dow===6?' sat':'')+'">'+(+dk.slice(5,7))+'.'+(+dk.slice(8,10))+' ('+DOWK[dow]+')</b>'+dLabel(dk)
+            +'<span class="rs-dsum"><span class="st st-ok">답사 '+rows.length+'</span>'+(act&&act!==rows.length?'<span class="st st-new">진행 중 '+act+'</span>':'')+'</span>'+(cl?'<span class="rs-clash">같은 시간 일정 있음</span>':'')+'</div>'
+            +'<table class="rs-table vs-table">'+head+'<tbody>'+rows.map(function(v){ return visitRow(v, past); }).join('')+'</tbody></table></div>';
+        }).join('')+'</div>';
+    }).join('');
+    box.innerHTML=html;
+  }
+  function vFind(id){ id=String(id); return VS.items.concat(VS.undated, VS.dash, VS.strip).filter(function(v){ return String(v.id)===id; })[0]; }
+  function vQuick(id, status){
+    var v=vFind(id); if(!v) return;
+    if(status==='cancelled' && !confirm(v.name+' 님 현장답사를 취소로 바꿀까요?')) return;
+    A('/visits/'+id,{method:'PATCH', body:{status:status}}).then(function(){ M.toast(v.name+' 님 답사를 \''+VST[status][0]+'\'(으)로 바꿨습니다.'+(status==='done'?' 답사 후 결과는 줄을 눌러 남길 수 있습니다.':'')); loadVisits(); }).catch(function(x){ if(!guard(x)) M.toast(x.message); });
+  }
+  $('#vs-space').insertAdjacentHTML('beforeend', SPACE_IDS.map(function(id){ return '<option value="'+id+'">'+esc(spaceName(id))+'</option>'; }).join(''));
+  $('#view-visits').addEventListener('click', function(e){
+    var r=e.target.closest('[data-vrange]'); if(r){ vSetRange(r.dataset.vrange); loadVisits(); return; }
+    var sd=e.target.closest('[data-vsday]'); if(sd){ var on=$('#vs-from').value===sd.dataset.vsday && $('#vs-to').value===sd.dataset.vsday; if(on){ vSetRange('upcoming'); } else { $('#vs-from').value=sd.dataset.vsday; $('#vs-to').value=sd.dataset.vsday; VS.range='custom'; $$('#view-visits [data-vrange]').forEach(function(b){ b.classList.toggle('on', sd.dataset.vsday===todayIso() && b.dataset.vrange==='today'); }); } loadVisits(); return; }
+    var q=e.target.closest('[data-vsact]'); if(q){ vQuick(q.dataset.vid, q.dataset.vsact); return; }
+    var g=e.target.closest('[data-vsguide]'); if(g){ var gv=vFind(g.dataset.vsguide); if(gv) M.copy(vGuide(gv)).then(function(ok){ M.toast(ok?gv.name+' 님 답사 안내문을 복사했습니다.':'복사하지 못했습니다.'); }); return; }
+    var iq=e.target.closest('[data-vinq]'); if(iq){ openInquiry(iq.dataset.vinq); return; }
+    var ed=e.target.closest('[data-vsedit]'); if(ed){ var ev=vFind(ed.dataset.vsedit); if(ev) openVisit(ev); return; }
+    if(e.target.closest('a,button,select,input')) return;
+    var row=e.target.closest('[data-vrow]'); if(row){ var rv=vFind(row.dataset.vrow); if(rv) openVisit(rv); }
+  });
+  $('#view-visits').addEventListener('keydown', function(e){ if(e.key!=='Enter') return; var row=e.target.closest('[data-vrow]'); if(row && e.target===row){ var rv=vFind(row.dataset.vrow); if(rv) openVisit(rv); } });
+  ['#vs-from','#vs-to'].forEach(function(s){ $(s).addEventListener('change', function(){ VS.range='custom'; $$('#view-visits [data-vrange]').forEach(function(b){ b.classList.remove('on'); }); loadVisits(); }); });
+  $('#vs-status').addEventListener('change', drawVisits); $('#vs-space').addEventListener('change', function(){ drawVisits(); drawStrip(); }); $('#vs-q').addEventListener('input', drawVisits);
+  $('#vs-new').addEventListener('click', function(){ openVisit(null); });
+  $('#vs-reload').addEventListener('click', loadVisits);
+  $('#vs-print').addEventListener('click', function(){ document.body.classList.add('print-visits'); window.print(); setTimeout(function(){ document.body.classList.remove('print-visits'); }, 800); });
+  $('#vs-csv').addEventListener('click', function(){
+    var rows=vFilter(VS.undated).concat(vFilter(VS.items)); if(!rows.length){ M.toast('내려받을 답사가 없습니다.'); return; }
+    var L=[['답사번호','날짜','시작','끝','상태','공간','오시는 분','연락처','인원','담당자','연결 문의','문의 상태','문의 이용일','메모','고객 희망','답사 후 결과','결과 메모','겹치는 일정']].concat(rows.map(function(v){ return [v.ref, v.date, v.time, v.time?vEnd(v.time,v.duration):'', VST[v.status]?VST[v.status][0]:v.status, spaceName(v.space_id), v.name, v.phone, v.people||'', v.staff, v.inquiry_ref, v.inq_status||'', v.inq_date||'', v.memo, v.wish?vWish(v):'', v.result_label, v.result_note, vClash(v.clashes).join(' / ')]; }));
+    var text='﻿'+L.map(function(r){ return r.map(function(x){ x=String(x==null?'':x); return /[",\n]/.test(x)?'"'+x.replace(/"/g,'""')+'"':x; }).join(','); }).join('\r\n');
+    var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type:'text/csv;charset=utf-8'})); a.download='현장답사_'+($('#vs-from').value||'전체')+'_'+($('#vs-to').value||'')+'.csv'; document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  });
+  $('#dash-visits').addEventListener('click', function(e){ if(e.target.closest('a')) return; var c=e.target.closest('[data-dvisit]'); if(c){ e.stopPropagation(); var v=vFind(c.dataset.dvisit); if(v) openVisit(v); } });
 
   /* =================== 플랫폼 화면 연결 (admin-platform.js) =================== */
   window.MEGASPOT_ADMIN={ A:A, esc:esc, guard:guard, fail:fail, note:note, ago:ago, kd:kd, emptyMsg:emptyMsg, setCount:setCount, spaceName:spaceName,

@@ -29,5 +29,8 @@ export const SCHEMA = [
  "CREATE TABLE IF NOT EXISTS meetup_apps ( id INTEGER PRIMARY KEY AUTOINCREMENT, ref TEXT NOT NULL UNIQUE, meetup_ref TEXT NOT NULL, status TEXT NOT NULL, name TEXT NOT NULL, phone TEXT NOT NULL, phone_last4 TEXT NOT NULL, people INTEGER NOT NULL DEFAULT 1, data TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT )",
  "CREATE INDEX IF NOT EXISTS idx_meetup_apps ON meetup_apps(meetup_ref, status, created_at)",
  "CREATE TABLE IF NOT EXISTS ads ( id INTEGER PRIMARY KEY AUTOINCREMENT, slot TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'off', kind TEXT NOT NULL DEFAULT 'paid', title TEXT NOT NULL, advertiser TEXT, link TEXT NOT NULL, start_date TEXT, end_date TEXT, priority INTEGER NOT NULL DEFAULT 0, imps INTEGER NOT NULL DEFAULT 0, clicks INTEGER NOT NULL DEFAULT 0, data TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT )",
- "CREATE INDEX IF NOT EXISTS idx_ads_slot ON ads(slot, status)"
+ "CREATE INDEX IF NOT EXISTS idx_ads_slot ON ads(slot, status)",
+ "CREATE TABLE IF NOT EXISTS site_visits ( id INTEGER PRIMARY KEY AUTOINCREMENT, ref TEXT NOT NULL UNIQUE, inquiry_ref TEXT, space_id TEXT NOT NULL, visit_date TEXT, start_time TEXT, duration INTEGER NOT NULL DEFAULT 30, status TEXT NOT NULL DEFAULT 'scheduled', name TEXT NOT NULL, phone TEXT, people INTEGER, staff TEXT, memo TEXT, data TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT )",
+ "CREATE INDEX IF NOT EXISTS idx_site_visits_date ON site_visits(visit_date, status)",
+ "CREATE INDEX IF NOT EXISTS idx_site_visits_inquiry ON site_visits(inquiry_ref)"
 ];

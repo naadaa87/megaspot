@@ -63,6 +63,7 @@
     + '<div class="f"><label for="iq-msg" id="iq-msg-lbl">요청사항</label><textarea class="textarea" id="iq-msg" name="message" maxlength="2000" placeholder="행사 성격, 꼭 필요한 조건, 궁금한 점을 자유롭게 적어 주세요."></textarea></div>'
     + (CC ? CC.formBlock('cat') : '')
     + (M.familyAsk ? M.familyAsk('family') : '')
+    + (M.visitAsk ? M.visitAsk('visit') : '')
     + '</fieldset>'
 
     + '<label class="agree"><input type="checkbox" name="agree_privacy" required> <span>(필수) 문의 응대를 위해 이름·연락처·문의 내용을 수집·이용하는 데 동의합니다. 보유 기간은 처리 완료 후 1년이며 <a href="/privacy/" target="_blank" rel="noopener" style="text-decoration:underline">개인정보처리방침</a>을 따릅니다.</span></label>'
@@ -86,6 +87,7 @@
     if(d.message) L.push((t==='partner'?'제안 내용: ':'요청사항: ')+d.message);
     if(d.family && d.family.length && M.familyLabel) L.push('함께 알아보기: '+M.familyLabel(d.family));
     if(d.catering) L.push('출장뷔페: '+d.catering.summary);
+    if(d.visit_wish && M.visitLabel) L.push('현장답사 희망: '+M.visitLabel(d.visit_wish));
     return L.join('\n');
   }
 
@@ -98,6 +100,7 @@
       + '<div class="row between"><div class="eyebrow">'+(live?'Received':'Draft')+'</div><span class="badge '+(live?'badge-ok':'badge-warn')+'">'+(live?'문의 접수':'체험 모드 · 전송 대기')+'</span></div>'
       + '<h3 class="h-m mt-1">'+(live?'문의가 접수되었습니다':'문의 내용이 준비되었습니다')+'</h3>'
       + '<div class="oc-code mt-2"><small>접수번호</small><b>'+esc(ref)+'</b></div>'
+      + (d.visit_wish && M.visitLabel ? '<div class="visit-done mt-2"><b>현장답사 희망도 함께 받았습니다</b><span>'+esc(M.visitLabel(d.visit_wish))+' — 담당자가 연락드려 답사 시간을 확정합니다.</span></div>' : '')
       + (live ? '<p class="small muted mt-2">'+esc(next)+'</p>'
               : '<p class="small muted mt-2">지금은 서버가 연결되지 않아 자동 저장되지 않았습니다. 아래 내용을 카카오톡으로 보내 주시면 같은 순서로 안내드립니다.</p>')
       + '<pre class="dr-pre mt-3" id="iq-summary">'+esc(text)+'</pre>'
@@ -123,6 +126,7 @@
       $f('#iq-org-row').hidden = t!=='partner'; $f('#iq-org').required = t==='partner';
       $f('#iq-regular-row').hidden = t!=='regular';
       var fam=$f('.fam-ask'); if(fam){ fam.hidden = t==='partner'; if(t==='partner') fam.querySelectorAll('input').forEach(function(i){ i.checked=false; }); }
+      var va=$f('.visit-ask'); if(va){ va.hidden = t==='partner'; }
       var cat=$f('.cat-ask'); if(cat){ cat.hidden = t==='partner'; if(t==='partner'){ var co=cat.querySelector('input[type=checkbox]'); if(co && co.checked){ co.checked=false; co.dispatchEvent(new Event('change',{bubbles:true})); } } }
       $f('#iq-date-lbl').textContent = t==='regular' ? '첫 이용 희망일' : '희망일';
       var msg=$f('#iq-msg'); msg.required = t==='partner';
@@ -135,6 +139,7 @@
     }
     if(typeBox) typeBox.addEventListener('click', function(e){ var b=e.target.closest('.iq-type'); if(b) setType(b.dataset.v); });
     if(CC) CC.bind(form, 'cat', function(){ return $f('#iq-people').value; });
+    if(M.visitBind) M.visitBind(form, 'visit');
     setType(o.type || (o.prefill&&o.prefill.type) || 'event');
 
     var seg=$f('#iq-slot'), slotIn=$f('input[name=slot]');
@@ -152,6 +157,7 @@
       if(d.slot==='undecided') d.slot='';
       d.family=[].concat(d.family||[]); if(!d.family.length) delete d.family;
       var cat=CC?CC.read(form,'cat',d.headcount):null; Object.keys(d).forEach(function(k){ if(k.indexOf('cat_')===0) delete d[k]; }); if(cat) d.catering=cat;
+      var vw=M.visitRead?M.visitRead(form,'visit'):null; Object.keys(d).forEach(function(k){ if(k.indexOf('visit_')===0 && k!=='visit_wish') delete d[k]; }); if(vw) d.visit_wish=vw;
       d.contact_pref='kakao'; d.source=location.pathname; d.summary=summary(d); d.came_from=M.source?M.source():null;
       var btn=$f('#iq-submit'); btn.disabled=true; btn.textContent='보내는 중…';
       M.api('/inquiry',{method:'POST', body:d}).then(function(r){
@@ -165,7 +171,7 @@
     function bind(){
       var k=done.querySelector('#iq-kakao'); if(k) k.addEventListener('click', function(){ copyText(done.querySelector('#iq-summary').textContent, '문의 내용을 복사했습니다. 카카오톡 채팅창에 붙여 넣어 보내 주세요.'); });
       var c=done.querySelector('#iq-copy'); if(c) c.addEventListener('click', function(){ copyText(done.querySelector('#iq-summary').textContent, '문의 내용을 복사했습니다.'); });
-      var a=done.querySelector('#iq-again'); if(a) a.addEventListener('click', function(){ var t=cur; form.reset(); setType(t); setSlot('undecided'); form.hidden=false; done.hidden=true; form.scrollIntoView({behavior:'smooth'}); });
+      var a=done.querySelector('#iq-again'); if(a) a.addEventListener('click', function(){ var t=cur; form.reset(); setType(t); setSlot('undecided'); var vb=form.querySelector('.visit-ask-body'); if(vb) vb.hidden=true; form.hidden=false; done.hidden=true; form.scrollIntoView({behavior:'smooth'}); });
     }
     var api = {
       setDate:function(iso){ dateIn.value=iso; dateIn.classList.remove('invalid'); },
