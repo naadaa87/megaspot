@@ -65,6 +65,9 @@
     <image:image><image:loc>https://megaspot.kr/assets/img/catering/m/hero.jpg</image:loc><image:title>메가스팟 출장뷔페 — 긴 뷔페 라인 세팅</image:title></image:image>
     <image:image><image:loc>https://megaspot.kr/assets/img/catering/m/c01.jpg</image:loc><image:title>메가스팟 출장뷔페 긴 뷔페 라인 — 보온 그릇에 담긴 더운 요리</image:title></image:image>
   </url>
+  <url><loc>https://megaspot.kr/cocktail/</loc><lastmod>2026-10-30</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>
+    <image:image><image:loc>https://megaspot.kr/assets/img/cocktail/mojito.jpg</image:loc><image:title>메가스팟 출장 칵테일 메뉴 예시</image:title></image:image>
+  </url>
   <url><loc>https://megaspot.kr/inquiry/</loc><lastmod>2026-10-27</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>
   </url>
   <url><loc>https://megaspot.kr/purpose/</loc><lastmod>2026-10-27</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>

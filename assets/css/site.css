@@ -2681,3 +2681,21 @@ body.rs-dragging,body.rs-dragging *{user-select:none;-webkit-user-select:none;cu
   .ct-otable .rs-acts .btn{margin:2px 0 2px 4px}
 }
 @media (max-width:860px){ .ct-otable .rs-row td[data-th]::before{width:64px} }
+
+/* 출장 칵테일 안내 */
+.cocktail-hero-grid{display:grid;gap:30px;align-items:center}
+@media(min-width:900px){.cocktail-hero-grid{grid-template-columns:1.15fr .85fr;gap:50px}}
+.cocktail-hero .lead{max-width:56ch;line-height:1.75}
+.cocktail-hero-photo{margin:0}.cocktail-hero-photo img{display:block;width:100%;height:420px;object-fit:contain;background:#f6f3ed;border-radius:var(--radius-lg);box-shadow:var(--shadow)}
+.cocktail-hero-photo figcaption{font-size:12px;color:var(--ink-3);margin-top:8px}
+.cocktail-prices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media(min-width:900px){.cocktail-prices{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.cocktail-price{border:1px solid var(--concrete);border-radius:var(--radius-lg);background:#fff;padding:24px;display:flex;flex-direction:column;gap:8px}
+.cocktail-price span{font-weight:700}.cocktail-price strong{font-size:clamp(30px,4vw,44px);line-height:1.1;color:var(--cobalt)}.cocktail-price strong small{font-size:17px;margin-left:3px}.cocktail-price p{margin:0;color:var(--ink-3)}.cocktail-price a{margin-top:auto;padding-top:14px;font-weight:700;color:var(--cobalt)}
+.cocktail-menus{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+@media(min-width:900px){.cocktail-menus{grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}}
+.cocktail-menu{background:#fff;border:1px solid var(--concrete);border-radius:var(--radius-lg);overflow:hidden}.cocktail-menu-image{background:#f7f5f0;height:230px;display:grid;place-items:center}.cocktail-menu img{max-width:100%;width:100%;height:100%;object-fit:contain}.cocktail-menu>div:last-child{padding:20px}.cocktail-menu h3{font-size:20px;margin:0 0 8px}.cocktail-menu p{margin:0 0 10px;color:var(--ink-2)}.cocktail-menu small{color:var(--cobalt);font-weight:650}
+.cocktail-notes{display:grid;gap:30px}.cocktail-steps{display:grid;gap:10px}.cocktail-steps p{margin:0;border-bottom:1px solid var(--concrete);padding:12px 0}.cocktail-steps b{color:var(--cobalt);margin-right:16px}
+@media(min-width:800px){.cocktail-notes{grid-template-columns:1fr 1fr;gap:60px}}
+.cocktail-home-band .cat-band-ph{background:#f7f5f0}.cocktail-home-band .cat-band-ph img{object-fit:contain}
+@media(max-width:600px){.cocktail-prices{grid-template-columns:1fr 1fr}.cocktail-price{padding:17px}.cocktail-menus{grid-template-columns:1fr}.cocktail-hero-photo img{height:300px}}

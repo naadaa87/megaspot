@@ -24,6 +24,14 @@
   var root=$('#inquiry-root');
   if(root && M.renderInquiry){
     M.renderInquiry(root,{ spaceId: mode==='request'?'request':space, mode:mode, type:type, prefill:{ purpose:q.get('purpose')||'', people:q.get('people')||'', region:q.get('region')||'', date:q.get('date')||'' } });
+    var cocktail=q.get('cocktail');
+    if(['100','200','300','400'].indexOf(cocktail)>=0){
+      var msg=document.querySelector('#iq-msg');
+      if(msg) msg.value='출장 칵테일 '+cocktail+'잔 패키지를 상담받고 싶습니다. 행사 날짜·장소와 희망 메뉴를 함께 안내해 주세요.';
+      var title=document.querySelector('#iq-title'); if(title) title.textContent='출장 칵테일 상담';
+      var sub=document.querySelector('#iq-sub'); if(sub) sub.textContent='날짜, 장소, 잔 수와 선호하는 메뉴를 알려 주세요.';
+      setTimeout(function(){ var section=document.querySelector('#other'); if(section) section.scrollIntoView({behavior:'smooth',block:'start'}); },150);
+    }
     var grid=$('#inq-grid'); var mq=window.matchMedia('(min-width:960px)'); function lay(e){ grid.style.gridTemplateColumns=e.matches?'1.4fr .7fr':'1fr'; } lay(mq); mq.addEventListener('change',lay);
   }
   var HEAD={
