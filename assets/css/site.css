@@ -2702,3 +2702,5 @@ body.rs-dragging,body.rs-dragging *{user-select:none;-webkit-user-select:none;cu
 
 .cocktail-category-nav{display:flex;flex-wrap:wrap;gap:8px;margin:28px 0 38px}.cocktail-category-nav a{border:1px solid var(--concrete);border-radius:999px;padding:8px 14px;background:#fff;font-size:14px;font-weight:700}.cocktail-category-nav a:hover,.cocktail-category-nav a:focus{color:#fff;background:var(--cobalt);border-color:var(--cobalt)}
 .cocktail-category{scroll-margin-top:100px;margin-top:42px}.cocktail-category>h3{font-size:clamp(22px,3vw,29px);margin:0 0 18px}.cocktail-category>h3 span{font-size:13px;color:var(--ink-3);font-weight:600;margin-left:8px}.cocktail-category .cocktail-menus{margin:0}
+
+.page-cocktail .cocktail-menu-image{background:#fff;padding:10px}.page-cocktail .cocktail-menu-image img{display:block;max-width:100%;max-height:100%;object-fit:contain}
