@@ -96,3 +96,12 @@ test('관리자는 페이앱 주문 상태를 수동 덮어쓸 수 없고 환불
   const listed=(await(await admin('orders')).json()).items[0];assert.equal(listed.payapp,1);assert.equal(listed.refunded_amount,20000);
   const dash=await(await admin('dashboard')).json();assert.equal(dash.month.orders_amount,80000);
 });
+test('이용권 승인·환불은 연결 문의도 기존 운영 상태로 반영',async()=>{
+  for(const partial of [false,true]){
+    const f=fixture(),o=f.seed('ABCDEF',true),ref='MS-2610-TEST';
+    f.db.prepare("INSERT INTO inquiries (ref,space_id,status,data,created_at) VALUES (?,'megaspot-gundae','결제 대기','{}',?)").run(ref,new Date().toISOString());f.db.prepare('UPDATE orders SET inquiry_ref=? WHERE oid=?').run(ref,o.oid);
+    await f.call('feedback','POST',await f.form(o));assert.equal(f.db.prepare('SELECT status FROM inquiries').get().status,'예약 확정');
+    await f.call('feedback','POST',await f.form(o,partial?'70':'9',partial?{mul_no:'994001',orig_mul_no:o.mul_no,orig_price:String(o.price),price:String(o.price)}:{}));
+    assert.equal(f.db.prepare('SELECT status FROM inquiries').get().status,'취소·환불');
+  }
+});
