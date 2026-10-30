@@ -1,25 +1,11 @@
-// 온라인 결제 — KG이니시스 웹표준결제(INIStdPay)
-//   GET  /api/pay/config          결제 사용 가능 여부·테스트 모드 여부
-//   POST /api/pay/prepare         주문 생성 + 결제창에 넘길 값(서명 포함) 발급
-//   POST /api/pay/return          결제창이 돌아오는 주소 — 승인 요청 → 금액 검증 → 주문 저장 → 완료 페이지로 이동
-//   GET  /api/pay/close           결제창 닫기 페이지
-//   GET  /api/pay/orders/<oid>    주문 결과 조회 (완료 페이지용)
-//
-// Cloudflare 설정: INICIS_MID(상점아이디), INICIS_SIGNKEY(웹결제 signkey, Secret). 둘 다 없으면 이니시스 테스트 상점으로 동작합니다
-// (결제창은 열리지만 실제 승인·출금은 되지 않음). 계약이 끝나면 두 값을 넣고 다시 배포하면 실결제로 바뀝니다.
-import { json, err, hasDb, readJson, str, num, isDate, now, log, sha256, sameOrigin, clientIp, getMember, kstToday, tooMany, hit } from '../_lib.js';
+// 페이앱: 서버에서 결제 요청 → payurl 이동 → 검증된 feedback만 주문·예약 확정.
+import { json, err, hasDb, readJson, str, num, isDate, now, log, sha256, sameOrigin, clientIp, getMember, kstToday, tooMany, hit, randomToken } from '../_lib.js';
 import { PRODUCTS, HOLIDAYS, PRICING } from '../_catalog.js';
 
-const TEST_MID = 'INIpayTest', TEST_SIGNKEY = 'SU5JTElURV9UUklQTEVERVNfS0VZU1RS';
+import { payappConfig, requestPayment, validFeedback, equalSecret } from '../_payapp.js';
 const PKG_SLOT = { day: 'pkg-day', allday: 'pkg-allday', allnight: 'pkg-allnight' };
 const PKG_LABEL = { day: '낮 패키지 10–17시', allday: '올데이 패키지 10–24시', allnight: '올나잇 패키지 18시–다음 날 07시' };
 
-function cfg(env) {
-  const live = !!(env.INICIS_MID && env.INICIS_SIGNKEY) && env.INICIS_TEST !== '1';
-  return { live, mid: live ? env.INICIS_MID : TEST_MID, signKey: live ? env.INICIS_SIGNKEY : TEST_SIGNKEY,
-    script: live ? 'https://stdpay.inicis.com/stdjs/INIStdPay.js' : 'https://stgstdpay.inicis.com/stdjs/INIStdPay.js',
-    closeScript: live ? 'https://stdpay.inicis.com/stdjs/INIStdPay_close.js' : 'https://stgstdpay.inicis.com/stdjs/INIStdPay_close.js' };
-}
 // 요일 구분 — pricing-engine.js 의 dayInfo 와 같은 규칙 (당일·다음 날이 쉬는 날인지로 월–목/금/토/일)
 function addDays(iso, n) { const [y, m, d] = iso.split('-').map(Number); const dt = new Date(Date.UTC(y, m - 1, d + n)); return dt.toISOString().slice(0, 10); }
 function isOff(iso) { const [y, m, d] = iso.split('-').map(Number); const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay(); return dow === 0 || dow === 6 || !!HOLIDAYS[iso]; }
@@ -34,9 +20,6 @@ export function peakOf(iso) {
 }
 function kdate(iso) { const [y, m, d] = iso.split('-').map(Number); const dow = '일월화수목금토'[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]; return `${y}년 ${m}월 ${d}일(${dow})`; }
 function makeOid() { const d = new Date(Date.now() + 9 * 3600e3).toISOString().replace(/[-:T]/g, '').slice(0, 14); const r = crypto.getRandomValues(new Uint8Array(3)); return 'MS' + d + [...r].map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase(); }
-function html(body, status = 200) { return new Response('<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>메가스팟 결제</title></head><body style="font-family:sans-serif;padding:24px;color:#1E2225">' + body + '</body></html>', { status, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } }); }
-function redirectTop(url, msg) { return html(`<p>${msg || '처리 중입니다…'}</p><script>try{(window.top||window).location.href=${JSON.stringify(url)}}catch(e){location.href=${JSON.stringify(url)}}</script><noscript><a href="${url}">계속</a></noscript>`); }
-
 // ---------- 주문 금액 계산 (서버가 다시 계산해 금액 위변조를 막습니다) ----------
 export function buildOrder(input) {
   const P = PRODUCTS, p = P.get(str(input.product_id, 40));
@@ -76,13 +59,21 @@ export function buildOrder(input) {
 export async function onRequest({ request, env, params }) {
   const path = (params.path || []).join('/');
   const method = request.method.toUpperCase();
-  const C = cfg(env);
-  if (path === 'config' && method === 'GET') return json({ ok: true, enabled: hasDb(env), test: !C.live, script: C.script });
-  if (path === 'close' && method === 'GET') return html(`<script src="${C.closeScript}" charset="UTF-8"></script>`);
+  const C = payappConfig(env);
+  if (path === 'config' && method === 'GET') return json({ ok: true, provider: 'payapp', enabled: hasDb(env) && C.live, configured: C.configured, test: false });
+
   if (!hasDb(env)) return err('데이터베이스가 연결되어 있지 않습니다.', 503, 'NO_DB');
   try {
+    if (path === 'feedback' && method === 'POST') return await feedback(request, env, C);
+    // return은 화면 이동 전용이며 결제 상태는 절대 바꾸지 않습니다.
+    if (path === 'return' && ['GET', 'POST'].includes(method)) {
+      const oid = new URL(request.url).searchParams.get('oid') || '';
+      if (!/^MS[0-9A-F]{20}$/.test(oid)) return err('주문번호를 확인해 주세요.');
+      return Response.redirect(new URL('/order/complete/?oid=' + oid, request.url).href, 303);
+    }
     // ---- 주문 생성 ----
     if (path === 'prepare' && method === 'POST') {
+      if (!C.live) return err('온라인 결제를 준비 중입니다. 카카오톡으로 문의해 주세요.', 503, 'PAYMENT_UNAVAILABLE');
       if (!sameOrigin(request)) return err('허용되지 않은 요청입니다.', 403, 'FORBIDDEN');
       const ip = clientIp(request);
       if (await tooMany(env, 'pay:' + ip, 30, 10)) return err('요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.', 429, 'RATE_LIMIT');
@@ -115,81 +106,33 @@ export async function onRequest({ request, env, params }) {
         const same = iq && String(iq.phone || '').replace(/\D/g, '').slice(-4) === phone.replace(/\D/g, '').slice(-4);
         if (!same) inquiryRef = '';
       }
-      const data = { lines: o.lines, people: o.people, slot: o.slot, memo: str(d.memo, 500), inquiry_ref: inquiryRef, addons: d.addons || {}, qty: num(d.qty) || 1, member_email: member ? member.email : '', ua: str(request.headers.get('user-agent'), 200) };
+      const data = { lines: o.lines, people: o.people, slot: o.slot, memo: str(d.memo, 500), inquiry_ref: inquiryRef, addons: d.addons || {}, qty: num(d.qty) || 1, member_email: member ? member.email : '', ua: str(request.headers.get('user-agent'), 200), provider: 'payapp' };
       await env.DB.prepare('INSERT INTO orders (oid, product_id, title, event_date, people, price, buyer_name, buyer_phone, buyer_email, data, status, inquiry_ref, member_id, test, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
         .bind(oid, o.product.id, o.title, o.event_date, o.people, o.total, name, phone, email, JSON.stringify(data), 'created', data.inquiry_ref || null, member ? member.id : null, C.live ? 0 : 1, t).run();
       await log(env, 'order.created', oid, member ? 'member:' + member.id : 'customer', { product: o.product.id, total: o.total, date: o.event_date });
-      // 결제창 요청값 (INIStdPay)
-      const origin = new URL(request.url).origin, timestamp = String(Date.now()), price = String(o.total);
-      const fields = {
-        version: '1.0', mid: C.mid, oid, price, timestamp, currency: 'WON', charset: 'UTF-8',
-        goodname: o.title.slice(0, 40), buyername: name, buyertel: phone, buyeremail: email || '',
-        signature: await sha256(`oid=${oid}&price=${price}&timestamp=${timestamp}`),
-        verification: await sha256(`oid=${oid}&price=${price}&signKey=${C.signKey}&timestamp=${timestamp}`),
-        mKey: await sha256(C.signKey), use_chkfake: 'Y',
-        returnUrl: origin + '/api/pay/return', closeUrl: origin + '/api/pay/close',
-        gopaymethod: 'Card:DirectBank:VBank', acceptmethod: 'HPP(1):below1000:va_receipt:centerCd(Y)', payViewType: 'overlay',
-        merchantData: oid
-      };
-      return json({ ok: true, oid, total: o.total, lines: o.lines, test: !C.live, script: C.script, fields });
-    }
-
-    // ---- 결제창에서 돌아옴 ----
-    if (path === 'return' && method === 'POST') {
-      const form = await request.formData(); const f = k => str(form.get(k), 500);
-      const oid = f('orderNumber') || f('merchantData'), resultCode = f('resultCode'), resultMsg = f('resultMsg');
-      const row = oid ? await env.DB.prepare('SELECT oid, price, status, product_id, event_date, people, buyer_name, buyer_phone, data, inquiry_ref, member_id FROM orders WHERE oid = ?').bind(oid).first() : null;
-      if (!row) return html('<h2>주문을 찾을 수 없습니다.</h2><p>잠시 후 다시 시도하거나 카카오톡으로 문의해 주세요.</p>', 404);
-      const done = `/order/complete/?oid=${encodeURIComponent(oid)}`;
-      if (row.status === 'paid') return redirectTop(done, '이미 결제가 완료된 주문입니다.');
-      if (resultCode !== '0000') {
-        await env.DB.prepare("UPDATE orders SET status = 'failed', result_msg = ?, updated_at = ? WHERE oid = ?").bind((resultCode + ' ' + resultMsg).slice(0, 200), now(), oid).run();
-        await log(env, 'order.failed', oid, 'inicis', { resultCode, resultMsg });
-        return redirectTop(done + '&fail=1', '결제가 완료되지 않았습니다.');
+      const nonce = randomToken();
+      await env.DB.prepare('INSERT INTO payapp_payments (oid, nonce, created_at) VALUES (?,?,?)').bind(oid, nonce, t).run();
+      const origin = new URL(request.url).origin;
+      let r;
+      try {
+        r = await requestPayment(C, { goodname: o.title.slice(0, 100), price: String(o.total), recvphone: phone,
+          recvemail: email, reqaddr: '0', smsuse: 'n', checkretry: 'y', skip_cstpage: 'y',
+          feedbackurl: origin + '/api/pay/feedback', returnurl: origin + '/api/pay/return?oid=' + oid,
+          var1: oid, var2: nonce });
+      } catch {
+        // 타임아웃은 요청이 접수됐을 수도 있습니다. 통보 수신을 위해 주문을 유지합니다.
+        await env.DB.prepare("UPDATE orders SET result_msg = '결제 요청 확인 필요', updated_at = ? WHERE oid = ? AND status = 'created'").bind(now(), oid).run();
+        return err('결제창을 열지 못했습니다. 잠시 후 다시 시도해 주세요.', 502, 'PAYAPP_UNAVAILABLE');
       }
-      const authUrl = f('authUrl'), netCancelUrl = f('netCancelUrl'), authToken = f('authToken');
-      let host = ''; try { host = new URL(authUrl).host; } catch {}
-      if (!/^(fc|ks|stg)stdpay\.inicis\.com$/.test(host) || !authToken) {
-        await env.DB.prepare("UPDATE orders SET status = 'failed', result_msg = ?, updated_at = ? WHERE oid = ?").bind('승인 주소 확인 실패', now(), oid).run();
-        return redirectTop(done + '&fail=1', '결제 정보를 확인하지 못했습니다.');
+      if (!r.ok) {
+        await env.DB.prepare("UPDATE orders SET status = 'failed', result_msg = ?, updated_at = ? WHERE oid = ? AND status = 'created'")
+          .bind('결제 요청 실패 (' + r.code.replace(/[^0-9A-Z_]/gi, '').slice(0, 40) + ')', now(), oid).run();
+        return err('페이앱 결제 요청이 거절되었습니다. 잠시 후 다시 시도하거나 문의해 주세요.', 502, 'PAYAPP_REJECTED');
       }
-      const timestamp = String(Date.now());
-      const body = new URLSearchParams({ mid: C.mid, authToken, timestamp, signature: await sha256(`authToken=${authToken}&timestamp=${timestamp}`), verification: await sha256(`authToken=${authToken}&signKey=${C.signKey}&timestamp=${timestamp}`), charset: 'UTF-8', format: 'JSON' });
-      let r = null;
-      try { const res = await fetch(authUrl, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body }); r = await res.json(); } catch (e) { r = { resultCode: 'ERR', resultMsg: '승인 요청 실패 ' + (e.message || '') }; }
-      const paidOk = r && r.resultCode === '0000';
-      const priceOk = paidOk && String(r.TotPrice) === String(row.price) && (!r.MOID || r.MOID === oid);
-      if (paidOk && !priceOk) {
-        // 금액이 다르면 망취소(승인 취소)로 되돌립니다.
-        try { await fetch(netCancelUrl, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body }); } catch {}
-        await env.DB.prepare("UPDATE orders SET status = 'failed', result_msg = ?, updated_at = ? WHERE oid = ?").bind('금액 불일치로 승인 취소', now(), oid).run();
-        await log(env, 'order.netcancel', oid, 'system', { TotPrice: r.TotPrice, expected: row.price });
-        return redirectTop(done + '&fail=1', '결제 금액이 일치하지 않아 승인을 취소했습니다.');
-      }
-      if (!paidOk) {
-        await env.DB.prepare("UPDATE orders SET status = 'failed', result_msg = ?, updated_at = ? WHERE oid = ?").bind(((r && r.resultCode) || '') + ' ' + ((r && r.resultMsg) || ''), now(), oid).run();
-        await log(env, 'order.failed', oid, 'inicis', r || {});
-        return redirectTop(done + '&fail=1', '결제가 승인되지 않았습니다.');
-      }
-      // ---- 승인 완료: 주문 저장, 이용권이면 예약 등록 + 달력 마감 ----
-      const t = now(), data = safe(row.data), applAt = (r.applDate && r.applTime) ? `${r.applDate.slice(0, 4)}-${r.applDate.slice(4, 6)}-${r.applDate.slice(6, 8)} ${r.applTime.slice(0, 2)}:${r.applTime.slice(2, 4)}:${r.applTime.slice(4, 6)}` : t;
-      let bookingCode = null;
-      if (row.event_date && data.slot) {
-        const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', rb = crypto.getRandomValues(new Uint8Array(4)); let rnd = ''; for (const x of rb) rnd += A[x % A.length];
-        const d = new Date(); bookingCode = `MS-${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, '0')}-${rnd}`;
-        const SLOT_H = { 'pkg-day': [10, 17], 'pkg-allday': [10, 24], 'pkg-allnight': [18, 31] }[data.slot] || [null, null];
-        const { results: sameDay } = await env.DB.prepare("SELECT start_h, end_h FROM bookings WHERE space_id = 'megaspot-gundae' AND date = ? AND status = 'confirmed'").bind(row.event_date).all();
-        const clash = (sameDay || []).some(x => x.start_h == null || x.end_h == null || SLOT_H[0] == null || (SLOT_H[0] < x.end_h && x.start_h < SLOT_H[1]));
-        const memo = `온라인 결제 ${oid} · ${PRODUCTS.get(row.product_id).name}` + (data.memo ? ` · ${data.memo}` : '') + (clash ? ' · ※ 같은 날짜에 다른 예약이 있어 확인 필요' : '');
-        const SLOT_HOURS = { 'pkg-day': [10, 17], 'pkg-allday': [10, 24], 'pkg-allnight': [18, 31] }, sh = SLOT_HOURS[data.slot] || [null, null];
-        await env.DB.prepare('INSERT INTO bookings (booking_code, space_id, inquiry_ref, customer_name, phone, phone_last4, date, slot, headcount, memo, status, amount, start_h, end_h, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-          .bind(bookingCode, 'megaspot-gundae', row.inquiry_ref || null, row.buyer_name, row.buyer_phone, row.buyer_phone.slice(-4), row.event_date, data.slot, row.people, memo.slice(0, 2000), 'confirmed', row.price, sh[0], sh[1], t).run();
-        if (row.inquiry_ref) await env.DB.prepare("UPDATE inquiries SET status = '예약 확정', updated_at = ? WHERE ref = ?").bind(t, row.inquiry_ref).run();
-      }
-      await env.DB.prepare("UPDATE orders SET status = 'paid', tid = ?, pay_method = ?, appl_at = ?, result_msg = ?, booking_code = ?, paid_at = ?, updated_at = ? WHERE oid = ?")
-        .bind(str(r.tid, 60), str(r.payMethod, 20), applAt, '승인 완료', bookingCode, t, t, oid).run();
-      await log(env, 'order.paid', oid, 'inicis', { tid: r.tid, payMethod: r.payMethod, TotPrice: r.TotPrice, booking: bookingCode });
-      return redirectTop(done, '결제가 완료되었습니다.');
+      // 최초 통보가 API 응답보다 먼저 도착해도 같은 거래번호만 연결됩니다.
+      const bound = await env.DB.prepare('UPDATE payapp_payments SET mul_no = ? WHERE oid = ? AND (mul_no IS NULL OR mul_no = ?)').bind(r.mulNo, oid, r.mulNo).run();
+      if (!bound.meta?.changes) throw new Error('PAYMENT_BINDING');
+      return json({ ok: true, provider: 'payapp', oid, total: o.total, lines: o.lines, test: false, payurl: r.payurl });
     }
 
     // ---- 주문 조회 ----
@@ -198,11 +141,74 @@ export async function onRequest({ request, env, params }) {
       const row = await env.DB.prepare('SELECT oid, product_id, title, event_date, people, price, buyer_name, buyer_phone, buyer_email, data, status, pay_method, tid, appl_at, result_msg, booking_code, test, created_at FROM orders WHERE oid = ?').bind(mO[1]).first();
       if (!row) return err('주문을 찾을 수 없습니다.', 404, 'NOT_FOUND');
       const data = safe(row.data);
+      const refunds = await env.DB.prepare('SELECT COALESCE(SUM(amount), 0) AS total FROM payapp_refunds WHERE oid = ?').bind(row.oid).first();
       return json({ ok: true, order: { oid: row.oid, product_id: row.product_id, title: row.title, event_date: row.event_date, people: row.people, price: row.price, status: row.status,
         buyer_name: row.buyer_name.slice(0, 1) + '*'.repeat(Math.max(1, row.buyer_name.length - 1)), buyer_phone: row.buyer_phone.replace(/(\d{3})\d{3,4}(\d{4})/, '$1-****-$2'), buyer_email: row.buyer_email ? row.buyer_email.replace(/^(.).*(@.*)$/, '$1***$2') : '',
-        lines: data.lines || [], pay_method: row.pay_method, tid: row.tid ? row.tid.slice(-8) : '', appl_at: row.appl_at, result_msg: row.result_msg, booking_code: row.booking_code, test: !!row.test, created_at: row.created_at } });
+        lines: data.lines || [], refunded_amount: Math.min(row.price, refunds?.total || 0), pay_method: row.pay_method, tid: row.tid ? row.tid.slice(-8) : '', appl_at: row.appl_at, result_msg: row.result_msg, booking_code: row.booking_code, test: !!row.test, created_at: row.created_at } });
     }
     return err('경로를 찾을 수 없습니다.', 404, 'NOT_FOUND');
   } catch (e) { console.error('pay', e && e.message); return err('처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.', 500, 'SERVER_ERROR'); }
 }
 function safe(s) { try { return JSON.parse(s || '{}'); } catch { return {}; } }
+
+function notice(text, status = 200) {
+  return new Response(text, { status, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } });
+}
+async function feedback(request, env, C) {
+  const raw = await request.text();
+  if (raw.length > 32768) return notice('FAIL', 413);
+  const f = Object.fromEntries(new URLSearchParams(raw));
+  if (!await validFeedback(C, f)) return notice('FAIL', 403);
+  const state = f.pay_state, partial = ['70', '71'].includes(state);
+  if (!['1', '4', '8', '16', '31', '32', '9', '64', '10', '70', '71'].includes(state)) return notice('FAIL', 400);
+  if (!/^\d{1,30}$/.test(f.mul_no || '')) return notice('FAIL', 400);
+  const row = await env.DB.prepare('SELECT o.*, p.nonce, p.mul_no AS payapp_no FROM orders o JOIN payapp_payments p ON p.oid = o.oid WHERE o.oid = ?').bind(f.var1 || '').first();
+  if (!row || !equalSecret(f.var2, row.nonce)) return notice('FAIL', 403);
+  const price = partial ? f.orig_price : f.price, originalNo = partial ? f.orig_mul_no : f.mul_no;
+  if (!/^\d+$/.test(price || '') || Number(price) !== row.price || !/^\d{1,30}$/.test(originalNo || '')) return notice('FAIL', 400);
+  if (row.payapp_no && row.payapp_no !== originalNo) return notice('FAIL', 400);
+  // 해시와 주문별 nonce를 모두 검증한 통보만 최초 거래번호를 연결할 수 있습니다.
+  await env.DB.prepare('UPDATE payapp_payments SET mul_no = ? WHERE oid = ? AND mul_no IS NULL').bind(originalNo, row.oid).run();
+  const bound = await env.DB.prepare('SELECT mul_no FROM payapp_payments WHERE oid = ?').bind(row.oid).first();
+  if (bound.mul_no !== originalNo) return notice('FAIL', 400);
+  const t = now(), oid = row.oid, data = safe(row.data);
+  const sql = (q, ...args) => env.DB.prepare(q).bind(...args);
+  if (state === '4') {
+    const code = data.slot && row.event_date ? 'MS-' + oid.slice(4, 8) + '-' + (await sha256(oid)).slice(0, 12).toUpperCase() : null;
+    const batch = [];
+    if (code) {
+      const sh = { 'pkg-day': [10, 17], 'pkg-allday': [10, 24], 'pkg-allnight': [18, 31] }[data.slot];
+      if (!sh) return notice('FAIL', 400);
+      const { results: bookings } = await env.DB.prepare("SELECT start_h, end_h FROM bookings WHERE space_id = 'megaspot-gundae' AND date = ? AND status = 'confirmed'").bind(row.event_date).all();
+      const clash = (bookings || []).some(b => b.start_h == null || b.end_h == null || (sh[0] < b.end_h && b.start_h < sh[1]));
+      const memo = ('온라인 결제 ' + oid + ' · ' + row.title + (data.memo ? ' · ' + data.memo : '') + (clash ? ' · ※ 같은 시간 다른 예약 확인 필요' : '')).slice(0, 2000);
+      batch.push(sql("INSERT OR IGNORE INTO bookings (booking_code, space_id, inquiry_ref, customer_name, phone, phone_last4, date, slot, headcount, memo, status, amount, start_h, end_h, created_at) SELECT ?, 'megaspot-gundae', inquiry_ref, buyer_name, buyer_phone, substr(buyer_phone, -4), event_date, ?, people, ?, 'confirmed', price, ?, ?, ? FROM orders WHERE oid = ? AND status IN ('created','pending')", code, data.slot, memo, sh[0], sh[1], t, oid));
+      if (row.inquiry_ref) batch.push(sql("UPDATE inquiries SET status = '예약 확정', updated_at = ? WHERE ref = ? AND EXISTS (SELECT 1 FROM orders WHERE oid = ? AND status IN ('created','pending'))", t, row.inquiry_ref, oid));
+    }
+    batch.push(sql("INSERT INTO event_log (kind,ref,actor,detail,created_at) SELECT 'order.paid',oid,'payapp','페이앱 승인 완료',? FROM orders WHERE oid = ? AND status IN ('created','pending')", t, oid));
+    batch.push(sql("UPDATE orders SET status = 'paid', tid = ?, pay_method = ?, appl_at = ?, result_msg = '승인 완료', booking_code = ?, paid_at = ?, updated_at = ? WHERE oid = ? AND status IN ('created','pending')", originalNo, 'PayApp:' + (f.pay_type || ''), (f.pay_date || t).slice(0, 30), code, t, t, oid));
+    // D1 batch는 트랜잭션입니다. 중복·동시 통보에서 예약 한 건만 만들어집니다.
+    await env.DB.batch(batch);
+  } else if (['9', '64'].includes(state)) {
+    await env.DB.batch([
+      sql("INSERT INTO event_log (kind,ref,actor,detail,created_at) SELECT 'order.refunded',oid,'payapp','페이앱 승인 취소',? FROM orders WHERE oid = ? AND status != 'refunded'", t, oid),
+      sql("INSERT OR REPLACE INTO payapp_refunds (mul_no, oid, amount, created_at) VALUES (?,?,?,?)", 'full-' + originalNo, oid, row.price, t),
+      sql("UPDATE bookings SET status = 'cancelled', updated_at = ? WHERE booking_code = (SELECT booking_code FROM orders WHERE oid = ?)", t, oid),
+      sql("UPDATE inquiries SET status = '결제 취소 확인', updated_at = ? WHERE ref = ? AND status = '예약 확정'", t, row.inquiry_ref || ''),
+      sql("UPDATE orders SET status = 'refunded', result_msg = '페이앱 승인 취소', updated_at = ? WHERE oid = ?", t, oid)
+    ]);
+  } else if (partial) {
+    if (!/^\d+$/.test(f.price || '') || Number(f.price) <= 0 || Number(f.price) > row.price || f.mul_no === originalNo) return notice('FAIL', 400);
+    await env.DB.batch([
+      sql('INSERT OR IGNORE INTO payapp_refunds (mul_no, oid, amount, created_at) VALUES (?,?,?,?)', f.mul_no, oid, Number(f.price), t),
+      sql("INSERT INTO event_log (kind,ref,actor,detail,created_at) SELECT 'order.partial_refund',?,'payapp',?,? WHERE changes() > 0", oid, '부분 환불 ' + f.price + '원', t),
+      sql("UPDATE bookings SET status = 'cancelled', updated_at = ? WHERE booking_code = (SELECT booking_code FROM orders WHERE oid = ?) AND (SELECT COALESCE(SUM(amount),0) FROM payapp_refunds WHERE oid = ?) >= ?", t, oid, oid, row.price),
+      sql("UPDATE orders SET status = CASE WHEN (SELECT COALESCE(SUM(amount),0) FROM payapp_refunds WHERE oid = ?) >= price THEN 'refunded' ELSE status END, result_msg = '부분 환불 · 페이앱 내역 확인', updated_at = ? WHERE oid = ?", oid, t, oid)
+    ]);
+  } else if (['8', '16', '31', '32'].includes(state)) {
+    await sql("UPDATE orders SET status = 'cancelled', result_msg = '결제 요청 취소', updated_at = ? WHERE oid = ? AND status IN ('created','pending')", t, oid).run();
+  } else if (state === '10') {
+    await sql("UPDATE orders SET status = 'pending', result_msg = '입금 대기', updated_at = ? WHERE oid = ? AND status = 'created'", t, oid).run();
+  }
+  return notice('SUCCESS');
+}

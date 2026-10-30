@@ -1,4 +1,4 @@
-// 자동 생성 파일 — 고치지 마세요. 원본은 schema.sql 이고 tools/build_site.py 가 만듭니다.
+// schema.sql에서 자동 생성. 원본을 수정한 뒤 다시 생성하세요.
 export const SCHEMA = [
  "CREATE TABLE IF NOT EXISTS inquiries ( id INTEGER PRIMARY KEY AUTOINCREMENT, ref TEXT NOT NULL UNIQUE, space_id TEXT NOT NULL, status TEXT NOT NULL DEFAULT '문의 접수', name TEXT, phone TEXT, email TEXT, event_date TEXT, headcount INTEGER, data TEXT NOT NULL, memo TEXT, created_at TEXT NOT NULL, updated_at TEXT )",
  "CREATE INDEX IF NOT EXISTS idx_inquiries_status ON inquiries(status, created_at)",
@@ -36,5 +36,8 @@ export const SCHEMA = [
  "CREATE TABLE IF NOT EXISTS catering_orders ( id INTEGER PRIMARY KEY AUTOINCREMENT, ref TEXT NOT NULL UNIQUE, inquiry_ref TEXT, booking_code TEXT, space_id TEXT, event_date TEXT, meal_time TEXT, customer TEXT NOT NULL, phone TEXT, people INTEGER, status TEXT NOT NULL DEFAULT 'pending', total INTEGER, data TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT )",
  "CREATE INDEX IF NOT EXISTS idx_catering_orders_date ON catering_orders(event_date, status)",
  "CREATE INDEX IF NOT EXISTS idx_catering_orders_inquiry ON catering_orders(inquiry_ref)",
- "CREATE INDEX IF NOT EXISTS idx_catering_orders_booking ON catering_orders(booking_code)"
+ "CREATE INDEX IF NOT EXISTS idx_catering_orders_booking ON catering_orders(booking_code)",
+ "CREATE TABLE IF NOT EXISTS payapp_payments ( oid TEXT PRIMARY KEY, mul_no TEXT UNIQUE, nonce TEXT NOT NULL, created_at TEXT NOT NULL )",
+ "CREATE TABLE IF NOT EXISTS payapp_refunds ( mul_no TEXT PRIMARY KEY, oid TEXT NOT NULL, amount INTEGER NOT NULL CHECK (amount > 0), created_at TEXT NOT NULL )",
+ "CREATE INDEX IF NOT EXISTS idx_payapp_refunds_oid ON payapp_refunds(oid)"
 ];

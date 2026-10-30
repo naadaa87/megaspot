@@ -314,11 +314,11 @@
       <header class="adm-head"><div><h1>주문·결제</h1><p class="small muted">홈페이지에서 온라인으로 결제한 이용권·옵션 주문입니다. 결제가 끝나면 예약이 자동 등록됩니다. (달력은 자동으로 마감하지 않습니다)</p></div><button class="btn btn-light btn-sm" type="button" id="ord-reload">새로고침</button></header>
       <div class="notice mb-3" id="ord-mode"><div></div></div>
       <div class="adm-filters">
-        <select class="select" id="ord-status"><option value="paid">결제 완료</option><option value="">전체</option><option value="created">결제창만 열림(미완료)</option><option value="failed">실패·취소됨</option><option value="refunded">환불</option><option value="cancelled">취소</option></select>
+        <select class="select" id="ord-status"><option value="paid">결제 완료</option><option value="">전체</option><option value="pending">입금 대기</option><option value="created">결제창만 열림(미완료)</option><option value="failed">실패·취소됨</option><option value="refunded">환불</option><option value="cancelled">취소</option></select>
         <input class="input" id="ord-q" placeholder="주문번호·이름·연락처·예약번호">
         <button class="btn btn-light btn-sm" type="button" id="ord-search">검색</button>
       </div>
-      <p class="tiny muted mb-2">환불·취소는 <b>KG이니시스 상점관리자(iniweb.inicis.com)</b>에서 먼저 처리한 뒤, 여기서 '환불 기록'을 눌러 상태를 맞춰 주세요. 기록하면 연결된 예약이 취소되고 달력 마감이 풀립니다.</p>
+      <p class="tiny muted mb-2">환불·취소는 <b>페이앱 판매자 관리자(seller.payapp.kr)</b>에서 처리하세요. 페이앱 주문은 취소 통보를 받으면 자동 반영됩니다. 전체 취소는 연결된 예약도 취소하고, 부분 취소는 환불 금액을 기록하며 예약을 유지합니다.</p>
       <div id="ord-list" class="adm-list"></div>
     </section>
 
@@ -563,7 +563,7 @@
 <script src="/assets/js/catering-calc.js?v=202610270438"></script>
 <script src="/assets/js/confirm-doc.js?v=202610270438"></script>
 <script src="/assets/js/cards.js?v=202610270438"></script>
-<script src="/assets/js/pages/admin.js?v=202610302250"></script>
+<script src="/assets/js/pages/admin.js?v=20261030payapp1"></script>
 <script src="/assets/js/pages/admin-platform.js?v=202610270438"></script>
 </body>
 </html>

@@ -147,9 +147,9 @@ CREATE TABLE IF NOT EXISTS inquiry_checks (  -- 문의별 진행 체크리스트
 -- 서버는 처음 요청을 받을 때 위 표들이 없으면 스스로 만듭니다 (functions/api/_middleware.js).
 
 -- ---------- 온라인 결제 (2026-10-13 추가) ----------
-CREATE TABLE IF NOT EXISTS orders (          -- 이용권·옵션 온라인 주문 (KG이니시스)
+CREATE TABLE IF NOT EXISTS orders (          -- 이용권·옵션 온라인 주문 (페이앱 · 기존 주문 유지)
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  oid TEXT NOT NULL UNIQUE,                  -- 주문번호 MS + 일시 + 난수 (이니시스 oid)
+  oid TEXT NOT NULL UNIQUE,                  -- 주문번호 MS + 일시 + 난수 (페이앱 var1)
   product_id TEXT NOT NULL,
   title TEXT NOT NULL,
   event_date TEXT,                           -- 이용일 (이용권)
@@ -157,12 +157,12 @@ CREATE TABLE IF NOT EXISTS orders (          -- 이용권·옵션 온라인 주�
   price INTEGER NOT NULL,                    -- 결제 금액 (서버 계산)
   buyer_name TEXT NOT NULL, buyer_phone TEXT NOT NULL, buyer_email TEXT,
   data TEXT NOT NULL,                        -- 항목·옵션·메모 JSON
-  status TEXT NOT NULL DEFAULT 'created',    -- created(결제창 열림) | paid | failed | cancelled | refunded
+  status TEXT NOT NULL DEFAULT 'created',    -- created(결제창 열림) | pending(입금 대기) | paid | failed | cancelled | refunded
   pay_method TEXT, tid TEXT, appl_at TEXT, result_msg TEXT,
   booking_code TEXT,                         -- 결제 완료 시 자동 등록된 예약번호
   inquiry_ref TEXT, member_id INTEGER,
   memo TEXT,                                 -- 운영 메모 (환불 처리 등)
-  test INTEGER NOT NULL DEFAULT 0,           -- 1 = 이니시스 테스트 상점으로 결제한 주문
+  test INTEGER NOT NULL DEFAULT 0,           -- 1 = 이전 PG의 테스트 주문
   created_at TEXT NOT NULL, paid_at TEXT, updated_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status, created_at);
@@ -279,3 +279,18 @@ CREATE TABLE IF NOT EXISTS catering_orders (
 CREATE INDEX IF NOT EXISTS idx_catering_orders_date ON catering_orders(event_date, status);
 CREATE INDEX IF NOT EXISTS idx_catering_orders_inquiry ON catering_orders(inquiry_ref);
 CREATE INDEX IF NOT EXISTS idx_catering_orders_booking ON catering_orders(booking_code);
+
+-- 페이앱 거래 연결·부분 환불 (기존 주문 컬럼은 변경하지 않습니다)
+CREATE TABLE IF NOT EXISTS payapp_payments (
+  oid TEXT PRIMARY KEY,
+  mul_no TEXT UNIQUE,
+  nonce TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS payapp_refunds (
+  mul_no TEXT PRIMARY KEY,
+  oid TEXT NOT NULL,
+  amount INTEGER NOT NULL CHECK (amount > 0),
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_payapp_refunds_oid ON payapp_refunds(oid);

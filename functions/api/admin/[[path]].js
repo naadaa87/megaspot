@@ -170,7 +170,7 @@ export async function onRequest({ request, env, params }) {
           confirmed_amount: await one(`SELECT COALESCE(SUM(${inquiryAmountSql()}), 0) AS n FROM inquiries i WHERE i.status IN ('예약 확정', '이용 완료') AND substr(i.event_date, 1, 7) = ?`, month),
           quoted_amount: await one(`SELECT COALESCE(SUM(${inquiryAmountSql()}), 0) AS n FROM inquiries i WHERE i.status IN ('견적 발송', '결제 대기') `),
           orders_paid: await one("SELECT COUNT(*) AS n FROM orders WHERE status = 'paid' AND test = 0 AND substr(paid_at, 1, 7) = ?", month),
-          orders_amount: await one("SELECT COALESCE(SUM(price), 0) AS n FROM orders WHERE status = 'paid' AND test = 0 AND substr(paid_at, 1, 7) = ?", month),
+          orders_amount: await one("SELECT COALESCE(SUM(price - MIN(price, (SELECT COALESCE(SUM(amount),0) FROM payapp_refunds WHERE oid = orders.oid))), 0) AS n FROM orders WHERE status = 'paid' AND test = 0 AND substr(paid_at, 1, 7) = ?", month),
         },
         orders_recent: await all("SELECT oid, title, event_date, price, buyer_name, status, test, paid_at, created_at FROM orders WHERE status IN ('paid','failed') ORDER BY COALESCE(paid_at, created_at) DESC LIMIT 8"),
         orders_today_paid: await one("SELECT COUNT(*) AS n FROM orders WHERE status = 'paid' AND substr(paid_at, 1, 10) = ?", today),
@@ -679,7 +679,7 @@ export async function onRequest({ request, env, params }) {
     // ---- 주문·결제 ----
     if (path === 'orders' && method === 'GET') {
       const st = str(url.searchParams.get('status'), 20), q = str(url.searchParams.get('q'), 60);
-      let sql = 'SELECT oid, product_id, title, event_date, people, price, buyer_name, buyer_phone, buyer_email, status, pay_method, tid, appl_at, result_msg, booking_code, inquiry_ref, member_id, memo, test, created_at, paid_at, updated_at FROM orders WHERE 1=1'; const b = [];
+      let sql = 'SELECT oid, product_id, title, event_date, people, price, buyer_name, buyer_phone, buyer_email, status, pay_method, tid, appl_at, result_msg, booking_code, inquiry_ref, member_id, memo, test, created_at, paid_at, updated_at, EXISTS (SELECT 1 FROM payapp_payments p WHERE p.oid = orders.oid) AS payapp, MIN(price, (SELECT COALESCE(SUM(amount),0) FROM payapp_refunds WHERE oid = orders.oid)) AS refunded_amount FROM orders WHERE 1=1'; const b = [];
       if (st) { sql += ' AND status = ?'; b.push(st); }
       if (q) { sql += ' AND (oid LIKE ? OR buyer_name LIKE ? OR buyer_phone LIKE ? OR booking_code LIKE ?)'; b.push('%' + q.toUpperCase() + '%', '%' + q + '%', '%' + q + '%', '%' + q.toUpperCase() + '%'); }
       sql += ' ORDER BY created_at DESC LIMIT 300';
@@ -694,9 +694,11 @@ export async function onRequest({ request, env, params }) {
       return json({ ok: true, item: { ...row, data: safe(row.data) }, log: lg || [] });
     }
     if (mOrd && method === 'PATCH') {
-      // 환불·취소는 이니시스 상점관리자에서 실제 처리한 뒤 여기서 상태만 기록합니다.
+      // 기존 PG 주문만 수동 기록. 페이앱 주문 상태는 검증된 통보에서만 변경합니다.
       const d = await readJson(request); const oid = mOrd[1]; const sets = [], b = [];
       if (d.status !== undefined) {
+        const pa = await env.DB.prepare('SELECT oid FROM payapp_payments WHERE oid = ?').bind(oid).first();
+        if (pa) return err('페이앱 판매자 관리자에서 취소해 주세요. 결과는 자동 반영됩니다.', 409, 'PAYAPP_MANAGED');
         if (!['paid', 'cancelled', 'refunded'].includes(d.status)) return err('상태 값이 올바르지 않습니다.');
         sets.push('status = ?'); b.push(d.status);
         if (d.status !== 'paid') {

@@ -1045,20 +1045,21 @@
   }
 
   /* =================== 주문·결제 =================== */
-  var OST={paid:['결제 완료','st-ok'],created:['미완료','st-done'],failed:['실패·취소됨','st-cancel'],refunded:['환불','st-quote'],cancelled:['취소','st-cancel']};
-  var PM={Card:'카드',DirectBank:'계좌이체',VBank:'가상계좌',HPP:'휴대폰'};
+  var OST={paid:['결제 완료','st-ok'],created:['미완료','st-done'],pending:['입금 대기','st-quote'],failed:['실패·취소됨','st-cancel'],refunded:['환불','st-quote'],cancelled:['취소','st-cancel']};
+  var PM={'PayApp:1':'카드','PayApp:2':'휴대폰','PayApp:6':'계좌이체','PayApp:7':'가상계좌','PayApp:16':'네이버페이','PayApp:21':'스마일페이','PayApp:23':'애플페이','PayApp:24':'내통장결제','PayApp:25':'토스페이',Card:'카드',DirectBank:'계좌이체',VBank:'가상계좌',HPP:'휴대폰'};
   function orderRow(o, full){
     var st=OST[o.status]||[o.status,''];
     return '<div class="adm-row ord-row" data-oid="'+esc(o.oid)+'"><div class="r1"><b>'+esc(o.buyer_name||'')+'</b><span class="st '+st[1]+'">'+st[0]+'</span>'+(o.test?'<span class="tag-ch">테스트</span>':'')+(o.pay_method?'<span class="tag-ch">'+esc(PM[o.pay_method]||o.pay_method)+'</span>':'')+'</div>'
       +'<div class="r2">'+esc(o.title)+(o.event_date?' · '+esc(kd(o.event_date)):'')+(o.people?' · '+o.people+'명':'')+' · <b>'+esc(won(o.price))+'</b></div>'
       +'<div class="r3"><span>'+esc(o.oid)+(o.booking_code?' · 예약 '+esc(o.booking_code):'')+(o.phone||o.buyer_phone?' · <a href="tel:'+esc(o.buyer_phone||'')+'">'+esc(o.buyer_phone||'')+'</a>':'')+'</span><span>'+esc(String(o.paid_at||o.created_at||'').slice(0,16))+'</span></div>'
+      +(o.refunded_amount?'<div class="tiny muted">환불 '+esc(won(o.refunded_amount))+' · 남은 금액 '+esc(won(o.price-o.refunded_amount))+'</div>':'')
       +(full&&o.memo?'<div class="tiny muted">'+esc(o.memo)+'</div>':'')
-      +(full&&o.status==='paid'?'<div class="row mt-2" style="gap:6px"><button class="btn btn-light btn-sm" type="button" data-oact="refunded" data-oid="'+esc(o.oid)+'">환불 기록</button><button class="btn btn-light btn-sm" type="button" data-oact="cancelled" data-oid="'+esc(o.oid)+'">취소 기록</button>'+(o.inquiry_ref?'<button class="btn btn-light btn-sm" type="button" data-open-ref="'+esc(o.inquiry_ref)+'">문의 '+esc(o.inquiry_ref)+'</button>':'')+'</div>':'')
+      +(full&&o.status==='paid'&&!o.payapp?'<div class="row mt-2" style="gap:6px"><button class="btn btn-light btn-sm" type="button" data-oact="refunded" data-oid="'+esc(o.oid)+'">환불 기록</button><button class="btn btn-light btn-sm" type="button" data-oact="cancelled" data-oid="'+esc(o.oid)+'">취소 기록</button>'+(o.inquiry_ref?'<button class="btn btn-light btn-sm" type="button" data-open-ref="'+esc(o.inquiry_ref)+'">문의 '+esc(o.inquiry_ref)+'</button>':'')+'</div>':'')
       +'</div>';
   }
   function loadOrders(){
     var box=$('#ord-list'); box.innerHTML='<div class="empty small">불러오는 중…</div>';
-    M.api('/pay/config').then(function(c){ var m=$('#ord-mode'); m.firstElementChild.innerHTML=c.test?'<b>지금은 테스트 결제 상태입니다.</b> KG이니시스 테스트 상점(INIpayTest)으로 결제창이 열리고 실제 승인·출금은 되지 않습니다. 계약 뒤 Cloudflare에 <code>INICIS_MID</code>·<code>INICIS_SIGNKEY</code>를 넣고 다시 배포하면 실결제로 바뀝니다.':'<b>실결제 상태입니다.</b> 결제 완료 주문은 KG이니시스 상점관리자의 거래 내역과 같아야 합니다.'; m.classList.toggle('warn-note', !!c.test); }).catch(function(){});
+    M.api('/pay/config').then(function(c){ var m=$('#ord-mode'); m.firstElementChild.innerHTML=c.enabled?'<b>페이앱 실결제 상태입니다.</b> 결제와 취소는 페이앱 판매자 관리자에서 확인할 수 있으며 결과는 자동 반영됩니다.':'<b>온라인 결제 준비 중입니다.</b> Cloudflare Production에 PAYAPP_USERID · PAYAPP_LINKKEY · PAYAPP_LINKVAL · PAYAPP_REQUESTKEY를 설정한 뒤 다시 배포하세요.'; m.classList.toggle('warn-note', !c.enabled); }).catch(function(){});
     A('/orders?status='+encodeURIComponent($('#ord-status').value)+'&q='+encodeURIComponent($('#ord-q').value.trim())).then(function(r){ var list=r.items||[];
       box.innerHTML=list.length?list.map(function(o){ return orderRow(o,true); }).join(''):emptyMsg('해당하는 주문이 없습니다.');
     }).catch(fail(box));

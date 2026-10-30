@@ -138,13 +138,12 @@
     <div class="eyebrow mt-2">Checkout</div>
     <h1 class="h-l">주문·결제</h1>
     <p class="lead small">이용일과 인원을 확인하고 결제하면 예약이 바로 확정됩니다. 결제 금액은 서버에서 요금표로 다시 계산해 확인합니다.</p>
-    <div class="notice mt-2" id="od-test" hidden><div><b>지금은 테스트 결제 상태입니다.</b> KG이니시스 테스트 상점으로 결제창이 열리며 실제 승인·출금은 되지 않습니다. 계약이 끝나고 상점아이디를 설정하면 실결제로 바뀝니다.</div></div>
   </div>
 </section>
 
 <section class="section" style="padding-top:28px">
   <div class="container">
-    <div class="notice" id="od-offline" hidden><div><b>온라인 결제 준비 중</b><br>지금은 결제 서버가 연결되어 있지 않습니다. <a href="/inquiry/" style="text-decoration:underline">예약 신청</a>이나 카카오톡으로 알려 주시면 계좌 안내와 함께 예약을 도와드립니다.</div></div>
+    <div class="notice" id="od-offline" hidden><div><b>온라인 결제 준비 중</b><br>지금은 온라인 결제를 준비하고 있습니다. <a href="/inquiry/" style="text-decoration:underline">예약 신청</a>이나 카카오톡으로 알려 주시면 계좌 안내와 함께 예약을 도와드립니다.</div></div>
     <div class="order-wrap" id="od-app" hidden>
       <form class="form card" id="od-form" novalidate>
         <div class="od-product" id="od-product"></div>
@@ -190,7 +189,7 @@
           <table class="q-table mt-2" id="od-lines"></table>
           <p class="tiny muted mt-2">표시 금액은 부가세 포함입니다. 이용 보증금 15만 원은 이용권 금액과 별도로 이용일 전에 안내해 드립니다.</p>
           <button class="btn btn-primary btn-lg" type="button" id="od-pay" style="width:100%">결제하기 <span class="arrow">→</span></button>
-          <p class="tiny muted mt-2" style="text-align:center">신용·체크카드 · 실시간 계좌이체 · 가상계좌<br>KG이니시스 결제창에서 안전하게 결제됩니다.</p>
+          <p class="tiny muted mt-2" style="text-align:center">신용·체크카드 · 계좌이체 · 간편결제<br>페이앱 결제창에서 안전하게 결제됩니다.</p>
         </div>
         <div class="card od-help">
           <b>결제 전에 궁금한 점이 있으면</b>
@@ -199,7 +198,6 @@
         </div>
       </aside>
     </div>
-    <form id="ms-pay-form" method="post" hidden></form>
   </div>
 </section>
 </main>
@@ -272,7 +270,7 @@
     </div>
     <div class="footer-biz">
       <b>주식회사 블랭크</b> · 대표 최시준 · 사업자등록번호 161-86-03494 · 사업장 주소 서울특별시 강남구 영동대로 602, 6층 제트71(삼성동, 삼성동 미켈란 107) · 전화 <a href="tel:01023849580">010-2384-9580</a> · 이메일 <a href="mailto:spaceblank0100@gmail.com">spaceblank0100@gmail.com</a><span data-mailorder-line hidden> · 통신판매업신고 <span data-mailorder></span></span><br>
-      이용 장소: 메가스팟 건대 1호·2호 · 서울특별시 광진구 화양동 10-1 한아름건물 2층 · 온라인 결제는 KG이니시스 결제창에서 처리되며 카드번호는 보관하지 않습니다.
+      이용 장소: 메가스팟 건대 1호·2호 · 서울특별시 광진구 화양동 10-1 한아름건물 2층 · 온라인 결제는 페이앱 결제창에서 처리되며 카드번호는 보관하지 않습니다.
     </div>
     <div class="footer-bottom">
       <div><span data-company hidden></span></div>
@@ -286,6 +284,6 @@
 <script src="/assets/js/data/pricing-gundae.js?v=202610270438"></script>
 <script src="/assets/js/pricing-engine.js?v=202610270438"></script>
 <script src="/assets/js/data/products.js?v=202610270438"></script>
-<script src="/assets/js/pages/order.js?v=202610270438"></script>
+<script src="/assets/js/pages/order.js?v=20261030payapp1"></script>
 </body>
 </html>
