@@ -2811,3 +2811,25 @@ body:not(.page-admin) .cocktail-menu p{line-height:1.7}
   .page-admin .adm-drawer-body{padding:18px 16px 40px}
   .page-admin .dr-sec{padding:16px}
 }
+
+/* 판매자·예약 정보표: 항목마다 실제 행 공간을 둬 긴 주소도 읽기 쉽게 표시 */
+body:not(.page-admin) .def > div{column-gap:20px;padding-block:16px;line-height:1.7}
+body:not(.page-admin) .seller-card .def{grid-template-columns:minmax(130px,160px) minmax(0,1fr);column-gap:22px;row-gap:12px}
+body:not(.page-admin) .seller-card .def > dt,
+body:not(.page-admin) .seller-card .def > dd{padding-block:3px;line-height:1.72}
+body:not(.page-admin) .seller-card .def > dt{font-size:14px;align-self:stretch}
+body:not(.page-admin) .seller-card .def > dd{font-size:15px;min-width:0}
+body:not(.page-admin) .seller-card > .tiny{margin-top:24px;line-height:1.75;max-width:80ch}
+@media(max-width:599px){
+  body:not(.page-admin) .def > div{grid-template-columns:100px minmax(0,1fr);column-gap:14px;padding-block:15px}
+  body:not(.page-admin) .seller-card .def{grid-template-columns:100px minmax(0,1fr);column-gap:14px;row-gap:14px}
+  body:not(.page-admin) .seller-card .def > dt,
+  body:not(.page-admin) .seller-card .def > dd{padding-block:4px}
+}
+body:not(.page-admin) .seller-card .def > [data-mailorder-line]:not([hidden]) > dt,
+body:not(.page-admin) .seller-card .def > [data-mailorder-line]:not([hidden]) > dd{padding-block:3px;line-height:1.72;font-size:15px}
+body:not(.page-admin) .seller-card .def > [data-mailorder-line]:not([hidden]) > dt{font-size:14px;color:var(--ink-2);font-weight:600}
+@media(max-width:599px){
+  body:not(.page-admin) .seller-card .def > [data-mailorder-line]:not([hidden]) > dt,
+  body:not(.page-admin) .seller-card .def > [data-mailorder-line]:not([hidden]) > dd{padding-block:4px}
+}
