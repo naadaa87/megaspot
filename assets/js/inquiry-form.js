@@ -7,7 +7,7 @@
    - API 연결 시 /api/inquiry 로 저장, 미연결 시 체험 모드(내용 복사·카카오톡)로 전환
    ===================================================================== */
 (function(){
-  var M=window.MEGASPOT, esc=M.esc, CC=window.MEGASPOT_CATERING_CALC||null;   // CC: 출장뷔페 계산 (catering-calc.js)
+  var M=window.MEGASPOT, esc=M.esc, CC=window.MEGASPOT_CATERING_CALC||null, CK=window.MEGASPOT_COCKTAIL_CALC||null;
   var PUR=window.MEGASPOT_PURPOSES||[], REG=window.MEGASPOT_REGIONS||[];
   var TYPES=[['event','행사 한 번','날짜가 정해진 모임·행사'],['regular','정기·반복 모임','매주·격주·매월 여는 모임'],['partner','제휴·협력','함께 행사를 만드는 기업·기관·업체']];
   var SLOTS=[['pkg-day','낮 10–17시'],['pkg-allday','올데이 10–24시'],['pkg-allnight','올나잇 18–07시'],['morning','아침'],['day','낮'],['evening','저녁'],['undecided','미정']];
@@ -62,6 +62,7 @@
     + '</div>'
     + '<div class="f"><label for="iq-msg" id="iq-msg-lbl">요청사항</label><textarea class="textarea" id="iq-msg" name="message" maxlength="2000" placeholder="행사 성격, 꼭 필요한 조건, 궁금한 점을 자유롭게 적어 주세요."></textarea></div>'
     + (CC ? CC.formBlock('cat') : '')
+    + (CK ? CK.formBlock('iq') : '')
     + (M.familyAsk ? M.familyAsk('family') : '')
     + (M.visitAsk ? M.visitAsk('visit') : '')
     + '</fieldset>'
@@ -87,6 +88,7 @@
     if(d.message) L.push((t==='partner'?'제안 내용: ':'요청사항: ')+d.message);
     if(d.family && d.family.length && M.familyLabel) L.push('함께 알아보기: '+M.familyLabel(d.family));
     if(d.catering) L.push('출장뷔페: '+d.catering.summary);
+    if(d.cocktail) L.push('출장 칵테일: '+d.cocktail.summary);
     if(d.visit_wish && M.visitLabel) L.push('현장답사 희망: '+M.visitLabel(d.visit_wish));
     return L.join('\n');
   }
@@ -139,6 +141,7 @@
     }
     if(typeBox) typeBox.addEventListener('click', function(e){ var b=e.target.closest('.iq-type'); if(b) setType(b.dataset.v); });
     if(CC) CC.bind(form, 'cat', function(){ return $f('#iq-people').value; });
+    if(CK) CK.bind(form);
     if(M.visitBind) M.visitBind(form, 'visit');
     setType(o.type || (o.prefill&&o.prefill.type) || 'event');
 
@@ -157,6 +160,7 @@
       if(d.slot==='undecided') d.slot='';
       d.family=[].concat(d.family||[]); if(!d.family.length) delete d.family;
       var cat=CC?CC.read(form,'cat',d.headcount):null; Object.keys(d).forEach(function(k){ if(k.indexOf('cat_')===0) delete d[k]; }); if(cat) d.catering=cat;
+      var cocktail=CK?CK.read(form):null; Object.keys(d).forEach(function(k){ if(k.indexOf('cocktail_')===0) delete d[k]; }); if(cocktail) d.cocktail=cocktail;
       var vw=M.visitRead?M.visitRead(form,'visit'):null; Object.keys(d).forEach(function(k){ if(k.indexOf('visit_')===0 && k!=='visit_wish') delete d[k]; }); if(vw) d.visit_wish=vw;
       d.contact_pref='kakao'; d.source=location.pathname; d.summary=summary(d); d.came_from=M.source?M.source():null;
       var btn=$f('#iq-submit'); btn.disabled=true; btn.textContent='보내는 중…';
