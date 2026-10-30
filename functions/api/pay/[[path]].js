@@ -70,7 +70,7 @@ export async function onRequest({ request, env, params }) {
     if (path === 'diagnostics' && method === 'GET') {
       const denied = await requireAdmin(request, env); if (denied) return denied;
       try {
-        const r = await fetch('https://api.payapp.kr/oapi/v2', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'cmd=invalid_diagnostic', redirect: 'error', signal: AbortSignal.timeout(20000) });
+        const r = await fetch('https://api.payapp.kr/oapi/v2', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'cmd=invalid_diagnostic', redirect: 'manual', signal: AbortSignal.timeout(20000) });
         const body = await r.text(), q = new URLSearchParams(body);
         return json({ ok: true, http_status: r.status, content_type: r.headers.get('content-type'), response_format: q.has('state') ? 'query' : (/^\s*</.test(body) ? 'html' : 'other'), provider_code: q.get('errno'), abort_timeout_supported: typeof AbortSignal.timeout === 'function' });
       } catch (e) { return json({ ok: false, diagnostic_error: String(e?.message || '').slice(0, 180), error_name: e?.name, abort_timeout_supported: typeof AbortSignal.timeout === 'function' }); }

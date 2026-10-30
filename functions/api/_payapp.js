@@ -29,7 +29,8 @@ export async function requestPayment(C, fields) {
     linkkey: C.linkkey, requestdate, hash: await sha256(C.userid + requestdate + C.requestkey) });
   const response = await fetch('https://api.payapp.kr/oapi/v2', { method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' }, body,
-    redirect: 'error', signal: AbortSignal.timeout(20000) });
+    // Workers는 redirect:error를 지원하지 않습니다. 리다이렉트는 따라가지 않고 상태를 검증합니다.
+    redirect: 'manual', signal: AbortSignal.timeout(20000) });
   if (!response.ok) throw new Error('PAYAPP_HTTP');
   const r = new URLSearchParams(await response.text());
   if (r.get('state') !== '1') return { ok: false, code: r.get('errno') || 'PAYAPP_REJECTED' };

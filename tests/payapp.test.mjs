@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
 import { onRequest } from '../functions/api/pay/[[path]].js';
-import { kstStamp, payappUrl } from '../functions/api/_payapp.js';
+import { kstStamp, payappUrl, requestPayment, payappConfig } from '../functions/api/_payapp.js';
 import { sha256, kstToday } from '../functions/api/_lib.js';
 import { PRODUCTS } from '../functions/api/_catalog.js';
 import { dayCol, peakOf } from '../functions/api/pay/[[path]].js';
@@ -122,4 +122,16 @@ test('페이앱 연결 진단은 관리자만 실행하고 결제·키 전송 �
   t.mock.method(globalThis,'fetch',async(url,opts)=>{assert.equal(String(opts.body),'cmd=invalid_diagnostic');return new Response('state=0&errno=70040');});
   const r=await onRequest({env:f.env,params:{path:['diagnostics']},request:new Request(ORIGIN+'/api/pay/diagnostics',{headers:{'x-admin-key':'test-admin'}})});
   const d=await r.json();assert.equal(d.http_status,200);assert.equal(d.provider_code,'70040');assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM orders').get().n,0);
+});
+
+test('Workers에서 지원하는 manual redirect로 요청하며 외부 리다이렉트를 따라가지 않음',async(t)=>{
+  const f=fixture();let calls=0;
+  t.mock.method(globalThis,'fetch',async(url,opts)=>{
+    calls++;assert.equal(url,'https://api.payapp.kr/oapi/v2');
+    if(opts.redirect==='error') throw new TypeError('Invalid redirect value in Workers');
+    assert.equal(opts.redirect,'manual');
+    return new Response('',{status:302,headers:{location:'https://other.test/collect'}});
+  });
+  await assert.rejects(requestPayment(payappConfig(f.env),{goodname:'확인용',price:'1000',recvphone:'01000000000'}),/PAYAPP_HTTP/);
+  assert.equal(calls,1,'키나 고객 정보를 리다이렉트 주소에 재전송하지 않음');
 });
