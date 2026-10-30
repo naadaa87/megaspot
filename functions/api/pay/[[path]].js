@@ -1,5 +1,5 @@
 // 페이앱: 서버에서 결제 요청 → payurl 이동 → 검증된 feedback만 주문·예약 확정.
-import { json, err, hasDb, readJson, str, num, isDate, now, log, sha256, sameOrigin, clientIp, getMember, kstToday, tooMany, hit, randomToken } from '../_lib.js';
+import { json, err, hasDb, readJson, str, num, isDate, now, log, sha256, sameOrigin, clientIp, getMember, kstToday, tooMany, hit, randomToken, requireAdmin } from '../_lib.js';
 import { PRODUCTS, HOLIDAYS, PRICING } from '../_catalog.js';
 
 import { payappConfig, requestPayment, validFeedback, equalSecret } from '../_payapp.js';
@@ -67,6 +67,14 @@ export async function onRequest({ request, env, params }) {
 
   if (!hasDb(env)) return err('데이터베이스가 연결되어 있지 않습니다.', 503, 'NO_DB');
   try {
+    if (path === 'diagnostics' && method === 'GET') {
+      const denied = await requireAdmin(request, env); if (denied) return denied;
+      try {
+        const r = await fetch('https://api.payapp.kr/oapi/v2', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'cmd=invalid_diagnostic', redirect: 'error', signal: AbortSignal.timeout(20000) });
+        const body = await r.text(), q = new URLSearchParams(body);
+        return json({ ok: true, http_status: r.status, content_type: r.headers.get('content-type'), response_format: q.has('state') ? 'query' : (/^\s*</.test(body) ? 'html' : 'other'), provider_code: q.get('errno'), abort_timeout_supported: typeof AbortSignal.timeout === 'function' });
+      } catch (e) { return json({ ok: false, diagnostic_error: String(e?.message || '').slice(0, 180), error_name: e?.name, abort_timeout_supported: typeof AbortSignal.timeout === 'function' }); }
+    }
     if (path === 'feedback' && method === 'POST') return await feedback(request, env, C);
     // return은 화면 이동 전용이며 결제 상태는 절대 바꾸지 않습니다.
     if (path === 'return' && ['GET', 'POST'].includes(method)) {

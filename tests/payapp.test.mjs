@@ -116,3 +116,10 @@ test('1,000원 확인용 결제는 금액·수량 조작과 예약 연결을 무
   const paid=(await(await f.call('orders/'+row.oid)).json()).order;assert.equal(paid.verification,true);assert.equal(paid.price,1000);
   assert.equal(await(await f.call('feedback','POST',await f.form(row,'9'))).text(),'SUCCESS');const cancelled=(await(await f.call('orders/'+row.oid)).json()).order;assert.equal(cancelled.status,'refunded');assert.equal(cancelled.refunded_amount,1000);assert.equal(cancelled.booking_code,null);
 });
+test('페이앱 연결 진단은 관리자만 실행하고 결제·키 전송 없이 연결만 확인',async(t)=>{
+  const f=fixture();f.env.ADMIN_KEY='test-admin';
+  assert.equal((await f.call('diagnostics')).status,401);
+  t.mock.method(globalThis,'fetch',async(url,opts)=>{assert.equal(String(opts.body),'cmd=invalid_diagnostic');return new Response('state=0&errno=70040');});
+  const r=await onRequest({env:f.env,params:{path:['diagnostics']},request:new Request(ORIGIN+'/api/pay/diagnostics',{headers:{'x-admin-key':'test-admin'}})});
+  const d=await r.json();assert.equal(d.http_status,200);assert.equal(d.provider_code,'70040');assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM orders').get().n,0);
+});
