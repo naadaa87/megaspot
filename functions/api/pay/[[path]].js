@@ -26,7 +26,10 @@ export function buildOrder(input) {
   if (!p) return { error: '상품을 찾을 수 없습니다.' };
   const lines = [], today = kstToday();
   let event_date = null, people = null, title = p.name, slot = null;
-  if (p.kind === 'pass') {
+  if (p.kind === 'verification') {
+    // 운영 확인용은 입력값과 무관하게 1건 1,000원. 예약·옵션·문의 연결을 받지 않습니다.
+    lines.push({ id: p.id, label: p.name, desc: '실제 결제 · 확인 후 전액 취소', qty: 1, amount: p.price });
+  } else if (p.kind === 'pass') {
     event_date = str(input.date, 10);
     if (!isDate(event_date)) return { error: '이용일을 선택해 주세요.' };
     if (event_date < today) return { error: '지난 날짜는 선택할 수 없습니다.' };
@@ -100,13 +103,13 @@ export async function onRequest({ request, env, params }) {
       let member = null; try { member = await getMember(request, env); } catch {}
       const oid = makeOid(), t = now();
       // 접수번호는 같은 연락처(끝 4자리)로 들어온 문의일 때만 연결합니다(남의 문의를 결제로 바꾸지 못하게)
-      let inquiryRef = str(d.inquiry_ref, 20).toUpperCase().replace(/[^0-9A-Z-]/g, '');
+      let inquiryRef = str(o.product.kind === 'verification' ? '' : d.inquiry_ref, 20).toUpperCase().replace(/[^0-9A-Z-]/g, '');
       if (inquiryRef) {
         const iq = await env.DB.prepare('SELECT phone FROM inquiries WHERE ref = ?').bind(inquiryRef).first();
         const same = iq && String(iq.phone || '').replace(/\D/g, '').slice(-4) === phone.replace(/\D/g, '').slice(-4);
         if (!same) inquiryRef = '';
       }
-      const data = { lines: o.lines, people: o.people, slot: o.slot, memo: str(d.memo, 500), inquiry_ref: inquiryRef, addons: d.addons || {}, qty: num(d.qty) || 1, member_email: member ? member.email : '', ua: str(request.headers.get('user-agent'), 200), provider: 'payapp' };
+      const data = { lines: o.lines, people: o.people, slot: o.slot, memo: str(d.memo, 500), inquiry_ref: inquiryRef, addons: o.product.kind === 'verification' ? {} : (d.addons || {}), qty: o.product.kind === 'verification' ? 1 : (num(d.qty) || 1), member_email: member ? member.email : '', ua: str(request.headers.get('user-agent'), 200), provider: 'payapp' };
       await env.DB.prepare('INSERT INTO orders (oid, product_id, title, event_date, people, price, buyer_name, buyer_phone, buyer_email, data, status, inquiry_ref, member_id, test, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
         .bind(oid, o.product.id, o.title, o.event_date, o.people, o.total, name, phone, email, JSON.stringify(data), 'created', data.inquiry_ref || null, member ? member.id : null, C.live ? 0 : 1, t).run();
       await log(env, 'order.created', oid, member ? 'member:' + member.id : 'customer', { product: o.product.id, total: o.total, date: o.event_date });
@@ -142,7 +145,7 @@ export async function onRequest({ request, env, params }) {
       if (!row) return err('주문을 찾을 수 없습니다.', 404, 'NOT_FOUND');
       const data = safe(row.data);
       const refunds = await env.DB.prepare('SELECT COALESCE(SUM(amount), 0) AS total FROM payapp_refunds WHERE oid = ?').bind(row.oid).first();
-      return json({ ok: true, order: { oid: row.oid, product_id: row.product_id, title: row.title, event_date: row.event_date, people: row.people, price: row.price, status: row.status,
+      return json({ ok: true, order: { oid: row.oid, product_id: row.product_id, verification: PRODUCTS.get(row.product_id)?.kind === 'verification', title: row.title, event_date: row.event_date, people: row.people, price: row.price, status: row.status,
         buyer_name: row.buyer_name.slice(0, 1) + '*'.repeat(Math.max(1, row.buyer_name.length - 1)), buyer_phone: row.buyer_phone.replace(/(\d{3})\d{3,4}(\d{4})/, '$1-****-$2'), buyer_email: row.buyer_email ? row.buyer_email.replace(/^(.).*(@.*)$/, '$1***$2') : '',
         lines: data.lines || [], refunded_amount: Math.min(row.price, refunds?.total || 0), pay_method: row.pay_method, tid: row.tid ? row.tid.slice(-8) : '', appl_at: row.appl_at, result_msg: row.result_msg, booking_code: row.booking_code, test: !!row.test, created_at: row.created_at } });
     }

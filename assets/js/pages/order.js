@@ -13,7 +13,7 @@
   if(app){
     var q=new URLSearchParams(location.search), prod=P.get(q.get('product')||'');
     if(!prod){ app.hidden=false; $('#od-form').innerHTML='<div class="empty"><b>상품을 찾을 수 없습니다</b><p class="small muted mt-1">이용권 목록에서 다시 골라 주세요.</p><a class="btn btn-primary btn-sm mt-2" href="/products/">이용권 보기</a></div>'; $('.order-side').hidden=true; return; }
-    var isPass=prod.kind==='pass', addons=P.items.filter(function(x){ return x.kind==='addon'; });
+    var isPass=prod.kind==='pass', isVerification=prod.kind==='verification', addons=P.items.filter(function(x){ return x.kind==='addon'; });
     M.checkApi().then(function(live){
       if(!live){ $('#od-offline').hidden=false; return; }
       M.api('/pay/config').then(function(c){
@@ -32,6 +32,16 @@
         $('#od-pass').hidden=true; $('#od-addon-only').hidden=false;
         $('#od-qty').innerHTML=[1,2,3,4,5,6,7,8,9,10].map(function(n){ return '<option value="'+n+'">'+n+' ('+esc(won(prod.price*n))+')</option>'; }).join('');
       }
+      if(isVerification){
+        $('.page-hero h1').textContent='1,000원 결제·취소 확인';
+        $('.page-hero .lead').textContent='실제로 1,000원이 결제됩니다. 결제 확인 후 페이앱 판매자 관리자에서 전액 취소해 주세요. 공간 예약은 생성되지 않습니다.';
+        $('#od-product').innerHTML='<div class="eyebrow">결제 확인용</div><h2 class="h-m">'+esc(prod.name)+'</h2><p class="small mt-2">'+esc(prod.summary)+'</p>';
+        $('#od-addon-only').hidden=true; $('#od-ref').closest('.f').hidden=true;
+        $('.od-summary > p').textContent='부가세 포함 1,000원 · 추가 금액이나 보증금이 없습니다.';
+        $('[name=agree_refund]').closest('label').querySelector('span').textContent='(필수) 실제 1,000원이 결제되는 확인용 상품이며, 확인 후 페이앱 판매자 관리자에서 전액 취소하는 절차를 확인했습니다.';
+        $('.od-help').innerHTML='<b>결제·취소 확인 순서</b><ol class="small mt-2"><li>본인 정보로 1,000원을 결제합니다.</li><li>페이앱 판매자 관리자 → 결제현황에서 이 주문의 1,000원 거래를 전액 취소합니다.</li><li>메가스팟 결제 결과 화면에서 “취소 반영 확인”을 누릅니다.</li></ol><a class="btn btn-light btn-sm mt-2" href="https://seller.payapp.kr/p/using_list" target="_blank" rel="noopener">페이앱 결제현황 열기</a>';
+        $('#od-pay').textContent='1,000원 결제하기';
+      }
       phoneFmt($('#od-phone'));
       var all=$('#od-all'), boxes=$$('.agree-box input[type=checkbox]:not(#od-all)');
       all.addEventListener('change', function(){ boxes.forEach(function(b){ b.checked=all.checked; b.classList.remove('invalid'); }); });
@@ -43,7 +53,8 @@
     function state(){
       var s={ product_id:prod.id, buyer:{ name:$('#od-name').value.trim(), phone:$('#od-phone').value.trim(), email:$('#od-email').value.trim() }, memo:$('#od-memo').value.trim(), inquiry_ref:$('#od-ref').value.trim().toUpperCase(),
         agree_terms:$('[name=agree_terms]').checked, agree_privacy:$('[name=agree_privacy]').checked, agree_refund:$('[name=agree_refund]').checked };
-      if(isPass){ s.date=$('#od-date').value; s.people=parseInt($('#od-people').value,10)||20; s.addons={}; $$('[data-addon]').forEach(function(cb){ if(cb.checked) s.addons[cb.dataset.addon]=parseInt($('[data-addon-qty="'+cb.dataset.addon+'"]').value,10)||1; }); }
+      if(isVerification){ s.qty=1; s.inquiry_ref=''; }
+      else if(isPass){ s.date=$('#od-date').value; s.people=parseInt($('#od-people').value,10)||20; s.addons={}; $$('[data-addon]').forEach(function(cb){ if(cb.checked) s.addons[cb.dataset.addon]=parseInt($('[data-addon-qty="'+cb.dataset.addon+'"]').value,10)||1; }); }
       else { s.qty=parseInt($('#od-qty').value,10)||1; s.date=$('#od-date2').value; }
       return s;
     }
@@ -88,10 +99,11 @@
     function loadResult(){ return M.api('/pay/orders/'+encodeURIComponent(oid)).then(function(r){
       var o=r.order; oc.hidden=false;
       var rows=(o.lines||[]).map(function(l){ return '<tr><td>'+esc(l.label)+'<small>'+esc(l.desc||'')+'</small></td><td>'+esc(won(l.amount))+'</td></tr>'; }).join('');
+      var isVerificationOrder=!!o.verification;
       var pm={'PayApp:1':'신용·체크카드','PayApp:2':'휴대폰','PayApp:4':'대면결제','PayApp:6':'계좌이체','PayApp:7':'가상계좌','PayApp:15':'카카오페이','PayApp:16':'네이버페이','PayApp:21':'스마일페이','PayApp:23':'애플페이','PayApp:24':'내통장결제','PayApp:25':'토스페이',Card:'신용·체크카드',DirectBank:'실시간 계좌이체',VBank:'가상계좌',HPP:'휴대폰'}[o.pay_method]||o.pay_method||'';
       if(o.status==='paid'){
-        $('#oc-title').textContent='결제가 완료되었습니다'; $('#oc-sub').textContent=(o.test?'테스트 결제 · ':'')+'예약번호를 꼭 보관해 주세요.';
-        $('#oc-card').innerHTML='<div class="eyebrow">Confirmed</div><div class="oc-code"><small>예약번호</small><b>'+esc(o.booking_code||'—')+'</b></div>'
+        $('#oc-title').textContent=isVerificationOrder?'1,000원 결제가 완료되었습니다':'결제가 완료되었습니다'; $('#oc-sub').textContent=isVerificationOrder?'페이앱 판매자 관리자에서 이 거래를 전액 취소한 뒤 취소 반영을 확인해 주세요.':(o.test?'테스트 결제 · ':'')+'예약번호를 꼭 보관해 주세요.';
+        $('#oc-card').innerHTML='<div class="eyebrow">Confirmed</div><div class="oc-code"><small>'+(isVerificationOrder?'주문번호':'예약번호')+'</small><b>'+esc(isVerificationOrder?o.oid:(o.booking_code||'—'))+'</b></div>'
           +'<dl class="def mt-3"><dt>상품</dt><dd>'+esc(o.title)+'</dd>'+(o.event_date?'<dt>이용일</dt><dd>'+esc(E?E.kdateY(o.event_date):o.event_date)+(o.people?' · '+o.people+'명':'')+'</dd>':'')+'<dt>예약자</dt><dd>'+esc(o.buyer_name)+' · '+esc(o.buyer_phone)+(o.buyer_email?' · '+esc(o.buyer_email):'')+'</dd><dt>결제</dt><dd>'+esc(pm)+' · '+esc(won(o.price))+(o.appl_at?' · '+esc(o.appl_at):'')+'</dd><dt>주문번호</dt><dd>'+esc(o.oid)+'</dd></dl>'
           +'<table class="q-table mt-3"><tbody>'+rows+'</tbody><tfoot><tr class="sum"><td>결제 금액 <small>부가세 포함</small></td><td>'+esc(won(o.price))+'</td></tr></tfoot></table>'
           +(o.test?'<div class="notice mt-3"><div><b>테스트 결제</b>로 처리된 주문입니다. 실제 승인·출금은 되지 않았습니다.</div></div>':'')
@@ -104,6 +116,14 @@
         $('#oc-card').innerHTML='<div class="eyebrow">'+esc(o.status==='failed'?'Not completed':o.status)+'</div><dl class="def mt-2"><dt>상품</dt><dd>'+esc(o.title)+'</dd>'+(o.event_date?'<dt>이용일</dt><dd>'+esc(E?E.kdateY(o.event_date):o.event_date)+'</dd>':'')+'<dt>금액</dt><dd>'+esc(won(o.price))+'</dd><dt>주문번호</dt><dd>'+esc(o.oid)+'</dd>'+(o.result_msg&&o.status==='failed'?'<dt>사유</dt><dd>'+esc(o.result_msg)+'</dd>':'')+'</dl>'
           +'<p class="small muted mt-2">결제를 마쳤는데 진행 중으로 표시되면 결과를 확인하고 있는 중입니다. 다시 결제하지 마시고 잠시 기다려 주세요. 카카오톡으로 주문번호와 함께 알려 주시면 바로 확인해 드립니다.</p>'
           +'<div class="row mt-3" style="gap:8px">'+(retry?'<a class="btn btn-primary btn-sm" href="/order/?product='+esc(o.product_id)+(o.event_date?'&date='+esc(o.event_date):'')+(o.people?'&people='+o.people:'')+'">다시 결제하기</a>':'')+'<a class="btn btn-kakao btn-sm" href="https://pf.kakao.com/_LnxbmX/chat" target="_blank" rel="noopener" data-kakao>카카오톡 문의</a></div>';
+      }
+      if(isVerificationOrder){
+        if(o.status==='paid') $('#oc-card').insertAdjacentHTML('beforeend','<div class="notice mt-3"><div>1,000원 실결제가 완료되었습니다. 페이앱에서 이 주문의 거래를 전액 취소한 뒤 아래 버튼을 눌러 주세요.</div></div><div class="row mt-3" style="gap:8px"><a class="btn btn-light btn-sm" href="https://seller.payapp.kr/p/using_list" target="_blank" rel="noopener">페이앱 결제현황</a><button class="btn btn-primary btn-sm" type="button" onclick="location.reload()">취소 반영 확인</button></div>');
+        if(o.status==='refunded'){
+          $('#oc-title').textContent='1,000원 결제 취소가 확인되었습니다';
+          $('#oc-sub').textContent='페이앱 승인 취소 결과가 메가스팟 주문에 정상 반영되었습니다.';
+          $('#oc-card').innerHTML='<div class="eyebrow">취소 확인 완료</div><dl class="def mt-2"><dt>상품</dt><dd>'+esc(o.title)+'</dd><dt>주문번호</dt><dd>'+esc(o.oid)+'</dd><dt>취소 금액</dt><dd>'+esc(won(o.refunded_amount))+'</dd></dl><p class="small mt-2">공간 예약은 생성되지 않았습니다.</p>';
+        }
       }
       if(o.status==='created' && pollCount++<20) setTimeout(loadResult,1500);
     }).catch(function(){ $('#oc-missing').hidden=false; $('#oc-title').textContent='주문 정보를 찾을 수 없습니다'; }); }

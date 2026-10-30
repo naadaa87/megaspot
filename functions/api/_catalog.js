@@ -44,6 +44,9 @@ export const PRODUCTS = (function(){ const window = {};
     // ---------- 상품 ----------
     // kind: 'pass'(공간 이용권) | 'addon'(옵션). pass 는 이용일 선택 + 인원(기준 20명, 1명당 1만 원) 이 붙고, addon 은 단독 또는 이용권과 함께 구매.
     items: [
+      // 운영자 결제·취소 확인용: 일반 이용권·옵션 목록에는 노출하지 않습니다. 실제 승인됩니다.
+      { id: 'payapp-check-1000', kind: 'verification', hidden: true, name: '메가스팟 결제·취소 확인 (1,000원)', price: 1000, unit: '1건',
+        summary: '페이앱 연동 확인을 위한 1,000원 실결제입니다. 공간 예약이나 서비스 제공은 없으며, 결제 확인 후 페이앱 판매자 관리자에서 전액 취소해 주세요.' },
       // 낮 패키지 10–17시 (7시간)
       { id: 'pass-day-wdfri',   kind: 'pass', pkg: 'day',      group: 'wdfri',  name: '낮 패키지 이용권 · 월–금',     price: 300000,  start: 10, end: 17, hours: 7,
         summary: '월–금 10시부터 17시까지 7시간, 기준 20명. 세미나·클래스·워크숍·낮 모임에 맞습니다.', cover: 's01' },

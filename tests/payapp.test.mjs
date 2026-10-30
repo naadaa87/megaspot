@@ -105,3 +105,14 @@ test('이용권 승인·환불은 연결 문의도 기존 운영 상태로 반�
     assert.equal(f.db.prepare('SELECT status FROM inquiries').get().status,'취소·환불');
   }
 });
+test('1,000원 확인용 결제는 금액·수량 조작과 예약 연결을 무시하고 승인·취소 가능',async(t)=>{
+  const f=fixture();let sent;
+  t.mock.method(globalThis,'fetch',async(url,opts)=>{sent=new URLSearchParams(opts.body);return new Response('state=1&mul_no=1000999&payurl=https%3A%2F%2Fpayapp.kr%2Fverification');});
+  const r=await f.call('prepare','POST',{product_id:'payapp-check-1000',price:1,qty:10,date:kstToday(1),people:200,addons:{cleaning:10},inquiry_ref:'MS-2610-TEST',buyer:{name:'확인용','phone':'01012345678'},agree_terms:true,agree_privacy:true,agree_refund:true});
+  const result=await r.json();assert.equal(r.status,200);assert.equal(result.total,1000);assert.equal(sent.get('price'),'1000');assert.equal(result.test,false);
+  const row=f.db.prepare('SELECT o.*,p.mul_no,p.nonce FROM orders o JOIN payapp_payments p ON p.oid=o.oid WHERE o.oid=?').get(result.oid);
+  assert.equal(row.event_date,null);assert.equal(row.inquiry_ref,null);assert.equal(row.people,null);assert.equal(row.test,0);assert.equal(JSON.parse(row.data).qty,1);assert.deepEqual(JSON.parse(row.data).addons,{});
+  assert.equal(await(await f.call('feedback','POST',await f.form(row))).text(),'SUCCESS');assert.equal(f.order(row.oid).status,'paid');assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM bookings').get().n,0);
+  const paid=(await(await f.call('orders/'+row.oid)).json()).order;assert.equal(paid.verification,true);assert.equal(paid.price,1000);
+  assert.equal(await(await f.call('feedback','POST',await f.form(row,'9'))).text(),'SUCCESS');const cancelled=(await(await f.call('orders/'+row.oid)).json()).order;assert.equal(cancelled.status,'refunded');assert.equal(cancelled.refunded_amount,1000);assert.equal(cancelled.booking_code,null);
+});
