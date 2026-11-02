@@ -33,3 +33,7 @@ test('뷔페만 새로 고르면 다른 서비스 선택을 덮어쓰지 않는�
  const f=fixture();const merged=f.plan.mergeFields({rv_cat_course:'basic',cocktail_on:['1'],cocktail_cups:'300'},{rv_cat_course:'classic',cocktail_on:[],cocktail_cups:'100'},new URLSearchParams('catering=classic'));
  assert.equal(merged.rv_cat_course,'classic');assert.deepEqual(merged.cocktail_on,['1']);assert.equal(merged.cocktail_cups,'300');
 });
+test('통합 식음료 UI를 쓰는 모든 페이지는 칵테일 계산기를 먼저 불러온다',()=>{
+ const pages=['index.html','guide/index.html','inquiry/index.html','spaces/megaspot-gundae/index.html','spaces/megaspot-gundae/pricing/index.html','spaces/megaspot-gundae-2/index.html','spaces/megaspot-gundae-2/pricing/index.html'];
+ for(const page of pages){const html=readFileSync(new URL('../'+page,import.meta.url),'utf8');const cocktail=html.indexOf('/assets/js/cocktail-calc.js?');const plan=html.indexOf('/assets/js/event-plan.js?');const pricing=html.indexOf('/assets/js/pricing-ui.js?');assert.ok(cocktail>=0&&cocktail<plan&&plan<pricing,page);}
+});
