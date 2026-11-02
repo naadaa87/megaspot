@@ -28,8 +28,10 @@
 .page-reception #calc .cc-total b{font-family:var(--font-body);font-size:clamp(27px,3vw,38px);font-weight:800}
 .page-reception #calc .cc-go{white-space:normal;text-align:center;width:100%;margin-top:20px}
 .page-reception #calc .est-lines td:first-child{padding-right:12px}
-.page-reception #calc .reception-fee-table th{font-size:12px;text-align:right;line-height:1.5;padding:10px 0;border-bottom:1px solid var(--concrete)}
-.page-reception #calc .reception-fee-table th:first-child{text-align:left}
+.page-reception #calc .reception-fee-table{table-layout:fixed;border-collapse:collapse}
+.page-reception #calc .reception-fee-table th,.page-reception #calc .reception-fee-table td{width:33.333%;text-align:right}
+.page-reception #calc .reception-fee-table th{font-size:12px;line-height:1.5;padding:10px 0;border-bottom:1px solid var(--concrete)}
+.page-reception #calc .reception-fee-table th:first-child,.page-reception #calc .reception-fee-table td:first-child{text-align:left}
 .page-reception #calc .reception-fee-table td{font-size:13px;white-space:nowrap}
 .page-reception #formats{scroll-margin-top:90px}
 .reception-formats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
