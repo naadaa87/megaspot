@@ -24,3 +24,8 @@
 /meetups/manage/*
   X-Robots-Tag: noindex, nofollow
   Referrer-Policy: no-referrer
+
+/parking/purchase/*
+  X-Robots-Tag: noindex, nofollow
+  Referrer-Policy: no-referrer
+  Cache-Control: no-store
