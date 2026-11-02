@@ -16,6 +16,7 @@ from reportlab.lib.colors import HexColor
 from reportlab.lib.utils import ImageReader
 from reception_data import COURSES, CATALOG, PRICE_NOTE, PHOTO_NOTE, CATALOG_PRICE_NOTE, SERVICE_FEES, CATERING_FORMATS, FORMAT_NOTE, FIELD_PHOTOS
 from drinks_content import drinks_section, CSS as DRINKS_CSS
+from event_gallery import event_gallery_section, CSS_LINK as EVENT_CSS, SCRIPT_LINK as EVENT_SCRIPT
 
 ROOT = Path(__file__).resolve().parents[1]
 IMG = ROOT / "assets/img/reception"
@@ -126,11 +127,13 @@ def build_web():
 </main>'''
     body = body.replace('<section class="section sec-line" id="packages">', formats_section()+'\n<section class="section sec-line" id="packages">')
     body = body.replace('<section class="section sec-line" id="packages">', gallery_section()+'\n<section class="section sec-line" id="packages">')
+    body = body.replace('<section class="section sec-line" id="packages">', event_gallery_section()+'\n<section class="section sec-line" id="packages">')
+    body = body.replace('<a href="#packages">구성 비교</a>', '<a href="#event-gallery">실제 행사 현장</a><a href="#packages">구성 비교</a>')
     body = body.replace('<a href="#packages">구성 비교</a>', '<a href="#gallery">실제 현장 사진</a><a href="#packages">구성 비교</a>')
     body = body.replace('<a href="#menus">코스별 메뉴</a>', '<a href="#calc">클래식 금액 계산</a><a href="#menus">코스별 메뉴</a>')
     body = body.replace('<section class="section sec-white sec-line" id="menus">', calculator_section()+'\n<section class="section sec-white sec-line" id="menus">')
     body = body.replace(f'href="{inquiry(next(c for c in COURSES if c["id"]=="classic"))}"', 'href="#calc"').replace('href="#calc">이 구성으로 상담 →','href="#calc">클래식 금액 계산 →')
-    head = head.replace('</head>', DRINKS_CSS+'\n</head>')
+    head = head.replace('</head>', DRINKS_CSS+'\n'+EVENT_CSS+'\n</head>')
     body = body.replace('<a href="#process">진행 안내</a>', '<a href="#drinks">주류·논알콜</a><a href="#process">진행 안내</a>')
     body = body.replace('<section class="section sec-white sec-line" id="process">', drinks_section()+'\n<section class="section sec-white sec-line" id="process">')
     body = body.replace('출장 케이터링 상담 →</a>', f'출장 케이터링 상담 →</a><a class="btn btn-light" href="tel:{PHONE_TEL}">케이터링 전화 {PHONE}</a>')
@@ -140,7 +143,7 @@ def build_web():
     # before its DOMContentLoaded header and mobile quick-bar setup runs.
     foot = foot[:foot.index('<script src="/assets/js/site.js')]+ '<script src="/assets/js/site.js?v=202610270438"></script>\n<script>window.MEGASPOT.CONFIG.phone='+json.dumps(PHONE)+';</script>\n</body>\n</html>\n'
     scripts=f'<script src="/assets/js/data/reception-quote.js?v={STAMP}"></script>\n<script src="/assets/js/reception-calc.js?v={STAMP}"></script>\n<script src="/assets/js/pages/reception.js?v={STAMP}"></script>\n'
-    foot=foot.replace('</body>',scripts+'</body>')
+    foot=foot.replace('</body>',scripts+EVENT_SCRIPT+'\n</body>')
     dest = ROOT / "reception/index.html"; dest.parent.mkdir(exist_ok=True)
     page = (head+body+foot).replace('href="tel:01023849580" data-phone', f'href="tel:{PHONE_TEL}" data-phone').replace('data-phone>010-2384-9580', f'data-phone>{PHONE}')
     dest.write_text(page)
