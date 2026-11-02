@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 IMG = ROOT / "assets/img/reception"
 PDF = ROOT / "assets/docs/megaspot-reception-guide.pdf"
 URL = "/reception/"
-STAMP = "20261102r9"
+STAMP = "20261102r10"
 LOGO = ROOT / "assets/img/brand/megaspot-official-wordmark-transparent.png"
 KAKAO = "https://pf.kakao.com/_LnxbmX/chat"
 PHONE = "010-8540-1886"
@@ -189,7 +189,7 @@ def build_pdf():
         text(48,432,title,29,ink,'B')
         if sub:para(48,401,sub,size=12,width=860,leading=18)
         rule(45);text(48,25,'MEGASPOT  ·  출장 케이터링  ·  megaspot.kr/reception',9,muted)
-        text(808,25,'REV 09',8,muted);text(887,25,f'{page:02}',10,muted,'B')
+        text(808,25,'REV 10',8,muted);text(887,25,f'{page:02}',10,muted,'B')
     def end():c.showPage()
     # Cover follows the existing buffet guide's split photo layout.
     page+=1;rect(0,0,W,H,'#FFFFFF');pic(IMG/'hero.jpg',486,0,474,540)
@@ -214,7 +214,7 @@ def build_pdf():
         for j,(label,url) in enumerate(f['references']):
             lx=x+j*135
             text(lx,72,label+' >',9,blue,'S');c.linkURL(url,(lx,68,lx+130,84))
-        text(x,57,'사진: '+('보틀케이터링 Instagram' if i<2 else '제공받은 애드썸 케이터링 자료'),8,muted)
+        text(x,57,'사진: '+f.get('pdf_credit', '보틀케이터링 Instagram' if i<2 else '제공받은 애드썸 케이터링 자료'),8,muted)
     end()
     begin('PACKAGES','예산과 행사 분위기에 맞는 네 가지 구성','샌드위치와 핑거푸드로 가볍게, 메인 요리를 곁들여 풍성하게 준비하세요.')
     for i,co in enumerate(COURSES):

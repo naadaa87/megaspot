@@ -19,9 +19,9 @@ FIELD_PHOTOS = [
 CATERING_FORMATS = [
     dict(id="lunchbox", name="도시락 케이터링", tagline="한 분씩, 편하게 즐기는 개별 포장",
          description="한 분씩 따로 드실 수 있도록 개별 포장으로 준비하는 방식입니다.",
-         check="1인 포장 구성·배부 방법을 상담해 주세요.", image="formats/lunchbox.jpg",
-         alt="샌드위치와 과일 등을 한 사람 몫으로 담은 개별 도시락 포장 참고 사진",
-         credit="사진: 보틀케이터링 · 사용자 제공 Instagram 참고 자료",
+         check="1인 포장 구성·배부 방법을 상담해 주세요.", image="formats/lunchbox-20261102.jpg",
+         alt="크로와상 샌드위치와 과일, 디저트를 한 사람 몫으로 담은 개별 도시락 포장 참고 사진",
+         credit="사진: 사용자 제공 도시락 케이터링 참고 사진", pdf_credit="사용자 제공 도시락 참고 사진",
          references=[("도시락 영상 보기", "https://www.instagram.com/reel/DWONrHrDWFX/")]),
     dict(id="box", name="박스 케이터링", tagline="박스 그대로, 간편한 뷔페 테이블",
          description="음식을 담은 박스를 받아 테이블에 그대로 올려 뷔페처럼 이용하는 방식입니다.",
