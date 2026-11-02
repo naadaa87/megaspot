@@ -18,23 +18,65 @@
       "디저트 2종"
     ]
   },
-  "fees": [
-    {
-      "upto": 100,
-      "price": 250000,
-      "label": "100명까지"
-    },
-    {
-      "upto": 200,
-      "price": 300000,
-      "label": "101~200명"
-    },
-    {
-      "upto": 300,
-      "price": 350000,
-      "label": "201~300명"
-    }
-  ],
+  "feesByFormat": {
+    "lunchbox": [
+      {
+        "upto": 100,
+        "price": 100000,
+        "label": "100명까지"
+      },
+      {
+        "upto": 200,
+        "price": 150000,
+        "label": "101~200명"
+      },
+      {
+        "upto": 300,
+        "price": 200000,
+        "label": "201~300명"
+      }
+    ],
+    "box": [
+      {
+        "upto": 100,
+        "price": 100000,
+        "label": "100명까지"
+      },
+      {
+        "upto": 200,
+        "price": 150000,
+        "label": "101~200명"
+      },
+      {
+        "upto": 300,
+        "price": 200000,
+        "label": "201~300명"
+      }
+    ],
+    "table": [
+      {
+        "upto": 100,
+        "price": 250000,
+        "label": "100명까지"
+      },
+      {
+        "upto": 200,
+        "price": 300000,
+        "label": "101~200명"
+      },
+      {
+        "upto": 300,
+        "price": 350000,
+        "label": "201~300명"
+      }
+    ]
+  },
+  "feeLabels": {
+    "lunchbox": "출장·세팅 비용",
+    "box": "출장·세팅 비용",
+    "table": "출장·세팅·철수 비용"
+  },
+  "defaultFormat": "table",
   "phone": "010-8540-1886",
   "formats": {
     "lunchbox": "도시락 케이터링",

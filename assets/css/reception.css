@@ -28,6 +28,9 @@
 .page-reception #calc .cc-total b{font-family:var(--font-body);font-size:clamp(27px,3vw,38px);font-weight:800}
 .page-reception #calc .cc-go{white-space:normal;text-align:center;width:100%;margin-top:20px}
 .page-reception #calc .est-lines td:first-child{padding-right:12px}
+.page-reception #calc .reception-fee-table th{font-size:12px;text-align:right;line-height:1.5;padding:10px 0;border-bottom:1px solid var(--concrete)}
+.page-reception #calc .reception-fee-table th:first-child{text-align:left}
+.page-reception #calc .reception-fee-table td{font-size:13px;white-space:nowrap}
 .page-reception #formats{scroll-margin-top:90px}
 .reception-formats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
 .reception-format{border:1px solid var(--concrete);background:white;display:flex;flex-direction:column;min-width:0}
