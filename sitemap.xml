@@ -167,4 +167,5 @@
     <image:image><image:loc>https://megaspot.kr/assets/img/gundae/m/p10.jpg</image:loc><image:title>메가스팟 건대 1호 — 샹들리에와 공간 중심</image:title></image:image>
   </url>
   <url><loc>https://megaspot.kr/spaces/megaspot-gundae/3d/</loc><lastmod>2026-10-27</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://megaspot.kr/reception/</loc><lastmod>2026-11-02</lastmod><changefreq>monthly</changefreq><priority>0.8</priority><image:image><image:loc>https://megaspot.kr/assets/img/reception/hero.jpg</image:loc><image:title>메가스팟 출장 케이터링 테이블 연출 참고 사진</image:title></image:image></url>
 </urlset>

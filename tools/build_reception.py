@@ -1,0 +1,193 @@
+"""Build the public reception page and branded PDF from reception_data.py.
+
+Image extraction once:
+  pdfimages -png INPUT.pdf tmp/pdfs/raw
+Run with the bundled Python runtime (reportlab and Pillow).
+"""
+from pathlib import Path
+from html import escape as esc
+from io import BytesIO
+import json
+from PIL import Image, ImageOps
+from reportlab.pdfgen import canvas
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.lib.colors import HexColor
+from reportlab.lib.utils import ImageReader
+from reception_data import COURSES, CATALOG, PRICE_NOTE, PHOTO_NOTE
+
+ROOT = Path(__file__).resolve().parents[1]
+IMG = ROOT / "assets/img/reception"
+PDF = ROOT / "assets/docs/megaspot-reception-guide.pdf"
+URL = "/reception/"
+STAMP = "20261102"
+KAKAO = "https://pf.kakao.com/_LnxbmX/chat"
+PDF_URL = f"/assets/docs/{PDF.name}?v={STAMP}"
+
+def photo_assets():
+    IMG.mkdir(parents=True, exist_ok=True)
+    for i, name in enumerate(["hero", "setting"]):
+        p = ROOT / f"tmp/pdfs/raw-{i:03}.png"
+        if p.exists():
+            im = Image.open(p).convert("RGB"); im.thumbnail((1600, 1200))
+            im.save(IMG / f"{name}.jpg", quality=88, optimize=True)
+    # Source catalogue photos only: exclude its printed labels and telephone number.
+    for page, count in [(2, 24), (3, 19)]:
+        p = ROOT / f"tmp/pdfs/raw-{page:03}.png"
+        if not p.exists():
+            continue
+        im = Image.open(p).convert("RGB")
+        if page == 2:
+            basew, baseh = 766, 1000
+            cols = [(4, 189), (195, 361), (369, 585), (592, 765)]
+            rows = [(1, 137), (181, 309), (343, 465), (501, 627), (673, 801), (849, 976)]
+            positions = [(r, c) for r in range(6) for c in range(4)]
+            offset = 0
+        else:
+            basew, baseh = 780, 1000
+            cols = [(22, 188), (212, 373), (400, 560), (592, 753)]
+            rows = [(8, 132), (181, 301), (362, 484), (517, 644), (685, 810), (849, 974)]
+            positions = [(r, c) for r in range(3) for c in range(4)] + [(3, 0)] + [(4, c) for c in range(4)] + [(5, 0), (5, 1)]
+            offset = 24
+        for n, (r, col) in enumerate(positions):
+            x1, x2 = cols[col]; y1, y2 = rows[r]
+            box = (round(x1 / basew * im.width), round(y1 / baseh * im.height), round(x2 / basew * im.width), round(y2 / baseh * im.height))
+            cut = im.crop(box); cut.thumbnail((680, 540))
+            cut.save(IMG / f"menu-{offset+n+1:02}.jpg", quality=87, optimize=True)
+
+def inquiry(course):
+    return f'/inquiry/?reception={course["id"]}#other'
+
+def build_web():
+    template = (ROOT / "cocktail/index.html").read_text()
+    head = template[:template.index('<main id="main">')]
+    title = "메가스팟 출장 케이터링 | 25,000원부터 · 핑거푸드·파티·리셉션"
+    description = "메가스팟 출장 케이터링. 25,000원·35,000원·45,000원·55,000원 네 가지 구성과 샌드위치·카나페·스큐어·디저트·박스 메뉴 43종, 소개서 PDF를 확인하고 상담하세요."
+    import re
+    head = re.sub(r'<title>.*?</title>', f'<title>{title}</title>', head)
+    head = re.sub(r'(<meta name="description" content=")[^"]*', lambda m: m[1]+description, head)
+    head = re.sub(r'(<meta name="keywords" content=")[^"]*', lambda m: m[1]+"메가스팟 케이터링, 출장 케이터링, 파티 케이터링, 핑거푸드, 건대 리셉션, 샌드위치 케이터링", head)
+    head = head.replace('https://megaspot.kr/cocktail/', 'https://megaspot.kr/reception/')
+    head = head.replace('https://megaspot.kr/assets/img/cocktail/mojito.jpg?v=202610302230', 'https://megaspot.kr/assets/img/reception/hero.jpg')
+    for prop, content in [("og:title", title), ("og:description", description), ("og:image:alt", "출장 케이터링 테이블 연출 참고 사진")]:
+        head = re.sub(r'(<meta property="'+prop+r'" content=")[^"]*', lambda m:m[1]+content,head)
+    for prop, content in [("twitter:title",title),("twitter:description",description)]:
+        head = re.sub(r'(<meta name="'+prop+r'" content=")[^"]*',lambda m:m[1]+content,head)
+    schema = {"@context":"https://schema.org","@type":"Service","name":"메가스팟 출장 케이터링","url":"https://megaspot.kr/reception/","description":description,"provider":{"@type":"Organization","name":"메가스팟","url":"https://megaspot.kr"}}
+    head = re.sub(r'<script type="application/ld\+json">.*?</script>', '<script type="application/ld+json">'+json.dumps(schema,ensure_ascii=False)+'</script>', head, flags=re.S)
+    head = head.replace('</head>',f'<link rel="stylesheet" href="/assets/css/reception.css?v={STAMP}">\n</head>').replace('page-cocktail','page-reception')
+    packages = ''.join(f'<article class="reception-package"><div class="eyebrow">0{i+1} / {c["id"]}</div><h3 class="mt-1">{c["name"]}</h3><div class="reception-price">{c["price"]:,}원<small>메가스팟 구성 안내가</small></div><p>{c["intro"]}</p><a class="btn btn-light btn-sm" href="#course-{c["id"]}">상세 메뉴 보기 ↓</a></article>' for i,c in enumerate(COURSES))
+    courses = ''.join(f'<article class="reception-course" id="course-{c["id"]}"><header><div><h3>{c["name"]}<span>{c["price"]:,}원</span></h3><p class="small muted mt-1">{c["intro"]}</p></div><a class="btn btn-primary btn-sm" href="{inquiry(c)}">이 구성으로 상담 →</a></header><ul class="reception-menu-list">'+''.join(f'<li><b>{name}</b>'+ (f'<small>{detail}</small>' if detail else '')+'</li>' for name,detail in c['menus'])+'</ul></article>' for c in COURSES)
+    catalog = ''.join(f'<article class="reception-item"><img src="/assets/img/reception/menu-{i+1:02}.jpg" alt="{name} 메뉴 참고 사진" width="640" height="480" loading="lazy"><div><h3>{name}</h3><p>{"박스 메뉴" if unit=="BOX" else "개별 메뉴"} · 수량·판매가 별도 상담</p></div></article>' for i,(name,unit) in enumerate(CATALOG))
+    body = f'''<main id="main">
+<section class="page-hero"><div class="container"><div class="crumbs"><a href="/">홈</a><span>/</span><span>출장 케이터링</span></div><div class="reception-hero mt-3"><div><div class="eyebrow">Megaspot Reception Catering</div><h1 class="h-xl">모임의 테이블을 채우는<br>출장 케이터링</h1><p class="lead">샌드위치와 카나페부터 스큐어, 샐러드와 디저트까지.<br>파티·네트워킹·리셉션에 어울리는 메뉴를 메가스팟 대관과 함께 상담하세요.</p><div class="hero-mega"><span><b>25,000</b>원부터</span><span><b>4</b>가지 구성</span><span>단품·박스 메뉴 상담</span></div><div class="row mt-3"><a class="btn btn-primary" href="#packages">구성과 가격 보기 ↓</a><a class="btn btn-light" href="{PDF_URL}" target="_blank" rel="noopener">소개서 PDF ↗</a></div><p class="tiny muted mt-2">{PRICE_NOTE}</p></div><figure><img src="/assets/img/reception/hero.jpg" alt="핑거푸드와 디저트로 차린 케이터링 테이블 연출 참고 사진" width="1600" height="1200" fetchpriority="high"><figcaption>협력사 제공 연출 참고 사진 · 장식·꽃·음료 등 포함 범위 별도 협의</figcaption></figure></div><nav class="reception-jump" aria-label="케이터링 페이지 목차"><a href="#packages">구성 비교</a><a href="#menus">코스별 메뉴</a><a href="#catalog">개별·박스 메뉴 43종</a><a href="#process">진행 안내</a><a href="#faq">자주 묻는 질문</a></nav></div></section>
+<section class="section sec-line" id="packages"><div class="container"><div class="section-head"><div class="eyebrow">Packages & prices</div><h2 class="h-l">행사에 맞는 네 가지 구성</h2><p class="lead">가벼운 핑거푸드부터 메인 요리를 곁들인 테이블까지, 예산과 행사 분위기에 맞춰 선택하세요.</p></div><div class="reception-packages">{packages}</div><p class="reception-note mt-3">{PRICE_NOTE} 공간 대관료는 별도입니다. 아래 코스명은 메가스팟 안내를 위해 구분한 이름입니다.</p></div></section>
+<section class="section sec-white sec-line" id="menus"><div class="container"><div class="section-head"><div class="eyebrow">Course menus</div><h2 class="h-l">코스별 전체 메뉴를 확인하세요</h2><p class="lead">샌드위치 종류, 스큐어 구성과 디저트 가짓수를 비교해 보세요.</p></div>{courses}<p class="small muted mt-3">위 메뉴는 제공 자료 기준의 구성입니다. 메뉴 변경 가능 여부, 알레르기·식이 제한, 제공량과 최종 구성은 상담에서 확인해 주세요.</p></div></section>
+<section class="section sec-line" id="catalog"><div class="container"><div class="section-head"><div class="eyebrow">Finger food & box menu</div><h2 class="h-l">필요한 메뉴만 따로 상의해도 좋습니다</h2><p class="lead">개별 메뉴와 박스 메뉴 43종의 참고 사진입니다. 코스에 더하거나 맞춤 구성을 원하면 메뉴 이름과 희망 수량을 알려 주세요.</p></div><div class="reception-note mb-3">개별 메뉴의 판매가·최소 수량과 박스당 중량·제공 인원은 별도 견적으로 안내합니다. 사진 속 양이나 식기는 확정 제공 기준이 아닙니다.</div><div class="reception-catalog">{catalog}</div><p class="tiny muted mt-3">{PHOTO_NOTE}</p></div></section>
+<section class="section sec-white sec-line" id="process"><div class="container"><div class="section-head"><div class="eyebrow">How it works</div><h2 class="h-l">날짜와 원하는 메뉴부터 알려 주세요</h2></div><ol class="steps"><li class="step"><div class="n">1</div><h4>일정 문의</h4><p>행사 날짜·장소·시간·예상 인원과 예산을 알려 주세요.</p></li><li class="step"><div class="n">2</div><h4>메뉴 상담</h4><p>희망 구성과 개별 메뉴, 식이 제한·알레르기를 확인합니다.</p></li><li class="step"><div class="n">3</div><h4>최종 견적</h4><p>인원 기준·부가세·출장비와 식기·세팅·수거 포함 범위를 확인합니다.</p></li><li class="step"><div class="n">4</div><h4>주문 확정</h4><p>최종 수량과 변경·취소 기준을 확인하고 안내에 따라 확정합니다.</p></li><li class="step"><div class="n">5</div><h4>행사 준비</h4><p>협의한 시간과 제공 방식으로 준비합니다. 세팅·수거가 있으면 대관 시간에 반영해 주세요.</p></li></ol></div></section>
+<section class="section sec-line" id="faq"><div class="container"><div class="section-head"><div class="eyebrow">FAQ</div><h2 class="h-l">주문 전, 확인해 주세요</h2></div><div class="faq"><details><summary>출장뷔페와 어떤 차이가 있나요?</summary><div class="body">출장뷔페는 밥·국과 다양한 더운 요리로 식사를 준비하는 코스입니다. 이 페이지의 출장 케이터링은 샌드위치·카나페·스큐어·디저트처럼 파티와 리셉션에 어울리는 메뉴를 중심으로 구성합니다. 행사 목적과 식사 필요 여부를 알려 주시면 함께 안내합니다.</div></details><details><summary>가격에 부가세와 출장·세팅비가 포함되나요?</summary><div class="body">{PRICE_NOTE} 기존 출장뷔페의 비용 조건과 별도로 확인하며, 대관료도 따로 안내합니다.</div></details><details><summary>최소 몇 명부터 주문할 수 있나요?</summary><div class="body">최소 주문 인원·수량은 메뉴와 제공 방식에 따라 상담에서 확인합니다. 행사 인원과 희망 구성을 알려 주세요.</div></details><details><summary>사진 속 꽃·식기·음료도 함께 제공되나요?</summary><div class="body">사진은 메뉴와 연출 참고용입니다. 꽃·장식·식기·음료·테이블과 현장 인력, 세팅·수거 포함 여부는 최종 견적에서 확인합니다.</div></details><details><summary>메뉴 변경이나 취소는 어떻게 하나요?</summary><div class="body">식이 제한과 알레르기는 상담 때 미리 알려 주세요. 메뉴 변경 가능 여부와 최종 수량 확정일, 인원 변경·취소 비용 기준은 주문 확정 전에 안내합니다.</div></details></div></div></section>
+<section class="section"><div class="container"><div class="reception-cta"><div class="eyebrow">Plan your event</div><h2 class="h-l mt-1">공간과 케이터링을 함께 상담하세요</h2><p class="mt-2">행사 날짜·예상 인원·원하는 구성만 알려 주셔도 상담을 시작할 수 있습니다.</p><div class="row mt-3"><a class="btn btn-primary" href="/inquiry/?reception=all#other">출장 케이터링 상담 →</a><a class="btn btn-kakao" href="{KAKAO}" target="_blank" rel="noopener" data-kakao>카카오톡 문의</a><a class="btn btn-light" href="{PDF_URL}" target="_blank" rel="noopener">소개서 PDF ↗</a></div></div><div class="grid grid-2 reception-services mt-3"><a href="/catering/"><b>든든한 식사가 필요하다면 →</b><span class="small muted">출장뷔페 · 코스·바베큐·생맥주</span></a><a href="/cocktail/"><b>한 잔의 분위기를 더하려면 →</b><span class="small muted">출장 칵테일 · 전문 바텐더 현장 제조</span></a></div></div></section>
+</main>'''
+    foot = template[template.index('<footer class="site-footer">'):]
+    foot = foot[:foot.index('<script src="/assets/js/site.js')]+ '<script src="/assets/js/site.js?v=202610270438"></script>\n</body>\n</html>\n'
+    dest = ROOT / "reception/index.html"; dest.parent.mkdir(exist_ok=True)
+    dest.write_text(head+body+foot)
+
+def build_pdf():
+    fonts = Path('/Users/choejun-won/Library/Fonts')
+    for n,f in [('R','Regular'),('B','Bold'),('S','SemiBold')]:
+        pdfmetrics.registerFont(TTFont(n,str(fonts/f'Pretendard-{f}.ttf')))
+    W,H = 960,540
+    c = canvas.Canvas(str(PDF),pagesize=(W,H),pageCompression=1)
+    c.setTitle('메가스팟 출장 케이터링 서비스 소개');c.setAuthor('MEGASPOT')
+    c.setSubject('25,000원·35,000원·45,000원·55,000원 구성 및 개별·박스 메뉴 43종')
+    ink='#262B2E';blue='#1F53D5';muted='#5B6168';pale='#E6ECFB';chalk='#F7F5F1';line='#D5D0C8'
+    page = 0
+    def rect(x,y,w,h,color):
+        c.setFillColor(HexColor(color));c.rect(x,y,w,h,stroke=0,fill=1)
+    def text(x,y,s,size=14,color=ink,font='R'):
+        c.setFillColor(HexColor(color));c.setFont(font,size);c.drawString(x,y,s)
+    def rule(y):rect(48,y,864,0.7,line)
+    def wrap(s,limit,size,font='R'):
+        result=[];buf=''
+        for ch in s:
+            if pdfmetrics.stringWidth(buf+ch,font,size)>limit and buf:
+                result.append(buf);buf=ch
+            else:buf+=ch
+        if buf:result.append(buf)
+        return result
+    def para(x,y,s,width=850,size=13,color=muted,leading=20,font='R'):
+        for row in wrap(s,width,size,font):text(x,y,row,size,color,font);y-=leading
+        return y
+    def pic(path,x,y,w,h):
+        im=Image.open(path).convert('RGB')
+        im=ImageOps.fit(im,(round(w*2),round(h*2)))
+        buf=BytesIO();im.save(buf,format='JPEG',quality=86,optimize=True);buf.seek(0)
+        c.drawImage(ImageReader(buf),x,y,w,h)
+    def begin(label,title,sub=''):
+        nonlocal page
+        page+=1;rect(0,0,W,H,'#FFFFFF')
+        text(48,501,'MEGA',18,ink,'B');text(103,501,'SPOT',18,blue,'B')
+        text(640,503,'RECEPTION CATERING  /  '+label,9,blue,'S');rule(483)
+        text(48,432,title,29,ink,'B')
+        if sub:para(48,401,sub,size=12,width=860,leading=18)
+        rule(45);text(48,25,'MEGASPOT  ·  출장 케이터링  ·  megaspot.kr/reception',9,muted)
+        text(887,25,f'{page:02}',10,muted,'B')
+    def end():c.showPage()
+    # Cover follows the existing buffet guide's split photo layout.
+    page+=1;rect(0,0,W,H,'#FFFFFF');pic(IMG/'hero.jpg',486,0,474,540)
+    text(48,474,'MEGA',26,ink,'B');text(126,474,'SPOT',26,blue,'B')
+    text(48,444,'메가스팟 출장 케이터링',12,muted,'S')
+    text(48,335,'모임의 테이블을',34,ink,'B');text(48,284,'더 맛있고 다채롭게',34,blue,'B')
+    para(48,232,'파티·네트워킹·리셉션을 위한\n'.strip(),390,16,ink)
+    para(48,204,'샌드위치·카나페·스큐어·디저트 구성',390,14)
+    rect(48,120,390,44,pale);text(65,137,'25,000원부터  /  4가지 구성',18,blue,'B')
+    para(48,90,'구성 안내가 · 적용 단위와 부대비용 별도 확인',390,10)
+    text(48,29,'MEGASPOT  ·  2026.11',9,muted)
+    text(502,16,'협력사 제공 연출 참고 사진',9,'#FFFFFF');end()
+    begin('PACKAGES','예산과 행사 분위기에 맞는 네 가지 구성','샌드위치와 핑거푸드로 가볍게, 메인 요리를 곁들여 풍성하게 준비하세요.')
+    for i,co in enumerate(COURSES):
+        x=48+(i%2)*442;y=218-(i//2)*143
+        rect(x,y,422,126,chalk);rect(x,y+122,422,4,blue)
+        text(x+18,y+88,co['name'],21,ink,'B');text(x+258,y+87,f"{co['price']:,}원",24,blue,'B')
+        para(x+18,y+54,co['intro'],382,12,leading=18)
+        text(x+18,y+16,'구성 안내가 · 상세 메뉴는 다음 페이지',10,muted)
+    para(48,58,PRICE_NOTE,864,9,leading=12);end()
+    for idx,co in enumerate(COURSES):
+        begin(f'COURSE 0{idx+1}',f"{co['name']}  /  {co['price']:,}원",co['intro'])
+        for j,(name,detail) in enumerate(co['menus']):
+            col=j//7;row=j%7;x=48+col*442;y=358-row*40
+            text(x,y,f'{j+1:02}',10,blue,'S');text(x+32,y,name,14,ink,'S')
+            if detail:para(x+32,y-17,detail,392,9,leading=11)
+        rect(48,61,864,26,pale);text(61,70,'메뉴 변경·제공량·알레르기와 식이 제한은 상담에서 확인해 주세요.',10,blue)
+        para(48,95,PRICE_NOTE,864,9,leading=12);end()
+    groups=[(0,12,'샌드위치·유부초밥·과일'),(12,24,'디저트·스큐어'),(24,36,'컵밥·필라프·핫푸드'),(36,43,'샐러드·파스타·치즈')]
+    for start,stop,title in groups:
+        begin('MENU CATALOG',title,'개별·박스 메뉴 참고 사진 · 수량과 판매가는 별도 상담합니다.')
+        for j in range(start,stop):
+            k=j-start;x=48+(k%4)*220;top=382-(k//4)*106
+            pic(IMG/f'menu-{j+1:02}.jpg',x,top-66,204,66)
+            name,unit=CATALOG[j]
+            rows=wrap(name,202,10,'S')
+            for m,s in enumerate(rows):text(x,top-80-m*12,s,10,ink,'S')
+            text(x,top-104,('박스 메뉴' if unit=='BOX' else '개별 메뉴')+' · 별도 견적',8,muted)
+        para(48,53,'사진: 제공받은 애드썸 케이터링 자료. 실제 제공량·식기·장식·음료 포함 여부는 최종 견적에 따릅니다.',864,8,leading=10)
+        end()
+    begin('HOW IT WORKS','문의부터 행사 준비까지','행사 날짜와 예상 인원, 원하는 메뉴를 알려 주시면 가능한 구성과 조건을 안내합니다.')
+    steps=[('일정 문의','행사 날짜·장소·시간·예상 인원·예산'),('메뉴 상담','희망 구성·개별 메뉴·알레르기·식이 제한'),('견적 확인','적용 단위·최소 인원·부가세·출장 및 세팅비'),('주문 확정','최종 수량·변경 및 취소 기준·결제 안내'),('행사 준비','제공 방식·현장 인력·세팅 및 수거 시간 협의')]
+    for i,(title,desc) in enumerate(steps):
+        y=345-i*49;text(48,y,f'0{i+1}',16,blue,'B');text(93,y,title,17,ink,'B');text(260,y,desc,13,muted)
+    rect(48,65,864,44,pale);text(65,83,'사진 속 꽃·장식·테이블·식기·음료가 기본 포함되는 것은 아닙니다. 포함 범위를 먼저 확인해 주세요.',11,blue)
+    end()
+    begin('CONTACT','대관과 케이터링을 한 곳에서 상담하세요','희망 날짜 · 행사 장소 · 예상 인원 · 원하는 구성이나 메뉴를 알려 주세요.')
+    pic(IMG/'setting.jpg',538,105,374,258)
+    contact=[('전화','010-2384-9580'),('카카오톡','pf.kakao.com/_LnxbmX/chat'),('이메일','spaceblank0100@gmail.com'),('메뉴·소개서','megaspot.kr/reception')]
+    for i,(label,value) in enumerate(contact):
+        y=332-i*58;text(48,y,label,11,blue,'B');text(48,y-25,value,17,ink,'S')
+    c.linkURL(KAKAO,(45,235,500,290));c.linkURL('https://megaspot.kr/reception/',(45,112,500,170))
+    text(48,81,'든든한 식사는 출장뷔페, 바 서비스는 출장 칵테일도 함께 문의하세요.',12,muted)
+    para(48,58,PHOTO_NOTE,864,8,leading=10);end();c.save()
+    print(f'PDF: {PDF} ({page} pages)')
+
+if __name__=='__main__':
+    photo_assets();build_web();build_pdf()

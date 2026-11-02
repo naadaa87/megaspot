@@ -380,7 +380,7 @@
         + '<div class="f"><label for="' + pid + '-phone">휴대폰 번호 <span class="req">*</span></label><input class="input" type="tel" id="' + pid + '-phone" name="rv_phone" autocomplete="tel" inputmode="numeric" placeholder="010-0000-0000" value="' + esc(m.phone || '') + '" required></div></div>'
         + '<div class="field-row"><div class="f"><label for="' + pid + '-email">이메일 <span class="muted">(선택)</span></label><input class="input" type="email" id="' + pid + '-email" name="rv_email" autocomplete="email" placeholder="견적서를 받을 주소" value="' + esc(m.email || '') + '"></div>'
         + '<div class="f"><label for="' + pid + '-ptype">모임 유형 <span class="muted">(선택)</span></label><select class="select" id="' + pid + '-ptype" name="rv_purpose"><option value="">선택 안 함</option>' + PUR.map(function(p){ return '<option value="' + p.id + '"' + (st.purpose === p.id ? ' selected' : '') + '>' + esc(p.label) + '</option>'; }).join('') + '<option value="other"' + (st.purpose === 'other' ? ' selected' : '') + '>기타</option></select></div></div>'
-        + '<div class="f"><label for="' + pid + '-msg">요청사항 <span class="muted">(선택)</span></label><textarea class="textarea" id="' + pid + '-msg" name="rv_message" maxlength="1000" style="min-height:64px" placeholder="행사 성격, 배치, 반입할 장비, 음식 등 미리 알려 주실 것"></textarea></div>'
+        + '<div class="f"><label for="' + pid + '-msg">요청사항 <span class="muted">(선택)</span></label><textarea class="textarea" id="' + pid + '-msg" name="rv_message" maxlength="1000" style="min-height:64px" placeholder="행사 성격, 배치, 반입할 장비, 음식 등 미리 알려 주실 것">'+esc(M.receptionMessage||'')+'</textarea></div>'
         + (CC ? CC.formBlock('rv_cat') : '')
         + (CK ? CK.formBlock('rv') : '')
         + (M.familyAsk ? M.familyAsk('rv_family') : '')
