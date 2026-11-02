@@ -20,7 +20,8 @@ ROOT = Path(__file__).resolve().parents[1]
 IMG = ROOT / "assets/img/reception"
 PDF = ROOT / "assets/docs/megaspot-reception-guide.pdf"
 URL = "/reception/"
-STAMP = "20261102"
+STAMP = "20261102r2"
+LOGO = ROOT / "assets/img/brand/megaspot-official-wordmark.png"
 KAKAO = "https://pf.kakao.com/_LnxbmX/chat"
 PDF_URL = f"/assets/docs/{PDF.name}?v={STAMP}"
 
@@ -76,6 +77,9 @@ def build_web():
     schema = {"@context":"https://schema.org","@type":"Service","name":"메가스팟 출장 케이터링","url":"https://megaspot.kr/reception/","description":description,"provider":{"@type":"Organization","name":"메가스팟","url":"https://megaspot.kr"}}
     head = re.sub(r'<script type="application/ld\+json">.*?</script>', '<script type="application/ld+json">'+json.dumps(schema,ensure_ascii=False)+'</script>', head, flags=re.S)
     head = head.replace('</head>',f'<link rel="stylesheet" href="/assets/css/reception.css?v={STAMP}">\n</head>').replace('page-cocktail','page-reception')
+    logo_markup = '<img class="reception-brand-logo" src="/assets/img/brand/megaspot-official-wordmark.png" alt="메가스팟 MEGASPOT" width="1126" height="390">'
+    text_logo = '<span class="en">MEGA<b>SPOT</b></span><span class="ko">메가스팟</span>'
+    head = head.replace(text_logo, logo_markup)
     packages = ''.join(f'<article class="reception-package"><div class="eyebrow">0{i+1} / {c["id"]}</div><h3 class="mt-1">{c["name"]}</h3><div class="reception-price">{c["price"]:,}원<small>메가스팟 구성 안내가</small></div><p>{c["intro"]}</p><a class="btn btn-light btn-sm" href="#course-{c["id"]}">상세 메뉴 보기 ↓</a></article>' for i,c in enumerate(COURSES))
     courses = ''.join(f'<article class="reception-course" id="course-{c["id"]}"><header><div><h3>{c["name"]}<span>{c["price"]:,}원</span></h3><p class="small muted mt-1">{c["intro"]}</p></div><a class="btn btn-primary btn-sm" href="{inquiry(c)}">이 구성으로 상담 →</a></header><ul class="reception-menu-list">'+''.join(f'<li><b>{name}</b>'+ (f'<small>{detail}</small>' if detail else '')+'</li>' for name,detail in c['menus'])+'</ul></article>' for c in COURSES)
     catalog = ''.join(f'<article class="reception-item"><img src="/assets/img/reception/menu-{i+1:02}.jpg" alt="{name} 메뉴 참고 사진" width="640" height="480" loading="lazy"><div><h3>{name}</h3><p>{"박스 메뉴" if unit=="BOX" else "개별 메뉴"} · 수량·판매가 별도 상담</p></div></article>' for i,(name,unit) in enumerate(CATALOG))
@@ -89,6 +93,7 @@ def build_web():
 <section class="section"><div class="container"><div class="reception-cta"><div class="eyebrow">Plan your event</div><h2 class="h-l mt-1">공간과 케이터링을 함께 상담하세요</h2><p class="mt-2">행사 날짜·예상 인원·원하는 구성만 알려 주셔도 상담을 시작할 수 있습니다.</p><div class="row mt-3"><a class="btn btn-primary" href="/inquiry/?reception=all#other">출장 케이터링 상담 →</a><a class="btn btn-kakao" href="{KAKAO}" target="_blank" rel="noopener" data-kakao>카카오톡 문의</a><a class="btn btn-light" href="{PDF_URL}" target="_blank" rel="noopener">소개서 PDF ↗</a></div></div><div class="grid grid-2 reception-services mt-3"><a href="/catering/"><b>든든한 식사가 필요하다면 →</b><span class="small muted">출장뷔페 · 코스·바베큐·생맥주</span></a><a href="/cocktail/"><b>한 잔의 분위기를 더하려면 →</b><span class="small muted">출장 칵테일 · 전문 바텐더 현장 제조</span></a></div></div></section>
 </main>'''
     foot = template[template.index('<footer class="site-footer">'):]
+    foot = foot.replace(text_logo, logo_markup)
     foot = foot[:foot.index('<script src="/assets/js/site.js')]+ '<script src="/assets/js/site.js?v=202610270438"></script>\n</body>\n</html>\n'
     dest = ROOT / "reception/index.html"; dest.parent.mkdir(exist_ok=True)
     dest.write_text(head+body+foot)
@@ -124,10 +129,13 @@ def build_pdf():
         im=ImageOps.fit(im,(round(w*2),round(h*2)))
         buf=BytesIO();im.save(buf,format='JPEG',quality=86,optimize=True);buf.seek(0)
         c.drawImage(ImageReader(buf),x,y,w,h)
+    def logo(x,y,width):
+        # Use the supplied official mark, preserving its lettering and colours.
+        c.drawImage(ImageReader(str(LOGO)),x,y,width,width*390/1126,mask='auto')
     def begin(label,title,sub=''):
         nonlocal page
         page+=1;rect(0,0,W,H,'#FFFFFF')
-        text(48,501,'MEGA',18,ink,'B');text(103,501,'SPOT',18,blue,'B')
+        logo(48,490,112)
         text(640,503,'RECEPTION CATERING  /  '+label,9,blue,'S');rule(483)
         text(48,432,title,29,ink,'B')
         if sub:para(48,401,sub,size=12,width=860,leading=18)
@@ -136,8 +144,8 @@ def build_pdf():
     def end():c.showPage()
     # Cover follows the existing buffet guide's split photo layout.
     page+=1;rect(0,0,W,H,'#FFFFFF');pic(IMG/'hero.jpg',486,0,474,540)
-    text(48,474,'MEGA',26,ink,'B');text(126,474,'SPOT',26,blue,'B')
-    text(48,444,'메가스팟 출장 케이터링',12,muted,'S')
+    logo(48,445,205)
+    text(48,424,'메가스팟 출장 케이터링',12,muted,'S')
     text(48,335,'모임의 테이블을',34,ink,'B');text(48,284,'더 맛있고 다채롭게',34,blue,'B')
     para(48,232,'파티·네트워킹·리셉션을 위한\n'.strip(),390,16,ink)
     para(48,204,'샌드위치·카나페·스큐어·디저트 구성',390,14)
@@ -156,22 +164,24 @@ def build_pdf():
     for idx,co in enumerate(COURSES):
         begin(f'COURSE 0{idx+1}',f"{co['name']}  /  {co['price']:,}원",co['intro'])
         for j,(name,detail) in enumerate(co['menus']):
-            col=j//7;row=j%7;x=48+col*442;y=358-row*40
+            col=j//7;row=j%7;x=48+col*442;y=374-row*38
             text(x,y,f'{j+1:02}',10,blue,'S');text(x+32,y,name,14,ink,'S')
-            if detail:para(x+32,y-17,detail,392,9,leading=11)
+            if detail:para(x+32,y-19,detail,392,10,leading=15)
         rect(48,61,864,26,pale);text(61,70,'메뉴 변경·제공량·알레르기와 식이 제한은 상담에서 확인해 주세요.',10,blue)
-        para(48,95,PRICE_NOTE,864,9,leading=12);end()
-    groups=[(0,12,'샌드위치·유부초밥·과일'),(12,24,'디저트·스큐어'),(24,36,'컵밥·필라프·핫푸드'),(36,43,'샐러드·파스타·치즈')]
+        para(48,103,PRICE_NOTE,864,10,leading=15);end()
+    groups=[(0,8,'샌드위치·유부초밥'),(8,16,'과일·핑거푸드·디저트'),
+            (16,24,'디저트·스큐어'),(24,32,'컵밥·필라프·핫푸드'),
+            (32,40,'핫푸드·샐러드'),(40,43,'파스타·치즈')]
     for start,stop,title in groups:
         begin('MENU CATALOG',title,'개별·박스 메뉴 참고 사진 · 수량과 판매가는 별도 상담합니다.')
         for j in range(start,stop):
-            k=j-start;x=48+(k%4)*220;top=382-(k//4)*106
-            pic(IMG/f'menu-{j+1:02}.jpg',x,top-66,204,66)
+            k=j-start;x=48+(k%4)*220;top=384-(k//4)*160
+            pic(IMG/f'menu-{j+1:02}.jpg',x,top-90,204,90)
             name,unit=CATALOG[j]
-            rows=wrap(name,202,10,'S')
-            for m,s in enumerate(rows):text(x,top-80-m*12,s,10,ink,'S')
-            text(x,top-104,('박스 메뉴' if unit=='BOX' else '개별 메뉴')+' · 별도 견적',8,muted)
-        para(48,53,'사진: 제공받은 애드썸 케이터링 자료. 실제 제공량·식기·장식·음료 포함 여부는 최종 견적에 따릅니다.',864,8,leading=10)
+            rows=wrap(name,202,11,'S')
+            for m,s in enumerate(rows):text(x,top-108-m*16,s,11,ink,'S')
+            text(x,top-140,('박스 메뉴' if unit=='BOX' else '개별 메뉴')+' · 별도 견적',9.5,muted)
+        para(48,59,'사진: 제공받은 애드썸 케이터링 자료. 실제 제공량·식기·장식·음료 포함 여부는 최종 견적에 따릅니다.',864,9,leading=14)
         end()
     begin('HOW IT WORKS','문의부터 행사 준비까지','행사 날짜와 예상 인원, 원하는 메뉴를 알려 주시면 가능한 구성과 조건을 안내합니다.')
     steps=[('일정 문의','행사 날짜·장소·시간·예상 인원·예산'),('메뉴 상담','희망 구성·개별 메뉴·알레르기·식이 제한'),('견적 확인','적용 단위·최소 인원·부가세·출장 및 세팅비'),('주문 확정','최종 수량·변경 및 취소 기준·결제 안내'),('행사 준비','제공 방식·현장 인력·세팅 및 수거 시간 협의')]

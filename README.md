@@ -305,7 +305,7 @@ QR 이미지는 `assets/img/brand/kakao-qr.svg` 입니다. **채널 주소를 �
 파티·리셉션용 샌드위치·카나페·스큐어·디저트 서비스입니다. 기존 출장뷔페(`/catering/`)와 출장 칵테일(`/cocktail/`)에 세 번째 서비스로 추가했습니다. 제공받은 메뉴 자료의 2만·3만·4만·5만 원 구성에 운영자 요청으로 각각 5,000원을 더해 **라이트 25,000원 / 클래식 35,000원 / 프리미엄 45,000원 / 시그니처 55,000원**으로 안내합니다. 원본에 없는 적용 단위·최소 인원·부가세·출장 및 세팅비는 상담 확인으로 표시하며, 뷔페의 비용 규칙을 자동 적용하지 않습니다. 개별·박스 메뉴 43종은 사진과 이름만 공개하고 수량·판매가는 별도 견적으로 안내합니다.
 
 - 메뉴·구성 안내가 원본: `tools/reception_data.py`. PDF와 웹페이지 생성: `tools/build_reception.py` (ReportLab·Pillow 필요).
-- PDF: `assets/docs/megaspot-reception-guide.pdf` (12페이지). 사진: `assets/img/reception/`, 전용 스타일: `assets/css/reception.css`.
+- PDF: `assets/docs/megaspot-reception-guide.pdf` (14페이지). 사진: `assets/img/reception/`, 전용 스타일: `assets/css/reception.css`.
 - 생성용 원본 사진은 제공 PDF에 `pdfimages -png INPUT.pdf tmp/pdfs/raw`를 실행해 준비합니다. 다시 생성할 때는 이 저장소 루트에서 `python tools/build_reception.py`를 실행합니다. 추출 파일이 없으면 기존 공개 이미지로 재생성합니다.
 - 모든 공개 페이지의 PC 메뉴·모바일 메뉴·푸터, 메인 소개 영역, 뷔페·칵테일 페이지에서 연결합니다.
 - 코스별 문의 링크는 `/inquiry/?reception=light|classic|premium|signature#other`이며, 선택한 코스·안내가를 간단 문의와 대관 신청의 요청사항에 채웁니다(`assets/js/pages/inquiry.js`). 접수는 기존 문의 API의 `message`로 저장되므로 관리자 문의 상세에서도 확인할 수 있습니다. `reception=all`은 구성 미정 상담, 목록에 없는 값은 무시합니다.
