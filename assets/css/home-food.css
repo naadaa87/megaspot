@@ -1,0 +1,20 @@
+/* Home food services: retain full descriptions in three parallel cards. */
+.home-food-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:24px;margin-top:32px;align-items:stretch}
+.home-food-card{min-width:0;display:flex;flex-direction:column;background:#fff;border:1px solid var(--concrete-2);border-radius:var(--radius-lg);overflow:hidden}
+.home-food-card .cat-band-ph{height:auto;min-height:0;aspect-ratio:4/3;overflow:hidden;flex-shrink:0}
+.home-food-card .cat-band-ph img{display:block;position:static;width:100%;height:100%;object-fit:cover;object-position:center}
+.home-food-card#cocktail .cat-band-ph img{object-position:50% 40%}
+.home-food-card .cat-band-txt{display:flex;flex-direction:column;flex:1;min-width:0;padding:26px}
+.home-food-keyword{align-self:flex-start;padding:5px 10px;margin-bottom:16px;border-radius:5px;background:var(--cobalt-soft);color:var(--cobalt);font-size:13px;font-weight:800}
+.home-food-card .eyebrow{font-size:11px;letter-spacing:.1em;line-height:1.6}
+.home-food-card h3.h-l{font-size:28px;line-height:1.4;letter-spacing:-.025em;margin-top:10px}
+.home-food-card .cat-band-txt>p:not(.tiny){font-size:14px;line-height:1.8!important;margin-top:16px}
+.home-food-card .hero-mega{gap:8px;margin:20px 0 0;flex-wrap:wrap}
+.home-food-card .hero-mega span{font-size:12px;padding:7px 9px}
+.home-food-card .hero-mega b{font-size:19px}
+.home-food-card .cat-band-txt>.row{display:grid;grid-template-columns:1fr;gap:8px!important;margin-top:auto;padding-top:24px}
+.home-food-card .btn{width:100%;white-space:normal;text-align:center;justify-content:center;min-height:44px;font-size:13px;padding:10px 12px}
+.home-food-card .cat-band-txt>p.tiny{font-size:11.5px;line-height:1.7;margin-top:14px}
+@media(min-width:1000px){.home-food-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}.home-food-card .cat-band-ph{aspect-ratio:3/2}.home-food-card .cat-band-txt{padding:24px}.home-food-card .cat-band-txt>p:not(.tiny){min-height:128px}.home-food-card .hero-mega{min-height:80px;align-content:flex-start}.home-food-card .cat-band-txt>p.tiny{min-height:60px}}
+@media(max-width:599px){.home-food-card .cat-band-txt{padding:24px}.home-food-card h3.h-l{font-size:27px}.home-food-card .cat-band-ph{max-height:300px}}
+@media(min-width:1000px){.home-food-card#cocktail .cat-band-txt::after{content:"";display:block;min-height:74px}}
