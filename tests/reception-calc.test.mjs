@@ -45,3 +45,19 @@ test('고객 안내문과 문의 내역에 동일한 인원·비용·부가세 �
   assert.match(customer,/010-8540-1886/);
   assert.equal(C.inquiryText('<script>'),null);
 });
+
+test('세 가지 제공 방식은 금액을 바꾸지 않고 안내문과 별도 견적 요청에 전달한다',()=>{
+  for(const [id,name] of [['lunchbox','도시락 케이터링'],['box','박스 케이터링'],['table','테이블 세팅 케이터링']]){
+    assert.equal(C.formatLabel(id),name);
+    for(const text of [C.customerText(50,id),C.inquiryText(50,id)]){
+      assert(text.includes(name));
+      assert.match(text,/2,000,000원/);
+      assert.match(text,/포장·기물·세팅 범위 최종 협의/);
+    }
+    assert(C.inquiryText(301,id).includes(name));
+  }
+  for(const id of [null,'','constructor','__proto__','<img src=x onerror=alert(1)>']){
+    assert.equal(C.formatLabel(id),'');
+    assert.equal(C.inquiryText(50,id),C.inquiryText(50));
+  }
+});

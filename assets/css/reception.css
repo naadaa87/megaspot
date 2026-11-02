@@ -28,3 +28,24 @@
 .page-reception #calc .cc-total b{font-family:var(--font-body);font-size:clamp(27px,3vw,38px);font-weight:800}
 .page-reception #calc .cc-go{white-space:normal;text-align:center;width:100%;margin-top:20px}
 .page-reception #calc .est-lines td:first-child{padding-right:12px}
+.page-reception #formats{scroll-margin-top:90px}
+.reception-formats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+.reception-format{border:1px solid var(--concrete);background:white;display:flex;flex-direction:column;min-width:0}
+.reception-format figure{margin:0}.reception-format img{display:block;width:100%;height:auto;aspect-ratio:4/3;object-fit:cover}
+.reception-format figcaption{font-size:10px;line-height:1.6;color:var(--ink-2);padding:10px 20px 0}
+.reception-format-body{padding:20px;display:flex;flex-direction:column;flex:1;gap:12px}
+.reception-format h3{font-size:clamp(19px,1.8vw,24px);line-height:1.4}.reception-format p{font-size:14px;line-height:1.8}
+.reception-format p.reception-format-tag{font-size:13px;color:var(--cobalt);font-weight:700}
+.reception-format-refs{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:12px;color:var(--cobalt);margin-top:auto;padding-top:4px}.reception-format-refs a{text-decoration:underline;text-underline-offset:3px}
+.reception-format .btn{white-space:normal;text-align:center}.cc-format-selected{margin-top:8px;color:var(--cobalt)}
+@media(max-width:800px){.reception-formats{grid-template-columns:1fr}.reception-format img{max-height:360px}.reception-format-body{padding:20px 22px}.reception-format h3{font-size:24px}}
+.page-reception #gallery{scroll-margin-top:120px}
+.reception-field-gallery{columns:3;column-gap:20px}
+.reception-field-gallery figure{break-inside:avoid;margin:0 0 20px;background:white;border:1px solid var(--concrete)}
+.reception-field-gallery a{display:block;position:relative;overflow:hidden}.reception-field-gallery a:focus-visible{outline:3px solid var(--cobalt);outline-offset:3px}
+.reception-field-gallery img{display:block;width:100%;height:auto;transition:transform .25s ease}.reception-field-gallery a:hover img{transform:scale(1.025)}
+.reception-photo-zoom{position:absolute;right:12px;bottom:12px;background:rgba(25,28,30,.8);color:white;padding:5px 10px;font-size:12px;border-radius:3px}
+.reception-field-gallery figcaption{display:flex;gap:12px;align-items:center;padding:14px 16px;font-size:14px;font-weight:700}.reception-field-gallery figcaption span{color:var(--cobalt);font-size:11px}
+@media(max-width:1000px){.reception-field-gallery{columns:2}}
+@media(max-width:560px){.reception-field-gallery{columns:1}}
+@media(prefers-reduced-motion:reduce){.reception-field-gallery img{transition:none}}

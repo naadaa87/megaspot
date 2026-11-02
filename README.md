@@ -306,7 +306,10 @@ QR 이미지는 `assets/img/brand/kakao-qr.svg` 입니다. **채널 주소를 �
 
 - 클래식 계산기: `/reception/#calc`. 인원 변경·고객 안내문 복사·문의서 전달을 지원합니다. 가격·비용 기준은 `tools/reception_data.py`에서 `assets/js/data/reception-quote.js`로 생성하고, 계산은 `assets/js/reception-calc.js`, 화면은 `assets/js/pages/reception.js`가 담당합니다. 50명은 메뉴 1,750,000원 + 출장·세팅·철수비 250,000원 = 2,000,000원(부가세 적용 여부 확인 전)입니다. 문의 링크의 `reception_people`를 검증해 요청사항에 계산 내역을 채우며 대관료와 별도로 접수합니다.
 - 메뉴·구성 안내가 원본: `tools/reception_data.py`. PDF와 웹페이지 생성: `tools/build_reception.py` (ReportLab·Pillow 필요).
-- PDF: `assets/docs/megaspot-reception-guide.pdf` (15페이지). 사진: `assets/img/reception/`, 전용 스타일: `assets/css/reception.css`.
+- 실제 현장 사진: `/reception/#gallery`에 운영자가 제공한 8장을 원래 비율로 배치합니다. `assets/img/reception/field/`에 목록용 썸네일과 확대용 사진을 분리하고, 공통 `openLightbox`로 확대·이전/다음·키보드·스와이프를 지원합니다. 사진 제목은 보이는 공간과 구성만 설명하며, 행사명이나 고객사는 임의로 붙이지 않습니다.
+- 제공 방식 3종: 도시락(개별 포장), 박스(박스 그대로 진열), 테이블 세팅(조화·기물 현장 연출). `/reception/#formats`에서 사진과 설명을 비교합니다. 제공 방식은 네 가지 메뉴 코스와 별도로 선택하며 적용 가능 여부·포장·기물·세팅 범위는 상담에서 확정합니다. `reception_format=lunchbox|box|table`을 문의서 및 클래식 안내문에 전달하고, 방식 선택만으로 계산 금액을 변경하지 않습니다.
+- PDF: `assets/docs/megaspot-reception-guide.pdf` (16페이지, REV 09). 사진: `assets/img/reception/`, 전용 스타일: `assets/css/reception.css`.
+- 도시락·박스 사진은 운영자가 제공한 보틀케이터링 Instagram 게시물(`DWONrHrDWFX`, `DdyncLMlIdT`)의 참고 이미지입니다. 테이블 사진은 제공받은 애드썸 PDF를 사용하며, 별도 테이블 연출 참고 영상(`DVuyX5RCdMH`)을 연결합니다. 원본 사진과 영상 출처를 혼동하지 않도록 구분합니다. 박스 참고 영상(`Da6gh-Uyptc`)도 함께 연결합니다.
 - 생성용 원본 사진은 제공 PDF에 `pdfimages -png INPUT.pdf tmp/pdfs/raw`를 실행해 준비합니다. 다시 생성할 때는 이 저장소 루트에서 `python tools/build_reception.py`를 실행합니다. 추출 파일이 없으면 기존 공개 이미지로 재생성합니다.
 - 모든 공개 페이지의 PC 메뉴·모바일 메뉴·푸터, 메인 소개 영역, 뷔페·칵테일 페이지에서 연결합니다.
 - 코스별 문의 링크는 `/inquiry/?reception=light|classic|premium|signature#other`이며, 선택한 코스·안내가를 간단 문의와 대관 신청의 요청사항에 채웁니다(`assets/js/pages/inquiry.js`). 접수는 기존 문의 API의 `message`로 저장되므로 관리자 문의 상세에서도 확인할 수 있습니다. `reception=all`은 구성 미정 상담, 목록에 없는 값은 무시합니다.
