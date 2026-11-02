@@ -8,7 +8,7 @@
   var mode=q.get('mode')==='request'?'request':'space';
   var type=['event','regular','partner'].indexOf(q.get('type'))>=0 ? q.get('type') : 'event';
   // 공간 선택: ?space=megaspot-gundae-2 로 열면 2호 계산기부터 보여 줍니다 (pricing-ui.js 가 data-space-query 자리를 보고 고릅니다)
-  var SPACES=(window.MEGASPOT_PRICING||{}); var space=SPACES[q.get('space')] ? q.get('space') : 'megaspot-gundae';
+  var SPACES=(window.MEGASPOT_PRICING||{}); var space=SPACES[q.get('space')] ? q.get('space') : (M.eventPlan&&SPACES[M.eventPlan.space()]?M.eventPlan.space():'megaspot-gundae');
   var sw=$('#space-switch'), est=$('#estimator');
   function markSpace(id){ if(!sw) return; sw.querySelectorAll('[data-space]').forEach(function(b){ var on=b.dataset.space===id; b.setAttribute('aria-selected',String(on)); b.classList.toggle('on',on); }); var hid=document.querySelector('#inquiry-form [name=space_id]'); if(hid && hid.value!=='request') hid.value=id; }
   markSpace(space);
@@ -41,7 +41,7 @@
       document.querySelectorAll('[name=rv_message]').forEach(function(el){if(!el.value) el.value=receptionMessage;});
       var rt=document.querySelector('#iq-title');if(rt) rt.textContent='출장 케이터링 상담';
       var rs=document.querySelector('#iq-sub');if(rs) rs.textContent='날짜·장소·예상 인원과 원하는 메뉴를 알려 주세요. 대관료와 케이터링 비용은 별도로 안내합니다.';
-      setTimeout(function(){var section=document.querySelector('#other');if(section) section.scrollIntoView({behavior:'smooth',block:'start'});},150);
+
     }
     var cocktail=q.get('cocktail');
     if(['100','200','300','400'].indexOf(cocktail)>=0){
@@ -49,10 +49,12 @@
       if(msg) msg.value='출장 칵테일 '+cocktail+'잔 패키지를 상담받고 싶습니다. 행사 날짜·장소와 희망 메뉴를 함께 안내해 주세요.';
       var title=document.querySelector('#iq-title'); if(title) title.textContent='출장 칵테일 상담';
       var sub=document.querySelector('#iq-sub'); if(sub) sub.textContent='날짜, 장소, 잔 수와 선호하는 메뉴를 알려 주세요.';
-      setTimeout(function(){ var section=document.querySelector('#other'); if(section) section.scrollIntoView({behavior:'smooth',block:'start'}); },150);
+
     }
     var grid=$('#inq-grid'); var mq=window.matchMedia('(min-width:960px)'); function lay(e){ grid.style.gridTemplateColumns=e.matches?'1.4fr .7fr':'1fr'; } lay(mq); mq.addEventListener('change',lay);
   }
+  if(mode!=='request'&&type==='event'){var extra=$('#other');if(extra) extra.hidden=true;}
+  if(q.has('catering')||q.has('reception')||q.has('cocktail')||q.has('visit')) setTimeout(function(){var target=document.querySelector(q.has('visit')?'.plan-visit':'.plan-services');if(target)target.scrollIntoView({block:'start',behavior:'smooth'});},200);
   var HEAD={
     request:['조건에 맞는 공간을<br>찾아 드립니다','원하는 날짜·인원·지역에 맞는 공간이 아직 목록에 없다면 아래 간단 문의에 조건을 남겨 주세요. 확인 가능한 공간을 찾아 연락드립니다.'],
     regular:['정기·반복 모임<br>상담 신청','매주·격주·매월 여는 모임이라면 아래 간단 문의에 반복 주기와 기간을 알려 주세요. 4회 이상 미리 예약하면 별도 할인을 안내합니다.'],
