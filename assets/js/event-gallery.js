@@ -8,7 +8,7 @@
       var link=e.target.closest('[data-event-photo]');
       if(!link||e.ctrlKey||e.metaKey||e.shiftKey||e.altKey)return;
       e.preventDefault();
-      M.openLightbox(links.map(function(a){return {src:a.href,title:a.dataset.title,cap:'실제 행사 현장 · 참석자 얼굴 모자이크 및 밝기 보정'};}),links.indexOf(link));
+      M.openLightbox(links.map(function(a){return {src:a.href,title:a.dataset.title,cap:'실제 행사 현장 · 참석자 얼굴 가림 처리'};}),links.indexOf(link));
     });
   });
 })();

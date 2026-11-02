@@ -302,8 +302,8 @@ QR 이미지는 `assets/img/brand/kakao-qr.svg` 입니다. **채널 주소를 �
 
 ### 실제 행사 현장 사진 (`/#event-gallery`, `/reception/#event-gallery`, 2026-11-02)
 
-- 운영자가 올린 현장 사진 5장에 전체 얼굴 모자이크와 밝기 보정을 적용한 공개본입니다. 옆모습·작은 배경 얼굴·사진 가장자리를 장별로 검토했습니다. 업로드 원본은 공개 저장소에 복사하지 않습니다.
-- 공개 사진: `assets/img/events/20261102/photo-01.jpg` ~ `photo-05.jpg`; 목록은 `thumb-01.jpg` ~ `thumb-05.jpg`를 지연 로딩합니다. 확대 화면도 모자이크가 적용된 공개본만 사용합니다.
+- 총 15장: `건대/메가스팟 건대 사진 모음/실제 행사 사진` 폴더의 얼굴 흐림 처리 사진 10장을 먼저 보여 주고, 앞서 모자이크·밝기 보정한 파티 사진 5장을 이어서 보여 줍니다. 확대본까지 검토한 공개 이미지만 사용하며, 폴더의 원본 PNG는 수정하지 않습니다.
+- 폴더 사진: `assets/img/events/20261102-folder/photo-01.jpg` ~ `photo-10.jpg`. 기존 파티 사진: `assets/img/events/20261102/photo-01.jpg` ~ `photo-05.jpg`. 각 폴더의 `thumb-*.jpg`는 목록용으로 지연 로딩하며, 확대 화면도 얼굴이 가려진 공개본을 사용합니다.
 - 정적 섹션 생성: `tools/event_gallery.py` (`python tools/event_gallery.py`로 홈페이지 재생성); 케이터링 페이지는 `tools/build_reception.py`에서 같은 섹션을 가져옵니다. 스타일과 사진 확대 연결은 `assets/css/event-gallery.css`, `assets/js/event-gallery.js`가 담당합니다.
 - 행사명·고객사·제공한 케이터링 상품은 사진으로 임의 확정하지 않고, 보이는 모임의 모습만 제목으로 안내합니다.
 
