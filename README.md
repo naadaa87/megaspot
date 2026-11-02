@@ -300,11 +300,11 @@ QR 이미지는 `assets/img/brand/kakao-qr.svg` 입니다. **채널 주소를 �
 
 링크의 `k`는 예약번호를 Cloudflare 비밀값으로 서명한 값입니다. 따로 `CONFIRM_SECRET`(Secret)을 넣으면 그 값을, 없으면 `ADMIN_KEY`를 씁니다 — 관리자 비밀번호를 바꾸면 예전에 보낸 링크는 열리지 않으니, 그때는 고객에게 예약번호 + 휴대폰 뒷자리로 조회하도록 안내하거나 링크를 다시 보내 주세요. PDF는 그림 한 장을 A4에 담은 파일이라 글자 선택은 되지 않습니다.
 
-### 실제 행사 현장 사진 (`/#event-gallery`, `/reception/#event-gallery`, 2026-11-02)
+### 실제 행사 현장 사진 (`/#event-gallery`, 2026-11-02)
 
 - 총 15장: `건대/메가스팟 건대 사진 모음/실제 행사 사진` 폴더의 얼굴 흐림 처리 사진 10장을 먼저 보여 주고, 앞서 모자이크·밝기 보정한 파티 사진 5장을 이어서 보여 줍니다. 확대본까지 검토한 공개 이미지만 사용하며, 폴더의 원본 PNG는 수정하지 않습니다.
 - 폴더 사진: `assets/img/events/20261102-folder/photo-01.jpg` ~ `photo-10.jpg`. 기존 파티 사진: `assets/img/events/20261102/photo-01.jpg` ~ `photo-05.jpg`. 각 폴더의 `thumb-*.jpg`는 목록용으로 지연 로딩하며, 확대 화면도 얼굴이 가려진 공개본을 사용합니다.
-- 정적 섹션 생성: `tools/event_gallery.py` (`python tools/event_gallery.py`로 홈페이지 재생성); 케이터링 페이지는 `tools/build_reception.py`에서 같은 섹션을 가져옵니다. 스타일과 사진 확대 연결은 `assets/css/event-gallery.css`, `assets/js/event-gallery.js`가 담당합니다.
+- 정적 섹션 생성: `tools/event_gallery.py` (`python tools/event_gallery.py`로 홈페이지 재생성). 실제 행사 현장 15장은 홈페이지에만 표시합니다. 케이터링 페이지의 케이터링 테이블 참고 사진 8장은 별도로 유지합니다. 스타일과 사진 확대 연결은 `assets/css/event-gallery.css`, `assets/js/event-gallery.js`가 담당합니다.
 - 행사명·고객사·제공한 케이터링 상품은 사진으로 임의 확정하지 않고, 보이는 모임의 모습만 제목으로 안내합니다.
 
 ### 출장 케이터링 (`/reception/`, 2026-11-02)

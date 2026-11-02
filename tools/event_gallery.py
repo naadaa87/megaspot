@@ -1,7 +1,7 @@
 """Published event photos: only reviewed copies with obscured faces.
 
-The original uploads stay outside the public repository. Used by the home page
-and build_reception.py; rerun this file to refresh the home-page section.
+The original uploads stay outside the public repository. Used by the home page;
+rerun this file to refresh the home-page section.
 """
 from pathlib import Path
 import re
