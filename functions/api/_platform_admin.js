@@ -149,9 +149,14 @@ export async function platformAdmin(request, env, path, method, url) {
     if (!Object.prototype.hasOwnProperty.call(APP_STATUS, d.status)) return err('상태 값이 올바르지 않습니다.');
     const a = await env.DB.prepare('SELECT status FROM meetup_apps WHERE ref = ? AND meetup_ref = ?').bind(m[2], m[1]).first();
     if (!a) return err('신청을 찾을 수 없습니다.', 404, 'NOT_FOUND');
-    await env.DB.prepare('UPDATE meetup_apps SET status = ?, updated_at = ? WHERE ref = ?').bind(d.status, t, m[2]).run();
+    const seat = ['confirmed', 'pending'].includes(d.status);
+    const result = await env.DB.prepare(`UPDATE meetup_apps SET status = ?, updated_at = ? WHERE ref = ?${seat ? " AND people + (SELECT COALESCE(SUM(people),0) FROM meetup_apps WHERE meetup_ref = ? AND ref <> ? AND status IN ('confirmed','pending')) <= (SELECT capacity FROM meetups WHERE ref = ?)" : ''}`)
+      .bind(d.status, t, m[2], ...(seat ? [m[1], m[2], m[1]] : [])).run();
+    if (seat && (result?.meta?.changes ?? result?.changes) === 0) return err('모임 정원을 초과합니다. 정원을 늘리거나 다른 참가자의 상태를 먼저 확인해 주세요.', 409, 'CAPACITY_FULL');
     await log(env, 'meetup.app_status', m[1], 'admin', { app: m[2], from: a.status, to: d.status });
-    return json({ ok: true });
+    const promoted = !seat && ['confirmed', 'pending'].includes(a.status) ? await promoteWaitlist(env, m[1], t) : [];
+    if (promoted.length) await log(env, 'meetup.promoted', m[1], 'system', { apps: promoted });
+    return json({ ok: true, promoted });
   }
 
   // ---------- 배너 광고 ----------

@@ -5,6 +5,7 @@ import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, log, hash
 import { cateringAdmin } from '../_catering.js';
 import { cleanDoc, parseDoc, publicDoc, confirmToken } from '../_confirm.js';
 import { inquiryAmountSql, bookingAmountSql, amountOverrideSql } from '../_amounts.js';
+import { batch, bookingClashes, conflictResponse, linkedBookingChanges, bookingStatusStatements } from '../_admin_booking.js';
 import { platformAdmin, platformCounts } from '../_platform_admin.js';   // 입점·공간 등록·광고 신청, 등록 공간, 모임, 배너 광고
 import { visitsAdmin, createVisit, visitsForInquiry, visitCounts, timeOk } from '../_visits.js';   // 현장답사 일정
 import { cateringOrdersAdmin, cateringCounts, cateringOrderFor, ORDER_OF_BOOKING, ORDER_OF_INQUIRY, orderBrief } from '../_catering_orders.js';   // 출장뷔페 진행 건 (대기·확정)
@@ -180,8 +181,8 @@ export async function onRequest({ request, env, params }) {
         month: {
           month,
           inquiries: await one("SELECT COUNT(*) AS n FROM inquiries WHERE status <> '삭제됨' AND substr(created_at, 1, 7) = ?", month),
-          confirmed: await one("SELECT COUNT(*) AS n FROM inquiries WHERE status IN ('예약 확정', '이용 완료') AND substr(event_date, 1, 7) = ?", month),
-          confirmed_amount: await one(`SELECT COALESCE(SUM(${inquiryAmountSql()}), 0) AS n FROM inquiries i WHERE i.status IN ('예약 확정', '이용 완료') AND substr(i.event_date, 1, 7) = ?`, month),
+          confirmed: await one("SELECT COUNT(*) AS n FROM bookings WHERE status IN ('confirmed', 'completed') AND substr(date, 1, 7) = ?", month),
+          confirmed_amount: await one(`SELECT COALESCE(SUM(${bookingAmountSql()}), 0) AS n FROM bookings b WHERE b.status IN ('confirmed', 'completed') AND substr(b.date, 1, 7) = ?`, month),
           quoted_amount: await one(`SELECT COALESCE(SUM(${inquiryAmountSql()}), 0) AS n FROM inquiries i WHERE i.status IN ('견적 발송', '결제 대기') `),
           orders_paid: await one("SELECT COUNT(*) AS n FROM orders WHERE status = 'paid' AND test = 0 AND substr(paid_at, 1, 7) = ?", month),
           orders_amount: await one("SELECT COALESCE(SUM(price - MIN(price, (SELECT COALESCE(SUM(amount),0) FROM payapp_refunds WHERE oid = orders.oid))), 0) AS n FROM orders WHERE status = 'paid' AND test = 0 AND substr(paid_at, 1, 7) = ?", month),
@@ -224,7 +225,7 @@ export async function onRequest({ request, env, params }) {
       const data = { inquiry_type: ['event', 'regular', 'partner'].includes(d.inquiry_type) ? d.inquiry_type : 'event', space_id, channel, channel_note,
         purpose: str(d.purpose, 40), date, start_h, end_h,
         t_start: start_h !== null ? hl(start_h).replace('다음 날 ', '') : str(d.t_start, 5), t_end: end_h !== null ? hl(end_h).replace('다음 날 ', '') : str(d.t_end, 5),
-        slot: start_h !== null ? 'custom' : '', headcount: num(d.headcount), name, phone, email, regular: !!d.regular, options: cleanOptions(d.options),
+        slot: start_h !== null ? 'custom' : '', headcount: num(d.headcount), name, phone, email, regular: !!d.regular, options: cleanOptions(d.options), price_adjustment: d.price_adjustment || null,
         pkg: str(d.pkg, 20), total, amount_mode: total !== null ? (amount_mode || 'manual') : '', amount_note: str(d.amount_note, 200), estimate: str(d.estimate, 3000),
         org: str(d.org, 120), message: str(d.message, 2000), source: 'admin', summary: '' };
       data.summary = adminSummary(data);
@@ -260,7 +261,8 @@ export async function onRequest({ request, env, params }) {
     }
     if (mChk && method === 'PUT') {
       const d = await readJson(request); const checks = {};
-      for (const [k, v] of Object.entries(d.checks || {})) if (/^[a-z_]{1,30}$/.test(k)) checks[k] = v ? now() : false;
+      const previous = await env.DB.prepare('SELECT checks FROM inquiry_checks WHERE ref = ?').bind(mChk[1]).first(), saved = safe(previous?.checks);
+      for (const [k, v] of Object.entries(d.checks || {})) if (/^[a-z_]{1,30}$/.test(k)) checks[k] = v ? saved[k] || now() : false;
       await env.DB.prepare('INSERT INTO inquiry_checks (ref, checks, updated_at) VALUES (?,?,?) ON CONFLICT(ref) DO UPDATE SET checks = excluded.checks, updated_at = excluded.updated_at').bind(mChk[1], JSON.stringify(checks), now()).run();
       return json({ ok: true, checks });
     }
@@ -268,17 +270,46 @@ export async function onRequest({ request, env, params }) {
     // ---- 견적 저장·목록 ----
     if (path === 'quotes' && method === 'POST') {
       const d = await readJson(request, 128 * 1024);
-      const total = num(d.total); if (total == null || total < 0) return err('견적 합계를 확인해 주세요.');
+      const total = amountOk(d.total); if (total == null) return err('견적 합계를 확인해 주세요.');
       const ref = str(d.inquiry_ref, 20).toUpperCase();
-      if (ref) { const ex = await env.DB.prepare('SELECT 1 AS x FROM inquiries WHERE ref = ?').bind(ref).first(); if (!ex) return err('연결할 문의번호를 찾을 수 없습니다.'); }
+      const inquiry = ref ? await env.DB.prepare('SELECT * FROM inquiries WHERE ref = ?').bind(ref).first() : null;
+      if (ref && !inquiry) return err('연결할 문의번호를 찾을 수 없습니다.');
+      if (inquiry && [DELETED, '대기 취소'].includes(inquiry.status)) return err('삭제·대기 취소된 문의는 복원한 뒤 견적을 저장해 주세요.');
       const quote_no = await uniqueRef(env, 'quotes', 'quote_no', 'Q');
       const data = d.data && typeof d.data === 'object' ? d.data : {};
-      await env.DB.prepare('INSERT INTO quotes (quote_no, inquiry_ref, customer, event_date, total, data, created_at) VALUES (?,?,?,?,?,?,?)')
-        .bind(quote_no, ref || null, str(d.customer, 120), isDate(str(d.event_date, 10)) ? str(d.event_date, 10) : null, total, JSON.stringify(data).slice(0, 100000), now()).run();
-      if (ref && d.mark_sent) await env.DB.prepare("UPDATE inquiries SET status = '견적 발송', updated_at = ? WHERE ref = ? AND status IN ('문의 접수', '조건 확인')").bind(now(), ref).run();
-      if (ref) await env.DB.prepare("UPDATE inquiries SET updated_at = ? WHERE ref = ?").bind(now(), ref).run();
+      const statements = [], input = data.input && typeof data.input === 'object' ? data.input : null;
+      let invalidated = false;
+      if (inquiry) {
+        const old = safe(inquiry.data), updated = { ...old };
+        const date = isDate(str(d.event_date, 10)) ? str(d.event_date, 10) : inquiry.event_date;
+        const space = input ? spaceOk(input.space || inquiry.space_id) : inquiry.space_id;
+        const name = input ? str(d.customer, 80) || inquiry.name : inquiry.name;
+        const phone = input ? str(input.phone, 30) : inquiry.phone, email = input ? str(input.email, 120) : inquiry.email;
+        const people = input ? num(input.people) : inquiry.headcount;
+        if (people !== null && (people < 1 || people > 1000)) return err('인원을 확인해 주세요.');
+        let sh = input ? hourOk(input.start) : old.start_h ?? null, eh = input ? hourOk(input.end) : old.end_h ?? null;
+        if (sh !== null && (eh === null || eh <= sh)) return err('시작·종료 시간을 확인해 주세요.');
+        const catering = Math.min(total, Math.max(0, (Array.isArray(data.extras) ? data.extras : []).filter(x => x.kind === 'catering' || /^출장뷔페 ·/.test(x.label || '')).reduce((sum, x) => sum + (amountOk(x.amount) || 0), 0)));
+        Object.assign(updated, { total, amount_override: true, amount_mode: 'quote', amount_note: str(data.discountWhy, 200), included_catering_amount: catering, catering_in_quote: catering > 0, date, name, phone, email, headcount: people, space_id: space, start_h: sh, end_h: eh,
+          t_start: sh === null ? '' : hl(sh).replace('다음 날 ', ''), t_end: eh === null ? '' : hl(eh).replace('다음 날 ', ''), quote_no, quote_input: input,
+          price_adjustment: { type: input?.discType || 'none', value: num(input?.discVal) || 0, reason: str(data.discountWhy, 200), discount: amountOk(data.discount) || 0 } });
+        if (input) Object.assign(updated, { purpose: str(input.purpose, 40), regular: !!input.regular, options: cleanOptions({ ...input.opts, manager: input.opts?.manager?.on ? { count: input.opts.manager.count, hours: input.opts.manager.hours } : false }) });
+        if (date !== inquiry.event_date || space !== inquiry.space_id) { delete updated.wait_rank; delete updated.wait_rank_at; }
+        if (sh !== null) updated.slot = SLOT_OF[sh + '-' + eh] || 'custom';
+        const sync = await linkedBookingChanges(env, ref, { space_id: space, name, phone, date, start_h: sh, end_h: eh, headcount: people, amount: total });
+        if (sync.error) return sync.error;
+        invalidated = sync.invalidated; statements.push(...sync.statements);
+        const status = d.mark_sent && ['문의 접수', '조건 확인'].includes(inquiry.status) ? '견적 발송' : inquiry.status;
+        statements.push(env.DB.prepare('UPDATE inquiries SET space_id = ?, status = ?, name = ?, phone = ?, email = ?, event_date = ?, headcount = ?, data = ?, updated_at = ? WHERE ref = ?')
+          .bind(space, status, name, phone, email || '', date, people, JSON.stringify(updated), now(), ref));
+      }
+      const serialized = JSON.stringify(data);
+      if (serialized.length > 100000) return err('견적 내용이 너무 깁니다. 안내 메모나 추가 항목을 줄여 주세요.');
+      statements.push(env.DB.prepare('INSERT INTO quotes (quote_no, inquiry_ref, customer, event_date, total, data, created_at) VALUES (?,?,?,?,?,?,?)')
+        .bind(quote_no, ref || null, str(d.customer, 120), isDate(str(d.event_date, 10)) ? str(d.event_date, 10) : null, total, serialized, now()));
+      await batch(env, statements);
       await log(env, 'quote.saved', ref || quote_no, 'admin', { quote_no, total });
-      return json({ ok: true, quote_no });
+      return json({ ok: true, quote_no, confirm_doc_invalidated: invalidated });
     }
     if (path === 'quotes' && method === 'GET') {
       const { results } = await env.DB.prepare('SELECT quote_no, inquiry_ref, customer, event_date, total, data, created_at FROM quotes ORDER BY id DESC LIMIT 100').all();
@@ -293,9 +324,14 @@ export async function onRequest({ request, env, params }) {
       if (['event', 'regular', 'partner'].includes(ty)) { sql += " AND COALESCE(json_extract(data, '$.inquiry_type'), 'event') = ?"; b.push(ty); }
       if (CHANNELS.includes(ch)) { sql += " AND COALESCE(json_extract(data, '$.channel'), 'web') = ?"; b.push(ch); }
       if (q) { sql += ' AND (name LIKE ? OR phone LIKE ? OR ref LIKE ? OR email LIKE ?)'; b.push('%' + q + '%', '%' + q + '%', '%' + q.toUpperCase() + '%', '%' + q + '%'); }
-      sql += ' ORDER BY created_at DESC LIMIT 300';
+      const from = str(url.searchParams.get('from'), 10), to = str(url.searchParams.get('to'), 10), space = str(url.searchParams.get('space'), 60);
+      if (from && isDate(from)) { sql += ' AND event_date >= ?'; b.push(from); }
+      if (to && isDate(to)) { sql += ' AND event_date <= ?'; b.push(to); }
+      if (SPACES[space]) { sql += ' AND space_id = ?'; b.push(space); }
+      const page = Math.max(0, Math.min(100000, num(url.searchParams.get('page')) || 0));
+      sql += ' ORDER BY created_at DESC, ref DESC LIMIT 301 OFFSET ?'; b.push(page * 300);
       const { results } = await env.DB.prepare(sql).bind(...b).all();
-      return json({ ok: true, items: (results || []).map(r => ({ ...r, data: safe(r.data) })) });
+      return json({ ok: true, has_more: (results || []).length > 300, items: (results || []).slice(0, 300).map(r => ({ ...r, data: safe(r.data) })) });
     }
     // 선택한 문의 여러 건 삭제
     if (path === 'inquiries/delete' && method === 'POST') {
@@ -356,13 +392,13 @@ export async function onRequest({ request, env, params }) {
           if (booked) return err('확정된 예약이 있는 문의는 공간을 바꿀 수 없습니다. 예약을 취소한 뒤 다시 등록해 주세요.', 409, 'HAS_BOOKING');
           newSpace = str(d.space_id, 60);
         }
-        const name = str(d.name, 80), phone = str(d.phone, 30).replace(/[^0-9-+]/g, ''), email = str(d.email, 120);
+        const name = str(d.name, 80), phone = str(d.phone === undefined ? row.phone : d.phone, 30).replace(/[^0-9-+]/g, ''), email = str(d.email === undefined ? row.email : d.email, 120);
         if (!name) return err('고객 이름을 적어 주세요.');
         const date = str(d.date, 10); if (date && !isDate(date)) return err('날짜를 확인해 주세요.');
         let start_h = hourOk(d.start_h), end_h = hourOk(d.end_h);
         if (start_h !== null && (end_h === null || end_h <= start_h)) end_h = null;
         if (start_h === null) end_h = null;
-        const headcount = num(d.headcount);
+        const headcount = d.headcount === undefined ? row.headcount : num(d.headcount);
         if (headcount !== null && (headcount < 1 || headcount > 1000)) return err('인원을 확인해 주세요.');
         const pick = o => ({ 공간: SPACES[o.space_id] || o.space_id || '', 경로: chText(o.channel || 'web', o.channel_note), 이름: o.name || '', 연락처: o.phone || '', 이메일: o.email || '', 이용일: o.date || '', 시간: o.start_h != null ? hl(o.start_h) + '–' + (o.end_h != null ? hl(o.end_h) : '') : (o.t_start ? o.t_start + '–' + (o.t_end || '') : ''), 인원: o.headcount || '', 목적: o.purpose || '', 금액: o.total != null ? o.total : '', 옵션: JSON.stringify(o.options || {}), 내용: o.message || '' });
         const before = pick({ ...data, space_id: row.space_id, name: data.name || row.name, phone: data.phone || row.phone, email: data.email || row.email, date: data.date || row.event_date, headcount: data.headcount || row.headcount });
@@ -383,29 +419,41 @@ export async function onRequest({ request, env, params }) {
         if (mode === 'auto' || mode === 'manual') {
           const t = amountOk(d.total); if (t === null) return err('금액을 확인해 주세요.');
           if (data.estimate && data.source !== 'admin' && !data.estimate_admin && !data.estimate_customer) data.estimate_customer = data.estimate;
-          Object.assign(data, { total: t, amount_override: true, amount_mode: mode, amount_note: str(d.amount_note, 200) });
+          Object.assign(data, { total: t, amount_override: true, amount_mode: mode, amount_note: str(d.amount_note, 200), included_catering_amount: 0, catering_in_quote: false, price_adjustment: d.price_adjustment || null });
           if (d.estimate !== undefined) { data.estimate = str(d.estimate, 3000); data.estimate_admin = true; data.pkg = str(d.pkg, 20); }
         } else if (mode === 'none') {
-          Object.assign(data, { total: null, amount_override: true, amount_mode: '', amount_note: '' });
+          Object.assign(data, { total: null, amount_override: true, amount_mode: '', amount_note: '', included_catering_amount: 0, catering_in_quote: false, price_adjustment: null });
         }
         if (data.source === 'admin') data.summary = adminSummary(data);
         data.edited_at = now();
         const after = pick(data);
         const changed = Object.keys(after).filter(k => String(after[k]) !== String(before[k]));
         const memo = d.memo !== undefined ? str(d.memo, 2000) : row.memo;
-        await env.DB.prepare('UPDATE inquiries SET space_id = ?, name = ?, phone = ?, email = ?, event_date = ?, headcount = ?, data = ?, memo = ?, updated_at = ? WHERE ref = ?')
-          .bind(newSpace, name, phone, email, date || null, headcount, JSON.stringify(data), memo, now(), ref).run();
+        const sync = await linkedBookingChanges(env, ref, { space_id: newSpace, name, phone, date, start_h: data.start_h ?? null, end_h: data.end_h ?? null, headcount, memo,
+          ...(mode === 'keep' ? {} : { amount: data.total }) });
+        if (sync.error) return sync.error;
+        await batch(env, [env.DB.prepare('UPDATE inquiries SET space_id = ?, name = ?, phone = ?, email = ?, event_date = ?, headcount = ?, data = ?, memo = ?, updated_at = ? WHERE ref = ?')
+          .bind(newSpace, name, phone, email, date || null, headcount, JSON.stringify(data), memo, now(), ref), ...sync.statements]);
         await log(env, 'inquiry.edited', ref, 'admin', { changed });
-        return json({ ok: true, changed });
+        return json({ ok: true, changed, confirm_doc_invalidated: sync.invalidated });
       }
       if (d.status === '대기 취소') return err('일자별 예약의 대기 취소 버튼을 이용해 주세요.');
+      const statusStatements = [];
+      if (d.status !== undefined) {
+        const { results: linked } = await env.DB.prepare("SELECT booking_code FROM bookings WHERE inquiry_ref = ? AND status <> 'cancelled'").bind(ref).all();
+        if (d.status === '예약 확정' && !(linked || []).length) return err('예약 확정 버튼에서 일시·금액을 확인한 뒤 확정해 주세요.', 409, 'USE_CONFIRM');
+        if ((linked || []).length && !['예약 확정', '이용 완료', '취소·환불'].includes(d.status)) return err('확정 예약은 취소 처리한 뒤 문의 상태를 변경해 주세요.', 409, 'HAS_BOOKING');
+        const bookingStatus = { '예약 확정': 'confirmed', '이용 완료': 'completed', '취소·환불': 'cancelled' }[d.status];
+        for (const booking of linked || []) { const update = await bookingStatusStatements(env, booking.booking_code, bookingStatus); statusStatements.push(...update.statements); }
+      }
       if (d.status !== undefined) { if (!STATUSES.includes(d.status)) return err('상태 값이 올바르지 않습니다.'); sets.push('status = ?'); b.push(d.status); }
       if (d.memo !== undefined) { sets.push('memo = ?'); b.push(str(d.memo, 2000)); }
       const jp = [], jb = [];   // data(JSON) 안의 값은 json_set 하나로 모아 바꿉니다(같은 칸을 두 번 SET 하면 앞의 것이 무시됨)
       if (d.total !== undefined) {
         const t = d.total === '' || d.total === null ? null : amountOk(d.total);
         if (d.total !== '' && d.total !== null && t === null) return err('금액을 확인해 주세요.');
-        jp.push("'$.total', ?", "'$.amount_override', 1", "'$.amount_mode', ?", "'$.amount_note', ?"); jb.push(t, t === null ? '' : 'manual', str(d.amount_note, 200));
+        jp.push("'$.total', ?", "'$.amount_override', 1", "'$.amount_mode', ?", "'$.amount_note', ?", "'$.included_catering_amount', 0", "'$.catering_in_quote', json('false')", "'$.price_adjustment', null"); jb.push(t, t === null ? '' : 'manual', str(d.amount_note, 200));
+        statusStatements.push(env.DB.prepare("UPDATE bookings SET amount = ?, confirm_doc = CASE WHEN amount IS NOT ? THEN NULL ELSE confirm_doc END, updated_at = ? WHERE inquiry_ref = ? AND status <> 'cancelled'").bind(t, t, now(), ref));
       }
       if (d.channel !== undefined) {
         if (!CHANNELS.includes(d.channel)) return err('문의 경로를 확인해 주세요.');
@@ -420,7 +468,8 @@ export async function onRequest({ request, env, params }) {
       if (jp.length) { sets.push("data = json_set(COALESCE(data, '{}'), " + jp.join(', ') + ')'); b.push(...jb); }
       if (!sets.length) return err('변경할 내용이 없습니다.');
       sets.push('updated_at = ?'); b.push(now(), ref);
-      await env.DB.prepare('UPDATE inquiries SET ' + sets.join(', ') + ' WHERE ref = ?').bind(...b).run();
+      if (d.memo !== undefined) statusStatements.push(env.DB.prepare("UPDATE bookings SET memo = ?, updated_at = ? WHERE inquiry_ref = ? AND status <> 'cancelled'").bind(str(d.memo, 2000), now(), ref));
+      await batch(env, [env.DB.prepare('UPDATE inquiries SET ' + sets.join(', ') + ' WHERE ref = ?').bind(...b), ...statusStatements]);
       await log(env, 'inquiry.updated', ref, 'admin', d);
       return json({ ok: true });
     }
@@ -508,23 +557,37 @@ export async function onRequest({ request, env, params }) {
 
     // ---- 예약 ----
     if (path === 'bookings' && method === 'GET') {
+      const where = [], args = [];
+      for (const [param, column, op] of [['from', 'date', '>='], ['to', 'date', '<='], ['space', 'space_id', '='], ['status', 'status', '=']]) {
+        const value = str(url.searchParams.get(param), 60); if (value) { where.push('b.' + column + ' ' + op + ' ?'); args.push(value); }
+      }
+      const page = Math.max(0, Math.min(100000, num(url.searchParams.get('page')) || 0)); args.push(page * 300);
       const { results } = await env.DB.prepare(`SELECT booking_code, space_id, inquiry_ref, customer_name, phone, date, slot, headcount, memo, status, ${bookingAmountSql()} AS amount, start_h, end_h, created_at, json_extract(confirm_doc, '$.issued_at') AS confirm_issued,
         CASE WHEN b.inquiry_ref IS NOT NULL THEN (SELECT CASE WHEN json_extract(ic.checks, '$.guarantee_paid') IS NULL THEN NULL WHEN json_extract(ic.checks, '$.guarantee_paid') = 0 THEN 0 ELSE 1 END FROM inquiry_checks ic WHERE ic.ref = b.inquiry_ref)
              ELSE (SELECT dc.paid FROM booking_deposit_checks dc WHERE dc.booking_code = b.booking_code) END AS deposit_paid
-        FROM bookings b ORDER BY date DESC, created_at DESC LIMIT 300`).all();
-      return json({ ok: true, items: results || [] });
+        FROM bookings b ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY date DESC, created_at DESC, id DESC LIMIT 301 OFFSET ?`).bind(...args).all();
+      return json({ ok: true, has_more: (results || []).length > 300, items: (results || []).slice(0, 300) });
     }
     if (path === 'bookings' && method === 'POST') {
       const d = await readJson(request);
+      const linkedRef = str(d.inquiry_ref, 20).toUpperCase();
+      if (linkedRef) {
+        const confirmRequest = new Request(url.origin + '/api/admin/inquiries/' + linkedRef + '/confirm', { method: 'POST', headers: request.headers,
+          body: JSON.stringify({ date: d.date, start_h: d.start_h, end_h: d.end_h, headcount: d.headcount, amount: d.amount, memo: d.memo, block_calendar: d.block_calendar, force: d.force }) });
+        return onRequest({ request: confirmRequest, env, params: { path: ['inquiries', linkedRef, 'confirm'] } });
+      }
       const space_id = spaceOk(d.space_id), name = str(d.customer_name, 80), phone = str(d.phone, 30), date = str(d.date, 10);
       if (!name || !phone || !isDate(date)) return err('예약자·연락처·이용일을 확인해 주세요.');
       const digits = phone.replace(/\D/g, ''); if (digits.length < 9) return err('연락처 형식을 확인해 주세요.');
       const code = await uniqueRef(env, 'bookings', 'booking_code', 'MS');
       let bs = hourOk(d.start_h), be = hourOk(d.end_h); if (bs === null || be === null || be <= bs) { bs = null; be = null; }
-      await env.DB.prepare('INSERT INTO bookings (booking_code, space_id, inquiry_ref, customer_name, phone, phone_last4, date, slot, headcount, memo, status, amount, start_h, end_h, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-        .bind(code, space_id, str(d.inquiry_ref, 20).toUpperCase() || null, name, phone, digits.slice(-4), date, str(d.slot, 20) || 'custom', num(d.headcount), str(d.memo, 2000), 'confirmed', amountOk(d.amount), bs, be, now()).run();
-      if (d.block_calendar) await env.DB.prepare('INSERT INTO calendar_blocks (space_id, date, state, memo) VALUES (?,?,?,?) ON CONFLICT(space_id, date) DO UPDATE SET state = excluded.state, memo = excluded.memo').bind(space_id, date, 'full', '예약 ' + code).run();
-      if (d.inquiry_ref) await env.DB.prepare("UPDATE inquiries SET status = '예약 확정', data = json_set(data, '$.total', ?, '$.amount_override', json('true')), updated_at = ? WHERE ref = ?").bind(amountOk(d.amount), now(), str(d.inquiry_ref, 20).toUpperCase()).run();
+      const clashes = await bookingClashes(env, space_id, date, bs, be);
+      if (clashes.length && !d.force) return conflictResponse(clashes);
+      if (d.amount !== '' && d.amount != null && amountOk(d.amount) === null) return err('금액을 확인해 주세요.');
+      const statements = [env.DB.prepare('INSERT INTO bookings (booking_code, space_id, inquiry_ref, customer_name, phone, phone_last4, date, slot, headcount, memo, status, amount, start_h, end_h, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+        .bind(code, space_id, null, name, phone, digits.slice(-4), date, str(d.slot, 20) || 'custom', num(d.headcount), str(d.memo, 2000), 'confirmed', amountOk(d.amount), bs, be, now())];
+      if (d.block_calendar) statements.push(env.DB.prepare('INSERT INTO calendar_blocks (space_id, date, state, memo) VALUES (?,?,?,?) ON CONFLICT(space_id, date) DO UPDATE SET state = excluded.state, memo = excluded.memo').bind(space_id, date, 'full', '예약 ' + code));
+      await batch(env, statements);
       await log(env, 'booking.created', code, 'admin', { space_id, date });
       return json({ ok: true, booking_code: code });
     }
@@ -548,6 +611,7 @@ export async function onRequest({ request, env, params }) {
       const from = str(url.searchParams.get('from'), 10), to = str(url.searchParams.get('to'), 10);
       if ((from && !isDate(from)) || (to && !isDate(to))) return err('기간을 확인해 주세요.');
       const f = from || '0000-01-01', t = to || '9999-12-31';
+      const page = Math.max(0, Math.min(100000, num(url.searchParams.get('page')) || 0)), offset = page * 1000;
       const latestQ = "(SELECT q.total FROM quotes q WHERE q.inquiry_ref = b.inquiry_ref ORDER BY q.id DESC LIMIT 1)";
       const { results: bks } = await env.DB.prepare(`SELECT b.booking_code, b.space_id, b.inquiry_ref, b.customer_name, b.phone, b.date, b.slot, b.headcount, CASE WHEN i.ref IS NOT NULL THEN COALESCE(i.memo, '') ELSE COALESCE(b.memo, '') END AS operation_memo, b.status, b.amount, b.start_h, b.end_h, b.created_at, json_extract(b.confirm_doc, '$.issued_at') AS confirm_issued,
           CASE WHEN b.inquiry_ref IS NOT NULL THEN (SELECT CASE WHEN json_extract(ic.checks, '$.guarantee_paid') IS NULL THEN NULL WHEN json_extract(ic.checks, '$.guarantee_paid') = 0 THEN 0 ELSE 1 END FROM inquiry_checks ic WHERE ic.ref = b.inquiry_ref)
@@ -556,8 +620,8 @@ export async function onRequest({ request, env, params }) {
           ${bookingAmountSql()} AS effective_amount, ${amountOverrideSql()} AS amount_override,
           json_extract(i.data, '$.total') AS inq_total, json_extract(i.data, '$.start_h') AS inq_start, json_extract(i.data, '$.end_h') AS inq_end, json_extract(i.data, '$.purpose') AS purpose, json_extract(i.data, '$.channel') AS channel, json_extract(i.data, '$.channel_note') AS channel_note, json_extract(i.data, '$.family') AS family,
           ${ORDER_OF_BOOKING} AS cat_ord, CASE WHEN COALESCE(json_extract(i.data, '$.catering.by'), '') <> 'admin' THEN json_extract(i.data, '$.catering.summary') END AS cat_req
-        FROM bookings b LEFT JOIN orders o ON o.booking_code = b.booking_code LEFT JOIN inquiries i ON i.ref = b.inquiry_ref
-        WHERE b.date BETWEEN ? AND ? ORDER BY b.date ASC, COALESCE(b.start_h, json_extract(i.data, '$.start_h'), 99) ASC LIMIT 1000`).bind(f, t).all();
+        FROM bookings b LEFT JOIN orders o ON o.id = (SELECT ox.id FROM orders ox WHERE ox.booking_code = b.booking_code ORDER BY ox.id DESC LIMIT 1) LEFT JOIN inquiries i ON i.ref = b.inquiry_ref
+        WHERE b.date BETWEEN ? AND ? ORDER BY b.date ASC, COALESCE(b.start_h, json_extract(i.data, '$.start_h'), 99) ASC, b.id ASC LIMIT 1001 OFFSET ?`).bind(f, t, offset).all();
       const iqQ = "(SELECT q.total FROM quotes q WHERE q.inquiry_ref = i.ref ORDER BY q.id DESC LIMIT 1)";
       const { results: pend } = await env.DB.prepare(`SELECT i.ref, i.space_id, i.status, i.name, i.phone, i.event_date, i.headcount, i.memo, i.created_at, (SELECT CASE WHEN json_extract(ic.checks, '$.guarantee_paid') IS NULL THEN NULL WHEN json_extract(ic.checks, '$.guarantee_paid') = 0 THEN 0 ELSE 1 END FROM inquiry_checks ic WHERE ic.ref = i.ref) AS deposit_paid, ${iqQ} AS quote_total, ${inquiryAmountSql()} AS effective_amount, ${amountOverrideSql()} AS amount_override,
           json_extract(i.data, '$.total') AS inq_total, json_extract(i.data, '$.start_h') AS start_h, json_extract(i.data, '$.end_h') AS end_h, json_extract(i.data, '$.t_start') AS t_start, json_extract(i.data, '$.t_end') AS t_end,
@@ -565,21 +629,21 @@ export async function onRequest({ request, env, params }) {
           ${ORDER_OF_INQUIRY} AS cat_ord, CASE WHEN COALESCE(json_extract(i.data, '$.catering.by'), '') <> 'admin' THEN json_extract(i.data, '$.catering.summary') END AS cat_req
         FROM inquiries i WHERE i.status IN ('문의 접수', '조건 확인', '견적 발송', '결제 대기', '대기 취소') AND i.event_date BETWEEN ? AND ?
           AND NOT EXISTS (SELECT 1 FROM bookings b2 WHERE b2.inquiry_ref = i.ref AND b2.status <> 'cancelled')
-        ORDER BY i.event_date ASC LIMIT 1000`).bind(f, t).all();
+        ORDER BY i.event_date ASC, i.id ASC LIMIT 1001 OFFSET ?`).bind(f, t, offset).all();
       const items = [];
       const jarr = v => { try { const a = JSON.parse(v || '[]'); return Array.isArray(a) ? a.slice(0, 4) : []; } catch { return []; } };
-      for (const b of bks || []) items.push({ family: jarr(b.family), kind: 'booking', code: b.booking_code, space_id: b.space_id || '', ref: b.inquiry_ref, name: b.customer_name, phone: b.phone, date: b.date, slot: b.slot,
+      for (const b of (bks || []).slice(0, 1000)) items.push({ family: jarr(b.family), kind: 'booking', code: b.booking_code, space_id: b.space_id || '', ref: b.inquiry_ref, name: b.customer_name, phone: b.phone, date: b.date, slot: b.slot,
         start_h: b.start_h ?? b.inq_start ?? null, end_h: b.end_h ?? b.inq_end ?? null, headcount: b.headcount, memo: b.operation_memo, status: b.status, purpose: b.purpose || '', channel: b.order_oid ? 'online' : (b.channel || (b.inquiry_ref ? 'web' : '')), channel_note: b.channel_note || '',
         amount: b.effective_amount, deposit_paid: b.deposit_paid,
         confirm_issued: b.confirm_issued || '', amount_src: b.amount_override ? 'adjusted' : (b.amount != null ? 'booking' : (b.order_price != null && b.order_status !== 'failed' ? 'order' : (b.quote_total != null ? 'quote' : (b.inq_total != null ? 'estimate' : '')))), order: b.order_oid || '', catering: orderBrief(b.cat_ord), catering_req: b.cat_req || '' });
-      for (const p of pend || []) items.push({ family: jarr(p.family), kind: 'pending', code: '', ref: p.ref, space_id: p.space_id || '', name: p.name, phone: p.phone, date: p.event_date, slot: p.slot, start_h: p.start_h ?? null, end_h: p.end_h ?? null,
+      for (const p of (pend || []).slice(0, 1000)) items.push({ family: jarr(p.family), kind: 'pending', code: '', ref: p.ref, space_id: p.space_id || '', name: p.name, phone: p.phone, date: p.event_date, slot: p.slot, start_h: p.start_h ?? null, end_h: p.end_h ?? null,
         t_start: p.t_start || '', t_end: p.t_end || '', headcount: p.headcount, memo: p.memo || '', status: p.status, reserve: !!p.reserve, purpose: p.purpose || '', channel: p.channel || 'web', channel_note: p.channel_note || '', inquiry_type: p.inquiry_type || 'event', wait_rank: p.wait_rank == null ? null : Number(p.wait_rank), created_at: p.created_at, wait_restored_at: p.wait_restored_at || '',
         amount: p.effective_amount, deposit_paid: p.deposit_paid, amount_src: p.amount_override ? 'adjusted' : (p.quote_total != null ? 'quote' : (p.inq_total != null ? 'estimate' : '')), catering: orderBrief(p.cat_ord), catering_req: p.cat_req || '' });
       items.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : ((a.start_h ?? 99) - (b.start_h ?? 99)));
       const und = await env.DB.prepare("SELECT COUNT(*) AS n FROM inquiries WHERE status IN ('문의 접수', '조건 확인', '견적 발송', '결제 대기') AND (event_date IS NULL OR event_date = '')").first();
       // 같은 기간의 현장답사 (날짜 머리에 '현장답사 n건'으로 표시)
       const { results: vis } = await env.DB.prepare("SELECT id, ref, inquiry_ref, space_id, visit_date AS date, start_time AS time, duration, status, name FROM site_visits WHERE visit_date BETWEEN ? AND ? AND status IN ('requested','scheduled','done') ORDER BY visit_date, start_time LIMIT 500").bind(f, t).all();
-      return json({ ok: true, from: f, to: t, today: kstToday(), items, undated: (und || {}).n || 0, visits: vis || [] });
+      return json({ ok: true, has_more: (bks || []).length > 1000 || (pend || []).length > 1000, from: f, to: t, today: kstToday(), items, undated: (und || {}).n || 0, visits: vis || [] });
     }
     // ---- 예약확정서 (발급 내용 조회·저장, 고객용 링크) ----
     const mDeposit = path.match(/^bookings\/([A-Z0-9-]+)\/deposit-paid$/);
@@ -632,10 +696,10 @@ export async function onRequest({ request, env, params }) {
     if (mBk && method === 'PATCH') {
       const d = await readJson(request); const code = mBk[1];
       if (!['confirmed', 'completed', 'cancelled'].includes(d.status)) return err('상태 값이 올바르지 않습니다.');
-      await env.DB.prepare('UPDATE bookings SET status = ?, updated_at = ? WHERE booking_code = ?').bind(d.status, now(), code).run();
-      if (d.status === 'completed') await env.DB.prepare("UPDATE inquiries SET status = '이용 완료', updated_at = ? WHERE ref = (SELECT inquiry_ref FROM bookings WHERE booking_code = ?)").bind(now(), code).run();
-      if (d.status === 'cancelled') await env.DB.prepare("DELETE FROM calendar_blocks WHERE memo = ?").bind('예약 ' + code).run();
+      const update = await bookingStatusStatements(env, code, d.status); if (update.error) return update.error;
+      await batch(env, update.statements);
       await log(env, 'booking.updated', code, 'admin', d);
+      if (update.ref) await log(env, 'booking.updated', update.ref, 'admin', { booking_code: code, status: d.status });
       return json({ ok: true });
     }
 
@@ -709,7 +773,7 @@ export async function onRequest({ request, env, params }) {
     }
     if (mOrd && method === 'PATCH') {
       // 기존 PG 주문만 수동 기록. 페이앱 주문 상태는 검증된 통보에서만 변경합니다.
-      const d = await readJson(request); const oid = mOrd[1]; const sets = [], b = [];
+      const d = await readJson(request); const oid = mOrd[1]; const sets = [], b = [], linkedStatements = [];
       if (d.status !== undefined) {
         const pa = await env.DB.prepare('SELECT oid FROM payapp_payments WHERE oid = ?').bind(oid).first();
         if (pa) return err('페이앱 판매자 관리자에서 취소해 주세요. 결과는 자동 반영됩니다.', 409, 'PAYAPP_MANAGED');
@@ -718,22 +782,26 @@ export async function onRequest({ request, env, params }) {
         if (d.status !== 'paid') {
           const row = await env.DB.prepare('SELECT booking_code, event_date FROM orders WHERE oid = ?').bind(oid).first();
           if (row && row.booking_code) {
-            await env.DB.prepare("UPDATE bookings SET status = 'cancelled', updated_at = ? WHERE booking_code = ?").bind(now(), row.booking_code).run();
-            await env.DB.prepare('DELETE FROM calendar_blocks WHERE memo = ?').bind('예약 ' + row.booking_code).run();
+            const update = await bookingStatusStatements(env, row.booking_code, 'cancelled');
+            if (!update.error) linkedStatements.push(...update.statements);
           }
         }
       }
       if (d.memo !== undefined) { sets.push('memo = ?'); b.push(str(d.memo, 1000)); }
       if (!sets.length) return err('변경할 내용이 없습니다.');
       sets.push('updated_at = ?'); b.push(now(), oid);
-      await env.DB.prepare('UPDATE orders SET ' + sets.join(', ') + ' WHERE oid = ?').bind(...b).run();
+      await batch(env, [env.DB.prepare('UPDATE orders SET ' + sets.join(', ') + ' WHERE oid = ?').bind(...b), ...linkedStatements]);
       await log(env, 'order.updated', oid, 'admin', d);
       return json({ ok: true });
     }
 
     // ---- 일정 ----
     if (path === 'calendar' && method === 'GET') {
-      const { results } = await env.DB.prepare("SELECT space_id, date, state, memo FROM calendar_blocks WHERE date >= date('now','localtime') ORDER BY date ASC LIMIT 400").all();
+      const from = str(url.searchParams.get('from'), 10), to = str(url.searchParams.get('to'), 10), space = str(url.searchParams.get('space'), 60);
+      if ((from && !isDate(from)) || (to && !isDate(to))) return err('기간을 확인해 주세요.');
+      const args = [from || '0000-01-01', to || '9999-12-31'];
+      if (SPACES[space]) args.push(space);
+      const { results } = await env.DB.prepare('SELECT space_id, date, state, memo FROM calendar_blocks WHERE date BETWEEN ? AND ?' + (SPACES[space] ? ' AND space_id = ?' : '') + ' ORDER BY date ASC').bind(...args).all();
       return json({ ok: true, items: results || [] });
     }
     if (path === 'calendar' && method === 'POST') {

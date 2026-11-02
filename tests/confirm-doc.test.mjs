@@ -29,7 +29,7 @@ function fixture() {
 
 test('설정값 정리: 모르는 결제 상태·빈 줄·범위 밖 환불 비율', () => {
   const d = cleanDoc({ pay_status: 'x', items: ['a', '', ' b '], refund: [{ k: '당일', rate: 3 }], amount: '-1', evil: 1 });
-  assert.equal(d.pay_status, 'paid'); assert.deepEqual(d.items, ['a', 'b']); assert.equal(d.refund[0].rate, 1); assert.equal(d.amount, null); assert.equal(d.evil, undefined);
+  assert.equal(d.pay_status, 'pending'); assert.deepEqual(d.items, ['a', 'b']); assert.equal(d.refund[0].rate, 1); assert.equal(d.amount, null); assert.equal(d.evil, undefined);
   assert.equal(maskPhone('010-2345-6789'), '010-****-6789');
 });
 
