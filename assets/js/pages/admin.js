@@ -1587,7 +1587,7 @@
   function vGuide(v){
     var sp=spaceInfo(v.space_id)||{}, nm=sp.name||spaceName(v.space_id);
     var when=v.date?(E?E.kdateY(v.date):v.date)+(v.time?' '+v.time+' (약 '+durText(v.duration)+')':' · 시간은 따로 안내드립니다'):'따로 안내드립니다';
-    var L=['[메가스팟 현장답사 안내]', (v.name||'고객')+' 님, 현장답사 일정을 안내드립니다.', '', '· 일시: '+when, '· 장소: '+nm+' — 서울 광진구 화양동 10-1 한아름건물 2층 (지하철 2·7호선 건대입구역 인근)', '· 주차: 건물 주차장 이용 가능 — 차량번호를 미리 알려 주시면 1시간 무료로 등록해 드립니다.'];
+    var L=['[메가스팟 현장답사 안내]', (v.name||'고객')+' 님, 현장답사 일정을 안내드립니다.', '', '· 일시: '+when, '· 장소: '+nm+' — 서울 광진구 화양동 10-1 한아름건물 2층 (지하철 2·7호선 건대입구역 인근)', '· 주차: 건물 주차장 이용 가능 — 주차권은 1시간 4,000원, 일일권 30,000원입니다. 구매할 차량번호를 미리 알려 주세요.'];
     if(sp.opening && v.date && v.date<sp.opening) L.push('· '+nm+'는 '+(E?E.kdate(sp.opening):sp.opening)+' 오픈 전 공사 중이라, 공사 진행 상황에 맞춰 안내해 드립니다.');
     L.push('· 안내 연락처: '+(v.staff?v.staff+' ':'')+M.CONFIG.phone, '', '도착하시면 2층 입구에서 연락 주세요. 일정이 바뀌면 카카오톡이나 전화로 알려 주세요.', '주차 안내: '+location.origin+'/parking/');
     return L.join('\n');
