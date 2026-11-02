@@ -9,6 +9,7 @@ function calendar() {
   const context = vm.createContext({
     $: selector => nodes[selector] ||= { innerHTML: '', textContent: '', attrs: {}, setAttribute(k, v) { this.attrs[k] = v; } },
     A: path => new Promise((resolve, reject) => requests.push({ path, resolve, reject })),
+    AList: path => new Promise((resolve, reject) => requests.push({ path, resolve, reject })),
     M: { pad2: n => String(n).padStart(2, '0') }, E: null,
     todayIso: () => '2026-10-23', guard: () => false, esc: String
   });

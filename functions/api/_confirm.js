@@ -45,7 +45,7 @@ export function cleanDoc(d) {
   return {
     customer: str(d.customer, 80), event: str(d.event, 80), time_note: str(d.time_note, 80),
     show_amount: d.show_amount !== false, amount: amt(d.amount), amount_note: str(d.amount_note, 40) || '부가세 포함',
-    pay_status: PAY_STATUS.includes(d.pay_status) ? d.pay_status : 'paid', paid: amt(d.paid), deposit: amt(d.deposit),
+    pay_status: PAY_STATUS.includes(d.pay_status) ? d.pay_status : 'pending', paid: amt(d.paid), deposit: amt(d.deposit),
     items: lines(d.items, 12, 90), refund, note: str(d.note, 500)
   };
 }
@@ -60,6 +60,6 @@ export function publicDoc(row, doc) {
     customer: d.customer || row.customer_name || '', phone: maskPhone(row.phone),
     space: sp, date: row.date, start_h: row.start_h ?? null, end_h: row.end_h ?? null, slot: row.slot || '', headcount: row.headcount ?? null,
     event: d.event || '', time_note: d.time_note || '', show_amount: d.show_amount !== false, amount: d.amount ?? null, amount_note: d.amount_note || '부가세 포함',
-    pay_status: d.pay_status || 'paid', paid: d.paid ?? null, deposit: d.deposit ?? null, items: d.items || [], refund: d.refund || [], note: d.note || ''
+    pay_status: d.pay_status || 'pending', paid: d.paid ?? null, deposit: d.deposit ?? null, items: d.items || [], refund: d.refund || [], note: d.note || ''
   };
 }

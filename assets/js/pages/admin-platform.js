@@ -7,7 +7,7 @@
   (window.MEGASPOT_FEATURES||[]).forEach(function(f){ FEAT[f.id]=f.label; }); (window.MEGASPOT_PURPOSES||[]).forEach(function(p){ PUR[p.id]=p.label; });
   (window.MEGASPOT_THEMES||[]).forEach(function(t){ THE[t.id]=t.label; }); (window.MEGASPOT_REGIONS||[]).concat([{ id:'etc', label:'그 밖의 지역' }]).forEach(function(r){ REG[r.id]=r.label; });
   function drawer(title, html){ $('#pf-title').textContent=title; var b=$('#pf-body'); b.innerHTML=html; X.openDrawer('#adm-pf'); b.scrollTop=0; return b; }
-  function closeD(){ X.closeDrawer($('#adm-pf')); }
+  function closeD(force){ return X.closeDrawer($('#adm-pf'),force); }
   function oops(e){ if(!X.guard(e)) M.toast(e.message||'처리하지 못했습니다.'); }
   function d10(s){ return String(s||'').slice(0,10); }
   function opts(list, sel){ return list.map(function(o){ return '<option value="'+esc(o[0])+'"'+(String(o[0])===String(sel)?' selected':'')+'>'+esc(o[1])+'</option>'; }).join(''); }
@@ -49,7 +49,7 @@
       +'<form class="form adm-card" id="pf-pform"><div class="field-row"><div class="f"><label for="pf-pst">진행 상태</label><select class="select" id="pf-pst" name="status">'+opts((hst.statuses||[]).map(function(s){ return [s,s]; }), h.status)+'</select></div></div>'
       +'<div class="f"><label for="pf-pmemo">운영 메모</label><textarea class="textarea" id="pf-pmemo" name="memo" rows="3" maxlength="2000">'+esc(h.memo||'')+'</textarea></div>'
       +'<div class="row" style="gap:6px"><button class="btn btn-primary btn-sm" type="submit">저장</button>'+(h.kind==='space'?(h.listing?'<button class="btn btn-light btn-sm" type="button" data-golisting="'+esc(h.listing)+'">등록 공간 '+esc(h.listing)+' 열기</button>':'<button class="btn btn-light btn-sm" type="button" id="pf-tolisting">이 내용으로 등록 공간 초안 만들기</button>'):'')+'</div></form>');
-    $('#pf-pform').addEventListener('submit', function(e){ e.preventDefault(); A('/partners/'+ref,{ method:'PATCH', body:M.formData(e.target) }).then(function(){ M.toast('저장했습니다.'); closeD(); loadHosts(); }).catch(oops); });
+    $('#pf-pform').addEventListener('submit', function(e){ e.preventDefault(); A('/partners/'+ref,{ method:'PATCH', body:M.formData(e.target) }).then(function(){ M.toast('저장했습니다.'); closeD(true); loadHosts(); }).catch(oops); });
     var tl=$('#pf-tolisting'); if(tl) tl.addEventListener('click', function(){ tl.disabled=true; A('/partners/'+ref+'/listing',{ method:'POST', body:{} }).then(function(r){ M.toast('등록 공간 초안 '+r.id+'을(를) 만들었습니다. 내용을 다듬고 공개로 바꿔 주세요.'); closeD(); X.go('listings'); setTimeout(function(){ openListing(r.id); }, 500); }).catch(function(e){ tl.disabled=false; oops(e); }); });
     var gl=b.querySelector('[data-golisting]'); if(gl) gl.addEventListener('click', function(){ closeD(); X.go('listings'); setTimeout(function(){ openListing(gl.dataset.golisting); }, 500); });
   }
@@ -95,7 +95,7 @@
     $('#pf-lform').addEventListener('submit', function(e){
       e.preventDefault(); var f=e.target, msg=$('#pf-lmsg'); msg.hidden=true; if(!M.validate(f)) return;
       var d=M.formData(f); ['features','purposes','themes'].forEach(function(k){ d[k]=[].concat(d[k]||[]); }); d.photos=String(d.photos||'').split('\n').map(function(x){ return x.trim(); }).filter(Boolean);
-      (l.id?A('/listings/'+l.id,{ method:'PUT', body:d }):A('/listings',{ method:'POST', body:d })).then(function(){ M.toast('저장했습니다.'); closeD(); loadListings(); }).catch(function(x){ if(!X.guard(x)){ msg.textContent=x.message; msg.hidden=false; } });
+      (l.id?A('/listings/'+l.id,{ method:'PUT', body:d }):A('/listings',{ method:'POST', body:d })).then(function(){ M.toast('저장했습니다.'); closeD(true); loadListings(); }).catch(function(x){ if(!X.guard(x)){ msg.textContent=x.message; msg.hidden=false; } });
     });
   }
   $('#ls-reload').addEventListener('click', loadListings);
@@ -165,7 +165,7 @@
       $('#pf-mnote-save').addEventListener('click', function(){ patch({ admin_note:$('#pf-mnote').value }, '메모를 저장했습니다.'); });
       $('#pf-medit').addEventListener('submit', function(e){ e.preventDefault(); if(!M.validate(e.target)) return; patch({ edit:M.formData(e.target) }, '내용을 고쳤습니다.'); });
       var cp=$('#pf-mcopy'); if(cp) cp.addEventListener('click', function(){ M.copy(m.manage_url).then(function(ok){ M.toast(ok?'관리 링크를 복사했습니다.':'복사하지 못했습니다.'); }); });
-      b.querySelectorAll('select[data-app]').forEach(function(s){ s.addEventListener('change', function(){ A('/meetups/'+encodeURIComponent(ref)+'/apps/'+encodeURIComponent(s.dataset.app),{ method:'PATCH', body:{ status:s.value } }).then(function(){ M.toast('신청 상태를 바꿨습니다.'); }).catch(oops); }); });
+      b.querySelectorAll('select[data-app]').forEach(function(s){ s.addEventListener('change', function(){ var previous=apps.filter(function(a){ return a.ref===s.dataset.app; })[0].status; s.disabled=true; A('/meetups/'+encodeURIComponent(ref)+'/apps/'+encodeURIComponent(s.dataset.app),{ method:'PATCH', body:{ status:s.value } }).then(function(r){ M.toast('신청 상태를 바꿨습니다.'+(r.promoted&&r.promoted.length?' 대기 '+r.promoted.length+'건을 자동 승급했습니다.':'')); openMeetup(ref); loadMeetups(); }).catch(function(e){ s.value=previous; oops(e); }).finally(function(){ s.disabled=false; }); }); });
     }).catch(oops);
   }
   function refreshCount(){ A('/platform/summary').then(function(r){ X.setCount('meetups', r.meetups_pending); X.setCount('hosts', r.partners_new); }).catch(function(){}); }
@@ -210,8 +210,8 @@
       +'<div class="form-note" id="pf-amsg" hidden></div><div class="row" style="gap:6px"><button class="btn btn-primary btn-sm" type="submit">저장</button>'+(a.id?'<button class="btn btn-light btn-sm" type="button" id="pf-adel" style="color:var(--rust)">배너 삭제</button>':'')+'</div></form>');
     var f=$('#pf-aform'); adPreview(f); f.addEventListener('input', function(){ adPreview(f); }); f.addEventListener('change', function(){ adPreview(f); });
     f.addEventListener('submit', function(e){ e.preventDefault(); var msg=$('#pf-amsg'); msg.hidden=true; if(!M.validate(f)) return;
-      (a.id?A('/ads/'+a.id,{ method:'PUT', body:M.formData(f) }):A('/ads',{ method:'POST', body:M.formData(f) })).then(function(){ M.toast('저장했습니다. 홈페이지에는 1분 안에 반영됩니다.'); closeD(); loadAds(); }).catch(function(x){ if(!X.guard(x)){ msg.textContent=x.message; msg.hidden=false; } }); });
-    var del=$('#pf-adel'); if(del) del.addEventListener('click', function(){ if(!confirm('이 배너를 삭제할까요? 노출·클릭 기록도 함께 지워집니다. 잠시 내리려면 상태를 꺼짐으로 바꾸세요.')) return; A('/ads/'+a.id,{ method:'DELETE' }).then(function(){ M.toast('삭제했습니다.'); closeD(); loadAds(); }).catch(oops); });
+      (a.id?A('/ads/'+a.id,{ method:'PUT', body:M.formData(f) }):A('/ads',{ method:'POST', body:M.formData(f) })).then(function(){ M.toast('저장했습니다. 홈페이지에는 1분 안에 반영됩니다.'); closeD(true); loadAds(); }).catch(function(x){ if(!X.guard(x)){ msg.textContent=x.message; msg.hidden=false; } }); });
+    var del=$('#pf-adel'); if(del) del.addEventListener('click', function(){ if(!confirm('이 배너를 삭제할까요? 노출·클릭 기록도 함께 지워집니다. 잠시 내리려면 상태를 꺼짐으로 바꾸세요.')) return; A('/ads/'+a.id,{ method:'DELETE' }).then(function(){ M.toast('삭제했습니다.'); closeD(true); loadAds(); }).catch(oops); });
   }
   $('#ad-reload').addEventListener('click', loadAds);
   $('#ad-new').addEventListener('click', function(){ if(!Object.keys(ads.slots).length){ A('/ads').then(function(r){ ads.slots=r.slots||{}; openAd(null); }).catch(oops); } else openAd(null); });

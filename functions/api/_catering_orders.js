@@ -4,6 +4,7 @@
 //  · 문의 없이 등록한 예약(예약 관리에서 바로 잡은 예약)은 예약번호로만 연결됩니다.
 import { json, err, str, isDate, now, uniqueRef, log, kstToday, spaceOk, readJson } from './_lib.js';
 import { cateringAdmin } from './_catering.js';
+import { batch } from './_admin_booking.js';
 
 export const CAT_STATUS = { pending: '대기', confirmed: '확정', cancelled: '취소' };
 const ACTIVE_INQ = ['문의 접수', '조건 확인', '견적 발송', '결제 대기'];
@@ -28,8 +29,19 @@ function forInquiry(q, o) {
 async function syncInquiry(env, ref, value) {
   if (!ref) return;
   const t = now();
-  if (value) await env.DB.prepare("UPDATE inquiries SET data = json_set(data, '$.catering', json(?)), updated_at = ? WHERE ref = ?").bind(JSON.stringify(value), t, ref).run();
-  else await env.DB.prepare("UPDATE inquiries SET data = json_remove(data, '$.catering.status', '$.catering.status_label', '$.catering.order_ref'), updated_at = ? WHERE ref = ? AND json_extract(data, '$.catering.order_ref') IS NOT NULL").bind(t, ref).run();
+  const row = await env.DB.prepare('SELECT data FROM inquiries WHERE ref = ?').bind(ref).first();
+  if (!row) return;
+  const data = safe(row.data), included = Number(data.included_catering_amount) || 0;
+  if (value) data.catering = value;
+  else if (data.catering) { delete data.catering.status; delete data.catering.status_label; delete data.catering.order_ref; data.catering.removed = true; }
+  const statements = [];
+  if ((included > 0 || data.catering_in_quote) && data.total != null) {
+    const next = value && value.status !== 'cancelled' ? Number(value.total) || 0 : 0;
+    data.total = Math.max(0, data.total - included + next); data.included_catering_amount = next;
+    statements.push(env.DB.prepare("UPDATE bookings SET amount = ?, confirm_doc = CASE WHEN amount IS NOT ? THEN NULL ELSE confirm_doc END, updated_at = ? WHERE inquiry_ref = ? AND status <> 'cancelled'").bind(data.total, data.total, t, ref));
+  }
+  statements.push(env.DB.prepare('UPDATE inquiries SET data = ?, updated_at = ? WHERE ref = ?').bind(JSON.stringify(data), t, ref));
+  await batch(env, statements);
 }
 // 예약 또는 문의 하나의 기본 정보 (이름·연락처·날짜·인원·공간)
 async function loadTarget(env, inquiry_ref, booking_code) {
