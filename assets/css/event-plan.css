@@ -1,4 +1,5 @@
 /* One outer card per food service; the label itself has no nested box. */
+.plan-services>.cat-ask>label.chk,
 .plan-services>.plan-reception>label.chk,
 .plan-services>.cocktail-ask>label.chk:first-child{
   display:flex;
@@ -13,4 +14,6 @@
 }
 .plan-services>.plan-reception>label.chk:has(input:checked),
 .plan-services>.cocktail-ask>label.chk:first-child:has(input:checked){background:transparent;color:inherit}
+.plan-services>.cat-ask>label.chk .muted,
+.plan-services>.plan-reception>label.chk small,
 .plan-services>.cocktail-ask>label.chk:first-child .muted{display:block;font-size:12.5px;font-weight:600}
