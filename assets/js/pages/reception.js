@@ -14,12 +14,13 @@
   var format=box.querySelector('[name=reception_format]');
   var q0=new URLSearchParams(location.search),initial=q0.get('reception_people');
   if(initial!==null) input.value=initial;
-  if(C.formatLabel(q0.get('reception_format')))format.value=q0.get('reception_format');
+  if(q0.has('reception_format'))format.value=C.formatLabel(q0.get('reception_format'))?q0.get('reception_format'):'';
   function paint(){
-    var q=C.quote(input.value);
+    var q=C.quote(input.value,format.value);
     var selected=C.formatLabel(format.value),formatQuery=selected?'&reception_format='+encodeURIComponent(format.value):'';
     box.querySelectorAll('[data-reception-people]').forEach(function(b){var on=q.ok&&q.people===Number(b.dataset.receptionPeople);b.classList.toggle('on',on);b.setAttribute('aria-pressed',String(on));});
-    input.setAttribute('aria-invalid',String(!q.ok));
+    input.setAttribute('aria-invalid',String(!q.ok&&q.reason==='invalid'));
+    format.setAttribute('aria-invalid',String(!q.ok&&q.reason==='format'));
     if(!q.ok){
       out.innerHTML='<div class="eyebrow">Estimate</div><p class="mt-2" role="status">'+M.esc(q.message)+'</p>'
         +(q.reason==='consult'?'<a class="btn btn-primary mt-3" href="/inquiry/?reception=classic&reception_people='+q.people+formatQuery+'#reserve">별도 견적 상담 →</a>':'');
@@ -27,10 +28,10 @@
     }
     out.innerHTML='<div class="eyebrow">Classic estimate</div>'
       +'<div class="cc-total"><span>예상 금액<small>부가세 적용 여부 확인 전</small></span><b>'+C.won(q.total)+'</b></div>'
-      +'<p class="small muted">클래식 '+q.people+'명 · 출장·세팅·철수 비용 포함</p>'
+      +'<p class="small muted">클래식 '+q.people+'명 · '+M.esc(q.feeName)+' 포함</p>'
       +(selected?'<p class="small cc-format-selected">희망 제공 방식: <b>'+M.esc(selected)+'</b></p>':'')
       +'<table class="est-lines cc-lines"><tbody><tr><td>클래식 '+C.won(q.unitPrice)+' × '+q.people+'명</td><td class="r">'+C.won(q.food)+'</td></tr>'
-      +'<tr><td>출장·세팅·철수 <small>('+q.feeLabel+')</small></td><td class="r">'+C.won(q.fee)+'</td></tr>'
+      +'<tr><td>'+M.esc(q.feeName)+' <small>('+q.feeLabel+')</small></td><td class="r">'+C.won(q.fee)+'</td></tr>'
       +'<tr class="sum"><td><b>합계</b></td><td class="r"><b>'+C.won(q.total)+'</b></td></tr></tbody></table>'
       +'<a class="btn btn-primary cc-go" href="/inquiry/?reception=classic&reception_people='+q.people+(q.people<=200?'&people='+q.people:'')+formatQuery+'#reserve">이 금액으로 상담하기 →</a>'
       +'<div class="row mt-2"><button type="button" class="btn btn-light btn-sm" data-reception-copy>고객 안내문 복사</button><a class="btn btn-ghost btn-sm" href="tel:01085401886">전화 상담</a></div>'
@@ -41,7 +42,7 @@
   box.addEventListener('click',function(e){
     var b=e.target.closest('[data-reception-people]');if(b){input.value=b.dataset.receptionPeople;paint();return;}
     if(e.target.closest('[data-reception-copy]')){
-      var q=C.quote(input.value);if(!q.ok)return;
+      var q=C.quote(input.value,format.value);if(!q.ok)return;
       M.copy(C.customerText(input.value,format.value)).then(function(ok){M.toast(ok?'고객 안내문을 복사했습니다.':'복사하지 못했습니다. 아래 안내문을 선택해 복사해 주세요.');if(!ok){var pre=document.createElement('pre');pre.className='dr-pre mt-2';pre.textContent=C.customerText(input.value,format.value);out.appendChild(pre);}});
     }
   });
