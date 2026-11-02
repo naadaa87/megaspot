@@ -17,6 +17,7 @@
   var KAKAO = (M.CONFIG && M.CONFIG.kakaoChannel) || '';
   var CC = window.MEGASPOT_CATERING_CALC || null;   // 출장뷔페 계산 (catering-calc.js) — 예약 신청서의 '출장뷔페도 함께 상담' 칸
   var CK = window.MEGASPOT_COCKTAIL_CALC || null;
+  var PLAN = M.eventPlan;
   var DEFAULT_SPACE = E0.defaultSpace || 'megaspot-gundae';
 
   /* 공간 하나의 요금 화면 묶음 — 1호·2호가 같은 코드를 쓰고 숫자·이름만 요금표(D)에서 읽습니다 */
@@ -237,15 +238,18 @@
   function renderEstimator(el, cfg){
     cfg = cfg || {};
     var q0 = {}; try { q0 = Object.fromEntries(new URLSearchParams(location.search)); } catch (_) {}
+    if(PLAN) q0=PLAN.initial(q0, SPACE_ID);
     var st = { date: cfg.date || q0.date || defaultDate(), start: 13, end: 17, people: E.clampInt(q0.people, 1, D.people.max, D.people.defaultPick || 30), purpose: cfg.purpose || q0.purpose || '', regular: q0.type === 'regular',
                opt: { manager: false, managerCount: 1, managerHours: 0, cleaning: false, disposable: false, banner: false, xbanner: false } };
     if (q0.pkg){ var pk0 = E.findPkg(q0.pkg); if (pk0){ st.start = pk0.start; st.end = pk0.end; } }
     if (q0.start && q0.end){ st.start = E.clampInt(q0.start, D.openFrom, D.openTo - 1, 13); st.end = E.clampInt(q0.end, st.start + 1, D.openTo, st.start + 4); }
+    if(PLAN && q0.opt) st.opt=Object.assign(st.opt,q0.opt);
     var pid = 'rv' + Math.random().toString(36).slice(2, 6);
 
     el.innerHTML = ''
       + '<div class="rv"><div class="rv-form">'
       + '<div class="rv-head"><div><div class="eyebrow">Reserve</div><h3>예약 신청 · 금액 확인</h3></div><p class="small muted">시간 · 날짜 · 인원만 고르면 금액이 바로 나옵니다. 그대로 예약을 신청하면 담당자가 일정을 확인하고 결제를 안내해 드립니다.</p></div>'
+      + (PLAN?'<nav class="plan-service-links" aria-label="행사 준비 단계"><a href="#event-food">식음료 더하기 ↓</a><a href="#event-visit">답사 신청 ↓</a></nav>':'')
       // ① 시간
       + '<section class="rv-step"><h4><span>1</span>이용 시간</h4>'
       + '<div class="rv-time"><div class="f"><label for="' + pid + '-start">시작</label><select class="select" id="' + pid + '-start" name="start">' + hourOpts(D.openFrom, D.openTo - 1, st.start) + '</select></div>'
@@ -277,15 +281,20 @@
       + '<div class="est-row mt-2" data-out="manager-row" hidden><div class="f inline"><label for="' + pid + '-mcount">매니저</label><input class="input" type="number" id="' + pid + '-mcount" name="managerCount" min="1" max="10" value="1"><span class="small">명</span></div><div class="f inline"><label for="' + pid + '-mhours">시간</label><input class="input" type="number" id="' + pid + '-mhours" name="managerHours" min="1" max="24" value="" placeholder="이용 시간"><span class="small">시간</span></div></div>'
       + '<p class="tiny muted mt-2">' + esc(D.askOptions.map(function(o){ return o.label; }).join(' · ')) + '은 예약 신청 뒤 상담에서 안내합니다. ' + esc(D.includedShort || '') + '</p>'
       + '</div></details>'
+      + (PLAN ? PLAN.fields() : '')
       + '</div>'
       // 결과 + 예약 신청
       + '<div class="rv-side"><div class="rv-result" data-out="result"></div></div>'
-      + '<div class="est-mini" data-out="mini" hidden><span>예상 금액<small data-out="minisub"></small></span><b data-out="minitotal"></b><button type="button" class="btn btn-primary btn-sm" data-act="show">예약 신청</button></div>'
+      + '<div class="est-mini" data-out="mini" hidden><span>예상 금액<small data-out="minisub"></small></span><b data-out="minitotal"></b><button type="button" class="btn btn-primary btn-sm" data-act="show">상담 신청</button></div>'
       + '</div>';
 
+    if(PLAN && +q0.people>D.people.max){var capacity=document.createElement('p');capacity.className='plan-attention hint';capacity.textContent=NAME+'은 최대 '+D.people.max+'명입니다. 비교 금액은 '+D.people.max+'명 기준으로 조정했습니다. 기존 인원으로 이용하려면 다른 공간을 선택해 주세요.';el.querySelector('.rv-head').after(capacity);}
     var f = function(n){ return el.querySelector('[name=' + n + ']'); };
     var out = function(n){ return el.querySelector('[data-out="' + n + '"]'); };
     var last = null, phase = 'calc', member = null, done = null, sideVisible = false;
+    var planFormDraft={};
+    function saveForm(){ var fm=el.querySelector('.rv-apply'); if(fm) planFormDraft=PLAN?PLAN.capture(fm):planFormDraft; }
+    function restoreForm(){ if(PLAN) PLAN.restore(el.querySelector('.rv-apply'),planFormDraft); }
     // 모바일: 결과 카드가 화면에 보이면 아래 고정 요약 바를 숨깁니다
     // 요약 바가 실제로 보일 때(작은 화면 + 계산기 영역 안)만 body에 표시해 전역 빠른 연락 바와 겹치지 않게 합니다
     var rvVisible = false;
@@ -314,7 +323,8 @@
     function calc(){
       read();
       var r = E.quote({ date: st.date, start: st.start, end: st.end, people: st.people, purpose: st.purpose, options: options(), regular: st.regular });
-      last = r; paint(r); return r;
+      if(PLAN){ PLAN.availability(el,SPACE_ID,st.date); PLAN.saveSpace(st,SPACE_ID); r.plan=PLAN.quote(el,r); }
+      last = r; paint(r); if(PLAN) PLAN.paint(el,r); return r;
     }
     function lineRows(r){
       var lines = '';
@@ -336,7 +346,7 @@
       out('hours').innerHTML = '<b>' + r.hours + '시간</b><span>' + esc(E.hourLabel(r.start)) + ' – ' + esc(E.hourLabel(r.end)) + '</span>' + (r.pkg ? '<span class="badge badge-ok">' + esc(r.pkg.label) + ' 할인 적용</span>' : '');
       $$('button', out('people-pick')).forEach(function(b){ var on = +b.dataset.n === r.people; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
       $$('button', out('date-pick')).forEach(function(b){ var on = b.dataset.d === r.date; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
-      if (r.date < E.todayIso()) out('daytag').insertAdjacentHTML('beforeend', '<span class="badge badge-rust">지난 날짜</span><span class="tiny" style="flex-basis:100%;color:var(--rust)">지난 날짜입니다. 이용일을 다시 골라 주세요.</span>');
+      if (!(r.plan && r.plan.unknownDate) && r.date < E.todayIso()) out('daytag').insertAdjacentHTML('beforeend', '<span class="badge badge-rust">지난 날짜</span><span class="tiny" style="flex-basis:100%;color:var(--rust)">지난 날짜입니다. 이용일을 다시 골라 주세요.</span>');
       else if (D.opening && r.date < D.opening) out('daytag').insertAdjacentHTML('beforeend', '<span class="badge badge-rust">오픈 전</span><span class="tiny" style="flex-basis:100%;color:var(--rust)">' + esc(NAME) + '은 ' + esc(E.kdateY(D.opening)) + ' 문을 엽니다. 오픈일 이후 날짜를 골라 주세요. 그 전 날짜는 <a href="/inquiry/?space=' + DEFAULT_SPACE + '&date=' + esc(r.date) + '" style="text-decoration:underline">건대 1호</a>로 신청할 수 있습니다.</span>');
       out('manager-row').hidden = !st.opt.manager;
       $$('.rate-table td.rc').forEach(function(td){ td.classList.remove('hl'); });
@@ -344,15 +354,15 @@
       Object.keys(bands).forEach(function(b){ $$('.rate-table td.rc[data-band="' + b + '"][data-col="' + r.col + '"]').forEach(function(td){ td.classList.add('hl'); }); });
       if (phase === 'calc') paintResult(r);
       else if (phase === 'form') paintForm(r);
-      var mini = out('mini'); mini.hidden = phase === 'done' || sideVisible; out('minitotal').textContent = man(r.total); out('minisub').textContent = E.kdate(r.date) + ' · ' + r.hours + '시간 · ' + r.people + '명';
+      var mini = out('mini'); mini.hidden = phase === 'done' || sideVisible; out('minitotal').textContent = r.plan && r.plan.unknownDate ? '대관료 상담' : man(r.plan ? r.plan.total : r.total); out('minisub').textContent = E.kdate(r.date) + ' · ' + r.hours + '시간 · ' + r.people + '명';
       syncMiniClass();
       renderQuoteSheet(r, purLabel(r.purpose));
     }
     function headBlock(r){
       var pl = purLabel(r.purpose), notes = r.warnings.map(function(w){ return '<li>' + esc(w) + '</li>'; }).join(''), tips = r.notes.map(function(n){ return '<li>' + esc(n) + '</li>'; }).join('');
       return '<div class="row between"><div class="eyebrow">Estimate</div><span class="tiny muted">' + esc(D.version) + '</span></div>'
-        + '<div class="rv-total"><span>예상 금액<small>' + esc(D.vatNote) + '</small></span><b>' + esc(man(r.total)) + '</b></div>'
-        + '<p class="small muted">' + esc(E.kdateY(r.date)) + ' · ' + esc(r.colLabel) + ' 요금 · ' + esc(r.range) + ' · ' + r.people + '명' + (pl ? ' · ' + esc(pl) : '') + '</p>'
+        + '<div class="rv-total"><span>공간 대관료<small>' + esc(D.vatNote) + '</small></span><b>' + esc(man(r.total)) + '</b></div>'
+        + '<p class="small muted">' + esc(r.plan&&r.plan.unknownDate?'행사 일정 상담 후 결정':E.kdateY(r.date)) + ' · ' + esc(r.colLabel) + ' 요금 · ' + esc(r.range) + ' · ' + r.people + '명' + (pl ? ' · ' + esc(pl) : '') + '</p>'
         + '<details class="rv-lines"><summary>금액 구성 보기 <span class="muted">총액 ' + esc(won(r.total)) + ' · ' + esc(D.deposit.label) + ' ' + esc(won(r.deposit)) + ' 별도</span></summary><table class="est-lines"><tbody>' + lineRows(r) + '</tbody></table>' + (notes ? '<ul class="est-warn">' + notes + '</ul>' : '') + (tips ? '<ul class="est-notes">' + tips + '</ul>' : '') + '</details>';
     }
     function ensureCard(){
@@ -360,13 +370,13 @@
       if (!box.querySelector('[data-out="head"]')) box.innerHTML = '<div class="est-card rv-card"><div data-out="head"></div><div data-out="body"></div></div>';
       return box;
     }
-    function paintHead(r){ ensureCard(); var was = out('head').querySelector('.rv-lines'); var keepOpen = !!(was && was.open); out('head').innerHTML = headBlock(r); if (keepOpen){ var d = out('head').querySelector('.rv-lines'); if (d) d.open = true; } }   // 인원을 고친 뒤 '금액 구성 보기'를 눌러도 다시 닫히지 않게 열림 상태를 유지
+    function paintHead(r){ ensureCard(); var was = out('head').querySelector('.rv-lines'); var keepOpen = !!(was && was.open); out('head').innerHTML = headBlock(r); if (keepOpen){ var d = out('head').querySelector('.rv-lines'); if (d) d.open = true; } if(PLAN && r.plan) PLAN.paint(el,r); }   // 인원을 고친 뒤 '금액 구성 보기'를 눌러도 다시 닫히지 않게 열림 상태를 유지
     function paintResult(r){
       ensureCard(); paintHead(r);
-      var cp = CC && CC.preset(), cq = cp && (cp.course || cp.bbq || cp.beer) ? CC.quote(cp) : null;
+      var cp = !PLAN && CC && CC.preset(), cq = cp && (cp.course || cp.bbq || cp.beer) ? CC.quote(cp) : null;
       out('body').innerHTML = (cq && !cq.empty ? '<p class="rv-cat-note"><span class="badge badge-direct">출장뷔페</span> ' + esc(CC.parts(cq)) + ' · 예상 ' + esc(won(cq.total)) + ' <small class="muted">부가세 포함 · 대관료와 별도 · 예약 신청서에 함께 담깁니다</small></p>' : '')
-        + '<button type="button" class="btn btn-primary btn-lg rv-go" data-act="reserve">예약신청하기 <span class="arrow">→</span></button>'
-        + '<div class="rv-sub"><button type="button" class="btn btn-light btn-sm" data-act="pdf">견적서 PDF 저장</button>' + (KAKAO ? '<a class="btn btn-kakao btn-sm" data-act="kakao" href="' + esc(KAKAO) + '" target="_blank" rel="noopener">카카오톡으로 문의</a>' : '') + '</div>'
+        + '<button type="button" class="btn btn-primary btn-lg rv-go" data-act="reserve">이 구성으로 예약 상담 <span class="arrow">→</span></button>'
+        + '<div class="rv-sub"><button type="button" class="btn btn-light btn-sm" data-act="pdf">전체 견적서 저장</button>' + (KAKAO ? '<a class="btn btn-kakao btn-sm" data-act="kakao" href="' + esc(KAKAO) + '" target="_blank" rel="noopener">카카오톡으로 문의</a>' : '') + '</div>'
         + '<p class="tiny muted mt-2">예약 신청은 결제가 아닙니다. 담당자가 일정을 확인한 뒤 확정 금액과 결제 방법을 안내드리고, 결제가 끝나면 예약이 확정됩니다.</p>'
         + (D.specialNote ? '<p class="rv-special"><span class="badge badge-rust">추가 협찬 · 할인</span>' + esc(D.specialNote) + '</p>' : '');
     }
@@ -380,21 +390,22 @@
         + '<div class="f"><label for="' + pid + '-phone">휴대폰 번호 <span class="req">*</span></label><input class="input" type="tel" id="' + pid + '-phone" name="rv_phone" autocomplete="tel" inputmode="numeric" placeholder="010-0000-0000" value="' + esc(m.phone || '') + '" required></div></div>'
         + '<div class="field-row"><div class="f"><label for="' + pid + '-email">이메일 <span class="muted">(선택)</span></label><input class="input" type="email" id="' + pid + '-email" name="rv_email" autocomplete="email" placeholder="견적서를 받을 주소" value="' + esc(m.email || '') + '"></div>'
         + '<div class="f"><label for="' + pid + '-ptype">모임 유형 <span class="muted">(선택)</span></label><select class="select" id="' + pid + '-ptype" name="rv_purpose"><option value="">선택 안 함</option>' + PUR.map(function(p){ return '<option value="' + p.id + '"' + (st.purpose === p.id ? ' selected' : '') + '>' + esc(p.label) + '</option>'; }).join('') + '<option value="other"' + (st.purpose === 'other' ? ' selected' : '') + '>기타</option></select></div></div>'
-        + '<div class="f"><label for="' + pid + '-msg">요청사항 <span class="muted">(선택)</span></label><textarea class="textarea" id="' + pid + '-msg" name="rv_message" maxlength="1000" style="min-height:64px" placeholder="행사 성격, 배치, 반입할 장비, 음식 등 미리 알려 주실 것">'+esc(M.receptionMessage||'')+'</textarea></div>'
-        + (CC ? CC.formBlock('rv_cat') : '')
-        + (CK ? CK.formBlock('rv') : '')
+        + '<div class="f"><label for="' + pid + '-msg">요청사항 <span class="muted">(선택)</span></label><textarea class="textarea" id="' + pid + '-msg" name="rv_message" maxlength="1000" style="min-height:64px" placeholder="행사 성격, 배치, 반입할 장비, 음식 등 미리 알려 주실 것">'+esc(PLAN?'':M.receptionMessage||'')+'</textarea></div>'
+        + (!PLAN && CC ? CC.formBlock('rv_cat') : '')
+        + (!PLAN && CK ? CK.formBlock('rv') : '')
         + (M.familyAsk ? M.familyAsk('rv_family') : '')
-        + (M.visitAsk ? M.visitAsk('rv_visit') : '')
+        + (!PLAN && M.visitAsk ? M.visitAsk('rv_visit') : '')
         + '<input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">'
         + '<label class="agree"><input type="checkbox" name="rv_agree" required> <span>(필수) 예약 안내를 위해 이름·연락처·이메일·신청 내용을 수집·이용하는 데 동의합니다. 보유 기간은 처리 완료 후 1년이며 <a href="/privacy/" target="_blank" rel="noopener" style="text-decoration:underline">개인정보처리방침</a>을 따릅니다.</span></label>'
         + '<div class="err" data-out="err" role="alert" hidden></div>'
-        + '<div class="rv-apply-btns"><button type="submit" class="btn btn-primary btn-lg" data-act="submit">예약 신청 완료 <span class="arrow">→</span></button><button type="button" class="btn btn-light" data-act="back">← 금액 다시 보기</button></div>'
+        + '<div class="rv-apply-btns"><button type="submit" class="btn btn-primary btn-lg" data-act="submit">상담 신청 보내기 <span class="arrow">→</span></button><button type="button" class="btn btn-light" data-act="back">← 금액 다시 보기</button></div>'
         + '</form>';
+      restoreForm();
       var ph = el.querySelector('[name=rv_phone]'); ph.addEventListener('input', function(){ var v = this.value.replace(/[^0-9]/g, '').slice(0, 11); if (v.length > 7) v = v.replace(/(\d{3})(\d{3,4})(\d{4})/, '$1-$2-$3'); else if (v.length > 3) v = v.replace(/(\d{3})(\d+)/, '$1-$2'); this.value = v; });
       el.querySelector('.rv-apply').addEventListener('submit', function(e){ e.preventDefault(); submit(); });
-      if (CC) CC.bind(el.querySelector('.rv-apply'), 'rv_cat', function(){ return (last || {}).people || st.people; });
-      if (CK) CK.bind(el.querySelector('.rv-apply'));
-      if (M.visitBind) M.visitBind(el.querySelector('.rv-apply'), 'rv_visit');
+      if (!PLAN && CC) CC.bind(el.querySelector('.rv-apply'), 'rv_cat', function(){ return (last || {}).people || st.people; });
+      if (!PLAN && CK) CK.bind(el.querySelector('.rv-apply'));
+      if (!PLAN && M.visitBind) M.visitBind(el.querySelector('.rv-apply'), 'rv_visit');
       // 모바일에서는 화면이 움직이는 중이라 자동 포커스를 하지 않습니다(키보드가 튀어 올라 위치가 흔들림)
       if (window.matchMedia('(min-width:960px) and (hover:hover)').matches) setTimeout(function(){ var n = el.querySelector('[name=rv_name]'); if (n && !n.value) n.focus(); }, 50);
     }
@@ -404,40 +415,45 @@
       var ml = out('member-line'); if (ml){ ml.hidden = false; ml.querySelector('b').textContent = m.name || ''; }
     }
     function reserveText(r, who){
-      var L = [E.summaryText(r, purLabel(r.purpose))];
+      var L = [r.plan&&r.plan.unknownDate?NAME+' · 행사 일정 상담 후 결정':E.summaryText(r, purLabel(r.purpose))];
+      if(r.plan) L.push(r.plan.text);
       if (who) L.unshift('[' + NAME + ' 예약 신청] ' + who.name + ' / ' + who.phone + (who.email ? ' / ' + who.email : '') + (who.message ? '\n요청사항: ' + who.message : '') + (who.family && who.family.length && M.familyLabel ? '\n함께 알아보기: ' + M.familyLabel(who.family) : '') + (who.catering ? '\n출장뷔페: ' + who.catering.summary : '') + (who.cocktail ? '\n출장 칵테일: ' + who.cocktail.summary : '') + (who.visit && M.visitLabel ? '\n현장답사 희망: ' + M.visitLabel(who.visit) : ''));
       return L.join('\n');
     }
     function submit(){
       var form = el.querySelector('.rv-apply'), er = out('err'); er.hidden = true;
+      if(PLAN && !PLAN.validate(el)){ er.textContent='식사 인원과 답사 희망일을 확인해 주세요.'; er.hidden=false; return; }
       if (!M.validate(form)){ er.textContent = '이름·휴대폰 번호와 동의 여부를 확인해 주세요.'; er.hidden = false; return; }
       read(); var r = last || calc();
-      if (r.date < E.todayIso()){ er.textContent = '지난 날짜는 신청할 수 없습니다. 이용일을 다시 골라 주세요.'; er.hidden = false; return; }
-      if (D.opening && r.date < D.opening){ er.textContent = NAME + '은 ' + E.kdateY(D.opening) + ' 오픈합니다. 오픈일 이후 날짜를 골라 주세요.'; er.hidden = false; return; }
-      var who = { name: form.rv_name.value.trim(), phone: form.rv_phone.value.trim(), email: form.rv_email.value.trim(), message: form.rv_message.value.trim(), family: [].slice.call(form.querySelectorAll('[name=rv_family]:checked')).map(function(i){ return i.value; }), catering: CC ? CC.read(form, 'rv_cat', r.people) : null, cocktail: CK ? CK.read(form) : null, visit: M.visitRead ? M.visitRead(form, 'rv_visit') : null };
+      if (!(r.plan && r.plan.unknownDate) && r.date < E.todayIso()){ er.textContent = '지난 날짜는 신청할 수 없습니다. 이용일을 다시 골라 주세요.'; er.hidden = false; return; }
+      if (!(r.plan && r.plan.unknownDate) && D.opening && r.date < D.opening){ er.textContent = NAME + '은 ' + E.kdateY(D.opening) + ' 오픈합니다. 오픈일 이후 날짜를 골라 주세요.'; er.hidden = false; return; }
+      var who = { name: form.rv_name.value.trim(), phone: form.rv_phone.value.trim(), email: form.rv_email.value.trim(), message: form.rv_message.value.trim(), family: [].slice.call(form.querySelectorAll('[name=rv_family]:checked')).map(function(i){ return i.value; }), catering: CC ? CC.read(PLAN?el:form, 'rv_cat', r.people) : null, cocktail: CK ? CK.read(PLAN?el:form) : null, visit: M.visitRead ? M.visitRead(PLAN?el:form, 'rv_visit') : null };
+      if(PLAN){ var reception=PLAN.reception(el,r.people); if(reception) who.message+=(who.message?'\n\n':'')+reception.summary; }
       var purpose = form.rv_purpose.value || st.purpose;
-      var body = { inquiry_type: st.regular ? 'regular' : 'event', space_id: SPACE_ID, reserve: true, purpose: purpose, date: r.date, slot: 'custom',
+      var body = { inquiry_type: st.regular ? 'regular' : 'event', space_id: SPACE_ID, reserve: !(r.plan && r.plan.unknownDate), purpose: purpose, date: r.plan && r.plan.unknownDate ? '' : r.date, slot: 'custom',
         t_start: E.hourLabel(r.start).replace(/^다음 날 /, ''), t_end: E.hourLabel(r.end).replace(/^다음 날 /, ''), start_h: r.start, end_h: r.end, headcount: r.people,
-        options: options(), pkg: r.pkg ? r.pkg.id : '', total: r.total, name: who.name, phone: who.phone, email: who.email, message: who.message, family: who.family, catering: who.catering, cocktail: who.cocktail, visit_wish: who.visit, contact_pref: 'kakao',
-        agree_privacy: true, estimate: E.summaryText(r, purLabel(purpose)), source: location.pathname, summary: reserveText(r, who), website: form.website.value, came_from: M.source ? M.source() : null };
+        options: options(), pkg: r.pkg ? r.pkg.id : '', total: r.plan&&r.plan.unknownDate?null:r.total, name: who.name, phone: who.phone, email: who.email, message: who.message, family: who.family, catering: who.catering, cocktail: who.cocktail, visit_wish: who.visit, contact_pref: 'kakao',
+        agree_privacy: true, estimate: r.plan&&r.plan.unknownDate?'행사 일정 미정 · 상담 후 견적':E.summaryText(r, purLabel(purpose)), source: location.pathname, summary: reserveText(r, who), website: form.website.value, came_from: M.source ? M.source() : null };
+      if(r.plan&&r.plan.unknownDate){body.start_h=null;body.end_h=null;body.t_start='';body.t_end='';body.pkg='';}
       var btn = el.querySelector('[data-act=submit]'); btn.disabled = true; btn.textContent = '신청하는 중…';
-      M.api('/inquiry', { method: 'POST', body: body }).then(function(res){ done = { ref: res.ref, live: true, who: who, r: r, purpose: purpose, member: !!res.member }; phase = 'done'; paintDone(); })
+      M.api('/inquiry', { method: 'POST', body: body }).then(function(res){ done = { ref: res.ref, live: true, who: who, r: r, purpose: purpose, member: !!res.member }; phase = 'done'; if(PLAN) PLAN.clear(); paintDone(); })
       .catch(function(ex){
-        if (ex.code === 'NO_API'){ done = { ref: M.localRef('MS'), live: false, who: who, r: r, purpose: purpose }; phase = 'done'; paintDone(); return; }
-        er.textContent = ex.message || '신청을 보내지 못했습니다. 잠시 후 다시 시도해 주세요.'; er.hidden = false; btn.disabled = false; btn.innerHTML = '예약 신청 완료 <span class="arrow">→</span>';
+        if (ex.code === 'NO_API'){ done = { ref: M.localRef('MS'), live: false, who: who, r: r, purpose: purpose }; phase = 'done'; if(PLAN) PLAN.clear(); paintDone(); return; }
+        er.textContent = ex.message || '신청을 보내지 못했습니다. 잠시 후 다시 시도해 주세요.'; er.hidden = false; btn.disabled = false; btn.innerHTML = '상담 신청 보내기 <span class="arrow">→</span>';
       });
     }
     function paintDone(){
       var r = done.r, text = reserveText(r, done.who);
-      var passId = D.onlinePass && r.pkg && !r.peak ? PASS_ID[r.pkg.id][r.col] : null;   // 성수기는 이용권 금액과 달라 온라인 이용권으로 결제하지 않습니다 · 온라인 이용권은 1호만
+      var passId = !(r.plan&&r.plan.unknownDate) && D.onlinePass && r.pkg && !r.peak ? PASS_ID[r.pkg.id][r.col] : null;   // 성수기는 이용권 금액과 달라 온라인 이용권으로 결제하지 않습니다 · 온라인 이용권은 1호만
       var addons = Object.keys(options());
       var payLink = passId ? '/order/?product=' + passId + '&date=' + r.date + '&people=' + r.people + '&ref=' + encodeURIComponent(done.ref) + (addons.length ? '&addons=' + addons.join(',') : '') : '';
       out('result').innerHTML = '<div class="est-card rv-card rv-done">'
-        + '<div class="row between"><div class="eyebrow">' + (done.live ? 'Received' : 'Draft') + '</div><span class="badge ' + (done.live ? 'badge-ok' : 'badge-warn') + '">' + (done.live ? '예약 신청 접수' : '체험 모드 · 전송 대기') + '</span></div>'
-        + '<h3 class="est-title">' + (done.live ? '예약 신청이 접수되었습니다' : '예약 신청 내용이 준비되었습니다') + '</h3>'
+        + '<div class="row between"><div class="eyebrow">' + (done.live ? 'Received' : 'Draft') + '</div><span class="badge ' + (done.live ? 'badge-ok' : 'badge-warn') + '">' + (done.live ? '상담 신청 접수' : '체험 모드 · 전송 대기') + '</span></div>'
+        + '<h3 class="est-title">' + (done.live ? '상담 신청이 접수되었습니다' : '예약 신청 내용이 준비되었습니다') + '</h3>'
         + '<div class="oc-code mt-2"><small>접수번호</small><b>' + esc(done.ref) + '</b></div>'
         + (done.who && done.who.visit && M.visitLabel ? '<div class="visit-done mt-2"><b>현장답사 희망도 함께 받았습니다</b><span>' + esc(M.visitLabel(done.who.visit)) + ' — 담당자가 연락드려 답사 시간을 확정합니다.</span></div>' : '')
-        + '<dl class="def mt-3"><div><dt>이용일</dt><dd>' + esc(E.kdateY(r.date)) + '</dd></div><div><dt>시간</dt><dd>' + esc(r.range) + (r.pkg ? ' · ' + esc(r.pkg.label) : '') + '</dd></div><div><dt>인원</dt><dd>' + r.people + '명</dd></div><div><dt>예상 금액</dt><dd><b>' + esc(won(r.total)) + '</b> <span class="muted">(' + esc(D.deposit.label) + ' ' + esc(won(r.deposit)) + ' 별도)</span></dd></div>' + (done.who.catering ? '<div><dt>출장뷔페</dt><dd>' + esc(done.who.catering.summary) + ' <span class="muted">(대관료와 별도)</span></dd></div>' : '') + (done.who.cocktail ? '<div><dt>출장 칵테일</dt><dd>' + esc(done.who.cocktail.summary) + ' <span class="muted">(대관료와 별도 · 조건 확인 전)</span></dd></div>' : '') + '<div><dt>예약자</dt><dd>' + esc(done.who.name) + ' · ' + esc(done.who.phone) + '</dd></div></dl>'
+        + '<dl class="def mt-3"><div><dt>이용일</dt><dd>' + esc(r.plan&&r.plan.unknownDate?'상담 후 결정':E.kdateY(r.date)) + '</dd></div><div><dt>시간</dt><dd>' + esc(r.plan&&r.plan.unknownDate?'상담 후 결정':r.range) + (r.pkg&&!(r.plan&&r.plan.unknownDate) ? ' · ' + esc(r.pkg.label) : '') + '</dd></div><div><dt>인원</dt><dd>' + r.people + '명</dd></div><div><dt>예상 금액</dt><dd><b>' + esc(r.plan&&r.plan.unknownDate?'상담 후 안내':won(r.total)) + '</b> <span class="muted">(' + esc(D.deposit.label) + ' ' + esc(won(r.deposit)) + ' 별도)</span></dd></div>' + (done.who.catering ? '<div><dt>출장뷔페</dt><dd>' + esc(done.who.catering.summary) + ' <span class="muted">(대관료와 별도)</span></dd></div>' : '') + (done.who.cocktail ? '<div><dt>출장 칵테일</dt><dd>' + esc(done.who.cocktail.summary) + ' <span class="muted">(대관료와 별도 · 조건 확인 전)</span></dd></div>' : '') + '<div><dt>예약자</dt><dd>' + esc(done.who.name) + ' · ' + esc(done.who.phone) + '</dd></div></dl>'
+        + (r.plan?'<section class="plan-summary">'+r.plan.html+'</section>':'')
         + (done.live
           ? '<ol class="steps-mini mt-3"><li><b>일정 확인</b><span>담당자가 신청하신 날짜·시간이 비어 있는지 확인하고 영업시간 기준 2시간 안에 카카오톡·문자로 연락드립니다.</span></li><li><b>금액 확인·결제 안내</b><span>확정 금액과 결제 방법(카드·계좌이체)을 안내드립니다.</span></li><li><b>예약 확정</b><span>결제가 끝나면 예약번호가 발급되고 현장 안내를 보내 드립니다.</span></li></ol>'
           : '<p class="small muted mt-2">지금은 서버가 연결되지 않아 자동 저장되지 않았습니다. 아래 내용을 카카오톡으로 보내 주시면 같은 순서로 안내해 드립니다.</p>')
@@ -472,12 +488,13 @@
       var act = b.dataset.act;
       if (act === 'show'){ out('result').scrollIntoView({ behavior: 'smooth', block: 'start' }); if (phase === 'calc'){ phase = 'form'; paintForm(last || calc()); } return; }
       if (act === 'reserve'){ phase = 'form'; paintForm(last || calc()); if (window.matchMedia('(max-width:959px)').matches) out('result').scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
-      if (act === 'back'){ phase = 'calc'; paintResult(last || calc()); return; }
+      if (act === 'back'){ saveForm(); phase = 'calc'; paintResult(last || calc()); return; }
       if (act === 'ics'){ if (done) icsDownload(); return; }
       if (act === 'again'){ phase = 'calc'; done = null; paintResult(calc()); el.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
       if (act === 'submit') return;
       if (!last) calc();
-      var text = done ? reserveText(done.r, done.who) : E.summaryText(last, purLabel(last.purpose));
+      var text = done ? reserveText(done.r, done.who) : (last.plan&&last.plan.unknownDate?NAME+' · 행사 일정 상담 후 결정':E.summaryText(last, purLabel(last.purpose)));
+      if(PLAN && last && last.plan) text+='\n\n'+last.plan.text;
       if (act === 'copy'){ copyText(text, '내용을 복사했습니다.'); }
       if (act === 'kakao'){ copyText(text, '내용을 복사했습니다. 카카오톡 채팅창에 붙여 넣어 보내 주세요.'); }
       if (act === 'pdf'){ printQuote(done ? done.r : last); }
@@ -495,9 +512,11 @@
         if ((o.options && o.options.length) || o.regular){ var dm = el.querySelector('.rv-more'); if (dm) dm.open = true; }
         calc(); },
       reserve: function(){ phase = 'form'; paintForm(last || calc()); },
+      draft: function(){ saveForm(); return {state:st,form:planFormDraft,fields:PLAN?PLAN.capture(el.querySelector('.plan-fields')):{}}; },
       calc: calc, state: function(){ return st; }, last: function(){ return last; }
     };
     M.pricing.estimator = api;
+    if(PLAN){ PLAN.bind(el,calc,function(){return st.people;}); if(q0.opt) Object.keys(q0.opt).forEach(function(k){var x=f(k);if(x){if(x.type==='checkbox')x.checked=!!q0.opt[k];else x.value=q0.opt[k];}}); planFormDraft=PLAN.formDraft(); }
     calc();
     if (q0.reserve === '1') api.reserve();
     return api;
@@ -510,6 +529,7 @@
     return s;
   }
   function renderQuoteSheet(r, pl){
+    if(r.plan&&r.plan.unknownDate){sheet().innerHTML='<div class="qp"><h2>'+esc(NAME)+' 행사 상담 내역</h2><p>행사 날짜·시간은 상담 후 결정합니다.</p><section class="qp-plan">'+r.plan.html+'</section><p>이 문서는 예상 비용 안내이며 예약 확정이나 결제 내역이 아닙니다.</p></div>';return;}
     var C = M.CONFIG || {};
     var now = new Date(), stamp = now.getFullYear() + '.' + (now.getMonth() + 1) + '.' + now.getDate() + ' ' + ('0' + now.getHours()).slice(-2) + ':' + ('0' + now.getMinutes()).slice(-2);
     var no = 'MS-' + String(now.getFullYear()).slice(2) + ('0' + (now.getMonth() + 1)).slice(-2) + ('0' + now.getDate()).slice(-2) + '-' + ('0' + now.getHours()).slice(-2) + ('0' + now.getMinutes()).slice(-2);
@@ -533,6 +553,7 @@
       + '</tbody></table>'
       + '<table class="qp-lines"><thead><tr><th>항목</th><th>내용</th><th>금액</th></tr></thead><tbody>' + rows + '</tbody>'
       + '<tfoot><tr><th colspan="2">합계 <small>' + esc(D.vatNote) + '</small></th><th>' + esc(won(r.total)) + '</th></tr><tr><td colspan="2">' + esc(D.deposit.label) + ' (별도 · 이용 뒤 확인 후 반환)</td><td>' + esc(won(r.deposit)) + '</td></tr></tfoot></table>'
+      + (r.plan ? '<section class="qp-plan"><h3>행사 전체 예상 비용</h3>'+r.plan.html+'</section>' : '')
       + (notes ? '<ul class="qp-notes">' + notes + '</ul>' : '')
       + '<div class="qp-grid">'
       + '<div><h3>기본 제공 (무료)</h3><p>' + D.included.map(function(i){ return esc(i.label); }).join(' · ') + '</p><h3>환불 기준</h3><p class="qp-refund">' + refund + '</p><p class="qp-small">' + esc(D.refundNote) + ' ' + esc(D.corporate) + '</p></div>'
@@ -563,7 +584,7 @@
   // 자리(el)가 어느 공간의 요금을 보여 줄지: data-space → 감싸는 요소의 data-space → body data-space → 1호
   function spaceOf(el){
     if (el && el.dataset && el.dataset.space) return el.dataset.space;
-    if (el && el.hasAttribute && el.hasAttribute('data-space-query')){ try { var qs = new URLSearchParams(location.search).get('space'); if (qs && (window.MEGASPOT_PRICING || {})[qs]) return qs; } catch (_) {} }
+    if (el && el.hasAttribute && el.hasAttribute('data-space-query')){ try { var qs = new URLSearchParams(location.search).get('space') || (PLAN&&PLAN.space()); if (qs && (window.MEGASPOT_PRICING || {})[qs]) return qs; } catch (_) {} }
     var wrap = el && el.closest ? el.closest('[data-space]') : null;
     if (wrap && wrap.dataset.space) return wrap.dataset.space;
     return (document.body && document.body.dataset.space) || DEFAULT_SPACE;
@@ -581,6 +602,7 @@
   // 자리의 공간을 바꿔 다시 그립니다 (예약 신청 화면의 1호·2호 선택). 자리를 새 요소로 바꿔 이전 공간의 이벤트 처리기를 떼어 내므로, 돌려주는 요소를 다시 잡아 써야 합니다.
   function rerender(el, spaceId){
     if (!el || !el.parentNode) return null;
+    if(M.eventPlan && M.pricing.estimator && M.pricing.estimator.draft) M.eventPlan.keep(M.pricing.estimator.draft());
     var fresh = el.cloneNode(false); fresh.innerHTML = ''; fresh.dataset.space = spaceId; delete fresh.dataset.ready;
     el.parentNode.replaceChild(fresh, el); init(fresh.parentNode || document); return fresh;
   }

@@ -405,7 +405,7 @@
     function load(y,m){
       var key=y+'-'+M.pad2(m+1); if(cache[key]) return Promise.resolve(cache[key]);
       var from=key+'-01', to=y+'-'+M.pad2(m+1)+'-'+M.pad2(new Date(y,m+1,0).getDate());
-      return M.api('/availability?space='+S.id+'&from='+from+'&to='+to).then(function(r){ cache[key]=r.days||{}; return cache[key]; }).catch(function(){ cache[key]={}; return cache[key]; });
+      return M.api('/availability?space='+S.id+'&from='+from+'&to='+to).then(function(r){ cache[key]=r.days||{}; return cache[key]; });
     }
     function render(){
       var y=cur.getFullYear(), m=cur.getMonth();
@@ -427,7 +427,7 @@
         $('#cal-next').addEventListener('click', function(){ cur=new Date(y,m+1,1); render(); });
         $('#cal-prev').disabled = (y===today.getFullYear()&&m===today.getMonth());
         cal.querySelectorAll('.cal-day.open,.cal-day.hold,.cal-day.partial').forEach(function(el){ function pick(){ var part=el.classList.contains('partial'); selected=el.dataset.d; var est=M.pricing&&M.pricing.estimator; if(est) est.setDate(selected); render(); M.toast(M.fmtKDate(selected)+'을(를) 예약 신청 화면에 넣었습니다.'+(part?' 이 날은 일부 시간에 예약이 있어, 가능한 시간을 확인해 안내해 드립니다.':'')); var box=$('#estimate'); if(box) box.scrollIntoView({behavior:'smooth',block:'start'}); } el.addEventListener('click', pick); el.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); pick(); } }); });
-      });
+      }).catch(function(){ cal.innerHTML='<p class="plan-attention">예약 현황을 불러오지 못했습니다. 잠시 후 다시 확인하거나 담당자에게 문의해 주세요.</p><button type="button" class="btn btn-light" id="calendar-retry">다시 불러오기</button>';$('#calendar-retry').addEventListener('click',render); });
     }
     M.checkApi().then(render);
   })();

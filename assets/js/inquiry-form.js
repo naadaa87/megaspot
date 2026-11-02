@@ -48,7 +48,7 @@
     + '<fieldset id="fs-cond" '+FS+'><legend class="kicker">모임 조건 <span class="muted" style="font-weight:600;text-transform:none;letter-spacing:0">— 모두 선택 사항</span></legend>'
     + '<div class="field-row three">'
     + '<div class="f"><label for="iq-date" id="iq-date-lbl">희망일</label><input class="input" type="date" id="iq-date" name="date" value="'+esc(pf.date||'')+'"></div>'
-    + '<div class="f"><label for="iq-people">인원</label><input class="input" type="number" inputmode="numeric" min="1" max="200" id="iq-people" name="headcount" value="'+esc(pf.people||'')+'" placeholder="예: 80"></div>'
+    + '<div class="f"><label for="iq-people">인원</label><input class="input" type="number" inputmode="numeric" min="1" max="350" id="iq-people" name="headcount" value="'+esc(pf.people||'')+'" placeholder="예: 80"></div>'
     + '<div class="f"><label for="iq-purpose">모임 유형</label><select class="select" id="iq-purpose" name="purpose"><option value="">선택 안 함</option>'+opt(PUR, pf.purpose)+'<option value="other"'+(pf.purpose==='other'?' selected':'')+'>기타</option></select></div>'
     + '</div>'
     + '<div class="f"><span class="lbl">시간대</span><div class="pick" id="iq-slot">'+SLOTS.map(function(s){ return '<button type="button" data-v="'+s[0]+'"'+(s[0]===(pf.slot||'undecided')?' class="on"':'')+'>'+esc(s[1])+'</button>'; }).join('')+'</div><input type="hidden" name="slot" value="'+esc(pf.slot||'undecided')+'"></div>'

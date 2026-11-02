@@ -354,7 +354,7 @@
       var bar=document.createElement('nav'); bar.className='quick-bar'; bar.setAttribute('aria-label','빠른 연락');
       bar.innerHTML='<a class="qb-call" href="tel:'+CONFIG.phone.replace(/-/g,'')+'"><span class="qb-ico" aria-hidden="true">☎</span>전화</a>'
         +(CONFIG.kakaoChannel?'<a class="qb-kakao" href="'+esc(CONFIG.kakaoChannel)+'" target="_blank" rel="noopener"><svg class="ico-talk" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3.2C6.6 3.2 2.3 6.6 2.3 10.9c0 2.7 1.8 5.1 4.5 6.5l-.9 3.4c-.1.3.3.6.6.4l4-2.6c.5.1 1 .1 1.5.1 5.4 0 9.7-3.4 9.7-7.8S17.4 3.2 12 3.2z"/></svg>카카오톡</a>':'')
-        +'<a class="qb-main" href="'+(document.querySelector('[data-price=estimator]')?'#estimate':'/inquiry/')+'">예약신청·금액확인 <span class="arrow">→</span></a>';
+        +'<a class="qb-main" href="'+(document.querySelector('#cat-calc')?'#calc':document.querySelector('#cocktail-calc')?'#calc':document.querySelector('#reception-calc')?'#calc':document.querySelector('[data-price=estimator]')?'#estimate':'/inquiry/')+'">예약신청·금액확인 <span class="arrow">→</span></a>';
       document.body.appendChild(bar); document.body.classList.add('has-quick-bar');
       var est=document.querySelector('[data-price=estimator]');
       if(est && 'IntersectionObserver' in window){ new IntersectionObserver(function(en){ bar.classList.toggle('off', en[0].isIntersecting); }, { rootMargin:'0px 0px -40% 0px' }).observe(est); }

@@ -35,7 +35,7 @@
     if (beer) lines.push({ key: 'beer', label: '생맥주 ' + beer + '통 (' + D.beer.unit + ', 약 ' + (beer * D.beer.cups) + '잔)', amount: beer * D.beer.price, people: 0 });
     if (lines.length && fee) lines.push({ key: 'delivery', label: D.delivery.label, amount: fee, people: 0 });
     var supply = lines.reduce(function(a, x){ return a + x.amount; }, 0), vat = Math.round(supply * D.vat), total = supply + vat;
-    if (c && people > 200) warn.push('메가스팟 건대는 최대 200명까지 이용할 수 있습니다.');
+    if (c && people > 350) warn.push('350명 초과는 공간과 제공 가능 여부를 별도 상담해 주세요.');
     if (c && c.live && billPeople >= liveMin(c)) warn.push(liveMin(c) + '인 이상이라 즉석 코너(' + c.live.replace(/ — .*/, '') + ')가 함께 운영됩니다.');
     return { course: c, bbq: b, beer: beer, people: people || billPeople, billPeople: billPeople, lines: lines, supply: supply, vat: vat, total: total, fee: fee,
              perPerson: billPeople ? Math.round(total / billPeople) : 0, warn: warn, empty: !lines.length };
@@ -84,7 +84,7 @@
       + '<label class="chk cat-ask-on"><input type="checkbox" name="' + name + '_on" value="1"' + (on ? ' checked' : '') + '> <span><b>출장뷔페도 함께 상담받기</b> <span class="muted">1인 ' + esc(won(lowest())) + '부터 · 20인부터 · 부가세 별도</span></span></label>'
       + '<div class="cat-ask-body"' + (on ? '' : ' hidden') + '>'
       + '<div class="field-row"><div class="f"><label for="' + id + '-course">코스</label><select class="select" id="' + id + '-course" name="' + name + '_course">' + courseOptions(p.course) + '</select></div>'
-      + '<div class="f"><label for="' + id + '-people">식사 인원</label><input class="input" type="number" inputmode="numeric" min="1" max="200" id="' + id + '-people" name="' + name + '_people" value="' + (p.people || '') + '" placeholder="대관 인원과 같으면 비워 두세요"></div></div>'
+      + '<div class="f"><label for="' + id + '-people">식사 인원</label><input class="input" type="number" inputmode="numeric" min="1" max="350" id="' + id + '-people" name="' + name + '_people" value="' + (p.people || '') + '" placeholder="대관 인원과 같으면 비워 두세요"></div></div>'
       + '<div class="field-row"><div class="f"><label for="' + id + '-bbq">바베큐</label><select class="select" id="' + id + '-bbq" name="' + name + '_bbq">' + bbqOptions(p.bbq) + '</select></div>'
       + '<div class="f"><label for="' + id + '-beer">생맥주</label><select class="select" id="' + id + '-beer" name="' + name + '_beer">' + beerOptions(p.beer) + '</select></div></div>'
       + '<p class="cat-ask-sum" data-cat-sum></p>'

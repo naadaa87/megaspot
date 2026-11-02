@@ -22,7 +22,7 @@
     input.setAttribute('aria-invalid',String(!q.ok));
     if(!q.ok){
       out.innerHTML='<div class="eyebrow">Estimate</div><p class="mt-2" role="status">'+M.esc(q.message)+'</p>'
-        +(q.reason==='consult'?'<a class="btn btn-primary mt-3" href="/inquiry/?reception=classic&reception_people='+q.people+formatQuery+'#other">별도 견적 상담 →</a>':'');
+        +(q.reason==='consult'?'<a class="btn btn-primary mt-3" href="/inquiry/?reception=classic&reception_people='+q.people+formatQuery+'#reserve">별도 견적 상담 →</a>':'');
       return;
     }
     out.innerHTML='<div class="eyebrow">Classic estimate</div>'
@@ -32,7 +32,7 @@
       +'<table class="est-lines cc-lines"><tbody><tr><td>클래식 '+C.won(q.unitPrice)+' × '+q.people+'명</td><td class="r">'+C.won(q.food)+'</td></tr>'
       +'<tr><td>출장·세팅·철수 <small>('+q.feeLabel+')</small></td><td class="r">'+C.won(q.fee)+'</td></tr>'
       +'<tr class="sum"><td><b>합계</b></td><td class="r"><b>'+C.won(q.total)+'</b></td></tr></tbody></table>'
-      +'<a class="btn btn-primary cc-go" href="/inquiry/?reception=classic&reception_people='+q.people+(q.people<=200?'&people='+q.people:'')+formatQuery+'#other">이 금액으로 상담하기 →</a>'
+      +'<a class="btn btn-primary cc-go" href="/inquiry/?reception=classic&reception_people='+q.people+(q.people<=200?'&people='+q.people:'')+formatQuery+'#reserve">이 금액으로 상담하기 →</a>'
       +'<div class="row mt-2"><button type="button" class="btn btn-light btn-sm" data-reception-copy>고객 안내문 복사</button><a class="btn btn-ghost btn-sm" href="tel:01085401886">전화 상담</a></div>'
       +'<p class="tiny muted mt-2">제공 방식별 포장·기물·세팅 범위, 부가세 적용 여부·최소 주문 인원·코스 적용 가능 여부는 최종 견적에서 확인합니다. 공간 대관료는 별도입니다.</p>';
   }
