@@ -26,6 +26,7 @@
     var c=d.catering;
     if(c){var cancelled=c.status==='cancelled',status={pending:'확정 대기',confirmed:'확정',ordered:'발주 완료',completed:'제공 완료',cancelled:'취소'}[c.status]||c.status;
       rows.push({title:'출장뷔페',detail:c.summary?String(c.summary).replace(/\s*—\s*예상.*$/,''): [c.course_name||'코스 상담 후 결정',c.people?c.people+'명':'',c.bbq_name?'바베큐 '+c.bbq_name:'',c.beer?'생맥주 '+c.beer+'통':''].filter(Boolean).join(' · '),amount:amount(c.total),cancelled:cancelled,
+        customerNote:[c.total>0?'부가세·출장·세팅비 포함':'코스·인원 상담 후 견적',c.meal_time?'식사 시간 '+c.meal_time:''].filter(Boolean).join('\n'),
         note:[status?'진행 상태: '+status:'',c.total>0?'부가세·출장·세팅비 포함':'코스·인원 상담 후 견적',c.meal_time?'식사 시간 '+c.meal_time:'',c.note?'메모: '+c.note:''].filter(Boolean).join('\n')});
       // A zero from an undecided buffet is a missing quote, rather than a free service.
       if(!c.course&&!c.bbq&&!c.beer&&!c.total)rows[rows.length-1].amount=null;
@@ -36,7 +37,22 @@
       rows.push({title:'출장 칵테일',detail:[ck.cups?ck.cups+'잔 패키지':'패키지 상담 후 결정',menus.length?'희망 메뉴: '+menus.join(', '):'',ck.nonalcohol?'논알코올 구성 상담':'',ck.note?'요청: '+ck.note:''].filter(Boolean).join('\n'),amount:amount(ck.price),note:'부가세·출장·운영 조건 확인 전',uncertain:true});
     }
     var active=rows.filter(function(r){return !r.cancelled;}),total=active.reduce(function(sum,r){return sum+(r.amount===null?0:r.amount);},0);
-    return {rows:rows,total:total,hasAmount:active.some(function(r){return r.amount!==null;}),incomplete:active.some(function(r){return r.amount===null||r.uncertain;}),pending:active.filter(function(r){return r.amount===null;}).map(function(r){return r.title;}),hasCatering:!!c};
+    return {conditions:opts.conditions||'',rows:rows,total:total,hasAmount:active.some(function(r){return r.amount!==null;}),incomplete:active.some(function(r){return r.amount===null||r.uncertain;}),pending:active.filter(function(r){return r.amount===null;}).map(function(r){return r.title;}),hasCatering:!!c};
+  }
+  function customerText(m){
+    var lines=['[메가스팟 공간·식음료 예상 견적]','안녕하세요, 메가스팟입니다. 문의하신 구성의 예상 견적을 안내드립니다.'];
+    m.rows.filter(function(r){return !r.cancelled;}).forEach(function(r,i){
+      lines.push('',(i+1)+'. '+r.title,r.detail);
+      if(i===0&&m.conditions)lines.push(m.conditions);
+      lines.push('· 예상 금액: '+(r.amount===null?'상담 후 안내':money(r.amount)));
+      var note=i===0?'':r.customerNote!==undefined?r.customerNote:r.note;
+      if(note)lines.push(note);
+    });
+    lines.push('',(m.incomplete?'[현재 계산 가능한 소계]':'[전체 예상 견적]'),m.hasAmount?money(m.total):'상담 후 안내');
+    if(m.pending.length)lines.push('※ '+m.pending.join(' · ')+' 금액은 미정이며 소계에 포함되지 않았습니다.');
+    if(m.incomplete)lines.push('※ 미확정 부가세·출장·운영 조건은 상담 후 최종 확인합니다.');
+    lines.push('※ 반환 보증금은 별도이며 위 합계에 포함되지 않습니다.','일정과 제공 가능 여부를 확인한 후 최종 견적을 안내드립니다.');
+    return lines.join('\n');
   }
   function render(m){
     return '<section class="dr-sec dr-plan" aria-label="공간·식음료 견적 요약"><div class="dr-plan-heading"><h3>공간·식음료 견적 요약</h3><span>현재 저장된 구성 기준</span></div>'
@@ -44,7 +60,8 @@
       +(m.rows.length===1?'<p class="dr-plan-empty">선택한 식음료가 없습니다.</p>':'')
       +'<div class="dr-plan-total"><span>'+(m.incomplete?'계산 가능한 소계':'전체 예상 견적')+'</span><strong>'+(m.hasAmount?esc(money(m.total)):'상담 후 안내')+'</strong></div>'
       +'<p class="dr-plan-note">'+(m.pending.length?esc(m.pending.join(' · '))+' 금액은 미정이며 소계에 포함되지 않았습니다. ':'')+(m.incomplete?'미확정 부가세·출장·운영 조건은 상담 후 최종 확인합니다. ':'')+'반환 보증금은 합계에서 제외됩니다. 공간 금액을 수정하면 합계에도 반영됩니다.</p>'
-      +(m.hasCatering?'<button type="button" class="btn btn-light btn-xs" id="dr-cat-go">출장뷔페 구성 관리 →</button>':'')+'</section>';
+      +'<div class="dr-plan-actions"><button type="button" class="btn btn-primary btn-sm" id="dr-plan-copy">고객 안내 내용 복사</button>'
+      +(m.hasCatering?'<button type="button" class="btn btn-light btn-xs" id="dr-cat-go">출장뷔페 구성 관리 →</button>':'')+'</div><div id="dr-plan-copy-fallback" hidden><label for="dr-plan-copy-text">자동 복사가 안 되면 아래 내용을 직접 복사해 주세요.</label><textarea class="textarea" id="dr-plan-copy-text" readonly></textarea></div></section>';
   }
-  return {build:build,render:render,reception:reception};
+  return {build:build,render:render,reception:reception,customerText:customerText};
 });
