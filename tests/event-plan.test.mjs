@@ -7,7 +7,7 @@ function fixture(){
  let cat=null,ck=null,unknown=false,rec=null;
  const state=new Map();
  const M={esc:s=>String(s??'').replaceAll('<','&lt;')};
- const ctx={window:{MEGASPOT:M,MEGASPOT_RECEPTION_CALC:RC,MEGASPOT_CATERING_CALC:{read:()=>cat,quote:c=>c,parts:c=>c.summary},MEGASPOT_COCKTAIL_CALC:{read:()=>ck}},URLSearchParams,location:{search:''},sessionStorage:{getItem:k=>state.get(k),setItem:(k,v)=>state.set(k,v),removeItem:k=>state.delete(k)},Date};
+ const ctx={window:{MEGASPOT:M,MEGASPOT_RECEPTION_CALC:RC,MEGASPOT_CATERING_CALC:{read:()=>cat,quote:c=>c,parts:c=>c.summary},MEGASPOT_COCKTAIL_CALC:{read:()=>ck,names:{mojito:'모히토',blue_sapphire:'블루 사파이어'}}},URLSearchParams,location:{search:''},sessionStorage:{getItem:k=>state.get(k),setItem:(k,v)=>state.set(k,v),removeItem:k=>state.delete(k)},Date};
  vm.runInNewContext(readFileSync(new URL('../assets/js/event-plan.js',import.meta.url),'utf8'),ctx);
  return {plan:M.eventPlan,root:{querySelector:s=>{if(s.includes('event_date_unknown'))return unknown;const name=s.match(/name="([^"]+)"/);return rec&&name?rec[name[1]]||null:null;}},food(c,k){cat=c;ck=k;},unknown(){unknown=true;},reception(format,people=50){rec={reception_on:{checked:true},reception_course:{value:'classic'},reception_format:{value:format},reception_people:{value:String(people)}};}};
 }
@@ -54,4 +54,10 @@ test('통합 견적 소계와 접수 요약이 선택한 케이터링 방식별 
  assert.equal(f.plan.reception(f.root,50).total,null);
  assert.match(f.plan.reception(f.root,50).note,/제공 방식/);
  assert.equal(f.plan.quote(f.root,{total:500000,deposit:150000,people:50}).total,500000);
+});
+
+test('통합 견적과 견적서 요약에 칵테일 메뉴·논알코올·추가 요청이 포함된다',()=>{
+ const f=fixture();f.food(null,{cups:200,price:1100000,menus:['mojito','blue_sapphire'],nonalcohol:true,note:'민트 적게'});
+ const q=f.plan.quote(f.root,{total:500000,deposit:150000,people:60});
+ for(const detail of ['모히토, 블루 사파이어','논알코올 구성 상담','민트 적게']){assert.ok(q.text.includes(detail));assert.ok(q.html.includes(detail));}
 });
