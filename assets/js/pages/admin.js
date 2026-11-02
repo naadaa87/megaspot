@@ -362,6 +362,15 @@
     $('#dr-memo-save').addEventListener('click', function(){ var v=$('#dr-memo').value; A('/inquiries/'+it.ref,{method:'PATCH', body:{memo:v}}).then(function(){ it.memo=v; refreshLists(); M.toast('메모를 저장했습니다.'); }).catch(function(e){ if(!guard(e)) M.toast(e.message); }); });
     $$('#dr-body [data-chk]').forEach(function(cb){ cb.addEventListener('change', function(){ var o={}; $$('#dr-body [data-chk]').forEach(function(x){ o[x.dataset.chk]=x.checked; }); A('/inquiries/'+it.ref+'/checks',{method:'PUT', body:{checks:o}}).then(function(r){ cur.checks=r.checks; M.toast('체크리스트를 저장했습니다.'); if(!$('#view-resv').hidden) loadResv(); if(!$('#view-bookings').hidden) loadBookings(); }).catch(function(e){ if(!guard(e)) M.toast(e.message); }); }); });
     $('#dr-quote').addEventListener('click', function(){ quoteFromInquiry(cur.item); closeDrawer($('#adm-drawer')); go('quote'); });
+    var planCopy=$('#dr-plan-copy');
+    if(planCopy)planCopy.addEventListener('click',function(){
+      var text=window.MEGASPOT_INQUIRY_OVERVIEW.customerText(inquiryOverviewModel(cur.item,cur.item.data||{}));
+      M.copy(text).then(function(ok){
+        $('#dr-plan-copy-fallback').hidden=ok;
+        if(!ok){var field=$('#dr-plan-copy-text');field.value=text;field.focus();field.select();}
+        M.toast(ok?'고객 안내 내용을 복사했습니다. 카카오톡에 붙여 넣어 보내세요.':'자동 복사가 안 됩니다. 표시된 내용을 직접 복사해 주세요.');
+      });
+    });
     var ctGo=function(){ ctFromInquiry(cur.item, cur.catering_order, cur.bookings); closeDrawer($('#adm-drawer')); go('catering'); };
     $('#dr-cat').addEventListener('click', ctGo); var dcg=$('#dr-cat-go'); if(dcg) dcg.addEventListener('click', ctGo);
     var db=$('#dr-book'); if(db) db.addEventListener('click', function(){ openConfirm(confirmFromInquiry()); });
@@ -392,8 +401,11 @@
   function inquiryOverview(it,d){
     var overview=window.MEGASPOT_INQUIRY_OVERVIEW;
     if(!overview)return '';
-    var amount=currentAmount(it,(cur.quotes||[])[0]),names=window.MEGASPOT_COCKTAIL_CALC;
-    return overview.render(overview.build(it,{roomAmount:amount,spaceName:d.listing&&d.listing.name?d.listing.name:spaceName(it.space_id||d.space_id||DEFAULT_SPACE),conditions:[d.date?kd(d.date):'행사일 미정',timeText(d,' – '),d.headcount?d.headcount+'명':'',optText(d.options)].filter(Boolean).join(' · '),roomNote:d.amount_override||d.amount_mode==='manual'?'운영자 수정 금액 · 식음료 별도':'현재 공간 금액 기준 · 식음료 별도',cocktailNames:names?names.names:{}}));
+    return overview.render(inquiryOverviewModel(it,d));
+  }
+  function inquiryOverviewModel(it,d){
+    var overview=window.MEGASPOT_INQUIRY_OVERVIEW,amount=currentAmount(it,(cur.quotes||[])[0]),names=window.MEGASPOT_COCKTAIL_CALC;
+    return overview.build(it,{roomAmount:amount,spaceName:d.listing&&d.listing.name?d.listing.name:spaceName(it.space_id||d.space_id||DEFAULT_SPACE),conditions:[d.date?kd(d.date):'행사일 미정',timeText(d,' – '),d.headcount?d.headcount+'명':'',optText(d.options)].filter(Boolean).join(' · '),roomNote:d.amount_override||d.amount_mode==='manual'?'운영자 수정 금액 · 식음료 별도':'현재 공간 금액 기준 · 식음료 별도',cocktailNames:names?names.names:{}});
   }
   function amountSection(it, d){
     var lastQ=(cur.quotes||[])[0], amount=currentAmount(it,lastQ), src='';

@@ -26,3 +26,8 @@
   .dr-plan-price{grid-column:2;grid-row:1;font-size:13px}
   .dr-plan-total strong{font-size:23px}
 }
+
+.dr-plan-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:4px}
+.dr-plan-actions .btn{margin-top:0}
+#dr-plan-copy-fallback label{display:block;font-size:12px;line-height:1.6;margin:4px 0 8px}
+#dr-plan-copy-text{min-height:280px;font-size:13px;line-height:1.7}
