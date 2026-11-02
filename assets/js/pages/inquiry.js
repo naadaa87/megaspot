@@ -29,6 +29,10 @@
     if(Object.prototype.hasOwnProperty.call(receptionCourses,reception)){
       var rc=receptionCourses[reception];
       var receptionMessage='출장 케이터링 '+rc[0]+' 구성('+rc[1]+')을 상담받고 싶습니다. 행사 날짜·장소·예상 인원에 맞는 구성과 적용 단위, 부가세·출장 및 세팅비·최소 주문 조건을 안내해 주세요.';
+      if(reception==='classic'&&q.has('reception_people')&&M&&window.MEGASPOT_RECEPTION_CALC){
+        var calculatedMessage=window.MEGASPOT_RECEPTION_CALC.inquiryText(q.get('reception_people'));
+        if(calculatedMessage) receptionMessage=calculatedMessage;
+      }
       M.receptionMessage=receptionMessage;
       var rm=document.querySelector('#iq-msg'); if(rm&&!rm.value) rm.value=receptionMessage;
       document.querySelectorAll('[name=rv_message]').forEach(function(el){if(!el.value) el.value=receptionMessage;});

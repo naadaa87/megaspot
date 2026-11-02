@@ -302,10 +302,11 @@ QR 이미지는 `assets/img/brand/kakao-qr.svg` 입니다. **채널 주소를 �
 
 ### 출장 케이터링 (`/reception/`, 2026-11-02)
 
-파티·리셉션용 샌드위치·카나페·스큐어·디저트 서비스입니다. 기존 출장뷔페(`/catering/`)와 출장 칵테일(`/cocktail/`)에 세 번째 서비스로 추가했습니다. 제공받은 메뉴 자료의 2만·3만·4만·5만 원 구성에 운영자 요청으로 각각 5,000원을 더해 **라이트 25,000원 / 클래식 35,000원 / 프리미엄 45,000원 / 시그니처 55,000원**으로 안내합니다. 원본에 없는 적용 단위·최소 인원·부가세·출장 및 세팅비는 상담 확인으로 표시하며, 뷔페의 비용 규칙을 자동 적용하지 않습니다. 개별·박스 메뉴 43종은 원본 단가에 30%를 가산하고 100원 단위로 올림한 판매가를 1EA·1BOX 단위와 함께 공개합니다. `tools/reception_data.py`에는 고객 판매가만 저장합니다. 최소 수량·박스당 중량 및 제공 인원·부가세·출장 및 세팅비는 상담에서 확인합니다.
+파티·리셉션용 샌드위치·카나페·스큐어·디저트 서비스입니다. 기존 출장뷔페(`/catering/`)와 출장 칵테일(`/cocktail/`)에 세 번째 서비스로 추가했습니다. 제공받은 메뉴 자료의 2만·3만·4만·5만 원 구성에 운영자 요청으로 각각 5,000원을 더해 **라이트 25,000원 / 클래식 35,000원 / 프리미엄 45,000원 / 시그니처 55,000원**으로 안내합니다. 클래식은 1인 35,000원으로 계산합니다. 출장·세팅·철수비는 100명까지 250,000원, 101~200명 300,000원, 201~300명 350,000원을 더하며, 301명 이상은 별도 상담합니다. 최소 인원과 부가세 적용 여부는 상담에서 확인하며, 뷔페의 비용 규칙을 자동 적용하지 않습니다. 개별·박스 메뉴 43종은 원본 단가에 30%를 가산하고 100원 단위로 올림한 판매가를 1EA·1BOX 단위와 함께 공개합니다. `tools/reception_data.py`에는 고객 판매가만 저장합니다. 최소 수량·박스당 중량 및 제공 인원·부가세·출장 및 세팅비는 상담에서 확인합니다.
 
+- 클래식 계산기: `/reception/#calc`. 인원 변경·고객 안내문 복사·문의서 전달을 지원합니다. 가격·비용 기준은 `tools/reception_data.py`에서 `assets/js/data/reception-quote.js`로 생성하고, 계산은 `assets/js/reception-calc.js`, 화면은 `assets/js/pages/reception.js`가 담당합니다. 50명은 메뉴 1,750,000원 + 출장·세팅·철수비 250,000원 = 2,000,000원(부가세 적용 여부 확인 전)입니다. 문의 링크의 `reception_people`를 검증해 요청사항에 계산 내역을 채우며 대관료와 별도로 접수합니다.
 - 메뉴·구성 안내가 원본: `tools/reception_data.py`. PDF와 웹페이지 생성: `tools/build_reception.py` (ReportLab·Pillow 필요).
-- PDF: `assets/docs/megaspot-reception-guide.pdf` (14페이지). 사진: `assets/img/reception/`, 전용 스타일: `assets/css/reception.css`.
+- PDF: `assets/docs/megaspot-reception-guide.pdf` (15페이지). 사진: `assets/img/reception/`, 전용 스타일: `assets/css/reception.css`.
 - 생성용 원본 사진은 제공 PDF에 `pdfimages -png INPUT.pdf tmp/pdfs/raw`를 실행해 준비합니다. 다시 생성할 때는 이 저장소 루트에서 `python tools/build_reception.py`를 실행합니다. 추출 파일이 없으면 기존 공개 이미지로 재생성합니다.
 - 모든 공개 페이지의 PC 메뉴·모바일 메뉴·푸터, 메인 소개 영역, 뷔페·칵테일 페이지에서 연결합니다.
 - 코스별 문의 링크는 `/inquiry/?reception=light|classic|premium|signature#other`이며, 선택한 코스·안내가를 간단 문의와 대관 신청의 요청사항에 채웁니다(`assets/js/pages/inquiry.js`). 접수는 기존 문의 API의 `message`로 저장되므로 관리자 문의 상세에서도 확인할 수 있습니다. `reception=all`은 구성 미정 상담, 목록에 없는 값은 무시합니다.

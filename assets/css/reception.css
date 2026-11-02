@@ -23,3 +23,8 @@
 .page-reception .reception-brand-logo{display:block;width:130px;height:auto}
 .page-reception .site-footer .reception-brand-logo{width:170px;filter:brightness(0) invert(1)}
 .reception-item p.reception-item-price{font-size:16px;font-weight:700;line-height:1.5;color:var(--cobalt)}
+.page-reception #calc{scroll-margin-top:90px}
+.page-reception #calc .cc-total{flex-wrap:wrap}
+.page-reception #calc .cc-total b{font-family:var(--font-body);font-size:clamp(27px,3vw,38px);font-weight:800}
+.page-reception #calc .cc-go{white-space:normal;text-align:center;width:100%;margin-top:20px}
+.page-reception #calc .est-lines td:first-child{padding-right:12px}
