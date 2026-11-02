@@ -14,13 +14,13 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.colors import HexColor
 from reportlab.lib.utils import ImageReader
-from reception_data import COURSES, CATALOG, PRICE_NOTE, PHOTO_NOTE
+from reception_data import COURSES, CATALOG, PRICE_NOTE, PHOTO_NOTE, CATALOG_PRICE_NOTE
 
 ROOT = Path(__file__).resolve().parents[1]
 IMG = ROOT / "assets/img/reception"
 PDF = ROOT / "assets/docs/megaspot-reception-guide.pdf"
 URL = "/reception/"
-STAMP = "20261102r6"
+STAMP = "20261102r7"
 LOGO = ROOT / "assets/img/brand/megaspot-official-wordmark-transparent.png"
 KAKAO = "https://pf.kakao.com/_LnxbmX/chat"
 PHONE = "010-8540-1886"
@@ -84,12 +84,12 @@ def build_web():
     head = head.replace(text_logo, logo_markup)
     packages = ''.join(f'<article class="reception-package"><div class="eyebrow">0{i+1} / {c["id"]}</div><h3 class="mt-1">{c["name"]}</h3><div class="reception-price">{c["price"]:,}원<small>메가스팟 구성 안내가</small></div><p>{c["intro"]}</p><a class="btn btn-light btn-sm" href="#course-{c["id"]}">상세 메뉴 보기 ↓</a></article>' for i,c in enumerate(COURSES))
     courses = ''.join(f'<article class="reception-course" id="course-{c["id"]}"><header><div><h3>{c["name"]}<span>{c["price"]:,}원</span></h3><p class="small muted mt-1">{c["intro"]}</p></div><a class="btn btn-primary btn-sm" href="{inquiry(c)}">이 구성으로 상담 →</a></header><ul class="reception-menu-list">'+''.join(f'<li><b>{name}</b>'+ (f'<small>{detail}</small>' if detail else '')+'</li>' for name,detail in c['menus'])+'</ul></article>' for c in COURSES)
-    catalog = ''.join(f'<article class="reception-item"><img src="/assets/img/reception/menu-{i+1:02}.jpg" alt="{name} 메뉴 참고 사진" width="640" height="480" loading="lazy"><div><h3>{name}</h3><p>{"박스 메뉴" if unit=="BOX" else "개별 메뉴"} · 수량·판매가 별도 상담</p></div></article>' for i,(name,unit) in enumerate(CATALOG))
+    catalog = ''.join(f'<article class="reception-item"><img src="/assets/img/reception/menu-{i+1:02}.jpg" alt="{name} 메뉴 참고 사진" width="640" height="480" loading="lazy"><div><h3>{name}</h3><p class="reception-item-price">{"1BOX" if unit=="BOX" else "1EA"} · {price:,}원</p></div></article>' for i,(name,unit,price) in enumerate(CATALOG))
     body = f'''<main id="main">
 <section class="page-hero"><div class="container"><div class="crumbs"><a href="/">홈</a><span>/</span><span>출장 케이터링</span></div><div class="reception-hero mt-3"><div><div class="eyebrow">Megaspot Reception Catering</div><h1 class="h-xl">모임의 테이블을 채우는<br>출장 케이터링</h1><p class="lead">샌드위치와 카나페부터 스큐어, 샐러드와 디저트까지.<br>파티·네트워킹·리셉션에 어울리는 메뉴를 메가스팟 대관과 함께 상담하세요.</p><div class="hero-mega"><span><b>25,000</b>원부터</span><span><b>4</b>가지 구성</span><span>단품·박스 메뉴 상담</span></div><div class="row mt-3"><a class="btn btn-primary" href="#packages">구성과 가격 보기 ↓</a><a class="btn btn-light" href="{PDF_URL}" target="_blank" rel="noopener">소개서 PDF ↗</a></div><p class="tiny muted mt-2">{PRICE_NOTE}</p></div><figure><img src="/assets/img/reception/hero.jpg" alt="핑거푸드와 디저트로 차린 케이터링 테이블 연출 참고 사진" width="1600" height="1200" fetchpriority="high"><figcaption>협력사 제공 연출 참고 사진 · 장식·꽃·음료 등 포함 범위 별도 협의</figcaption></figure></div><nav class="reception-jump" aria-label="케이터링 페이지 목차"><a href="#packages">구성 비교</a><a href="#menus">코스별 메뉴</a><a href="#catalog">개별·박스 메뉴 43종</a><a href="#process">진행 안내</a><a href="#faq">자주 묻는 질문</a></nav></div></section>
 <section class="section sec-line" id="packages"><div class="container"><div class="section-head"><div class="eyebrow">Packages & prices</div><h2 class="h-l">행사에 맞는 네 가지 구성</h2><p class="lead">가벼운 핑거푸드부터 메인 요리를 곁들인 테이블까지, 예산과 행사 분위기에 맞춰 선택하세요.</p></div><div class="reception-packages">{packages}</div><p class="reception-note mt-3">{PRICE_NOTE} 공간 대관료는 별도입니다. 아래 코스명은 메가스팟 안내를 위해 구분한 이름입니다.</p></div></section>
 <section class="section sec-white sec-line" id="menus"><div class="container"><div class="section-head"><div class="eyebrow">Course menus</div><h2 class="h-l">코스별 전체 메뉴를 확인하세요</h2><p class="lead">샌드위치 종류, 스큐어 구성과 디저트 가짓수를 비교해 보세요.</p></div>{courses}<p class="small muted mt-3">위 메뉴는 제공 자료 기준의 구성입니다. 메뉴 변경 가능 여부, 알레르기·식이 제한, 제공량과 최종 구성은 상담에서 확인해 주세요.</p></div></section>
-<section class="section sec-line" id="catalog"><div class="container"><div class="section-head"><div class="eyebrow">Finger food & box menu</div><h2 class="h-l">필요한 메뉴만 따로 상의해도 좋습니다</h2><p class="lead">개별 메뉴와 박스 메뉴 43종의 참고 사진입니다. 코스에 더하거나 맞춤 구성을 원하면 메뉴 이름과 희망 수량을 알려 주세요.</p></div><div class="reception-note mb-3">개별 메뉴의 판매가·최소 수량과 박스당 중량·제공 인원은 별도 견적으로 안내합니다. 사진 속 양이나 식기는 확정 제공 기준이 아닙니다.</div><div class="reception-catalog">{catalog}</div><p class="tiny muted mt-3">{PHOTO_NOTE}</p></div></section>
+<section class="section sec-line" id="catalog"><div class="container"><div class="section-head"><div class="eyebrow">Finger food & box menu</div><h2 class="h-l">필요한 메뉴만 따로 상의해도 좋습니다</h2><p class="lead">개별 메뉴와 박스 메뉴 43종의 가격과 참고 사진입니다. 코스에 더하거나 맞춤 구성을 원하면 메뉴 이름과 희망 수량을 알려 주세요.</p></div><div class="reception-note mb-3">{CATALOG_PRICE_NOTE} 사진 속 양이나 식기는 확정 제공 기준이 아닙니다.</div><div class="reception-catalog">{catalog}</div><p class="tiny muted mt-3">{PHOTO_NOTE}</p></div></section>
 <section class="section sec-white sec-line" id="process"><div class="container"><div class="section-head"><div class="eyebrow">How it works</div><h2 class="h-l">날짜와 원하는 메뉴부터 알려 주세요</h2></div><ol class="steps"><li class="step"><div class="n">1</div><h4>일정 문의</h4><p>행사 날짜·장소·시간·예상 인원과 예산을 알려 주세요.</p></li><li class="step"><div class="n">2</div><h4>메뉴 상담</h4><p>희망 구성과 개별 메뉴, 식이 제한·알레르기를 확인합니다.</p></li><li class="step"><div class="n">3</div><h4>최종 견적</h4><p>인원 기준·부가세·출장비와 식기·세팅·수거 포함 범위를 확인합니다.</p></li><li class="step"><div class="n">4</div><h4>주문 확정</h4><p>최종 수량과 변경·취소 기준을 확인하고 안내에 따라 확정합니다.</p></li><li class="step"><div class="n">5</div><h4>행사 준비</h4><p>협의한 시간과 제공 방식으로 준비합니다. 세팅·수거가 있으면 대관 시간에 반영해 주세요.</p></li></ol></div></section>
 <section class="section sec-line" id="faq"><div class="container"><div class="section-head"><div class="eyebrow">FAQ</div><h2 class="h-l">주문 전, 확인해 주세요</h2></div><div class="faq"><details><summary>출장뷔페와 어떤 차이가 있나요?</summary><div class="body">출장뷔페는 밥·국과 다양한 더운 요리로 식사를 준비하는 코스입니다. 이 페이지의 출장 케이터링은 샌드위치·카나페·스큐어·디저트처럼 파티와 리셉션에 어울리는 메뉴를 중심으로 구성합니다. 행사 목적과 식사 필요 여부를 알려 주시면 함께 안내합니다.</div></details><details><summary>가격에 부가세와 출장·세팅비가 포함되나요?</summary><div class="body">{PRICE_NOTE} 기존 출장뷔페의 비용 조건과 별도로 확인하며, 대관료도 따로 안내합니다.</div></details><details><summary>최소 몇 명부터 주문할 수 있나요?</summary><div class="body">최소 주문 인원·수량은 메뉴와 제공 방식에 따라 상담에서 확인합니다. 행사 인원과 희망 구성을 알려 주세요.</div></details><details><summary>사진 속 꽃·식기·음료도 함께 제공되나요?</summary><div class="body">사진은 메뉴와 연출 참고용입니다. 꽃·장식·식기·음료·테이블과 현장 인력, 세팅·수거 포함 여부는 최종 견적에서 확인합니다.</div></details><details><summary>메뉴 변경이나 취소는 어떻게 하나요?</summary><div class="body">식이 제한과 알레르기는 상담 때 미리 알려 주세요. 메뉴 변경 가능 여부와 최종 수량 확정일, 인원 변경·취소 비용 기준은 주문 확정 전에 안내합니다.</div></details></div></div></section>
 <section class="section"><div class="container"><div class="reception-cta"><div class="eyebrow">Plan your event</div><h2 class="h-l mt-1">공간과 케이터링을 함께 상담하세요</h2><p class="mt-2">행사 날짜·예상 인원·원하는 구성만 알려 주셔도 상담을 시작할 수 있습니다.</p><div class="row mt-3"><a class="btn btn-primary" href="/inquiry/?reception=all#other">출장 케이터링 상담 →</a><a class="btn btn-kakao" href="{KAKAO}" target="_blank" rel="noopener" data-kakao>카카오톡 문의</a><a class="btn btn-light" href="{PDF_URL}" target="_blank" rel="noopener">소개서 PDF ↗</a></div></div><div class="grid grid-2 reception-services mt-3"><a href="/catering/"><b>든든한 식사가 필요하다면 →</b><span class="small muted">출장뷔페 · 코스·바베큐·생맥주</span></a><a href="/cocktail/"><b>한 잔의 분위기를 더하려면 →</b><span class="small muted">출장 칵테일 · 전문 바텐더 현장 제조</span></a></div></div></section>
@@ -148,7 +148,7 @@ def build_pdf():
         text(48,432,title,29,ink,'B')
         if sub:para(48,401,sub,size=12,width=860,leading=18)
         rule(45);text(48,25,'MEGASPOT  ·  출장 케이터링  ·  megaspot.kr/reception',9,muted)
-        text(808,25,'REV 06',8,muted);text(887,25,f'{page:02}',10,muted,'B')
+        text(808,25,'REV 07',8,muted);text(887,25,f'{page:02}',10,muted,'B')
     def end():c.showPage()
     # Cover follows the existing buffet guide's split photo layout.
     page+=1;rect(0,0,W,H,'#FFFFFF');pic(IMG/'hero.jpg',486,0,474,540)
@@ -191,18 +191,19 @@ def build_pdf():
             (16,24,'디저트·스큐어'),(24,32,'컵밥·필라프·핫푸드'),
             (32,40,'핫푸드·샐러드'),(40,43,'파스타·치즈')]
     for start,stop,title in groups:
-        begin('MENU CATALOG',title,'개별·박스 메뉴 참고 사진 · 수량과 판매가는 별도 상담합니다.')
+        begin('MENU CATALOG',title,'개별 메뉴는 1개(1EA), 박스 메뉴는 1박스(1BOX) 기준 판매가입니다.')
         for j in range(start,stop):
             k=j-start;x=48+(k%4)*220;top=384-(k//4)*160
             pic(IMG/f'menu-{j+1:02}.jpg',x,top-90,204,90)
-            name,unit=CATALOG[j]
+            name,unit,price=CATALOG[j]
             rows=wrap(name,202,11,'S')
             caption_y=top-104
             for m,s in enumerate(rows):text(x,caption_y-m*15,s,11,ink,'S')
-            # Keep the quote label close to the actual last name line rather
+            # Keep the price close to the actual last name line rather
             # than reserving an empty second line for every short menu name.
             quote_y=caption_y-(len(rows)-1)*15-16
-            text(x,quote_y,('박스 메뉴' if unit=='BOX' else '개별 메뉴')+' · 별도 견적',9.5,muted)
+            text(x,quote_y,('1BOX' if unit=='BOX' else '1EA')+f' · {price:,}원',12.5,blue,'S')
+        para(48,76,'최소 주문 수량·박스당 중량 및 제공 인원·부가세·출장 및 세팅비는 상담 후 최종 견적에서 확인합니다.',864,9,leading=14)
         para(48,59,'사진: 제공받은 애드썸 케이터링 자료. 실제 제공량·식기·장식·음료 포함 여부는 최종 견적에 따릅니다.',864,9,leading=14)
         end()
     begin('HOW IT WORKS','문의부터 행사 준비까지','행사 날짜와 예상 인원, 원하는 메뉴를 알려 주시면 가능한 구성과 조건을 안내합니다.')

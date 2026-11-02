@@ -22,3 +22,4 @@
 @media(max-width:380px){.reception-packages,.reception-menu-list{grid-template-columns:1fr}}
 .page-reception .reception-brand-logo{display:block;width:130px;height:auto}
 .page-reception .site-footer .reception-brand-logo{width:170px;filter:brightness(0) invert(1)}
+.reception-item p.reception-item-price{font-size:16px;font-weight:700;line-height:1.5;color:var(--cobalt)}
