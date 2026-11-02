@@ -10,3 +10,13 @@
 .parking-discover{padding:56px 0 70px;background:var(--concrete-3)}.parking-discover-grid{display:grid;gap:30px;align-items:center}.parking-discover img{width:100%;height:auto;aspect-ratio:3/2;object-fit:cover;border-radius:14px}.parking-discover h2{font-size:clamp(28px,4vw,42px);line-height:1.3;letter-spacing:-.04em;margin:16px 0}.parking-discover p{color:var(--ink-2);line-height:1.8}
 @media(min-width:800px){.parking-hero-grid{grid-template-columns:1.3fr 1fr;gap:80px}.parking-cards{grid-template-columns:repeat(3,minmax(0,1fr))}.parking-nearby,.parking-discover-grid{grid-template-columns:1fr 1fr;gap:60px}.parking-hero{padding:80px 0}}
 @media(max-width:480px){.parking-hero{padding:38px 0}.parking-pass{padding:24px}.parking-actions .btn{flex:1 1 auto}.parking-notice{padding:18px}.parking-notice a{margin-left:0}}
+.parking-ticket>.lead{margin-top:16px}
+.parking-ticket-options{display:grid;gap:14px;margin-top:28px}
+.parking-ticket-options>div{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:23px 26px;border:1px solid var(--concrete-2);border-radius:12px;background:var(--concrete-3)}
+.parking-ticket-options span{font-size:17px;font-weight:700}
+.parking-ticket-options b{color:var(--cobalt);font-size:clamp(24px,4vw,30px);white-space:nowrap}
+.parking-ticket-guide{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-top:18px;padding:24px 26px;border:1px solid var(--concrete-2);border-radius:12px}
+.parking-ticket-guide h3{font-size:17px;margin-bottom:8px}
+.parking-ticket-guide p{max-width:680px;color:var(--ink-2);font-size:14px;line-height:1.7}
+@media(min-width:800px){.parking-ticket-options{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){.parking-ticket-options>div,.parking-ticket-guide{padding:20px}.parking-ticket-guide .btn{width:100%}}
