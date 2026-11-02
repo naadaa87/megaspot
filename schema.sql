@@ -15,6 +15,10 @@ CREATE TABLE IF NOT EXISTS inquiries (
   updated_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_inquiries_status ON inquiries(status, created_at);
+CREATE TABLE IF NOT EXISTS admin_inquiry_reads (
+  ref TEXT PRIMARY KEY,
+  read_at TEXT NOT NULL
+);
 
 CREATE TABLE IF NOT EXISTS host_applications (   -- 입점 상담 · 공간 등록 신청 · 광고·제휴 문의
   id INTEGER PRIMARY KEY AUTOINCREMENT,

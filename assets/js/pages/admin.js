@@ -94,7 +94,7 @@
 
   /* =================== 로그인 =================== */
   var app=$('#adm-app'), login=$('#adm-login');
-  function showApp(){ login.hidden=true; app.hidden=false; document.body.classList.add('adm-on'); go(location.hash.replace('#','')||'dash'); }
+  function showApp(){ login.hidden=true; app.hidden=false; document.body.classList.add('adm-on'); go(location.hash.replace('#','')||'dash'); loadNotifications(); }
   function showLogin(msg){ app.hidden=true; login.hidden=false; document.body.classList.remove('adm-on'); if(msg){ var m=$('#adm-login-msg'); m.innerHTML=msg; m.hidden=false; } setTimeout(function(){ $('#adm-key').focus(); },50); }
   function loginErr(e){
     if(e.code==='NO_API') return '서버(데이터베이스)에 연결되지 않았습니다. Cloudflare Pages <b>Settings → Bindings</b>에 D1 데이터베이스가 <code>DB</code> 이름으로 연결되어 있는지, 연결 뒤 <b>다시 배포</b>했는지 확인해 주세요.';
@@ -112,6 +112,30 @@
   $('#adm-logout').addEventListener('click', function(){ A('/logout',{method:'POST', body:{}}).catch(function(){}).then(function(){ location.hash=''; showLogin(''); }); });
   function guard(e){ if(e && (e.code==='ADMIN_LOGIN'||e.status===401)){ showLogin('로그인이 만료되었습니다. 다시 로그인해 주세요.'); return true; } return false; }
   function fail(box){ return function(e){ if(guard(e)) return; box.innerHTML='<div class="empty">'+esc(e.message||'불러오지 못했습니다.')+'</div>'; }; }
+
+  /* 새 문의 알림: 행사일과 무관하게 접수 시각순으로 표시합니다. 읽음은 관리자 전체에 공유됩니다. */
+  var notifyItems=[];
+  function loadNotifications(){
+    if(app.hidden || document.hidden) return;
+    A('/inquiry-notifications').then(function(r){
+      notifyItems=r.items||[];
+      var count=$('#adm-notify-count'); count.textContent=r.count>99?'99+':String(r.count||''); count.hidden=!r.count;
+      $('#adm-notify-btn').setAttribute('aria-label',r.count?'새 문의 '+r.count+'건 알림':'새 문의 알림 없음');
+      $('#adm-notify-list').innerHTML=notifyItems.length?notifyItems.map(function(it){
+        return '<button type="button" class="adm-notify-item" data-notify-ref="'+esc(it.ref)+'"><span class="adm-notify-item-top"><b>'+esc(it.name||'(이름 없음)')+'</b><small>'+esc(ago(it.created_at))+'</small></span><span>'+esc(spaceShort(it.space_id))+' · '+esc(it.event_date?kd(it.event_date):'날짜 미정')+'</span><small>'+esc(it.ref)+' · '+esc(chLabel(it.channel))+' · '+esc(it.status)+'</small></button>';
+      }).join(''):emptyMsg('확인하지 않은 문의가 없습니다.');
+      if(r.count>notifyItems.length) $('#adm-notify-list').insertAdjacentHTML('beforeend','<p class="adm-notify-more">최근 50건을 표시합니다. 문의를 확인하면 이전 문의가 이어서 나타납니다.</p>');
+    }).catch(function(e){ if(!guard(e) && !$('#adm-notify-panel').hidden) $('#adm-notify-list').innerHTML=emptyMsg('알림을 불러오지 못했습니다. 새로고침해 주세요.'); });
+  }
+  function closeNotifications(){ $('#adm-notify-panel').hidden=true; $('#adm-notify-btn').setAttribute('aria-expanded','false'); }
+  $('#adm-notify-btn').addEventListener('click',function(){ var panel=$('#adm-notify-panel'); panel.hidden=!panel.hidden; this.setAttribute('aria-expanded',String(!panel.hidden)); if(!panel.hidden) loadNotifications(); });
+  $('#adm-notify-reload').addEventListener('click',loadNotifications);
+  $('#adm-notify-all').addEventListener('click',function(){ closeNotifications(); go('inq'); });
+  $('#adm-notify-list').addEventListener('click',function(e){ var b=e.target.closest('[data-notify-ref]'); if(!b) return; closeNotifications(); openInquiry(b.dataset.notifyRef); });
+  document.addEventListener('click',function(e){ if(!e.target.closest('#adm-notify')) closeNotifications(); });
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeNotifications(); });
+  document.addEventListener('visibilitychange',function(){ if(!document.hidden) loadNotifications(); });
+  setInterval(loadNotifications,60000);
 
   /* =================== 화면 전환 =================== */
   // 모임·입점·등록 공간·광고 화면은 admin-platform.js 가 MEGASPOT_ADMIN.register 로 붙입니다
@@ -285,7 +309,7 @@
   var cur=null;
   function openInquiry(ref){
     openDrawer('#adm-drawer'); var body=$('#dr-body'); body.innerHTML='<div class="empty small">불러오는 중…</div>'; $('#dr-title').textContent=ref;
-    A('/inquiries/'+encodeURIComponent(ref)).then(function(r){ cur=r; renderDetail(); }).catch(fail(body));
+    A('/inquiries/'+encodeURIComponent(ref)).then(function(r){ cur=r; renderDetail(); A('/inquiry-notifications/'+encodeURIComponent(ref)+'/read',{method:'POST',body:{}}).then(loadNotifications).catch(function(e){ if(!guard(e)) M.toast('문의 확인 상태를 저장하지 못했습니다.'); }); }).catch(fail(body));
   }
   function kv(k,v){ return v?'<div class="kv"><span>'+esc(k)+'</span><b>'+v+'</b></div>':''; }
   function renderDetail(){

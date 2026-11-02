@@ -141,6 +141,20 @@ export async function onRequest({ request, env, params }) {
   try {
     if (path === 'ping') return json({ ok: true });
 
+    if (path === 'inquiry-notifications' && method === 'GET') {
+      const count = await env.DB.prepare("SELECT COUNT(*) AS n FROM inquiries i LEFT JOIN admin_inquiry_reads r ON r.ref = i.ref WHERE r.ref IS NULL AND i.status = '문의 접수'").first();
+      const { results } = await env.DB.prepare("SELECT i.ref, i.name, i.event_date, i.status, i.created_at, i.space_id, json_extract(i.data, '$.channel') AS channel FROM inquiries i LEFT JOIN admin_inquiry_reads r ON r.ref = i.ref WHERE r.ref IS NULL AND i.status = '문의 접수' ORDER BY i.created_at DESC LIMIT 50").all();
+      return json({ ok: true, count: count?.n || 0, items: results || [] });
+    }
+    const notificationRead = path.match(/^inquiry-notifications\/([A-Z0-9-]+)\/read$/);
+    if (notificationRead && method === 'POST') {
+      const ref = notificationRead[1];
+      const item = await env.DB.prepare('SELECT ref FROM inquiries WHERE ref = ?').bind(ref).first();
+      if (!item) return err('문의를 찾을 수 없습니다.', 404, 'NOT_FOUND');
+      await env.DB.prepare('INSERT INTO admin_inquiry_reads (ref, read_at) VALUES (?, ?) ON CONFLICT(ref) DO NOTHING').bind(ref, now()).run();
+      return json({ ok: true });
+    }
+
     // ---- 대시보드: 오늘 확인할 것 ----
     if (path === 'dashboard' && method === 'GET') {
       const today = kstToday(), in14 = kstToday(14), ago2 = new Date(Date.now() - 2 * 864e5).toISOString().slice(0, 19).replace('T', ' ');

@@ -2,6 +2,7 @@
 export const SCHEMA = [
  "CREATE TABLE IF NOT EXISTS inquiries ( id INTEGER PRIMARY KEY AUTOINCREMENT, ref TEXT NOT NULL UNIQUE, space_id TEXT NOT NULL, status TEXT NOT NULL DEFAULT '문의 접수', name TEXT, phone TEXT, email TEXT, event_date TEXT, headcount INTEGER, data TEXT NOT NULL, memo TEXT, created_at TEXT NOT NULL, updated_at TEXT )",
  "CREATE INDEX IF NOT EXISTS idx_inquiries_status ON inquiries(status, created_at)",
+ "CREATE TABLE IF NOT EXISTS admin_inquiry_reads ( ref TEXT PRIMARY KEY, read_at TEXT NOT NULL )",
  "CREATE TABLE IF NOT EXISTS host_applications ( id INTEGER PRIMARY KEY AUTOINCREMENT, ref TEXT NOT NULL UNIQUE, status TEXT NOT NULL DEFAULT '접수', data TEXT NOT NULL, kind TEXT, memo TEXT, created_at TEXT NOT NULL, updated_at TEXT )",
  "CREATE TABLE IF NOT EXISTS bookings ( id INTEGER PRIMARY KEY AUTOINCREMENT, booking_code TEXT NOT NULL UNIQUE, space_id TEXT NOT NULL, inquiry_ref TEXT, customer_name TEXT NOT NULL, phone TEXT NOT NULL, phone_last4 TEXT NOT NULL, date TEXT NOT NULL, slot TEXT, headcount INTEGER, memo TEXT, status TEXT NOT NULL DEFAULT 'confirmed', amount INTEGER, start_h INTEGER, end_h INTEGER, confirm_doc TEXT, created_at TEXT NOT NULL, updated_at TEXT )",
  "CREATE INDEX IF NOT EXISTS idx_bookings_date ON bookings(space_id, date)",

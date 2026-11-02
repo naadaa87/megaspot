@@ -38,7 +38,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Black+Han+Sans&display=swap">
-<link rel="stylesheet" href="/assets/css/site.css?v=20261030space1">
+<link rel="stylesheet" href="/assets/css/site.css?v=20261102notify1">
 <meta name="theme-color" content="#F1EFEB">
 
 </head>
@@ -85,6 +85,7 @@
   </aside>
 
   <main class="adm-main">
+    <div class="adm-notify-bar"><div class="adm-notify" id="adm-notify"><button type="button" class="adm-notify-btn" id="adm-notify-btn" aria-label="새 문의 알림" aria-expanded="false" aria-controls="adm-notify-panel"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span>새 문의</span><em id="adm-notify-count" hidden></em></button><div class="adm-notify-panel" id="adm-notify-panel" hidden><div class="adm-notify-head"><strong>새로 들어온 문의</strong><button type="button" class="btn btn-light btn-xs" id="adm-notify-reload">새로고침</button></div><div class="adm-notify-list" id="adm-notify-list"></div><button type="button" class="adm-notify-all" id="adm-notify-all">문의 관리 전체 보기 →</button></div></div></div>
     <!-- 대시보드 -->
     <section class="adm-view" id="view-dash">
       <header class="adm-head"><div><h1>오늘 확인할 것</h1><p id="dash-date" class="small muted"></p></div><div class="row" style="gap:8px"><button class="btn btn-light btn-sm" type="button" data-go="inq-new">+ 문의 직접 등록</button><button class="btn btn-light btn-sm" type="button" id="dash-reload">새로고침</button></div></header>
@@ -563,7 +564,7 @@
 <script src="/assets/js/catering-calc.js?v=202610270438"></script>
 <script src="/assets/js/confirm-doc.js?v=202610270438"></script>
 <script src="/assets/js/cards.js?v=202610270438"></script>
-<script src="/assets/js/pages/admin.js?v=20261030payapp1"></script>
+<script src="/assets/js/pages/admin.js?v=20261102notify1"></script>
 <script src="/assets/js/pages/admin-platform.js?v=202610270438"></script>
 </body>
 </html>
