@@ -20,9 +20,11 @@ ROOT = Path(__file__).resolve().parents[1]
 IMG = ROOT / "assets/img/reception"
 PDF = ROOT / "assets/docs/megaspot-reception-guide.pdf"
 URL = "/reception/"
-STAMP = "20261102r2"
-LOGO = ROOT / "assets/img/brand/megaspot-official-wordmark.png"
+STAMP = "20261102r6"
+LOGO = ROOT / "assets/img/brand/megaspot-official-wordmark-transparent.png"
 KAKAO = "https://pf.kakao.com/_LnxbmX/chat"
+PHONE = "010-8540-1886"
+PHONE_TEL = PHONE.replace('-', '')
 PDF_URL = f"/assets/docs/{PDF.name}?v={STAMP}"
 
 def photo_assets():
@@ -77,7 +79,7 @@ def build_web():
     schema = {"@context":"https://schema.org","@type":"Service","name":"메가스팟 출장 케이터링","url":"https://megaspot.kr/reception/","description":description,"provider":{"@type":"Organization","name":"메가스팟","url":"https://megaspot.kr"}}
     head = re.sub(r'<script type="application/ld\+json">.*?</script>', '<script type="application/ld+json">'+json.dumps(schema,ensure_ascii=False)+'</script>', head, flags=re.S)
     head = head.replace('</head>',f'<link rel="stylesheet" href="/assets/css/reception.css?v={STAMP}">\n</head>').replace('page-cocktail','page-reception')
-    logo_markup = '<img class="reception-brand-logo" src="/assets/img/brand/megaspot-official-wordmark.png" alt="메가스팟 MEGASPOT" width="1126" height="390">'
+    logo_markup = '<img class="reception-brand-logo" src="/assets/img/brand/megaspot-official-wordmark-transparent.png" alt="메가스팟 MEGASPOT" width="2131" height="738">'
     text_logo = '<span class="en">MEGA<b>SPOT</b></span><span class="ko">메가스팟</span>'
     head = head.replace(text_logo, logo_markup)
     packages = ''.join(f'<article class="reception-package"><div class="eyebrow">0{i+1} / {c["id"]}</div><h3 class="mt-1">{c["name"]}</h3><div class="reception-price">{c["price"]:,}원<small>메가스팟 구성 안내가</small></div><p>{c["intro"]}</p><a class="btn btn-light btn-sm" href="#course-{c["id"]}">상세 메뉴 보기 ↓</a></article>' for i,c in enumerate(COURSES))
@@ -92,11 +94,15 @@ def build_web():
 <section class="section sec-line" id="faq"><div class="container"><div class="section-head"><div class="eyebrow">FAQ</div><h2 class="h-l">주문 전, 확인해 주세요</h2></div><div class="faq"><details><summary>출장뷔페와 어떤 차이가 있나요?</summary><div class="body">출장뷔페는 밥·국과 다양한 더운 요리로 식사를 준비하는 코스입니다. 이 페이지의 출장 케이터링은 샌드위치·카나페·스큐어·디저트처럼 파티와 리셉션에 어울리는 메뉴를 중심으로 구성합니다. 행사 목적과 식사 필요 여부를 알려 주시면 함께 안내합니다.</div></details><details><summary>가격에 부가세와 출장·세팅비가 포함되나요?</summary><div class="body">{PRICE_NOTE} 기존 출장뷔페의 비용 조건과 별도로 확인하며, 대관료도 따로 안내합니다.</div></details><details><summary>최소 몇 명부터 주문할 수 있나요?</summary><div class="body">최소 주문 인원·수량은 메뉴와 제공 방식에 따라 상담에서 확인합니다. 행사 인원과 희망 구성을 알려 주세요.</div></details><details><summary>사진 속 꽃·식기·음료도 함께 제공되나요?</summary><div class="body">사진은 메뉴와 연출 참고용입니다. 꽃·장식·식기·음료·테이블과 현장 인력, 세팅·수거 포함 여부는 최종 견적에서 확인합니다.</div></details><details><summary>메뉴 변경이나 취소는 어떻게 하나요?</summary><div class="body">식이 제한과 알레르기는 상담 때 미리 알려 주세요. 메뉴 변경 가능 여부와 최종 수량 확정일, 인원 변경·취소 비용 기준은 주문 확정 전에 안내합니다.</div></details></div></div></section>
 <section class="section"><div class="container"><div class="reception-cta"><div class="eyebrow">Plan your event</div><h2 class="h-l mt-1">공간과 케이터링을 함께 상담하세요</h2><p class="mt-2">행사 날짜·예상 인원·원하는 구성만 알려 주셔도 상담을 시작할 수 있습니다.</p><div class="row mt-3"><a class="btn btn-primary" href="/inquiry/?reception=all#other">출장 케이터링 상담 →</a><a class="btn btn-kakao" href="{KAKAO}" target="_blank" rel="noopener" data-kakao>카카오톡 문의</a><a class="btn btn-light" href="{PDF_URL}" target="_blank" rel="noopener">소개서 PDF ↗</a></div></div><div class="grid grid-2 reception-services mt-3"><a href="/catering/"><b>든든한 식사가 필요하다면 →</b><span class="small muted">출장뷔페 · 코스·바베큐·생맥주</span></a><a href="/cocktail/"><b>한 잔의 분위기를 더하려면 →</b><span class="small muted">출장 칵테일 · 전문 바텐더 현장 제조</span></a></div></div></section>
 </main>'''
+    body = body.replace('출장 케이터링 상담 →</a>', f'출장 케이터링 상담 →</a><a class="btn btn-light" href="tel:{PHONE_TEL}">케이터링 전화 {PHONE}</a>')
     foot = template[template.index('<footer class="site-footer">'):]
     foot = foot.replace(text_logo, logo_markup)
-    foot = foot[:foot.index('<script src="/assets/js/site.js')]+ '<script src="/assets/js/site.js?v=202610270438"></script>\n</body>\n</html>\n'
+    # Override the shared contact configuration only in this service document,
+    # before its DOMContentLoaded header and mobile quick-bar setup runs.
+    foot = foot[:foot.index('<script src="/assets/js/site.js')]+ '<script src="/assets/js/site.js?v=202610270438"></script>\n<script>window.MEGASPOT.CONFIG.phone='+json.dumps(PHONE)+';</script>\n</body>\n</html>\n'
     dest = ROOT / "reception/index.html"; dest.parent.mkdir(exist_ok=True)
-    dest.write_text(head+body+foot)
+    page = (head+body+foot).replace('href="tel:01023849580" data-phone', f'href="tel:{PHONE_TEL}" data-phone').replace('data-phone>010-2384-9580', f'data-phone>{PHONE}')
+    dest.write_text(page)
 
 def build_pdf():
     fonts = Path('/Users/choejun-won/Library/Fonts')
@@ -131,7 +137,9 @@ def build_pdf():
         c.drawImage(ImageReader(buf),x,y,w,h)
     def logo(x,y,width):
         # Use the supplied official mark, preserving its lettering and colours.
-        c.drawImage(ImageReader(str(LOGO)),x,y,width,width*390/1126,mask='auto')
+        with Image.open(LOGO) as mark:
+            logo_height=width*mark.height/mark.width
+        c.drawImage(ImageReader(str(LOGO)),x,y,width,logo_height,mask='auto')
     def begin(label,title,sub=''):
         nonlocal page
         page+=1;rect(0,0,W,H,'#FFFFFF')
@@ -140,7 +148,7 @@ def build_pdf():
         text(48,432,title,29,ink,'B')
         if sub:para(48,401,sub,size=12,width=860,leading=18)
         rule(45);text(48,25,'MEGASPOT  ·  출장 케이터링  ·  megaspot.kr/reception',9,muted)
-        text(887,25,f'{page:02}',10,muted,'B')
+        text(808,25,'REV 06',8,muted);text(887,25,f'{page:02}',10,muted,'B')
     def end():c.showPage()
     # Cover follows the existing buffet guide's split photo layout.
     page+=1;rect(0,0,W,H,'#FFFFFF');pic(IMG/'hero.jpg',486,0,474,540)
@@ -163,10 +171,20 @@ def build_pdf():
     para(48,58,PRICE_NOTE,864,9,leading=12);end()
     for idx,co in enumerate(COURSES):
         begin(f'COURSE 0{idx+1}',f"{co['name']}  /  {co['price']:,}원",co['intro'])
+        # Balance the columns: a 12-item course has six rows per column.
+        # Reserve a separate area for price/menu notes below the menu list.
+        rows_per_column=(len(co['menus'])+1)//2
+        lowest_menu_baseline=H
         for j,(name,detail) in enumerate(co['menus']):
-            col=j//7;row=j%7;x=48+col*442;y=374-row*38
+            col=j//rows_per_column;row=j%rows_per_column;x=48+col*442;y=374-row*40
             text(x,y,f'{j+1:02}',10,blue,'S');text(x+32,y,name,14,ink,'S')
-            if detail:para(x+32,y-19,detail,392,10,leading=15)
+            lowest_menu_baseline=min(lowest_menu_baseline,y)
+            if detail:
+                para(x+32,y-19,detail,392,10,leading=15)
+                lowest_menu_baseline=min(lowest_menu_baseline,y-19-15*(len(wrap(detail,392,10))-1))
+        if lowest_menu_baseline < 130:
+            raise ValueError(f"{co['name']}: menu text entered the reserved footer area")
+        rect(48,119,864,0.7,line)
         rect(48,61,864,26,pale);text(61,70,'메뉴 변경·제공량·알레르기와 식이 제한은 상담에서 확인해 주세요.',10,blue)
         para(48,103,PRICE_NOTE,864,10,leading=15);end()
     groups=[(0,8,'샌드위치·유부초밥'),(8,16,'과일·핑거푸드·디저트'),
@@ -179,8 +197,12 @@ def build_pdf():
             pic(IMG/f'menu-{j+1:02}.jpg',x,top-90,204,90)
             name,unit=CATALOG[j]
             rows=wrap(name,202,11,'S')
-            for m,s in enumerate(rows):text(x,top-108-m*16,s,11,ink,'S')
-            text(x,top-140,('박스 메뉴' if unit=='BOX' else '개별 메뉴')+' · 별도 견적',9.5,muted)
+            caption_y=top-104
+            for m,s in enumerate(rows):text(x,caption_y-m*15,s,11,ink,'S')
+            # Keep the quote label close to the actual last name line rather
+            # than reserving an empty second line for every short menu name.
+            quote_y=caption_y-(len(rows)-1)*15-16
+            text(x,quote_y,('박스 메뉴' if unit=='BOX' else '개별 메뉴')+' · 별도 견적',9.5,muted)
         para(48,59,'사진: 제공받은 애드썸 케이터링 자료. 실제 제공량·식기·장식·음료 포함 여부는 최종 견적에 따릅니다.',864,9,leading=14)
         end()
     begin('HOW IT WORKS','문의부터 행사 준비까지','행사 날짜와 예상 인원, 원하는 메뉴를 알려 주시면 가능한 구성과 조건을 안내합니다.')
@@ -191,9 +213,10 @@ def build_pdf():
     end()
     begin('CONTACT','대관과 케이터링을 한 곳에서 상담하세요','희망 날짜 · 행사 장소 · 예상 인원 · 원하는 구성이나 메뉴를 알려 주세요.')
     pic(IMG/'setting.jpg',538,105,374,258)
-    contact=[('전화','010-2384-9580'),('카카오톡','pf.kakao.com/_LnxbmX/chat'),('이메일','spaceblank0100@gmail.com'),('메뉴·소개서','megaspot.kr/reception')]
+    contact=[('케이터링 전화',PHONE),('카카오톡','pf.kakao.com/_LnxbmX/chat'),('이메일','spaceblank0100@gmail.com'),('메뉴·소개서','megaspot.kr/reception')]
     for i,(label,value) in enumerate(contact):
         y=332-i*58;text(48,y,label,11,blue,'B');text(48,y-25,value,17,ink,'S')
+    c.linkURL(f'tel:{PHONE_TEL}',(45,302,500,353))
     c.linkURL(KAKAO,(45,235,500,290));c.linkURL('https://megaspot.kr/reception/',(45,112,500,170))
     text(48,81,'든든한 식사는 출장뷔페, 바 서비스는 출장 칵테일도 함께 문의하세요.',12,muted)
     para(48,58,PHOTO_NOTE,864,8,leading=10);end();c.save()
