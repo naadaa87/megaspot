@@ -48,14 +48,14 @@ picture(logo,m,H-69,126,44)
 text(right,H-43,'EVENT DRINKS',9,BLUE,'B','right')
 text(right,H-58,'2026.11.02',8,MUTED,'R','right')
 rect(m,H-83,inner,0.8,LINE)
-text(m,H-122,'행사에 어울리는 한 잔',25,INK,'B')
+text(m,H-122,'바틀로 즐기는 주류·음료',25,INK,'B')
 text(m,H-145,'병 칵테일과 달콤한 와인, 무알콜·논알콜까지 함께 준비하세요.',10,MUTED)
-text(m,H-165,'주류 안내가 · 부가세 포함 · 식사 코스 및 대관료 별도',9,BLUE,'S')
+text(m,H-165,'모든 제품 한 병 단위 판매 · 부가세 포함 · 식사 코스 및 대관료 별도',9,BLUE,'S')
 
 top=H-187; header_h=27; row_h=63
-x_name=m+57;x_glass=m+290;x_bottle=m+411
+x_name=m+57;x_volume=m+328;x_price=right-12
 rect(m,top-header_h,inner,header_h,INK)
-for x,s in [(m+9,'사진'),(x_name,'제품 / 용량·알코올'),(x_glass,'잔·소병 판매'),(x_bottle,'750ml 바틀')]:
+for x,s in [(m+9,'사진'),(x_name,'제품 / 알코올'),(x_volume,'용량'),(x_price-56,'판매가 (1병)')]:
     text(x,top-17,s,9,'#FFFFFF','S')
 all_products=products()
 for i,p in enumerate(all_products):
@@ -64,19 +64,14 @@ for i,p in enumerate(all_products):
     rect(m,y_bottom,inner,0.4,LINE)
     picture(ROOT/p['image'].lstrip('/'),m+3,y_bottom+4,48,57)
     text(x_name,y_top-18,p['name'],10,INK,'S')
-    text(x_name,y_top-33,f'{p["category"]} · {p["volume"]}ml · {p["abv"]}',8.1,MUTED)
-    paragraph(x_name,y_top-47,p['description'],218,8.1,10,MUTED)
-    text(x_glass,y_top-25,f'{p["price"]:,}원',12,BLUE,'B')
-    text(x_glass,y_top-41,p['serving'],8.1,MUTED)
-    if p['bottlePrice'] is not None:
-        text(x_bottle,y_top-25,f'{p["bottlePrice"]:,}원',12,INK,'B')
-        text(x_bottle,y_top-41,'750ml 한 병',8.1,MUTED)
-    else:
-        text(x_bottle,y_top-25,'소병으로 제공',8.1,MUTED)
+    text(x_name,y_top-33,f'{p["category"]} · {p["abv"]}',8.1,MUTED)
+    paragraph(x_name,y_top-47,p['description'],250,8.1,10,MUTED)
+    text(x_volume,y_top-28,f'{p["volume"]}ml',10,INK,'S')
+    text(x_price,y_top-28,f'{p["price"]:,}원',13,BLUE,'B','right')
 
 bottom=top-header_h-len(all_products)*row_h
-text(m,bottom-16,'750ml는 150ml씩 약 5잔 분량입니다. 보테가 제로는 알코올 0.5% 미만입니다.',8,MUTED)
-text(m,bottom-30,'제품 라벨은 입고 시기에 따라 다를 수 있습니다. 잔·얼음·현장 서빙 등 제공 범위는 상담에서 확인합니다.',7.7,MUTED)
+text(m,bottom-16,'750ml 바틀 및 275ml 소형 병 모두 한 병 단위로 판매합니다. 보테가 제로는 알코올 0.5% 미만입니다.',8,MUTED)
+text(m,bottom-30,'제품 라벨은 입고 시기에 따라 다를 수 있습니다. 현장 제공 조건은 상담에서 확인합니다.',7.7,MUTED)
 box_top=bottom-47;box_h=91
 rect(m,box_top-box_h,inner,box_h,PALE)
 text(m+14,box_top-21,'원하시는 주류가 따로 있나요?',13,BLUE,'B')
