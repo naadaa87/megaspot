@@ -9,4 +9,10 @@
     else copy(url,'주차 안내 링크를 복사했습니다. 참석자에게 보내 주세요.');
   });
   document.querySelector('#parking-copy-address').addEventListener('click', function(){ copy(address,'메가스팟 주소를 복사했습니다.'); });
+  fetch('/api/parking/config').then(function(r){if(!r.ok)return null;return r.json();}).then(function(c){
+    if(!c||!c.daily_enabled)return;
+    document.querySelectorAll('[data-parking-daily-price]').forEach(function(el){el.textContent=Number(c.tickets.daily.price).toLocaleString('ko-KR')+'원';});
+    document.querySelectorAll('[data-parking-daily-label]').forEach(function(el){el.textContent='일일 주차권';});
+    document.querySelectorAll('[data-parking-daily-notice]').forEach(function(el){el.textContent='일일권 이용 조건: '+c.daily_terms;});
+  }).catch(function(){});
 })();
