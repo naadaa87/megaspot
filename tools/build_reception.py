@@ -15,6 +15,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.colors import HexColor
 from reportlab.lib.utils import ImageReader
 from reception_data import COURSES, CATALOG, PRICE_NOTE, PHOTO_NOTE, CATALOG_PRICE_NOTE
+from drinks_content import drinks_section, CSS as DRINKS_CSS
 
 ROOT = Path(__file__).resolve().parents[1]
 IMG = ROOT / "assets/img/reception"
@@ -94,6 +95,9 @@ def build_web():
 <section class="section sec-line" id="faq"><div class="container"><div class="section-head"><div class="eyebrow">FAQ</div><h2 class="h-l">주문 전, 확인해 주세요</h2></div><div class="faq"><details><summary>출장뷔페와 어떤 차이가 있나요?</summary><div class="body">출장뷔페는 밥·국과 다양한 더운 요리로 식사를 준비하는 코스입니다. 이 페이지의 출장 케이터링은 샌드위치·카나페·스큐어·디저트처럼 파티와 리셉션에 어울리는 메뉴를 중심으로 구성합니다. 행사 목적과 식사 필요 여부를 알려 주시면 함께 안내합니다.</div></details><details><summary>가격에 부가세와 출장·세팅비가 포함되나요?</summary><div class="body">{PRICE_NOTE} 기존 출장뷔페의 비용 조건과 별도로 확인하며, 대관료도 따로 안내합니다.</div></details><details><summary>최소 몇 명부터 주문할 수 있나요?</summary><div class="body">최소 주문 인원·수량은 메뉴와 제공 방식에 따라 상담에서 확인합니다. 행사 인원과 희망 구성을 알려 주세요.</div></details><details><summary>사진 속 꽃·식기·음료도 함께 제공되나요?</summary><div class="body">사진은 메뉴와 연출 참고용입니다. 꽃·장식·식기·음료·테이블과 현장 인력, 세팅·수거 포함 여부는 최종 견적에서 확인합니다.</div></details><details><summary>메뉴 변경이나 취소는 어떻게 하나요?</summary><div class="body">식이 제한과 알레르기는 상담 때 미리 알려 주세요. 메뉴 변경 가능 여부와 최종 수량 확정일, 인원 변경·취소 비용 기준은 주문 확정 전에 안내합니다.</div></details></div></div></section>
 <section class="section"><div class="container"><div class="reception-cta"><div class="eyebrow">Plan your event</div><h2 class="h-l mt-1">공간과 케이터링을 함께 상담하세요</h2><p class="mt-2">행사 날짜·예상 인원·원하는 구성만 알려 주셔도 상담을 시작할 수 있습니다.</p><div class="row mt-3"><a class="btn btn-primary" href="/inquiry/?reception=all#other">출장 케이터링 상담 →</a><a class="btn btn-kakao" href="{KAKAO}" target="_blank" rel="noopener" data-kakao>카카오톡 문의</a><a class="btn btn-light" href="{PDF_URL}" target="_blank" rel="noopener">소개서 PDF ↗</a></div></div><div class="grid grid-2 reception-services mt-3"><a href="/catering/"><b>든든한 식사가 필요하다면 →</b><span class="small muted">출장뷔페 · 코스·바베큐·생맥주</span></a><a href="/cocktail/"><b>한 잔의 분위기를 더하려면 →</b><span class="small muted">출장 칵테일 · 전문 바텐더 현장 제조</span></a></div></div></section>
 </main>'''
+    head = head.replace('</head>', DRINKS_CSS+'\n</head>')
+    body = body.replace('<a href="#process">진행 안내</a>', '<a href="#drinks">주류·논알콜</a><a href="#process">진행 안내</a>')
+    body = body.replace('<section class="section sec-white sec-line" id="process">', drinks_section()+'\n<section class="section sec-white sec-line" id="process">')
     body = body.replace('출장 케이터링 상담 →</a>', f'출장 케이터링 상담 →</a><a class="btn btn-light" href="tel:{PHONE_TEL}">케이터링 전화 {PHONE}</a>')
     foot = template[template.index('<footer class="site-footer">'):]
     foot = foot.replace(text_logo, logo_markup)
