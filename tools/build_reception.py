@@ -22,6 +22,7 @@ IMG = ROOT / "assets/img/reception"
 PDF = ROOT / "assets/docs/megaspot-reception-guide.pdf"
 URL = "/reception/"
 STAMP = "20261102r11"
+STYLE_STAMP = STAMP + "-align1"
 LOGO = ROOT / "assets/img/brand/megaspot-official-wordmark-transparent.png"
 KAKAO = "https://pf.kakao.com/_LnxbmX/chat"
 PHONE = "010-8540-1886"
@@ -110,7 +111,7 @@ def build_web():
         head = re.sub(r'(<meta name="'+prop+r'" content=")[^"]*',lambda m:m[1]+content,head)
     schema = {"@context":"https://schema.org","@type":"Service","name":"메가스팟 출장 케이터링","url":"https://megaspot.kr/reception/","description":description,"provider":{"@type":"Organization","name":"메가스팟","url":"https://megaspot.kr"}}
     head = re.sub(r'<script type="application/ld\+json">.*?</script>', '<script type="application/ld+json">'+json.dumps(schema,ensure_ascii=False)+'</script>', head, flags=re.S)
-    head = head.replace('</head>',f'<link rel="stylesheet" href="/assets/css/reception.css?v={STAMP}">\n</head>').replace('page-cocktail','page-reception')
+    head = head.replace('</head>',f'<link rel="stylesheet" href="/assets/css/reception.css?v={STYLE_STAMP}">\n</head>').replace('page-cocktail','page-reception')
     logo_markup = '<img class="reception-brand-logo" src="/assets/img/brand/megaspot-official-wordmark-transparent.png" alt="메가스팟 MEGASPOT" width="2131" height="738">'
     text_logo = '<span class="en">MEGA<b>SPOT</b></span><span class="ko">메가스팟</span>'
     head = head.replace(text_logo, logo_markup)
