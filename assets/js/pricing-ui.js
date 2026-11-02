@@ -285,7 +285,7 @@
       + '</div>'
       // 결과 + 예약 신청
       + '<div class="rv-side"><div class="rv-result" data-out="result"></div></div>'
-      + '<div class="est-mini" data-out="mini" hidden><span>예상 금액<small data-out="minisub"></small></span><b data-out="minitotal"></b><button type="button" class="btn btn-primary btn-sm" data-act="show">상담 신청</button></div>'
+      + '<div class="est-mini" data-out="mini" hidden><span>예상 금액<small data-out="minisub"></small></span><b data-out="minitotal"></b><button type="button" class="btn btn-primary btn-sm" data-act="show">전체 견적 보기</button></div>'
       + '</div>';
 
     if(PLAN && +q0.people>D.people.max){var capacity=document.createElement('p');capacity.className='plan-attention hint';capacity.textContent=NAME+'은 최대 '+D.people.max+'명입니다. 비교 금액은 '+D.people.max+'명 기준으로 조정했습니다. 기존 인원으로 이용하려면 다른 공간을 선택해 주세요.';el.querySelector('.rv-head').after(capacity);}
@@ -384,7 +384,7 @@
       ensureCard(); paintHead(r);
       if (out('body').querySelector('.rv-apply')) return;   // 이미 열린 폼은 그대로 둡니다(입력값 보존)
       var m = member || {};
-      out('body').innerHTML = '<form class="rv-apply" novalidate><h4>예약자 정보 <small class="muted">이름과 연락처만 있으면 됩니다</small></h4>'
+      out('body').innerHTML = '<form class="rv-apply" novalidate><h4>6 · 연락처 입력 <small class="muted">이름과 연락처를 남기면 담당자가 안내합니다</small></h4>'
         + '<div class="member-line on" data-out="member-line"' + (member ? '' : ' hidden') + '><span><b>' + esc(m.name || '') + '</b>님, 회원 정보로 채웠습니다. 진행 상태는 마이페이지에서 볼 수 있습니다.</span></div>'
         + '<div class="field-row"><div class="f"><label for="' + pid + '-name">이름 <span class="req">*</span></label><input class="input" id="' + pid + '-name" name="rv_name" autocomplete="name" maxlength="40" value="' + esc(m.name || '') + '" required></div>'
         + '<div class="f"><label for="' + pid + '-phone">휴대폰 번호 <span class="req">*</span></label><input class="input" type="tel" id="' + pid + '-phone" name="rv_phone" autocomplete="tel" inputmode="numeric" placeholder="010-0000-0000" value="' + esc(m.phone || '') + '" required></div></div>'
@@ -452,7 +452,7 @@
         + '<h3 class="est-title">' + (done.live ? '상담 신청이 접수되었습니다' : '예약 신청 내용이 준비되었습니다') + '</h3>'
         + '<div class="oc-code mt-2"><small>접수번호</small><b>' + esc(done.ref) + '</b></div>'
         + (done.who && done.who.visit && M.visitLabel ? '<div class="visit-done mt-2"><b>현장답사 희망도 함께 받았습니다</b><span>' + esc(M.visitLabel(done.who.visit)) + ' — 담당자가 연락드려 답사 시간을 확정합니다.</span></div>' : '')
-        + '<dl class="def mt-3"><div><dt>이용일</dt><dd>' + esc(r.plan&&r.plan.unknownDate?'상담 후 결정':E.kdateY(r.date)) + '</dd></div><div><dt>시간</dt><dd>' + esc(r.plan&&r.plan.unknownDate?'상담 후 결정':r.range) + (r.pkg&&!(r.plan&&r.plan.unknownDate) ? ' · ' + esc(r.pkg.label) : '') + '</dd></div><div><dt>인원</dt><dd>' + r.people + '명</dd></div><div><dt>예상 금액</dt><dd><b>' + esc(r.plan&&r.plan.unknownDate?'상담 후 안내':won(r.total)) + '</b> <span class="muted">(' + esc(D.deposit.label) + ' ' + esc(won(r.deposit)) + ' 별도)</span></dd></div>' + (done.who.catering ? '<div><dt>출장뷔페</dt><dd>' + esc(done.who.catering.summary) + ' <span class="muted">(대관료와 별도)</span></dd></div>' : '') + (done.who.cocktail ? '<div><dt>출장 칵테일</dt><dd>' + esc(done.who.cocktail.summary) + ' <span class="muted">(대관료와 별도 · 조건 확인 전)</span></dd></div>' : '') + '<div><dt>예약자</dt><dd>' + esc(done.who.name) + ' · ' + esc(done.who.phone) + '</dd></div></dl>'
+        + '<dl class="def mt-3"><div><dt>이용일</dt><dd>' + esc(r.plan&&r.plan.unknownDate?'상담 후 결정':E.kdateY(r.date)) + '</dd></div><div><dt>시간</dt><dd>' + esc(r.plan&&r.plan.unknownDate?'상담 후 결정':r.range) + (r.pkg&&!(r.plan&&r.plan.unknownDate) ? ' · ' + esc(r.pkg.label) : '') + '</dd></div><div><dt>인원</dt><dd>' + r.people + '명</dd></div><div><dt>공간 대관료</dt><dd><b>' + esc(r.plan&&r.plan.unknownDate?'상담 후 안내':won(r.total)) + '</b> <span class="muted">(' + esc(D.deposit.label) + ' ' + esc(won(r.deposit)) + ' 별도)</span></dd></div>' + (done.who.catering ? '<div><dt>출장뷔페</dt><dd>' + esc(done.who.catering.summary) + ' <span class="muted">(대관료와 별도)</span></dd></div>' : '') + (done.who.cocktail ? '<div><dt>출장 칵테일</dt><dd>' + esc(done.who.cocktail.summary) + ' <span class="muted">(대관료와 별도 · 조건 확인 전)</span></dd></div>' : '') + '<div><dt>예약자</dt><dd>' + esc(done.who.name) + ' · ' + esc(done.who.phone) + '</dd></div></dl>'
         + (r.plan?'<section class="plan-summary">'+r.plan.html+'</section>':'')
         + (done.live
           ? '<ol class="steps-mini mt-3"><li><b>일정 확인</b><span>담당자가 신청하신 날짜·시간이 비어 있는지 확인하고 영업시간 기준 2시간 안에 카카오톡·문자로 연락드립니다.</span></li><li><b>금액 확인·결제 안내</b><span>확정 금액과 결제 방법(카드·계좌이체)을 안내드립니다.</span></li><li><b>예약 확정</b><span>결제가 끝나면 예약번호가 발급되고 현장 안내를 보내 드립니다.</span></li></ol>'
@@ -486,9 +486,9 @@
     el.addEventListener('click', function(e){
       var b = e.target.closest('[data-act]'); if (!b) return;
       var act = b.dataset.act;
-      if (act === 'show'){ out('result').scrollIntoView({ behavior: 'smooth', block: 'start' }); if (phase === 'calc'){ phase = 'form'; paintForm(last || calc()); } return; }
-      if (act === 'reserve'){ phase = 'form'; paintForm(last || calc()); if (window.matchMedia('(max-width:959px)').matches) out('result').scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
-      if (act === 'back'){ saveForm(); phase = 'calc'; paintResult(last || calc()); return; }
+      if (act === 'show' || act === 'review'){ out('result').scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+      if (act === 'reserve'){ phase = 'form'; paintForm(last || calc()); if (window.matchMedia('(max-width:959px)').matches) el.querySelector('.rv-apply').scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+      if (act === 'back'){ saveForm(); phase = 'calc'; paintResult(last || calc()); out('result').scrollIntoView({behavior:'smooth',block:'start'}); return; }
       if (act === 'ics'){ if (done) icsDownload(); return; }
       if (act === 'again'){ phase = 'calc'; done = null; paintResult(calc()); el.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
       if (act === 'submit') return;

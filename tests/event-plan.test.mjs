@@ -23,3 +23,13 @@ test('행사일 미정 답사에서는 예시 날짜의 공간료를 소계에 �
 test('공간을 바꿀 때 최신 시간·인원·옵션이 URL의 초기값보다 우선한다',()=>{
  const f=fixture();f.plan.keep({state:{date:'2026-12-20',start:18,end:23,people:80,opt:{cleaning:true}},form:{},fields:{}});const q=f.plan.initial({start:'13',end:'17'},'megaspot-gundae-2');assert.equal(q.start,18);assert.equal(q.end,23);assert.equal(q.people,80);assert.equal(q.opt.cleaning,true);
 });
+test('칵테일 페이지에서 돌아와도 케이터링과 답사 선택을 유지한다',()=>{
+ const f=fixture();const previous={reception_on:['1'],reception_course:'classic',reception_format:'box',rv_visit_on:['1'],rv_visit_date:'2026-11-06',cocktail_on:[]};
+ const incoming={reception_on:[],reception_course:'all',rv_visit_on:[],cocktail_on:['1'],cocktail_cups:'200'};
+ const merged=f.plan.mergeFields(previous,incoming,new URLSearchParams('cocktail=200'));
+ assert.deepEqual(merged.reception_on,['1']);assert.equal(merged.reception_course,'classic');assert.equal(merged.reception_format,'box');assert.deepEqual(merged.rv_visit_on,['1']);assert.equal(merged.rv_visit_date,'2026-11-06');assert.equal(merged.cocktail_cups,'200');
+});
+test('뷔페만 새로 고르면 다른 서비스 선택을 덮어쓰지 않는다',()=>{
+ const f=fixture();const merged=f.plan.mergeFields({rv_cat_course:'basic',cocktail_on:['1'],cocktail_cups:'300'},{rv_cat_course:'classic',cocktail_on:[],cocktail_cups:'100'},new URLSearchParams('catering=classic'));
+ assert.equal(merged.rv_cat_course,'classic');assert.deepEqual(merged.cocktail_on,['1']);assert.equal(merged.cocktail_cups,'300');
+});
