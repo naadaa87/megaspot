@@ -16,10 +16,10 @@ export function updateFood(data,kind,value){
  if(data.quote_input)next.quote_input=F.syncQuote(data.quote_input,next,false);
  return {data:next,changed};
 }
-export function foodExtras(extras,previous,prices,revision){
+export function foodExtras(extras,previous,prices,revision,cateringData){
  const rows=Array.isArray(extras)?extras:[],result={amount:0,selections:{},included:{}};
  for(const kind of F.types){const found=rows.filter(x=>F.isRow(kind,x));if(found.length>1)return {error:'같은 식음료 항목은 견적에 한 번만 추가해 주세요.'};const row=found[0];if(!row){result.included[kind]=0;continue;}
-  const raw=row[kind]||previous?.[kind],saved=previous?.[kind],preserve=kind==='cocktail'&&saved&&raw&&F.key(kind,raw)===F.key(kind,saved)&&Number(row.amount)===F.amount(kind,saved),normalized=preserve?F.publicCocktail(saved):raw?(row[kind]?(kind==='catering'?cateringAdmin(raw):cocktailAdmin(raw,prices,revision)):{...raw}):null;
+  const raw=row[kind]||previous?.[kind],saved=previous?.[kind],preserve=saved&&raw&&F.key(kind,raw)===F.key(kind,saved)&&Number(row.amount)===F.amount(kind,saved),normalized=preserve?(kind==='cocktail'?F.publicCocktail(saved):{...saved}):raw?(row[kind]?(kind==='catering'?cateringAdmin(raw,cateringData):cocktailAdmin(raw,prices,revision)):{...raw}):null;
   if(normalized&&kind==='catering'){normalized.status=raw.status||'pending';normalized.meal_time=raw.meal_time||'';normalized.order_ref=raw.order_ref||'';}
   if(raw&&(!normalized||normalized.status==='cancelled'||raw.removed||F.amount(kind,normalized)!==Number(row.amount)))return {error:'출장뷔페·칵테일 구성과 금액을 다시 확인해 주세요.'};
   if(!Number.isFinite(Number(row.amount))||Number(row.amount)<0)return {error:'식음료 금액을 확인해 주세요.'};

@@ -2,29 +2,31 @@
 import C from '../../assets/js/reception-calc.js';
 import { str } from './_lib.js';
 
-export function receptionAdmin(value) {
+export function receptionAdmin(value,data) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const calc=data?C.create(data):C;
   const status = value.status || 'pending';
   if (!['pending', 'confirmed', 'cancelled'].includes(status)) return null;
-  const q = status === 'confirmed' ? C.quote(value.people,value.format,value.course) : C.selection({...value,course:value.course===undefined?'classic':value.course});
+  const q = status === 'confirmed' ? calc.quote(value.people,value.format,value.course) : calc.selection({...value,course:value.course===undefined?'classic':value.course});
   if (!q || (status === 'confirmed' && !q.ok)) return null;
-  return { ...q, status, by: 'admin', note: str(value.note, 500), menuNote: C.data.menuNote,
-    summary: q.total == null ? q.summary : `${q.courseName} ${q.people}명 · ${q.formatName} · 메뉴 ${C.won(q.food)} + ${q.feeName} ${C.won(q.fee)}`, tax_pending: true };
+  return { ...q, status, by: 'admin', note: str(value.note, 500), menuNote: calc.data.menuNote,
+    summary: q.total == null ? q.summary : `${q.courseName} ${q.people}명 · ${q.formatName} · 메뉴 ${calc.won(q.food)} + ${q.feeName} ${calc.won(q.fee)}`, tax_pending: true };
 }
 
-export function receptionExtra(extras) {
+export function receptionExtra(extras,data,previous) {
   const rows = (Array.isArray(extras) ? extras : []).filter(x => x.kind === 'reception');
   if (!rows.length) return { amount: 0, reception: null };
   if (rows.length !== 1) return { error: '테이블·박스 케이터링은 견적에 한 번만 추가해 주세요.' };
-  const reception = receptionAdmin(rows[0].reception);
+  const raw=rows[0].reception,saved=previous?.reception,preserve=saved&&raw&&['course','people','format','status','note'].every(k=>String(raw[k]??'')===String(saved[k]??''))&&Number(rows[0].amount)===Number(saved.total);
+  const reception = preserve?{...saved,...C.forDocument(saved)}:receptionAdmin(raw,data);
   if (!reception || reception.status === 'cancelled' || Number(rows[0].amount) !== reception.total) return { error: '테이블·박스 케이터링의 구성과 금액을 다시 확인해 주세요.' };
   return { amount: reception.total, reception };
 }
 
 // Customers may leave the course/format undecided or request more than 300 meals.
 // Never accept a submitted price or a customer-supplied confirmed/cancelled status.
-export function receptionCustomer(value) {
-  const selection = C.selection(value);
+export function receptionCustomer(value,data) {
+  const selection = (data?C.create(data):C).selection(value);
   return selection ? { ...selection, by: 'customer', status: 'pending' } : null;
 }
 

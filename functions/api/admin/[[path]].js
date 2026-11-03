@@ -3,6 +3,7 @@ import {S,preserveLegacyPayments,settlementFor,settlementsFor,settlementAdmin} f
 import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, log, hashPassword, requireAdmin, adminKeyOk, adminCookie,
   randomToken, sha256, later, getCookie, withCookies, clientIp, sameOrigin, tooMany, hit, clearHits, kstToday, SPACES, spaceOk }
   from '../_lib.js';
+import {readFoodPricing,adminFoodPricing,saveFoodPricing,foodPricingData} from '../_food_pricing.js';
 import {readCocktailPricing,publicCocktailPricing,adminCocktailPricing,saveCocktailPricing} from '../_cocktail_pricing.js';
 import { depositNoticeAdmin } from '../_deposit_notifications.js';
 import { refundAdmin } from '../_deposit_refunds.js';
@@ -153,6 +154,12 @@ export async function onRequest({ request, env, params, waitUntil }) {
     if(method!=='GET'&&/^(quotes$|inquiries\/|bookings(?:\/|$)|catering\/orders)/.test(path))await preserveLegacyPayments(env);
     if(/^bookings\/[A-Z0-9-]+\/settlement(?:\/entries\/\d+)?$/.test(path))return await settlementAdmin({env,request,path,method});
     if (path === 'ping') return json({ ok: true });
+    if (/^(catering|reception)\/pricing$/.test(path)) {
+      const service=path.split('/')[0];
+      if(method==='GET')return json(adminFoodPricing(await readFoodPricing(env,service)),200,{'cache-control':'no-store'});
+      if(method==='PUT'){try{const saved=await saveFoodPricing(env,service,await readJson(request));if(saved.conflict)return err('다른 화면에서 가격표가 변경됐습니다. 최신 가격표를 불러온 뒤 다시 저장해 주세요.',409,'PRICE_CONFLICT');if(!saved.unchanged)await log(env,service+'.pricing.updated',service+'_pricing','admin',{revision:saved.config.revision});return json(adminFoodPricing(saved.config),200,{'cache-control':'no-store'});}catch(e){return err(e.message||'가격표를 저장하지 못했습니다.',400,'INVALID_PRICING');}}
+      return err('지원하지 않는 요청입니다.',405);
+    }
     if (path === 'cocktail/pricing') {
       if(method==='GET')return json(adminCocktailPricing(await readCocktailPricing(env)),200,{'cache-control':'no-store'});
       if(method==='PUT'){
@@ -317,8 +324,9 @@ export async function onRequest({ request, env, params, waitUntil }) {
       const quote_no = await uniqueRef(env, 'quotes', 'quote_no', 'Q');
       const data = d.data && typeof d.data === 'object' ? d.data : {};
       const cocktailRates=publicCocktailPricing(await readCocktailPricing(env));
-      const food=foodExtras(data.extras,inquiry?safe(inquiry.data):null,cocktailRates.prices,cocktailRates.revision);if(food.error)return err(food.error);
-      const rec = receptionExtra(data.extras);
+      const cateringData=foodPricingData('catering',await readFoodPricing(env,'catering')),receptionData=foodPricingData('reception',await readFoodPricing(env,'reception'));
+      const food=foodExtras(data.extras,inquiry?safe(inquiry.data):null,cocktailRates.prices,cocktailRates.revision,cateringData);if(food.error)return err(food.error);
+      const rec = receptionExtra(data.extras,receptionData,inquiry?safe(inquiry.data):null);
       if (rec.error) return err(rec.error);
       if (rec.amount+food.amount > total) return err('견적 합계가 케이터링 금액보다 작습니다. 추가 항목을 확인해 주세요.');
       const statements = [], input = data.input && typeof data.input === 'object' ? data.input : null;
@@ -529,7 +537,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
         if([DELETED,'대기 취소','취소·환불'].includes(item.status))return err('취소·삭제된 문의는 복원한 뒤 저장해 주세요.');
         const old=safe(item.data);if(receptionConflict(d.reception_revision,old))return err('식음료 구성이 변경됐습니다. 문의를 다시 불러와 주세요.',409,'RECEPTION_CHANGED');
         const cocktailRates=kind==='cocktail'?publicCocktailPricing(await readCocktailPricing(env)):null;
-        let value=kind==='cocktail'?cocktailAdmin(d[kind],cocktailRates.prices,cocktailRates.revision):cateringAdmin(d[kind]);if(d[kind]!==null&&!value)return err('식음료 구성을 확인해 주세요.');
+        let value=kind==='cocktail'?cocktailAdmin(d[kind],cocktailRates.prices,cocktailRates.revision):cateringAdmin(d[kind],foodPricingData('catering',await readFoodPricing(env,'catering')));if(d[kind]!==null&&!value)return err('식음료 구성을 확인해 주세요.');
         if(kind==='catering'&&value){value.status=d[kind].status||old.catering?.status||'pending';if(!['pending','confirmed','cancelled'].includes(value.status))return err('출장뷔페 상태를 확인해 주세요.');value.order_ref=old.catering?.order_ref||'';value.meal_time=d[kind].meal_time===undefined?(old.catering?.meal_time||''):str(d[kind].meal_time,20);}
         if(!value)value={...(old[kind]||{}),status:'cancelled',removed:true};
         const base={...old};if((Number(old['included_'+kind+'_amount'])>0||old[kind+'_in_quote'])&&item.effective_amount!=null)base.total=item.effective_amount;
@@ -544,7 +552,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
         const item = await env.DB.prepare(`SELECT status, data, ${inquiryAmountSql()} AS effective_amount FROM inquiries i WHERE ref = ?`).bind(ref).first();
         if (!item) return err('문의를 찾을 수 없습니다.', 404, 'NOT_FOUND');
         if ([DELETED, '대기 취소', '취소·환불'].includes(item.status)) return err('취소·삭제된 문의는 복원한 뒤 저장해 주세요.');
-        const reception = receptionAdmin(d.reception);
+        const reception = receptionAdmin(d.reception,foodPricingData('reception',await readFoodPricing(env,'reception')));
         if (!reception) return err('코스·제공 방식·인원을 확인해 주세요. 확정 구성은 1~300명까지 계산합니다.');
         jp.push("'$.reception', json(?)"); jb.push(JSON.stringify(reception));
         const old = safe(item.data), included = Number(old.included_reception_amount) || 0;

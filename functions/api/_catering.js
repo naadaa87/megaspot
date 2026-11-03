@@ -3,8 +3,8 @@
 // 계산 방식은 assets/js/catering-calc.js 의 quote() 와 같습니다.
 import { CATERING } from './_catalog.js';
 const won = n => (Math.round(n) || 0).toLocaleString('ko-KR') + '원';
-export function cateringQuote(o, fee) {   // fee: 관리자가 바꾼 출장·세팅비 (없으면 기본값)
-  const D = CATERING; if (!D || !o) return null;
+export function cateringQuote(o, fee, data=CATERING) {   // fee: 관리자가 바꾼 출장·세팅비 (없으면 기본값)
+  const D = data; if (!D || !o) return null;
   const course = D.courses.find(x => x.id === String(o.course || '')) || null;
   const bbq = D.bbq.rows.find(x => x.id === String(o.bbq || '')) || null;
   const beer = Math.max(0, Math.min(20, Math.round(+o.beer || 0)));
@@ -28,14 +28,14 @@ export function cateringQuote(o, fee) {   // fee: 관리자가 바꾼 출장·�
            summary: supply ? parts.join(' · ') + ' — 예상 ' + won(supply + vat) + ' (부가세 포함)' : '출장뷔페 상담 희망 (코스 미정' + (people ? ' · ' + people + '명' : '') + ')' };
 }
 // 신청서에서 '출장뷔페도 함께 상담받기'를 체크한 경우에만 값을 남깁니다.
-export function cateringFrom(c) {
+export function cateringFrom(c,data) {
   if (!c || typeof c !== 'object' || Array.isArray(c) || !c.on) return null;
-  return cateringQuote(c);
+  return cateringQuote(c,undefined,data);
 }
 // 관리자 화면 '출장뷔페'에서 문의에 저장하는 구성 (출장·세팅비 조정과 메모 포함)
-export function cateringAdmin(c) {
+export function cateringAdmin(c,data) {
   if (!c || typeof c !== 'object' || Array.isArray(c)) return null;
-  const q = cateringQuote(c, c.fee); if (!q) return null;
+  const q = cateringQuote(c, c.fee,data); if (!q) return null;
   q.note = String(c.note == null ? '' : c.note).slice(0, 300); q.by = 'admin';
   return q;
 }
