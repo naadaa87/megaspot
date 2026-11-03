@@ -82,6 +82,32 @@ test('명확한 API 거절과 실제 전송 실패는 이력을 남기고 재발
   const f=setup(t);await f.enable();f.setError({code:-99,message:'fixture-secret'});let r=await f.send(await f.preview());assert.equal(r.items[0].status,'failed');assert.ok(!JSON.stringify(r).includes('fixture-secret'));
   f.setError(null);r=await f.send(await f.preview());f.setResult('U');await f.api('guide-messages/'+r.items[0].id+'/refresh','POST',{});assert.equal((await f.preview()).items.length,1);assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM inquiry_checks').get().n,0);
 });
+test('실패 목록에 최신 사유·코드를 표시하고 해당 고객 1명만 미리보기해 재발송한다',async t=>{
+  const f=setup(t);await f.enable();f.setResult('U');
+  const first=await f.send(await f.preview());await f.api('guide-messages/'+first.items[0].id+'/refresh','POST',{});
+  const failed=(await f.api('guide-messages/candidates?status=failed')).items[0];
+  assert.equal(failed.failure_reason,'실패');assert.equal(failed.failure_code,'U');assert.equal(failed.retry_allowed,true);
+  f.db.prepare("INSERT INTO bookings(booking_code,space_id,customer_name,phone,phone_last4,date,start_h,end_h,status,created_at) VALUES('BK-SECOND','megaspot-gundae','다른 고객','01022223333','3333',?,10,17,'confirmed','now')").run(DAY);
+  const preview=await f.preview({codes:[failed.booking_code]});assert.deepEqual(preview.items.map(x=>x.booking_code),['BK-TEST']);
+  f.setResult('0');const retry=await f.send(preview);assert.equal(f.sent.length,3);assert.equal(f.sent[2].receiver_1,'01012345678');
+  let current=(await f.api('guide-messages/candidates')).items.find(x=>x.booking_code==='BK-TEST');
+  assert.equal(current.message_status,'accepted');assert.equal(current.failure_reason,'');assert.equal(current.failure_code,'');assert.equal(current.retry_allowed,false);
+  await f.api('guide-messages/'+retry.items[0].id+'/refresh','POST',{});
+  assert.equal((await f.api('guide-messages/candidates?status=failed')).items.length,0);assert.equal((await f.preview()).items.length,0);
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM booking_guide_messages WHERE mode='live' AND status='failed'").get().n,1);
+});
+test('취소·기존 안내 체크·중복 잠금 고객은 실패 사유가 있어도 개별 재발송을 허용하지 않는다',async t=>{
+  const f=setup(t);await f.enable();f.setError({code:-99,message:'fixture-secret'});await f.send(await f.preview());
+  let item=(await f.api('guide-messages/candidates?status=failed')).items[0];assert.match(item.failure_reason,/알리고 오류 -99/);assert.ok(!item.failure_reason.includes('fixture-secret'));
+  f.db.prepare('INSERT INTO inquiry_checks(ref,checks,updated_at) VALUES(?,?,?)').run('MS-TEST','{"guide_sent":true}','now');
+  assert.equal((await f.api('guide-messages/candidates?status=failed')).items[0].retry_allowed,false);
+  f.db.prepare('DELETE FROM inquiry_checks WHERE ref=?').run('MS-TEST');f.db.prepare("UPDATE bookings SET status='cancelled'").run();
+  assert.equal((await f.api('guide-messages/candidates?status=failed')).items[0].retry_allowed,false);
+  f.db.prepare("UPDATE bookings SET status='confirmed'").run();
+  f.db.prepare("INSERT INTO booking_guide_messages(id,booking_code,purpose,mode,status,snapshot,config_hash,actor,created_at,updated_at) VALUES('active-old','BK-TEST',?,'live','accepted','{}','fixture','admin','2000-01-01','2000-01-01')").run(GUIDE_VERSION);
+  item=(await f.api('guide-messages/candidates?status=failed')).items[0];assert.equal(item.message_status,'failed');assert.equal(item.retry_allowed,false);
+  assert.equal((await f.preview()).items.length,0);assert.equal(f.sent.length,2);
+});
 test('동시 요청에도 같은 예약의 알림톡을 한 번만 요청',async t=>{
   const f=setup(t);await f.enable();const a=await f.preview(),b=await f.preview();await Promise.all([f.send(a),f.send(b)]);assert.equal(f.sent.length,2);
 });
