@@ -2,6 +2,7 @@
 import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, log, hashPassword, requireAdmin, adminKeyOk, adminCookie,
   randomToken, sha256, later, getCookie, withCookies, clientIp, sameOrigin, tooMany, hit, clearHits, kstToday, SPACES, spaceOk }
   from '../_lib.js';
+import { depositNoticeAdmin } from '../_deposit_notifications.js';
 import { refundAdmin } from '../_deposit_refunds.js';
 import { cateringAdmin } from '../_catering.js';
 import { cleanDoc, parseDoc, publicDoc, confirmToken } from '../_confirm.js';
@@ -144,6 +145,7 @@ export async function onRequest({ request, env, params }) {
   const denied = await requireAdmin(request, env); if (denied) return denied;
   try {
     if (path === 'ping') return json({ ok: true });
+    if(path==='deposit-notifications'||path.startsWith('deposit-notifications/'))return await depositNoticeAdmin({env,request,url,path,method});
     if (path === 'deposit-refunds' || path.startsWith('deposit-refunds/')) {
       try { return await refundAdmin({env,request,url,path,method}); }
       catch { return err('환급 정보를 처리하지 못했습니다. 새로고침 후 다시 시도해 주세요.',500,'REFUND_ERROR'); }

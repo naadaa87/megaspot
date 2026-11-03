@@ -148,7 +148,7 @@
 
   /* =================== 화면 전환 =================== */
   // 모임·입점·등록 공간·광고 화면은 admin-platform.js 가 MEGASPOT_ADMIN.register 로 붙입니다
-  var LOAD={ 'deposit-refunds':function(){}, 'guide-messages':function(){}, parking:function(){}, reception:function(){}, dash:loadDash, resv:loadResv, visits:loadVisits, inq:loadInq, quote:function(){ calc(); loadRecentQuotes(); }, catering:loadCatering, orders:loadOrders, bookings:loadBookings, calendar:loadCalendar, reviews:loadReviews, members:loadMembers };
+  var LOAD={ 'deposit-notifications':function(){}, 'deposit-refunds':function(){}, 'guide-messages':function(){}, parking:function(){}, reception:function(){}, dash:loadDash, resv:loadResv, visits:loadVisits, inq:loadInq, quote:function(){ calc(); loadRecentQuotes(); }, catering:loadCatering, orders:loadOrders, bookings:loadBookings, calendar:loadCalendar, reviews:loadReviews, members:loadMembers };
   function go(v){
     if(!LOAD[v]) v='dash';
     $$('.adm-view').forEach(function(s){ s.hidden = s.id!=='view-'+v; });

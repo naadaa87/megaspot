@@ -262,3 +262,6 @@ export async function guideAdmin({env,request,url,path,method}) {
   }
   return err('지원하지 않는 요청입니다.',405);
 }
+
+// Shared signed transport; callers retain independent templates, queues and enable switches.
+export {provider as aligoProvider};
