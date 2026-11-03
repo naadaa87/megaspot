@@ -1,3 +1,4 @@
+import {otherReceiptsSql} from '../_settlement.js';
 // 페이앱: 서버에서 결제 요청 → payurl 이동 → 검증된 feedback만 주문·예약 확정.
 import { json, err, hasDb, readJson, str, num, isDate, now, log, sha256, sameOrigin, clientIp, getMember, kstToday, tooMany, hit, randomToken, requireAdmin } from '../_lib.js';
 import { PRODUCTS, HOLIDAYS, PRICING } from '../_catalog.js';
@@ -206,8 +207,8 @@ async function feedback(request, env, C, waitUntil) {
     await env.DB.batch([
       sql("INSERT INTO event_log (kind,ref,actor,detail,created_at) SELECT 'order.refunded',oid,'payapp','페이앱 승인 취소',? FROM orders WHERE oid = ? AND status != 'refunded'", t, oid),
       sql("INSERT OR REPLACE INTO payapp_refunds (mul_no, oid, amount, created_at) VALUES (?,?,?,?)", 'full-' + originalNo, oid, row.price, t),
-      sql("UPDATE bookings SET status = 'cancelled', updated_at = ? WHERE booking_code = (SELECT booking_code FROM orders WHERE oid = ?)", t, oid),
-      sql("UPDATE inquiries SET status = '취소·환불', updated_at = ? WHERE ref = ? AND status = '예약 확정' AND EXISTS (SELECT 1 FROM orders WHERE oid = ? AND booking_code IS NOT NULL) AND NOT EXISTS (SELECT 1 FROM orders WHERE inquiry_ref = ? AND oid != ? AND status = 'paid')", t, row.inquiry_ref || '', oid, row.inquiry_ref || '', oid),
+      sql(`UPDATE bookings SET status = 'cancelled', updated_at = ? WHERE booking_code = (SELECT booking_code FROM orders WHERE oid = ?) AND ${otherReceiptsSql('bookings.booking_code','?')}<=0`, t, oid, oid),
+      sql("UPDATE inquiries SET status = '취소·환불', updated_at = ? WHERE ref = ? AND status = '예약 확정' AND EXISTS (SELECT 1 FROM orders WHERE oid = ? AND booking_code IS NOT NULL) AND NOT EXISTS (SELECT 1 FROM orders WHERE inquiry_ref = ? AND oid != ? AND status = 'paid') AND NOT EXISTS(SELECT 1 FROM bookings bb WHERE bb.inquiry_ref=inquiries.ref AND bb.status<>'cancelled')", t, row.inquiry_ref || '', oid, row.inquiry_ref || '', oid),
       sql("UPDATE orders SET status = 'refunded', result_msg = '페이앱 승인 취소', updated_at = ? WHERE oid = ?", t, oid)
     ]);
   } else if (partial) {
@@ -215,8 +216,8 @@ async function feedback(request, env, C, waitUntil) {
     await env.DB.batch([
       sql('INSERT OR IGNORE INTO payapp_refunds (mul_no, oid, amount, created_at) VALUES (?,?,?,?)', f.mul_no, oid, Number(f.price), t),
       sql("INSERT INTO event_log (kind,ref,actor,detail,created_at) SELECT 'order.partial_refund',?,'payapp',?,? WHERE changes() > 0", oid, '부분 환불 ' + f.price + '원', t),
-      sql("UPDATE bookings SET status = 'cancelled', updated_at = ? WHERE booking_code = (SELECT booking_code FROM orders WHERE oid = ?) AND (SELECT COALESCE(SUM(amount),0) FROM payapp_refunds WHERE oid = ?) >= ?", t, oid, oid, row.price),
-      sql("UPDATE inquiries SET status = '취소·환불', updated_at = ? WHERE ref = ? AND status = '예약 확정' AND EXISTS (SELECT 1 FROM orders WHERE oid = ? AND booking_code IS NOT NULL AND price <= (SELECT COALESCE(SUM(amount),0) FROM payapp_refunds WHERE oid = ?)) AND NOT EXISTS (SELECT 1 FROM orders WHERE inquiry_ref = ? AND oid != ? AND status = 'paid')", t, row.inquiry_ref || '', oid, oid, row.inquiry_ref || '', oid),
+      sql(`UPDATE bookings SET status = 'cancelled', updated_at = ? WHERE booking_code = (SELECT booking_code FROM orders WHERE oid = ?) AND (SELECT COALESCE(SUM(amount),0) FROM payapp_refunds WHERE oid = ?) >= ? AND ${otherReceiptsSql('bookings.booking_code','?')}<=0`, t, oid, oid, row.price, oid),
+      sql("UPDATE inquiries SET status = '취소·환불', updated_at = ? WHERE ref = ? AND status = '예약 확정' AND EXISTS (SELECT 1 FROM orders WHERE oid = ? AND booking_code IS NOT NULL AND price <= (SELECT COALESCE(SUM(amount),0) FROM payapp_refunds WHERE oid = ?)) AND NOT EXISTS (SELECT 1 FROM orders WHERE inquiry_ref = ? AND oid != ? AND status = 'paid') AND NOT EXISTS(SELECT 1 FROM bookings bb WHERE bb.inquiry_ref=inquiries.ref AND bb.status<>'cancelled')", t, row.inquiry_ref || '', oid, oid, row.inquiry_ref || '', oid),
       sql("UPDATE orders SET status = CASE WHEN (SELECT COALESCE(SUM(amount),0) FROM payapp_refunds WHERE oid = ?) >= price THEN 'refunded' ELSE status END, result_msg = '부분 환불 · 페이앱 내역 확인', updated_at = ? WHERE oid = ?", oid, t, oid)
     ]);
   } else if (['8', '16', '31', '32'].includes(state)) {

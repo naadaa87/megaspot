@@ -1,3 +1,4 @@
+import {S,preserveLegacyPayments,settlementFor,settlementsFor,settlementAdmin} from '../_settlement.js';
 // 운영자 API — 모든 경로는 X-Admin-Key 헤더 검증을 거칩니다.
 import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, log, hashPassword, requireAdmin, adminKeyOk, adminCookie,
   randomToken, sha256, later, getCookie, withCookies, clientIp, sameOrigin, tooMany, hit, clearHits, kstToday, SPACES, spaceOk }
@@ -146,6 +147,9 @@ export async function onRequest({ request, env, params, waitUntil }) {
 
   const denied = await requireAdmin(request, env); if (denied) return denied;
   try {
+    if(method==='PATCH'&&/^inquiries\/[A-Z0-9-]+$/.test(path)){const v=await readJson(request.clone());if(v.total!==undefined&&v.total!==null&&v.total!==''&&amountOk(v.total)===null)return err('금액을 확인해 주세요.');}
+    if(method!=='GET'&&/^(quotes$|inquiries\/|bookings(?:\/|$)|catering\/orders)/.test(path))await preserveLegacyPayments(env);
+    if(/^bookings\/[A-Z0-9-]+\/settlement$/.test(path))return await settlementAdmin({env,request,path,method});
     if (path === 'ping') return json({ ok: true });
     if (path === 'cocktail/pricing' && method === 'GET') return json({ ok: true, packages: cocktailPricing(), vat_rate: 0.1 }, 200, { 'cache-control': 'no-store' });
     if(path==='deposit-notifications'||path.startsWith('deposit-notifications/'))return await depositNoticeAdmin({env,request,url,path,method});
@@ -223,8 +227,8 @@ export async function onRequest({ request, env, params, waitUntil }) {
       const { results: lg } = await env.DB.prepare('SELECT kind, actor, detail, created_at FROM event_log WHERE ref = ? ORDER BY id DESC LIMIT 30').bind(mDet[1]).all();
       let wait = null;
       if (r.event_date && ['문의 접수', '조건 확인', '견적 발송', '결제 대기'].includes(r.status)) { const wl = await waitList(env, r.event_date, r.space_id); const no = wl.indexOf(r.ref) + 1; if (no) wait = { no, total: wl.length, date: r.event_date, space_id: spaceOk(r.space_id) }; }
-      const guides=await guideSummary(env,(bk || []).map(x=>x.booking_code));
-      return json({ ok: true, item: { ...r, data: safe(r.data) }, checks: await guideInquiryChecks(env,mDet[1],safe(c && c.checks)), quotes: (qs || []).map(q => ({ ...q, data: safe(q.data) })), bookings: (bk || []).map(x=>({...x,guide_status:guides[x.booking_code] || ''})), log: lg || [], wait, visits: await visitsForInquiry(env, mDet[1]), catering_order: await cateringOrderFor(env, mDet[1], '') });
+      const guides=await guideSummary(env,(bk || []).map(x=>x.booking_code)),settlements=await settlementsFor(env,(bk||[]).map(x=>x.booking_code));
+      return json({ ok: true, item: { ...r, data: safe(r.data) }, checks: await guideInquiryChecks(env,mDet[1],safe(c && c.checks)), quotes: (qs || []).map(q => ({ ...q, data: safe(q.data) })), bookings: (bk || []).map(x=>({...x,settlement:settlements[x.booking_code],guide_status:guides[x.booking_code] || ''})), log: lg || [], wait, visits: await visitsForInquiry(env, mDet[1]), catering_order: await cateringOrderFor(env, mDet[1], '') });
     }
     if (path === 'inquiries' && method === 'POST') {
       // 카카오톡·전화·이메일·방문으로 받은 문의를 관리자가 직접 등록합니다.
@@ -351,6 +355,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
         statements.push(env.DB.prepare('UPDATE inquiries SET space_id = ?, status = ?, name = ?, phone = ?, email = ?, event_date = ?, headcount = ?, data = ?, updated_at = ? WHERE ref = ?')
           .bind(space, status, name, phone, email || '', date, people, JSON.stringify(updated), now(), ref));
       }
+      if(ref){const bks=await env.DB.prepare("SELECT booking_code FROM bookings WHERE inquiry_ref=? AND status<>'cancelled'").bind(ref).all();if(bks.results?.length===1){const payment=await settlementFor(env,bks.results[0].booking_code);data.settlement=S.calculate({...payment,amount:total});}else delete data.settlement;}else delete data.settlement;
       const serialized = JSON.stringify(data);
       if (serialized.length > 100000) return err('견적 내용이 너무 깁니다. 안내 메모나 추가 항목을 줄여 주세요.');
       statements.push(env.DB.prepare('INSERT INTO quotes (quote_no, inquiry_ref, customer, event_date, total, data, created_at) VALUES (?,?,?,?,?,?,?)')
@@ -647,8 +652,8 @@ export async function onRequest({ request, env, params, waitUntil }) {
         CASE WHEN b.inquiry_ref IS NOT NULL THEN (SELECT CASE WHEN json_extract(ic.checks, '$.guarantee_paid') IS NULL THEN NULL WHEN json_extract(ic.checks, '$.guarantee_paid') = 0 THEN 0 ELSE 1 END FROM inquiry_checks ic WHERE ic.ref = b.inquiry_ref)
              ELSE (SELECT dc.paid FROM booking_deposit_checks dc WHERE dc.booking_code = b.booking_code) END AS deposit_paid
         FROM bookings b ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY date DESC, created_at DESC, id DESC LIMIT 301 OFFSET ?`).bind(...args).all();
-      const items=(results || []).slice(0,300), guides=await guideSummary(env,items.map(x=>x.booking_code));
-      return json({ ok: true, has_more: (results || []).length > 300, items: items.map(x=>({...x,guide_status:guides[x.booking_code] || ''})) });
+      const items=(results || []).slice(0,300), guides=await guideSummary(env,items.map(x=>x.booking_code)),settlements=await settlementsFor(env,items.map(x=>x.booking_code));
+      return json({ ok: true, has_more: (results || []).length > 300, items: items.map(x=>({...x,settlement:settlements[x.booking_code],guide_status:guides[x.booking_code] || ''})) });
     }
     if (path === 'bookings' && method === 'POST') {
       const d = await readJson(request);
@@ -764,19 +769,23 @@ export async function onRequest({ request, env, params, waitUntil }) {
         // Full saved buffet configuration is also available for direct bookings.
            // 출장뷔페 진행 건 (문의 없이 등록한 예약도)
         const cat = idata.catering || ord || null;
+        const settlement=await settlementFor(env,code);
         const inq = { ref: row.inquiry_ref || '', name: idata.name || '', org: idata.org || '', purpose: idata.purpose || '', options: idata.options || {}, reception_revision:receptionRevision(idata), catering: cat, cocktail:idata.cocktail||null, reception: idata.reception || null, included_reception_amount: idata.included_reception_amount || 0,included_cocktail_amount:idata.included_cocktail_amount||0, t_start: idata.t_start || '', t_end: idata.t_end || '', start_h: idata.start_h ?? null, end_h: idata.end_h ?? null };
         const doc = parseDoc(row.confirm_doc), currentReception = receptionDocument(idata, row.effective_amount), currentFoods=foodDocuments({...idata,catering:cat},row.effective_amount);
-        const needs_reissue = !!(doc?.issued_at && ((currentReception&&!Object.hasOwn(doc,'reception'))||(currentFoods.length&&!Object.hasOwn(doc,'food_services'))));
-        const previewDoc = {...(doc||{}),reception:doc&&Object.hasOwn(doc,'reception')?doc.reception:currentReception,food_services:doc&&Object.hasOwn(doc,'food_services')?doc.food_services:currentFoods};
+        const needs_reissue = !!(doc?.issued_at && ((!Object.hasOwn(doc,'settlement')||doc.settlement.revision!==settlement.revision)||(currentReception&&!Object.hasOwn(doc,'reception'))||(currentFoods.length&&!Object.hasOwn(doc,'food_services'))));
+        const previewDoc = {...(doc||{}),settlement:doc&&Object.hasOwn(doc,'settlement')?doc.settlement:settlement,reception:doc&&Object.hasOwn(doc,'reception')?doc.reception:currentReception,food_services:doc&&Object.hasOwn(doc,'food_services')?doc.food_services:currentFoods};
         if(needs_reissue)previewDoc.items=stripFoodItems(withoutReceptionItems(previewDoc.items||[]));
-        return json({ ok: true, needs_reissue, reception:currentReception, food_services:currentFoods, booking: { code, space_id: row.space_id, name: row.customer_name, phone: row.phone, date: row.date, slot: row.slot, headcount: row.headcount, status: row.status, amount: row.effective_amount, start_h: row.start_h, end_h: row.end_h, order_status: row.order_status || '', paid_amount:row.paid_amount||0 },
+        return json({ ok: true, settlement, needs_reissue, reception:currentReception, food_services:currentFoods, booking: { code, space_id: row.space_id, name: row.customer_name, phone: row.phone, date: row.date, slot: row.slot, headcount: row.headcount, status: row.status, amount: row.effective_amount, start_h: row.start_h, end_h: row.end_h, order_status: row.order_status || '', paid_amount:settlement.net },
           inquiry: inq, doc, preview: publicDoc(row, previewDoc), link: doc && doc.issued_at ? link : '', token: k });
       }
       if (method === 'PUT') {
         if (row.status === 'cancelled') return err('취소된 예약은 확정서를 발급할 수 없습니다.', 409, 'CANCELLED');
         const d = await readJson(request), prev = parseDoc(row.confirm_doc) || {}, t = now(), currentData=foodData;
         if(receptionConflict(d.reception_revision,currentData) || (d.reception_revision===undefined&&receptionRevision(currentData)>0&&Number(d.doc?.amount)!==row.effective_amount))return err('식음료 변경으로 확정서 조건이 달라졌습니다. 최신 예약을 다시 불러와 발급해 주세요.',409,'RECEPTION_CHANGED');
+        const settlement=await settlementFor(env,code);
+        if(d.settlement_revision!==undefined&&d.settlement_revision!==settlement.revision)return err('수납 내역이 변경됐습니다. 최신 금액으로 다시 발급해 주세요.',409,'PAYMENT_CHANGED');
         const doc = { ...cleanDoc(d.doc), issued_at: prev.issued_at || t, updated_at: t, issue_no: (prev.issue_no || 0) + 1 };
+        doc.amount=row.effective_amount;doc.paid=settlement.net;doc.pay_status=settlement.status==='unpriced'?'pending':settlement.status;doc.settlement=settlement;
         doc.reception = receptionDocument(currentData,doc.amount);doc.food_services=foodDocuments(currentData,doc.amount);
         if(doc.food_services.length)doc.items=stripFoodItems(doc.items);
         if(doc.reception)doc.items=withoutReceptionItems(doc.items);

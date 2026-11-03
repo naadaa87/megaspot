@@ -135,3 +135,10 @@ test('Workers에서 지원하는 manual redirect로 요청하며 외부 리다�
   await assert.rejects(requestPayment(payappConfig(f.env),{goodname:'확인용',price:'1000',recvphone:'01000000000'}),/PAYAPP_HTTP/);
   assert.equal(calls,1,'키나 고객 정보를 리다이렉트 주소에 재전송하지 않음');
 });
+
+test('추가 식음료 주문 전액 환불도 다른 결제의 수납이 남아 있으면 예약 유지',async()=>{
+ const f=fixture(),room=f.seed('ABCDEF',true);await f.call('feedback','POST',await f.form(room));const code=f.order(room.oid).booking_code,food=f.seed('123ABC');f.db.prepare("UPDATE orders SET status='paid',booking_code=?,paid_at='2026-11-03' WHERE oid=?").run(code,food.oid);await f.call('feedback','POST',await f.form(food,'9'));assert.equal(f.order(food.oid).status,'refunded');assert.equal(f.db.prepare('SELECT status FROM bookings WHERE booking_code=?').get(code).status,'confirmed');
+});
+test('추가 주문의 누적 전액 부분 환불도 별도 계좌 예약금이 있으면 예약 유지',async()=>{
+ const f=fixture(),food=f.seed('ABCDEF',true);await f.call('feedback','POST',await f.form(food));const code=f.order(food.oid).booking_code;f.db.prepare("INSERT INTO booking_payment_entries(booking_code,request_id,kind,amount,note,created_at) VALUES(?,?,'receipt',50000,'계좌 예약금','2026-11-03')").run(code,'bank-receipt-123');await f.call('feedback','POST',await f.form(food,'70',{mul_no:'990001',orig_mul_no:food.mul_no,orig_price:String(food.price),price:String(food.price)}));assert.equal(f.order(food.oid).status,'refunded');assert.equal(f.db.prepare('SELECT status FROM bookings WHERE booking_code=?').get(code).status,'confirmed');
+});

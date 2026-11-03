@@ -583,3 +583,25 @@ BEGIN
  WHERE booking_code=NEW.booking_code AND mode='live' AND kind IN ('payment','account') AND status IN ('queued','review')
  AND request_id IS NULL AND provider_mid IS NULL;
 END;
+
+
+-- 실제 이용료 입금·환불 기록. 반환 보증금은 별도 관리합니다.
+CREATE TABLE IF NOT EXISTS booking_payment_entries (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ booking_code TEXT NOT NULL,
+ request_id TEXT NOT NULL,
+ kind TEXT NOT NULL CHECK(kind IN ('receipt','refund')),
+ amount INTEGER NOT NULL CHECK(amount>0),
+ note TEXT NOT NULL DEFAULT '',
+ created_at TEXT NOT NULL,
+ UNIQUE(booking_code,request_id)
+);
+CREATE INDEX IF NOT EXISTS idx_booking_payment_entries ON booking_payment_entries(booking_code,id);
+
+INSERT OR IGNORE INTO booking_payment_entries(booking_code,request_id,kind,amount,note,created_at)
+ SELECT b.booking_code,'legacy-confirmation','receipt',MAX(0,CAST(json_extract(b.confirm_doc,'$.paid') AS INTEGER)-(SELECT COALESCE(SUM(MAX(0,o.price-MIN(o.price,COALESCE((SELECT SUM(r.amount) FROM payapp_refunds r WHERE r.oid=o.oid AND datetime(r.created_at)<=datetime(COALESCE(json_extract(b.confirm_doc,'$.updated_at'),json_extract(b.confirm_doc,'$.issued_at'),b.updated_at,b.created_at))),CASE WHEN o.status='refunded' AND datetime(o.updated_at)<=datetime(COALESCE(json_extract(b.confirm_doc,'$.updated_at'),json_extract(b.confirm_doc,'$.issued_at'),b.updated_at,b.created_at)) THEN o.price ELSE 0 END)))),0) FROM orders o WHERE o.booking_code=b.booking_code AND o.test=0 AND o.status IN ('paid','refunded') AND (o.paid_at IS NULL OR datetime(o.paid_at)<=datetime(COALESCE(json_extract(b.confirm_doc,'$.updated_at'),json_extract(b.confirm_doc,'$.issued_at'),b.updated_at,b.created_at))))),'기존 확정서의 받은 금액 이관',COALESCE(json_extract(b.confirm_doc,'$.updated_at'),b.created_at)
+ FROM bookings b WHERE json_valid(b.confirm_doc) AND CAST(json_extract(b.confirm_doc,'$.paid') AS INTEGER)>0
+ AND json_type(b.confirm_doc,'$.settlement') IS NULL AND NOT EXISTS(SELECT 1 FROM settings WHERE key='payment_legacy:'||b.booking_code)
+ AND NOT EXISTS(SELECT 1 FROM booking_payment_entries e WHERE e.booking_code=b.booking_code)
+ AND CAST(json_extract(b.confirm_doc,'$.paid') AS INTEGER)>(SELECT COALESCE(SUM(MAX(0,o.price-MIN(o.price,COALESCE((SELECT SUM(r.amount) FROM payapp_refunds r WHERE r.oid=o.oid AND datetime(r.created_at)<=datetime(COALESCE(json_extract(b.confirm_doc,'$.updated_at'),json_extract(b.confirm_doc,'$.issued_at'),b.updated_at,b.created_at))),CASE WHEN o.status='refunded' AND datetime(o.updated_at)<=datetime(COALESCE(json_extract(b.confirm_doc,'$.updated_at'),json_extract(b.confirm_doc,'$.issued_at'),b.updated_at,b.created_at)) THEN o.price ELSE 0 END)))),0) FROM orders o WHERE o.booking_code=b.booking_code AND o.test=0 AND o.status IN ('paid','refunded') AND (o.paid_at IS NULL OR datetime(o.paid_at)<=datetime(COALESCE(json_extract(b.confirm_doc,'$.updated_at'),json_extract(b.confirm_doc,'$.issued_at'),b.updated_at,b.created_at))));
+INSERT OR IGNORE INTO settings(key,value,updated_at) SELECT 'payment_legacy:'||booking_code,'1',created_at FROM bookings WHERE json_valid(confirm_doc) AND json_type(confirm_doc,'$.settlement') IS NULL AND json_extract(confirm_doc,'$.paid') IS NOT NULL;

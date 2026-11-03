@@ -1,3 +1,4 @@
+import {settlementFor} from './_settlement.js';
 // 고객용 예약확정서 조회 — /confirm/ 화면이 씁니다.
 // GET  /api/confirm?c=예약번호&k=링크토큰       → 관리자가 보낸 링크로 바로 열기
 // POST /api/confirm { booking_code, phone_last4 } → 예약번호와 휴대폰 뒷 4자리로 열기 (같은 IP 10분에 10번까지)
@@ -9,7 +10,8 @@ async function answer(env, row) {
   const doc = parseDoc(row.confirm_doc);
   if (row.status === 'cancelled') return err('취소된 예약입니다. 자세한 내용은 메가스팟으로 문의해 주세요.', 410, 'CANCELLED');
   if (!doc || !doc.issued_at) return err('아직 예약확정서가 발급되지 않았습니다. 메가스팟에 요청하시면 바로 보내 드립니다.', 404, 'NOT_ISSUED');
-  return json({ ok: true, doc: publicDoc(row, doc), k: await confirmToken(env, row.booking_code) }, 200, { 'cache-control': 'no-store' });
+  const settlement=await settlementFor(env,row.booking_code),current={...doc,amount:settlement.amount,paid:settlement.net,pay_status:settlement.status==='unpriced'?'pending':settlement.status,settlement};
+  return json({ ok: true, doc: publicDoc(row, current), k: await confirmToken(env, row.booking_code) }, 200, { 'cache-control': 'no-store' });
 }
 export async function onRequestGet({ request, env }) {
   if (!hasDb(env)) return err('데이터베이스가 연결되어 있지 않습니다.', 503, 'NO_DB');
