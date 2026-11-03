@@ -2,10 +2,11 @@ import {CATERING} from './_catalog.js';
 import RECEPTION from '../../assets/js/data/reception-quote.js';
 import ITEMS from '../../assets/js/data/reception-items.js';
 import P from '../../assets/js/food-pricing.js';
+import {RECEPTION_COURSE_SUPPLY,RECEPTION_FEE_SUPPLY,receptionMenuSupply} from './_reception_supplier_prices.js';
 export const SERVICES=['catering','reception'];
 export function definitions(service,markup=5000){
  if(service==='catering')return [...CATERING.courses.flatMap(c=>c.kind==='flat'?c.tiers.map(t=>({id:'course.'+c.id+'.'+t.people,name:c.name+' '+t.people+'인',unit:'정액',sale_price:t.price,vendor_supply:Math.max(0,t.price-markup*t.people)})):[{id:'course.'+c.id,name:c.name,unit:'1인',sale_price:c.price,vendor_supply:Math.max(0,c.price-markup)}]),...CATERING.bbq.rows.map(b=>({id:'bbq.'+b.id,name:'바베큐 '+b.size,unit:'1건',sale_price:b.price,vendor_supply:Math.max(0,b.price-markup*b.pmax)})),{id:'beer',name:'생맥주',unit:'1통',sale_price:CATERING.beer.price,vendor_supply:CATERING.beer.price},{id:'delivery',name:'출장·세팅비',unit:'1건',sale_price:CATERING.delivery.fee,vendor_supply:CATERING.delivery.fee}];
- if(service==='reception')return [...RECEPTION.courses.map(c=>({id:'course.'+c.id,name:c.name,unit:'1인',sale_price:c.price,vendor_supply:c.price-5000})),...Object.entries(RECEPTION.feesByFormat).flatMap(([f,bands])=>bands.map(b=>({id:'fee.'+f+'.'+b.upto,name:RECEPTION.formats[f]+' · '+b.label,unit:'1건',sale_price:b.price,vendor_supply:null}))),...ITEMS.map(i=>({id:i.id,name:i.name,unit:i.unit,sale_price:i.price,vendor_supply:null}))];
+ if(service==='reception')return [...RECEPTION.courses.map(c=>({id:'course.'+c.id,name:c.name,unit:'1인',sale_price:c.price,vendor_supply:RECEPTION_COURSE_SUPPLY[c.id]??null})),...Object.entries(RECEPTION.feesByFormat).flatMap(([f,bands])=>bands.map(b=>({id:'fee.'+f+'.'+b.upto,name:RECEPTION.formats[f]+' · '+b.label,unit:'1건',sale_price:b.price,vendor_supply:RECEPTION_FEE_SUPPLY[f]?.[b.upto]??null}))),...ITEMS.map(i=>({id:i.id,name:i.name,unit:i.unit,sale_price:i.price,vendor_supply:receptionMenuSupply(i)}))];
  throw Error('서비스를 확인해 주세요.');
 }
 export function publicFoodPricing(config){return {prices:Object.fromEntries(config.rows.map(r=>[r.id,r.sale_price])),revision:config.revision||0,updated_at:config.updated_at||'',vat_rate:config.service==='catering'?0.1:null};}
