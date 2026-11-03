@@ -51,6 +51,22 @@ export async function portalAdmin({env,request,url,path,method}){
  await log(env,'booking.portal_link',code,'admin',{rotated:rotate,version});
  return json({ok:true,url:urlFor(origin,token),version,expires_at:expiry});
 }
+// Internal message integration. Reuse issued links and refuse stale/revoked references.
+// Called only after an authenticated preview or an eligible, explicitly enabled send.
+export async function portalMessageLink(env,code,{issue=false,expected=null}={}){
+ if(!keyReady(env))throw Error('예약자 전용 링크 암호화 설정이 필요합니다.');
+ const origin=env.SITE_URL||'https://megaspot.kr';
+ if(issue){
+  const url=new URL(origin+'/api/admin/bookings/'+code+'/portal-link');
+  const result=await portalAdmin({env,url,path:'bookings/'+code+'/portal-link',method:'POST',request:new Request(url,{method:'POST',body:'{}'})});
+  if(!result.ok)throw Error((await result.json()).error||'통합 안내 링크를 만들지 못했습니다.');
+ }
+ const b=await refundBooking(env,code),link=await env.DB.prepare('SELECT * FROM booking_portal_links WHERE booking_code=?').bind(code).first();
+ if(!valid(b)||!link||link.expires_at<=Date.now()||link.recipient_hash!==await recipient(b))return null;
+ const reference={version:link.version,token_hash:link.token_hash,recipient_hash:link.recipient_hash};
+ if(expected&&Object.keys(reference).some(k=>reference[k]!==expected[k]))return null;
+ return {url:urlFor(origin,await unseal(env,code,'portal-link',link.link_cipher)),reference};
+}
 async function authorize(env,request){
  if(!keyReady(env))return {error:err('예약 안내를 준비 중입니다. 운영팀에 문의해 주세요.',503)};
  const token=(request.headers.get('authorization')||'').replace(/^Bearer /,'');

@@ -6,7 +6,7 @@ export async function onRequest(context) {
   try { await ensureSchema(context.env); } catch {}
   const response=await context.next();
   const path=new URL(context.request.url).pathname;
-  const readOnlyPortal=path.startsWith('/api/booking-portal/')||/^\/api\/admin\/bookings\/[^/]+\/portal-link/.test(path);
+  const readOnlyPortal=path.startsWith('/api/booking-portal/')||/^\/api\/admin\/bookings\/[^/]+\/portal-link/.test(path)||/^\/api\/admin\/guide-messages\/(portal-preview|portal-test|portal-template|portal-check-template)$/.test(path);
   if(typeof context.waitUntil==='function'&&!path.startsWith('/api/deposit-notifications/')&&!readOnlyPortal){
     context.waitUntil(depositNoticeTick(context.env).catch(()=>{}));
     context.waitUntil(guideTick(context.env).catch(()=>{}));
