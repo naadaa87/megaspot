@@ -2921,3 +2921,18 @@ body.page-inquiry #estimator{margin-top:18px}
 .od-addon:has(.od-addon-fields)>label.chk>span{display:grid;gap:3px;min-width:0}
 .od-addon:has(.od-addon-fields)>label.chk small{display:block;font-size:12px;line-height:1.5}
 .od-addon:has(.od-addon-fields)>label.chk>input[type="checkbox"]{flex:none;margin-top:4px}
+
+/* Reserve the actual bar height, including wrapping and device safe areas. */
+@media(max-width:999px){
+ html{scroll-padding-bottom:calc(var(--bottom-overlay-height,0px) + 16px)}
+ body.has-bottom-overlay:not(.page-admin){padding-bottom:var(--bottom-overlay-height)}
+ .to-top{bottom:calc(var(--bottom-overlay-height,0px) + 12px)}
+ .toast{bottom:calc(var(--bottom-overlay-height,0px) + 12px)}
+ body.menu-open :is(.quick-bar,.food-mobile-summary,.est-mini,.mv-sticky,.to-top),
+ body.bottom-input-active :is(.quick-bar,.food-mobile-summary,.est-mini,.mv-sticky,.to-top){visibility:hidden!important;pointer-events:none!important}
+}
+
+@media(max-width:999px){body.bottom-footer-visible .to-top{visibility:hidden;pointer-events:none}}
+
+@media(max-width:999px){body.top-over-action .to-top{visibility:hidden;pointer-events:none}}
+@media(max-width:999px){.to-top{transition:opacity .2s,transform .2s}}
