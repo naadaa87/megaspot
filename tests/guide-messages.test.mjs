@@ -144,3 +144,6 @@ test('일괄 발송 도중 고객 발송을 끄면 이후 대상은 실제 요�
 test('0으로 채워진 미수신 결과 시각을 실제 성공으로 오인하지 않는다',()=>{
   assert.equal(guideDelivery({msgid:'123',rslt:'0',rsltdate:'0000-00-00 00:00:00'}),'accepted');
 });
+test('승인 템플릿의 CRLF 개행 형식을 실제 전송 내용에도 보존한다',async t=>{
+  const f=setup(t);f.setTemplate({templtContent:GUIDE_TEMPLATE.replace(/\n/g,'\r\n')});await f.enable();await f.send(await f.preview());assert.ok(f.sent[1].message_1.includes('\r\n'));assert.doesNotMatch(f.sent[1].message_1,/(?<!\r)\n/);
+});
