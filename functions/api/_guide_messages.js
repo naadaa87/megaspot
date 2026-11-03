@@ -102,7 +102,7 @@ async function insertMessage(env,b,s,mode,actor,reason='') {
 async function state(env,id,status,error='',mid=null,result=null) {
   await env.DB.prepare('UPDATE booking_guide_messages SET status=?,error=?,provider_mid=COALESCE(?,provider_mid),provider_result=COALESCE(?,provider_result),updated_at=? WHERE id=?').bind(status,str(error,300),mid,result,now(),id).run();
 }
-async function dispatch(env,id,s) {
+async function dispatch(env,id,s,template) {
   const m = await env.DB.prepare('SELECT * FROM booking_guide_messages WHERE id=?').bind(id).first();
   if (!m || m.status !== 'queued') return;
   s=await config(env); // honor an operator's stop/config change during a bulk request
@@ -117,7 +117,7 @@ async function dispatch(env,id,s) {
   if (!changed(claim)) return;
   // Never retry a transport/JSON failure: Aligo may already have accepted this request.
   try {
-    const r = await provider(env,'alimtalk/send',{senderkey:env.ALIGO_SENDER_KEY,tpl_code:s.template_code,sender:env.ALIGO_SENDER,receiver_1:snap.phone,recvname_1:snap.customer_name,subject_1:'메가스팟 예약 고객 이용 안내',message_1:snap.message,button_1:JSON.stringify({button:[GUIDE_BUTTON]}),failover:'N',testMode:'N'},id);
+    const r = await provider(env,'alimtalk/send',{senderkey:env.ALIGO_SENDER_KEY,tpl_code:s.template_code,sender:env.ALIGO_SENDER,receiver_1:snap.phone,recvname_1:snap.customer_name,subject_1:'메가스팟 예약 고객 이용 안내',message_1:snap.message.replace(/\n/g,template?.templtContent?.includes('\r\n')?'\r\n':'\n'),button_1:JSON.stringify({button:[GUIDE_BUTTON]}),failover:'N',testMode:'N'},id);
     if (!r || !/^-?\d+$/.test(String(r.code))) return state(env,id,'unknown','알리고 응답 형식 확인이 필요합니다. 재발송 전에 전송내역을 확인해 주세요.');
     if (String(r.code) !== '0') return state(env,id,'failed',safeProviderError(r));
     const mid = r.info?.mid;
@@ -161,8 +161,8 @@ export async function automaticGuide(env,code) {
     const s = await config(env); if (!s.automatic || await ready(env,s)) return;
     const b=await booking(env,code); if (guideEligibility(b,s) || await active(env,code)) return;
     const id=await insertMessage(env,b,s,'live','automatic');
-    try { await approved(env,s); } catch(e) { await state(env,id,'failed',e.message); return; }
-    await dispatch(env,id,s);
+    let template;try { template=await approved(env,s); } catch(e) { await state(env,id,'failed',e.message); return; }
+    await dispatch(env,id,s,template);
   } catch { /* Booking confirmation must remain successful if the messaging service fails. */ }
 }
 export async function guideSummary(env,codes) {
@@ -200,12 +200,12 @@ export async function guideAdmin({env,request,url,path,method}) {
   if(path==='guide-messages/test' && method==='POST') {
     const d=await readJson(request), phone=guidePhone(d.phone);
     if(!phone || d.confirm_test!==true) return err('시험 수신할 운영자 휴대폰 번호를 확인해 주세요.');
-    await approved(env,s);
+    const template=await approved(env,s);
     // A real operator test is intentionally distinct from Aligo's non-delivery testMode.
     const recent=await env.DB.prepare("SELECT id FROM booking_guide_messages WHERE mode='test' AND created_at>=? LIMIT 1").bind(new Date(Date.now()-60000).toISOString().slice(0,19).replace('T',' ')).first();
     if(recent) return err('시험 발송은 1분 뒤 다시 요청해 주세요.',429);
     const b={booking_code:'TEST',customer_name:'메가스팟 운영자',phone,space_id:s.spaces[0] || 'megaspot-gundae',date:'2099-01-01',start_h:18,end_h:22};
-    const id=await insertMessage(env,b,s,'test','admin','운영자 시험 발송'); await dispatch(env,id,s); return json({ok:true,id});
+    const id=await insertMessage(env,b,s,'test','admin','운영자 시험 발송'); await dispatch(env,id,s,template); return json({ok:true,id});
   }
   if(path==='guide-messages/candidates' && method==='GET') {
     const from=str(url.searchParams.get('from'),10),to=str(url.searchParams.get('to'),10),space=str(url.searchParams.get('space'),60),page=Math.max(0,Math.min(100000,Number(url.searchParams.get('page'))||0));
@@ -230,7 +230,7 @@ export async function guideAdmin({env,request,url,path,method}) {
     const d=await readJson(request),p=await env.DB.prepare('SELECT * FROM booking_guide_previews WHERE id=?').bind(str(d.preview_id,60)).first();
     if(d.confirm_send!==true || !p || p.expires_at<Date.now()) return err('미리보기가 만료되었습니다. 다시 확인해 주세요.',409);
     const payload=parse(p.payload); if(payload.config_hash!==hash) return err('발송 설정이 바뀌었습니다. 다시 미리보기해 주세요.',409);
-    const block=await ready(env,s); if(block) return err(block,409); await approved(env,s);
+    const block=await ready(env,s); if(block) return err(block,409); const template=await approved(env,s);
     // Consume once, atomically, before any provider request. A repeated click cannot replay it.
     if(!changed(await env.DB.prepare('DELETE FROM booking_guide_previews WHERE id=?').bind(p.id).run())) return err('이미 처리된 미리보기입니다.',409);
     const items=[];let halted=false;
@@ -238,7 +238,7 @@ export async function guideAdmin({env,request,url,path,method}) {
       if(halted){items.push({booking_code:snap.booking_code,skipped:true,reason:'앞선 발송 결과 확인 또는 발송 재개가 필요하여 보류했습니다.'});continue;}
       const b=await booking(env,snap.booking_code),why=guideEligibility(b,s,Date.now(),payload.include_manual);
       if(why || !sameSnapshot(snap,snapshot(b)) || await active(env,snap.booking_code)){items.push({booking_code:snap.booking_code,skipped:true,reason:why || '예약 내용 또는 발송 이력이 바뀌었습니다.'});continue;}
-      try{const id=await insertMessage(env,b,s,'live','admin',payload.reason);await dispatch(env,id,s);const row=await env.DB.prepare('SELECT status,error FROM booking_guide_messages WHERE id=?').bind(id).first();items.push({booking_code:b.booking_code,id,...row});halted=['unknown','sending','queued'].includes(row.status);}catch{items.push({booking_code:b.booking_code,skipped:true,reason:'처리 중이거나 저장할 수 없습니다. 이력을 확인해 주세요.'});halted=true;}
+      try{const id=await insertMessage(env,b,s,'live','admin',payload.reason);await dispatch(env,id,s,template);const row=await env.DB.prepare('SELECT status,error FROM booking_guide_messages WHERE id=?').bind(id).first();items.push({booking_code:b.booking_code,id,...row});halted=['unknown','sending','queued'].includes(row.status);}catch{items.push({booking_code:b.booking_code,skipped:true,reason:'처리 중이거나 저장할 수 없습니다. 이력을 확인해 주세요.'});halted=true;}
     }
     return json({ok:true,items});
   }
@@ -251,7 +251,7 @@ export async function guideAdmin({env,request,url,path,method}) {
   if(action && method==='POST') {
     const [,id,act]=action,m=await env.DB.prepare('SELECT * FROM booking_guide_messages WHERE id=?').bind(id).first(); if(!m) return err('발송 이력이 없습니다.',404);
     if(act==='refresh') await reconcile(env,id);
-    if(act==='resume'){const block=await ready(env,s);if(block)return err(block,409);await approved(env,s);await dispatch(env,id,s);}
+    if(act==='resume'){const block=await ready(env,s);if(block)return err(block,409);const template=await approved(env,s);await dispatch(env,id,s,template);}
     if(act==='not-sent'){
       const d=await readJson(request);if(!['unknown','sending'].includes(m.status) || d.confirm_not_sent!==true || str(d.reason,300).length<5) return err('알리고 전송내역에서 미접수를 확인한 사유를 입력해 주세요.');
       if(Date.parse(m.updated_at.replace(' ','T')+'Z')>Date.now()-24*36e5)return err('결과가 늦게 도착할 수 있습니다. 요청 후 24시간이 지난 뒤 미발송을 확인해 주세요.',409);
