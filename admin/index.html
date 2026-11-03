@@ -73,6 +73,7 @@
       <button type="button" data-view="inq">문의 관리<em data-count="inq" hidden></em></button>
       <button type="button" data-view="quote">견적 계산</button>
       <button type="button" data-view="catering">출장뷔페<em data-count="catering" hidden></em></button>
+      <button type="button" data-view="reception">테이블·박스 케이터링</button>
       <button type="button" data-view="orders">주문·결제<em data-count="orders" hidden></em></button>
       <button type="button" data-view="bookings">예약 관리</button>
       <button type="button" data-view="calendar">일정 달력</button>
@@ -212,6 +213,7 @@
               <button class="btn btn-primary" type="button" id="q-save">견적 저장</button>
               <button class="btn btn-graphite" type="button" id="q-print">견적서 PDF·인쇄</button>
               <button class="btn btn-kakao" type="button" id="q-copy">고객 안내문 복사</button>
+              <button class="btn btn-light" type="button" id="q-reception">테이블 케이터링 추가 →</button>
             </div>
             <div class="form-note" id="q-msg" hidden></div>
           </div>
@@ -345,6 +347,24 @@
           <div class="form-note" id="bk-msg" hidden></div>
         </form>
         <div class="adm-card"><div class="row between"><h2>예약 목록</h2><select class="select" id="bk-filter" style="width:auto;min-height:36px"><option value="upcoming">예정</option><option value="completed">이용 완료</option><option value="cancelled">취소</option><option value="">전체</option></select></div><div id="bk-list" class="adm-list mt-2"></div></div>
+      </div>
+    </section>
+
+    <section class="adm-view" id="view-reception" hidden>
+      <header class="adm-head"><div><h1>테이블·박스 케이터링 견적</h1><p class="small muted">클래식 1인 35,000원에 제공 방식·인원별 비용을 더합니다. 테이블 세팅·철수비는 50명 이하 200,000원, 51~100명 250,000원입니다.</p></div><a class="btn btn-light btn-sm" href="/reception/" target="_blank" rel="noopener">고객용 안내 ↗</a></header>
+      <div class="adm-quote">
+        <form class="adm-card form" id="ar-form" novalidate>
+          <h2>연결 문의</h2><div class="field-row"><div class="f"><label for="ar-ref">문의번호 (선택)</label><input class="input" id="ar-ref" placeholder="MS-2611-XXXX" maxlength="20"></div><button class="btn btn-light" id="ar-load" type="button">문의 불러오기</button></div>
+          <p class="small muted" id="ar-target">문의 없이 계산하거나, 문의를 불러와 그 건에 저장할 수 있습니다.</p>
+          <div class="field-row"><div class="f"><label for="ar-customer">고객 이름</label><input class="input" id="ar-customer"></div><div class="f"><label for="ar-phone">연락처</label><input class="input" id="ar-phone" type="tel"></div></div>
+          <div class="field-row"><div class="f"><label for="ar-date">행사일</label><input class="input" id="ar-date" type="date"></div><div class="f"><label for="ar-space">공간</label><select class="select" id="ar-space"><option value="megaspot-gundae">건대 1호</option><option value="megaspot-gundae-2">건대 2호</option></select></div></div>
+          <h2>클래식 구성</h2><p>1인 <b>35,000원</b> · 라이트·프리미엄·시그니처 코스는 메뉴와 제공 조건을 별도 상담해 주세요.</p>
+          <div class="field-row"><div class="f"><label for="ar-format">제공 방식</label><select class="select" id="ar-format"><option value="table">테이블 세팅 케이터링</option><option value="box">박스 케이터링</option><option value="lunchbox">도시락 케이터링</option></select></div><div class="f"><label for="ar-people">식사 인원</label><input class="input" id="ar-people" type="number" min="1" max="300" step="1" value="50" required></div></div>
+          <div class="f"><label for="ar-status">진행 상태</label><select class="select" id="ar-status"><option value="pending">대기</option><option value="confirmed">확정</option><option value="cancelled">취소 · 합계 제외</option></select></div>
+          <div class="f"><label for="ar-note">고객 안내·요청 메모</label><textarea class="textarea" id="ar-note" maxlength="500" placeholder="예: 희망 메뉴 변경, 알레르기, 세팅 위치"></textarea></div>
+          <details><summary>클래식 메뉴</summary><div id="ar-menu" class="small" style="white-space:pre-line"></div></details>
+        </form>
+        <div><div class="adm-card" id="ar-result" aria-live="polite"></div><div class="adm-card q-actions"><button class="btn btn-primary" type="button" id="ar-save" disabled>이 문의에 케이터링 저장</button><button class="btn btn-light" type="button" id="ar-to-quote">대관 견적에 넣기 →</button><button class="btn btn-light" type="button" id="ar-copy">고객 안내문 복사</button><button class="btn btn-light" type="button" id="ar-open" hidden>문의 열기</button><div class="form-note" id="ar-msg" hidden></div></div></div>
       </div>
     </section>
 
@@ -576,12 +596,15 @@
 <script src="/assets/js/pricing-engine.js?v=202610270438"></script>
 <script src="/assets/js/data/catering.js?v=20261103menunote1"></script>
 <script src="/assets/js/catering-calc.js?v=20261102journey3"></script>
+<script src="/assets/js/data/reception-quote.js?v=20261103r12"></script>
+<script src="/assets/js/reception-calc.js?v=20261103r12"></script>
 <script src="/assets/js/confirm-doc.js?v=20261103daily-live1"></script>
 <script src="/assets/js/cards.js?v=202610270438"></script>
 <script src="/assets/js/cocktail-calc.js?v=20261102overview1"></script>
-<script src="/assets/js/inquiry-overview.js?v=20261102adminux1"></script>
-<script src="/assets/js/pages/admin.js?v=20261103menunote1"></script>
+<script src="/assets/js/inquiry-overview.js?v=20261103adminrec1"></script>
+<script src="/assets/js/pages/admin.js?v=20261103adminrec1"></script>
 <script src="/assets/js/pages/admin-platform.js?v=20261102adminux1"></script>
+<script src="/assets/js/pages/admin-reception.js?v=20261103adminrec1"></script>
 <script src="/assets/js/pages/admin-parking.js?v=20261103daily-live1"></script>
 <script src="/assets/js/pages/admin-parking-notifications.js?v=20261103notify1"></script>
 <script src="/assets/js/pages/admin-guide-messages.js?v=20261103guide2"></script>

@@ -9,6 +9,7 @@
   function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   // Earlier inquiries saved reception selections in message / summary, rather than a separate object.
   function reception(d){
+    if(d.reception){var r=d.reception;return {title:'도시락·핑거푸드 케이터링',detail:r.summary||[r.courseName||'클래식',r.people?r.people+'명':'',r.formatName||''].filter(Boolean).join(' · '),amount:amount(r.total),cancelled:r.status==='cancelled',note:[r.status==='confirmed'?'진행 상태: 확정':r.status==='cancelled'?'진행 상태: 취소':'진행 상태: 대기','부가세·최소 주문 조건 확인 필요',r.menuNote||''].filter(Boolean).join('\n'),customerNote:['부가세·최소 주문 조건 확인 필요',r.menuNote||'',r.note||''].filter(Boolean).join('\n'),uncertain:true};}
     var line=String(d.summary||'').split('\n').find(function(s){return /^도시락·핑거푸드[^\n]*: (?:[\d,]+원|상담 후 안내)/.test(s);});
     if(line){var m=line.match(/^(.*?): ([\d,]+원|상담 후 안내)(?: \((.*)\))?$/);if(m)return {title:'도시락·핑거푸드 케이터링',detail:m[1].replace(/^도시락·핑거푸드 /,''),amount:m[2]==='상담 후 안내'?null:amount(m[2].replace(/[,원]/g,'')),note:m[3]||'부가세·최소 주문 조건 확인 필요',uncertain:true};}
     var text=String(d.message||''),start=text.indexOf('[출장 케이터링 클래식 상담]');
