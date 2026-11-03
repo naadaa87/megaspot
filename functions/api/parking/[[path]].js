@@ -9,6 +9,7 @@ export async function onRequest({request,env,params}){
  if(!hasDb(env))return err('서버를 준비 중입니다.',503);
  try{
   if(path==='notifications/tick')return await parkingNoticeCron(request,env);
+  if(path==='notifications/status')return await parkingNoticeCron(request,env,true);
   if(path==='feedback'&&method==='POST')return await payRequest({request,env,params:{path:['feedback']}});
   if(path.startsWith('admin/')){
    const denied=await requireAdmin(request,env);if(denied)return denied;

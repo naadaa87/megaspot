@@ -123,11 +123,12 @@ export async function parkingNoticeTick(env){
  if(active){const {results}=await env.DB.prepare("SELECT * FROM parking_notifications WHERE status='queued' AND mode='live' ORDER BY id LIMIT 5").all();for(const e of results||[]){try{await dispatch(env,e);}catch{}}}
  return {ok:true,enabled:!!active};
 }
-export async function parkingNoticeCron(request,env){
+export async function parkingNoticeCron(request,env,readOnly=false){
  if(request.method!=='POST'||!configured(env))return err('허용되지 않은 요청입니다.',403);
  const raw=await request.text();if(raw.length>1024)return err('허용되지 않은 요청입니다.',403);
  const data=parse(raw),expected=await parkingSign(env.ALIGO_RELAY_SECRET,raw);
  if(!Number.isFinite(data.time)||Math.abs(Date.now()-data.time)>60000||!equalSecret(request.headers.get('X-Megaspot-Signature')||'',expected))return err('허용되지 않은 요청입니다.',403);
+ if(readOnly){const s=await config(env);return json({ok:true,enabled:s.enabled,live_allowed:env.ALIGO_LIVE_ENABLED==='true',configured:configured(env),test_delivered:await tested(env,await fingerprint(env)),...(data.check_templates===true?{templates:await approvals(env)}:{})});}
  return json(await parkingNoticeTick(env));
 }
 export async function parkingNoticeAdmin(request,env,path){

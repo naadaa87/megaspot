@@ -11,7 +11,7 @@ function fixture(t){
  Object.assign(f.env,{ALIGO_LIVE_ENABLED:'true',ALIGO_RELAY_URL:'https://relay.naranhistory.com/megaspot/aligo',ALIGO_RELAY_SECRET:'test-parking-relay-secret-more-than-32',ALIGO_SENDER_KEY:'test-profile',ALIGO_SENDER:'01012345678'});
  f.db.prepare("INSERT INTO orders(oid,product_id,title,price,buyer_name,buyer_phone,data,status,created_at) VALUES(?,'parking-2h','주차 2시간',8000,'시험 고객','01012345678','{}','created',?)").run(OID,now());
  f.db.prepare("INSERT INTO parking_orders(oid,plate,visit_date,ticket,hours,token_hash,created_at,updated_at) VALUES(?,'123가4567',?,'2h',2,?,?,?)").run(OID,kstToday(),'b'.repeat(64),now(),now());
- let review='APR',result='0',sms=false,broken=false;
+ let review='APR',result='0',sms=false,broken=false,reportDate=null;
  const sent=[];
  t.mock.method(globalThis,'fetch',async(url,opts)=>{
   assert.equal(url,f.env.ALIGO_RELAY_URL);assert.equal(opts.redirect,'manual');const r=JSON.parse(opts.body);
@@ -20,14 +20,14 @@ function fixture(t){
   if(r.path==='alimtalk/send'){sent.push(r);if(broken)throw Error('unknown outcome');return Response.json({code:0,info:{mid:String(sent.length),scnt:1}});}
   if(r.path==='history/detail'){
    const previous=sent[Number(r.data.mid)-1].data;
-   return Response.json({code:0,list:[{type:'AT',phone:previous.receiver_1,tpl_code:previous.tpl_code,senderKey:f.env.ALIGO_SENDER_KEY,rsltdate:now(),rslt:result,smid:sms?'999':'0'}]});
+   return Response.json({code:0,list:[{type:'AT',phone:previous.receiver_1,tpl_code:previous.tpl_code,senderKey:f.env.ALIGO_SENDER_KEY,rsltdate:reportDate??now(),rslt:result,smid:sms?'999':'0'}]});
   }
   if(r.path==='sms/detail')return Response.json({result_code:1,list:[{type:'LMS',receiver:'01011112222',send_date:now(),sms_state:'발송완료'}]});
   assert.fail('Unexpected operation');
  });
  async function api(path,body,method=body?'POST':'GET',expected=200){const r=await onRequest({env:f.env,params:{path:('admin/notifications'+path).split('/')},request:new Request('https://megaspot.test/api/parking/admin/notifications'+path,{method,headers:{origin:'https://megaspot.test','Content-Type':'application/json','x-admin-key':f.env.ADMIN_KEY},...(body===undefined?{}:{body:JSON.stringify(body)})})});const j=await r.json();assert.equal(r.status,expected,JSON.stringify(j));return j;}
  async function enable(){await api('/test',{oid:OID,phone:'01011112222',kind:'paid',confirm_test:true});await api('/refresh',{});await api('/settings',{enabled:true},'PUT');}
- return {...f,api,enable,sent,setReview:v=>review=v,setSms:()=>{result='U';sms=true;},setBroken:()=>broken=true};
+ return {...f,api,enable,sent,setReview:v=>review=v,setReportDate:v=>reportDate=v,setSms:()=>{result='U';sms=true;},setBroken:()=>broken=true};
 }
 test('기본은 고객 발송 중지이며 이전 주문은 소급 적재하지 않는다',async t=>{
  const f=fixture(t);assert.equal((await f.api('')).enabled,false);f.db.prepare("UPDATE orders SET status='paid' WHERE oid=?").run(OID);assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM parking_notifications').get().n,0);
@@ -74,4 +74,15 @@ test('구매 내역 보안 키는 본문에 넣지 않고 환불 금액은 이�
 });
 test('서명 없는 공개 스케줄 요청은 발송 기능에 접근할 수 없다',async t=>{
  const f=fixture(t);const response=await onRequest({env:f.env,params:{path:['notifications','tick']},request:new Request('https://megaspot.test/api/parking/notifications/tick',{method:'POST',body:JSON.stringify({time:Date.now()})})});assert.equal(response.status,403);assert.equal(f.sent.length,0);
+});
+test('읽기 전용 서명 상태 조회는 대기 메시지가 있어도 발송하지 않는다',async t=>{
+ const f=fixture(t);await f.enable();f.db.prepare("UPDATE orders SET status='paid',paid_at=? WHERE oid=?").run(now(),OID);
+ const body=JSON.stringify({time:Date.now(),check_templates:true});const response=await onRequest({env:f.env,params:{path:['notifications','status']},request:new Request('https://megaspot.test/api/parking/notifications/status',{method:'POST',headers:{'X-Megaspot-Signature':await parkingSign(f.env.ALIGO_RELAY_SECRET,body)},body})});
+ const r=await response.json();assert.equal(response.status,200);assert.equal(r.enabled,true);assert.equal(r.templates.length,7);assert.equal(f.sent.length,1);assert.equal(f.db.prepare("SELECT status FROM parking_notifications WHERE mode='live'").get().status,'queued');
+});
+test('0으로 채워진 결과 시각을 실제 도착으로 인정하지 않는다',async t=>{
+ const f=fixture(t);await f.api('/test',{oid:OID,phone:'01011112222',kind:'paid',confirm_test:true});f.setReportDate('0000-00-00 00:00:00');await f.api('/refresh',{});assert.equal((await f.api('')).test_delivered,false);assert.equal(f.db.prepare('SELECT status FROM parking_notifications').get().status,'accepted');
+});
+test('서버 전역 발송 잠금은 활성화된 주차 설정보다 우선한다',async t=>{
+ const f=fixture(t);await f.enable();f.db.prepare("UPDATE orders SET status='paid',paid_at=? WHERE oid=?").run(now(),OID);f.env.ALIGO_LIVE_ENABLED='false';await parkingNoticeTick(f.env);assert.equal(f.sent.length,1);assert.equal(f.db.prepare("SELECT status FROM parking_notifications WHERE mode='live'").get().status,'cancelled');
 });
