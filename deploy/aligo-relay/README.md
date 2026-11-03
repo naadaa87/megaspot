@@ -33,6 +33,7 @@ Cloudflare Pages 운영 환경: `ALIGO_RELAY_URL=https://relay.naranhistory.com/
 - 알리고 등록 IP `158.247.232.204`와 이 맥의 기존 SSH 호스트 기록을 대조하고, 기존 키로 접속을 확인했습니다. 서버 호스트명은 `relay`, Node 버전은 `22.22.1`입니다.
 - 기존 서비스는 Caddy와 `naranhi-commerce`이며 둘 다 정상 동작 중임을 확인했습니다. 기존 `/socialfactory/aligo/send` 경로를 변경하지 않습니다.
 - `/opt/megaspot-aligo/`에 전용 소스·systemd unit·Caddy 경로 설정을 별도로 준비했습니다. 이 서버의 실제 Node 환경에서 모의 API 테스트 6개와 Caddy 임시 설정 검증을 통과했습니다.
-- **아직 전용 서비스를 활성화하거나 Caddy 운영 설정을 바꾸지 않았습니다.** 알리고 기존 API 키 조회에 필요한 본인 인증과, Cloudflare에 전용 연결 권한을 저장하는 최종 승인을 기다립니다.
-- Cloudflare 운영 프로젝트 접근 권한을 확인했으며 연결 변수 5개 입력 항목을 준비했습니다. 서버 인증 키와 발신 키는 Secret으로 보관하고 `ALIGO_LIVE_ENABLED=false`로 유지합니다. 알리고 원본 API 키는 연결 서버에만 저장합니다.
+- 사용자 본인 인증과 연결 승인을 완료한 뒤 기존 알리고 API 키를 재사용했습니다. 원본 API 키는 서버의 `/etc/megaspot-aligo.env`에 root 전용 권한으로 저장하고, 전용 사용자 `megaspot-aligo`의 systemd 서비스를 활성화했습니다.
+- Caddy 기존 설정을 비공개 백업하고 검증한 뒤 `/megaspot/aligo` 경로를 추가했습니다. 기존 Caddy·commerce 서비스와 전용 릴레이 모두 정상 동작합니다. 로컬 서비스와 공개 HTTPS 경로에서 실제 템플릿 조회가 성공했고, `UN_2584`는 `REQ`(검수 중)입니다. 실제 메시지는 발송하지 않았습니다.
+- Cloudflare 운영 환경에 연결 변수 5개를 저장했습니다. 서버 인증 키와 메가스팟 발신 키는 Secret으로 보관하고 `ALIGO_LIVE_ENABLED=false`로 유지합니다. 알리고 원본 API 키는 Cloudflare나 저장소에 복사하지 않습니다. 환경 변수 적용을 위해 이 운영 기록과 함께 다시 배포합니다.
 - 실제 발송 전에는 `UN_2584` 승인, 호점별 안내 확인, 운영자 시험 수신이 필요합니다. 결과 조회는 이 릴레이가 만든 메시지 ID만 허용해 다른 서비스의 발송 내역을 읽지 못하게 합니다.
