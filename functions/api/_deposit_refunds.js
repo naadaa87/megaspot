@@ -153,7 +153,7 @@ export async function refundAdmin({env,request,url,path,method}){
  }else return err('경로를 찾을 수 없습니다.',404);
  return json({ok:true,item:publicItem(await one(env,code),true)});
 }
-export async function refundCustomer({env,request}){
+export async function refundCustomer({env,request,portalGuard=null}){
  if(!keyReady(env))return err('환급 계좌 등록을 준비 중입니다. 관리자에게 문의해 주세요.',503);
  const token=(request.headers.get('authorization')||'').replace(/^Bearer /,'');
  if(!/^[A-Za-z0-9_-]{43}$/.test(token))return err('예약자 전용 링크로 접속해 주세요.',403);
@@ -167,8 +167,12 @@ export async function refundCustomer({env,request}){
  if(d.version!==b.account_version)return stale();
  const encrypted=await seal(env,b.booking_code,'account',input),t=now();
  // A revision CAS also arbitrates submission versus a concurrent operator claim/link rotation.
- const r=await env.DB.prepare("UPDATE booking_refunds SET account_cipher=?,account_mask=?,bank_code=?,account_version=account_version+1,submitted_at=COALESCE(submitted_at,?),account_updated_at=?,consent_version=?,consent_at=?,account_expires_at=?,revision=revision+1,updated_at=? WHERE booking_code=? AND revision=? AND account_version=? AND token_hash=? AND state='pending'").bind(encrypted,'•••• '+input.account.slice(-4),input.bank,t,t,CONSENT_VERSION,t,Math.max(Date.now(),eventTime(b)?.end||Date.now())+90*864e5,t,b.booking_code,b.revision,b.account_version,await sha256(token)).run();
+ const guard=portalGuard?" AND EXISTS(SELECT 1 FROM booking_portal_links pl JOIN bookings pb ON pb.booking_code=pl.booking_code WHERE pl.booking_code=booking_refunds.booking_code AND pl.token_hash=? AND pl.version=? AND pl.recipient_hash=? AND pl.expires_at>? AND pb.phone IS ? AND pb.customer_name IS ? AND pb.status IN ('confirmed','completed'))":"";
+ const r=await env.DB.prepare("UPDATE booking_refunds SET account_cipher=?,account_mask=?,bank_code=?,account_version=account_version+1,submitted_at=COALESCE(submitted_at,?),account_updated_at=?,consent_version=?,consent_at=?,account_expires_at=?,revision=revision+1,updated_at=? WHERE booking_code=? AND revision=? AND account_version=? AND token_hash=? AND state='pending'"+guard).bind(encrypted,'•••• '+input.account.slice(-4),input.bank,t,t,CONSENT_VERSION,t,Math.max(Date.now(),eventTime(b)?.end||Date.now())+90*864e5,t,b.booking_code,b.revision,b.account_version,await sha256(token),...(portalGuard?[portalGuard.hash,portalGuard.version,portalGuard.recipient_hash,Date.now(),portalGuard.phone,portalGuard.name]:[])).run();
  if(!changed(r))return stale();
  await log(env,'deposit.account_registered',b.booking_code,'customer',{version:b.account_version+1,consent:CONSENT_VERSION});
  return json({ok:true,item:publicItem(await one(env,b.booking_code))});
 }
+
+// Server-side reuse of canonical deposit/booking state. Never serialize this row directly.
+export {one as refundBooking};

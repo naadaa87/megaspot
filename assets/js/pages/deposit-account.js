@@ -1,11 +1,13 @@
 /* Shared mobile form: guest guide and /deposit/. Account values stay in memory only. */
 (function(){
- 'use strict';var root=document.querySelector('[data-deposit-account]');if(!root)return;
- var apiBase=root.dataset.apiBase||'',key='',item=null,banks=[],version='',busy=false;
+ 'use strict';
+ function mount(root,options){
+ options=options||{};if(!root)return null;var alive=true,abort=new AbortController();
+ var apiBase=root.dataset.apiBase||'',key=options.token||'',item=null,banks=[],version='',busy=false;
  var esc=function(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});};
  var $=function(s){return root.querySelector(s);};
  function message(text,error){var box=$('.drf-message');box.textContent=text;box.hidden=false;box.classList.toggle('is-error',!!error);}
- function api(body){return fetch(apiBase+'/api/deposit-refunds/customer',{method:body?'POST':'GET',credentials:'omit',cache:'no-store',referrerPolicy:'no-referrer',headers:{'Authorization':'Bearer '+key,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined}).then(function(r){return r.json().then(function(j){if(!r.ok)throw Error(j.error||'처리하지 못했습니다.');return j;});});}
+ function api(body){return fetch(apiBase+(options.endpoint||'/api/deposit-refunds/customer'),{method:body?'POST':'GET',credentials:'omit',cache:'no-store',referrerPolicy:'no-referrer',signal:abort.signal,headers:{'Authorization':'Bearer '+key,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined}).then(function(r){return r.json().then(function(j){if(!alive)throw Error('FORM_CLOSED');if(!r.ok)throw Error(j.error||'처리하지 못했습니다.');return j;});});}
  function intro(){root.innerHTML='<div class="drf-kicker">DEPOSIT RETURN</div><h3>보증금 환급 계좌 등록</h3><p>환급받으실 계좌를 예약별로 등록해 주세요.</p><div class="drf-content"></div><p class="drf-message" role="status" aria-live="polite" hidden></p>';}
  function noLink(){intro();$('.drf-content').innerHTML='<div class="drf-note">예약자에게 보내드린 <strong>전용 안내 링크</strong>에서 등록할 수 있습니다. 링크를 받지 못하셨다면 관리자에게 요청해 주세요.</div><a class="drf-secondary" href="https://pf.kakao.com/_LnxbmX/chat" target="_blank" rel="noopener noreferrer">카카오톡으로 링크 요청 ↗</a>';}
  function result(){
@@ -22,14 +24,19 @@
    var data={bank:bank,account:number,account_confirm:confirm,holder:holder,agree:$('#drf-agree').checked,consent_version:version,version:item.account_version};
    $('#drf-form').hidden=true;$('.drf-message').hidden=true;var review=$('#drf-review');review.hidden=false;review.innerHTML='<div class="drf-result"><strong>환급 계좌를 확인해 주세요</strong><p>'+esc(banks.find(function(x){return x[0]===bank;})[1])+'</p><p class="drf-account">'+esc(number)+'</p><p>예금주 '+esc(holder)+'</p></div><p class="drf-note">은행·계좌번호·예금주가 맞으면 등록해 주세요.</p><button class="drf-primary" id="drf-submit" type="button">환급 계좌 '+(item.registered?'변경':'등록')+'하기</button><button class="drf-secondary" id="drf-back" type="button">다시 입력</button>';
    $('#drf-back').onclick=function(){review.innerHTML='';review.hidden=true;$('#drf-form').hidden=false;};
-   $('#drf-submit').onclick=function(){if(busy)return;busy=true;this.disabled=true;this.textContent='등록 중…';api(data).then(function(r){data=null;item=r.item;result();message('환급 계좌가 안전하게 등록되었습니다.',false);}).catch(function(e){data=null;form();message(e.message+' 등록 상태를 다시 확인해 주세요.',true);load(true);}).finally(function(){busy=false;});};
+   $('#drf-submit').onclick=function(){if(busy)return;busy=true;this.disabled=true;this.textContent='등록 중…';api(data).then(function(r){if(!alive)return;data=null;item=r.item;result();message('환급 계좌가 안전하게 등록되었습니다.',false);if(options.onChange)options.onChange();}).catch(function(e){if(!alive)return;data=null;form();message(e.message+' 등록 상태를 다시 확인해 주세요.',true);load(true);}).finally(function(){busy=false;});};
   };
  }
- function load(quiet){if(!quiet){intro();$('.drf-content').textContent='예약 정보를 확인하고 있습니다…';}return api().then(function(r){item=r.item;banks=r.banks;version=r.consent_version;if(!quiet){result();if(!item.registered&&item.editable)form();}}).catch(function(e){if(!quiet){$('.drf-content').innerHTML='<button type="button" class="drf-secondary" id="drf-retry">다시 확인하기</button><a class="drf-contact" href="https://pf.kakao.com/_LnxbmX/chat" target="_blank" rel="noopener noreferrer">관리자에게 문의</a>';$('#drf-retry').onclick=function(){load();};message(e.message,true);}});}
- function start(){var match=location.hash.match(/^#refund-account=([A-Za-z0-9_-]{43})$/);if(match){key=match[1];try{sessionStorage.setItem('megaspot-refund-link',JSON.stringify({key:key,at:Date.now()}));}catch{}history.replaceState(null,'','#refund');root.scrollIntoView({block:'start'});}else try{var saved=JSON.parse(sessionStorage.getItem('megaspot-refund-link')||'null');if(saved&&Date.now()-saved.at<864e5)key=saved.key;}catch{}
+ function load(quiet){if(!quiet){intro();$('.drf-content').textContent='예약 정보를 확인하고 있습니다…';}return api().then(function(r){if(!alive)return;item=r.item;banks=r.banks;version=r.consent_version;if(!quiet){result();if(!item.registered&&item.editable)form();}}).catch(function(e){if(!alive)return;if(!quiet){$('.drf-content').innerHTML='<button type="button" class="drf-secondary" id="drf-retry">다시 확인하기</button><a class="drf-contact" href="https://pf.kakao.com/_LnxbmX/chat" target="_blank" rel="noopener noreferrer">관리자에게 문의</a>';$('#drf-retry').onclick=function(){load();};message(e.message,true);}});}
+ function start(){if(options.embedded){if(key)load();else noLink();return;}var match=location.hash.match(/^#refund-account=([A-Za-z0-9_-]{43})$/);if(match){key=match[1];try{sessionStorage.setItem('megaspot-refund-link',JSON.stringify({key:key,at:Date.now()}));}catch{}history.replaceState(null,'','#refund');root.scrollIntoView({block:'start'});}else try{var saved=JSON.parse(sessionStorage.getItem('megaspot-refund-link')||'null');if(saved&&Date.now()-saved.at<864e5)key=saved.key;}catch{}
   if(key)load();else noLink();
  }
- window.addEventListener('hashchange',function(){if(/^#refund-account=/.test(location.hash))start();});start();
- window.addEventListener('pagehide',function(){root.querySelectorAll('input').forEach(function(x){x.value='';});var review=$('#drf-review');if(review)review.innerHTML='';});
- window.addEventListener('pageshow',function(e){if(e.persisted&&key)load();});
+ function hashChange(){if(!options.embedded&&/^#refund-account=/.test(location.hash))start();}
+ function clearInputs(){root.querySelectorAll('input').forEach(function(x){x.value='';});var review=$('#drf-review');if(review)review.innerHTML='';}
+ function pageShow(e){if(e.persisted&&key)load();}
+ window.addEventListener('hashchange',hashChange);window.addEventListener('pagehide',clearInputs);window.addEventListener('pageshow',pageShow);start();
+ return {destroy:function(){alive=false;abort.abort();key='';item=null;clearInputs();root.innerHTML='';window.removeEventListener('hashchange',hashChange);window.removeEventListener('pagehide',clearInputs);window.removeEventListener('pageshow',pageShow);}};
+ }
+ window.MEGASPOT_DEPOSIT_ACCOUNT={mount:mount};
+ var root=document.querySelector('[data-deposit-account]');if(root&&!root.hasAttribute('data-portal-account'))mount(root);
 })();
