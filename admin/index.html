@@ -46,7 +46,7 @@
 <link rel="stylesheet" href="/assets/css/admin-guide-messages.css?v=20261103guide8">
 <link rel="stylesheet" href="/assets/css/deposit-refunds.css?v=20261103refund1">
 <link rel="stylesheet" href="/assets/css/quote-print.css?v=20261103food1">
-<link rel="stylesheet" href="/assets/css/admin-cocktail.css?v=20261103cocktailvat1">
+<link rel="stylesheet" href="/assets/css/admin-cocktail.css?v=20261103cocktailsettings1">
 </head>
 <body class="page-admin">
 <div id="admin-root">
@@ -322,7 +322,7 @@
 
     <section class="adm-view" id="view-cocktail" hidden>
       <header class="adm-head"><div><h1>출장 칵테일</h1><p class="small muted">문의의 패키지·메뉴·진행 상태를 저장합니다. 견적에 포함한 구성은 예약 금액에도 반영됩니다.</p></div></header>
-      <section class="adm-card ak-economics" aria-labelledby="ak-pricing-heading"><h2 id="ak-pricing-heading">패키지별 공급가·판매가·마진</h2><p class="small muted">공급가·판매가·마진은 부가세 제외 기준입니다. 마진은 인건비·카드 수수료 등 운영비 차감 전 금액입니다.</p><div id="ak-pricing" aria-live="polite"><p class="small muted">관리자 가격표를 불러오는 중입니다.</p></div></section>
+      <section class="adm-card ak-economics" aria-labelledby="ak-pricing-heading"><h2 id="ak-pricing-heading">패키지별 공급가·판매가·마진</h2><p class="small muted">공급가·판매가·마진은 부가세 제외 기준입니다. 마진은 인건비·카드 수수료 등 운영비 차감 전 금액입니다.</p><form id="ak-pricing-form"><div id="ak-pricing" aria-live="polite"><p class="small muted">관리자 가격표를 불러오는 중입니다.</p></div><p class="small muted" id="ak-pricing-state"></p><div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-primary" type="submit" id="ak-pricing-save" disabled>가격표 저장·전체 반영</button><button class="btn btn-light" type="button" id="ak-pricing-reload">변경 취소·다시 불러오기</button><a class="btn btn-light" href="/assets/docs/megaspot-cocktail-service-guide.pdf" target="_blank" rel="noopener">최신 소개서 PDF 보기</a></div><div class="form-note" id="ak-pricing-msg" hidden></div><p class="tiny muted">저장하면 홈페이지·PDF·견적 계산기에 반영됩니다. 기존 저장·발행 견적은 당시 금액을 유지합니다.</p></form></section>
       <form class="adm-card" id="ak-form">
         <div class="field-row"><div class="f"><label for="ak-ref">문의번호</label><input class="input" id="ak-ref" placeholder="MS-…"></div><div class="f"><span class="lbl">문의 연결</span><button class="btn btn-light" type="button" id="ak-load">문의 불러오기</button></div></div>
         <p class="small muted" id="ak-target">문의관리에서 칵테일 계산·변경을 눌러도 연결됩니다.</p>
@@ -618,14 +618,14 @@
 <script src="/assets/js/catering-calc.js?v=20261102journey3"></script>
 <script src="/assets/js/data/reception-quote.js?v=20261103adminrec2"></script>
 <script src="/assets/js/reception-calc.js?v=20261103reclife1"></script>
-<script src="/assets/js/food-services.js?v=20261103cocktailvat1"></script>
+<script src="/assets/js/food-services.js?v=20261103cocktailsettings1"></script>
 <script src="/assets/js/confirm-doc.js?v=20261103cocktailvat1"></script>
 <script src="/assets/js/cards.js?v=202610270438"></script>
-<script src="/assets/js/cocktail-calc.js?v=20261103cocktailvat1"></script>
+<script src="/assets/js/cocktail-calc.js?v=20261103cocktailsettings1"></script>
 <script src="/assets/js/inquiry-overview.js?v=20261103cocktailvat1"></script>
 <script src="/assets/js/pages/admin.js?v=20261103cocktailvat1"></script>
 <script src="/assets/js/pages/admin-platform.js?v=20261102adminux1"></script>
-<script src="/assets/js/pages/admin-cocktail.js?v=20261103cocktailvat1"></script>
+<script src="/assets/js/pages/admin-cocktail.js?v=20261103cocktailsettings1"></script>
 <script src="/assets/js/pages/admin-reception.js?v=20261103reclife1"></script>
 <script src="/assets/js/pages/admin-parking.js?v=20261103daily-live1"></script>
 <script src="/assets/js/pages/admin-parking-notifications.js?v=20261103notify1"></script>
