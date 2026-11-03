@@ -2,6 +2,7 @@ User-agent: *
 Allow: /
 Disallow: /admin/
 Disallow: /deposit/
+Disallow: /booking/
 Disallow: /api/
 Disallow: /mypage/
 Disallow: /order/
@@ -11,15 +12,18 @@ User-agent: Yeti
 Allow: /
 Disallow: /admin/
 Disallow: /deposit/
+Disallow: /booking/
 
 User-agent: Googlebot
 Allow: /
 Disallow: /admin/
 Disallow: /deposit/
+Disallow: /booking/
 
 User-agent: Daum
 Allow: /
 Disallow: /admin/
 Disallow: /deposit/
+Disallow: /booking/
 
 Sitemap: https://megaspot.kr/sitemap.xml
