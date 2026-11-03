@@ -12,12 +12,12 @@
   function paint(){
     var q=C.quote($('#ar-people').value,$('#ar-format').value,$('#ar-course').value), cancelled=$('#ar-status').value==='cancelled', box=$('#ar-result');
     ['#ar-customer','#ar-phone','#ar-date','#ar-space'].forEach(function(s){$(s).disabled=state.busy||!!state.target;});
-    $('#ar-save').disabled=state.busy||!validTarget()||!q.ok;
+    $('#ar-save').disabled=state.busy||!validTarget()||(!q.ok&&!($('#ar-status').value!=='confirmed'&&C.selection(config())));
     $('#ar-to-quote').disabled=state.busy||!q.ok||cancelled;
     $('#ar-copy').disabled=!q.ok||cancelled;$('#ar-open').hidden=!state.target;
     $('#ar-target').textContent=state.target?state.target.ref+' · '+(state.target.name||'')+' · '+X.spaceName(state.target.space_id)+(state.dirty?' · 변경 내용 미저장':'')+' — 고객·행사 정보 수정은 문의 상세에서 해 주세요.':'문의 없이 계산하거나, 문의를 불러와 그 건에 저장할 수 있습니다.';
     var menuCourse=C.course($('#ar-course').value);$('#ar-menu').textContent=(menuCourse?menuCourse.menus.join(' · '):'코스를 선택하면 메뉴를 표시합니다.')+'\n\n'+C.data.menuNote;
-    if(!q.ok){box.innerHTML='<h2>케이터링 견적</h2><p role="status">'+esc(q.message)+'</p>';return;}
+    if(!q.ok){box.innerHTML='<h2>케이터링 견적</h2><p role="status">'+esc(cancelled?'취소 · 합계 제외':($('#ar-status').value==='pending'&&C.selection(config())?'상담 후 견적 · 금액 미정':q.message))+'</p>';return;}
     box.innerHTML='<h2>'+esc(q.formatName)+'</h2><div class="cc-total"><span>'+(cancelled?'취소 구성 · 합계 제외':esc(q.courseName)+' 예상 금액')+'<small>부가세 적용 여부 확인 전</small></span><b>'+C.won(q.total)+'</b></div>'
       +'<table class="q-table"><tbody><tr><td>'+esc(q.courseName)+' '+q.people+'명<small>1인 '+C.won(q.unitPrice)+'</small></td><td>'+C.won(q.food)+'</td></tr><tr><td>'+esc(q.feeName)+'<small>'+esc(q.feeLabel)+'</small></td><td data-ar-fee>'+C.won(q.fee)+'</td></tr></tbody><tfoot><tr><td>합계</td><td data-ar-total>'+C.won(q.total)+'</td></tr></tfoot></table>'
       +'<p class="tiny muted">테이블 세팅은 철수 비용까지 포함합니다. 부가세·최소 주문 조건은 최종 견적에서 확인하며, 공간 대관료와 반환 보증금은 별도입니다.</p><p class="small muted">'+esc(C.data.menuNote)+'</p>';
@@ -41,10 +41,10 @@
   $('#ar-ref').addEventListener('input',function(){++state.request;$('#ar-load').disabled=false;if(state.target&&this.value.trim().toUpperCase()!==state.target.ref)state.target=null;paint();});
   $('#ar-form').addEventListener('submit',function(e){e.preventDefault();});
   $('#ar-form').addEventListener('input',function(e){if(e.target.id!=='ar-ref')state.dirty=true;paint();});
-  $('#ar-form').addEventListener('change',function(){state.dirty=true;paint();});
+  $('#ar-form').addEventListener('change',function(e){if(e.target.id!=='ar-ref')state.dirty=true;paint();});
   $('#ar-save').addEventListener('click',function(){
-    if(state.busy||!validTarget())return;var ref=state.target.ref,body=config();if(!C.quote(body.people,body.format,body.course).ok)return;
-    busy(true);X.A('/inquiries/'+encodeURIComponent(ref),{method:'PATCH',body:{reception:body}}).then(function(){state.dirty=false;X.note($('#ar-msg'),'문의 '+ref+'에 케이터링을 저장했습니다. 문의 상세의 공간·식음료 요약에도 반영됩니다. 케이터링 구성이 바뀐 예약은 예약확정서를 다시 발급해 주세요.',true);M.toast('케이터링 구성을 저장했습니다.');}).catch(error).finally(function(){busy(false);});
+    if(state.busy||!validTarget())return;var ref=state.target.ref,body=config();if(!C.quote(body.people,body.format,body.course).ok&&!(body.status!=='confirmed'&&C.selection(body)))return;
+    busy(true);X.A('/inquiries/'+encodeURIComponent(ref),{method:'PATCH',body:{reception:body,reception_revision:C.revision(state.target.data)}}).then(function(r){state.target.data=Object.assign({},state.target.data,{reception:r.reception,reception_revision:r.reception_revision});state.dirty=false;X.note($('#ar-msg'),'문의 '+ref+'에 케이터링을 저장했습니다. 문의 상세의 공간·식음료 요약에도 반영됩니다. 케이터링 구성이 바뀐 예약은 예약확정서를 다시 발급해 주세요.',true);M.toast('케이터링 구성을 저장했습니다.');}).catch(error).finally(function(){busy(false);});
   });
   $('#ar-to-quote').addEventListener('click',function(){
     if(state.busy)return;var input=config(),q=C.quote(input.people,input.format,input.course);if(!q.ok||input.status==='cancelled')return;
@@ -61,8 +61,8 @@
       context=context||{};var saved=context.reception||{};state.target=null;state.dirty=false;++state.request;$('#ar-ref').value='';
       $('#ar-customer').value=context.customer||'';$('#ar-phone').value=context.phone||'';$('#ar-date').value=context.date||'';$('#ar-space').value=context.space||'megaspot-gundae';$('#ar-people').value=saved.people||context.people||50;$('#ar-course').value=saved.course||'classic';$('#ar-format').value=saved.format||'table';$('#ar-status').value=saved.status||'pending';$('#ar-note').value=saved.note||'';$('#ar-msg').hidden=true;
     }
-    state.initialized=true;X.go('reception');if(ref)load(ref);
+    state.initialized=true;state.opening=true;X.go('reception');state.opening=false;if(ref)load(ref);
   };
-  X.register('reception',function(){paint();if(!state.initialized){state.initialized=true;var ref=X.quoteInquiryRef();if(ref)load(ref);}});
+  X.register('reception',function(){paint();if(state.opening)return;if(state.target&&!state.dirty&&!state.busy){load(state.target.ref);return;}if(!state.initialized){state.initialized=true;var ref=X.quoteInquiryRef();if(ref)load(ref);}});
   paint();if(X.visible()&&X.current()==='reception')X.go('reception');
 })();

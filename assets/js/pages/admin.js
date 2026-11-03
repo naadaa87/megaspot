@@ -148,7 +148,7 @@
 
   /* =================== 화면 전환 =================== */
   // 모임·입점·등록 공간·광고 화면은 admin-platform.js 가 MEGASPOT_ADMIN.register 로 붙입니다
-  var LOAD={ 'deposit-notifications':function(){}, 'deposit-refunds':function(){}, 'guide-messages':function(){}, parking:function(){}, reception:function(){}, dash:loadDash, resv:loadResv, visits:loadVisits, inq:loadInq, quote:function(){ calc(); loadRecentQuotes(); }, catering:loadCatering, orders:loadOrders, bookings:loadBookings, calendar:loadCalendar, reviews:loadReviews, members:loadMembers };
+  var LOAD={ 'deposit-notifications':function(){}, 'deposit-refunds':function(){}, 'guide-messages':function(){}, parking:function(){}, reception:function(){}, dash:loadDash, resv:loadResv, visits:loadVisits, inq:loadInq, quote:function(){ ensureCurrentQuote('view').catch(function(e){if(!guard(e))M.toast(e.message);});calc();loadRecentQuotes(); }, catering:loadCatering, orders:loadOrders, bookings:loadBookings, calendar:loadCalendar, reviews:loadReviews, members:loadMembers };
   function go(v){
     if(!LOAD[v]) v='dash';
     $$('.adm-view').forEach(function(s){ s.hidden = s.id!=='view-'+v; });
@@ -603,11 +603,11 @@
   });
 
   /* =================== 견적 계산 =================== */
-  var Q, savedQuoteSnapshot=null, savedQuoteCreatedAt='', quoteDirty=false;
+  var Q, savedQuoteSnapshot=null, savedQuoteCreatedAt='', quoteDirty=false, quoteHistorical=false;
   function invalidateQuote(reprice){ Q.quoteNo=''; if(reprice!==false) savedQuoteSnapshot=null; savedQuoteCreatedAt=''; quoteDirty=true; }
   function blankQ(){ useSpace(DEFAULT_SPACE); return { space:DEFAULT_SPACE, ref:'', customer:'', phone:'', email:'', date:todayIso(), start:13, end:17, people:20, purpose:'', regular:false,
     opts:{ manager:{on:false,count:1,hours:4}, cleaning:false, disposable:false, banner:false, xbanner:false },
-    discType:'none', discVal:0, discWhy:'', extras:[], deposit:(D?D.deposit.amount:150000), valid:1, note:'', quoteNo:'' }; }
+    discType:'none', discVal:0, discWhy:'', extras:[], reception_revision:0, receptionExcluded:false, deposit:(D?D.deposit.amount:150000), valid:1, note:'', quoteNo:'' }; }
   Q=blankQ();
   function hourOpts(from,to,sel){ var s=''; for(var h=from;h<=to;h++) s+='<option value="'+h+'"'+(h===sel?' selected':'')+'>'+esc(E.hourLabel(h))+'</option>'; return s; }
   function qSpaceHint(){ var h=$('#q-space-hint'); if(!h||!D) return; h.textContent=(D.version||'')+' · 기준 '+D.people.base+'명 포함 · 최대 '+D.people.max+'명'+(D.surcharge&&D.surcharge.amount?' · 시간제 1건당 '+won(D.surcharge.amount)+' 가산':'')+(D.opening?' · '+D.opening.replace(/-/g,'. ')+' 오픈':''); }
@@ -700,14 +700,14 @@
   $('#q-form').addEventListener('change', function(e){ if(e.target.id==='q-start'){ readForm(); $('#q-end').innerHTML=hourOpts(Q.start+1, ADMIN_HOURS.to, Math.max(Q.end, Q.start+1)); } invalidateQuote(['q-customer','q-phone','q-email','q-note'].indexOf(e.target.id)<0); calc(); });
   $('#q-pkgs').addEventListener('click', function(e){ var b=e.target.closest('[data-pkg]'); if(!b) return; readForm(); var p=E.findPkg(b.dataset.pkg); Q.start=p.start; Q.end=p.end; $('#q-start').innerHTML=hourOpts(ADMIN_HOURS.from, ADMIN_HOURS.to-1, Q.start); $('#q-end').innerHTML=hourOpts(Q.start+1, ADMIN_HOURS.to, Q.end); invalidateQuote(); calc(); });
   $('#q-extra-add').addEventListener('click', function(){ readForm(); Q.extras.push({label:'',amount:0}); invalidateQuote(); renderExtras(); var l=$$('#q-extras [data-ex=label]'); if(l.length) l[l.length-1].focus(); });
-  $('#q-extras').addEventListener('click', function(e){ var b=e.target.closest('[data-ex-del]'); if(!b) return; readForm(); Q.extras.splice(+b.dataset.exDel,1); renderExtras(); invalidateQuote(); calc(); });
-  $('#q-reset').addEventListener('click', function(){ if(quoteDirty && !confirm('작성 중인 견적을 초기화할까요?')) return; savedQuoteSnapshot=null; savedQuoteCreatedAt=''; quoteDirty=false; Q=blankQ(); fillForm(); calc(); $('#q-msg').hidden=true; });
+  $('#q-extras').addEventListener('click', function(e){ var b=e.target.closest('[data-ex-del]'); if(!b) return; readForm(); if(Q.extras[+b.dataset.exDel].kind==='reception')Q.receptionExcluded=true;Q.extras.splice(+b.dataset.exDel,1); renderExtras(); invalidateQuote(); calc(); });
+  $('#q-reset').addEventListener('click', function(){ if(quoteDirty && !confirm('작성 중인 견적을 초기화할까요?')) return; savedQuoteSnapshot=null; savedQuoteCreatedAt=''; quoteDirty=false; setQuoteHistorical(false); Q=blankQ(); fillForm(); calc(); $('#q-msg').hidden=true; });
   $('#q-reception').addEventListener('click',function(){readForm();window.MEGASPOT_ADMIN.openReception(Q.ref,{customer:Q.customer,phone:Q.phone,date:Q.date,space:Q.space,people:Q.people,reception:(Q.extras.find(function(x){return x.kind==='reception';})||{}).reception});});
 
   function quoteFromInquiry(it, lastQuote){
     if(quoteDirty && !confirm('작성 중인 견적을 바꾸고 이 문의를 불러올까요?')) return false;
     var d=it.data||{}, previous=d.quote_input||(lastQuote||((cur && cur.item && cur.item.ref===it.ref && (cur.quotes||[])[0])||{})).data?.input;
-    Q=Object.assign(blankQ(),previous?JSON.parse(JSON.stringify(previous)):{}); savedQuoteSnapshot=null; savedQuoteCreatedAt=''; Q.quoteNo=''; Q.ref=it.ref; Q.space=spaceOk(it.space_id||d.space_id); useSpace(Q.space);
+    setQuoteHistorical(false);Q=Object.assign(blankQ(),previous?JSON.parse(JSON.stringify(previous)):{}); savedQuoteSnapshot=null; savedQuoteCreatedAt=''; Q.quoteNo=''; Q.ref=it.ref; Q.space=spaceOk(it.space_id||d.space_id); useSpace(Q.space);
     Q.customer=d.name||it.name||''; Q.phone=d.phone||it.phone||''; Q.email=d.email||it.email||'';
     Q.date=d.date||it.event_date||todayIso(); Q.people=parseInt(d.headcount||it.headcount,10)||D.people.base; Q.purpose=d.purpose||''; Q.regular=!!d.regular||d.inquiry_type==='regular';
     if(d.price_adjustment){ Q.discType=d.price_adjustment.type||'none'; Q.discVal=d.price_adjustment.value||0; Q.discWhy=d.price_adjustment.reason||''; }
@@ -720,22 +720,40 @@
       Q.extras=Q.extras.filter(function(x){ return x.kind!=='catering'&&!/^출장뷔페 ·/.test(x.label||''); });
       if(d.catering && d.catering.status!=='cancelled' && !d.catering.removed) Q.extras.push({kind:'catering',label:'출장뷔페 · '+(d.catering.summary||'저장 구성'),amount:d.catering.total||0});
     }
-    var rec=window.MEGASPOT_RECEPTION_CALC.fromInquiry(d);
-    if(rec && (!previous || d.reception_in_quote || Q.note.indexOf('케이터링 상담 필요: ')>=0 || Q.extras.some(function(x){return x.kind==='reception';}))){
-      Q.extras=Q.extras.filter(function(x){return x.kind!=='reception';});
-      if(rec.status!=='cancelled'){
-        if(rec.total!=null){Q.note=Q.note.split('\n').filter(function(line){return line.indexOf('케이터링 상담 필요: ')!==0;}).join('\n');Q.extras.push({kind:'reception',label:'도시락·핑거푸드 케이터링 · '+rec.summary+' (부가세 확인 전)',amount:rec.total,reception:rec});}
-        else if(!previous)Q.note+=(Q.note?'\n':'')+'케이터링 상담 필요: '+rec.summary+' (금액 미정 · 합계 제외)';
-        if(rec.requested_total!=null && rec.total!=null && rec.requested_total!==rec.total)Q.note+=(Q.note?'\n':'')+'케이터링 접수 당시 안내금액 '+won(rec.requested_total)+' · 현재 요금 기준 '+won(rec.total);
-      }
-    }
+    var RC=window.MEGASPOT_RECEPTION_CALC,rec=RC.fromInquiry(d),include=!Q.receptionExcluded&&(!previous||d.reception_in_quote||Q.note.indexOf('케이터링 상담 필요: ')>=0||Q.extras.some(function(x){return x.kind==='reception';}));
+    Q=RC.syncQuote(Q,d,include);
+    if(rec&&rec.requested_total!=null&&rec.total!=null&&rec.requested_total!==rec.total)Q.note+=(Q.note?'\n':'')+'케이터링 접수 당시 안내금액 '+won(rec.requested_total)+' · 현재 요금 기준 '+won(rec.total);
     fillForm(); $('#q-msg').hidden=true; quoteDirty=false; return true;
   }
-  function loadSavedQuote(q, ref){
+  function setQuoteHistorical(on){quoteHistorical=on;$('#q-form').querySelectorAll('input,select,textarea,button').forEach(function(el){el.disabled=on;});$('#q-save').disabled=on;}
+  function ensureCurrentQuote(action){
+    if(quoteHistorical){if(action==='save')M.toast('변경 전 견적 원본입니다. 최신 구성으로 열어 새 견적을 저장해 주세요.');return Promise.resolve(action!=='save');}
+    if(!Q.ref)return Promise.resolve(true);
+    readForm();var ref=Q.ref;
+    return A('/inquiries/'+encodeURIComponent(ref)).then(function(r){
+      if(Q.ref!==ref)return false;var d=r.item.data||{},RC=window.MEGASPOT_RECEPTION_CALC;
+      if(!RC.quoteCurrent(Q,d)){
+        var include=!Q.receptionExcluded&&(d.reception_in_quote||Q.extras.some(function(x){return x.kind==='reception';})||!d.quote_input);
+        Q=RC.syncQuote(Q,d,include);invalidateQuote();fillForm();calc();note($('#q-msg'),'변경된 케이터링 구성과 취소 상태를 최신 정보로 반영했습니다. 금액을 확인하고 견적 저장을 눌러 주세요.',true);
+        return action!=='save';
+      }
+      Q.reception_revision=RC.revision(d);return true;
+    });
+  }
+  function loadSavedQuote(q, ref, checked){
+    if(ref&&!checked)return A('/inquiries/'+encodeURIComponent(ref)).then(function(r){
+      if(!window.MEGASPOT_RECEPTION_CALC.quoteCurrent((q.data||{}).input,r.item.data||{})){
+        if(!quoteFromInquiry(r.item,(r.quotes||[])[0]))return;
+        note($('#q-msg'),'이 견적 이후 케이터링이 변경되어 최신 구성으로 열었습니다. 새 견적으로 저장해 주세요.',true);
+        var original=document.createElement('button');original.type='button';original.className='btn btn-light btn-sm';original.textContent='변경 전 견적 원본 보기';original.id='q-show-original';original.onclick=function(){loadSavedQuote(q,ref,{outdated:true,item:r.item});};$('#q-msg').appendChild(original);return;
+      }
+      loadSavedQuote(q,ref,{outdated:false,item:r.item});
+    }).catch(function(e){if(!guard(e))M.toast(e.message);});
     var inp=(q.data&&q.data.input)||null; if(!inp){ M.toast('이 견적은 다시 열 수 있는 정보가 없습니다.'); return; }
     if(quoteDirty && !confirm('작성 중인 견적을 바꾸고 저장 견적을 열까요?')) return false;
     Q=Object.assign(blankQ(), JSON.parse(JSON.stringify(inp))); Q.space=spaceOk(Q.space||(q.data&&q.data.space)); Q.ref=ref||q.inquiry_ref||''; Q.quoteNo=q.quote_no;
-    savedQuoteSnapshot=q.data&&Array.isArray(q.data.lines)?JSON.parse(JSON.stringify(q.data)):null; savedQuoteCreatedAt=q.created_at||''; quoteDirty=false; fillForm(); calc(); return true;
+    savedQuoteSnapshot=q.data&&Array.isArray(q.data.lines)?JSON.parse(JSON.stringify(q.data)):null; savedQuoteCreatedAt=q.created_at||''; quoteDirty=false; fillForm();setQuoteHistorical(!!(checked&&checked.outdated));calc();
+    if(quoteHistorical){note($('#q-msg'),'변경 전 견적 원본입니다. 저장·수정은 최신 구성에서 해 주세요.');var latest=document.createElement('button');latest.type='button';latest.id='q-show-current';latest.className='btn btn-light btn-sm';latest.textContent='최신 구성으로 열기';latest.onclick=function(){A('/inquiries/'+encodeURIComponent(ref)).then(function(r){if(quoteFromInquiry(r.item))calc();}).catch(function(e){if(!guard(e))M.toast(e.message);});};$('#q-msg').appendChild(latest);}return true;
   }
   function payload(){
     var q=R.q;
@@ -744,12 +762,13 @@
         lines:R.lines, subtotal:R.sub, discount:R.disc, discountLabel:R.discLabel, discountWhy:Q.discWhy, extras:R.extras, total:R.total, deposit:R.deposit, validUntil:R.validUntil, refund:R.refund, taxNote:quoteVatNote(), note:Q.note, phone:Q.phone, email:Q.email } };
   }
   $('#q-save').addEventListener('click', function(){
-    readForm(); calc(); if(!R) return; var b=this; b.disabled=true;
+    var b=this;ensureCurrentQuote('save').then(function(ok){if(!ok)return;readForm();calc();if(!R)return;b.disabled=true;
     var sent=payload();
     function signature(input){ var copy=Object.assign({},input); delete copy.quoteNo; return JSON.stringify(copy); }
     var sentSignature=signature(sent.data.input);
-    A('/quotes',{method:'POST', body:sent}).then(function(r){ var unchanged=signature(Q)===sentSignature; if(unchanged){ Q.quoteNo=r.quote_no; quoteDirty=false; } else quoteDirty=true; calc(); note($('#q-msg'),'견적 '+r.quote_no+'을(를) 저장했습니다.'+(sent.inquiry_ref?' 문의의 금액·조건도 반영했습니다.':'')+(r.confirm_doc_invalidated?' 예약확정서를 다시 발급해 주세요.':'')+(!unchanged?' 저장 중 바꾼 내용은 아직 저장되지 않았습니다.':''),true); loadRecentQuotes(); refreshLists(); })
+    A('/quotes',{method:'POST', body:sent}).then(function(r){ var unchanged=signature(Q)===sentSignature; if(unchanged){ Q.quoteNo=r.quote_no; quoteDirty=false; } else quoteDirty=true;if(Q.ref===sent.inquiry_ref&&r.reception_revision!=null)Q.reception_revision=r.reception_revision;calc(); note($('#q-msg'),'견적 '+r.quote_no+'을(를) 저장했습니다.'+(sent.inquiry_ref?' 문의의 금액·조건도 반영했습니다.':'')+(r.confirm_doc_invalidated?' 예약확정서를 다시 발급해 주세요.':'')+(!unchanged?' 저장 중 바꾼 내용은 아직 저장되지 않았습니다.':''),true); loadRecentQuotes(); refreshLists(); })
     .catch(function(e){ if(!guard(e)) note($('#q-msg'), e.message); }).finally(function(){ b.disabled=false; });
+    }).catch(function(e){if(!guard(e))note($('#q-msg'),e.message);});
   });
   // '김민지 · 성수 러닝크루' → ['김민지', '성수 러닝크루'] (가운뎃점·슬래시·쉼표로 나눔, '김민지(러닝크루)'처럼 괄호로 적어도 됨)
   function custParts(s){
@@ -780,14 +799,16 @@
     return L.join('\n');
   }
   $('#q-copy').addEventListener('click', function(){
-    readForm(); calc(); var t=kakaoText();
+    ensureCurrentQuote('copy').then(function(ok){if(!ok)return;readForm(); calc(); var t=kakaoText();
     (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){ M.toast('고객 안내문을 복사했습니다. 카카오톡·문자에 붙여 넣으세요.'); })
     .catch(function(){ var ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); M.toast('고객 안내문을 복사했습니다.'); }catch(e){ M.toast('복사하지 못했습니다.'); } ta.remove(); });
+    }).catch(function(e){if(!guard(e))M.toast(e.message);});
   });
   $('#q-print').addEventListener('click', function(){
-    readForm(); calc(); if(!R) return; renderSheet();
+    ensureCurrentQuote('print').then(function(ok){if(!ok)return;readForm(); calc(); if(!R) return; renderSheet();
     var old=document.title; document.title=(D.fileTag||'메가스팟건대')+'_견적서_'+(Q.quoteNo||'미저장')+'_'+(Q.customer||'').split('·')[0].trim();
     setTimeout(function(){ window.print(); setTimeout(function(){ document.title=old; }, 500); }, 60);
+    }).catch(function(e){if(!guard(e))M.toast(e.message);});
   });
   function renderSheet(){
     var q=R.q, C=M.CONFIG||{}, now=new Date(), stamp=savedQuoteCreatedAt?savedQuoteCreatedAt.slice(0,10).replace(/-/g,'.'):now.getFullYear()+'.'+(now.getMonth()+1)+'.'+now.getDate();
@@ -801,6 +822,7 @@
     var refund=R.refund.map(function(x){ return '<span>'+esc(x.k)+' <b>'+Math.round(x.rate*100)+'%</b></span>'; }).join('');
     $('#quote-print').innerHTML='<div class="qp">'
       +'<header class="qp-head"><div><div class="qp-logo">MEGA<b>SPOT</b></div><div class="qp-sub">'+esc(spaceName(Q.space))+' · '+esc(D.address||'서울 광진구 화양동 10-1 한아름건물 2층')+'</div></div><div class="qp-meta"><b>견 적 서</b><span>견적번호 '+esc(Q.quoteNo||'(저장 전)')+'</span><span>작성일 '+esc(stamp)+'</span><span>유효기간 '+esc(E.kdateY(R.validUntil))+'까지</span></div></header>'
+      +(quoteHistorical?'<p class="qp-small">변경 전 견적 원본 · 현재 케이터링 구성과 다릅니다.</p>':'')
       +'<h1 class="qp-title">'+esc(Q.customer?Q.customer+' 귀하':spaceName(Q.space)+' 이용 견적')+'</h1>'
       +'<table class="qp-cond"><tbody>'
       +'<tr><th>이용일</th><td>'+esc(E.kdateY(q.date))+(q.day.holiday?' · '+esc(q.day.holiday):'')+' <span class="qp-tag">'+esc(q.colLabel)+' 요금</span></td><th>이용 시간</th><td>'+esc(q.range)+'</td></tr>'
@@ -1536,7 +1558,7 @@
     if(D && D.included) L.push(D.included.slice(0,4).map(function(x){ return x.label; }).join('·')+' 기본 제공');
     var nm=iq.name||bk.name||'';
     return { customer: nm+(iq.org&&nm.indexOf(iq.org)<0?' ('+iq.org+')':''), event: PUR[iq.purpose]||'', time_note:'', show_amount:true, amount: bk.amount==null?null:bk.amount, amount_note:iq.included_reception_amount?'공간 부가세 포함 · 케이터링 부가세 확인 전':'부가세 포함',
-      pay_status: bk.order_status==='paid'?'paid':'pending', paid: bk.order_status==='paid'&&bk.amount!=null?bk.amount:null, deposit: D?D.deposit.amount:150000, items:L, note:'' };
+      pay_status: bk.paid_amount>0?(bk.amount!=null&&bk.paid_amount>=bk.amount?'paid':'deposit'):'pending', paid: bk.paid_amount>0?bk.paid_amount:null, deposit: D?D.deposit.amount:150000, items:L, note:'' };
   }
   function cdFill(v){
     $('#cd-customer').value=v.customer||''; $('#cd-event').value=v.event||''; $('#cd-time-note').value=v.time_note||'';
@@ -1583,11 +1605,21 @@
   }
   // 저장(발급) — 고친 내용이 없고 이미 발급된 확정서면 다시 저장하지 않습니다
   function cdSave(force){
-    if(!CDS) return Promise.reject(new Error('예약 정보를 불러오는 중입니다.'));
-    if(!force && !cdDirty && CDS.doc && CDS.doc.issued_at && CDS.link) return Promise.resolve(CDS);
-    var sent=cdSettings();
-    return A('/bookings/'+encodeURIComponent(CDS.booking.code)+'/confirm-doc',{method:'PUT', body:{doc:sent}}).then(function(r){
-      CDS.doc=r.doc; CDS.preview=r.preview; CDS.link=r.link; if(cdSettings().items.join('\n')===sent.items.join('\n'))$('#cd-items').value=(r.doc.items||[]).join('\n'); cdDirty=false; drawerDirty['adm-cdoc']=false; cdState(); refreshLists(); return CDS;
+    if(!CDS)return Promise.reject(new Error('예약 정보를 불러오는 중입니다.'));
+    var expected=window.MEGASPOT_RECEPTION_CALC.revision(CDS.inquiry),code=CDS.booking.code;
+    return A('/bookings/'+encodeURIComponent(code)+'/confirm-doc').then(function(fresh){
+      if(!CDS||CDS.booking.code!==code)throw new Error('다른 예약을 열었습니다. 현재 예약을 확인하고 다시 발급해 주세요.');
+      if(window.MEGASPOT_RECEPTION_CALC.revision(fresh.inquiry)!==expected){
+        var values=cdSettings();if(values.pay_status==='paid'&&values.paid==null)values.paid=CDS.booking.amount;
+        values.amount=fresh.booking.amount;values.amount_note=cdDefaults(fresh).amount_note;
+        if(values.pay_status==='paid'&&values.paid!=null&&values.amount!=null&&values.paid<values.amount)values.pay_status='deposit';
+        CDS=fresh;cdFill(values);cdDirty=true;cdState();cdPreview();throw new Error('케이터링이 변경되어 최신 구성과 예약 금액을 반영했습니다. 미리보기를 확인한 뒤 다시 발급·다운로드해 주세요.');
+      }
+      if(!force&&!cdDirty&&CDS.doc&&CDS.doc.issued_at&&CDS.link)return CDS;
+      var sent=cdSettings();
+      return A('/bookings/'+encodeURIComponent(code)+'/confirm-doc',{method:'PUT',body:{doc:sent,reception_revision:expected}}).then(function(r){
+        CDS.doc=r.doc;CDS.preview=r.preview;CDS.link=r.link;if(cdSettings().items.join('\n')===sent.items.join('\n'))$('#cd-items').value=(r.doc.items||[]).join('\n');cdDirty=false;drawerDirty['adm-cdoc']=false;cdState();refreshLists();return CDS;
+      });
     });
   }
   function cdBusy(btn, on, label){ btn.disabled=on; if(on){ btn.dataset.label=btn.textContent; btn.textContent=label||'만드는 중…'; } else if(btn.dataset.label){ btn.textContent=btn.dataset.label; } }
@@ -1882,7 +1914,7 @@
       if(quoteDirty && !confirm('작성 중인 견적을 바꾸고 이 고객의 견적을 만들까요?')) return Promise.resolve(false);
       Q=blankQ(); Q.customer=target.customer; Q.phone=target.phone; Q.space=spaceOk(target.space); useSpace(Q.space); Q.people=Math.min(D.people.max,quote.people); Q.deposit=D.deposit.amount; if(target.date) Q.date=target.date;
     }
-    Q.extras=Q.extras.filter(function(x){ return x.kind!=='reception'; });
+    setQuoteHistorical(false);Q.receptionExcluded=false;Q.extras=Q.extras.filter(function(x){ return x.kind!=='reception'; });
     Q.note=Q.note.split('\n').filter(function(line){return line.indexOf('케이터링 상담 필요: ')!==0;}).join('\n');
     Q.extras.push({kind:'reception',label:'도시락·핑거푸드 케이터링 · '+quote.formatName+' '+quote.courseName+' '+quote.people+'명 (세팅비 포함 · 부가세 확인 전)',amount:quote.total,reception:Object.assign({},quote,config)});
     invalidateQuote(); fillForm(); go('quote'); M.toast('케이터링 '+won(quote.total)+'을(를) 대관 견적에 넣었습니다. 견적 저장을 눌러 문의에도 반영해 주세요.');

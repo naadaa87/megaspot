@@ -4,12 +4,12 @@ import { str } from './_lib.js';
 
 export function receptionAdmin(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-  const q = C.quote(value.people, value.format, value.course);
-  if (!q.ok) return null;
   const status = value.status || 'pending';
   if (!['pending', 'confirmed', 'cancelled'].includes(status)) return null;
+  const q = status === 'confirmed' ? C.quote(value.people,value.format,value.course) : C.selection({...value,course:value.course===undefined?'classic':value.course});
+  if (!q || (status === 'confirmed' && !q.ok)) return null;
   return { ...q, status, by: 'admin', note: str(value.note, 500), menuNote: C.data.menuNote,
-    summary: `${q.courseName} ${q.people}명 · ${q.formatName} · 메뉴 ${C.won(q.food)} + ${q.feeName} ${C.won(q.fee)}`, tax_pending: true };
+    summary: q.total == null ? q.summary : `${q.courseName} ${q.people}명 · ${q.formatName} · 메뉴 ${C.won(q.food)} + ${q.feeName} ${C.won(q.fee)}`, tax_pending: true };
 }
 
 export function receptionExtra(extras) {
@@ -42,4 +42,10 @@ export function receptionChanged(data, next) {
 }
 export function withoutReceptionItems(items) {
   return items.filter(line => !/^(?:라이트|클래식|프리미엄|시그니처) \d+명 · (?:도시락|박스|테이블 세팅) 케이터링/.test(line));
+}
+
+export function receptionRevision(data) { return C.revision(data); }
+export function syncReceptionInput(input, data, include) { return C.syncQuote(input, data, include); }
+export function receptionConflict(expected, data) {
+  return expected !== undefined && (expected === null || !Number.isInteger(Number(expected)) || Number(expected) !== receptionRevision(data));
 }
