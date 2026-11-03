@@ -212,6 +212,11 @@ export async function guideAdmin({env,request,url,path,method}) {
     const from=str(url.searchParams.get('from'),10),to=str(url.searchParams.get('to'),10),space=str(url.searchParams.get('space'),60),page=Math.max(0,Math.min(100000,Number(url.searchParams.get('page'))||0));
     const conditions=["b.status='confirmed'","b.date>=date('now','+9 hours','-1 day')"], args=[];
     if(from){conditions.push('b.date>=?');args.push(from);} if(to){conditions.push('b.date<=?');args.push(to);} if(space){conditions.push('b.space_id=?');args.push(space);}
+    if(url.searchParams.get('status')==='unsent'){
+      conditions.push("COALESCE(json_extract(ic.checks,'$.guide_sent'),0)=0");
+      conditions.push(`NOT EXISTS (SELECT 1 FROM booking_guide_messages gm WHERE gm.booking_code=b.booking_code AND gm.mode='live' AND gm.purpose=? AND gm.status IN ${ACTIVE})`);
+      args.push(GUIDE_VERSION);
+    }
     const {results}=await env.DB.prepare(`SELECT b.*,json_extract(ic.checks,'$.guide_sent') AS guide_sent FROM bookings b LEFT JOIN inquiry_checks ic ON ic.ref=b.inquiry_ref WHERE ${conditions.join(' AND ')} ORDER BY b.date,b.start_h,b.id LIMIT 101 OFFSET ?`).bind(...args,page*100).all();
     const rows=(results || []).slice(0,100), summary=await guideSummary(env,rows.map(x=>x.booking_code)),items=rows.map(b=>({booking_code:b.booking_code,name:b.customer_name,phone:b.phone,date:b.date,space_id:b.space_id,time:hours(b).map(hour).join('~'),guide_sent:!!b.guide_sent,message_status:summary[b.booking_code] || '',exclusion:guideEligibility(b,s)}));
     return json({ok:true,items,has_more:(results || []).length>100});
