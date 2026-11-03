@@ -20,3 +20,4 @@
   .gm-mobile-selection .btn{flex:1;min-width:0;font-size:14px}
   body:has(#view-guide-messages.gm-has-selection:not([hidden])) .to-top{bottom:calc(104px + env(safe-area-inset-bottom))}
 }
+@media(max-width:360px){.gm-filters label{flex-basis:100%}}
