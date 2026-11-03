@@ -14,3 +14,7 @@
 #payment-history details{font-size:12px;line-height:1.7;margin-top:9px}
 #payment-history details p{margin:7px 0}
 #payment-history summary{cursor:pointer}
+
+#payment-online .payment-online{padding:12px 0;border-bottom:1px solid #dde1e6}
+#payment-online p{font-size:13px;line-height:1.7;margin:5px 0}
+#payment-online small{color:#657080}

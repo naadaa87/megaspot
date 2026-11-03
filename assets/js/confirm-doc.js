@@ -7,7 +7,7 @@
   var FF = '"Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif';
   var LOGO = 'Anton, "Arial Black", Impact, sans-serif';
   var DOW = ['일', '월', '화', '수', '목', '금', '토'];
-  var PAY = { paid: '결제 완료', deposit: '예약금 입금 완료 · 잔금은 이용 전 안내', onsite: '현장 결제', pending: '결제 방법 안내 예정', refund:'초과 수납 · 환불 필요', payment_review:'수납·환불 기록 확인 필요' };
+  var PAY = { paid: '결제 완료', deposit: '예약금 입금 완료 · 잔금은 이용 전 안내', onsite: '현장 결제', pending: '결제 방법 안내 예정', refund:'초과 수납 · 환불 필요', payment_review:'수납·환불 기록 확인 필요', refunded:'예약 취소 · 전액 환불 완료' };
   var SLOT = { 'pkg-day': [10, 17], 'pkg-allday': [10, 24], 'pkg-allnight': [18, 31] };
   var GUIDE = [
     '예약한 시간 안에 입장·세팅·정리·퇴장을 모두 마쳐 주세요. 시간을 늘려야 하면 미리 연락 주세요.',

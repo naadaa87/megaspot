@@ -1608,6 +1608,11 @@
     var expected=window.MEGASPOT_RECEPTION_CALC.revision(CDS.inquiry),expectedPayment=CDS.settlement&&CDS.settlement.revision,code=CDS.booking.code;
     return A('/bookings/'+encodeURIComponent(code)+'/confirm-doc').then(function(fresh){
       if(!CDS||CDS.booking.code!==code)throw new Error('다른 예약을 열었습니다. 현재 예약을 확인하고 다시 발급해 주세요.');
+      if(fresh.booking.status==='cancelled'){
+        var cancelled=cdSettings();cancelled.amount=fresh.settlement.amount;cancelled.paid=fresh.settlement.net;cancelled.pay_status=fresh.settlement.status==='cancelled_review'?'pending':fresh.settlement.status;
+        CDS=fresh;cdFill(cancelled);cdState();cdPreview();['#cd-save','#cd-pdf','#cd-png','#cd-share','#cd-link','#cd-text'].forEach(function(s){$(s).disabled=true;});
+        throw new Error('예약이 취소되어 확정서 발급·다운로드를 중단했습니다. 수납·환불 기록에서 최신 정산을 확인해 주세요.');
+      }
       if(window.MEGASPOT_RECEPTION_CALC.revision(fresh.inquiry)!==expected||(fresh.settlement&&fresh.settlement.revision)!==expectedPayment){
         var values=cdSettings();values.paid=fresh.settlement.net;values.pay_status=fresh.settlement.status==='unpriced'?'pending':fresh.settlement.status;
         values.amount=fresh.booking.amount;values.amount_note=cdDefaults(fresh).amount_note;
@@ -1621,7 +1626,7 @@
       });
     });
   }
-  function cdBusy(btn, on, label){ btn.disabled=on; if(on){ btn.dataset.label=btn.textContent; btn.textContent=label||'만드는 중…'; } else if(btn.dataset.label){ btn.textContent=btn.dataset.label; } }
+  function cdBusy(btn, on, label){ btn.disabled=on||!!(CDS&&CDS.booking.status==='cancelled'); if(on){ btn.dataset.label=btn.textContent; btn.textContent=label||'만드는 중…'; } else if(btn.dataset.label){ btn.textContent=btn.dataset.label; } }
   function cdRun(btn, job){
     var m=$('#cd-msg'); m.hidden=true; cdBusy(btn, true);
     return cdSave().then(function(){ return cdPreview(); }).then(function(){ return job($('#cd-canvas'), cdDoc()); })

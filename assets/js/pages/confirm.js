@@ -3,7 +3,7 @@
   var M = window.MEGASPOT, X = window.MEGASPOT_CONFIRM; if (!M || !X) return;
   var $ = function(s){ return document.querySelector(s); };
   var form = $('#cfd-find'), view = $('#cfd-view'), errBox = $('#cfd-err'), canvas = $('#cfd-canvas'), cur = null, link = '';
-  function fail(msg){ errBox.textContent = msg; errBox.hidden = false; form.hidden = false; view.hidden = true; }
+  function fail(msg){cur=null; errBox.textContent = msg; errBox.hidden = false; form.hidden = false; view.hidden = true; }
   function show(doc, k){
     cur = doc; link = location.origin + '/confirm/?c=' + encodeURIComponent(doc.code) + '&k=' + encodeURIComponent(k || '');
     try { if (k) history.replaceState(null, '', '/confirm/?c=' + encodeURIComponent(doc.code) + '&k=' + encodeURIComponent(k)); } catch (e) {}
@@ -14,11 +14,11 @@
     if (doc.show_amount && doc.amount != null) rows.push(['확정 금액', doc.amount.toLocaleString('ko-KR') + '원' + (doc.amount_note ? ' (' + doc.amount_note + ')' : '') + ' · ' + (X.PAY[doc.pay_status] || '')]);
     rows=rows.concat(X.settlementRows(doc),X.receptionRows(doc),window.MEGASPOT_FOOD_SERVICES.documentRows(doc));
     $('#cfd-info').innerHTML = rows.filter(function(r){ return r[1]; }).map(function(r){ return '<div><dt>' + esc(r[0]) + '</dt><dd>' + esc(r[1]) + '</dd></div>'; }).join('');
-    X.render(doc, canvas).then(function(){ canvas.setAttribute('aria-label', '메가스팟 예약확정서 — 예약번호 ' + doc.code + ', ' + X.dateText(doc.date) + ' ' + X.timeText(doc)); });
-    document.title = '예약확정서 ' + doc.code + ' · 메가스팟';
+    var ready=X.render(doc, canvas).then(function(){ canvas.setAttribute('aria-label', '메가스팟 예약확정서 — 예약번호 ' + doc.code + ', ' + X.dateText(doc.date) + ' ' + X.timeText(doc)); });
+    document.title = '예약확정서 ' + doc.code + ' · 메가스팟';return ready;
   }
   function load(p){
-    return p.then(function(r){ show(r.doc, r.k); }).catch(function(e){
+    return p.then(function(r){ return show(r.doc, r.k); }).catch(function(e){
       if (e.code === 'NO_API') return fail('지금은 확정서를 불러올 수 없습니다. 잠시 후 다시 시도하거나 카카오톡으로 문의해 주세요.');
       fail(e.message || '확정서를 찾지 못했습니다.');
     });
@@ -35,16 +35,24 @@
     load(M.api('/confirm', { method: 'POST', body: { booking_code: code, phone_last4: last4 } })).then(function(){ b.disabled = false; });
   });
   $('#cfd-again').addEventListener('click', function(){ view.hidden = true; form.hidden = false; $('#cfd-last4').value = ''; try { history.replaceState(null, '', '/confirm/'); } catch (e) {} $('#cfd-code').focus(); });
+  function refresh(){
+    if(!cur)return Promise.reject(new Error('확정서를 다시 조회해 주세요.'));
+    var code=cur.code,k=new URL(link).searchParams.get('k');
+    return M.api('/confirm?c='+encodeURIComponent(code)+'&k='+encodeURIComponent(k||'')).then(function(r){
+      if(!cur||cur.code!==code||view.hidden)throw new Error('다른 예약을 조회 중입니다. 현재 확정서를 확인해 주세요.');
+      return show(r.doc,r.k);
+    }).catch(function(e){fail(e.message||'최신 확정서를 확인하지 못했습니다. 다시 조회해 주세요.');throw e;});
+  }
   view.addEventListener('click', function(e){
     var b = e.target.closest('[data-cfd]'); if (!b || !cur) return;
     var a = b.dataset.cfd; b.disabled = true;
-    var job = a === 'pdf' ? X.pdfBlob(canvas, '메가스팟 예약확정서 ' + cur.code).then(function(bl){ X.download(bl, X.fileName(cur, 'pdf')); M.toast('PDF를 저장했습니다.'); })
+    var job = refresh().then(function(){return a === 'pdf' ? X.pdfBlob(canvas, '메가스팟 예약확정서 ' + cur.code).then(function(bl){ X.download(bl, X.fileName(cur, 'pdf')); M.toast('PDF를 저장했습니다.'); })
       : a === 'png' ? X.pngBlob(canvas).then(function(bl){ X.download(bl, X.fileName(cur, 'png')); M.toast('이미지를 저장했습니다.'); })
       : X.share(canvas, cur, link).then(function(res){
           if (res === 'shared' || res === 'shared-link') return;
           if (res === 'cancel') return;
           return (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject()).then(function(){ M.toast('확정서 주소를 복사했습니다. 카카오톡이나 메일에 붙여 넣어 보내 주세요.'); }, function(){ window.prompt('아래 주소를 복사해 주세요.', link); });
-        });
+        });});
     job.catch(function(err){ M.toast(err.message || '처리하지 못했습니다.'); }).then(function(){ b.disabled = false; });
   });
 })();
