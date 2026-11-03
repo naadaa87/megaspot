@@ -1,0 +1,11 @@
+[Unit]
+Description=Check Megaspot deposit notices every minute
+
+[Timer]
+OnBootSec=30s
+OnUnitInactiveSec=60s
+AccuracySec=5s
+Unit=megaspot-deposit-notifications.service
+
+[Install]
+WantedBy=timers.target

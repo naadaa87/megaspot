@@ -1,0 +1,72 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {DatabaseSync} from 'node:sqlite';
+import {fixture as base} from './helpers/admin-fixture.mjs';import {onRequest as cron} from '../functions/api/deposit-notifications/[[path]].js';
+import {DEPOSIT_TEMPLATES as T,DEPOSIT_TEMPLATE_CODES as C} from '../functions/api/_deposit_templates.js';
+import {depositNoticeTick,depositMessageHash,depositMessageConfig,depositTemplateMatches,depositNoticeRender,depositNoticeVariables} from '../functions/api/_deposit_notifications.js';
+import {parkingSign} from '../functions/api/_parking_notifications.js';import {now,kstToday} from '../functions/api/_lib.js';
+function setup(t){
+ t.mock.method(Date,'now',()=>Date.parse('2026-11-03T12:00:00+09:00'));const f=base({booking:true});t.after(()=>f.db.close());
+ Object.assign(f.env,{ALIGO_LIVE_ENABLED:'true',ALIGO_RELAY_URL:'https://relay.naranhistory.com/megaspot/aligo',ALIGO_RELAY_SECRET:'test-deposit-relay-secret-more-than-32',ALIGO_SENDER_KEY:'test-profile',ALIGO_SENDER:'01012345678',DEPOSIT_ACCOUNT_KEY:'cd'.repeat(32)});
+ let review='APR',broken=false,result='0',onSend=null;const sent=[];
+ t.mock.method(globalThis,'fetch',async(url,opts)=>{assert.equal(url,f.env.ALIGO_RELAY_URL);const request=JSON.parse(opts.body),d=request.data;assert.equal(opts.headers['X-Megaspot-Signature'],await parkingSign(f.env.ALIGO_RELAY_SECRET,opts.body));
+  if(request.path==='template/list'){const k=Object.keys(C).find(k=>C[k]===d.tpl_code);return Response.json({code:0,list:[{templtCode:C[k],inspStatus:review,status:'R',templtContent:T[k].content,buttons:T[k].buttons}]});}
+  if(request.path==='alimtalk/send'){sent.push(d);if(onSend)await onSend(d);if(broken)throw Error('transport unknown');return Response.json({code:0,info:{mid:String(sent.length),scnt:1,fcnt:0}});}
+  if(request.path==='history/detail'){const previous=sent[Number(d.mid)-1];return Response.json({code:0,list:[{type:'AT',phone:previous.receiver_1,tpl_code:previous.tpl_code,senderKey:f.env.ALIGO_SENDER_KEY,rsltdate:now(),rslt:result,msgid:'12345'}]});}assert.fail(request.path);
+ });
+ const api=(path='',method='GET',data,expected=200)=>f.api('deposit-notifications'+path,method,data,expected);
+ const cfg={enabled:false,types:{payment:true,account:true,refunded:true},codes:C};
+ const tick=async(send=true)=>{f.db.exec('DELETE FROM deposit_notification_lease');return depositNoticeTick(f.env,send);};
+ async function tests(){await api('/settings','PUT',cfg);for(const kind of Object.keys(T)){f.db.exec("UPDATE deposit_notifications SET occurred_at=datetime('now','-2 minutes') WHERE mode='test'");await api('/test','POST',{phone:'01011112222',kind,confirm_test:true});await tick(false);}}
+ async function enable(){await tests();await api('/settings','PUT',{...cfg,enabled:true});}
+ function booking(code='BK-NEW',extra={}){const p={date:kstToday(20),name:'보증금 시험 고객',ref:null,...extra};f.db.prepare('INSERT INTO bookings(booking_code,space_id,inquiry_ref,customer_name,phone,phone_last4,date,status,start_h,end_h,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)').run(code,'megaspot-gundae',p.ref,p.name,'01099998888','8888',p.date,'confirmed',10,17,now());}
+ return {...f,api,cfg,tick,tests,enable,booking,sent,setReview:x=>review=x,setBroken:()=>broken=true,setResult:x=>result=x,onSend:f=>onSend=f};
+}
+test('기본 OFF·관리자 인증·서명 없는 cron 차단·승인과 종류별 시험 수신 필수',async t=>{
+ const f=setup(t);assert.equal((await f.api()).enabled,false);f.booking();assert.equal(f.db.prepare("SELECT COUNT(*) n FROM deposit_notifications").get().n,0);
+ await f.api('/settings','PUT',{...f.cfg,enabled:true},409);const response=await cron({env:f.env,params:{path:['tick']},request:new Request('https://local.test/api/deposit-notifications/tick',{method:'POST',body:'{}'})});assert.equal(response.status,403);assert.equal(f.sent.length,0);
+ f.setReview('REQ');await f.api('/settings','PUT',f.cfg);await f.api('/test','POST',{phone:'01011112222',kind:'payment',confirm_test:true},409);assert.equal(f.sent.length,0);
+});
+test('운영자 시험은 접수·실제 도착 구분, 새 설정의 세 종류 모두 확인해야 자동 활성화',async t=>{
+ const f=setup(t);await f.tests();const c=await f.api();for(const k of Object.keys(T))assert.equal(c.tested[k],true);assert.equal(f.sent.length,3);assert.ok(f.sent.every(d=>d.receiver_1==='01011112222'&&d.failover==='N'));
+ await f.api('/settings','PUT',{...f.cfg,enabled:true});f.env.ALIGO_SENDER='01000000000';await f.api('/settings','PUT',{...f.cfg,enabled:true},409);
+});
+test('활성화는 기존 예약을 소급 등록하지 않고 새 예약 확정에만 입금 안내를 만든다',async t=>{
+ const f=setup(t);await f.enable();assert.equal(f.db.prepare("SELECT COUNT(*) n FROM deposit_notifications WHERE mode='live'").get().n,0);f.booking();await f.tick();const rows=f.db.prepare("SELECT * FROM deposit_notifications WHERE mode='live'").all();assert.equal(rows.length,1);assert.equal(rows[0].kind,'payment');assert.equal(rows[0].status,'accepted');assert.match(f.sent.at(-1).message_1,/150,000원/);assert.ok(!f.sent.at(-1).message_1.includes('#{'));
+});
+test('입금 확인 후에는 미발송 입금 안내를 취소하고 계좌 요청을 단 한 번 생성',async t=>{
+ const f=setup(t);await f.enable();f.booking();f.db.prepare('INSERT INTO booking_deposit_checks VALUES(?,?,?)').run('BK-NEW',1,now());f.db.prepare('UPDATE booking_deposit_checks SET paid=1 WHERE booking_code=?').run('BK-NEW');await f.tick();const rows=f.db.prepare("SELECT kind,status FROM deposit_notifications WHERE mode='live' ORDER BY id").all();assert.deepEqual(rows.map(r=>[r.kind,r.status]),[['payment','cancelled'],['account','accepted']]);
+ const d=f.sent.at(-1),link=JSON.parse(d.button_1).button[0].linkMo;assert.match(link,/^https:\/\/megaspot.kr\/deposit\/#refund-account=[A-Za-z0-9_-]{43}$/);const outbox=JSON.stringify(f.db.prepare('SELECT * FROM deposit_notifications').all());assert.ok(!outbox.includes(link.split('=')[1]));assert.ok(!outbox.includes('account_cipher'));
+});
+test('문의를 통한 입금 확인·직접 예약·이미 입금된 신규 예약을 모두 연결',async t=>{
+ const f=setup(t);await f.enable();f.db.prepare('INSERT INTO inquiry_checks VALUES(?,?,?)').run('MS-TEST','{"guarantee_paid":true}',now());f.booking('BK-LINKED',{ref:'MS-TEST'});f.db.prepare("UPDATE inquiry_checks SET checks=json_set(checks,'$.guide_sent',true) WHERE ref='MS-TEST'").run();const rows=f.db.prepare("SELECT booking_code,kind FROM deposit_notifications WHERE mode='live'").all();assert.ok(rows.some(r=>r.booking_code==='BK-TEST'&&r.kind==='account'));assert.ok(rows.some(r=>r.booking_code==='BK-LINKED'&&r.kind==='account'));assert.equal(rows.filter(r=>r.booking_code==='BK-TEST').length,1);
+});
+test('고객이 이미 계좌를 등록했거나 예약자·연락처가 달라지면 요청을 취소',async t=>{
+ const f=setup(t);await f.enable();f.booking();f.db.prepare('INSERT INTO booking_deposit_checks VALUES(?,?,?)').run('BK-NEW',1,now());f.db.prepare("INSERT INTO booking_refunds(booking_code,amount,account_cipher,created_at,updated_at) VALUES('BK-NEW',150000,'cipher',?,?)").run(now(),now());await f.tick();assert.equal(f.db.prepare("SELECT status FROM deposit_notifications WHERE mode='live' AND kind='account'").get().status,'cancelled');
+ f.booking('BK-CHANGED');f.db.prepare("UPDATE bookings SET phone='01033334444' WHERE booking_code='BK-CHANGED'").run();await f.tick();assert.equal(f.db.prepare("SELECT status FROM deposit_notifications WHERE booking_code='BK-CHANGED'").get().status,'cancelled');
+});
+test('환급 완료 전환과 outbox가 원자적이며 확정 금액·차감액을 사용',async t=>{
+ const f=setup(t);await f.enable();f.db.prepare("INSERT INTO booking_refunds(booking_code,amount,created_at,updated_at) VALUES('BK-TEST',150000,?,?)").run(now(),now());f.db.exec('BEGIN');f.db.prepare("UPDATE booking_refunds SET state='completed',paid_amount=130000,deduction=20000,completion_id='done',completed_at=? WHERE booking_code='BK-TEST'").run(now());f.db.exec('ROLLBACK');assert.equal(f.db.prepare("SELECT COUNT(*) n FROM deposit_notifications WHERE mode='live'").get().n,0);
+ f.db.prepare("UPDATE booking_refunds SET state='completed',paid_amount=130000,deduction=20000,completion_id='done',completed_at=? WHERE booking_code='BK-TEST'").run(now());await f.tick();assert.match(f.sent.at(-1).message_1,/최종 환급액: 130,000원/);assert.match(f.sent.at(-1).message_1,/차감액: 20,000원/);assert.ok(!f.sent.at(-1).message_1.includes('298-910064'));
+});
+test('통신 결과 불명은 자동 재발송하지 않고 상태·계좌 잠금을 보존',async t=>{
+ const f=setup(t);await f.enable();f.booking();f.setBroken();await f.tick();await f.tick();assert.equal(f.sent.length,4);assert.equal(f.db.prepare("SELECT status FROM deposit_notifications WHERE mode='live'").get().status,'unknown');assert.equal(f.db.prepare("SELECT status FROM bookings WHERE booking_code='BK-NEW'").get().status,'confirmed');
+});
+test('야간은 대기하고 다음 주간에 발송하며 중지 시 대기 건 취소',async t=>{
+ const f=setup(t);await f.enable();f.booking();t.mock.method(Date,'now',()=>Date.parse('2026-11-03T23:00:00+09:00'));await f.tick();assert.equal(f.db.prepare("SELECT status FROM deposit_notifications WHERE mode='live'").get().status,'queued');assert.equal(f.sent.length,3);
+ await f.api('/settings','PUT',f.cfg);assert.equal(f.db.prepare("SELECT status FROM deposit_notifications WHERE mode='live'").get().status,'cancelled');
+});
+test('서명 상태 조회는 고객 데이터 없이 읽기만 하며 메시지를 발송하지 않음',async t=>{
+ const f=setup(t);await f.enable();f.booking();const body=JSON.stringify({time:Date.now()});const response=await cron({env:f.env,params:{path:['status']},request:new Request('https://local.test/api/deposit-notifications/status',{method:'POST',headers:{'X-Megaspot-Signature':await parkingSign(f.env.ALIGO_RELAY_SECRET,body)},body})});assert.equal(response.status,200);const raw=await response.text();assert.ok(!raw.includes('01099998888'));assert.equal(f.sent.length,3);
+});
+test('생성기와 자동 스키마는 outbox·모든 상태 전환 트리거를 재적용 가능',async t=>{
+ const {SCHEMA}=await import('../functions/api/_schema.js');const db=new DatabaseSync(':memory:');t.after(()=>db.close());for(const sql of SCHEMA)db.exec(sql);for(const sql of SCHEMA)db.exec(sql);assert.equal(db.prepare("SELECT COUNT(*) n FROM sqlite_master WHERE type='trigger' AND name LIKE 'deposit_notice_%'").get().n,7);
+});
+
+test('동시에 여러 처리기가 실행되어도 한 번만 접수한다',async t=>{
+ const f=setup(t);await f.enable();f.booking();f.db.exec('DELETE FROM deposit_notification_lease');const r=await Promise.all([depositNoticeTick(f.env),depositNoticeTick(f.env)]);assert.ok(r.some(x=>x.busy));assert.equal(f.sent.length,4);
+});
+test('발송 도중 운영자가 중지하면 다음 고객은 즉시 제외된다',async t=>{
+ const f=setup(t);await f.enable();f.booking('BK-ONE');f.booking('BK-TWO');f.onSend(d=>{if(d.receiver_1==='01099998888')f.db.exec("UPDATE settings SET value=json_set(value,'$.enabled',json('false')) WHERE key='deposit_alimtalk'");});await f.tick();assert.equal(f.sent.filter(x=>x.receiver_1==='01099998888').length,1);await f.tick();assert.equal(f.db.prepare("SELECT status FROM deposit_notifications WHERE booking_code='BK-TWO'").get().status,'cancelled');
+});
+test('기존 입금 확인 메모형 값도 입금 완료로 인식해 입금 안내 중복을 막는다',async t=>{
+ const f=setup(t);await f.enable();f.db.prepare('INSERT INTO inquiry_checks VALUES(?,?,?)').run('MS-TEST','{"guarantee_paid":"입금확인"}',now());f.booking('BK-LEGACY',{ref:'MS-TEST'});const rows=f.db.prepare("SELECT kind FROM deposit_notifications WHERE booking_code='BK-LEGACY'").all();assert.deepEqual(rows.map(x=>x.kind),['account']);
+});
