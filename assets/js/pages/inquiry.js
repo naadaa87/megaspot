@@ -36,6 +36,7 @@
         var calculatedMessage=window.MEGASPOT_RECEPTION_CALC.inquiryText(q.get('reception_people'),q.get('reception_format'),reception);
         if(calculatedMessage) receptionMessage=calculatedMessage;
       }
+      M.receptionSelection=receptionCalc?{course:reception,people:q.get('reception_people')||q.get('people')||null,format:q.get('reception_format')||''}:null;
       M.receptionMessage=receptionMessage;
       var rm=document.querySelector('#iq-msg'); if(rm&&!rm.value) rm.value=receptionMessage;
       document.querySelectorAll('[name=rv_message]').forEach(function(el){if(!el.value) el.value=receptionMessage;});

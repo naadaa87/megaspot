@@ -16,19 +16,11 @@
     $('#ar-to-quote').disabled=state.busy||!q.ok||cancelled;
     $('#ar-copy').disabled=!q.ok||cancelled;$('#ar-open').hidden=!state.target;
     $('#ar-target').textContent=state.target?state.target.ref+' · '+(state.target.name||'')+' · '+X.spaceName(state.target.space_id)+(state.dirty?' · 변경 내용 미저장':'')+' — 고객·행사 정보 수정은 문의 상세에서 해 주세요.':'문의 없이 계산하거나, 문의를 불러와 그 건에 저장할 수 있습니다.';
-    $('#ar-menu').textContent=(C.course($('#ar-course').value)||C.data.course).menus.join(' · ')+'\n\n'+C.data.menuNote;
+    var menuCourse=C.course($('#ar-course').value);$('#ar-menu').textContent=(menuCourse?menuCourse.menus.join(' · '):'코스를 선택하면 메뉴를 표시합니다.')+'\n\n'+C.data.menuNote;
     if(!q.ok){box.innerHTML='<h2>케이터링 견적</h2><p role="status">'+esc(q.message)+'</p>';return;}
     box.innerHTML='<h2>'+esc(q.formatName)+'</h2><div class="cc-total"><span>'+(cancelled?'취소 구성 · 합계 제외':esc(q.courseName)+' 예상 금액')+'<small>부가세 적용 여부 확인 전</small></span><b>'+C.won(q.total)+'</b></div>'
       +'<table class="q-table"><tbody><tr><td>'+esc(q.courseName)+' '+q.people+'명<small>1인 '+C.won(q.unitPrice)+'</small></td><td>'+C.won(q.food)+'</td></tr><tr><td>'+esc(q.feeName)+'<small>'+esc(q.feeLabel)+'</small></td><td data-ar-fee>'+C.won(q.fee)+'</td></tr></tbody><tfoot><tr><td>합계</td><td data-ar-total>'+C.won(q.total)+'</td></tr></tfoot></table>'
       +'<p class="tiny muted">테이블 세팅은 철수 비용까지 포함합니다. 부가세·최소 주문 조건은 최종 견적에서 확인하며, 공간 대관료와 반환 보증금은 별도입니다.</p><p class="small muted">'+esc(C.data.menuNote)+'</p>';
-  }
-  function legacy(data){
-    var text=String(data.message||'')+'\n'+String(data.summary||'');
-    if(!/출장 케이터링|도시락·핑거푸드/.test(text))return null;
-    var block=text.match(/\[출장 케이터링 (?:라이트|클래식|프리미엄|시그니처) 상담\][\s\S]*?(?=\n\n|$)/), sample=block?block[0]:text;
-    var people=sample.match(/· 인원: (\d+)명/)||sample.match(/(?:라이트|클래식|프리미엄|시그니처)[^\n]*?· (\d+)명/);
-    var selected=C.data.courses.find(function(c){return new RegExp('(?:출장 케이터링 |도시락·핑거푸드 케이터링 )'+c.name).test(sample);});
-    return {course:selected?selected.id:'classic',format:/테이블 세팅 케이터링/.test(sample)?'table':/박스 케이터링/.test(sample)?'box':/도시락 케이터링/.test(sample)?'lunchbox':'table',people:people?people[1]:50,status:'pending',note:''};
   }
   function load(ref){
     ref=String(ref||'').trim().toUpperCase();
@@ -37,13 +29,13 @@
     var request=++state.request;$('#ar-load').disabled=true;
     return X.A('/inquiries/'+encodeURIComponent(ref)).then(function(r){
       if(request!==state.request)return false;
-      var it=r.item,d=it.data||{},saved=d.reception||legacy(d);state.target=it;state.dirty=false;
+      var it=r.item,d=it.data||{},saved=C.fromInquiry(d);state.target=it;state.dirty=false;
       $('#ar-ref').value=it.ref;$('#ar-customer').value=d.name||it.name||'';$('#ar-phone').value=d.phone||it.phone||'';$('#ar-date').value=d.date||it.event_date||'';$('#ar-space').value=it.space_id==='megaspot-gundae-2'?it.space_id:'megaspot-gundae';
-      $('#ar-course').value=saved&&saved.course||'classic';$('#ar-format').value=saved&&saved.format||'table';$('#ar-people').value=saved&&saved.people||it.headcount||50;$('#ar-status').value=saved&&saved.status||'pending';$('#ar-note').value=saved&&saved.note||'';
+      $('#ar-course').value=saved?saved.course:'classic';$('#ar-format').value=saved?saved.format:'table';$('#ar-people').value=saved?(saved.people||''):(it.headcount||50);$('#ar-status').value=saved&&saved.status||'pending';$('#ar-note').value=saved&&saved.note||'';
       $('#ar-msg').hidden=true;paint();return true;
     }).catch(function(e){if(request===state.request)error(e);return false;}).finally(function(){if(request===state.request)$('#ar-load').disabled=false;});
   }
-  $('#ar-course').innerHTML=C.data.courses.map(function(c){return '<option value="'+esc(c.id)+'"'+(c.id==='classic'?' selected':'')+'>'+esc(c.name)+' · 1인 '+C.won(c.price)+'</option>';}).join('');
+  $('#ar-course').innerHTML='<option value="all">상담 후 결정</option>'+C.data.courses.map(function(c){return '<option value="'+esc(c.id)+'"'+(c.id==='classic'?' selected':'')+'>'+esc(c.name)+' · 1인 '+C.won(c.price)+'</option>';}).join('');
   $('#ar-load').addEventListener('click',function(){load($('#ar-ref').value);});
   $('#ar-ref').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();load(this.value);}});
   $('#ar-ref').addEventListener('input',function(){++state.request;$('#ar-load').disabled=false;if(state.target&&this.value.trim().toUpperCase()!==state.target.ref)state.target=null;paint();});

@@ -720,7 +720,15 @@
       Q.extras=Q.extras.filter(function(x){ return x.kind!=='catering'&&!/^출장뷔페 ·/.test(x.label||''); });
       if(d.catering && d.catering.status!=='cancelled' && !d.catering.removed) Q.extras.push({kind:'catering',label:'출장뷔페 · '+(d.catering.summary||'저장 구성'),amount:d.catering.total||0});
     }
-    if(d.included_reception_amount!=null && Q.extras.some(function(x){ return x.kind==='reception'; })){ Q.extras=Q.extras.filter(function(x){ return x.kind!=='reception'; }); if(d.reception && d.reception.status!=='cancelled') Q.extras.push({kind:'reception',label:'도시락·핑거푸드 케이터링 · '+d.reception.summary+' (부가세 확인 전)',amount:d.reception.total,reception:d.reception}); }
+    var rec=window.MEGASPOT_RECEPTION_CALC.fromInquiry(d);
+    if(rec && (!previous || d.reception_in_quote || Q.note.indexOf('케이터링 상담 필요: ')>=0 || Q.extras.some(function(x){return x.kind==='reception';}))){
+      Q.extras=Q.extras.filter(function(x){return x.kind!=='reception';});
+      if(rec.status!=='cancelled'){
+        if(rec.total!=null){Q.note=Q.note.split('\n').filter(function(line){return line.indexOf('케이터링 상담 필요: ')!==0;}).join('\n');Q.extras.push({kind:'reception',label:'도시락·핑거푸드 케이터링 · '+rec.summary+' (부가세 확인 전)',amount:rec.total,reception:rec});}
+        else if(!previous)Q.note+=(Q.note?'\n':'')+'케이터링 상담 필요: '+rec.summary+' (금액 미정 · 합계 제외)';
+        if(rec.requested_total!=null && rec.total!=null && rec.requested_total!==rec.total)Q.note+=(Q.note?'\n':'')+'케이터링 접수 당시 안내금액 '+won(rec.requested_total)+' · 현재 요금 기준 '+won(rec.total);
+      }
+    }
     fillForm(); $('#q-msg').hidden=true; quoteDirty=false; return true;
   }
   function loadSavedQuote(q, ref){
@@ -1870,6 +1878,7 @@
       Q=blankQ(); Q.customer=target.customer; Q.phone=target.phone; Q.space=spaceOk(target.space); useSpace(Q.space); Q.people=Math.min(D.people.max,quote.people); Q.deposit=D.deposit.amount; if(target.date) Q.date=target.date;
     }
     Q.extras=Q.extras.filter(function(x){ return x.kind!=='reception'; });
+    Q.note=Q.note.split('\n').filter(function(line){return line.indexOf('케이터링 상담 필요: ')!==0;}).join('\n');
     Q.extras.push({kind:'reception',label:'도시락·핑거푸드 케이터링 · '+quote.formatName+' '+quote.courseName+' '+quote.people+'명 (세팅비 포함 · 부가세 확인 전)',amount:quote.total,reception:config});
     invalidateQuote(); fillForm(); go('quote'); M.toast('케이터링 '+won(quote.total)+'을(를) 대관 견적에 넣었습니다. 견적 저장을 눌러 문의에도 반영해 주세요.');
     return Promise.resolve(true);
