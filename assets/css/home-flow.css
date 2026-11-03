@@ -3,8 +3,9 @@
 .home-section-nav a{padding:7px 12px;border:1px solid var(--concrete-2);border-radius:4px;font-size:13px;font-weight:700;background:white}
 .home-venue-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
 .home-venue-card{min-width:0;background:white;border:1px solid var(--concrete-2);border-radius:var(--radius-lg);overflow:hidden;display:flex;flex-direction:column}
-.home-venue-photo{position:relative;display:block;overflow:hidden}
-.home-venue-photo img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover}
+.home-venue-photo{position:relative;display:block;overflow:hidden;aspect-ratio:16/9;flex:none}
+.home-venue-photo img{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:cover;object-position:center}
+.home-venue-card#gundae2 .home-venue-photo img{object-position:50% 45%}
 .home-venue-photo>span{position:absolute;left:16px;bottom:16px;background:var(--ink);color:white;padding:5px 10px;font-size:12px;border-radius:3px}
 .home-venue-content{padding:28px;display:flex;flex-direction:column;flex:1}
 .home-venue-content h3{font-size:28px;line-height:1.35;letter-spacing:-.025em;margin:8px 0 16px}
