@@ -9,7 +9,7 @@ function fixture(){
  const M={esc:s=>String(s??'').replaceAll('<','&lt;')};
  const ctx={window:{MEGASPOT:M,MEGASPOT_RECEPTION_CALC:RC,MEGASPOT_CATERING_CALC:{read:()=>cat,quote:c=>c,parts:c=>c.summary},MEGASPOT_COCKTAIL_CALC:{read:()=>ck,names:{mojito:'모히토',blue_sapphire:'블루 사파이어'}}},URLSearchParams,location:{search:''},sessionStorage:{getItem:k=>state.get(k),setItem:(k,v)=>state.set(k,v),removeItem:k=>state.delete(k)},Date};
  vm.runInNewContext(readFileSync(new URL('../assets/js/event-plan.js',import.meta.url),'utf8'),ctx);
- return {plan:M.eventPlan,root:{querySelector:s=>{if(s.includes('event_date_unknown'))return unknown;const name=s.match(/name="([^"]+)"/);return rec&&name?rec[name[1]]||null:null;}},food(c,k){cat=c;ck=k;},unknown(){unknown=true;},reception(format,people=50){rec={reception_on:{checked:true},reception_course:{value:'classic'},reception_format:{value:format},reception_people:{value:String(people)}};}};
+ return {plan:M.eventPlan,root:{querySelector:s=>{if(s.includes('event_date_unknown'))return unknown;const name=s.match(/name="([^"]+)"/);return rec&&name?rec[name[1]]||null:null;}},food(c,k){cat=c;ck=k;},unknown(){unknown=true;},reception(format,people=50,course='classic'){rec={reception_on:{checked:true},reception_course:{value:course},reception_format:{value:format},reception_people:{value:String(people)}};}};
 }
 test('행사 소계는 대관·뷔페를 합산하고 반환 보증금을 제외한다',()=>{
  const f=fixture();f.food({summary:'클래식 60명',total:2750000});const q=f.plan.quote(f.root,{total:500000,deposit:150000,people:60});
@@ -60,4 +60,15 @@ test('통합 견적과 견적서 요약에 칵테일 메뉴·논알코올·추�
  const f=fixture();f.food(null,{cups:200,price:1100000,menus:['mojito','blue_sapphire'],nonalcohol:true,note:'민트 적게'});
  const q=f.plan.quote(f.root,{total:500000,deposit:150000,people:60});
  for(const detail of ['모히토, 블루 사파이어','논알코올 구성 상담','민트 적게']){assert.ok(q.text.includes(detail));assert.ok(q.html.includes(detail));}
+});
+
+
+test('고객 통합 견적은 네 코스 모두 선택한 단가·인원·방식으로 계산해 문의 요약에 남긴다',()=>{
+ for(const course of RC.data.courses)for(const format of ['table','box','lunchbox'])for(const people of [50,51,100,101,300]){
+  const f=fixture();f.reception(format,people,course.id);const rec=f.plan.reception(f.root,people),expected=RC.quote(people,format,course.id);
+  assert.equal(rec.total,expected.total);assert(rec.label.includes(course.name));assert(rec.summary.includes(RC.won(expected.total)));assert(rec.summary.includes(RC.won(expected.unitPrice)));
+  assert.equal(f.plan.quote(f.root,{total:500000,deposit:150000,people}).total,500000+expected.total);
+ }
+ for(const course of RC.data.courses){const f=fixture();f.reception('table',301,course.id);const rec=f.plan.reception(f.root,301);assert.equal(rec.total,null);assert(rec.summary.includes(course.name));assert.match(rec.summary,/301명.*별도 견적/);}
+ const f=fixture();f.reception('table',50,'all');assert.equal(f.plan.reception(f.root,50).total,null);
 });

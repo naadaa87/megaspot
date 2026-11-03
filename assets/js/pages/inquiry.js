@@ -32,8 +32,8 @@
       var receptionCalc=window.MEGASPOT_RECEPTION_CALC;
       var receptionFormat=receptionCalc?receptionCalc.formatLabel(q.get('reception_format')):'';
       if(receptionFormat)receptionMessage+='\n희망 제공 방식: '+receptionFormat+' (포장·기물·세팅 범위 최종 협의)';
-      if(reception==='classic'&&q.has('reception_people')&&M&&window.MEGASPOT_RECEPTION_CALC){
-        var calculatedMessage=window.MEGASPOT_RECEPTION_CALC.inquiryText(q.get('reception_people'),q.get('reception_format'));
+      if(receptionCalc&&receptionCalc.course(reception)&&q.has('reception_people')){
+        var calculatedMessage=window.MEGASPOT_RECEPTION_CALC.inquiryText(q.get('reception_people'),q.get('reception_format'),reception);
         if(calculatedMessage) receptionMessage=calculatedMessage;
       }
       M.receptionMessage=receptionMessage;
