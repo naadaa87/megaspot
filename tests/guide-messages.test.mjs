@@ -111,13 +111,35 @@ test('미발송 필터는 완료·처리 중·수동 안내를 제외하고 실�
   assert.deepEqual(unsent.items.map(x=>x.booking_code).sort(),['BK-CANCELLED','BK-FAILED','BK-NEVER','BK-OTHER-PURPOSE','BK-TEST-ONLY']);
   assert.equal((await f.api('guide-messages/candidates?status=all')).items.length,11);
   assert.equal((await f.api('guide-messages/candidates')).items.length,11);
+  assert.deepEqual((await f.api('guide-messages/candidates?status=failed')).items.map(x=>x.booking_code),['BK-FAILED']);
+  assert.deepEqual((await f.api('guide-messages/candidates?status=needs_review')).items.map(x=>x.booking_code).sort(),['BK-ACCEPTED','BK-QUEUED','BK-SENDING','BK-UNKNOWN']);
   assert.equal(f.sent.length,0);
+});
+test('오류 필터는 이전·취소 예약까지 최신 고객 발송 이력만 조회하고 재발송 보호를 유지한다',async t=>{
+  const f=setup(t,{booking:false});await f.api('guide-messages/settings','PUT',f.settings);
+  const add=f.db.prepare("INSERT INTO bookings(booking_code,space_id,customer_name,phone,phone_last4,date,start_h,end_h,status,created_at) VALUES(?,?,'오류 확인 고객','01012345678','5678',?,10,17,?,'now')");
+  const message=f.db.prepare("INSERT INTO booking_guide_messages(id,booking_code,purpose,mode,status,snapshot,config_hash,actor,created_at,updated_at) VALUES(?,?,?,?,?,'{}','fixture','admin','now','now')");
+  for(const [code,space,date,status] of [
+    ['BK-OLD-FAILED','megaspot-gundae','2000-01-01','cancelled'],['BK-OLD-UNKNOWN','megaspot-gundae','2000-01-01','completed'],
+    ['BK-RETRIED','megaspot-gundae',DAY,'confirmed'],['BK-RESOLVED','megaspot-gundae',DAY,'confirmed'],
+    ['BK-TEST-ONLY','megaspot-gundae',DAY,'confirmed'],['BK-OTHER-PURPOSE','megaspot-gundae',DAY,'confirmed'],
+    ['BK-SECOND-FAILED','megaspot-gundae-2',DAY,'confirmed']])add.run(code,space,date,status);
+  let n=0;const record=(code,status,mode='live',purpose=GUIDE_VERSION)=>message.run('review-'+n++,code,purpose,mode,status);
+  record('BK-OLD-FAILED','failed');record('BK-OLD-UNKNOWN','unknown');record('BK-SECOND-FAILED','failed');
+  record('BK-RETRIED','failed');record('BK-RETRIED','delivered');record('BK-RESOLVED','unknown');
+  f.db.prepare("UPDATE booking_guide_messages SET status='cancelled' WHERE booking_code='BK-RESOLVED'").run();
+  record('BK-TEST-ONLY','failed','test');record('BK-OTHER-PURPOSE','unknown','live','another-message');
+  const failed=await f.api('guide-messages/candidates?status=failed');
+  assert.deepEqual(failed.items.map(x=>x.booking_code),['BK-OLD-FAILED','BK-SECOND-FAILED']);assert.ok(failed.items[0].exclusion);
+  assert.deepEqual((await f.api('guide-messages/candidates?status=needs_review')).items.map(x=>x.booking_code),['BK-OLD-UNKNOWN']);
+  assert.deepEqual((await f.api('guide-messages/candidates?status=failed&space=megaspot-gundae-2&from='+DAY+'&to='+DAY)).items.map(x=>x.booking_code),['BK-SECOND-FAILED']);
+  const p=await f.preview({codes:['BK-OLD-FAILED','BK-OLD-UNKNOWN','BK-RETRIED']});assert.equal(p.items.length,0);assert.equal(p.excluded.length,3);assert.equal(f.sent.length,0);
 });
 test('미발송 필터를 페이지 분할 전에 적용하고 날짜·호점 조건도 함께 유지한다',async t=>{
   const f=setup(t,{booking:false});
   const add=f.db.prepare("INSERT INTO bookings(booking_code,space_id,customer_name,phone,phone_last4,date,start_h,end_h,status,created_at) VALUES(?,?,'페이지 고객','01012345678','5678',?,10,17,'confirmed','now')");
-  const message=f.db.prepare("INSERT INTO booking_guide_messages(id,booking_code,purpose,mode,status,snapshot,config_hash,actor,created_at,updated_at) VALUES(?,?,?,'live','delivered','{}','fixture','admin','now','now')");
-  for(let n=0;n<220;n++){const code='BK-PAGE-'+n;add.run(code,'megaspot-gundae',DAY);if(n<110)message.run(code,code,GUIDE_VERSION);}
+  const message=f.db.prepare("INSERT INTO booking_guide_messages(id,booking_code,purpose,mode,status,snapshot,config_hash,actor,created_at,updated_at) VALUES(?,?,?,'live',?,'{}','fixture','admin','now','now')");
+  for(let n=0;n<220;n++){const code='BK-PAGE-'+n;add.run(code,'megaspot-gundae',DAY);message.run(code,code,GUIDE_VERSION,n<110?'delivered':'failed');}
   add.run('BK-SPACE-TWO','megaspot-gundae-2',DAY);
   const q='guide-messages/candidates?status=unsent&from='+DAY+'&to='+DAY+'&space=megaspot-gundae';
   const a=await f.api(q),b=await f.api(q+'&page=1');
@@ -126,6 +148,9 @@ test('미발송 필터를 페이지 분할 전에 적용하고 날짜·호점 �
   assert.ok([...a.items,...b.items].every(x=>Number(x.booking_code.split('-').pop())>=110));
   const other=await f.api('guide-messages/candidates?status=unsent&space=megaspot-gundae-2&from='+DAY+'&to='+DAY);
   assert.deepEqual(other.items.map(x=>x.booking_code),['BK-SPACE-TWO']);assert.equal(f.sent.length,0);
+  const failures=await f.api(q.replace('status=unsent','status=failed')),more=await f.api(q.replace('status=unsent','status=failed')+'&page=1');
+  assert.equal(failures.items.length,100);assert.equal(failures.has_more,true);assert.equal(more.items.length,10);assert.equal(more.has_more,false);
+  assert.equal(new Set([...failures.items,...more.items].map(x=>x.booking_code)).size,110);
 });
 test('설정 변경은 시험 수신 증명을 무효화한다',async t=>{
   const f=setup(t);await f.enable();await f.api('guide-messages/settings','PUT',{...f.settings,spaces:['megaspot-gundae','megaspot-gundae-2']});assert.equal((await f.api('guide-messages/settings')).test_delivered,false);
