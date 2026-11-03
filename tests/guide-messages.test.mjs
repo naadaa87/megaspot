@@ -242,3 +242,132 @@ test('0으로 채워진 미수신 결과 시각을 실제 성공으로 오인하
 test('승인 템플릿의 CRLF 개행 형식을 실제 전송 내용에도 보존한다',async t=>{
   const f=setup(t);f.setTemplate({templtContent:GUIDE_TEMPLATE.replace(/\n/g,'\r\n')});await f.enable();await f.send(await f.preview());assert.ok(f.sent[1].message_1.includes('\r\n'));assert.doesNotMatch(f.sent[1].message_1,/(?<!\r)\n/);
 });
+
+// Journey regressions: isolated SQLite + mocked Aligo only; never use production credentials.
+test('한 문의의 여러 예약은 각각 안내하며 나중에 추가한 예약은 이전 완료 체크를 상속하지 않는다',async t=>{
+  const f=setup(t);await f.enable();
+  const add=code=>f.db.prepare("INSERT INTO bookings(booking_code,space_id,inquiry_ref,customer_name,phone,phone_last4,date,start_h,end_h,status,created_at) VALUES(?,'megaspot-gundae','MS-TEST','복수 예약 고객','01012345678','5678',?,18,22,'confirmed','now')").run(code,DAY);
+  add('BK-SECOND');
+  let r=await f.send(await f.preview());await f.api('guide-messages/'+r.items[0].id+'/refresh','POST',{});
+  assert.equal(f.db.prepare("SELECT checks FROM inquiry_checks WHERE ref='MS-TEST'").get(),undefined);
+  assert.deepEqual((await f.api('guide-messages/candidates?status=unsent')).items.map(x=>x.booking_code),['BK-SECOND']);
+  r=await f.send(await f.preview({codes:['BK-SECOND']}));await f.api('guide-messages/'+r.items[0].id+'/refresh','POST',{});
+  assert.ok(JSON.parse(f.db.prepare("SELECT checks FROM inquiry_checks WHERE ref='MS-TEST'").get().checks).guide_sent);
+  add('BK-THIRD');assert.equal((await f.preview({codes:['BK-THIRD']})).items.length,1);
+  assert.equal(f.sent.length,3);
+});
+test('발송 완료 후 일정 변경은 최신 버전 미리보기로 재안내하며 메모·금액 수정은 재안내를 만들지 않는다',async t=>{
+  const f=setup(t);await f.enable();
+  const first=await f.send(await f.preview());await f.api('guide-messages/'+first.items[0].id+'/refresh','POST',{});
+  f.db.prepare("UPDATE bookings SET memo='내부 메모',amount=550000 WHERE booking_code='BK-TEST'").run();
+  assert.equal((await f.preview()).items.length,0);assert.equal(f.db.prepare("SELECT revision FROM booking_guide_state WHERE booking_code='BK-TEST'").get().revision,0);
+  await f.api('inquiries/MS-TEST','PATCH',{edit:true,name:'검증 고객',phone:'010-1234-5678',date:DAY,start_h:11,end_h:18,headcount:30,amount_mode:'keep'});
+  const items=(await f.api('guide-messages/candidates?status=changed')).items;assert.equal(items.length,1);assert.equal(items[0].needs_review,true);assert.equal(items[0].revision,1);
+  const p=await f.preview();assert.equal(p.items.length,1);assert.equal(p.items[0].needs_review,true);assert.match(p.items[0].message,/11:00~18:00/);
+  const r=await f.send(p);await f.api('guide-messages/'+r.items[0].id+'/refresh','POST',{});
+  assert.equal(f.db.prepare("SELECT COUNT(*) n FROM booking_guide_messages WHERE mode='live' AND status='delivered'").get().n,2);
+  assert.equal((await f.api('guide-messages/candidates?status=changed')).items.length,0);assert.equal((await f.preview()).items.length,0);
+});
+test('이전 버전의 접수·결과 불명은 변경 후에도 잠그고 늦은 성공이 새 버전을 완료 처리하지 않는다',async t=>{
+  const f=setup(t);await f.enable();const first=await f.send(await f.preview());
+  f.db.prepare("UPDATE bookings SET end_h=18 WHERE booking_code='BK-TEST'").run();
+  assert.equal((await f.preview()).items.length,0);
+  await f.api('guide-messages/'+first.items[0].id+'/refresh','POST',{});
+  assert.equal(f.db.prepare("SELECT needs_review FROM booking_guide_state WHERE booking_code='BK-TEST'").get().needs_review,1);
+  assert.equal((await f.preview()).items.length,1);
+  const r=await f.send(await f.preview());f.db.prepare("UPDATE bookings SET end_h=19 WHERE booking_code='BK-TEST'").run();
+  f.db.prepare("UPDATE booking_guide_messages SET status='unknown' WHERE id=?").run(r.items[0].id);
+  assert.equal((await f.preview()).items.length,0);
+});
+test('변경·취소는 이전 미리보기와 미발송 큐를 무효화하고 자동으로 변경 안내를 보내지 않는다',async t=>{
+  const f=setup(t);await f.enable(true);const p=await f.preview();
+  f.db.prepare("UPDATE bookings SET end_h=18 WHERE booking_code='BK-TEST'").run();
+  const r=await f.send(p);assert.equal(r.items[0].skipped,true);
+  await automaticGuide(f.env,'BK-TEST');assert.equal(f.sent.length,1);
+  f.db.prepare("INSERT INTO booking_guide_messages(id,booking_code,purpose,mode,status,snapshot,config_hash,actor,created_at,updated_at) VALUES('old-queued','BK-TEST',?,'live','queued','{}','fixture','automatic','now','now')").run(GUIDE_VERSION+':r1');
+  f.db.prepare("UPDATE bookings SET end_h=19 WHERE booking_code='BK-TEST'").run();assert.equal(f.db.prepare("SELECT status FROM booking_guide_messages WHERE id='old-queued'").get().status,'cancelled');
+  f.db.prepare("UPDATE bookings SET status='cancelled' WHERE booking_code='BK-TEST'").run();assert.equal((await f.preview()).items.length,0);
+});
+test('확정 이벤트는 DB 트랜잭션에 포함되고 조회·설정 저장·기존 예약에는 소급 생성하지 않는다',async t=>{
+  const f=setup(t);await f.enable(true);
+  assert.equal(f.db.prepare('SELECT COUNT(*) n FROM booking_guide_events').get().n,0);
+  f.db.exec('BEGIN');f.db.prepare("INSERT INTO bookings(booking_code,space_id,customer_name,phone,phone_last4,date,start_h,end_h,status,created_at) VALUES('BK-ROLLBACK','megaspot-gundae','가상 고객','01012345678','5678',?,10,17,'confirmed','now')").run(DAY);f.db.exec('ROLLBACK');
+  assert.equal(f.db.prepare('SELECT COUNT(*) n FROM booking_guide_events').get().n,0);
+  f.db.prepare("INSERT INTO bookings(booking_code,space_id,customer_name,phone,phone_last4,date,start_h,end_h,status,created_at) VALUES('BK-DURABLE','megaspot-gundae','가상 고객','01012345678','5678',?,10,17,'confirmed','now')").run(DAY);
+  const {guideTick}=await import('../functions/api/_guide_messages.js');await guideTick(f.env);
+  assert.equal(f.db.prepare("SELECT status FROM booking_guide_events WHERE booking_code='BK-DURABLE'").get().status,'handled');assert.equal(f.sent.length,2);
+  f.db.exec('DELETE FROM booking_guide_lease');await guideTick(f.env);assert.equal(f.sent.length,2);
+  assert.equal(f.db.prepare("SELECT status FROM booking_guide_messages WHERE booking_code='BK-DURABLE'").get().status,'delivered');
+});
+test('온라인 결제 확정도 공통 이벤트로 안내하고 중복 통보·환불 후 늦은 통보는 재발송하지 않는다',async t=>{
+  const f=setup(t);await f.enable(true);
+  const {onRequest:pay}=await import('../functions/api/pay/[[path]].js');const {sha256}=await import('../functions/api/_lib.js');const {kstStamp}=await import('../functions/api/_payapp.js');
+  Object.assign(f.env,{PAYAPP_USERID:'fixture-seller',PAYAPP_LINKKEY:'fixture-link',PAYAPP_LINKVAL:'fixture-value',PAYAPP_REQUESTKEY:'fixture-request'});
+  const oid='MS20990101000000ABCDEF';
+  f.db.prepare("INSERT INTO orders(oid,product_id,title,event_date,people,price,buyer_name,buyer_phone,data,status,test,created_at) VALUES(?,'fixture-pass','가상 이용권',?,20,100000,'가상 결제 고객','01012345678',?,'created',0,'now')").run(oid,DAY,JSON.stringify({slot:'pkg-day'}));
+  f.db.prepare('INSERT INTO payapp_payments(oid,mul_no,nonce,created_at) VALUES(?,?,?,?)').run(oid,'123456','fixture-nonce','now');
+  const stamp=kstStamp(),base={userid:f.env.PAYAPP_USERID,linkkey:f.env.PAYAPP_LINKKEY,linkval:f.env.PAYAPP_LINKVAL,responsedate:stamp,hash:await sha256(f.env.PAYAPP_USERID+stamp+f.env.PAYAPP_REQUESTKEY),var1:oid,var2:'fixture-nonce',mul_no:'123456',price:'100000',pay_type:'1'};
+  const feedback=state=>pay({env:f.env,params:{path:['feedback']},request:new Request('https://local.test/api/pay/feedback',{method:'POST',body:new URLSearchParams({...base,pay_state:state})})});
+  assert.equal(await (await feedback('4')).text(),'SUCCESS');assert.equal(f.sent.length,2);
+  assert.equal(f.db.prepare('SELECT COUNT(*) n FROM booking_guide_events').get().n,1);
+  await feedback('4');assert.equal(f.sent.length,2);
+  await feedback('9');await feedback('4');assert.equal(f.sent.length,2);
+});
+test('스키마 업그레이드 재실행은 기존 예약·설정·발송 이력을 보존하고 자동 이벤트를 만들지 않는다',async t=>{
+  const {DatabaseSync}=await import('node:sqlite');const {readFileSync}=await import('node:fs');const {SCHEMA}=await import('../functions/api/_schema.js');
+  const db=new DatabaseSync(':memory:');t.after(()=>db.close());
+  const schema=readFileSync(new URL('../schema.sql',import.meta.url),'utf8');db.exec(schema.split('-- Existing reservations get a baseline only.')[0]);
+  db.prepare("INSERT INTO inquiries(ref,space_id,data,created_at) VALUES('OLD-I','megaspot-gundae','{}','old')").run();
+  db.prepare("INSERT INTO bookings(booking_code,space_id,inquiry_ref,customer_name,phone,phone_last4,date,status,created_at) VALUES('OLD-B','megaspot-gundae','OLD-I','기존 고객','01012345678','5678',?,'confirmed','old')").run(DAY);
+  db.prepare("INSERT INTO inquiry_checks VALUES('OLD-I','{\"guide_sent\":true}','old')").run();
+  db.prepare("INSERT INTO settings VALUES('reservation_guide','{\"enabled\":true,\"automatic\":true}','old')").run();
+  for(const sql of SCHEMA)db.exec(sql);for(const sql of SCHEMA)db.exec(sql);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM booking_guide_events').get().n,0);assert.equal(db.prepare('SELECT COUNT(*) n FROM booking_guide_messages').get().n,0);
+  assert.equal(db.prepare("SELECT manual_sent FROM booking_guide_state WHERE booking_code='OLD-B'").get().manual_sent,'1');
+  assert.equal(db.prepare("SELECT value FROM settings WHERE key='reservation_guide'").get().value,'{"enabled":true,"automatic":true}');
+});
+test('복수 예약의 문의 체크는 현재 예약 전체의 안내 상태를 반영하고 다른 체크 저장으로 새 예약을 안내 완료 처리하지 않는다',async t=>{
+ const f=setup(t);await f.enable();const r=await f.send(await f.preview());await f.api('guide-messages/'+r.items[0].id+'/refresh','POST',{});
+ f.db.prepare("INSERT INTO bookings(booking_code,space_id,inquiry_ref,customer_name,phone,phone_last4,date,start_h,end_h,status,created_at) VALUES('BK-NEW-SIBLING','megaspot-gundae','MS-TEST','복수 예약 고객','01012345678','5678',?,18,22,'confirmed','now')").run(DAY);
+ assert.equal((await f.api('inquiries/MS-TEST')).checks.guide_sent,false);
+ await f.api('inquiries/MS-TEST/checks','PUT',{checks:{guide_sent:false,quote_sent:true},changed_check:'quote_sent'});
+ assert.equal((await f.preview({codes:['BK-NEW-SIBLING']})).items.length,1);
+ await f.api('inquiries/MS-TEST/checks','PUT',{checks:{guide_sent:true,quote_sent:true},changed_check:'guide_sent'});
+ assert.equal((await f.preview({codes:['BK-NEW-SIBLING']})).items.length,0);
+ assert.ok((await f.api('inquiries/MS-TEST')).checks.guide_sent);
+});
+test('자동 처리 저장 실패는 확정 이벤트를 보존하여 다음 처리에서 한 번만 복구한다',async t=>{
+ const f=setup(t);await f.enable(true);
+ f.db.prepare("INSERT INTO bookings(booking_code,space_id,customer_name,phone,phone_last4,date,start_h,end_h,status,created_at) VALUES('BK-STORAGE','megaspot-gundae','가상 고객','01012345678','5678',?,10,17,'confirmed','now')").run(DAY);
+ const batch=f.env.DB.batch;let fail=true;f.env.DB.batch=async statements=>{if(fail){fail=false;throw Error('simulated storage interruption');}return batch(statements);};
+ await automaticGuide(f.env,'BK-STORAGE');assert.equal(f.db.prepare("SELECT status FROM booking_guide_events WHERE booking_code='BK-STORAGE'").get().status,'pending');assert.equal(f.sent.length,1);
+ await automaticGuide(f.env,'BK-STORAGE');await automaticGuide(f.env,'BK-STORAGE');assert.equal(f.sent.length,2);
+});
+test('자동 발송 중지 후 재활성화는 이전 대기 확정 이벤트를 소급 발송하지 않는다',async t=>{
+ const f=setup(t);await f.enable(true);
+ f.db.prepare("INSERT INTO bookings(booking_code,space_id,customer_name,phone,phone_last4,date,start_h,end_h,status,created_at) VALUES('BK-PAUSED','megaspot-gundae','가상 고객','01012345678','5678',?,10,17,'confirmed','now')").run(DAY);
+ await f.api('guide-messages/settings','PUT',{...f.settings,enabled:false,automatic:false});
+ await f.api('guide-messages/settings','PUT',{...f.settings,enabled:true,automatic:true});await automaticGuide(f.env,'BK-PAUSED');assert.equal(f.sent.length,1);
+ assert.equal(f.db.prepare("SELECT status FROM booking_guide_events WHERE booking_code='BK-PAUSED'").get().status,'cancelled');
+});
+test('처리 도중 취소된 확정 이벤트는 발송 기록을 새로 만들지 않는다',async t=>{
+ const f=setup(t);await f.enable(true);
+ f.db.prepare("INSERT INTO bookings(booking_code,space_id,customer_name,phone,phone_last4,date,start_h,end_h,status,created_at) VALUES('BK-RACE','megaspot-gundae','가상 고객','01012345678','5678',?,10,17,'confirmed','now')").run(DAY);
+ const batch=f.env.DB.batch;f.env.DB.batch=async statements=>{f.db.prepare("UPDATE booking_guide_events SET status='cancelled' WHERE booking_code='BK-RACE'").run();return batch(statements);};
+ await automaticGuide(f.env,'BK-RACE');assert.equal(f.sent.length,1);assert.equal(f.db.prepare("SELECT COUNT(*) n FROM booking_guide_messages WHERE booking_code='BK-RACE'").get().n,0);
+});
+test('예약 확정 후 발송 처리는 waitUntil로 넘겨 고객 응답을 외부 API 완료까지 지연하지 않는다',async t=>{
+ const f=setup(t);await f.enable(true);
+ f.db.prepare("INSERT INTO bookings(booking_code,space_id,customer_name,phone,phone_last4,date,start_h,end_h,status,created_at) VALUES('BK-BACKGROUND','megaspot-gundae','가상 고객','01012345678','5678',?,10,17,'confirmed','now')").run(DAY);
+ const {confirmedGuide}=await import('../functions/api/_guide_messages.js'),tasks=[];let release;const gate=new Promise(r=>release=r),upstream=globalThis.fetch;
+ t.mock.method(globalThis,'fetch',async(url,options)=>{await gate;return upstream(url,options);});
+ await confirmedGuide(f.env,'BK-BACKGROUND',task=>tasks.push(task));assert.equal(tasks.length,1);assert.equal(f.sent.length,1);release();await Promise.all(tasks);assert.equal(f.sent.length,2);
+});
+test('운영 진단은 스키마·설정·예약 버전을 읽기만 하며 개인정보·발송·설정 변경을 만들지 않는다',async t=>{
+ const f=setup(t);await f.enable(true);
+ const before=f.db.prepare("SELECT value FROM settings WHERE key='reservation_guide'").get().value;
+ const r=await f.api('guide-messages/diagnostics?code=BK-TEST');assert.equal(r.schema_ok,true);assert.equal(r.enabled,true);assert.equal(r.automatic,true);assert.equal(r.item.revision,0);assert.deepEqual(r.events,[]);
+ assert.ok(!JSON.stringify(r).includes('01012345678'));assert.ok(!JSON.stringify(r).includes('fixture-secret'));assert.equal(f.sent.length,1);
+ assert.equal(f.db.prepare("SELECT value FROM settings WHERE key='reservation_guide'").get().value,before);
+ f.db.exec('DROP TRIGGER guide_booking_created');const broken=await f.api('guide-messages/diagnostics');assert.equal(broken.schema_ok,false);assert.deepEqual(broken.missing,['guide_booking_created']);assert.equal(f.sent.length,1);
+});
