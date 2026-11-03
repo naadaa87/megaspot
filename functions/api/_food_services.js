@@ -2,10 +2,10 @@ import F from '../../assets/js/food-services.js';
 import {cateringAdmin} from './_catering.js';
 import {cocktailFrom} from './_cocktail.js';
 export {F};
-export function cocktailAdmin(value){
+export function cocktailAdmin(value,prices,revision){
  if(!value||typeof value!=='object'||Array.isArray(value))return null;
  const status=value.status||'pending';if(!['pending','confirmed','cancelled'].includes(status))return null;
- const result=cocktailFrom(value);return result?{...result,status,by:'admin'}:null;
+ const result=cocktailFrom(value,prices,revision);return result?{...result,status,by:'admin'}:null;
 }
 export function syncFoodInput(input,data,fresh=false){return F.syncQuote(input,data,fresh);}
 export function updateFood(data,kind,value){
@@ -16,10 +16,10 @@ export function updateFood(data,kind,value){
  if(data.quote_input)next.quote_input=F.syncQuote(data.quote_input,next,false);
  return {data:next,changed};
 }
-export function foodExtras(extras,previous){
+export function foodExtras(extras,previous,prices,revision){
  const rows=Array.isArray(extras)?extras:[],result={amount:0,selections:{},included:{}};
  for(const kind of F.types){const found=rows.filter(x=>F.isRow(kind,x));if(found.length>1)return {error:'같은 식음료 항목은 견적에 한 번만 추가해 주세요.'};const row=found[0];if(!row){result.included[kind]=0;continue;}
-  const raw=row[kind]||previous?.[kind],normalized=raw?(row[kind]?(kind==='catering'?cateringAdmin(raw):cocktailAdmin(raw)):{...raw}):null;
+  const raw=row[kind]||previous?.[kind],normalized=raw?(row[kind]?(kind==='catering'?cateringAdmin(raw):cocktailAdmin(raw,prices,revision)):{...raw}):null;
   if(normalized&&kind==='catering'){normalized.status=raw.status||'pending';normalized.meal_time=raw.meal_time||'';normalized.order_ref=raw.order_ref||'';}
   if(raw&&(!normalized||normalized.status==='cancelled'||raw.removed||F.amount(kind,normalized)!==Number(row.amount)))return {error:'출장뷔페·칵테일 구성과 금액을 다시 확인해 주세요.'};
   if(!Number.isFinite(Number(row.amount))||Number(row.amount)<0)return {error:'식음료 금액을 확인해 주세요.'};

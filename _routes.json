@@ -1,0 +1,1 @@
+{"version":1,"include":["/api/*","/","/cocktail/*","/inquiry/*","/spaces/*","/admin/*","/guide/*","/assets/docs/megaspot-cocktail-service-guide.pdf"],"exclude":["/spaces/*/3d/*"]}

@@ -2,7 +2,7 @@
 import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, log, hashPassword, requireAdmin, adminKeyOk, adminCookie,
   randomToken, sha256, later, getCookie, withCookies, clientIp, sameOrigin, tooMany, hit, clearHits, kstToday, SPACES, spaceOk }
   from '../_lib.js';
-import { cocktailPricing } from '../_cocktail_pricing.js';
+import {readCocktailPricing,publicCocktailPricing,adminCocktailPricing,saveCocktailPricing} from '../_cocktail_pricing.js';
 import { depositNoticeAdmin } from '../_deposit_notifications.js';
 import { refundAdmin } from '../_deposit_refunds.js';
 import { cateringAdmin } from '../_catering.js';
@@ -147,7 +147,14 @@ export async function onRequest({ request, env, params, waitUntil }) {
   const denied = await requireAdmin(request, env); if (denied) return denied;
   try {
     if (path === 'ping') return json({ ok: true });
-    if (path === 'cocktail/pricing' && method === 'GET') return json({ ok: true, packages: cocktailPricing(), vat_rate: 0.1 }, 200, { 'cache-control': 'no-store' });
+    if (path === 'cocktail/pricing') {
+      if(method==='GET')return json(adminCocktailPricing(await readCocktailPricing(env)),200,{'cache-control':'no-store'});
+      if(method==='PUT'){
+        try{const input=await readJson(request),saved=await saveCocktailPricing(env,input);if(saved.conflict)return err('다른 화면에서 가격표가 변경됐습니다. 최신 가격표를 불러온 뒤 다시 저장해 주세요.',409,'PRICE_CONFLICT');if(!saved.unchanged)await log(env,'cocktail.pricing.updated','cocktail_pricing','admin',{revision:saved.config.revision});return json(adminCocktailPricing(saved.config),200,{'cache-control':'no-store'});}
+        catch(e){return err(e.message||'가격표를 저장하지 못했습니다.',400,'INVALID_PRICING');}
+      }
+      return err('지원하지 않는 요청입니다.',405);
+    }
     if(path==='deposit-notifications'||path.startsWith('deposit-notifications/'))return await depositNoticeAdmin({env,request,url,path,method});
     if (path === 'deposit-refunds' || path.startsWith('deposit-refunds/')) {
       try { return await refundAdmin({env,request,url,path,method}); }
@@ -303,7 +310,8 @@ export async function onRequest({ request, env, params, waitUntil }) {
       if (inquiry && [DELETED, '대기 취소'].includes(inquiry.status)) return err('삭제·대기 취소된 문의는 복원한 뒤 견적을 저장해 주세요.');
       const quote_no = await uniqueRef(env, 'quotes', 'quote_no', 'Q');
       const data = d.data && typeof d.data === 'object' ? d.data : {};
-      const food=foodExtras(data.extras,inquiry?safe(inquiry.data):null);if(food.error)return err(food.error);
+      const cocktailRates=publicCocktailPricing(await readCocktailPricing(env));
+      const food=foodExtras(data.extras,inquiry?safe(inquiry.data):null,cocktailRates.prices,cocktailRates.revision);if(food.error)return err(food.error);
       const rec = receptionExtra(data.extras);
       if (rec.error) return err(rec.error);
       if (rec.amount+food.amount > total) return err('견적 합계가 케이터링 금액보다 작습니다. 추가 항목을 확인해 주세요.');
@@ -513,7 +521,8 @@ export async function onRequest({ request, env, params, waitUntil }) {
         const item=await env.DB.prepare(`SELECT status,data, ${inquiryAmountSql()} AS effective_amount FROM inquiries i WHERE ref=?`).bind(ref).first();if(!item)return err('문의를 찾을 수 없습니다.',404,'NOT_FOUND');
         if([DELETED,'대기 취소','취소·환불'].includes(item.status))return err('취소·삭제된 문의는 복원한 뒤 저장해 주세요.');
         const old=safe(item.data);if(receptionConflict(d.reception_revision,old))return err('식음료 구성이 변경됐습니다. 문의를 다시 불러와 주세요.',409,'RECEPTION_CHANGED');
-        let value=kind==='cocktail'?cocktailAdmin(d[kind]):cateringAdmin(d[kind]);if(d[kind]!==null&&!value)return err('식음료 구성을 확인해 주세요.');
+        const cocktailRates=kind==='cocktail'?publicCocktailPricing(await readCocktailPricing(env)):null;
+        let value=kind==='cocktail'?cocktailAdmin(d[kind],cocktailRates.prices,cocktailRates.revision):cateringAdmin(d[kind]);if(d[kind]!==null&&!value)return err('식음료 구성을 확인해 주세요.');
         if(kind==='catering'&&value){value.status=d[kind].status||old.catering?.status||'pending';if(!['pending','confirmed','cancelled'].includes(value.status))return err('출장뷔페 상태를 확인해 주세요.');value.order_ref=old.catering?.order_ref||'';value.meal_time=d[kind].meal_time===undefined?(old.catering?.meal_time||''):str(d[kind].meal_time,20);}
         if(!value)value={...(old[kind]||{}),status:'cancelled',removed:true};
         const base={...old};if((Number(old['included_'+kind+'_amount'])>0||old[kind+'_in_quote'])&&item.effective_amount!=null)base.total=item.effective_amount;

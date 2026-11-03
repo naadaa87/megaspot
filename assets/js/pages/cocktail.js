@@ -10,5 +10,5 @@
  box.addEventListener('click',function(e){var b=e.target.closest('[data-cups]');if(b){read();st.cups=+b.dataset.cups;C.save(st);render();return;}var a=e.target.closest('[data-action]');if(!a)return;read();if(a.dataset.action==='copy')copy();if(a.dataset.action==='kakao')copy();if(a.dataset.action==='apply'){C.save(st,true);a.href='/inquiry/?cocktail='+st.cups+'#reserve';}});
  box.addEventListener('change',function(e){if(e.target.matches('.cocktail-menu-pick input')&&box.querySelectorAll('.cocktail-menu-pick input:checked').length>8){e.target.checked=false;M.toast('희망 메뉴는 최대 8종까지 고를 수 있습니다.');return;}read();render();});
  box.addEventListener('input',function(e){if(e.target.id==='cocktail-note'){st.note=e.target.value.trim();C.save(st);}});
- render();
+ window.addEventListener('cocktail-pricing-updated',render);C.ready.then(render).catch(function(){box.innerHTML='<div class="notice">현재 가격표를 불러오지 못했습니다. 새로고침 후 다시 확인해 주세요.</div>';});
 })();
