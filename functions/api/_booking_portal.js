@@ -1,0 +1,80 @@
+// Separate capability for a reservation's unified page. Never accept a confirm/last4 token here.
+import {json,err,now,str,sha256,randomToken,readJson,log} from './_lib.js';
+import {parseDoc,publicDoc,maskPhone,SPACES} from './_confirm.js';
+import {keyReady,seal,unseal,eventTime,refundDate,refundBooking,refundAdmin,refundCustomer} from './_deposit_refunds.js';
+
+const DAY=86400000,valid=b=>b&&Object.hasOwn(SPACES,b.space_id)&&['confirmed','completed'].includes(b.status);
+const parse=s=>{try{return JSON.parse(s||'{}')||{};}catch{return {};}};
+const money=n=>Number.isSafeInteger(n)&&n>=0&&n<=10000000;
+const changes=r=>Number(r?.meta?.changes??r?.changes??0);
+const contact=b=>JSON.stringify([String(b.customer_name||'').trim(),String(b.phone||'').replace(/\D/g,'')]);
+const recipient=b=>sha256(contact(b));
+function depositAmount(b){const d=parseDoc(b.confirm_doc),q=parse(b.quote_data);return money(b.deposit_amount)?b.deposit_amount:money(d?.deposit)?d.deposit:money(q.deposit)?q.deposit:150000;}
+const expires=b=>Math.max(Date.now()+30*DAY,(eventTime(b)?.end||Date.now())+90*DAY);
+const urlFor=(origin,token)=>origin+'/booking/#booking='+token;
+
+// Server-only copy of the existing, operator-provided 1호 arrival instructions.
+// Never put these values in a public page bundle, an unauthenticated response, or the 2호 guide.
+function arrival(b){
+ const shared={space:SPACES[b.space_id].name,address:'서울시 광진구 능동로13길 39, 한아름건물 2층',checkin:'예약 시작 시간부터',checkout:'예약 종료 시간까지',note:'준비와 정리 시간도 예약하신 이용 시간에 포함됩니다.'};
+ if(b.space_id!=='megaspot-gundae')return {...shared,ready:false,message:'건대 2호 전용 출입·장비 안내는 준비 중입니다. 방문 전 운영팀에서 안내해 드립니다.'};
+ return {...shared,ready:true,door_code:'0105*',wifi_name:'U+NetBB18_5G/2.4G',wifi_password:'#2CF96J5B5',lock_note:'퇴실 시 도어락의 # 버튼을 누르고 잠금 상태를 확인해 주세요.',equipment_url:'https://megaspot-guide.pages.dev/#facilities'};
+}
+function accountState(b,amount){
+ const expired=!!(b.account_expires_at&&b.account_expires_at<=Date.now()),registered=!!b.account_cipher&&!expired;
+ const returned=!!b.legacy_returned||b.state==='completed',purged=!!b.purged_at||expired;
+ return {registered,state:returned?'completed':b.state||'pending',available:amount>0&&!returned&&!purged&&!!eventTime(b)&&!!b.link_cipher&&b.link_expires_at>Date.now(),purged,completed_at:b.completed_at||null};
+}
+export async function portalAdmin({env,request,url,path,method}){
+ const match=path.match(/^bookings\/([A-Z0-9-]{1,40})\/portal-link(?:\/(rotate))?$/);if(!match)return null;
+ const code=match[1],b=await refundBooking(env,code);if(!b)return err('예약을 찾을 수 없습니다.',404);
+ if(!valid(b))return err('확정 또는 이용 완료 예약만 통합 안내를 만들 수 있습니다.',409);
+ if(!keyReady(env))return err('예약자 전용 링크 암호화 설정이 필요합니다.',503);
+ const old=await env.DB.prepare('SELECT * FROM booking_portal_links WHERE booking_code=?').bind(code).first(),hash=await recipient(b);
+ if(method==='GET')return json({ok:true,issued:!!old,active:!!old&&old.expires_at>Date.now()&&old.recipient_hash===hash,version:old?.version||0,expires_at:old?.expires_at||null});
+ if(method!=='POST')return err('허용되지 않은 요청입니다.',405);
+ const d=await readJson(request,2048),rotate=match[2]==='rotate';
+ if(rotate&&(!old||d.confirm_revoke!==true||d.version!==old.version))return err('기존 링크 폐기 여부와 최신 버전을 확인해 주세요.',409,'STALE');
+ // Reuse the existing invitation issuer; never rotate a customer's earlier refund link here.
+ const amount=depositAmount(b),account=accountState(b,amount);
+ if(amount>0&&!b.legacy_returned&&!b.purged_at&&!['completed','processing','hold'].includes(b.state)&&eventTime(b)&&!account.available){
+  const response=await refundAdmin({env,request:new Request(url.origin+'/api/admin/deposit-refunds/bookings/'+code+'/link',{method:'POST',headers:request.headers,body:'{}'}),url:new URL(url.origin+'/api/admin/deposit-refunds/bookings/'+code+'/link'),path:'deposit-refunds/bookings/'+code+'/link',method:'POST'});
+  if(!response.ok)return response;
+ }
+ const origin=env.SITE_URL||(/\.pages\.dev$/.test(url.hostname)?'https://megaspot.kr':url.origin);
+ if(!rotate&&old&&old.expires_at>Date.now()&&old.recipient_hash===hash){
+  const token=await unseal(env,code,'portal-link',old.link_cipher);return json({ok:true,url:urlFor(origin,token),version:old.version,expires_at:old.expires_at});
+ }
+ const token=randomToken(),cipher=await seal(env,code,'portal-link',token),expiry=expires(b),at=now(),version=(old?.version||0)+1;
+ const result=await env.DB.prepare('INSERT INTO booking_portal_links(booking_code,token_hash,link_cipher,recipient_hash,version,expires_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(booking_code) DO UPDATE SET token_hash=excluded.token_hash,link_cipher=excluded.link_cipher,recipient_hash=excluded.recipient_hash,version=excluded.version,expires_at=excluded.expires_at,updated_at=excluded.updated_at WHERE booking_portal_links.version=?').bind(code,await sha256(token),cipher,hash,version,expiry,at,at,old?.version||0).run();
+ if(!changes(result))return err('다른 화면에서 링크가 변경되었습니다. 다시 확인해 주세요.',409,'STALE');
+ await log(env,'booking.portal_link',code,'admin',{rotated:rotate,version});
+ return json({ok:true,url:urlFor(origin,token),version,expires_at:expiry});
+}
+async function authorize(env,request){
+ if(!keyReady(env))return {error:err('예약 안내를 준비 중입니다. 운영팀에 문의해 주세요.',503)};
+ const token=(request.headers.get('authorization')||'').replace(/^Bearer /,'');
+ if(!/^[A-Za-z0-9_-]{43}$/.test(token))return {error:err('예약자 전용 통합 안내 링크로 접속해 주세요.',403,'BAD_LINK')};
+ const hash=await sha256(token),link=await env.DB.prepare('SELECT booking_code,recipient_hash,version FROM booking_portal_links WHERE token_hash=? AND expires_at>?').bind(hash,Date.now()).first();
+ const b=link&&await refundBooking(env,link.booking_code);
+ if(!valid(b)||await recipient(b)!==link.recipient_hash)return {error:err('사용할 수 없는 링크입니다. 운영팀에 새 링크를 요청해 주세요.',403,'BAD_LINK')};
+ return {b,hash,link};
+}
+export async function portalCustomer({env,request,path}){
+ const auth=await authorize(env,request);if(auth.error)return auth.error;
+ const {b,hash,link}=auth,amount=depositAmount(b),account=accountState(b,amount);
+ if(path==='view'&&request.method==='GET'){
+  const doc=parseDoc(b.confirm_doc),issued=!!doc?.issued_at,showAmount=doc?.show_amount!==false,end=eventTime(b);
+  const deposit={amount:showAmount?amount:null,amount_visible:showAmount,paid:!!b.deposit_paid,returned:account.state==='completed',due_date:null,refund_date:b.settled_refund_date||refundDate(b),account};
+  if(end){const due=new Date(b.date+'T00:00:00Z');due.setUTCDate(due.getUTCDate()-3);const raw=String(b.created_at||'').replace(' ','T'),created=Date.parse(raw+(raw.includes('T')?'Z':'T00:00:00Z'));deposit.due_date=due.toISOString().slice(0,10);if(Number.isFinite(created)){const confirmedDay=new Date(created+9*36e5).toISOString().slice(0,10);if(confirmedDay>deposit.due_date)deposit.due_date=confirmedDay;}}
+  if(showAmount&&amount>0&&!deposit.paid&&!deposit.returned)deposit.bank={name:'하나은행',account:'298-910064-39104',holder:'주식회사 블랭크'};
+  return json({ok:true,booking:{code:b.booking_code,name:b.customer_name,phone:maskPhone(b.phone),space:SPACES[b.space_id],date:b.date,start_h:end?.hours[0]??null,end_h:end?.hours[1]??null,headcount:b.headcount,status:b.status,ended:!!end&&end.end<=Date.now(),updated_at:b.updated_at||b.created_at},confirmation:issued?publicDoc(b,doc):null,deposit,arrival:arrival(b)});
+ }
+ if(path==='account'&&['GET','POST'].includes(request.method)){
+  if(!account.available)return err(account.purged?'계좌 보유기간이 종료되었습니다. 운영팀에 문의해 주세요.':'현재 환급 계좌를 등록할 수 없습니다. 운영팀에 문의해 주세요.',409,'ACCOUNT_UNAVAILABLE');
+  const token=await unseal(env,b.booking_code,'link',b.link_cipher);
+  const delegated=new Request(request.url,{method:request.method,headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},...(request.method==='POST'?{body:JSON.stringify(await readJson(request,4096))}:{})});
+  return refundCustomer({env,request:delegated,portalGuard:{hash,version:link.version,recipient_hash:link.recipient_hash,phone:b.phone,name:b.customer_name}});
+ }
+ return err('허용되지 않은 요청입니다.',405);
+}
