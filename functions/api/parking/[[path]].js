@@ -3,14 +3,17 @@ import {payappConfig,requestPayment,equalSecret} from '../_payapp.js';
 import {HOLIDAYS} from '../_catalog.js';
 import {onRequest as payRequest} from '../pay/[[path]].js';
 import {TICKETS,POLICY,parkingInput,parkingSettings,parkingAdmin,JOIN,publicParking,arrivalWindow} from '../_parking.js';
+import {parkingNoticeAdmin,parkingNoticeCron,parkingNoticeAccess} from '../_parking_notifications.js';
 export async function onRequest({request,env,params}){
  const path=(params.path||[]).join('/'),method=request.method;
  if(!hasDb(env))return err('서버를 준비 중입니다.',503);
  try{
+  if(path==='notifications/tick')return await parkingNoticeCron(request,env);
   if(path==='feedback'&&method==='POST')return await payRequest({request,env,params:{path:['feedback']}});
   if(path.startsWith('admin/')){
    const denied=await requireAdmin(request,env);if(denied)return denied;
    if(method!=='GET'&&!sameOrigin(request))return err('허용되지 않은 요청입니다.',403);
+   if(path.startsWith('admin/notifications'))return await parkingNoticeAdmin(request,env,path);
    return await parkingAdmin(request,env,path);
   }
   const settings=await parkingSettings(env),C=payappConfig(env),publicSettings={enabled:settings.enabled,daily_enabled:settings.daily_enabled,daily_basis:settings.daily_enabled?settings.daily_basis:'calendar',daily_terms:settings.daily_enabled?settings.daily_terms:'',service_hours:settings.service_hours,processing_notice:settings.processing_notice};
@@ -48,7 +51,7 @@ export async function onRequest({request,env,params}){
   const token=(request.headers.get('authorization')||'').replace(/^Bearer /,'');
   if(!/^[0-9a-f]{64}$/.test(token))return err('구매 내역 확인 링크가 필요합니다.',403);
   const p=await env.DB.prepare(JOIN+' WHERE p.oid=?').bind(m[1]).first();
-  if(!p||!equalSecret(await sha256(token),p.token_hash))return err('구매 내역을 확인할 수 없습니다.',403);
+  if(!p||(!equalSecret(await sha256(token),p.token_hash)&&!await parkingNoticeAccess(env,p.oid,token)))return err('구매 내역을 확인할 수 없습니다.',403);
   if(!m[2]&&method==='GET')return json({ok:true,order:publicParking(p),...publicSettings,accepting_arrivals:arrivalWindow()});
   if(method!=='POST')return err('지원하지 않는 요청입니다.',405);
   if(p.payment_status!=='paid'||p.refunded_amount>0)return err('결제·환불 상태를 먼저 확인해 주세요.',409);
