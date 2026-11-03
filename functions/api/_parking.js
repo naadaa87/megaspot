@@ -62,7 +62,7 @@ export async function parkingAdmin(request,env,path){
   if(method!=='PUT')return err('지원하지 않는 요청입니다.',405);
   const d=await readJson(request),prior=await parkingSettings(env),value={...prior,enabled:d.enabled===true,daily_enabled:d.daily_enabled===undefined?prior.daily_enabled:d.daily_enabled===true,daily_basis:d.daily_basis===undefined?prior.daily_basis:d.daily_basis,daily_details:d.daily_details===undefined?prior.daily_details:str(d.daily_details,240),daily_rollover:d.daily_rollover===undefined?prior.daily_rollover:str(d.daily_rollover,160)};
   const policyChanged=['daily_enabled','daily_basis','daily_details','daily_rollover','daily_terms'].some(k=>d[k]!==undefined);
-  if(value.daily_enabled&&(!Object.hasOwn(DAILY_BASES,value.daily_basis||'')||!value.daily_details||!value.daily_rollover||policyChanged&&d.confirm_daily!==true))return err('주차장에 종료 기준·재입차·익일 및 초과 정산(연속 적용 가능 여부)을 확인한 뒤 모두 입력하고 확인 체크를 해 주세요.');
+  if(value.daily_enabled&&(!Object.hasOwn(DAILY_BASES,value.daily_basis||'')||!value.daily_details||!value.daily_rollover||policyChanged&&d.confirm_daily!==true))return err('확인된 종료 기준과 재입차·익일 추가 구매 안내를 입력하고 해당 조건으로 판매함을 확인해 주세요.');
   value.daily_terms=Object.hasOwn(DAILY_BASES,value.daily_basis||'')?DAILY_BASES[value.daily_basis]+' '+value.daily_details+' 익일·초과 정산: '+value.daily_rollover:'';
   if(value.enabled&&(!value.service_hours||!value.processing_notice))return err('판매 시작 전에 등록 처리 시간과 예상 소요 안내를 입력해 주세요.');
   await env.DB.prepare("INSERT INTO settings(key,value,updated_at) VALUES('parking',?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at").bind(JSON.stringify(value),now()).run();
@@ -92,13 +92,15 @@ export async function parkingAdmin(request,env,path){
   if(!['waiting','requested'].includes(p.status)||p.refund_requested_at&&!p.refund_reviewed_at)return err('등록 상태 또는 취소 요청을 먼저 확인해 주세요.',409);
   const entry=str(d.entry_id,80),rawAt=str(d.entry_at,19),entryAt=rawAt.replace('T',' ').slice(0,16);
   if(!Number.isFinite(Date.parse(entryAt.replace(' ','T')+':00+09:00'))||!isDate(entryAt.slice(0,10))||entryAt.slice(0,10)>kstToday()||!/^[\w-]{1,80}$/.test(entry)||!/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(?::\d{2})?$/.test(entryAt)||!d.confirm_entry||plateOf(d.plate_confirm)!==p.plate)return err('아마노 입차ID·입차시각·차량번호를 대조하고 확인해 주세요.');
-  if(entryAt.slice(0,10)!==p.visit_date)return err('이용일과 아마노 입차일이 다릅니다. 구매 내역을 확인해 주세요.',409);
+  const overnight=entryAt.slice(0,10)<p.visit_date;
+  if(entryAt.slice(0,10)>p.visit_date||overnight&&(p.visit_date>kstToday()||d.confirm_overnight!==true))return err('입차일과 이용일이 다릅니다. 익일 추가 구매 건은 이용일 당일부터 연속 주차와 해당 날짜의 등록 가능 여부를 확인하고 처리해 주세요.',409);
+  const claimMemo=overnight?('익일 연속 주차 · '+p.visit_date+' 이용분 등록 가능 확인. '+memo).slice(0,1000):memo;
   const found=await env.DB.prepare('SELECT * FROM parking_sessions WHERE entry_id=?').bind(entry).first();
   if(found&&(found.plate!==p.plate||found.entry_at!==entryAt))return err('같은 입차ID에 다른 차량·입차시각이 연결되어 있습니다. 아마노 기록을 다시 확인해 주세요.',409);
   const sql=(s,...a)=>env.DB.prepare(s).bind(...a);
   try{await env.DB.batch([
    sql('INSERT OR IGNORE INTO parking_sessions(entry_id,plate,entry_at,free_external,created_at) VALUES(?,?,?,?,?)',entry,p.plate,entryAt,d.free_used?1:0,t),
-   sql("UPDATE parking_orders SET session_id=(SELECT id FROM parking_sessions WHERE entry_id=? AND plate=? AND entry_at=?),status='processing',memo=?,updated_at=? WHERE oid=? AND status IN ('waiting','requested') AND (refund_requested_at IS NULL OR refund_reviewed_at IS NOT NULL) AND EXISTS(SELECT 1 FROM orders WHERE oid=? AND status='paid') AND NOT EXISTS(SELECT 1 FROM payapp_refunds WHERE oid=?) AND EXISTS(SELECT 1 FROM parking_sessions WHERE entry_id=? AND plate=? AND entry_at=?)",entry,p.plate,entryAt,memo,t,p.oid,p.oid,p.oid,entry,p.plate,entryAt),
+   sql("UPDATE parking_orders SET session_id=(SELECT id FROM parking_sessions WHERE entry_id=? AND plate=? AND entry_at=?),status='processing',memo=?,updated_at=? WHERE oid=? AND status IN ('waiting','requested') AND (refund_requested_at IS NULL OR refund_reviewed_at IS NOT NULL) AND EXISTS(SELECT 1 FROM orders WHERE oid=? AND status='paid') AND NOT EXISTS(SELECT 1 FROM payapp_refunds WHERE oid=?) AND EXISTS(SELECT 1 FROM parking_sessions WHERE entry_id=? AND plate=? AND entry_at=?)",entry,p.plate,entryAt,claimMemo,t,p.oid,p.oid,p.oid,entry,p.plate,entryAt),
    sql("UPDATE parking_sessions SET free_external=1 WHERE entry_id=? AND free_order IS NULL AND ?=1 AND EXISTS(SELECT 1 FROM parking_orders WHERE oid=? AND status='processing' AND session_id=parking_sessions.id)",entry,d.free_used?1:0,p.oid),
    sql("UPDATE parking_sessions SET free_order=? WHERE entry_id=? AND free_order IS NULL AND free_external=0 AND EXISTS(SELECT 1 FROM parking_orders WHERE oid=? AND status='processing' AND ticket<>'daily' AND session_id=parking_sessions.id)",p.oid,entry,p.oid),
    sql("UPDATE parking_orders SET free_hours=CASE WHEN ticket<>'daily' AND (SELECT free_order FROM parking_sessions WHERE id=session_id)=oid THEN 1 ELSE 0 END,paid_hours=CASE WHEN ticket='daily' THEN 0 ELSE hours-CASE WHEN (SELECT free_order FROM parking_sessions WHERE id=session_id)=oid THEN 1 ELSE 0 END END WHERE oid=? AND status='processing'",p.oid)
