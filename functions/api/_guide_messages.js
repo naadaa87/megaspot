@@ -66,7 +66,8 @@ async function provider(env, path, data = {}, requestID = crypto.randomUUID()) {
     const signature=Array.from(new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(body))),b=>b.toString(16).padStart(2,'0')).join('');
     headers={'Content-Type':'application/json','X-Megaspot-Signature':signature};
   }else body=new URLSearchParams({apikey:env.ALIGO_API_KEY,userid:env.ALIGO_USERID,...data});
-  const response = await fetch(target, { method:'POST', headers, body, signal:AbortSignal.timeout(10000), redirect:'error' });
+  // Workers supports manual redirects; reject 3xx below instead of following credentials elsewhere.
+  const response = await fetch(target, { method:'POST', headers, body, signal:AbortSignal.timeout(10000), redirect:'manual' });
   if (!response.ok) throw Error('알리고 응답을 확인할 수 없습니다.');
   return response.json();
 }
