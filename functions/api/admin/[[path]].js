@@ -149,7 +149,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
   try {
     if(method==='PATCH'&&/^inquiries\/[A-Z0-9-]+$/.test(path)){const v=await readJson(request.clone());if(v.total!==undefined&&v.total!==null&&v.total!==''&&amountOk(v.total)===null)return err('금액을 확인해 주세요.');}
     if(method!=='GET'&&/^(quotes$|inquiries\/|bookings(?:\/|$)|catering\/orders)/.test(path))await preserveLegacyPayments(env);
-    if(/^bookings\/[A-Z0-9-]+\/settlement$/.test(path))return await settlementAdmin({env,request,path,method});
+    if(/^bookings\/[A-Z0-9-]+\/settlement(?:\/entries\/\d+)?$/.test(path))return await settlementAdmin({env,request,path,method});
     if (path === 'ping') return json({ ok: true });
     if (path === 'cocktail/pricing') {
       if(method==='GET')return json(adminCocktailPricing(await readCocktailPricing(env)),200,{'cache-control':'no-store'});

@@ -8,3 +8,9 @@
 #payment-dialog h3{font-size:16px;margin-top:20px}
 #payment-dialog input,#payment-dialog select{max-width:100%;min-width:0}
 #payment-dialog .field-row>div{min-width:0}
+#payment-history{max-height:420px}
+#payment-history .payment-entry{padding:12px 0;border-bottom:1px solid #dde1e6}
+#payment-history .payment-entry.is-void>p{color:#657080}
+#payment-history details{font-size:12px;line-height:1.7;margin-top:9px}
+#payment-history details p{margin:7px 0}
+#payment-history summary{cursor:pointer}
