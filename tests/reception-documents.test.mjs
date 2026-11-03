@@ -34,7 +34,7 @@ test('같은 금액의 방식·코스 변경도 이미 발급한 확정서를 �
 });
 test('이전 확정서는 재발급 필요 상태로 표시하고 발급 후 상세 스냅샷 보존',async t=>{
  const f=fixture({booking:true});t.after(()=>f.db.close());await f.api('inquiries/MS-TEST','PATCH',{reception:{course:'signature',people:50,format:'table'}});f.db.prepare('UPDATE bookings SET confirm_doc=? WHERE booking_code=?').run(JSON.stringify({issued_at:'2026-11-01',items:['시그니처 50명 · 테이블 세팅 케이터링 · 메뉴 2,750,000원 + 출장·세팅·철수 비용 200,000원']}),'BK-TEST');
- let r=await f.api('bookings/BK-TEST/confirm-doc');assert.equal(r.needs_reissue,true);assert.equal(r.reception.total,2950000);await f.api('bookings/BK-TEST/confirm-doc','PUT',{doc:{amount:500000,items:r.doc.items}});r=await f.api('bookings/BK-TEST/confirm-doc');assert.equal(r.needs_reissue,false);assert.equal(r.doc.reception.total,2950000);assert.equal(r.doc.reception.included,false);
+ let r=await f.api('bookings/BK-TEST/confirm-doc');assert.equal(r.needs_reissue,true);assert.equal(r.preview.items.length,0);assert.equal(r.reception.total,2950000);await f.api('bookings/BK-TEST/confirm-doc','PUT',{doc:{amount:500000,items:r.doc.items}});r=await f.api('bookings/BK-TEST/confirm-doc');assert.equal(r.needs_reissue,false);assert.equal(r.doc.reception.total,2950000);assert.equal(r.doc.reception.included,false);
 });
 test('과거 견적의 상세 가격이 없으면 현재 요금을 임의로 덧씌우지 않음',()=>{
  const rec=C.forDocument({course:'classic',people:50,format:'table'},2000000);assert.equal(rec.total,2000000);assert.equal(rec.fee,null);assert.equal(rec.unitPrice,null);assert.equal(rec.courseName,'클래식');
