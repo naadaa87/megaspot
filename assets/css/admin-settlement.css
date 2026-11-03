@@ -18,3 +18,9 @@
 #payment-online .payment-online{padding:12px 0;border-bottom:1px solid #dde1e6}
 #payment-online p{font-size:13px;line-height:1.7;margin:5px 0}
 #payment-online small{color:#657080}
+
+#payment-channels .payment-channel{padding:12px;margin:10px 0;background:#f4f6f9;border-radius:8px}
+#payment-channels h4{font-size:13px;margin:0 0 10px}
+#payment-channels dl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0}
+#payment-channels dt{font-size:11px;color:#647080;margin-bottom:4px}
+#payment-channels dd{font-size:13px;font-weight:700;margin:0;font-variant-numeric:tabular-nums}

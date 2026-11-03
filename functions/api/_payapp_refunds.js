@@ -1,6 +1,6 @@
 import {refundAmountSql} from './_payapp_refund_history.js';
 import {now,randomToken} from './_lib.js';
-import {otherReceiptsSql,preserveLegacyPayments} from './_settlement.js';
+import {refundCompletionStatements,preserveLegacyPayments} from './_settlement.js';
 
 const total = alias => `(SELECT COALESCE(SUM(r.amount),0) FROM payapp_refunds r WHERE r.oid=${alias}.oid)`;
 
@@ -32,11 +32,7 @@ export async function recordPayappRefund(env,row,f,partial){
   sql(`INSERT OR IGNORE INTO payapp_refunds(mul_no,oid,amount,created_at) SELECT ?,oid,effective_amount,created_at FROM payapp_refund_events WHERE event_key=? AND processing_token=? AND effective_amount>0`,partial?refundNo:'full-'+row.payapp_no,key,token),
   sql(`UPDATE orders SET status=CASE WHEN ?='full' OR ${total('orders')}>=price THEN 'refunded' WHEN status IN ('created','pending') AND ? IS NOT NULL THEN 'paid' ELSE status END,booking_code=COALESCE(booking_code,?),paid_at=CASE WHEN status IN ('created','pending') AND ? IS NOT NULL THEN COALESCE(paid_at,?) ELSE paid_at END,result_msg=?,updated_at=? WHERE oid=? AND ${mutation}`,
    type,row.booking_code||null,row.booking_code||null,row.booking_code||null,time,partial?'부분 환불 · 페이앱 내역 확인':'페이앱 승인 취소',time,row.oid,key,token),
-  sql(`UPDATE bookings SET status='cancelled',updated_at=? WHERE booking_code=(SELECT booking_code FROM orders WHERE oid=? AND status='refunded' AND test=0)
-   AND ${otherReceiptsSql('bookings.booking_code','?')}<=0 AND ${mutation}`,time,row.oid,row.oid,key,token),
-  sql(`UPDATE inquiries SET status='취소·환불',updated_at=? WHERE ref=? AND status='예약 확정'
-   AND EXISTS(SELECT 1 FROM orders WHERE oid=? AND status='refunded' AND test=0 AND booking_code IS NOT NULL)
-   AND NOT EXISTS(SELECT 1 FROM bookings b WHERE b.inquiry_ref=inquiries.ref AND b.status<>'cancelled') AND ${mutation}`,time,row.inquiry_ref||'',row.oid,key,token),
+  ...(row.test?[]:refundCompletionStatements(env,row.booking_code,mutation,[key,token],time)),
   sql(`UPDATE bookings SET confirm_doc=NULL,updated_at=? WHERE booking_code=(SELECT booking_code FROM orders WHERE oid=? AND test=0) AND ${mutation}`,time,row.oid,key,token),
   sql(`INSERT INTO event_log(kind,ref,actor,detail,created_at) SELECT ?,oid,'payapp',json_object('event',event_key,'amount',effective_amount,'raw_amount',raw_amount),created_at FROM payapp_refund_events WHERE event_key=? AND processing_token=? AND state_changed=1`,partial?'order.partial_refund':'order.refunded',key,token)
  ]);

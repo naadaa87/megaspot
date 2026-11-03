@@ -1,3 +1,4 @@
+import {preserveLegacyPayments} from '../_settlement.js';
 import {recordPayappRefund} from '../_payapp_refunds.js';
 // 페이앱: 서버에서 결제 요청 → payurl 이동 → 검증된 feedback만 주문·예약 확정.
 import { json, err, hasDb, readJson, str, num, isDate, now, log, sha256, sameOrigin, clientIp, getMember, kstToday, tooMany, hit, randomToken, requireAdmin } from '../_lib.js';
@@ -197,7 +198,9 @@ async function feedback(request, env, C, waitUntil) {
     let code = data.slot && row.event_date ? 'MS-' + oid.slice(4, 8) + '-' + (await sha256(oid)).slice(0, 12).toUpperCase() : null;
     const linked=await existingBooking(env,row);
     if(linked)code=linked.booking_code;
+    if(!row.test)await preserveLegacyPayments(env);
     const batch = [];
+    if(code&&linked&&!row.test)batch.push(sql("UPDATE bookings SET confirm_doc=NULL,updated_at=? WHERE booking_code=? AND EXISTS(SELECT 1 FROM orders WHERE oid=? AND status IN ('created','pending'))",t,code,oid));
     if (code&&!linked) {
       const sh = { 'pkg-day': [10, 17], 'pkg-allday': [10, 24], 'pkg-allnight': [18, 31] }[data.slot];
       if (!sh) return notice('FAIL', 400);
