@@ -28,6 +28,7 @@ test('차량번호 정규화·전체 재입력·정책 확인·판매 기간·�
 });
 test('판매는 기본 준비 상태·관리자 인증·외부 출처 요청 거절',async t=>{
  const f=fixture(t);assert.equal((await(await f.call('config')).json()).enabled,false);assert.equal((await f.call('prepare','POST',f.input())).status,503);
+ assert.equal((await(await f.call('config')).json()).daily_basis,'calendar');
  assert.equal((await f.call('admin/orders')).status,401);assert.equal((await f.call('admin/settings','PUT',{enabled:true},null,true,'https://evil.test')).status,403);
 });
 test('주차 결제는 서버 판매가·서명 통보만 사용하고 예약을 생성하지 않는다',async t=>{
@@ -101,7 +102,7 @@ test('일일권 종료 기준과 익일 정산 미확인 상태는 활성화되�
  const f=fixture(t),base={enabled:true,daily_enabled:true,daily_basis:'calendar',daily_details:'재입차 불가',daily_rollover:'익일 요금 현장 정산, 연속 적용 불가',confirm_daily:true};
  for(const extra of [{daily_basis:'unconfirmed'},{daily_basis:'constructor'},{daily_basis:'__proto__'},{daily_basis:[]},{daily_details:''},{daily_rollover:''},{confirm_daily:false}])assert.equal((await f.call('admin/settings','PUT',{...base,...extra},null,true)).status,400,JSON.stringify(extra));
  await f.call('admin/settings','PUT',{...base,daily_enabled:false},null,true);
- const c=await(await f.call('config')).json();assert.equal(c.daily_enabled,false);assert.equal(c.daily_terms,'');assert.equal(c.daily_basis,'unconfirmed');assert.equal(c.daily_details,undefined);assert.equal(c.daily_rollover,undefined);
+ const c=await(await f.call('config')).json();assert.equal(c.daily_enabled,false);assert.equal(c.daily_terms,'');assert.equal(c.daily_basis,'calendar');assert.equal(c.daily_details,undefined);assert.equal(c.daily_rollover,undefined);
 });
 
 test('종료 기준 없는 구형 일일권 설정은 판매 보류하고 시간권 판매는 유지한다',async t=>{

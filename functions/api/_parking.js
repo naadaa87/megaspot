@@ -40,8 +40,9 @@ const safe=s=>{try{return JSON.parse(s||'{}');}catch{return {};}};
 export async function parkingSettings(env){
  const row=await env.DB.prepare("SELECT value FROM settings WHERE key='parking'").first();
  const v=safe(row?.value);
- const basis=Object.hasOwn(DAILY_BASES,v.daily_basis||'')?v.daily_basis:'unconfirmed',details=str(v.daily_details??v.daily_terms,240),rollover=str(v.daily_rollover,160);
- const terms=basis==='unconfirmed'?'':DAILY_BASES[basis]+' '+details+' 익일·초과 정산: '+rollover;
+ // Venue operator confirmed midnight expiry on 2026-11-03. This does not enable sales.
+ const basis=typeof v.daily_basis==='string'&&Object.hasOwn(DAILY_BASES,v.daily_basis)?v.daily_basis:'calendar',details=str(v.daily_details??v.daily_terms,240),rollover=str(v.daily_rollover,160);
+ const terms=DAILY_BASES[basis]+' '+details+' 익일·초과 정산: '+rollover;
  return {enabled:v.enabled===true,daily_enabled:v.daily_enabled===true&&basis!=='unconfirmed'&&!!details&&!!rollover,daily_basis:basis,daily_details:details,daily_rollover:rollover,daily_terms:terms,service_hours:'평일 10:00–18:00 (주말·공휴일 제외)',processing_notice:'입차 알림 후 최대 10분 이내 처리합니다. 당일 등록 접수는 17:50까지이며, 사전 결제만으로 할인이 적용되지 않습니다.'};
 }
 export const JOIN = `SELECT p.*,o.price,o.status AS payment_status,o.buyer_name,o.buyer_phone,o.paid_at,

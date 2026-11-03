@@ -13,7 +13,7 @@ export async function onRequest({request,env,params}){
    if(method!=='GET'&&!sameOrigin(request))return err('허용되지 않은 요청입니다.',403);
    return await parkingAdmin(request,env,path);
   }
-  const settings=await parkingSettings(env),C=payappConfig(env),publicSettings={enabled:settings.enabled,daily_enabled:settings.daily_enabled,daily_basis:settings.daily_enabled?settings.daily_basis:'unconfirmed',daily_terms:settings.daily_enabled?settings.daily_terms:'',service_hours:settings.service_hours,processing_notice:settings.processing_notice};
+  const settings=await parkingSettings(env),C=payappConfig(env),publicSettings={enabled:settings.enabled,daily_enabled:settings.daily_enabled,daily_basis:settings.daily_enabled?settings.daily_basis:'calendar',daily_terms:settings.daily_enabled?settings.daily_terms:'',service_hours:settings.service_hours,processing_notice:settings.processing_notice};
   if(path==='config'&&method==='GET')return json({ok:true,...publicSettings,enabled:settings.enabled&&C.live,tickets:Object.fromEntries(Object.entries(TICKETS).map(([id,t])=>[id,{...t,available:id!=='daily'||settings.daily_enabled}])),policy:POLICY,holidays:Object.keys(HOLIDAYS),accepting_arrivals:arrivalWindow()});
   if(method==='POST'&&!sameOrigin(request))return err('허용되지 않은 요청입니다.',403);
   if(method==='POST'){
