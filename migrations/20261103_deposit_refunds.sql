@@ -1,0 +1,37 @@
+-- Additive only; bank details and invitation tokens are AES-GCM ciphertext.
+CREATE TABLE IF NOT EXISTS booking_refunds (
+ booking_code TEXT PRIMARY KEY,
+ token_hash TEXT UNIQUE,
+ link_cipher TEXT,
+ link_expires_at INTEGER,
+ account_cipher TEXT,
+ account_mask TEXT,
+ bank_code TEXT,
+ account_version INTEGER NOT NULL DEFAULT 0,
+ submitted_at TEXT,
+ account_updated_at TEXT,
+ state TEXT NOT NULL DEFAULT 'pending' CHECK(state IN ('pending','processing','completed','hold')),
+ amount INTEGER NOT NULL CHECK(amount >= 0 AND amount <= 10000000),
+ deduction INTEGER NOT NULL DEFAULT 0 CHECK(deduction >= 0 AND deduction <= amount),
+ deduction_reason TEXT NOT NULL DEFAULT '',
+ deduction_notified INTEGER NOT NULL DEFAULT 0,
+ inspected INTEGER NOT NULL DEFAULT 0,
+ operator TEXT NOT NULL DEFAULT '',
+ note TEXT NOT NULL DEFAULT '',
+ revision INTEGER NOT NULL DEFAULT 0,
+ claimed_by TEXT,
+ claimed_at TEXT,
+ settlement_snapshot TEXT,
+ completed_at TEXT,
+ completion_id TEXT UNIQUE,
+ paid_amount INTEGER,
+ refund_date TEXT,
+ account_expires_at INTEGER,
+ purged_at TEXT,
+ consent_version TEXT,
+ consent_at TEXT,
+ created_at TEXT NOT NULL,
+ updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_booking_refunds_state ON booking_refunds(state, updated_at);
+CREATE INDEX IF NOT EXISTS idx_booking_refunds_expiry ON booking_refunds(account_expires_at);
