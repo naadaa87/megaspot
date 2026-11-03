@@ -35,7 +35,7 @@
     var rec=reception(d);if(rec)rows.push(rec);
     var ck=d.cocktail;
     if(ck){var names=opts.cocktailNames||{},menus=(Array.isArray(ck.menus)?ck.menus:[]).map(function(id){return names[id]||id;});
-      rows.push({title:'출장 칵테일',detail:[ck.cups?ck.cups+'잔 패키지':'패키지 상담 후 결정',menus.length?'희망 메뉴: '+menus.join(', '):'',ck.nonalcohol?'논알코올 구성 상담':'',ck.note?'요청: '+ck.note:''].filter(Boolean).join('\n'),amount:amount(ck.price),cancelled:ck.status==='cancelled',note:'부가세·출장·운영 조건 확인 전',uncertain:true});
+      rows.push({title:'출장 칵테일',detail:[ck.cups?ck.cups+'잔 패키지':'패키지 상담 후 결정',menus.length?'희망 메뉴: '+menus.join(', '):'',ck.nonalcohol?'논알코올 구성 상담':'',ck.note?'요청: '+ck.note:''].filter(Boolean).join('\n'),amount:amount(ck.vat_excluded===true?ck.total:ck.price),cancelled:ck.status==='cancelled',note:ck.vat_excluded===true?'판매가 '+Number(ck.price).toLocaleString('ko-KR')+'원 + 부가세 '+Number(ck.vat).toLocaleString('ko-KR')+'원 포함 · 출장·운영 조건 확인 필요':'이전 저장 금액 · 부가세·출장·운영 조건 확인 전',uncertain:true});
     }
     var active=rows.filter(function(r){return !r.cancelled;}),total=active.reduce(function(sum,r){return sum+(r.amount===null?0:r.amount);},0);
     return {conditions:opts.conditions||'',rows:rows,total:total,hasAmount:active.some(function(r){return r.amount!==null;}),incomplete:active.some(function(r){return r.amount===null||r.uncertain;}),pending:active.filter(function(r){return r.amount===null;}).map(function(r){return r.title;}),hasCatering:!!c};

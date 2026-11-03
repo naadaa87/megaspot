@@ -72,3 +72,9 @@ test('고객 통합 견적은 네 코스 모두 선택한 단가·인원·방식
  for(const course of RC.data.courses){const f=fixture();f.reception('table',301,course.id);const rec=f.plan.reception(f.root,301);assert.equal(rec.total,null);assert(rec.summary.includes(course.name));assert.match(rec.summary,/301명.*별도 견적/);}
  const f=fixture();f.reception('table',50,'all');assert.equal(f.plan.reception(f.root,50).total,null);
 });
+
+test('부가세 별도 칵테일은 세액을 포함한 합계를 대관 소계에 한 번만 더한다',()=>{
+ const f=fixture();f.food(null,{cups:100,price:900000,vat:90000,total:990000,vat_excluded:true});
+ const q=f.plan.quote(f.root,{total:500000,deposit:150000,people:60});
+ assert.equal(q.total,1490000);assert.match(q.html,/900,000원.*90,000원/);
+});
