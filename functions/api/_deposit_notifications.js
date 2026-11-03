@@ -43,6 +43,14 @@ export function depositNoticeVariables(b,e,token=''){
  return {고객명:clean(b.customer_name),공간명:SPACES[b.space_id],이용일:b.date,보증금액:format(p.amount??b.deposit_amount),입금기한:due,환급예정일:refundDate(b)||'관리자 확인 후 안내',등록코드:token,차감액:format(p.deduction??b.deduction),환급금액:format(p.refund??b.paid_amount),처리일:p.completed_at?new Date(utc(p.completed_at)+9*36e5).toISOString().slice(0,10):occurred};
 }
 export function depositNoticeRender(text,vars){return text.replace(/#\{([^}]+)\}/g,(_,k)=>{if(vars[k]==null)throw Error('안내 변수 누락');return String(vars[k]);});}
+async function changedNoticeReview(env,e,s){
+ const b=await booking(env,e.booking_code);if(!b)return {blocked:'예약을 찾을 수 없습니다.'};
+ const payload={...parse(e.payload),name:b.customer_name,phone:b.phone,date:b.date,space:b.space_id,start:b.start_h,end:b.end_h,slot:b.slot,amount:b.deposit_amount};
+ const next={...e,payload:JSON.stringify(payload),occurred_at:now()},blocked=noticeObsolete(b,next);
+ const vars=depositNoticeVariables(b,next,'전용 링크는 발송 시 생성'),message=depositNoticeRender(T[e.kind].content,vars);
+ const hash=await sha256(JSON.stringify([e.id,payload,message,blocked,await depositMessageHash(env,s),b.account_version,b.refund_state,b.deposit_paid]));
+ return {name:b.customer_name,phone:guidePhone(b.phone),date:b.date,message,hash,blocked,payload};
+}
 async function state(env,id,status,error='',mid=null){await env.DB.prepare('UPDATE deposit_notifications SET status=?,error=?,provider_mid=COALESCE(?,provider_mid),updated_at=? WHERE id=?').bind(status,str(error,300),mid,now(),id).run();}
 async function accountToken(env,code){
  // Reuse the same invitation issuer as the admin. Never persist the rendered link in outbox/history.
@@ -103,7 +111,8 @@ export async function depositNoticeAdmin({request,env,path,method}){
  const s=await depositMessageConfig(env),hash=await depositMessageHash(env,s);
  if(path==='deposit-notifications'&&method==='GET'){
   const {results}=await env.DB.prepare('SELECT n.id,n.booking_code,n.kind,n.mode,n.status,n.provider_mid,n.error,n.occurred_at,n.updated_at,b.customer_name AS name,b.date FROM deposit_notifications n LEFT JOIN bookings b ON b.booking_code=n.booking_code ORDER BY n.id DESC LIMIT 100').all();
-  return json({ok:true,...s,configured:configured(env),live_allowed:env.ALIGO_LIVE_ENABLED==='true',tested:Object.fromEntries(await Promise.all(kinds.map(async k=>[k,await tested(env,k,hash)]))),templates:Object.fromEntries(kinds.map(k=>[k,{...T[k],code:s.codes[k]}])),items:results||[]});
+  const items=[];for(const e of results||[]){if(e.status==='review'){const original=await env.DB.prepare('SELECT payload FROM deposit_notifications WHERE id=?').bind(e.id).first();const {payload,...review}=await changedNoticeReview(env,{...e,payload:original?.payload},s);items.push({...e,review});}else items.push(e);}
+  return json({ok:true,...s,configured:configured(env),live_allowed:env.ALIGO_LIVE_ENABLED==='true',tested:Object.fromEntries(await Promise.all(kinds.map(async k=>[k,await tested(env,k,hash)]))),templates:Object.fromEntries(kinds.map(k=>[k,{...T[k],code:s.codes[k]}])),items});
  }
  if(path==='deposit-notifications/check'&&method==='POST')return json({ok:true,items:await approvals(env,s)});
  if(path==='deposit-notifications/settings'&&method==='PUT'){
@@ -122,6 +131,17 @@ export async function depositNoticeAdmin({request,env,path,method}){
   const d=await readJson(request),e=await env.DB.prepare('SELECT * FROM deposit_notifications WHERE id=?').bind(Number(m[1])).first();if(!e||e.mode!=='live')return err('고객 발송 이력을 확인해 주세요.',404);
   if(!str(d.reason,300))return err('알리고에서 확인한 내용과 사유를 입력해 주세요.');
   if(m[2]==='not-sent'){if(!['unknown','sending'].includes(e.status)||d.confirm_not_sent!==true||Date.now()-utc(e.updated_at)<864e5)return err('요청 후 24시간 경과와 알리고 미접수 확인이 필요합니다.',409);await state(env,e.id,'failed','미발송 확인 · '+str(d.reason,200));}
+  else if(e.status==='review'){
+   if(d.confirm_retry!==true||e.request_id||e.provider_mid)return err('미발송 변경 안내를 확인해 주세요.',409);
+   const review=await changedNoticeReview(env,e,s);if(review.blocked)return err(review.blocked,409);
+   if(!d.review_hash||d.review_hash!==review.hash)return err('예약·안내 내용이 바뀌었습니다. 최신 미리보기를 다시 확인해 주세요.',409);
+   if(!s.enabled||env.ALIGO_LIVE_ENABLED!=='true'||!s.types[e.kind]||s.hash!==hash||!await tested(env,e.kind,hash))return err('현재 설정의 승인·시험 수신·고객 발송 허용을 먼저 확인해 주세요.',409);
+   const at=now(),eventKey='review:'+e.id+':'+review.hash;
+   await env.DB.batch([
+    env.DB.prepare("INSERT OR IGNORE INTO deposit_notifications(booking_code,kind,event_key,occurred_at,payload,mode) SELECT booking_code,kind,?,?,?,'live' FROM deposit_notifications WHERE id=? AND status='review'").bind(eventKey,at,JSON.stringify(review.payload),e.id),
+    env.DB.prepare("UPDATE deposit_notifications SET status='cancelled',error='변경 내용 확인 후 새 안내 준비',updated_at=? WHERE id=? AND status='review'").bind(at,e.id)
+   ]);
+  }
   else {if(e.status!=='failed'||d.confirm_retry!==true)return err('명확한 실패·미발송 확인 후에만 재시도할 수 있습니다.',409);await env.DB.prepare("UPDATE deposit_notifications SET status='queued',request_id=NULL,provider_mid=NULL,updated_at=?,error=NULL WHERE id=? AND status='failed'").bind(now(),e.id).run();}
   await log(env,'deposit.notification_'+m[2],e.booking_code,'admin',{id:e.id,reason:str(d.reason,300)});return json({ok:true});
  }

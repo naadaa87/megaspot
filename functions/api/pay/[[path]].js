@@ -3,6 +3,7 @@ import { json, err, hasDb, readJson, str, num, isDate, now, log, sha256, sameOri
 import { PRODUCTS, HOLIDAYS, PRICING } from '../_catalog.js';
 
 import { payappConfig, requestPayment, validFeedback, equalSecret } from '../_payapp.js';
+import { confirmedGuide } from '../_guide_messages.js';
 const PKG_SLOT = { day: 'pkg-day', allday: 'pkg-allday', allnight: 'pkg-allnight' };
 const PKG_LABEL = { day: '낮 패키지 10–17시', allday: '올데이 패키지 10–24시', allnight: '올나잇 패키지 18시–다음 날 07시' };
 
@@ -59,7 +60,7 @@ export function buildOrder(input) {
   return { product: p, lines, total, event_date, people, slot, title };
 }
 
-export async function onRequest({ request, env, params }) {
+export async function onRequest({ request, env, params, waitUntil }) {
   const path = (params.path || []).join('/');
   const method = request.method.toUpperCase();
   const C = payappConfig(env);
@@ -75,7 +76,7 @@ export async function onRequest({ request, env, params }) {
         return json({ ok: true, http_status: r.status, content_type: r.headers.get('content-type'), response_format: q.has('state') ? 'query' : (/^\s*</.test(body) ? 'html' : 'other'), provider_code: q.get('errno'), abort_timeout_supported: typeof AbortSignal.timeout === 'function' });
       } catch (e) { return json({ ok: false, diagnostic_error: String(e?.message || '').slice(0, 180), error_name: e?.name, abort_timeout_supported: typeof AbortSignal.timeout === 'function' }); }
     }
-    if (path === 'feedback' && method === 'POST') return await feedback(request, env, C);
+    if (path === 'feedback' && method === 'POST') return await feedback(request, env, C, waitUntil);
     // return은 화면 이동 전용이며 결제 상태는 절대 바꾸지 않습니다.
     if (path === 'return' && ['GET', 'POST'].includes(method)) {
       const oid = new URL(request.url).searchParams.get('oid') || '';
@@ -165,7 +166,7 @@ function safe(s) { try { return JSON.parse(s || '{}'); } catch { return {}; } }
 function notice(text, status = 200) {
   return new Response(text, { status, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } });
 }
-async function feedback(request, env, C) {
+async function feedback(request, env, C, waitUntil) {
   const raw = await request.text();
   if (raw.length > 32768) return notice('FAIL', 413);
   const f = Object.fromEntries(new URLSearchParams(raw));
@@ -200,6 +201,7 @@ async function feedback(request, env, C) {
     batch.push(sql("UPDATE orders SET status = 'paid', tid = ?, pay_method = ?, appl_at = ?, result_msg = '승인 완료', booking_code = ?, paid_at = ?, updated_at = ? WHERE oid = ? AND status IN ('created','pending')", originalNo, 'PayApp:' + (f.pay_type || ''), (f.pay_date || t).slice(0, 30), code, t, t, oid));
     // D1 batch는 트랜잭션입니다. 중복·동시 통보에서 예약 한 건만 만들어집니다.
     await env.DB.batch(batch);
+    if (code) await confirmedGuide(env, code, waitUntil);
   } else if (['9', '64'].includes(state)) {
     await env.DB.batch([
       sql("INSERT INTO event_log (kind,ref,actor,detail,created_at) SELECT 'order.refunded',oid,'payapp','페이앱 승인 취소',? FROM orders WHERE oid = ? AND status != 'refunded'", t, oid),
