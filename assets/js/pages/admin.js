@@ -929,7 +929,7 @@
     Object.keys(c.menu).forEach(function(k){ var v=c.menu[k]; if(v&&v.length) L.push('· '+CD.menuLabels[k]+' ('+v.length+'): '+v.join(', ')); });
     if(c.live) L.push('· 즉석 코너 ('+CC.liveMin(c)+'인 이상): '+c.live);
     if(c.note) L.push('※ '+c.note);
-    L.push('※ 계절과 식재료 수급에 따라 일부 메뉴는 같은 급의 다른 요리로 바뀔 수 있습니다.');
+    L.push('※ 메뉴는 계절과 식재료 수급에 따라 일부 달라질 수 있습니다. 원하시는 특정 메뉴가 있다면 상담을 통해 변경 가능합니다.');
     return L.join('\n');
   }
   function ctOrderText(){
