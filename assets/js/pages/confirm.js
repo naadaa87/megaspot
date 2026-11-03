@@ -7,15 +7,15 @@
   function show(doc, k){
     cur = doc; link = location.origin + '/confirm/?c=' + encodeURIComponent(doc.code) + '&k=' + encodeURIComponent(k || '');
     try { if (k) history.replaceState(null, '', '/confirm/?c=' + encodeURIComponent(doc.code) + '&k=' + encodeURIComponent(k)); } catch (e) {}
-    $('#cfd-title').textContent = '예약번호 ' + doc.code;
+    $('#cfd-title').textContent = (doc.doc_type==='cancellation'?'취소·환불 정산서 · ':'예약번호 ') + doc.code;
     $('#cfd-sub').textContent = ' · ' + X.dateText(doc.date) + ' · ' + X.timeText(doc);
     form.hidden = true; errBox.hidden = true; view.hidden = false;
     var esc = M.esc, rows = [['예약자', doc.customer], ['공간', (doc.space && doc.space.name) || '메가스팟 건대'], ['이용일', X.dateText(doc.date)], ['이용 시간', X.timeText(doc) + (doc.time_note ? ' · ' + doc.time_note : '')], ['인원', doc.headcount ? doc.headcount + '명' : ''], ['행사', doc.event]];
-    if (doc.show_amount && doc.amount != null) rows.push(['확정 금액', doc.amount.toLocaleString('ko-KR') + '원' + (doc.amount_note ? ' (' + doc.amount_note + ')' : '') + ' · ' + (X.PAY[doc.pay_status] || '')]);
+    if (doc.doc_type!=='cancellation'&&doc.show_amount && doc.amount != null) rows.push(['확정 금액', doc.amount.toLocaleString('ko-KR') + '원' + (doc.amount_note ? ' (' + doc.amount_note + ')' : '') + ' · ' + (X.PAY[doc.pay_status] || '')]);
     rows=rows.concat(X.settlementRows(doc),X.receptionRows(doc),window.MEGASPOT_FOOD_SERVICES.documentRows(doc));
     $('#cfd-info').innerHTML = rows.filter(function(r){ return r[1]; }).map(function(r){ return '<div><dt>' + esc(r[0]) + '</dt><dd>' + esc(r[1]) + '</dd></div>'; }).join('');
     var ready=X.render(doc, canvas).then(function(){ canvas.setAttribute('aria-label', '메가스팟 예약확정서 — 예약번호 ' + doc.code + ', ' + X.dateText(doc.date) + ' ' + X.timeText(doc)); });
-    document.title = '예약확정서 ' + doc.code + ' · 메가스팟';return ready;
+    document.title = (doc.doc_type==='cancellation'?'취소·환불 정산서 ':'예약확정서 ') + doc.code + ' · 메가스팟';return ready;
   }
   function load(p){
     return p.then(function(r){ return show(r.doc, r.k); }).catch(function(e){
@@ -46,7 +46,7 @@
   view.addEventListener('click', function(e){
     var b = e.target.closest('[data-cfd]'); if (!b || !cur) return;
     var a = b.dataset.cfd; b.disabled = true;
-    var job = refresh().then(function(){return a === 'pdf' ? X.pdfBlob(canvas, '메가스팟 예약확정서 ' + cur.code).then(function(bl){ X.download(bl, X.fileName(cur, 'pdf')); M.toast('PDF를 저장했습니다.'); })
+    var job = refresh().then(function(){return a === 'pdf' ? X.pdfBlob(canvas, (cur.doc_type==='cancellation'?'메가스팟 취소·환불 정산서 ':'메가스팟 예약확정서 ') + cur.code).then(function(bl){ X.download(bl, X.fileName(cur, 'pdf')); M.toast('PDF를 저장했습니다.'); })
       : a === 'png' ? X.pngBlob(canvas).then(function(bl){ X.download(bl, X.fileName(cur, 'png')); M.toast('이미지를 저장했습니다.'); })
       : X.share(canvas, cur, link).then(function(res){
           if (res === 'shared' || res === 'shared-link') return;

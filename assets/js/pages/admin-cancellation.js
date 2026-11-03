@@ -1,0 +1,48 @@
+/* 예약 취소 수수료와 환불 목표를 저장하고 실제 환불 실적을 따로 확인합니다. */
+(function(){
+ 'use strict';var X=window.MEGASPOT_ADMIN,M=window.MEGASPOT,S=window.MEGASPOT_SETTLEMENT,C=window.MEGASPOT_CONFIRM;if(!X||!S||!C)return;
+ var modal=document.createElement('dialog');modal.id='cancellation-dialog';modal.className='rf-modal';
+ modal.innerHTML='<div class="rf-modal-head"><h2 id="cancel-title">예약 취소·환불 정산</h2><button class="btn btn-light btn-sm" id="cancel-close" type="button">닫기</button></div><div class="rf-modal-body"><p class="small muted">취소 수수료를 제외한 환불 대상에서 페이앱·계좌의 환불 완료액을 차감합니다. 정산 저장은 실제 환불을 실행하지 않습니다. 반환 보증금은 별도입니다.</p><button class="btn btn-light btn-sm" id="cancel-refresh" type="button">최신 수납·환불 확인</button><div id="cancel-booking" class="small"></div><form id="cancel-form"><div class="f"><label for="cancel-at">취소 접수 시각 (한국시간)</label><input class="input" id="cancel-at" type="datetime-local" required></div><div class="f"><label for="cancel-mode">환불 기준</label><select class="select" id="cancel-mode"><option value="policy">기본 환불 기준 · 이용일까지 남은 날짜</option><option value="full">전액 환불 · 결제 후 2시간 이내·운영 사정 등</option><option value="manual">별도 합의 · 수수료 직접 입력</option></select></div><p class="tiny muted">결제 후 2시간 이내, 제작 착수한 현수막·식음료, 정기 이용 등의 별도 조건은 확인한 뒤 전액 환불 또는 별도 합의를 선택하세요. 기본 비율은 최초 정산 기준 현재 수납액에 적용하며, 원 예약 금액을 넘는 초과 수납에는 수수료를 매기지 않습니다. 환불 후 뒤늦게 취소 정산을 등록한다면 별도 합의에서 확인한 수수료를 입력하세요.</p><div class="f" id="cancel-fee-wrap" hidden><label for="cancel-fee">합의한 취소 수수료 (원)</label><input class="input" id="cancel-fee" type="number" min="0" step="1"></div><div class="f"><label for="cancel-reason">정산 사유 (고객 정산서에도 표시 · 필수)</label><input class="input" id="cancel-reason" maxlength="500" required></div><div id="cancel-estimate"></div><button class="btn btn-primary" id="cancel-save" type="submit">취소 정산 저장·예약 취소</button></form><div id="cancel-msg" role="status"></div><div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-light" id="cancel-payments" type="button">수납·실제 환불 기록</button><button class="btn btn-light" id="cancel-pdf" type="button" disabled>취소·환불 정산서 PDF</button><button class="btn btn-light" id="cancel-link" type="button" disabled>고객 정산서 링크 복사</button></div><label class="chk"><input id="cancel-show-amount" type="checkbox" checked> 고객 정산서에 금액 표시</label><p class="tiny muted">새 정산서는 환불 실적을 최신으로 조회해 발급합니다. 이미 저장한 PDF와 이전 견적 원본은 보존됩니다.</p><details><summary>취소 정산 변경 이력</summary><div id="cancel-history"></div></details><canvas id="cancel-canvas" aria-label="취소 환불 정산서 미리보기"></canvas></div>';
+ document.body.appendChild(modal);var $=function(s){return modal.querySelector(s);},state={code:'',queue:[],data:null,busy:false,dirty:false,pending:null,load:0};
+ function atInput(v){return new Date(Date.parse(v||new Date().toISOString())+9*3600e3).toISOString().slice(0,16);}
+ function atUTC(){return new Date($('#cancel-at').value+':00+09:00').toISOString();}
+ function won(n){return Number(n).toLocaleString('ko-KR')+'원';}
+ function busy(on){state.busy=on;modal.querySelectorAll('button,input,select').forEach(function(el){el.disabled=on;});$('#cancel-pdf').disabled=on||state.dirty||!state.data?.terms;$('#cancel-link').disabled=on||state.dirty||!state.data?.terms;}
+ function message(e){if(!X.guard(e))$('#cancel-msg').textContent=e.message||'처리하지 못했습니다.';}
+ function rows(value){return '<dl>'+S.rows(value).map(function(r){return '<div><dt>'+M.esc(r[0])+'</dt><dd>'+M.esc(r[1])+'</dd></div>';}).join('')+'</dl>';}
+ function estimate(){
+  if(!state.data)return;var r=state.data,c=r.terms,mode=$('#cancel-mode').value,base=c?c.basis_net:Math.max(0,r.settlement.net),at;try{at=atUTC();}catch{return;}
+  var eligible=c?.basis_eligible??Math.min(base,r.booking.amount==null?base:r.booking.amount),p=S.cancellationPolicy(r.booking.date,at),rate=mode==='full'?10000:p.rate,fee=mode==='manual'?Number($('#cancel-fee').value):eligible-Math.round(eligible*rate/10000);
+  $('#cancel-fee-wrap').hidden=mode!=='manual';$('#cancel-fee').required=mode==='manual';
+  var terms={mode:mode,cancelled_at:at,fee:fee,original_amount:c?c.original_amount:r.booking.amount,basis_net:base,basis_eligible:eligible,policy_label:mode==='policy'?p.label+' · '+rate/100+'% 환불':mode==='full'?'전액 환불 · 수수료 없음':'별도 합의 수수료',reason:$('#cancel-reason').value};
+  $('#cancel-estimate').innerHTML=Number.isSafeInteger(fee)&&fee>=0&&fee<=(mode==='manual'?(c?c.basis_received:r.settlement.received):base)?rows(S.calculate({received:r.settlement.received,refunded:r.settlement.refunded,cancellation:terms})):'<p>수수료를 정산 기준으로 받은 이용료 이내로 입력해 주세요.</p>';
+ }
+ function paint(r){
+  state.data=r;state.dirty=false;state.pending=null;$('#cancel-booking').textContent=r.booking.name+' · '+r.booking.date+' · '+r.booking.code+' · '+(r.booking.status==='cancelled'?'취소된 예약':'취소 전 예약');
+  $('#cancel-at').value=atInput(r.terms?.cancelled_at);$('#cancel-mode').value=r.terms?.mode||'policy';$('#cancel-fee').value=r.terms?.fee??'';$('#cancel-reason').value=r.terms?.reason||'고객 취소 요청 · 기본 환불 기준 적용';
+  $('#cancel-save').textContent=r.terms?'취소 정산 변경 저장':'취소 정산 저장·예약 취소';
+  $('#cancel-history').innerHTML=r.history.map(function(h){return '<p class="small">'+M.esc(h.created_at)+' · 수수료 '+won(h.terms.fee)+' · '+M.esc(h.terms.policy_label)+'<br>'+M.esc(h.terms.reason)+'</p>';}).join('')||'<p class="small muted">저장한 취소 정산이 없습니다.</p>';
+  $('#cancel-show-amount').checked=r.preview?.show_amount!==false;estimate();if(r.preview)C.render(r.preview,$('#cancel-canvas')).catch(message);else $('#cancel-canvas').width=0;
+ }
+ function load(code){
+  if(state.busy)return;state.code=code;state.data=null;state.dirty=false;state.pending=null;$('#cancel-title').textContent='예약 취소·환불 정산 · '+code;$('#cancel-msg').textContent='';if(!modal.open)modal.showModal();busy(true);var n=++state.load;
+  X.A('/bookings/'+encodeURIComponent(code)+'/cancellation').then(function(r){if(n===state.load)paint(r);}).catch(message).finally(function(){if(n===state.load)busy(false);});
+ }
+ function close(){if(state.busy)return;if(state.dirty&&!confirm('입력 중인 취소 정산을 버리고 닫을까요?'))return;modal.close();state.dirty=false;state.queue=[];}
+ $('#cancel-close').onclick=close;modal.addEventListener('cancel',function(e){e.preventDefault();close();});
+ $('#cancel-refresh').onclick=function(){if(state.dirty&&!confirm('작성 중인 내용을 바꾸고 최신 내역을 불러올까요?'))return;load(state.code);};
+ ['input','change'].forEach(function(name){$('#cancel-form').addEventListener(name,function(e){if(name==='change'&&e.target.id==='cancel-mode')$('#cancel-reason').value=$('#cancel-mode').value==='policy'?'고객 취소 요청 · 기본 환불 기준 적용':'';state.dirty=true;state.pending=null;estimate();busy(false);});});
+ $('#cancel-form').onsubmit=function(e){
+  e.preventDefault();if(state.busy||!state.data)return;var r=state.data,body;try{body=state.pending||{request_id:crypto.randomUUID(),expected_revision:r.settlement.revision,expected_version:r.version,mode:$('#cancel-mode').value,fee:Number($('#cancel-fee').value),cancelled_at:atUTC(),reason:$('#cancel-reason').value.trim()};}catch(e){message(e);return;}
+  var nextCode='';state.pending=body;busy(true);$('#cancel-msg').textContent='';X.A('/bookings/'+encodeURIComponent(state.code)+'/cancellation',{method:'POST',body:body}).then(function(){state.dirty=false;state.pending=null;window.dispatchEvent(new CustomEvent('admin-settlement-saved',{detail:{code:state.code}}));return X.A('/bookings/'+encodeURIComponent(state.code)+'/cancellation');}).then(function(r){paint(r);$('#cancel-msg').textContent='취소 수수료와 환불 기준을 저장했습니다. 실제 환불이 완료되면 페이앱 자동 내역 또는 계좌 환불 기록으로 반영해 주세요.';if(state.queue.length>1){state.queue.shift();nextCode=state.queue[0];}}).catch(function(e){if(e.code==='PAYMENT_CHANGED')state.pending=null;message(e);}).finally(function(){busy(false);if(nextCode)load(nextCode);});
+ };
+ $('#cancel-payments').onclick=function(){if(state.busy)return;if(state.dirty&&!confirm('저장하지 않은 취소 정산을 버리고 수납 기록을 열까요?'))return;var code=state.code;state.dirty=false;modal.close();var b=document.createElement('button');b.dataset.settlementCode=code;document.body.appendChild(b);b.click();b.remove();};
+ function issue(action){
+  if(state.busy||state.dirty||!state.data?.terms)return;var r=state.data;busy(true);$('#cancel-msg').textContent='';
+  X.A('/bookings/'+encodeURIComponent(state.code)+'/cancellation/document',{method:'POST',body:{expected_revision:r.settlement.revision,expected_version:r.version,show_amount:$('#cancel-show-amount').checked}}).then(function(result){return C.render(result.doc,$('#cancel-canvas')).then(function(){if(action==='pdf')return C.pdfBlob($('#cancel-canvas'),'메가스팟 취소·환불 정산서 '+state.code).then(function(blob){C.download(blob,C.fileName(result.doc,'pdf'));});return navigator.clipboard?navigator.clipboard.writeText(result.link):window.prompt('고객용 취소 정산서 주소',result.link);});}).then(function(){$('#cancel-msg').textContent='취소·환불 정산서를 발급했습니다.';}).catch(function(e){message(e);if(e.code==='PAYMENT_CHANGED'){$('#cancel-msg').textContent+=' 최신 수납·환불 확인을 눌러 다시 검토해 주세요.';}}).finally(function(){busy(false);});
+ }
+ $('#cancel-pdf').onclick=function(){issue('pdf');};$('#cancel-link').onclick=function(){issue('link');};
+ window.addEventListener('admin-cancellation-open',function(e){if(modal.open&&state.dirty)return;state.queue=(e.detail.codes||[]).slice();if(state.queue[0])load(state.queue[0]);});
+ document.addEventListener('click',function(e){var b=e.target.closest('[data-cancellation-code]');if(!b)return;e.preventDefault();e.stopPropagation();state.queue=[b.dataset.cancellationCode];load(b.dataset.cancellationCode);},true);
+ new MutationObserver(function(){if(!document.body.classList.contains('adm-on')&&modal.open){modal.close();state.data=null;state.dirty=false;}}).observe(document.body,{attributes:true,attributeFilter:['class']});
+})();

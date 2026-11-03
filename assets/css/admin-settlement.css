@@ -24,3 +24,13 @@
 #payment-channels dl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0}
 #payment-channels dt{font-size:11px;color:#647080;margin-bottom:4px}
 #payment-channels dd{font-size:13px;font-weight:700;margin:0;font-variant-numeric:tabular-nums}
+
+#cancellation-dialog .rf-modal-body{padding:20px;overflow-wrap:anywhere}
+#cancellation-dialog input,#cancellation-dialog select{max-width:100%;min-width:0}
+#cancel-booking{margin:14px 0;font-weight:700}
+#cancel-estimate dl>div{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:12px;padding:9px 0;border-bottom:1px solid #dde1e6;font-size:13px}
+#cancel-estimate dt{color:#647080}
+#cancel-estimate dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}
+#cancel-msg{margin:14px 0;font-size:14px;line-height:1.7}
+#cancel-canvas{display:block;width:100%;height:auto;margin-top:18px}
+#cancel-history{max-height:220px;overflow:auto}

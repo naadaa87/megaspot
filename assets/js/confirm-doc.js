@@ -7,7 +7,7 @@
   var FF = '"Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif';
   var LOGO = 'Anton, "Arial Black", Impact, sans-serif';
   var DOW = ['일', '월', '화', '수', '목', '금', '토'];
-  var PAY = { paid: '결제 완료', deposit: '예약금 입금 완료 · 잔금은 이용 전 안내', onsite: '현장 결제', pending: '결제 방법 안내 예정', refund:'초과 수납 · 환불 필요', payment_review:'수납·환불 기록 확인 필요', refunded:'예약 취소 · 전액 환불 완료' };
+  var PAY = { cancellation_refund:'예약 취소 · 환불 처리 대기', cancellation_settled:'예약 취소 · 정산 완료', paid: '결제 완료', deposit: '예약금 입금 완료 · 잔금은 이용 전 안내', onsite: '현장 결제', pending: '결제 방법 안내 예정', refund:'초과 수납 · 환불 필요', payment_review:'수납·환불 기록 확인 필요', refunded:'예약 취소 · 전액 환불 완료' };
   var SLOT = { 'pkg-day': [10, 17], 'pkg-allday': [10, 24], 'pkg-allnight': [18, 31] };
   var GUIDE = [
     '예약한 시간 안에 입장·세팅·정리·퇴장을 모두 마쳐 주세요. 시간을 늘려야 하면 미리 연락 주세요.',
@@ -27,7 +27,7 @@
   }
   function timeText(doc){ var h = hours(doc); return h ? hl(h[0]) + ' – ' + hl(h[1]) + ' (' + (h[1] - h[0]) + '시간)' : '시간은 별도 안내'; }
   function issuedText(doc){ var t = doc.issued_at ? String(doc.issued_at).slice(0, 10) : ''; if (!t) { var n = new Date(Date.now() + 9 * 3600e3); t = n.toISOString().slice(0, 10); } var p = t.split('-'); return p[0] + '. ' + (+p[1]) + '. ' + (+p[2]) + '.'; }
-  function fileName(doc, ext){ return '메가스팟_예약확정서_' + (doc.code || '미발급') + '.' + ext; }
+  function fileName(doc, ext){ return (doc.doc_type==='cancellation'?'메가스팟_취소환불정산서_':'메가스팟_예약확정서_') + (doc.code || '미발급') + '.' + ext; }
 
   function receptionRows(doc){
     var r=doc.reception;if(!r)return [];
@@ -86,8 +86,8 @@
     var lw = width('MEGA', 400, 34, LOGO);
     text('MEGA', L, 50, { sz: 34, fam: LOGO, c: C.graphite }); text('SPOT', L + lw, 50, { sz: 34, fam: LOGO, c: C.cobalt });
     text((doc.space && doc.space.name) || '메가스팟 건대 1호', L + 1, 96, { sz: 11, w: 700, c: C.ink3, ls: 4 });
-    text('예약 확정서', R, 50, { sz: 32, w: 800, align: 'right' });
-    text('RESERVATION CONFIRMATION', R, 94, { sz: 10, w: 700, c: C.ink3, align: 'right', ls: 2 });
+    text(doc.doc_type==='cancellation'?'취소·환불 정산서':'예약 확정서', R, 50, { sz: doc.doc_type==='cancellation'?26:32, w: 800, align: 'right' });
+    text(doc.doc_type==='cancellation'?'CANCELLATION SETTLEMENT':'RESERVATION CONFIRMATION', R, 94, { sz: 10, w: 700, c: C.ink3, align: 'right', ls: 2 });
     hr(124, C.graphite, 2);
     // 예약번호 · 발급일 · 상태
     text('예약번호', L, 144, { sz: 11, w: 700, c: C.ink3 });
@@ -106,10 +106,11 @@
     function section(t){ ensure(Math.round(120*k));text(t, L, y, { sz: Math.round(13.5 * k), w: 800, c: C.cobalt }); y += Math.round(24 * k); }
     function row(label, value, o){
       o = o || {}; var lines = wrap(value, VW, o.w || 500, o.sz || fs);
-      var subLines=o.sub?wrap(o.sub,VW,400,Math.round(12.5*k)):[];ensure(Math.max(1,lines.length)*lh+subLines.length*Math.round(19*k)+Math.round(11*k));
-      text(label, L, y + 2, { sz: Math.round(12.5 * k), w: 600, c: C.ink3 });
+      var labelLines=wrap(label,LBL-10,600,Math.round(12.5*k)),labelHeight=labelLines.length*Math.round(18*k);
+      var subLines=o.sub?wrap(o.sub,VW,400,Math.round(12.5*k)):[];ensure(Math.max(Math.max(1,lines.length)*lh,labelHeight)+subLines.length*Math.round(19*k)+Math.round(11*k));
+      labelLines.forEach(function(label,i){text(label,L,y+2+i*Math.round(18*k),{sz:Math.round(12.5*k),w:600,c:C.ink3});});
       lines.forEach(function(ln, i){ text(ln, VX, y + i * lh, { sz: o.sz || fs, w: o.w || 500, c: o.c || C.ink }); });
-      y += Math.max(1, lines.length) * lh;
+      y += Math.max(Math.max(1, lines.length) * lh,labelHeight);
       if (o.sub) { wrap(o.sub, VW, 400, Math.round(12.5 * k)).forEach(function(ln){ text(ln, VX, y, { sz: Math.round(12.5 * k), c: C.ink2 }); y += Math.round(19 * k); }); }
       y += Math.round(7 * k); ctx.fillStyle = C.line2; ctx.fillRect(L, y - Math.round(4 * k), IW, 1); y += Math.round(4 * k);
     }
@@ -129,7 +130,7 @@
     if (doc.phone) row('연락처', doc.phone);
     y += gap - Math.round(8 * k);
 
-    section('이용 정보');
+    section(doc.doc_type==='cancellation'?'취소된 예약 정보':'이용 정보');
     var sp0 = doc.space || {};
     row('공간', sp0.name || '메가스팟 건대 1호', { w: 700, sub: sp0.sub || '' });
     if (sp0.address) row('주소', sp0.address);
@@ -140,9 +141,9 @@
     y += gap - Math.round(8 * k);
 
     if (doc.show_amount && (doc.amount != null || doc.deposit != null)) {
-      section('금액 · 결제');
-      if (doc.amount != null) row('확정 금액', won(doc.amount) + (doc.amount_note ? '  (' + doc.amount_note + ')' : ''), { w: 800, c: C.cobalt, sz: Math.round(16 * k) });
-      row('결제', (PAY[doc.pay_status] || PAY.paid) + (doc.paid != null && doc.paid > 0 ? ' · 받은 금액 ' + won(doc.paid) : ''));
+      section(doc.doc_type==='cancellation'?'취소·환불 정산':'금액 · 결제');
+      if (doc.doc_type!=='cancellation'&&doc.amount != null) row('확정 금액', won(doc.amount) + (doc.amount_note ? '  (' + doc.amount_note + ')' : ''), { w: 800, c: C.cobalt, sz: Math.round(16 * k) });
+      if(doc.doc_type!=='cancellation')row('결제', (PAY[doc.pay_status] || PAY.paid) + (doc.paid != null && doc.paid > 0 ? ' · 받은 금액 ' + won(doc.paid) : ''));
       settlementRows(doc).forEach(function(r){row(r[0]==='초과 수납 환불 필요액'?'환불 필요액':r[0],r[1]);});
       if (doc.deposit != null) row('보증금', doc.deposit > 0 ? won(doc.deposit) + ' · 이용료와 별도, 이용 뒤 확인하고 돌려 드립니다' : '없음');
       y += gap - Math.round(8 * k);
@@ -163,7 +164,7 @@
       y += rh + Math.round(6 * k);
       ensure(Math.round(18*k)+gap);text('환불 비율은 결제한 이용료 기준이며, 보증금은 별도로 돌려 드립니다.', L, y, { sz: Math.round(11.5 * k), c: C.ink3 }); y += Math.round(18 * k) + gap - Math.round(6 * k);
     }
-    section('이용 안내'); bullets(GUIDE, Math.round(12.5 * k), C.ink2);
+    if(doc.doc_type!=='cancellation'){section('이용 안내'); bullets(GUIDE, Math.round(12.5 * k), C.ink2);}
     if (doc.note) { y += Math.round(8 * k); section('안내 메모'); wrap(doc.note, IW, 500, Math.round(13.5 * k)).forEach(function(ln){ensure(Math.round(21*k)); text(ln, L, y, { sz: Math.round(13.5 * k), w: 500 }); y += Math.round(21 * k); }); }
     var contentEnd = y;
 
@@ -175,8 +176,8 @@
     text('전화  ' + c.phone + '     카카오톡  ' + c.kakao, L + 22, by + 40, { sz: 13.5, w: 600 });
     text('이메일  ' + c.email, L + 22, by + 62, { sz: 13.5, w: 600 });
     if (qr) { ctx.drawImage(qr, R - 22 - 72, by + 14, 72, 72); text('휴대폰 카메라로 비추면', R - 22 - 72 - 12, by + 38, { sz: 10.5, w: 600, c: C.ink3, align: 'right' }); text('카카오톡 채팅이 열립니다', R - 22 - 72 - 12, by + 54, { sz: 10.5, w: 600, c: C.ink3, align: 'right' }); }
-    text('확정서 다시 보기: megaspot.kr/confirm  (예약번호 + 휴대폰 뒷 4자리)', L, H - 64, { sz: 11, w: 600, c: C.ink2 });
-    text('이 확정서는 ' + ((doc.space && doc.space.name) || '메가스팟 건대 1호') + ' 예약이 확정되었음을 알려 드리는 문서이며, 세금계산서·현금영수증 등 결제 증빙은 따로 발급됩니다.', L, H - 46, { sz: 10, c: C.ink3 });
+    text((doc.doc_type==='cancellation'?'취소 정산서':'확정서')+' 다시 보기: megaspot.kr/confirm  (예약번호 + 휴대폰 뒷 4자리)', L, H - 64, { sz: 11, w: 600, c: C.ink2 });
+    text(doc.doc_type==='cancellation'?'취소 수수료·환불 정산 안내입니다. 공간 이용을 확정하지 않으며, 세금계산서·현금영수증 등 결제 증빙은 별도입니다.':'이 확정서는 ' + ((doc.space && doc.space.name) || '메가스팟 건대 1호') + ' 예약이 확정되었음을 알려 드리는 문서이며, 세금계산서·현금영수증 등 결제 증빙은 따로 발급됩니다.', L, H - 46, { sz: 10, c: C.ink3 });
     text('주식회사 블랭크 · 대표 최시준 · 사업자등록번호 161-86-03494 · megaspot.kr', L, H - 30, { sz: 10, c: C.ink3 });
     text((index+1)+' / '+pages.length,R,H-64,{sz:11,c:C.ink3,align:'right'});
     });
@@ -220,6 +221,7 @@
   }
   function settlementRows(doc){return window.MEGASPOT_SETTLEMENT?window.MEGASPOT_SETTLEMENT.documentRows(doc):[];}
   function kakaoText(doc, link){
+    if(doc.doc_type==='cancellation'){var c=['[예약 취소·환불 정산 안내]','예약번호: '+doc.code,'예약이 취소되었습니다.'];settlementRows(doc).forEach(function(r){c.push('· '+r[0]+': '+r[1]);});if(link)c.push('취소 정산서 조회: '+link);return c.join('\n');}
     var L = ['[' + ((doc.space && doc.space.name) || '메가스팟 건대 1호') + ' 예약 확정 안내]'];
     var nm = String(doc.customer || '').replace(/\s*\(.*\)\s*$/, '');
     L.push((nm ? nm + ' 님, ' : '') + '예약이 확정되었습니다.');
@@ -239,7 +241,7 @@
   function share(canvas, doc, link){
     return pngBlob(canvas).then(function(b){
       var file = null; try { file = new File([b], fileName(doc, 'png'), { type: 'image/png' }); } catch (e) {}
-      var data = { title: '메가스팟 예약확정서', text: kakaoText(doc, link) };
+      var data = { title: doc.doc_type==='cancellation'?'메가스팟 취소·환불 정산서':'메가스팟 예약확정서', text: kakaoText(doc, link) };
       if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
         return navigator.share({ files: [file], title: data.title, text: data.text }).then(function(){ return 'shared'; }, function(e){ return e && e.name === 'AbortError' ? 'cancel' : 'error'; });
       }

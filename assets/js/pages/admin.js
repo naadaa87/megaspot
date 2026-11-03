@@ -381,6 +381,7 @@
     var drSt=$('#dr-status'); if(drSt) drSt.addEventListener('change', function(){ var v=this.value;
       if(v==='예약 확정' && !(cur.bookings||[]).some(function(b){ return b.status!=='cancelled'; })){ this.value=it.status; openConfirm(confirmFromInquiry()); return; }
       var select=this; select.disabled=true;
+      if(v==='취소·환불'&&(cur.bookings||[]).some(function(b){return b.status!=='cancelled';})){select.value=it.status;select.disabled=false;window.dispatchEvent(new CustomEvent('admin-cancellation-open',{detail:{codes:cur.bookings.filter(function(b){return b.status!=='cancelled';}).map(function(b){return b.booking_code;})}}));return;}
       A('/inquiries/'+it.ref,{method:'PATCH', body:{status:v}}).then(function(){ it.status=v; (cur.bookings||[]).forEach(function(b){ b.status={'예약 확정':'confirmed','이용 완료':'completed','취소·환불':'cancelled'}[v]||b.status; }); M.toast('상태를 "'+v+'"(으)로 바꿨습니다. 연결 예약에도 반영했습니다.'); refreshLists(); }).catch(function(e){ select.value=it.status; if(!guard(e)) M.toast(e.message); }).finally(function(){ select.disabled=false; }); });
     $('#dr-amt-save').addEventListener('click', function(){ var v=$('#dr-amt').value.trim(), n=$('#dr-amt-note').value.trim();
       A('/inquiries/'+it.ref,{method:'PATCH', body:{total:v===''?'':Number(v), amount_note:n}}).then(function(){ d.total=v===''?null:Number(v); d.amount_override=true; d.included_catering_amount=0; d.catering_in_quote=false; d.included_reception_amount=0; d.reception_in_quote=false;d.included_cocktail_amount=0;d.cocktail_in_quote=false; d.price_adjustment=null; drawerDirty['adm-drawer']=false; it.effective_amount=d.total; d.amount_mode=v===''?'':'manual'; d.amount_note=n; M.toast(v===''?'금액을 비웠습니다.':'금액을 '+won(Number(v))+'(으)로 저장했습니다.'); renderDetail(); refreshLists(); }).catch(function(e){ if(!guard(e)) M.toast(e.message); }); });
@@ -729,7 +730,7 @@
     if(!Q.ref)return Promise.resolve(true);
     readForm();var ref=Q.ref;
     return A('/inquiries/'+encodeURIComponent(ref)).then(function(r){
-      if(Q.ref!==ref)return false;var linked=(r.bookings||[]).filter(function(b){return b.status!=='cancelled';});quoteSettlement=linked.length===1?linked[0].settlement:null;var d=r.item.data||{},RC=window.MEGASPOT_RECEPTION_CALC;
+      if(Q.ref!==ref)return false;var linked=(r.bookings||[]).filter(function(b){return b.status!=='cancelled';});if(!linked.length&&r.bookings?.length===1&&r.bookings[0].settlement?.cancellation)linked=r.bookings;quoteSettlement=linked.length===1?linked[0].settlement:null;var d=r.item.data||{},RC=window.MEGASPOT_RECEPTION_CALC;
       if(!RC.quoteCurrent(Q,d)||!window.MEGASPOT_FOOD_SERVICES.current(Q,d)){
         var include=!Q.receptionExcluded&&(d.reception_in_quote||Q.extras.some(function(x){return x.kind==='reception';})||!d.quote_input);
         Q=window.MEGASPOT_FOOD_SERVICES.syncQuote(RC.syncQuote(Q,d,include),d,false);invalidateQuote();fillForm();calc();note($('#q-msg'),'변경된 식음료 구성과 취소 상태를 최신 정보로 반영했습니다. 금액을 확인하고 견적 저장을 눌러 주세요.',true);
@@ -784,12 +785,14 @@
     L.push('· 이용일: '+E.kdateY(q.date)+(q.day.holiday?' ('+q.day.holiday+')':''));
     L.push('· 시간: '+q.range);
     L.push('· 인원: '+q.people+'명'+(PUR[Q.purpose]?' · '+PUR[Q.purpose]:''));
+    if(quoteSettlement?.cancellation)L.push('예약 취소·환불 정산입니다. 아래 이용 조건은 원래 견적의 참고 내역입니다.');
     L.push('--------------------');
     R.lines.forEach(function(l){ if(l.amount) L.push(l.label+' '+won(l.amount)); });
     if(R.disc) L.push(R.discLabel+(Q.discWhy?'('+Q.discWhy+')':'')+' -'+won(R.disc));
     R.extras.forEach(function(x){ L.push(x.label+' '+(x.amount<0?'-'+won(-x.amount):won(x.amount))); });
     L.push('--------------------');
     L.push('합계 '+won(R.total)+' ('+quoteVatNote().replace('표시 금액은 ','').replace(' 기준입니다.','')+')');
+    if(quoteSettlement)window.MEGASPOT_SETTLEMENT.rows(quoteSettlement.cancellation?quoteSettlement:Object.assign({},quoteSettlement,{amount:R.total})).forEach(function(r){L.push(r[0]+' '+r[1]);});
     L.push('보증금 '+won(R.deposit)+' 별도 (이용 뒤 확인 후 반환)');
     L.push('견적 유효기간: '+E.kdateY(R.validUntil)+'까지'+(Q.valid===1?' (다음 날까지)':''));
     if(Q.note){ L.push(''); L.push(Q.note); }
@@ -822,7 +825,7 @@
     });
     var refund=R.refund.map(function(x){ return '<span>'+esc(x.k)+' <b>'+Math.round(x.rate*100)+'%</b></span>'; }).join('');
     $('#quote-print').innerHTML='<div class="qp">'
-      +'<header class="qp-head"><div><div class="qp-logo">MEGA<b>SPOT</b></div><div class="qp-sub">'+esc(spaceName(Q.space))+' · '+esc(D.address||'서울 광진구 화양동 10-1 한아름건물 2층')+'</div></div><div class="qp-meta"><b>견 적 서</b><span>견적번호 '+esc(Q.quoteNo||'(저장 전)')+'</span><span>작성일 '+esc(stamp)+'</span><span>유효기간 '+esc(E.kdateY(R.validUntil))+'까지</span></div></header>'
+      +(quoteSettlement?.cancellation?'<p class="qp-small"><b>예약 취소·환불 정산 안내</b> · 아래 이용 조건은 원래 견적의 참고 내역이며, 공간 이용을 확정하지 않습니다.</p>':'')+'<header class="qp-head"><div><div class="qp-logo">MEGA<b>SPOT</b></div><div class="qp-sub">'+esc(spaceName(Q.space))+' · '+esc(D.address||'서울 광진구 화양동 10-1 한아름건물 2층')+'</div></div><div class="qp-meta"><b>견 적 서</b><span>견적번호 '+esc(Q.quoteNo||'(저장 전)')+'</span><span>작성일 '+esc(stamp)+'</span><span>유효기간 '+esc(E.kdateY(R.validUntil))+'까지</span></div></header>'
       +(quoteHistorical?'<p class="qp-small">변경 전 견적 원본 · 현재 식음료 구성과 다릅니다.</p>':'')
       +'<h1 class="qp-title">'+esc(Q.customer?Q.customer+' 귀하':spaceName(Q.space)+' 이용 견적')+'</h1>'
       +'<table class="qp-cond"><tbody>'
@@ -1251,7 +1254,8 @@
   $('#bk-space').addEventListener('change',function(){ useSpace(this.value); bkTimes($('#bk-start').value===''?null:+$('#bk-start').value,$('#bk-end').value===''?null:+$('#bk-end').value); });
   ['#bk-end','#bk-date','#bk-people'].forEach(function(sel){ $(sel).addEventListener('change', bkSync); });
   $('#bk-pkgs').addEventListener('click', function(e){ var b=e.target.closest('[data-bkpkg]'); if(!b) return; var p=E.findPkg(b.dataset.bkpkg); bkTimes(p.start, p.end); });
-  function settlementSummary(b){var s=b.settlement;if(!s)return '';return '<div class="small booking-settlement"><b>현재 수납 '+esc(won(s.net))+'</b> · 잔금 '+esc(s.balance==null?'미정':won(s.balance))+' · 초과 수납 환불 필요 '+esc(s.refund_due==null?'미정':won(s.refund_due))+' <button class="btn btn-light btn-xs" type="button" data-settlement-code="'+esc(b.booking_code)+'">수납·환불 기록</button></div>';}
+  function settlementSummary(b){var s=b.settlement;if(!s)return '';var text=s.cancellation?'취소 수수료 '+won(s.cancellation.fee)+' · 이미 환불 '+won(s.refunded)+' · 추가 환불 필요 '+(s.refund_due==null?'확인 필요':won(s.refund_due)):'현재 수납 '+won(s.net)+' · 잔금 '+(s.balance==null?'미정':won(s.balance))+' · 초과 수납 환불 필요 '+(s.refund_due==null?'미정':won(s.refund_due));return '<div class="small booking-settlement"><b>'+esc(text)+'</b> <button class="btn btn-light btn-xs" type="button" data-settlement-code="'+esc(b.booking_code)+'">수납·환불 기록</button> <button class="btn btn-light btn-xs" type="button" data-cancellation-code="'+esc(b.booking_code)+'">'+(b.status==='cancelled'?'취소 정산·정산서':'취소·환불 정산')+'</button></div>';}
+
   function bookingFromInquiry(it){
     var d=it.data||{}; $('#bk-ref').value=it.ref; $('#bk-name').value=d.name||it.name||''; $('#bk-phone').value=d.phone||it.phone||''; $('#bk-date').value=d.date||it.event_date||''; $('#bk-people').value=d.headcount||it.headcount||'';
     var sh=d.start_h, eh=d.end_h; if(sh==null && SLOT_H[d.slot]){ sh=SLOT_H[d.slot][0]; eh=SLOT_H[d.slot][1]; }
@@ -1278,6 +1282,7 @@
   $('#bk-filter').addEventListener('change', loadBookings); $('#bk-reload').addEventListener('click', loadBookings);
   $('#bk-list').addEventListener('click', changeDeposit);
   $('#bk-list').addEventListener('click', function(e){ var b=e.target.closest('button[data-bk]'); if(!b) return; var s=b.dataset.bk;
+    if(s==='cancelled'){window.dispatchEvent(new CustomEvent('admin-cancellation-open',{detail:{codes:[b.dataset.code]}}));return;}
     if(!confirm(s==='completed'?'이용 완료로 처리할까요? 처리 후 고객이 예약번호로 후기를 쓸 수 있습니다.':'이 예약을 취소할까요? 달력의 마감 표시도 풀립니다.')) return;
     A('/bookings/'+b.dataset.code,{method:'PATCH', body:{status:s}}).then(function(){ M.toast('변경했습니다.'); loadBookings(); }).catch(function(x){ if(!guard(x)) M.toast(x.message); }); });
   $('#bk-form').addEventListener('submit', function(e){ e.preventDefault(); var f=e.target; if(!M.validate(f)) return; var d=M.formData(f); d.block_calendar=!!f.block_calendar.checked; var button=f.querySelector('[type=submit]'); if(button.disabled) return; button.disabled=true;
@@ -1469,6 +1474,7 @@
     if(c){ e.stopPropagation(); var it=RS.items.filter(function(x){ return x.kind==='pending' && x.ref===c.dataset.rsconfirm; })[0]; if(it) openConfirm(confirmFromRs(it)); return; }
     var b=e.target.closest('button[data-rsact]');
     if(b){ e.stopPropagation(); var s=b.dataset.rsact;
+      if(s==='cancelled'){window.dispatchEvent(new CustomEvent('admin-cancellation-open',{detail:{codes:[b.dataset.code]}}));return;}
       if(!confirm(s==='completed'?'이용 완료로 처리할까요? 처리 후 고객이 예약번호로 후기를 쓸 수 있습니다.':'이 예약을 취소할까요? 달력의 마감 표시도 풀립니다.')) return;
       A('/bookings/'+b.dataset.code,{method:'PATCH', body:{status:s}}).then(function(){ M.toast('변경했습니다.'); loadResv(); }).catch(function(x){ if(!guard(x)) M.toast(x.message); }); return; }
   });
