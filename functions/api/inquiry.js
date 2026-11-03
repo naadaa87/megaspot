@@ -3,6 +3,7 @@
 import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, log, getMember, clientIp, tooMany, hit, kstToday, spaceOk, SPACE_OPENING } from './_lib.js';
 import { cateringFrom } from './_catering.js';
 import { receptionCustomer } from './_reception.js';
+import {readCocktailPricing,publicCocktailPricing} from './_cocktail_pricing.js';
 import { cocktailFrom } from './_cocktail.js';
 import { createVisit, timeOk } from './_visits.js';
 const TYPES = ['event', 'regular', 'partner'];
@@ -77,7 +78,7 @@ export async function onRequestPost({ request, env }) {
     family: [].concat(d.family || []).map(x => str(x, 20)).filter((x, i, a) => FAMILY_ASK.includes(x) && a.indexOf(x) === i).slice(0, 4),
     reception,
     catering: cateringFrom(d.catering),
-    cocktail: cocktailFrom(d.cocktail),
+    cocktail: d.cocktail ? await (async()=>{const cfg=publicCocktailPricing(await readCocktailPricing(env));return cocktailFrom(d.cocktail,cfg.prices,cfg.revision);})() : null,
     listing,   // 등록 공간 문의일 때 { id, name }
     visit_wish,   // 현장답사 희망 { date, time, people, note }   // '출장뷔페도 함께 상담받기' (코스·인원·바베큐·생맥주 — 금액은 서버에서 다시 계산)
     message, agree_marketing: !!d.agree_marketing, source: str(d.source, 200), summary: str(d.summary, 6000),
