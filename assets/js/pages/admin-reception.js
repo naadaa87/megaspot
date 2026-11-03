@@ -44,7 +44,7 @@
   $('#ar-form').addEventListener('change',function(){state.dirty=true;paint();});
   $('#ar-save').addEventListener('click',function(){
     if(state.busy||!validTarget())return;var ref=state.target.ref,body=config();if(!C.quote(body.people,body.format,body.course).ok)return;
-    busy(true);X.A('/inquiries/'+encodeURIComponent(ref),{method:'PATCH',body:{reception:body}}).then(function(){state.dirty=false;X.note($('#ar-msg'),'문의 '+ref+'에 케이터링을 저장했습니다. 문의 상세의 공간·식음료 요약에도 반영됩니다. 이미 발급한 확정서의 금액이 바뀌었다면 다시 발급해 주세요.',true);M.toast('케이터링 구성을 저장했습니다.');}).catch(error).finally(function(){busy(false);});
+    busy(true);X.A('/inquiries/'+encodeURIComponent(ref),{method:'PATCH',body:{reception:body}}).then(function(){state.dirty=false;X.note($('#ar-msg'),'문의 '+ref+'에 케이터링을 저장했습니다. 문의 상세의 공간·식음료 요약에도 반영됩니다. 케이터링 구성이 바뀐 예약은 예약확정서를 다시 발급해 주세요.',true);M.toast('케이터링 구성을 저장했습니다.');}).catch(error).finally(function(){busy(false);});
   });
   $('#ar-to-quote').addEventListener('click',function(){
     if(state.busy)return;var input=config(),q=C.quote(input.people,input.format,input.course);if(!q.ok||input.status==='cancelled')return;

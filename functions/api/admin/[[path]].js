@@ -7,7 +7,7 @@ import { refundAdmin } from '../_deposit_refunds.js';
 import { cateringAdmin } from '../_catering.js';
 import { cleanDoc, parseDoc, publicDoc, confirmToken } from '../_confirm.js';
 import { inquiryAmountSql, bookingAmountSql, amountOverrideSql } from '../_amounts.js';
-import { receptionAdmin, receptionExtra } from '../_reception.js';
+import { receptionAdmin, receptionExtra, receptionDocument, receptionChanged, withoutReceptionItems } from '../_reception.js';
 import { batch, bookingClashes, conflictResponse, linkedBookingChanges, bookingStatusStatements } from '../_admin_booking.js';
 import { guideAdmin, automaticGuide, guideSummary } from '../_guide_messages.js';
 import { platformAdmin, platformCounts } from '../_platform_admin.js';   // 입점·공간 등록·광고 신청, 등록 공간, 모임, 배너 광고
@@ -300,6 +300,10 @@ export async function onRequest({ request, env, params }) {
       if (rec.error) return err(rec.error);
       if (rec.amount > total) return err('견적 합계가 케이터링 금액보다 작습니다. 추가 항목을 확인해 주세요.');
       const statements = [], input = data.input && typeof data.input === 'object' ? data.input : null;
+      if(rec.reception){
+        data.extras=data.extras.map(x=>x.kind==='reception'?{...x,reception:rec.reception}:x);
+        if(Array.isArray(input?.extras))input.extras=input.extras.map(x=>x.kind==='reception'?{...x,amount:rec.amount,reception:rec.reception}:x);
+      }
       let invalidated = false;
       if (inquiry) {
         const old = safe(inquiry.data), updated = { ...old };
@@ -325,6 +329,7 @@ export async function onRequest({ request, env, params }) {
         const sync = await linkedBookingChanges(env, ref, { space_id: space, name, phone, date, start_h: sh, end_h: eh, headcount: people, amount: total });
         if (sync.error) return sync.error;
         invalidated = sync.invalidated; statements.push(...sync.statements);
+        if((rec.reception && receptionChanged(old,rec.reception)) || (Number(old.included_reception_amount)||0)!==rec.amount){const issued=await env.DB.prepare("SELECT booking_code FROM bookings WHERE inquiry_ref = ? AND status <> 'cancelled' AND confirm_doc IS NOT NULL LIMIT 1").bind(ref).first();statements.push(env.DB.prepare("UPDATE bookings SET confirm_doc = NULL WHERE inquiry_ref = ? AND status <> 'cancelled'").bind(ref));invalidated=invalidated||!!issued;}
         const status = d.mark_sent && ['문의 접수', '조건 확인'].includes(inquiry.status) ? '견적 발송' : inquiry.status;
         statements.push(env.DB.prepare('UPDATE inquiries SET space_id = ?, status = ?, name = ?, phone = ?, email = ?, event_date = ?, headcount = ?, data = ?, updated_at = ? WHERE ref = ?')
           .bind(space, status, name, phone, email || '', date, people, JSON.stringify(updated), now(), ref));
@@ -497,9 +502,10 @@ export async function onRequest({ request, env, params }) {
         if (!item) return err('문의를 찾을 수 없습니다.', 404, 'NOT_FOUND');
         if ([DELETED, '대기 취소', '취소·환불'].includes(item.status)) return err('취소·삭제된 문의는 복원한 뒤 저장해 주세요.');
         const reception = receptionAdmin(d.reception);
-        if (!reception) return err('제공 방식과 1~300명 인원을 확인해 주세요. 클래식 코스 기준으로 계산합니다.');
+        if (!reception) return err('코스·제공 방식과 1~300명 인원을 확인해 주세요.');
         jp.push("'$.reception', json(?)"); jb.push(JSON.stringify(reception));
         const old = safe(item.data), included = Number(old.included_reception_amount) || 0;
+        if(receptionChanged(old,reception))statusStatements.push(env.DB.prepare("UPDATE bookings SET confirm_doc = NULL, updated_at = ? WHERE inquiry_ref = ? AND status <> 'cancelled'").bind(now(),ref));
         if ((included > 0 || old.reception_in_quote) && item.effective_amount != null) {
           const next = reception.status === 'cancelled' ? 0 : reception.total, amount = Math.max(0, item.effective_amount - included + next);
           jp.push("'$.total', ?", "'$.amount_override', 1", "'$.included_reception_amount', ?"); jb.push(amount, next);
@@ -725,14 +731,18 @@ export async function onRequest({ request, env, params }) {
         const ord = await cateringOrderFor(env, row.inquiry_ref || '', code);   // 출장뷔페 진행 건 (문의 없이 등록한 예약도)
         const cat = ord ? { summary: ord.summary, total: ord.total, status: ord.status } : (idata.catering || null);
         const inq = { ref: row.inquiry_ref || '', name: idata.name || '', org: idata.org || '', purpose: idata.purpose || '', options: idata.options || {}, catering: cat, reception: idata.reception || null, included_reception_amount: idata.included_reception_amount || 0, t_start: idata.t_start || '', t_end: idata.t_end || '', start_h: idata.start_h ?? null, end_h: idata.end_h ?? null };
-        const doc = parseDoc(row.confirm_doc);
-        return json({ ok: true, booking: { code, space_id: row.space_id, name: row.customer_name, phone: row.phone, date: row.date, slot: row.slot, headcount: row.headcount, status: row.status, amount: row.effective_amount, start_h: row.start_h, end_h: row.end_h, order_status: row.order_status || '' },
-          inquiry: inq, doc, preview: publicDoc(row, doc), link: doc && doc.issued_at ? link : '', token: k });
+        const doc = parseDoc(row.confirm_doc), currentReception = receptionDocument(idata, row.effective_amount);
+        const needs_reissue = !!(doc?.issued_at && currentReception && !Object.hasOwn(doc,'reception'));
+        const previewDoc = doc && Object.hasOwn(doc,'reception') ? doc : {...(doc||{}),reception:currentReception};
+        return json({ ok: true, needs_reissue, reception:currentReception, booking: { code, space_id: row.space_id, name: row.customer_name, phone: row.phone, date: row.date, slot: row.slot, headcount: row.headcount, status: row.status, amount: row.effective_amount, start_h: row.start_h, end_h: row.end_h, order_status: row.order_status || '' },
+          inquiry: inq, doc, preview: publicDoc(row, previewDoc), link: doc && doc.issued_at ? link : '', token: k });
       }
       if (method === 'PUT') {
         if (row.status === 'cancelled') return err('취소된 예약은 확정서를 발급할 수 없습니다.', 409, 'CANCELLED');
         const d = await readJson(request), prev = parseDoc(row.confirm_doc) || {}, t = now();
         const doc = { ...cleanDoc(d.doc), issued_at: prev.issued_at || t, updated_at: t, issue_no: (prev.issue_no || 0) + 1 };
+        doc.reception = receptionDocument(safe(row.idata)||{},doc.amount);
+        if(doc.reception)doc.items=withoutReceptionItems(doc.items);
         await env.DB.prepare('UPDATE bookings SET confirm_doc = ?, updated_at = ? WHERE booking_code = ?').bind(JSON.stringify(doc), t, code).run();
         await log(env, prev.issued_at ? 'booking.confirm_doc.updated' : 'booking.confirm_doc.issued', code, 'admin', { issue_no: doc.issue_no });
         return json({ ok: true, doc, preview: publicDoc(row, doc), link });

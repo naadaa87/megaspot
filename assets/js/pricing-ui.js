@@ -529,7 +529,7 @@
     return s;
   }
   function renderQuoteSheet(r, pl){
-    if(r.plan&&r.plan.unknownDate){sheet().innerHTML='<div class="qp"><h2>'+esc(NAME)+' 행사 상담 내역</h2><p>행사 날짜·시간은 상담 후 결정합니다.</p><section class="qp-plan">'+r.plan.html+'</section><p>이 문서는 예상 비용 안내이며 예약 확정이나 결제 내역이 아닙니다.</p></div>';return;}
+    if(r.plan&&r.plan.unknownDate){sheet().innerHTML='<div class="qp qp-public"><h2>'+esc(NAME)+' 행사 상담 내역</h2><p>행사 날짜·시간은 상담 후 결정합니다.</p><section class="qp-plan">'+r.plan.html+'</section><p>이 문서는 예상 비용 안내이며 예약 확정이나 결제 내역이 아닙니다.</p></div>';return;}
     var C = M.CONFIG || {};
     var now = new Date(), stamp = now.getFullYear() + '.' + (now.getMonth() + 1) + '.' + now.getDate() + ' ' + ('0' + now.getHours()).slice(-2) + ':' + ('0' + now.getMinutes()).slice(-2);
     var no = 'MS-' + String(now.getFullYear()).slice(2) + ('0' + (now.getMonth() + 1)).slice(-2) + ('0' + now.getDate()).slice(-2) + '-' + ('0' + now.getHours()).slice(-2) + ('0' + now.getMinutes()).slice(-2);
@@ -544,7 +544,7 @@
     r.options.forEach(function(o){ rows += '<tr><td>' + esc(o.label) + '</td><td>' + esc(o.qty) + ' · ' + esc(won(o.unitPrice)) + ' / ' + esc(o.unit) + '</td><td>' + esc(won(o.amount)) + '</td></tr>'; });
     var notes = r.warnings.concat(r.notes).map(function(n){ return '<li>' + esc(n) + '</li>'; }).join('');
     var refund = D.refund.map(function(x){ return '<span>' + esc(x.k) + ' <b>' + Math.round(x.rate * 100) + '%</b></span>'; }).join('');
-    sheet().innerHTML = '<div class="qp">'
+    sheet().innerHTML = '<div class="qp qp-public">'
       + '<header class="qp-head"><div><div class="qp-logo">MEGA<b>SPOT</b></div><div class="qp-sub">' + esc(NAME) + ' · ' + esc(ADDR) + '</div></div><div class="qp-meta"><b>예상 금액 안내</b><span>문서번호 ' + no + '</span><span>작성 ' + esc(stamp) + '</span><span>' + esc(D.version) + '</span></div></header>'
       + '<div class="qp-title" role="heading" aria-level="2">' + esc(NAME) + ' 이용 예상 금액</div>'
       + '<table class="qp-cond"><tbody>'

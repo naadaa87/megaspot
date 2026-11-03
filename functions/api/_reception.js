@@ -27,3 +27,19 @@ export function receptionCustomer(value) {
   const selection = C.selection(value);
   return selection ? { ...selection, by: 'customer', status: 'pending' } : null;
 }
+
+export function receptionDocument(data, amount) {
+  const selection = C.fromInquiry(data);
+  if (!selection) return null;
+  const snapshot = C.forDocument(selection);
+  snapshot.included = snapshot.status !== 'cancelled' && snapshot.total !== null && Number(data.included_reception_amount) === snapshot.total && amount != null && Number(amount) >= snapshot.total;
+  return snapshot;
+}
+export function receptionChanged(data, next) {
+  const previous = C.fromInquiry(data);
+  const keys = ['course', 'people', 'format', 'total', 'unitPrice', 'food', 'fee', 'status', 'note'];
+  return !previous || keys.some(key => String(previous[key] ?? '') !== String(next[key] ?? ''));
+}
+export function withoutReceptionItems(items) {
+  return items.filter(line => !/^(?:라이트|클래식|프리미엄|시그니처) \d+명 · (?:도시락|박스|테이블 세팅) 케이터링/.test(line));
+}

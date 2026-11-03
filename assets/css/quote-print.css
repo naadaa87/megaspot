@@ -1,0 +1,10 @@
+/* Keep the customer estimate and its service totals compact when printed. */
+@media print{
+  .qp-public .qp-plan{margin:12px 0;break-inside:avoid}
+  .qp-public .plan-costs>div{padding:8px 0}
+  .qp-public .plan-total{padding:10px 0 6px}
+  .qp-public .qp-grid{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);margin-top:12px;padding-top:10px}
+  .qp-public .qp-grid>div{min-width:0}
+  .qp-public .qp-grid p{overflow-wrap:anywhere}
+  .qp-lines tr,.qp-foot{break-inside:avoid}
+}

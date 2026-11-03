@@ -793,7 +793,11 @@
     var q=R.q, C=M.CONFIG||{}, now=new Date(), stamp=savedQuoteCreatedAt?savedQuoteCreatedAt.slice(0,10).replace(/-/g,'.'):now.getFullYear()+'.'+(now.getMonth()+1)+'.'+now.getDate();
     var rows=R.lines.map(function(l){ return '<tr><td>'+esc(l.label)+'</td><td>'+esc(l.desc)+'</td><td>'+esc(won(l.amount))+'</td></tr>'; }).join('');
     if(R.disc) rows+='<tr><td>'+esc(R.discLabel)+'</td><td>'+esc(Q.discWhy||'')+'</td><td>−'+esc(won(R.disc))+'</td></tr>';
-    R.extras.forEach(function(x){ rows+='<tr><td>'+esc(x.label)+'</td><td></td><td>'+(x.amount<0?'−'+esc(won(-x.amount)):esc(won(x.amount)))+'</td></tr>'; });
+    R.extras.forEach(function(x){
+      var rec=x.kind==='reception'&&window.MEGASPOT_RECEPTION_CALC.forDocument(x.reception,x.amount),detail='';
+      if(rec){detail='식사 '+(rec.people?rec.people+'명':'인원 상담')+' · '+rec.formatName;if(rec.unitPrice!=null)detail+='\n1인 '+won(rec.unitPrice)+' × '+rec.people+'명 = '+won(rec.food);if(rec.fee!=null)detail+='\n'+rec.feeName+' '+won(rec.fee);detail+='\n부가세 적용 여부 확인 전';}
+      rows+='<tr><td>'+esc(rec?'케이터링 · '+rec.courseName:x.label)+'</td><td>'+esc(detail).replace(/\n/g,'<br>')+'</td><td>'+(x.amount<0?'−'+esc(won(-x.amount)):esc(won(x.amount)))+'</td></tr>';
+    });
     var refund=R.refund.map(function(x){ return '<span>'+esc(x.k)+' <b>'+Math.round(x.rate*100)+'%</b></span>'; }).join('');
     $('#quote-print').innerHTML='<div class="qp">'
       +'<header class="qp-head"><div><div class="qp-logo">MEGA<b>SPOT</b></div><div class="qp-sub">'+esc(spaceName(Q.space))+' · '+esc(D.address||'서울 광진구 화양동 10-1 한아름건물 2층')+'</div></div><div class="qp-meta"><b>견 적 서</b><span>견적번호 '+esc(Q.quoteNo||'(저장 전)')+'</span><span>작성일 '+esc(stamp)+'</span><span>유효기간 '+esc(E.kdateY(R.validUntil))+'까지</span></div></header>'
@@ -1529,7 +1533,6 @@
     L.push(spaceName(spaceOk(bk.space_id))+' 공간 전체 대관'+(h?' '+h+'시간':''));
     var o=iq.options||{}; Object.keys(o).forEach(function(k){ var v=o[k]; if(!v) return; L.push((OPTL[k]||k)+(v&&typeof v==='object'?' '+(v.count||1)+'명 × '+(v.hours||1)+'시간':'')); });
     if(iq.catering && iq.catering.summary && iq.catering.total && iq.catering.status!=='cancelled') L.push('출장뷔페 · '+String(iq.catering.summary).replace(/\s*—\s*예상.*$/,''));
-    if(iq.reception && iq.reception.status!=='cancelled') L.push(iq.reception.summary||'테이블·박스 케이터링');
     if(D && D.included) L.push(D.included.slice(0,4).map(function(x){ return x.label; }).join('·')+' 기본 제공');
     var nm=iq.name||bk.name||'';
     return { customer: nm+(iq.org&&nm.indexOf(iq.org)<0?' ('+iq.org+')':''), event: PUR[iq.purpose]||'', time_note:'', show_amount:true, amount: bk.amount==null?null:bk.amount, amount_note:iq.included_reception_amount?'공간 부가세 포함 · 케이터링 부가세 확인 전':'부가세 포함',
@@ -1550,7 +1553,7 @@
       amount:cdNum('#cd-amount'), amount_note:$('#cd-amount-note').value.trim()||'부가세 포함', pay_status:$('#cd-pay').value, paid:cdNum('#cd-paid'), deposit:cdNum('#cd-deposit'),
       items:$('#cd-items').value.split('\n').map(function(x){ return x.trim(); }).filter(Boolean).slice(0,12), refund:cdRefund(), note:$('#cd-note').value.trim() };
   }
-  function cdDoc(){ var p=CDS.preview||{}, s=cdSettings(), d={}; Object.keys(p).forEach(function(k){ d[k]=p[k]; }); Object.keys(s).forEach(function(k){ d[k]=s[k]; }); d.issued_at=(CDS.doc&&CDS.doc.issued_at)||''; return d; }
+  function cdDoc(){ var p=CDS.preview||{}, s=cdSettings(), d={}; Object.keys(p).forEach(function(k){ d[k]=p[k]; }); Object.keys(s).forEach(function(k){ d[k]=s[k]; }); d.reception=CDS.doc&&Object.prototype.hasOwnProperty.call(CDS.doc,'reception')?CDS.doc.reception:CDS.reception;d.issued_at=(CDS.doc&&CDS.doc.issued_at)||''; return d; }
   function cdState(){
     var d=CDS&&CDS.doc, st=$('#cd-state');
     st.className='cd-state'+(d&&d.issued_at?' on':'');
@@ -1571,7 +1574,8 @@
       $('#cd-sum').innerHTML='<div><b>'+esc(bk.name||'')+'</b> <span class="st '+(bk.status==='cancelled'?'st-cancel':bk.status==='completed'?'st-done':'st-ok')+'">'+esc(stl)+'</span></div>'
         +'<div class="small">'+esc(CDX.dateText(bk.date))+' · '+esc(CDX.timeText(bk))+(bk.headcount?' · '+bk.headcount+'명':'')+'</div>'
         +'<div class="tiny muted">예약번호 '+esc(bk.code)+(r.inquiry&&r.inquiry.ref?' · 문의 '+esc(r.inquiry.ref):'')+' · '+esc(bk.phone||'')+'</div>';
-      cdFill(r.doc&&r.doc.issued_at?r.doc:cdDefaults(r)); cdDirty=false; cdState();
+      cdFill(r.doc&&r.doc.issued_at?r.doc:cdDefaults(r)); cdDirty=!!r.needs_reissue; cdState();
+      if(r.needs_reissue)note($('#cd-msg'),'이전 확정서에 케이터링 상세 기록이 없습니다. 저장·다운로드하면 선택한 구성과 금액을 넣어 다시 발급합니다.');
       var off=bk.status==='cancelled'; ['#cd-save','#cd-pdf','#cd-png','#cd-share','#cd-link','#cd-text'].forEach(function(s){ $(s).disabled=off; });
       if(off) note($('#cd-msg'), '취소된 예약은 확정서를 발급할 수 없습니다.');
       cdPreview();
@@ -1879,7 +1883,7 @@
     }
     Q.extras=Q.extras.filter(function(x){ return x.kind!=='reception'; });
     Q.note=Q.note.split('\n').filter(function(line){return line.indexOf('케이터링 상담 필요: ')!==0;}).join('\n');
-    Q.extras.push({kind:'reception',label:'도시락·핑거푸드 케이터링 · '+quote.formatName+' '+quote.courseName+' '+quote.people+'명 (세팅비 포함 · 부가세 확인 전)',amount:quote.total,reception:config});
+    Q.extras.push({kind:'reception',label:'도시락·핑거푸드 케이터링 · '+quote.formatName+' '+quote.courseName+' '+quote.people+'명 (세팅비 포함 · 부가세 확인 전)',amount:quote.total,reception:Object.assign({},quote,config)});
     invalidateQuote(); fillForm(); go('quote'); M.toast('케이터링 '+won(quote.total)+'을(를) 대관 견적에 넣었습니다. 견적 저장을 눌러 문의에도 반영해 주세요.');
     return Promise.resolve(true);
   }
