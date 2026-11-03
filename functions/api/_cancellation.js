@@ -20,10 +20,14 @@ export async function cancellationAdmin({env,request,path,method,url}){
  const m=path.match(/^bookings\/([A-Z0-9-]+)\/cancellation(?:\/(document))?$/);if(!m)return null;
  const code=m[1],row=await env.DB.prepare(`SELECT b.*,${bookingAmountSql()} AS effective_amount FROM bookings b WHERE booking_code=?`).bind(code).first();if(!row)return err('예약을 찾을 수 없습니다.',404);
  const state=await cancellationState(env,code),settlement=await settlementFor(env,code);
+ const restored=await env.DB.prepare('SELECT id,created_at,snapshot,show_amount FROM booking_reconfirmations WHERE booking_code=? ORDER BY id DESC LIMIT 1').bind(code).first();
+ const cycle=settlement.cancellation?.cycle||(restored?{id:restored.id,started_at:restored.created_at,refunded_before:parse(restored.snapshot)?.refunded||0}:null);
+ if(state&&settlement.cancellation)state.terms=settlement.cancellation;
+ const previousDoc=state?.document||parse(row.confirm_doc)||(restored?{show_amount:restored.show_amount!==0}:{}),document_preferences={show_amount:previousDoc.show_amount!==false};
  if(method==='GET'&&!m[2]){
   const history=(await env.DB.prepare('SELECT id,previous_version,terms,created_at FROM booking_cancellation_revisions WHERE booking_code=? ORDER BY id DESC LIMIT 50').bind(code).all()).results||[];
   const doc=state&&row.status==='cancelled'?cancellationDocument(row,state,settlement):null;
-  return json({ok:true,booking:{code,name:row.customer_name,date:row.date,status:row.status,amount:row.effective_amount},version:state?.version||0,terms:state?.terms||null,settlement,history:history.map(r=>({...r,terms:parse(r.terms)})),preview:doc?publicDoc(row,doc):null,issued:!!state?.document?.issued_at});
+  return json({ok:true,booking:{code,name:row.customer_name,date:row.date,status:row.status,amount:row.effective_amount},version:state?.version||0,terms:state?.terms||null,cycle,document_preferences,settlement,history:history.map(r=>({...r,terms:parse(r.terms)})),preview:doc?publicDoc(row,doc):null,issued:!!state?.document?.issued_at});
  }
  if(method!=='POST')return err('지원하지 않는 요청입니다.',405);
  const d=await readJson(request),id=str(d.request_id,80);
@@ -45,14 +49,15 @@ export async function cancellationAdmin({env,request,path,method,url}){
  if(!['policy','full','manual'].includes(mode)||!reason||!/^\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d(?:\.\d{3})?)?(?:Z|[+-]\d\d:\d\d)$/.test(at)||!isDate(at.slice(0,10))||!Number.isFinite(Date.parse(at))||Date.parse(at)>Date.now()+60000)return err('취소 접수 시각·정산 방식·사유를 확인해 주세요.');
  const policy=cancellationPolicy(row.date,at),refundRate=mode==='full'?10000:mode==='policy'?policy.rate:null;
  const fee=mode==='manual'?Number(d.fee):eligible-Math.round(eligible*refundRate/10000);
- const limit=mode==='manual'?(original?.basis_received??settlement.received):basis;
+ const cycleBasis=S.cancellationCycle(original?.basis_received??settlement.received,original?.basis_refunded??settlement.refunded,cycle);
+ const limit=mode==='manual'?(original?.basis_cycle_received??cycleBasis.cycle_received):basis;
  if(!Number.isSafeInteger(fee)||fee<0||fee>limit)return err('수수료는 정산 기준으로 받은 이용료 이내의 정수로 입력해 주세요.');
  const signature={mode,cancelled_at:new Date(at).toISOString(),fee,reason};
  if(previous){const saved=parse(previous.terms);if(JSON.stringify(saved?.request)!==JSON.stringify(signature))return err('다른 취소 정산에 사용된 요청번호입니다.',409,'PAYMENT_CONFLICT');return json({ok:true,duplicate:true,settlement});}
  if(d.expected_revision!==settlement.revision||d.expected_version!==(state?.version||0))return stale();
  if(!state&&settlement.net<0)return err('환불액이 수납액보다 많습니다. 수납·환불 기록을 먼저 확인해 주세요.',409,'PAYMENT_REVIEW');
- const t=now(),terms={...signature,request:signature,policy_version:'megaspot-refund-20261103',policy_label:mode==='policy'?policy.label+' · '+refundRate/100+'% 환불':mode==='full'?'전액 환불 · 수수료 없음':'별도 합의 수수료',refund_rate:refundRate,original_amount:original?original.original_amount:row.effective_amount,basis_received:original?.basis_received??settlement.received,basis_refunded:original?.basis_refunded??settlement.refunded,basis_net:basis,basis_eligible:eligible};
- const previousDoc=state?.document||parse(row.confirm_doc)||{},published=previousDoc.issued_at?JSON.stringify({issued_at:state?.document?.issued_at||t,updated_at:t,issue_no:(state?.document?.issue_no||0)+1,show_amount:previousDoc.show_amount!==false,customer:previousDoc.customer||row.customer_name}):null;
+ const t=now(),terms={...signature,request:signature,policy_version:'megaspot-refund-20261103',policy_label:mode==='policy'?policy.label+' · '+refundRate/100+'% 환불':mode==='full'?'전액 환불 · 수수료 없음':'별도 합의 수수료',refund_rate:refundRate,original_amount:original?original.original_amount:row.effective_amount,basis_received:original?.basis_received??settlement.received,basis_refunded:original?.basis_refunded??settlement.refunded,basis_net:basis,basis_eligible:eligible,...(cycle?{cycle,basis_cycle_received:original?.basis_cycle_received??cycleBasis.cycle_received,basis_cycle_refunded:original?.basis_cycle_refunded??cycleBasis.cycle_refunded}:{})};
+ const published=previousDoc.issued_at?JSON.stringify({issued_at:state?.document?.issued_at||t,updated_at:t,issue_no:(state?.document?.issue_no||0)+1,show_amount:previousDoc.show_amount!==false,customer:previousDoc.customer||row.customer_name}):JSON.stringify({show_amount:document_preferences.show_amount,customer:previousDoc.customer||row.customer_name});
  const version=state?.version||0,financial=settlement.revision,token=randomToken();
  // The serialized revision includes the current terms version; stale writes never change status or publish a new plan.
  await env.DB.batch([
