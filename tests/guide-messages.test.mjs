@@ -10,6 +10,7 @@ function setup(t,{booking=true}={}) {
   let template={templtCode:'TPL-TEST',inspStatus:'APR',status:'R',templtContent:GUIDE_TEMPLATE,buttons:[GUIDE_BUTTON]}, sendError=null, result='0';
   const sent=[];
   t.mock.method(globalThis,'fetch',async(url,opts)=>{
+    assert.equal(opts.redirect,'manual');
     const data=new URLSearchParams(opts.body);
     assert.equal(data.get('apikey'),'fixture-secret');
     if(url.endsWith('/template/list/'))return Response.json({code:0,list:[template]});
@@ -121,6 +122,7 @@ test('고정 IP 서버로는 서명된 요청만 보내고 API 키를 전달하�
   const f=setup(t);delete f.env.ALIGO_API_KEY;delete f.env.ALIGO_USERID;f.env.ALIGO_RELAY_URL='https://relay.naranhistory.com/megaspot/aligo';f.env.ALIGO_RELAY_SECRET='fixture-relay-key-at-least-32-characters';
   const calls=[];
   t.mock.method(globalThis,'fetch',async(url,opts)=>{
+    assert.equal(opts.redirect,'manual');
     assert.equal(url,f.env.ALIGO_RELAY_URL);assert.equal(opts.headers['X-Megaspot-Signature'],createHmac('sha256',f.env.ALIGO_RELAY_SECRET).update(opts.body).digest('hex'));
     assert.ok(!opts.body.includes('apikey'));const q=JSON.parse(opts.body);calls.push(q);
     if(q.path==='template/list')return Response.json({code:0,list:[{templtCode:'TPL-TEST',inspStatus:'APR',status:'A',templtContent:GUIDE_TEMPLATE,buttons:[GUIDE_BUTTON]}]});
@@ -128,6 +130,15 @@ test('고정 IP 서버로는 서명된 요청만 보내고 API 키를 전달하�
     assert.equal(q.path,'alimtalk/send');return Response.json({code:0,info:{mid:'1',scnt:1,fcnt:0}});
   });
   await f.enable();const s=await f.api('guide-messages/settings');assert.equal(s.transport,'relay');assert.equal(s.test_delivered,true);assert.equal(s.credentials.ALIGO_API_KEY,undefined);assert.ok(calls.some(x=>x.path==='alimtalk/send'));
+});
+test('릴레이 리다이렉트는 따라가지 않고 발송 전에 중단한다',async t=>{
+  const f=setup(t);f.env.ALIGO_RELAY_URL='https://relay.naranhistory.com/megaspot/aligo';f.env.ALIGO_RELAY_SECRET='fixture-relay-key-at-least-32-characters';
+  let calls=0;t.mock.method(globalThis,'fetch',async(url,opts)=>{
+    calls++;assert.equal(opts.redirect,'manual');
+    return new Response(null,{status:302,headers:{Location:'https://other.example/'}});
+  });
+  const r=await f.api('guide-messages/check-template','POST',{},400);
+  assert.match(r.error,/알리고 응답/);assert.equal(calls,1);assert.equal(f.sent.length,0);
 });
 test('관리자 결과 동기화로 실제 성공을 반영하고 일시 실패에도 재발송은 하지 않는다',async t=>{
   const f=setup(t);await f.enable();await f.send(await f.preview());await f.api('guide-messages/sync','POST',{});assert.equal(f.db.prepare("SELECT status FROM booking_guide_messages WHERE mode='live'").get().status,'delivered');assert.equal(f.sent.length,2);
