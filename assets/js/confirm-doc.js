@@ -7,7 +7,7 @@
   var FF = '"Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif';
   var LOGO = 'Anton, "Arial Black", Impact, sans-serif';
   var DOW = ['일', '월', '화', '수', '목', '금', '토'];
-  var PAY = { paid: '결제 완료', deposit: '예약금 입금 완료 · 잔금은 이용 전 안내', onsite: '현장 결제', pending: '결제 방법 안내 예정' };
+  var PAY = { paid: '결제 완료', deposit: '예약금 입금 완료 · 잔금은 이용 전 안내', onsite: '현장 결제', pending: '결제 방법 안내 예정', refund:'초과 수납 · 환불 필요' };
   var SLOT = { 'pkg-day': [10, 17], 'pkg-allday': [10, 24], 'pkg-allnight': [18, 31] };
   var GUIDE = [
     '예약한 시간 안에 입장·세팅·정리·퇴장을 모두 마쳐 주세요. 시간을 늘려야 하면 미리 연락 주세요.',
@@ -143,6 +143,7 @@
       section('금액 · 결제');
       if (doc.amount != null) row('확정 금액', won(doc.amount) + (doc.amount_note ? '  (' + doc.amount_note + ')' : ''), { w: 800, c: C.cobalt, sz: Math.round(16 * k) });
       row('결제', (PAY[doc.pay_status] || PAY.paid) + (doc.paid != null && doc.paid > 0 ? ' · 받은 금액 ' + won(doc.paid) : ''));
+      settlementRows(doc).forEach(function(r){row(r[0]==='초과 수납 환불 필요액'?'환불 필요액':r[0],r[1]);});
       if (doc.deposit != null) row('보증금', doc.deposit > 0 ? won(doc.deposit) + ' · 이용료와 별도, 이용 뒤 확인하고 돌려 드립니다' : '없음');
       y += gap - Math.round(8 * k);
     }
@@ -217,6 +218,7 @@
     var a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = name; document.body.appendChild(a); a.click();
     setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 1500);
   }
+  function settlementRows(doc){return window.MEGASPOT_SETTLEMENT?window.MEGASPOT_SETTLEMENT.documentRows(doc):[];}
   function kakaoText(doc, link){
     var L = ['[' + ((doc.space && doc.space.name) || '메가스팟 건대 1호') + ' 예약 확정 안내]'];
     var nm = String(doc.customer || '').replace(/\s*\(.*\)\s*$/, '');
@@ -227,6 +229,7 @@
     L.push('· 이용 시간: ' + timeText(doc));
     if (doc.headcount) L.push('· 인원: ' + doc.headcount + '명');
     if(window.MEGASPOT_FOOD_SERVICES)window.MEGASPOT_FOOD_SERVICES.documentRows(doc).forEach(function(r){L.push('· '+r[0]+': '+r[1]);});
+    settlementRows(doc).forEach(function(row){L.push('· '+row[0]+': '+row[1]);});
     receptionRows(doc).forEach(function(row){L.push('· '+row[0]+': '+row[1]);});
     if (link) { L.push(''); L.push('예약확정서는 아래 주소에서 보시고 PDF·이미지로 저장하실 수 있습니다.'); L.push(link); }
     L.push(''); L.push('이용 전에 주차·입장 안내를 따로 보내 드리겠습니다. 감사합니다.');
@@ -244,5 +247,5 @@
       return 'unsupported';
     });
   }
-  window.MEGASPOT_CONFIRM = { render: render, receptionRows:receptionRows, pngBlob: pngBlob, pdfBlob: pdfBlob, download: download, share: share, kakaoText: kakaoText, fileName: fileName, dateText: dateText, timeText: timeText, PAY: PAY, size: { w: W * S, h: H * S } };
+  window.MEGASPOT_CONFIRM = { render: render, settlementRows:settlementRows, receptionRows:receptionRows, pngBlob: pngBlob, pdfBlob: pdfBlob, download: download, share: share, kakaoText: kakaoText, fileName: fileName, dateText: dateText, timeText: timeText, PAY: PAY, size: { w: W * S, h: H * S } };
 })();

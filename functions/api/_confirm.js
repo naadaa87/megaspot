@@ -1,3 +1,4 @@
+import S from '../../assets/js/settlement.js';
 // 예약확정서 — 관리자가 발급한 확정서 내용(bookings.confirm_doc)을 정리하고, 고객용 링크 토큰을 만듭니다.
 // 고객 화면(/confirm/)은 링크의 토큰(k) 또는 예약번호 + 휴대폰 뒷 4자리로만 열 수 있습니다.
 import { str, num } from './_lib.js';
@@ -5,7 +6,7 @@ import {stripFoodItems,F} from './_food_services.js';
 import { withoutReceptionItems } from './_reception.js';
 
 const enc = new TextEncoder();
-export const PAY_STATUS = ['paid', 'deposit', 'onsite', 'pending'];   // 결제 완료 · 예약금 입금 · 현장 결제 · 결제 안내 예정
+export const PAY_STATUS = ['paid', 'deposit', 'onsite', 'pending', 'refund'];   // 결제 완료 · 예약금 입금 · 현장 결제 · 결제 안내 예정
 export const SPACES = {
   'megaspot-gundae': { name: '메가스팟 건대 1호', address: '서울특별시 광진구 화양동 10-1 한아름건물 2층', sub: '190평 개방형 홀 · 최대 200명 · 건대입구역 인근' },
   'megaspot-gundae-2': { name: '메가스팟 건대 2호', address: '서울특별시 광진구 화양동 10-1 한아름건물 2층 (1호 옆 호실)', sub: '400평 개방형 홀 · 최대 350명 · 건대입구역 인근 · 2026년 11월 13일 오픈' }
@@ -62,6 +63,7 @@ export function publicDoc(row, doc) {
     customer: d.customer || row.customer_name || '', phone: maskPhone(row.phone),
     space: sp, date: row.date, start_h: row.start_h ?? null, end_h: row.end_h ?? null, slot: row.slot || '', headcount: row.headcount ?? null,
     event: d.event || '', time_note: d.time_note || '', show_amount: d.show_amount !== false, amount: d.show_amount === false ? null : d.amount ?? null, amount_note: d.amount_note || '부가세 포함',
+    settlement:d.show_amount===false?null:d.settlement?S.calculate(d.settlement):null,
     food_services:(d.food_services||[]).map(value=>({...(value.kind==='cocktail'?F.publicCocktail(value):value),...(d.show_amount===false?{amount:null,total:null,price:null,supply:null,fee:null,vat:null,unit:null,summary:''}:{})})),
     reception: d.reception ? { ...d.reception, ...(d.show_amount === false ? { unitPrice:null, food:null, fee:null, total:null } : {}) } : null,
     pay_status: d.pay_status || 'pending', paid: d.show_amount === false ? null : d.paid ?? null, deposit: d.show_amount === false ? null : d.deposit ?? null, items: d.show_amount === false ? stripFoodItems(withoutReceptionItems(d.items || [])) : d.items || [], refund: d.refund || [], note: d.note || ''
