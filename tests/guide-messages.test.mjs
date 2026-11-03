@@ -118,7 +118,7 @@ test('관리자 인증과 동일 출처 보호가 모든 발송 API에도 적용
   assert.equal((await call('https://local.test',false)).status,401);assert.equal((await call('https://evil.test',true)).status,403);assert.equal(f.sent.length,0);assert.equal(GUIDE_URL,'https://megaspot-guide.pages.dev/');
 });
 test('고정 IP 서버로는 서명된 요청만 보내고 API 키를 전달하지 않는다',async t=>{
-  const f=setup(t);delete f.env.ALIGO_API_KEY;delete f.env.ALIGO_USERID;f.env.ALIGO_RELAY_URL='https://aligo.megaspot.kr/v1/aligo';f.env.ALIGO_RELAY_SECRET='fixture-relay-key-at-least-32-characters';
+  const f=setup(t);delete f.env.ALIGO_API_KEY;delete f.env.ALIGO_USERID;f.env.ALIGO_RELAY_URL='https://relay.naranhistory.com/megaspot/aligo';f.env.ALIGO_RELAY_SECRET='fixture-relay-key-at-least-32-characters';
   const calls=[];
   t.mock.method(globalThis,'fetch',async(url,opts)=>{
     assert.equal(url,f.env.ALIGO_RELAY_URL);assert.equal(opts.headers['X-Megaspot-Signature'],createHmac('sha256',f.env.ALIGO_RELAY_SECRET).update(opts.body).digest('hex'));
