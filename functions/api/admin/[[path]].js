@@ -2,6 +2,7 @@
 import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, log, hashPassword, requireAdmin, adminKeyOk, adminCookie,
   randomToken, sha256, later, getCookie, withCookies, clientIp, sameOrigin, tooMany, hit, clearHits, kstToday, SPACES, spaceOk }
   from '../_lib.js';
+import { cocktailPricing } from '../_cocktail_pricing.js';
 import { depositNoticeAdmin } from '../_deposit_notifications.js';
 import { refundAdmin } from '../_deposit_refunds.js';
 import { cateringAdmin } from '../_catering.js';
@@ -146,6 +147,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
   const denied = await requireAdmin(request, env); if (denied) return denied;
   try {
     if (path === 'ping') return json({ ok: true });
+    if (path === 'cocktail/pricing' && method === 'GET') return json({ ok: true, packages: cocktailPricing(), vat_rate: 0.1 }, 200, { 'cache-control': 'no-store' });
     if(path==='deposit-notifications'||path.startsWith('deposit-notifications/'))return await depositNoticeAdmin({env,request,url,path,method});
     if (path === 'deposit-refunds' || path.startsWith('deposit-refunds/')) {
       try { return await refundAdmin({env,request,url,path,method}); }

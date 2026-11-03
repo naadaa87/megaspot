@@ -680,7 +680,7 @@
     return rows;
   }
   var R=null;
-  function quoteVatNote(){ return R && R.extras.some(function(x){ return x.kind==='reception'||x.kind==='cocktail'; })?'공간·뷔페 부가세 포함 · 기타 식음료 부가세 확인 전':D.vatNote; }
+  function quoteVatNote(){ return R && R.extras.some(function(x){ return x.kind==='reception'||(x.kind==='cocktail'&&!(x.cocktail&&x.cocktail.vat_excluded)); })?'공간·뷔페 부가세 포함 · 미확정 식음료 부가세 확인 필요':R&&R.extras.some(function(x){return x.kind==='cocktail';})?'부가세 포함 (칵테일 판매가 + 부가세 10% 반영)':D.vatNote; }
   function calc(){
     if(!E||!D){ $('#q-result').innerHTML='<div class="empty">요금표를 불러오지 못했습니다.</div>'; return; }
     readForm(); R=compute(); if(!R) return;
@@ -1557,7 +1557,7 @@
     var o=iq.options||{}; Object.keys(o).forEach(function(k){ var v=o[k]; if(!v) return; L.push((OPTL[k]||k)+(v&&typeof v==='object'?' '+(v.count||1)+'명 × '+(v.hours||1)+'시간':'')); });
     if(D && D.included) L.push(D.included.slice(0,4).map(function(x){ return x.label; }).join('·')+' 기본 제공');
     var nm=iq.name||bk.name||'';
-    return { customer: nm+(iq.org&&nm.indexOf(iq.org)<0?' ('+iq.org+')':''), event: PUR[iq.purpose]||'', time_note:'', show_amount:true, amount: bk.amount==null?null:bk.amount, amount_note:iq.included_reception_amount||iq.included_cocktail_amount?'공간·뷔페 부가세 포함 · 기타 식음료 부가세 확인 전':'부가세 포함',
+    return { customer: nm+(iq.org&&nm.indexOf(iq.org)<0?' ('+iq.org+')':''), event: PUR[iq.purpose]||'', time_note:'', show_amount:true, amount: bk.amount==null?null:bk.amount, amount_note:iq.included_reception_amount?'공간·뷔페 부가세 포함 · 케이터링 부가세 확인 전':iq.included_cocktail_amount&&!(iq.cocktail&&iq.cocktail.vat_excluded)?'이전 저장 금액 · 칵테일 부가세 조건 확인 필요':'부가세 포함',
       pay_status: bk.paid_amount>0?(bk.amount!=null&&bk.paid_amount>=bk.amount?'paid':'deposit'):'pending', paid: bk.paid_amount>0?bk.paid_amount:null, deposit: D?D.deposit.amount:150000, items:L, note:'' };
   }
   function cdFill(v){
