@@ -25,7 +25,7 @@
       +formatText(q.format)+'· 클래식 메뉴: '+won(q.unitPrice)+' × '+q.people+'명 = '+won(q.food)+'\n'
       +'· '+q.feeName+': '+won(q.fee)+'\n'
       +'· 총 안내금액: '+won(q.total)+'\n\n'
-      +'메뉴: '+D.course.menus.join(', ')+'\n\n'
+      +'메뉴: '+D.course.menus.join(', ')+'\n'+D.menuNote+'\n\n'
       +'행사 날짜·시간·장소를 알려주시면 진행 가능 여부와 최종 견적을 안내드리겠습니다.\n'
       +'부가세 적용 여부와 최소 주문 조건은 최종 견적에서 확인해 드립니다. 공간 대관료는 별도입니다.\n'
       +'케이터링 상담: '+D.phone;

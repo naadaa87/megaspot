@@ -40,7 +40,7 @@ test('통합 식음료 UI를 쓰는 모든 페이지는 칵테일 계산기를 �
 });
 
 test('통합 견적 소계와 접수 요약이 선택한 케이터링 방식별 출장·세팅비를 사용한다',()=>{
- for(const [format,fee] of [['lunchbox',100000],['box',100000],['table',250000]]){
+ for(const [format,fee] of [['lunchbox',100000],['box',100000],['table',200000]]){
   const f=fixture();f.reception(format);
   const rec=f.plan.reception(f.root,50);
   assert.equal(rec.total,1750000+fee);

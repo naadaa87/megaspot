@@ -62,5 +62,5 @@ test('복사문도 수정된 공간 금액과 0원·금액 미정 구분을 유�
  const unknown=O.customerText(O.build({data:{}},{...opts,roomAmount:null}));assert.match(unknown,/상담 후 안내/);assert.ok(!unknown.includes('0원'));assert.match(unknown,/공간 대관 금액은 미정/);
 });
 test('기존 본문의 케이터링 선택도 고객 안내문에 포함된다',()=>{
- const text=O.customerText(O.build({data:{message:RC.inquiryText(50,'table')}},opts));assert.ok(text.includes('테이블 세팅 케이터링'));assert.ok(text.includes('2,000,000원'));assert.ok(text.includes('2,759,000원'));
+ const text=O.customerText(O.build({data:{message:RC.inquiryText(50,'table')}},opts));assert.ok(text.includes('테이블 세팅 케이터링'));assert.ok(text.includes('1,950,000원'));assert.ok(text.includes('2,709,000원'));
 });

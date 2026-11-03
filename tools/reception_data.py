@@ -121,7 +121,8 @@ CATALOG = [
 ]
 
 SERVICE_FEES = [
-    {"upto": 100, "price": 250000, "label": "100명까지"},
+    {"upto": 50, "price": 200000, "label": "50명 이하"},
+    {"upto": 100, "price": 250000, "label": "51~100명"},
     {"upto": 200, "price": 300000, "label": "101~200명"},
     {"upto": 300, "price": 350000, "label": "201~300명"},
 ]
@@ -133,6 +134,7 @@ PACKED_SERVICE_FEES = [
 SERVICE_FEES_BY_FORMAT = {"lunchbox": PACKED_SERVICE_FEES, "box": PACKED_SERVICE_FEES, "table": SERVICE_FEES}
 SERVICE_FEE_LABELS = {"lunchbox": "출장·세팅 비용", "box": "출장·세팅 비용", "table": "출장·세팅·철수 비용"}
 PRICE_NOTE = "구성 안내가입니다. 최소 주문 인원·부가세와 최종 구성은 상담에서 확인합니다. 출장·세팅비는 제공 방식과 인원에 따라 별도로 더해집니다."
+MENU_NOTE = "메뉴는 계절과 식재료 수급에 따라 일부 달라질 수 있습니다. 원하시는 특정 메뉴가 있다면 상담을 통해 변경 가능합니다."
 PHOTO_NOTE = "사진: 제공받은 애드썸 케이터링 자료의 메뉴·연출 참고 이미지. 실제 제공량·식기·장식·꽃·음료 포함 여부는 최종 견적에 따릅니다."
 
 CATALOG_PRICE_NOTE = "1EA는 1개, 1BOX는 1박스 기준 판매가입니다. 최소 주문 수량·박스당 중량 및 제공 인원·부가세·출장 및 세팅비는 상담 후 최종 견적에서 확인합니다."
