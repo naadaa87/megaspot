@@ -36,8 +36,8 @@ test('새 정산 저장은 기존 결제·환불 원장이나 계약 금액을 �
 test('이후 환불 기록의 정정·취소는 취소 수수료를 보존하고 추가 환불액만 갱신',async t=>{
  const f=setup(t);await bank(f,'receipt',1000000);await save(f);await bank(f,'refund',400000);let r=await f.api('bookings/BK-TEST/settlement'),e=r.entries[0];await f.api('bookings/BK-TEST/settlement/entries/'+e.id,'POST',{action:'correct',kind:'refund',amount:300000,note:'정정',reason:'금액 오입력',request_id:crypto.randomUUID(),entry_version:e.version,expected_revision:r.settlement.revision});r=await f.api('bookings/BK-TEST/settlement');assert.equal(r.settlement.refund_due,500000);e=r.entries.find(x=>x.id===e.id);await f.api('bookings/BK-TEST/settlement/entries/'+e.id,'POST',{action:'void',reason:'실제 미환불',request_id:crypto.randomUUID(),entry_version:e.version,expected_revision:r.settlement.revision});assert.equal((await read(f)).settlement.refund_due,800000);assert.equal((await read(f)).terms.fee,200000);
 });
-test('수수료보다 수납이 작아지거나 목표보다 더 환불하면 확인 대상으로 남김',async t=>{
- const f=setup(t);await bank(f,'receipt',1000000);await save(f);await bank(f,'refund',900000);let r=await read(f);assert.equal(r.settlement.cancellation_over_refunded,100000);assert.equal(r.settlement.status,'payment_review');assert.equal(r.settlement.refund_due,null);assert(S.rows(r.settlement).some(x=>x[1].includes('100,000원 더 환불')));
+test('수수료 제외 목표보다 더 환불하면 차액을 다시 받을 금액으로 표시',async t=>{
+ const f=setup(t);await bank(f,'receipt',1000000);await save(f);await bank(f,'refund',900000);let r=await read(f);assert.equal(r.settlement.cancellation_over_refunded,100000);assert.equal(r.settlement.status,'cancellation_receivable');assert.equal(r.settlement.refund_due,0);assert.equal(r.settlement.balance,100000);assert(S.rows(r.settlement).some(x=>x[1].includes('100,000원 더 환불')));
 });
 test('수수료 합의 변경은 원본 이력을 보존하고 기존 환불 기준액에 비율 재적용',async t=>{
  const f=setup(t);await bank(f,'receipt',1000000);await save(f);await bank(f,'refund',500000);await save(f,{fee:300000,reason:'수수료 30만원으로 합의 정정'});let r=await read(f);assert.equal(r.history.length,2);assert.equal(r.history[1].terms.fee,200000);assert.equal(r.terms.basis_net,1000000);assert.equal(r.settlement.refund_due,200000);await save(f,{mode:'full',reason:'운영 사정으로 전액 환불 합의'});r=await read(f);assert.equal(r.settlement.refund_due,500000);assert.equal(r.terms.basis_net,1000000);
@@ -89,12 +89,12 @@ test('같은 취소 요청번호의 동시 재전송은 한 이력만 만들고 
 test('기존 비공개 금액 설정은 기본 정산서 재발급으로 공개되지 않음',async t=>{
  const f=setup(t);await bank(f,'receipt',1000000);await save(f);await issue(f,{show_amount:false});const next=await issue(f);assert.equal(next.doc.show_amount,false);assert.equal(next.doc.settlement,null);assert.equal((await customer(f)).doc.settlement,null);
 });
-test('취소 수수료를 남기기로 한 뒤 PG 전액 환불이 오면 수수료 누락으로 정산 확인',async t=>{
- const f=setup(t),o=f.seed();await save(f);await issue(f);await f.feedback(await f.form(o,'9'));const r=await read(f);assert.equal(r.terms.fee,200000);assert.equal(r.settlement.refunded,1000000);assert.equal(r.settlement.cancellation_over_refunded,200000);assert.equal(r.settlement.status,'payment_review');assert.equal((await customer(f)).doc.settlement.refund_due,null);await save(f,{mode:'full',reason:'전액 환불로 수수료 면제 합의 확인'});assert.equal((await read(f)).settlement.refund_due,0);assert.equal((await read(f)).settlement.status,'cancellation_settled');
+test('취소 수수료를 남기기로 한 뒤 PG 전액 환불이 오면 수수료를 다시 받을 금액으로 표시',async t=>{
+ const f=setup(t),o=f.seed();await save(f);await issue(f);await f.feedback(await f.form(o,'9'));const r=await read(f);assert.equal(r.terms.fee,200000);assert.equal(r.settlement.refunded,1000000);assert.equal(r.settlement.cancellation_over_refunded,200000);assert.equal(r.settlement.status,'cancellation_receivable');assert.equal(r.settlement.balance,200000);assert.equal((await customer(f)).doc.settlement.refund_due,0);assert.equal((await customer(f)).doc.settlement.balance,200000);await save(f,{mode:'full',reason:'전액 환불로 수수료 면제 합의 확인'});assert.equal((await read(f)).settlement.refund_due,0);assert.equal((await read(f)).settlement.status,'cancellation_settled');
 });
 
-test('이미 전액 환불한 뒤 늦게 확인한 합의 수수료도 기록하고 초과 환불을 확인 가능',async t=>{
- const f=setup(t);await bank(f,'receipt',1000000);await bank(f,'refund',1000000);await save(f,{fee:200000,reason:'기존 합의 수수료 뒤늦게 확인 · 환불 실적 대조'});const r=await read(f);assert.equal(r.terms.fee,200000);assert.equal(r.settlement.refund_target,800000);assert.equal(r.settlement.refunded,1000000);assert.equal(r.settlement.cancellation_over_refunded,200000);assert.equal(r.settlement.status,'payment_review');
+test('이미 전액 환불한 뒤 늦게 확인한 합의 수수료도 기록하고 다시 받을 수수료를 확인 가능',async t=>{
+ const f=setup(t);await bank(f,'receipt',1000000);await bank(f,'refund',1000000);await save(f,{fee:200000,reason:'기존 합의 수수료 뒤늦게 확인 · 환불 실적 대조'});const r=await read(f);assert.equal(r.terms.fee,200000);assert.equal(r.settlement.refund_target,800000);assert.equal(r.settlement.refunded,1000000);assert.equal(r.settlement.cancellation_over_refunded,200000);assert.equal(r.settlement.status,'cancellation_receivable');assert.equal(r.settlement.balance,200000);
 });
 test('기존 확정서에서 전환한 취소 정산서 발급일은 원 확정일이 아닌 전환일',async t=>{
  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-11-03T12:00:00Z')});const f=setup(t);await bank(f,'receipt',1000000);f.db.prepare('UPDATE bookings SET confirm_doc=?').run(JSON.stringify({issued_at:'2026-10-01 00:00:00',paid:1000000,settlement:{net:1000000},customer:'검증 고객'}));await save(f);assert.equal((await customer(f)).doc.issued_at.slice(0,10),'2026-11-03');
