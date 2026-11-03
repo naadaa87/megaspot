@@ -6,6 +6,7 @@ import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, log, hash
 import {readCocktailPricing,publicCocktailPricing,adminCocktailPricing,saveCocktailPricing} from '../_cocktail_pricing.js';
 import { depositNoticeAdmin } from '../_deposit_notifications.js';
 import { refundAdmin } from '../_deposit_refunds.js';
+import { portalAdmin } from '../_booking_portal.js';
 import { cateringAdmin } from '../_catering.js';
 import { cleanDoc, parseDoc, publicDoc, confirmToken } from '../_confirm.js';
 import { inquiryAmountSql, bookingAmountSql, amountOverrideSql } from '../_amounts.js';
@@ -147,6 +148,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
 
   const denied = await requireAdmin(request, env); if (denied) return denied;
   try {
+    if(/^bookings\/[A-Z0-9-]+\/portal-link(?:\/rotate)?$/.test(path))return await portalAdmin({env,request,url,path,method});
     if(method==='PATCH'&&/^inquiries\/[A-Z0-9-]+$/.test(path)){const v=await readJson(request.clone());if(v.total!==undefined&&v.total!==null&&v.total!==''&&amountOk(v.total)===null)return err('금액을 확인해 주세요.');}
     if(method!=='GET'&&/^(quotes$|inquiries\/|bookings(?:\/|$)|catering\/orders)/.test(path))await preserveLegacyPayments(env);
     if(/^bookings\/[A-Z0-9-]+\/settlement(?:\/entries\/\d+)?$/.test(path))return await settlementAdmin({env,request,path,method});
