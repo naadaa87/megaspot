@@ -1,3 +1,4 @@
+import {reconfirmationAdmin,reconfirmBooking} from '../_reconfirmation.js';
 import {cancellationAdmin} from '../_cancellation.js';
 import {refundAmountSql} from '../_payapp_refund_history.js';
 import {S,preserveLegacyPayments,settlementFor,settlementsFor,settlementAdmin} from '../_settlement.js';
@@ -154,6 +155,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
     if(/^bookings\/[A-Z0-9-]+\/portal-link(?:\/rotate)?$/.test(path))return await portalAdmin({env,request,url,path,method});
     if(method==='PATCH'&&/^inquiries\/[A-Z0-9-]+$/.test(path)){const v=await readJson(request.clone());if(v.total!==undefined&&v.total!==null&&v.total!==''&&amountOk(v.total)===null)return err('금액을 확인해 주세요.');}
     if(method!=='GET'&&/^(quotes$|inquiries\/|bookings(?:\/|$)|catering\/orders)/.test(path))await preserveLegacyPayments(env);
+    if(/^bookings\/[A-Z0-9-]+\/reconfirm$/.test(path))return await reconfirmationAdmin({env,request,path,method,waitUntil});
     if(/^bookings\/[A-Z0-9-]+\/cancellation(?:\/document)?$/.test(path))return await cancellationAdmin({env,request,path,method,url});
     if(/^bookings\/[A-Z0-9-]+\/settlement(?:\/entries\/\d+)?$/.test(path))return await settlementAdmin({env,request,path,method});
     if (path === 'ping') return json({ ok: true });
@@ -637,6 +639,8 @@ export async function onRequest({ request, env, params, waitUntil }) {
       const data = safe(row.data);
       const active = await env.DB.prepare("SELECT booking_code FROM bookings WHERE inquiry_ref = ? AND status <> 'cancelled' LIMIT 1").bind(ref).first();
       if (active) return err('이미 예약(' + active.booking_code + ')으로 확정된 문의입니다.', 409, 'ALREADY_BOOKED');
+      const previous=(await env.DB.prepare("SELECT booking_code,date,amount FROM bookings WHERE inquiry_ref=? AND status='cancelled' ORDER BY id DESC").bind(ref).all()).results||[];
+      if(previous.length){const selected=d.reconfirm_booking_code?previous.find(b=>b.booking_code===d.reconfirm_booking_code):previous.length===1?previous[0]:null;if(!selected)return json({ok:false,code:'RECONFIRM_CHOOSE',error:'복원할 기존 예약을 선택해 주세요. 수납 기록은 선택한 예약에 유지됩니다.',bookings:previous},409);return reconfirmBooking(env,selected.booking_code,d,waitUntil,{legacy:d.expected_revision===undefined});}
       const date = str(d.date, 10) || row.event_date || data.date || '';
       if (!isDate(date)) return err('이용일을 정해 주세요.');
       const phone = str(row.phone || data.phone, 30), digits = phone.replace(/\D/g, '');
@@ -690,7 +694,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
       const linkedRef = str(d.inquiry_ref, 20).toUpperCase();
       if (linkedRef) {
         const confirmRequest = new Request(url.origin + '/api/admin/inquiries/' + linkedRef + '/confirm', { method: 'POST', headers: request.headers,
-          body: JSON.stringify({ date: d.date, start_h: d.start_h, end_h: d.end_h, headcount: d.headcount, amount: d.amount, memo: d.memo, block_calendar: d.block_calendar, force: d.force }) });
+          body: JSON.stringify({ date: d.date, start_h: d.start_h, end_h: d.end_h, headcount: d.headcount, amount: d.amount, memo: d.memo, block_calendar: d.block_calendar, force: d.force,reconfirm_booking_code:d.reconfirm_booking_code,expected_revision:d.expected_revision,request_id:d.request_id }) });
         return onRequest({ request: confirmRequest, env, params: { path: ['inquiries', linkedRef, 'confirm'] }, waitUntil });
       }
       const space_id = spaceOk(d.space_id), name = str(d.customer_name, 80), phone = str(d.phone, 30), date = str(d.date, 10);
@@ -799,13 +803,13 @@ export async function onRequest({ request, env, params, waitUntil }) {
         // Full saved buffet configuration is also available for direct bookings.
            // 출장뷔페 진행 건 (문의 없이 등록한 예약도)
         const cat = idata.catering || ord || null;
-        const settlement=await settlementFor(env,code);
+        const settlement=await settlementFor(env,code),pref=await env.DB.prepare('SELECT show_amount FROM booking_reconfirmations WHERE booking_code=? ORDER BY id DESC LIMIT 1').bind(code).first();
         const inq = { ref: row.inquiry_ref || '', name: idata.name || '', org: idata.org || '', purpose: idata.purpose || '', options: idata.options || {}, reception_revision:receptionRevision(idata), catering: cat, cocktail:idata.cocktail||null, reception: idata.reception || null, included_reception_amount: idata.included_reception_amount || 0,included_cocktail_amount:idata.included_cocktail_amount||0, t_start: idata.t_start || '', t_end: idata.t_end || '', start_h: idata.start_h ?? null, end_h: idata.end_h ?? null };
         const doc = parseDoc(row.confirm_doc), currentReception = receptionDocument(idata, row.effective_amount), currentFoods=foodDocuments({...idata,catering:cat},row.effective_amount);
         const needs_reissue = !!(doc?.issued_at && ((!Object.hasOwn(doc,'settlement')||doc.settlement.revision!==settlement.revision)||(currentReception&&!Object.hasOwn(doc,'reception'))||(currentFoods.length&&!Object.hasOwn(doc,'food_services'))));
         const previewDoc = {...(doc||{}),settlement:doc&&Object.hasOwn(doc,'settlement')?doc.settlement:settlement,reception:doc&&Object.hasOwn(doc,'reception')?doc.reception:currentReception,food_services:doc&&Object.hasOwn(doc,'food_services')?doc.food_services:currentFoods};
         if(needs_reissue)previewDoc.items=stripFoodItems(withoutReceptionItems(previewDoc.items||[]));
-        return json({ ok: true, settlement, needs_reissue, reception:currentReception, food_services:currentFoods, booking: { code, space_id: row.space_id, name: row.customer_name, phone: row.phone, date: row.date, slot: row.slot, headcount: row.headcount, status: row.status, amount: row.effective_amount, start_h: row.start_h, end_h: row.end_h, order_status: row.order_status || '', paid_amount:settlement.net },
+        return json({ ok: true, settlement, document_preferences:pref?{show_amount:!!pref.show_amount}:null, needs_reissue, reception:currentReception, food_services:currentFoods, booking: { code, space_id: row.space_id, name: row.customer_name, phone: row.phone, date: row.date, slot: row.slot, headcount: row.headcount, status: row.status, amount: row.effective_amount, start_h: row.start_h, end_h: row.end_h, order_status: row.order_status || '', paid_amount:settlement.net },
           inquiry: inq, doc, preview: publicDoc(row, previewDoc), link: doc && doc.issued_at ? link : '', token: k });
       }
       if (method === 'PUT') {
@@ -829,6 +833,8 @@ export async function onRequest({ request, env, params, waitUntil }) {
     if (mBk && method === 'PATCH') {
       const d = await readJson(request); const code = mBk[1];
       if (!['confirmed', 'completed', 'cancelled'].includes(d.status)) return err('상태 값이 올바르지 않습니다.');
+      const current=await env.DB.prepare('SELECT status FROM bookings WHERE booking_code=?').bind(code).first();
+      if(current?.status==='cancelled'&&d.status==='confirmed')return reconfirmBooking(env,code,d,waitUntil,{legacy:true});
       const update = await bookingStatusStatements(env, code, d.status); if (update.error) return update.error;
       await batch(env, update.statements);
       await log(env, 'booking.updated', code, 'admin', d);

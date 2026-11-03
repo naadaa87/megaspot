@@ -34,3 +34,8 @@
 #cancel-msg{margin:14px 0;font-size:14px;line-height:1.7}
 #cancel-canvas{display:block;width:100%;height:auto;margin-top:18px}
 #cancel-history{max-height:220px;overflow:auto}
+
+#cf-reconfirmation-summary{display:block}
+#cf-reconfirmation-summary>div{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:12px;padding:8px 0;border-bottom:1px solid #d8dfed;line-height:1.6}
+#cf-reconfirmation-summary>div:last-child{border-bottom:0}
+#cf-reconfirmation-summary b{text-align:right;min-width:0;font-variant-numeric:tabular-nums}
