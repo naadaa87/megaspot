@@ -1,3 +1,4 @@
+import {cancellationAdmin} from '../_cancellation.js';
 import {refundAmountSql} from '../_payapp_refund_history.js';
 import {S,preserveLegacyPayments,settlementFor,settlementsFor,settlementAdmin} from '../_settlement.js';
 // 운영자 API — 모든 경로는 X-Admin-Key 헤더 검증을 거칩니다.
@@ -153,6 +154,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
     if(/^bookings\/[A-Z0-9-]+\/portal-link(?:\/rotate)?$/.test(path))return await portalAdmin({env,request,url,path,method});
     if(method==='PATCH'&&/^inquiries\/[A-Z0-9-]+$/.test(path)){const v=await readJson(request.clone());if(v.total!==undefined&&v.total!==null&&v.total!==''&&amountOk(v.total)===null)return err('금액을 확인해 주세요.');}
     if(method!=='GET'&&/^(quotes$|inquiries\/|bookings(?:\/|$)|catering\/orders)/.test(path))await preserveLegacyPayments(env);
+    if(/^bookings\/[A-Z0-9-]+\/cancellation(?:\/document)?$/.test(path))return await cancellationAdmin({env,request,path,method,url});
     if(/^bookings\/[A-Z0-9-]+\/settlement(?:\/entries\/\d+)?$/.test(path))return await settlementAdmin({env,request,path,method});
     if (path === 'ping') return json({ ok: true });
     if (/^(catering|reception)\/pricing$/.test(path)) {
@@ -324,6 +326,14 @@ export async function onRequest({ request, env, params, waitUntil }) {
       if (inquiry && [DELETED, '대기 취소'].includes(inquiry.status)) return err('삭제·대기 취소된 문의는 복원한 뒤 견적을 저장해 주세요.');
       const quote_no = await uniqueRef(env, 'quotes', 'quote_no', 'Q');
       const data = d.data && typeof d.data === 'object' ? d.data : {};
+      const related=ref?(await env.DB.prepare('SELECT booking_code,status FROM bookings WHERE inquiry_ref=?').bind(ref).all()).results||[]:[];
+      const cancelledQuote=related.length===1&&related[0].status==='cancelled'?(await settlementFor(env,related[0].booking_code)):null;
+      if(cancelledQuote?.cancellation){
+        data.settlement=cancelledQuote;data.cancellation_quote=true;
+        const serialized=JSON.stringify(data);if(serialized.length>100000)return err('견적 내용이 너무 깁니다.');
+        await env.DB.prepare('INSERT INTO quotes(quote_no,inquiry_ref,customer,event_date,total,data,created_at) VALUES(?,?,?,?,?,?,?)').bind(quote_no,ref,str(d.customer,120),inquiry.event_date,total,serialized,now()).run();
+        await log(env,'quote.saved',ref,'admin',{quote_no,total,cancellation:true});return json({ok:true,quote_no,cancellation_quote:true});
+      }
       const cocktailRates=publicCocktailPricing(await readCocktailPricing(env));
       const cateringData=foodPricingData('catering',await readFoodPricing(env,'catering')),receptionData=foodPricingData('reception',await readFoodPricing(env,'reception'));
       const food=foodExtras(data.extras,inquiry?safe(inquiry.data):null,cocktailRates.prices,cocktailRates.revision,cateringData);if(food.error)return err(food.error);

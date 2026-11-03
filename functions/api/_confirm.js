@@ -59,7 +59,7 @@ export function publicDoc(row, doc) {
   const sp = SPACES[row.space_id] || { name: row.space_id || '메가스팟', address: '', sub: '' };
   const d = doc || {};
   return {
-    code: row.booking_code, status: row.status, issued_at: d.issued_at || '', updated_at: d.updated_at || '', issue_no: d.issue_no || 0,
+    doc_type:d.doc_type==='cancellation'?'cancellation':'confirmation', code: row.booking_code, status: row.status, issued_at: d.issued_at || '', updated_at: d.updated_at || '', issue_no: d.issue_no || 0,
     customer: d.customer || row.customer_name || '', phone: maskPhone(row.phone),
     space: sp, date: row.date, start_h: row.start_h ?? null, end_h: row.end_h ?? null, slot: row.slot || '', headcount: row.headcount ?? null,
     event: d.event || '', time_note: d.time_note || '', show_amount: d.show_amount !== false, amount: d.show_amount === false ? null : d.amount ?? null, amount_note: d.amount_note || '부가세 포함',

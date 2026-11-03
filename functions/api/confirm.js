@@ -1,3 +1,4 @@
+import {cancellationState,cancellationDocument} from './_cancellation.js';
 import {settlementFor} from './_settlement.js';
 // 고객용 예약확정서 조회 — /confirm/ 화면이 씁니다.
 // GET  /api/confirm?c=예약번호&k=링크토큰       → 관리자가 보낸 링크로 바로 열기
@@ -8,6 +9,7 @@ import { confirmToken, tokenEq, parseDoc, publicDoc } from './_confirm.js';
 const COLS = 'booking_code, space_id, customer_name, phone, phone_last4, date, slot, headcount, status, start_h, end_h, confirm_doc';
 async function answer(env, row) {
   const doc = parseDoc(row.confirm_doc);
+  if(row.status==='cancelled'){const state=await cancellationState(env,row.booking_code);if(state?.document?.issued_at){const settlement=await settlementFor(env,row.booking_code);return json({ok:true,doc:publicDoc(row,cancellationDocument(row,state,settlement)),k:await confirmToken(env,row.booking_code)},200,{'cache-control':'no-store'});}}
   if (row.status === 'cancelled') return err('취소된 예약입니다. 자세한 내용은 메가스팟으로 문의해 주세요.', 410, 'CANCELLED');
   if (!doc || !doc.issued_at) return err('아직 예약확정서가 발급되지 않았습니다. 메가스팟에 요청하시면 바로 보내 드립니다.', 404, 'NOT_ISSUED');
   const settlement=await settlementFor(env,row.booking_code),current={...doc,amount:settlement.amount,paid:settlement.net,pay_status:settlement.status==='unpriced'?'pending':settlement.status,settlement};
