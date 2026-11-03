@@ -29,7 +29,10 @@ test('응답 불명은 원장 잠금을 유지하고 같은 ID 재요청으로 �
   const f=fixture(t),v=f.input();f.fail();assert.equal((await f.send(v)).status,502);assert.equal((await f.send(v)).status,409);assert.equal(f.calls.length,1);
 });
 test('결과·템플릿 조회만 허용하고 임의 URL·추가 수신자 전달은 불가',async t=>{
-  const f=fixture(t);await f.send(f.input({path:'history/detail',data:{mid:'100',apikey:'wrong',url:'https://evil.test'}}));assert.equal(f.calls[0].url,'https://kakaoapi.aligo.in/akv10/history/detail/');assert.equal(f.calls[0].body.get('url'),null);
+  const f=fixture(t);await f.send(f.input());await f.send(f.input({path:'history/detail',data:{mid:'100',apikey:'wrong',url:'https://evil.test'}}));assert.equal(f.calls[1].url,'https://kakaoapi.aligo.in/akv10/history/detail/');assert.equal(f.calls[1].body.get('url'),null);
   assert.equal((await f.send(f.input({path:'history/detail',data:{mid:'not-a-mid'}}))).status,400);
-  await f.send(f.input({path:'template/list',data:{tpl_code:'UN_2584'}}));assert.equal(f.calls[1].body.get('senderkey'),'megaspot-profile');
+  await f.send(f.input({path:'template/list',data:{tpl_code:'UN_2584'}}));assert.equal(f.calls[2].body.get('senderkey'),'megaspot-profile');
+});
+test('이 연결 서버에서 생성하지 않은 다른 서비스의 전송 내역은 조회하지 않는다',async t=>{
+  const f=fixture(t);assert.equal((await f.send(f.input({path:'history/detail',data:{mid:'999999'}}))).status,403);assert.equal(f.calls.length,0);
 });

@@ -1,4 +1,4 @@
-// Fixed-IP relay for Cloudflare Pages. Bind behind HTTPS at aligo.megaspot.kr.
+// Fixed-IP relay for Cloudflare Pages, behind the existing relay.naranhistory.com TLS host.
 import { createHmac, timingSafeEqual, createHash } from 'node:crypto';
 import { createServer } from 'node:http';
 import { DatabaseSync } from 'node:sqlite';
@@ -13,8 +13,10 @@ const FIELDS={
 };
 export function relayLedger(db){
   db.exec('CREATE TABLE IF NOT EXISTS relay_requests(id TEXT PRIMARY KEY,hash TEXT NOT NULL,response TEXT,created_at INTEGER NOT NULL)');
+  db.exec("CREATE INDEX IF NOT EXISTS relay_requests_mid ON relay_requests(CAST(json_extract(response,'$.info.mid') AS TEXT))");
   return {
     get:id=>db.prepare('SELECT * FROM relay_requests WHERE id=?').get(id),
+    ownsMid:mid=>!!db.prepare("SELECT id FROM relay_requests WHERE CAST(json_extract(response,'$.info.mid') AS TEXT)=? LIMIT 1").get(String(mid)),
     claim(id,hash){try{db.prepare('INSERT INTO relay_requests(id,hash,created_at) VALUES(?,?,?)').run(id,hash,Date.now());return true;}catch{return false;}},
     complete:(id,response)=>db.prepare('UPDATE relay_requests SET response=? WHERE id=?').run(JSON.stringify(response),id)
   };
@@ -31,6 +33,7 @@ export async function relayRequest(request,env,ledger,upstream=fetch){
   if(!env.ALIGO_API_KEY || !env.ALIGO_USERID || !env.ALIGO_SENDER_KEY || !env.ALIGO_SENDER)return json({error:'Provider not configured'},503);
   const data=Object.fromEntries(FIELDS[v.path].filter(k=>v.data[k]!=null).map(k=>[k,String(v.data[k])]));
   if(v.path==='history/detail' && !/^\d{1,30}$/.test(data.mid || ''))return json({error:'Invalid message ID'},400);
+  if(v.path==='history/detail' && !ledger.ownsMid(data.mid))return json({error:'Message not owned by this relay'},403);
   if(v.path!=='history/detail' && !(env.ALIGO_TEMPLATE_CODES || 'UN_2584').split(',').map(s=>s.trim()).includes(data.tpl_code))return json({error:'Template not allowed'},403);
   const hash=createHash('sha256').update(JSON.stringify([v.path,data,env.ALIGO_USERID,env.ALIGO_SENDER_KEY])).digest('hex');
   if(v.path==='alimtalk/send'){
@@ -47,6 +50,7 @@ export async function relayRequest(request,env,ledger,upstream=fetch){
     const response=await upstream('https://kakaoapi.aligo.in/akv10/'+v.path+'/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body,signal:AbortSignal.timeout(9000),redirect:'error'});
     if(!response.ok)throw Error('Upstream unavailable');
     const result=await response.json();
+    if(v.path==='template/list' && Array.isArray(result.list))result.list=result.list.filter(t=>t.templtCode===data.tpl_code);
     if(v.path==='alimtalk/send')ledger.complete(v.request_id,result);
     return json(result);
   }catch{return json({error:'Upstream outcome unknown; do not retry sending'},502);}

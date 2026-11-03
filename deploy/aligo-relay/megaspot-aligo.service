@@ -1,0 +1,28 @@
+[Unit]
+Description=Megaspot reservation guide Aligo relay
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=megaspot-aligo
+Group=megaspot-aligo
+WorkingDirectory=/opt/megaspot-aligo
+EnvironmentFile=/etc/megaspot-aligo.env
+Environment=PORT=8787
+Environment=ALIGO_RELAY_DB=/var/lib/megaspot-aligo/requests.sqlite
+ExecStart=/usr/bin/node /opt/megaspot-aligo/server.mjs
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+StateDirectory=megaspot-aligo
+StateDirectoryMode=0700
+ReadWritePaths=/var/lib/megaspot-aligo
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

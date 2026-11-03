@@ -60,7 +60,7 @@ async function provider(env, path, data = {}, requestID = crypto.randomUUID()) {
   let target='https://kakaoapi.aligo.in/akv10/' + path + '/',headers={'Content-Type':'application/x-www-form-urlencoded'},body;
   if(env.ALIGO_RELAY_URL){
     // Only our dedicated hostname may receive signed requests. API keys stay on the relay.
-    if(env.ALIGO_RELAY_URL!=='https://aligo.megaspot.kr/v1/aligo' || String(env.ALIGO_RELAY_SECRET || '').length<32) throw Error('고정 IP 발송 서버의 주소·서명 키를 확인해 주세요.');
+    if(env.ALIGO_RELAY_URL!=='https://relay.naranhistory.com/megaspot/aligo' || String(env.ALIGO_RELAY_SECRET || '').length<32) throw Error('고정 IP 발송 서버의 주소·서명 키를 확인해 주세요.');
     target=env.ALIGO_RELAY_URL;body=JSON.stringify({path,data,request_id:requestID,time:Date.now()});
     const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(env.ALIGO_RELAY_SECRET),{name:'HMAC',hash:'SHA-256'},false,['sign']);
     const signature=Array.from(new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(body))),b=>b.toString(16).padStart(2,'0')).join('');

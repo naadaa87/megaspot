@@ -1,0 +1,21 @@
+@megaspot_aligo {
+    path /megaspot/aligo
+    method POST
+}
+handle @megaspot_aligo {
+    request_body {
+        max_size 16KB
+    }
+    rewrite * /v1/aligo
+    reverse_proxy 127.0.0.1:8787 {
+        header_up -Cookie
+        header_down -Server
+        lb_retries 0
+        transport http {
+            dial_timeout 2s
+            response_header_timeout 12s
+            read_timeout 12s
+            write_timeout 5s
+        }
+    }
+}
