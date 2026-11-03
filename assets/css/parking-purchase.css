@@ -12,7 +12,10 @@
 .pk-label{display:grid;gap:8px;font-size:14px;font-weight:700;line-height:1.6}
 .pk-help{font-size:13px;line-height:1.8;color:var(--ink-3)}
 .pk-notice{background:#edf2ff;border-radius:8px;padding:16px;font-size:14px;line-height:1.8}
+#pk-overnight-notice{margin-top:16px}
 .pk-agree{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.7}
+.pk-agree[hidden]{display:none}
+.pk-notice a{color:var(--cobalt);text-decoration:underline;font-weight:700}
 .pk-agree input{margin-top:5px;flex-shrink:0}
 .pk-actions{display:flex;flex-wrap:wrap;gap:10px}
 .pk-actions>.btn{min-height:46px}

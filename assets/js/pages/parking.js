@@ -13,6 +13,7 @@
     if(!c||!c.daily_enabled)return;
     document.querySelectorAll('[data-parking-daily-price]').forEach(function(el){el.textContent=Number(c.tickets.daily.price).toLocaleString('ko-KR')+'원';});
     document.querySelectorAll('[data-parking-daily-label]').forEach(function(el){el.textContent='일일 주차권';});
+    var overnight=document.querySelector('#parking-overnight .lead');if(overnight)overnight.textContent='일일권 이용 조건: '+c.daily_terms+' 익일 출차는 구매 전에 입·출차 예정 시각을 알려 주세요.';
     document.querySelectorAll('[data-parking-daily-notice]').forEach(function(el){el.textContent='일일권 이용 조건: '+c.daily_terms;});
   }).catch(function(){});
 })();

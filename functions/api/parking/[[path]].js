@@ -13,7 +13,7 @@ export async function onRequest({request,env,params}){
    if(method!=='GET'&&!sameOrigin(request))return err('허용되지 않은 요청입니다.',403);
    return await parkingAdmin(request,env,path);
   }
-  const settings=await parkingSettings(env),C=payappConfig(env),publicSettings={...settings,daily_terms:settings.daily_enabled?settings.daily_terms:''};
+  const settings=await parkingSettings(env),C=payappConfig(env),publicSettings={enabled:settings.enabled,daily_enabled:settings.daily_enabled,daily_basis:settings.daily_enabled?settings.daily_basis:'unconfirmed',daily_terms:settings.daily_enabled?settings.daily_terms:'',service_hours:settings.service_hours,processing_notice:settings.processing_notice};
   if(path==='config'&&method==='GET')return json({ok:true,...publicSettings,enabled:settings.enabled&&C.live,tickets:Object.fromEntries(Object.entries(TICKETS).map(([id,t])=>[id,{...t,available:id!=='daily'||settings.daily_enabled}])),policy:POLICY,holidays:Object.keys(HOLIDAYS),accepting_arrivals:arrivalWindow()});
   if(method==='POST'&&!sameOrigin(request))return err('허용되지 않은 요청입니다.',403);
   if(method==='POST'){
@@ -30,7 +30,7 @@ export async function onRequest({request,env,params}){
    const oid='MS'+new Date(Date.now()+9*3600e3).toISOString().replace(/[-:T]/g,'').slice(0,14)+(await sha256(randomToken())).slice(0,6).toUpperCase(),t=now(),key=await sha256(randomToken()),nonce=randomToken();
    const title='메가스팟 주차 '+v.label;
    await env.DB.batch([
-    env.DB.prepare("INSERT INTO orders(oid,product_id,title,event_date,price,buyer_name,buyer_phone,data,status,test,created_at) VALUES(?,?,?,?,?,?,?,?,'created',0,?)").bind(oid,'parking-'+v.ticket,title,v.date,v.price,v.name,v.phone,JSON.stringify({kind:'parking',policy:POLICY,daily_terms:v.ticket==='daily'?settings.daily_terms:'',confirmed_at:t,lines:[{label:title,desc:v.date,amount:v.price,qty:1}]}),t),
+    env.DB.prepare("INSERT INTO orders(oid,product_id,title,event_date,price,buyer_name,buyer_phone,data,status,test,created_at) VALUES(?,?,?,?,?,?,?,?,'created',0,?)").bind(oid,'parking-'+v.ticket,title,v.date,v.price,v.name,v.phone,JSON.stringify({kind:'parking',policy:POLICY,daily_terms:v.ticket==='daily'?settings.daily_terms:'',agree_daily:v.ticket==='daily'&&d.agree_daily===true,confirmed_at:t,lines:[{label:title,desc:v.date,amount:v.price,qty:1}]}),t),
     env.DB.prepare('INSERT INTO parking_orders(oid,plate,visit_date,ticket,hours,daily_terms,token_hash,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)').bind(oid,v.plate,v.date,v.ticket,v.hours,v.ticket==='daily'?settings.daily_terms:'',await sha256(key),t,t),
     env.DB.prepare('INSERT INTO payapp_payments(oid,nonce,created_at) VALUES(?,?,?)').bind(oid,nonce,t)
    ]);

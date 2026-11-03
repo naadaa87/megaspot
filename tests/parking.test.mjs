@@ -81,14 +81,40 @@ test('배포 시 자동 스키마 초기화로 주차 테이블·잠금 인덱�
 });
 
 test('일일권은 확인된 이용 조건 설정 후에만 판매하고 구매 시점 조건을 보존한다',async t=>{
- const f=fixture(t);const terms='테스트 조건: 이용 당일 23:59까지 · 재입차 불가';
+ const f=fixture(t),settings={enabled:true,daily_enabled:true,daily_basis:'calendar',daily_details:'테스트 조건: 재입차 불가',daily_rollover:'테스트 조건: 자정 이후 현장 정산, 연속 적용 불가'};
  assert.equal((await(await f.call('config')).json()).tickets.daily.available,false);
- assert.equal((await f.call('admin/settings','PUT',{enabled:true,daily_enabled:true,daily_terms:terms},null,true)).status,400);
- assert.equal((await f.call('admin/settings','PUT',{enabled:true,daily_enabled:true,daily_terms:terms,confirm_daily:true},null,true)).status,200);
+ assert.equal((await f.call('admin/settings','PUT',settings,null,true)).status,400);
+ assert.equal((await f.call('admin/settings','PUT',{...settings,confirm_daily:true},null,true)).status,200);
+ const terms=(await(await f.call('config')).json()).daily_terms;
+ assert.match(terms,/당일 23:59/);assert.match(terms,/자정 이후 현장 정산/);
  assert.equal((await(await f.call('config')).json()).tickets.daily.available,true);
- assert.equal((await f.call('prepare','POST',f.input({ticket:'daily',daily_terms:'다른 조건'}))).status,409);
- const p=await f.buy({ticket:'daily',daily_terms:terms});assert.equal(p.total,30000);await f.feedback(p);assert.equal((await f.get(p)).daily_terms,terms);
- await f.call('admin/settings','PUT',{enabled:true,daily_enabled:false,daily_terms:'미확정 내부 초안'},null,true);
+ assert.equal((await f.call('prepare','POST',f.input({ticket:'daily',daily_terms:'다른 조건',agree_daily:true}))).status,409);
+ assert.equal((await f.call('prepare','POST',f.input({ticket:'daily',daily_terms:terms}))).status,400);
+ const p=await f.buy({ticket:'daily',daily_terms:terms,agree_daily:true});assert.equal(p.total,30000);await f.feedback(p);assert.equal((await f.get(p)).daily_terms,terms);
+ assert.equal(JSON.parse(f.db.prepare('SELECT data FROM orders WHERE oid=?').get(p.oid).data).agree_daily,true);
+ await f.call('admin/settings','PUT',{enabled:true,daily_enabled:false,daily_details:'미확정 내부 초안'},null,true);
  assert.equal((await(await f.call('config')).json()).daily_terms,'');assert.equal((await f.get(p)).daily_terms,terms);
  assert.equal((await f.claim(p)).status,200);const row=f.db.prepare('SELECT * FROM parking_orders WHERE oid=?').get(p.oid);assert.equal(row.free_hours,0);assert.equal(row.paid_hours,0);assert.equal(f.db.prepare('SELECT free_order FROM parking_sessions').get().free_order,null);
+});
+
+test('일일권 종료 기준과 익일 정산 미확인 상태는 활성화되지 않으며 초안은 공개하지 않는다',async t=>{
+ const f=fixture(t),base={enabled:true,daily_enabled:true,daily_basis:'calendar',daily_details:'재입차 불가',daily_rollover:'익일 요금 현장 정산, 연속 적용 불가',confirm_daily:true};
+ for(const extra of [{daily_basis:'unconfirmed'},{daily_basis:'constructor'},{daily_basis:'__proto__'},{daily_basis:[]},{daily_details:''},{daily_rollover:''},{confirm_daily:false}])assert.equal((await f.call('admin/settings','PUT',{...base,...extra},null,true)).status,400,JSON.stringify(extra));
+ await f.call('admin/settings','PUT',{...base,daily_enabled:false},null,true);
+ const c=await(await f.call('config')).json();assert.equal(c.daily_enabled,false);assert.equal(c.daily_terms,'');assert.equal(c.daily_basis,'unconfirmed');assert.equal(c.daily_details,undefined);assert.equal(c.daily_rollover,undefined);
+});
+
+test('종료 기준 없는 구형 일일권 설정은 판매 보류하고 시간권 판매는 유지한다',async t=>{
+ const f=fixture(t);
+ f.db.prepare("INSERT INTO settings(key,value,updated_at) VALUES('parking',?,'2026-11-03 05:00:00')").run(JSON.stringify({enabled:true,daily_enabled:true,daily_terms:'미확인 구형 자유문구'}));
+ const c=await(await f.call('config')).json();assert.equal(c.enabled,true);assert.equal(c.daily_enabled,false);assert.equal(c.tickets.daily.available,false);assert.equal(c.tickets['1h'].available,true);assert.equal(c.daily_terms,'');
+});
+
+test('24시간 기준도 별도 확인 후 판매하며 기존 주문 조건은 새 설정으로 바뀌지 않는다',async t=>{
+ const f=fixture(t),base={enabled:true,daily_enabled:true,daily_basis:'24h',daily_details:'1회 입차 기준, 재입차 불가',daily_rollover:'24시간 초과분 현장 정산, 연속 적용 불가',confirm_daily:true};
+ assert.equal((await f.call('admin/settings','PUT',base,null,true)).status,200);
+ const c=await(await f.call('config')).json();assert.match(c.daily_terms,/입차 시각부터 24시간/);assert.doesNotMatch(c.daily_terms,/당일 23:59/);
+ const p=await f.buy({ticket:'daily',daily_terms:c.daily_terms,agree_daily:true});await f.feedback(p);
+ assert.equal((await f.call('admin/settings','PUT',{...base,daily_basis:'calendar',daily_rollover:'자정 초과분 현장 정산, 연속 적용 불가'},null,true)).status,200);
+ assert.equal((await f.get(p)).daily_terms,c.daily_terms);assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM orders').get().n,1);assert.equal((await f.get(p)).price,30000);
 });
