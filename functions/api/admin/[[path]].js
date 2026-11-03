@@ -2,6 +2,7 @@
 import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, log, hashPassword, requireAdmin, adminKeyOk, adminCookie,
   randomToken, sha256, later, getCookie, withCookies, clientIp, sameOrigin, tooMany, hit, clearHits, kstToday, SPACES, spaceOk }
   from '../_lib.js';
+import { refundAdmin } from '../_deposit_refunds.js';
 import { cateringAdmin } from '../_catering.js';
 import { cleanDoc, parseDoc, publicDoc, confirmToken } from '../_confirm.js';
 import { inquiryAmountSql, bookingAmountSql, amountOverrideSql } from '../_amounts.js';
@@ -142,6 +143,10 @@ export async function onRequest({ request, env, params }) {
   const denied = await requireAdmin(request, env); if (denied) return denied;
   try {
     if (path === 'ping') return json({ ok: true });
+    if (path === 'deposit-refunds' || path.startsWith('deposit-refunds/')) {
+      try { return await refundAdmin({env,request,url,path,method}); }
+      catch { return err('환급 정보를 처리하지 못했습니다. 새로고침 후 다시 시도해 주세요.',500,'REFUND_ERROR'); }
+    }
     if (path.startsWith('guide-messages')) {
       try { return await guideAdmin({ env, request, url, path, method }); }
       catch (e) { return err(String(e?.message || '알림톡 처리 중 오류가 발생했습니다.').slice(0,300), 400, 'GUIDE_ERROR'); }
@@ -268,6 +273,11 @@ export async function onRequest({ request, env, params }) {
     if (mChk && method === 'PUT') {
       const d = await readJson(request); const checks = {};
       const previous = await env.DB.prepare('SELECT checks FROM inquiry_checks WHERE ref = ?').bind(mChk[1]).first(), saved = safe(previous?.checks);
+      const managed = await env.DB.prepare("SELECT r.state FROM bookings b LEFT JOIN booking_refunds r ON b.booking_code=r.booking_code WHERE b.inquiry_ref=? AND b.status<>'cancelled' AND EXISTS(SELECT 1 FROM bookings bx JOIN booking_refunds rx ON rx.booking_code=bx.booking_code WHERE bx.inquiry_ref=b.inquiry_ref)").bind(mChk[1]).all();
+      if ((managed.results || []).length) {
+        const completed = managed.results.every(r => r.state === 'completed');
+        if (!!d.checks?.guarantee_returned !== completed) return err('보증금 환급 관리에서 송금 완료 여부를 확인해 주세요.',409,'REFUND_MANAGED');
+      }
       for (const [k, v] of Object.entries(d.checks || {})) if (/^[a-z_]{1,30}$/.test(k)) checks[k] = v ? saved[k] || now() : false;
       await env.DB.prepare('INSERT INTO inquiry_checks (ref, checks, updated_at) VALUES (?,?,?) ON CONFLICT(ref) DO UPDATE SET checks = excluded.checks, updated_at = excluded.updated_at').bind(mChk[1], JSON.stringify(checks), now()).run();
       return json({ ok: true, checks });

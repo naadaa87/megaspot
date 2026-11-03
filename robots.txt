@@ -1,6 +1,7 @@
 User-agent: *
 Allow: /
 Disallow: /admin/
+Disallow: /deposit/
 Disallow: /api/
 Disallow: /mypage/
 Disallow: /order/
@@ -9,13 +10,16 @@ Disallow: /meetups/manage/
 User-agent: Yeti
 Allow: /
 Disallow: /admin/
+Disallow: /deposit/
 
 User-agent: Googlebot
 Allow: /
 Disallow: /admin/
+Disallow: /deposit/
 
 User-agent: Daum
 Allow: /
 Disallow: /admin/
+Disallow: /deposit/
 
 Sitemap: https://megaspot.kr/sitemap.xml
