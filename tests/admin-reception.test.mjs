@@ -30,7 +30,7 @@ test('저장 후 인원 변경·취소·복원은 연결 예약 금액에도 한
   const {api}=state(t,{booking:true});await saveQuote(api,{total:2450000,extras:[extra()]});
   for(const [people,status,expected]of [[51,'confirmed',2535000],[51,'cancelled',500000],[50,'pending',2450000]]){await api('inquiries/MS-TEST','PATCH',{reception:{people,format:'table',status}});const it=(await api('inquiries/MS-TEST')).item;assert.equal(it.effective_amount,expected);assert.equal((await api('bookings')).items[0].amount,expected);const room=it.effective_amount-it.data.included_reception_amount;assert.equal(overview.build(it,{roomAmount:room}).total,expected);}
 });
-test('잘못된 구성·인원·코스는 저장하지 않음',async t=>{const {api}=state(t);for(const reception of [{people:0,format:'table'},{people:301,format:'table'},{people:50,format:'x'},{people:50,format:'table',course:'vip'}])await api('inquiries/MS-TEST','PATCH',{reception},400);assert.equal((await api('inquiries/MS-TEST')).item.data.reception,undefined);});
+test('잘못된 구성·인원·코스는 저장하지 않음',async t=>{const {api}=state(t);for(const reception of [{people:0,format:'table'},{people:301,format:'table',status:'confirmed'},{people:50,format:'x'},{people:50,format:'table',course:'vip'}])await api('inquiries/MS-TEST','PATCH',{reception},400);assert.equal((await api('inquiries/MS-TEST')).item.data.reception,undefined);});
 test('견적 추가 항목의 금액 변조·중복은 거절함',async t=>{const {api}=state(t);for(const extras of [[{...extra(),amount:1}],[extra(),extra()]])await api('quotes','POST',{inquiry_ref:'MS-TEST',total:5000000,data:{extras}},400);assert.equal((await api('inquiries/MS-TEST')).quotes.length,0);});
 test('공간 금액 직접 수정 후에는 이전 케이터링 포함액을 차감하지 않음',async t=>{const {api}=state(t);await saveQuote(api,{total:2450000,extras:[extra()]});await api('inquiries/MS-TEST','PATCH',{total:600000});const it=(await api('inquiries/MS-TEST')).item;assert.equal(it.data.included_reception_amount,0);assert.equal(overview.build(it,{roomAmount:it.effective_amount}).total,2550000);});
 test('옛 문의 원문이 있어도 저장한 최신 테이블 구성은 한 번만 표시',()=>{const model=overview.build({data:{reception:receptionAdmin({people:50,format:'table'}),message:C.inquiryText(50,'table')}},{roomAmount:500000});assert.equal(model.rows.length,2);assert.equal(model.total,2450000);});
@@ -68,8 +68,8 @@ test('각 코스의 통합 견적 저장은 선택 코스와 금액을 보존하
   }
 });
 test('알 수 없는 코스를 클래식으로 대체하지 않음',()=>{
-  for(const course of ['','all','vip','constructor','__proto__']){
+  for(const course of ['','vip','constructor','__proto__']){
     assert.equal(C.quote(50,'table',course).ok,false);assert.equal(C.inquiryText(50,'table',course),null);assert.equal(receptionAdmin({people:50,format:'table',course}),null);
   }
-  assert.equal(receptionAdmin({people:50,format:'table'}).course,'classic');
+  assert.equal(receptionAdmin({people:50,format:'table'}).course,'classic');assert.equal(receptionAdmin({course:'all',people:50,format:'table'}).total,null);
 });

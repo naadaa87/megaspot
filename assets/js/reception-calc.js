@@ -71,6 +71,26 @@
     if(result&&price)result.requested_total=Number(price[1].replace(/,/g,''));
     return result;
   }
+  function revision(data){return Number(data&&data.reception_revision)||0;}
+  function syncQuote(input,data,include){
+    var copy=JSON.parse(JSON.stringify(input||{})),rec=fromInquiry(data);
+    copy.reception_revision=revision(data);copy.receptionRequested=!!(include&&rec);
+    if(!rec)return copy;
+    copy.extras=(copy.extras||[]).filter(function(x){return x.kind!=='reception';});
+    copy.note=String(copy.note||'').split('\n').filter(function(line){return line.indexOf('케이터링 상태: ')!==0&&line.indexOf('케이터링 상담 필요: ')!==0;}).join('\n');
+    if(rec.status==='cancelled')copy.note+=(copy.note?'\n':'')+'케이터링 상태: 취소 · 합계 제외 ('+rec.courseName+' '+rec.people+'명 · '+rec.formatName+')';
+    else if(include&&rec.total!=null)copy.extras.push({kind:'reception',label:'도시락·핑거푸드 케이터링 · '+rec.summary+' (부가세 확인 전)',amount:rec.total,reception:rec});
+    else if(include)copy.note+=(copy.note?'\n':'')+'케이터링 상담 필요: '+rec.summary+' (금액 미정 · 합계 제외)';
+    if(include)copy.receptionExcluded=false;
+    return copy;
+  }
+  function quoteCurrent(input,data){
+    if(input&&input.reception_revision!=null)return Number(input.reception_revision)===revision(data);
+    var saved=(input&&input.extras||[]).find(function(x){return x.kind==='reception';}),rec=fromInquiry(data);
+    if(!saved)return !(rec&&rec.status!=='cancelled'&&data.reception_in_quote);
+    if(!rec||rec.status==='cancelled'||data.included_reception_amount===0&&!data.reception_in_quote)return false;
+    return ['course','people','format','status','note'].every(function(key){return String((saved.reception||{})[key]||(key==='status'?'pending':''))===String(rec[key]||(key==='status'?'pending':''));})&&Number(saved.amount)===Number(rec.total);
+  }
   // Documents use stored amounts, so reopening an issued quote never reprices it.
   function forDocument(value,total){
     if(!value||typeof value!=='object')return null;
@@ -80,5 +100,5 @@
     if(money(value.total)===result.total&&money(value.food)!=null&&money(value.fee)!=null&&Number(value.food)+Number(value.fee)===result.total){result.food=Number(value.food);result.fee=Number(value.fee);result.unitPrice=money(value.unitPrice);}
     return result;
   }
-  return {data:D,course:course,selection:selection,fromInquiry:fromInquiry,forDocument:forDocument,quote:quote,won:won,formatLabel:formatLabel,customerText:customerText,inquiryText:inquiryText};
+  return {data:D,course:course,selection:selection,fromInquiry:fromInquiry,revision:revision,syncQuote:syncQuote,quoteCurrent:quoteCurrent,forDocument:forDocument,quote:quote,won:won,formatLabel:formatLabel,customerText:customerText,inquiryText:inquiryText};
 });
