@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 IMG = ROOT / "assets/img/reception"
 PDF = ROOT / "assets/docs/megaspot-reception-guide.pdf"
 URL = "/reception/"
-STAMP = "20261103r12"
+STAMP = "20261103publicrec1"
 STYLE_STAMP = STAMP + "-align1"
 LOGO = ROOT / "assets/img/brand/megaspot-official-wordmark-transparent.png"
 KAKAO = "https://pf.kakao.com/_LnxbmX/chat"
@@ -86,7 +86,6 @@ def gallery_section():
     return '<section class="section sec-line" id="gallery"><div class="container"><div class="section-head"><div class="eyebrow">Catering in real spaces</div><h2 class="h-l">실제 현장 사진</h2><p class="lead">다양한 공간에서 준비한 케이터링 테이블을 살펴보세요.<br>사진을 누르면 크게 볼 수 있고, 좌우로 넘겨 전체 8장을 확인할 수 있습니다.</p></div><div class="reception-field-gallery">'+''.join(photos)+'</div><p class="tiny muted mt-3">제공받은 실제 현장 사진입니다. 메뉴·포장·꽃·기물·음료와 세팅 범위는 행사별로 다르며, 최종 견적에서 확인합니다.</p></div></section>'
 
 def calculator_section():
-    classic=next(c for c in COURSES if c['id']=='classic')
     thresholds=sorted({fee['upto'] for bands in SERVICE_FEES_BY_FORMAT.values() for fee in bands})
     rows=[]
     previous=0
@@ -98,8 +97,9 @@ def calculator_section():
         previous=upto
     fees=''.join(rows)
     format_options=''.join(f'<option value="{f["id"]}"'+(' selected' if f['id']=='table' else '')+f'>{f["name"]}</option>' for f in CATERING_FORMATS)
+    course_options=''.join(f'<option value="{c["id"]}"'+(' selected' if c['id']=='classic' else '')+f'>{c["name"]} · 1인 {c["price"]:,}원</option>' for c in COURSES)
     quick=''.join(f'<button type="button" data-reception-people="{n}" aria-pressed="{str(n==50).lower()}"'+(' class="on"' if n==50 else '')+f'>{n}명</button>' for n in [30,50,80,100,150,200,250,300])
-    return f'''<section class="section sec-white sec-line" id="calc"><div class="container"><div class="section-head"><div class="eyebrow">Classic estimate</div><h2 class="h-l">클래식 케이터링 금액 계산</h2><p class="lead">제공 방식과 인원을 선택하면 메뉴 금액과 해당 출장·세팅비를 합산합니다. 고객 안내문도 바로 복사할 수 있습니다.</p></div><div id="reception-calc" class="cc-grid"><div class="cc-form card"><div class="cc-step"><label class="cc-step-h" for="reception-format"><span>1</span>희망 제공 방식</label><select class="input" id="reception-format" name="reception_format"><option value="">상담 후 결정</option>{format_options}</select><p class="tiny muted mt-2">제공 방식별 포장·기물·세팅 범위와 코스 적용 가능 여부는 최종 견적에서 확인합니다.</p></div><div class="cc-step"><div class="cc-step-h"><span>2</span>클래식 구성</div><p><b>1인 {classic['price']:,}원</b> · <a href="#course-classic" style="text-decoration:underline">전체 메뉴 보기</a></p></div><div class="cc-step"><label class="cc-step-h" for="reception-people"><span>3</span>케이터링 인원</label><div class="cc-people"><input class="input" id="reception-people" name="reception_people" type="number" inputmode="numeric" min="1" max="300" step="1" value="50" aria-describedby="reception-people-hint"><span>명</span></div><div class="pick cc-quick">{quick}</div><p class="tiny muted mt-2" id="reception-people-hint">1~300명 계산 · 최소 주문 인원은 상담에서 확인합니다. 301명 이상은 별도 견적입니다.</p></div><div class="cc-step"><div class="cc-step-h"><span>4</span>제공 방식별 출장·세팅비</div><table class="est-lines reception-fee-table"><thead><tr><th>인원</th><th>도시락·박스</th><th>테이블 세팅</th></tr></thead><tbody>{fees}</tbody></table><p class="tiny muted mt-2">테이블 세팅·철수 비용은 50명 이하 20만 원, 51~100명 25만 원입니다. 100명·200명은 해당 구간에 포함됩니다.</p></div></div><div class="cc-result card" data-reception-result aria-live="polite"><p>테이블 세팅 · 클래식 50명 메뉴 1,750,000원 + 출장·세팅·철수비 200,000원 = <b>1,950,000원</b></p><p class="tiny muted mt-2">부가세 적용 여부 확인 전 · 공간 대관료 별도</p></div></div></div></section>'''
+    return f'''<section class="section sec-white sec-line" id="calc"><div class="container"><div class="section-head"><div class="eyebrow">Catering estimate</div><h2 class="h-l">케이터링 코스별 금액 계산</h2><p class="lead">코스·제공 방식·인원을 선택하면 메뉴 금액과 해당 출장·세팅비를 합산합니다. 고객 안내문도 바로 복사할 수 있습니다.</p></div><div id="reception-calc" class="cc-grid"><div class="cc-form card"><div class="cc-step"><label class="cc-step-h" for="reception-format"><span>1</span>희망 제공 방식</label><select class="input" id="reception-format" name="reception_format"><option value="">상담 후 결정</option>{format_options}</select><p class="tiny muted mt-2">제공 방식별 포장·기물·세팅 범위와 코스 적용 가능 여부는 최종 견적에서 확인합니다.</p></div><div class="cc-step"><label class="cc-step-h" for="reception-course"><span>2</span>케이터링 코스</label><select class="input" id="reception-course" name="reception_course">{course_options}</select><p class="small mt-2"><a href="#course-classic" data-reception-menu style="text-decoration:underline">선택한 코스 메뉴 보기</a></p></div><div class="cc-step"><label class="cc-step-h" for="reception-people"><span>3</span>케이터링 인원</label><div class="cc-people"><input class="input" id="reception-people" name="reception_people" type="number" inputmode="numeric" min="1" max="300" step="1" value="50" aria-describedby="reception-people-hint"><span>명</span></div><div class="pick cc-quick">{quick}</div><p class="tiny muted mt-2" id="reception-people-hint">1~300명 계산 · 최소 주문 인원은 상담에서 확인합니다. 301명 이상은 별도 견적입니다.</p></div><div class="cc-step"><div class="cc-step-h"><span>4</span>제공 방식별 출장·세팅비</div><table class="est-lines reception-fee-table"><thead><tr><th>인원</th><th>도시락·박스</th><th>테이블 세팅</th></tr></thead><tbody>{fees}</tbody></table><p class="tiny muted mt-2">테이블 세팅·철수 비용은 50명 이하 20만 원, 51~100명 25만 원입니다. 100명·200명은 해당 구간에 포함됩니다.</p></div></div><div class="cc-result card" data-reception-result aria-live="polite"><p>테이블 세팅 · 클래식 50명 메뉴 1,750,000원 + 출장·세팅·철수비 200,000원 = <b>1,950,000원</b></p><p class="tiny muted mt-2">부가세 적용 여부 확인 전 · 공간 대관료 별도</p></div></div></div></section>'''
 
 def build_web():
     template = (ROOT / "cocktail/index.html").read_text()
@@ -139,9 +139,10 @@ def build_web():
     body = body.replace('<section class="section sec-line" id="packages">', formats_section()+'\n<section class="section sec-line" id="packages">')
     body = body.replace('<section class="section sec-line" id="packages">', gallery_section()+'\n<section class="section sec-line" id="packages">')
     body = body.replace('<a href="#packages">구성 비교</a>', '<a href="#gallery">실제 현장 사진</a><a href="#packages">구성 비교</a>')
-    body = body.replace('<a href="#menus">코스별 메뉴</a>', '<a href="#calc">클래식 금액 계산</a><a href="#menus">코스별 메뉴</a>')
+    body = body.replace('<a href="#menus">코스별 메뉴</a>', '<a href="#calc">코스별 금액 계산</a><a href="#menus">코스별 메뉴</a>')
     body = body.replace('<section class="section sec-white sec-line" id="menus">', calculator_section()+'\n<section class="section sec-white sec-line" id="menus">')
-    body = body.replace(f'href="{inquiry(next(c for c in COURSES if c["id"]=="classic"))}"', 'href="#calc"').replace('href="#calc">이 구성으로 상담 →','href="#calc">클래식 금액 계산 →')
+    for course in COURSES:
+        body = body.replace(f'href="{inquiry(course)}">이 구성으로 상담 →', f'href="#calc" data-reception-course="{course["id"]}">이 코스로 계산 →')
     head = head.replace('</head>', DRINKS_CSS+'\n</head>')
     body = body.replace('<a href="#process">진행 안내</a>', '<a href="#drinks">주류·논알콜</a><a href="#process">진행 안내</a>')
     body = body.replace('<section class="section sec-white sec-line" id="process">', drinks_section()+'\n<section class="section sec-white sec-line" id="process">')

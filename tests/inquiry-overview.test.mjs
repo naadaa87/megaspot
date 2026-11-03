@@ -64,3 +64,10 @@ test('복사문도 수정된 공간 금액과 0원·금액 미정 구분을 유�
 test('기존 본문의 케이터링 선택도 고객 안내문에 포함된다',()=>{
  const text=O.customerText(O.build({data:{message:RC.inquiryText(50,'table')}},opts));assert.ok(text.includes('테이블 세팅 케이터링'));assert.ok(text.includes('1,950,000원'));assert.ok(text.includes('2,709,000원'));
 });
+
+
+test('고객용 네 코스 문의 본문의 금액과 이름을 관리자 요약에서 복원한다',()=>{
+ for(const course of RC.data.courses){const rec=O.reception({message:RC.inquiryText(50,'table',course.id)});assert.equal(rec.amount,RC.quote(50,'table',course.id).total);assert(rec.detail.includes(course.name));
+  const pending=O.reception({message:RC.inquiryText(301,'table',course.id)});assert.equal(pending.amount,null);assert(pending.detail.includes(course.name));
+ }
+});
