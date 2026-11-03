@@ -119,3 +119,25 @@ test('24시간 기준도 별도 확인 후 판매하며 기존 주문 조건은 
  assert.equal((await f.call('admin/settings','PUT',{...base,daily_basis:'calendar',daily_rollover:'자정 초과분 현장 정산, 연속 적용 불가'},null,true)).status,200);
  assert.equal((await f.get(p)).daily_terms,c.daily_terms);assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM orders').get().n,1);assert.equal((await f.get(p)).price,30000);
 });
+
+test('익일 추가 시간권은 이용일 도래·운영자 확인 후 같은 입차ID에 연결하고 무료 시간을 재배정하지 않는다',async t=>{
+ const f=fixture(t),first=await f.buy({ticket:'1h'});await f.feedback(first);assert.equal((await f.claim(first)).status,200);await f.complete(first);
+ const next=await f.buy({ticket:'1h',date:'2026-11-04'});await f.feedback(next);
+ assert.equal((await f.claim(next,{confirm_overnight:true})).status,409);
+ t.mock.method(Date,'now',()=>Date.parse('2026-11-04T14:00:00+09:00'));
+ assert.equal((await f.claim(next)).status,409);
+ assert.equal((await f.claim(next,{confirm_overnight:true})).status,200);
+ const row=f.db.prepare('SELECT * FROM parking_orders WHERE oid=?').get(next.oid);
+ assert.equal(row.session_id,f.db.prepare('SELECT session_id FROM parking_orders WHERE oid=?').get(first.oid).session_id);assert.equal(row.free_hours,0);assert.equal(row.paid_hours,1);assert.match(row.memo,/2026-11-04 이용분/);
+ assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM parking_sessions').get().n,1);
+});
+
+test('익일 일일권도 당일 등록 확인이 필요하며 과거 이용권에 더 늦은 입차를 연결할 수 없다',async t=>{
+ const f=fixture(t);
+ await f.call('admin/settings','PUT',{enabled:true,daily_enabled:true,daily_basis:'calendar',daily_details:'재입차는 사전 문의',daily_rollover:'익일 계속 주차 시 다음 날 시간권 또는 일일권 별도 구매',confirm_daily:true},null,true);
+ const c=await(await f.call('config')).json(),p=await f.buy({ticket:'daily',date:'2026-11-04',daily_terms:c.daily_terms,agree_daily:true});await f.feedback(p);
+ t.mock.method(Date,'now',()=>Date.parse('2026-11-04T14:00:00+09:00'));
+ assert.equal((await f.claim(p,{entry_at:'2026-11-05T13:00',confirm_overnight:true})).status,400);
+ assert.equal((await f.claim(p)).status,409);assert.equal((await f.claim(p,{confirm_overnight:true})).status,200);
+ const row=f.db.prepare('SELECT * FROM parking_orders WHERE oid=?').get(p.oid);assert.equal(row.free_hours,0);assert.equal(row.paid_hours,0);assert.match((await f.get(p)).daily_terms,/다음 날 시간권 또는 일일권 별도 구매/);
+});
