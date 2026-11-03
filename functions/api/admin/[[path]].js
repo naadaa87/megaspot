@@ -10,7 +10,7 @@ import { inquiryAmountSql, bookingAmountSql, amountOverrideSql } from '../_amoun
 import {F,foodExtras,updateFood,syncFoodInput,cocktailAdmin,stripFoodItems,confirmationFoodData,foodDocuments} from '../_food_services.js';
 import { receptionAdmin, receptionExtra, receptionDocument, receptionChanged, withoutReceptionItems, receptionRevision, syncReceptionInput, receptionConflict } from '../_reception.js';
 import { batch, bookingClashes, conflictResponse, linkedBookingChanges, bookingStatusStatements } from '../_admin_booking.js';
-import { guideAdmin, automaticGuide, guideSummary } from '../_guide_messages.js';
+import { guideAdmin, confirmedGuide, guideSummary, guideInquiryChecks } from '../_guide_messages.js';
 import { platformAdmin, platformCounts } from '../_platform_admin.js';   // 입점·공간 등록·광고 신청, 등록 공간, 모임, 배너 광고
 import { visitsAdmin, createVisit, visitsForInquiry, visitCounts, timeOk } from '../_visits.js';   // 현장답사 일정
 import { cateringOrdersAdmin, cateringCounts, cateringOrderFor, ORDER_OF_BOOKING, ORDER_OF_INQUIRY, orderBrief } from '../_catering_orders.js';   // 출장뷔페 진행 건 (대기·확정)
@@ -116,7 +116,7 @@ async function purgeInquiry(env, ref) {
   return { ref, ok: true };
 }
 
-export async function onRequest({ request, env, params }) {
+export async function onRequest({ request, env, params, waitUntil }) {
   if (!hasDb(env)) return err('데이터베이스가 연결되어 있지 않습니다.', 503, 'NO_DB');
   const path = (params.path || []).join('/');
   const method = request.method.toUpperCase();
@@ -222,7 +222,7 @@ export async function onRequest({ request, env, params }) {
       let wait = null;
       if (r.event_date && ['문의 접수', '조건 확인', '견적 발송', '결제 대기'].includes(r.status)) { const wl = await waitList(env, r.event_date, r.space_id); const no = wl.indexOf(r.ref) + 1; if (no) wait = { no, total: wl.length, date: r.event_date, space_id: spaceOk(r.space_id) }; }
       const guides=await guideSummary(env,(bk || []).map(x=>x.booking_code));
-      return json({ ok: true, item: { ...r, data: safe(r.data) }, checks: safe(c && c.checks), quotes: (qs || []).map(q => ({ ...q, data: safe(q.data) })), bookings: (bk || []).map(x=>({...x,guide_status:guides[x.booking_code] || ''})), log: lg || [], wait, visits: await visitsForInquiry(env, mDet[1]), catering_order: await cateringOrderFor(env, mDet[1], '') });
+      return json({ ok: true, item: { ...r, data: safe(r.data) }, checks: await guideInquiryChecks(env,mDet[1],safe(c && c.checks)), quotes: (qs || []).map(q => ({ ...q, data: safe(q.data) })), bookings: (bk || []).map(x=>({...x,guide_status:guides[x.booking_code] || ''})), log: lg || [], wait, visits: await visitsForInquiry(env, mDet[1]), catering_order: await cateringOrderFor(env, mDet[1], '') });
     }
     if (path === 'inquiries' && method === 'POST') {
       // 카카오톡·전화·이메일·방문으로 받은 문의를 관리자가 직접 등록합니다.
@@ -283,8 +283,12 @@ export async function onRequest({ request, env, params }) {
         if (!!d.checks?.guarantee_returned !== completed) return err('보증금 환급 관리에서 송금 완료 여부를 확인해 주세요.',409,'REFUND_MANAGED');
       }
       for (const [k, v] of Object.entries(d.checks || {})) if (/^[a-z_]{1,30}$/.test(k)) checks[k] = v ? saved[k] || now() : false;
-      await env.DB.prepare('INSERT INTO inquiry_checks (ref, checks, updated_at) VALUES (?,?,?) ON CONFLICT(ref) DO UPDATE SET checks = excluded.checks, updated_at = excluded.updated_at').bind(mChk[1], JSON.stringify(checks), now()).run();
-      return json({ ok: true, checks });
+      // Only the explicitly changed guide checkbox may mark every currently linked booking.
+      if(d.changed_check && d.changed_check!=='guide_sent' && saved.guide_sent!==undefined)checks.guide_sent=saved.guide_sent;
+      const statements=[env.DB.prepare('INSERT INTO inquiry_checks (ref, checks, updated_at) VALUES (?,?,?) ON CONFLICT(ref) DO UPDATE SET checks = excluded.checks, updated_at = excluded.updated_at').bind(mChk[1], JSON.stringify(checks), now())];
+      if(d.changed_check==='guide_sent')statements.push(env.DB.prepare("UPDATE booking_guide_state SET manual_sent=?,manual_revision=revision WHERE booking_code IN (SELECT booking_code FROM bookings WHERE inquiry_ref=? AND status<>'cancelled')").bind(d.checks?.guide_sent?now():null,mChk[1]));
+      await batch(env,statements);
+      return json({ ok: true, checks:await guideInquiryChecks(env,mChk[1],checks) });
     }
 
     // ---- 견적 저장·목록 ----
@@ -544,7 +548,7 @@ export async function onRequest({ request, env, params }) {
       if (d.memo !== undefined) statusStatements.push(env.DB.prepare("UPDATE bookings SET memo = ?, updated_at = ? WHERE inquiry_ref = ? AND status <> 'cancelled'").bind(str(d.memo, 2000), now(), ref));
       await batch(env, [env.DB.prepare('UPDATE inquiries SET ' + sets.join(', ') + ' WHERE ref = ?').bind(...b), ...statusStatements]);
       await log(env, 'inquiry.updated', ref, 'admin', d);
-      for (const code of reconfirmed) await automaticGuide(env, code);
+      for (const code of reconfirmed) await confirmedGuide(env, code, waitUntil);
       return json({ ok: true,...(receptionResult||{}) });
     }
 
@@ -625,7 +629,7 @@ export async function onRequest({ request, env, params }) {
       if (typeof env.DB.batch === 'function') await env.DB.batch(stmts); else for (const st of stmts) await st.run();
       await log(env, 'booking.created', code, 'admin', { space_id, date, from: ref });
       await log(env, 'inquiry.confirmed', ref, 'admin', { booking_code: code, date, amount });
-      await automaticGuide(env, code);
+      await confirmedGuide(env, code, waitUntil);
       const others = await env.DB.prepare("SELECT COUNT(*) AS n FROM inquiries WHERE event_date = ? AND ref <> ? AND CASE WHEN space_id = 'megaspot-gundae-2' THEN 'megaspot-gundae-2' ELSE 'megaspot-gundae' END = ? AND status IN ('문의 접수', '조건 확인', '견적 발송', '결제 대기')").bind(date, ref, space_id).first();
       return json({ ok: true, booking_code: code, date, others: (others || {}).n || 0, same_day: (same || []).length });
     }
@@ -650,7 +654,7 @@ export async function onRequest({ request, env, params }) {
       if (linkedRef) {
         const confirmRequest = new Request(url.origin + '/api/admin/inquiries/' + linkedRef + '/confirm', { method: 'POST', headers: request.headers,
           body: JSON.stringify({ date: d.date, start_h: d.start_h, end_h: d.end_h, headcount: d.headcount, amount: d.amount, memo: d.memo, block_calendar: d.block_calendar, force: d.force }) });
-        return onRequest({ request: confirmRequest, env, params: { path: ['inquiries', linkedRef, 'confirm'] } });
+        return onRequest({ request: confirmRequest, env, params: { path: ['inquiries', linkedRef, 'confirm'] }, waitUntil });
       }
       const space_id = spaceOk(d.space_id), name = str(d.customer_name, 80), phone = str(d.phone, 30), date = str(d.date, 10);
       if (!name || !phone || !isDate(date)) return err('예약자·연락처·이용일을 확인해 주세요.');
@@ -665,7 +669,7 @@ export async function onRequest({ request, env, params }) {
       if (d.block_calendar) statements.push(env.DB.prepare('INSERT INTO calendar_blocks (space_id, date, state, memo) VALUES (?,?,?,?) ON CONFLICT(space_id, date) DO UPDATE SET state = excluded.state, memo = excluded.memo').bind(space_id, date, 'full', '예약 ' + code));
       await batch(env, statements);
       await log(env, 'booking.created', code, 'admin', { space_id, date });
-      await automaticGuide(env, code);
+      await confirmedGuide(env, code, waitUntil);
       return json({ ok: true, booking_code: code });
     }
     // 예약 목록 — 확정 예약(bookings)과 날짜가 정해진 미확정 문의·예약 신청을 날짜순으로 함께 돌려줍니다.
@@ -788,7 +792,7 @@ export async function onRequest({ request, env, params }) {
       await batch(env, update.statements);
       await log(env, 'booking.updated', code, 'admin', d);
       if (update.ref) await log(env, 'booking.updated', update.ref, 'admin', { booking_code: code, status: d.status });
-      if (d.status === 'confirmed' && update.previous !== 'confirmed') await automaticGuide(env, code);
+      if (d.status === 'confirmed' && update.previous !== 'confirmed') await confirmedGuide(env, code, waitUntil);
       return json({ ok: true });
     }
 

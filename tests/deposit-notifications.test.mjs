@@ -41,7 +41,7 @@ test('문의를 통한 입금 확인·직접 예약·이미 입금된 신규 예
 });
 test('고객이 이미 계좌를 등록했거나 예약자·연락처가 달라지면 요청을 취소',async t=>{
  const f=setup(t);await f.enable();f.booking();f.db.prepare('INSERT INTO booking_deposit_checks VALUES(?,?,?)').run('BK-NEW',1,now());f.db.prepare("INSERT INTO booking_refunds(booking_code,amount,account_cipher,created_at,updated_at) VALUES('BK-NEW',150000,'cipher',?,?)").run(now(),now());await f.tick();assert.equal(f.db.prepare("SELECT status FROM deposit_notifications WHERE mode='live' AND kind='account'").get().status,'cancelled');
- f.booking('BK-CHANGED');f.db.prepare("UPDATE bookings SET phone='01033334444' WHERE booking_code='BK-CHANGED'").run();await f.tick();assert.equal(f.db.prepare("SELECT status FROM deposit_notifications WHERE booking_code='BK-CHANGED'").get().status,'cancelled');
+ f.booking('BK-CHANGED');f.db.prepare("UPDATE bookings SET phone='01033334444' WHERE booking_code='BK-CHANGED'").run();await f.tick();assert.equal(f.db.prepare("SELECT status FROM deposit_notifications WHERE booking_code='BK-CHANGED'").get().status,'review');
 });
 test('환급 완료 전환과 outbox가 원자적이며 확정 금액·차감액을 사용',async t=>{
  const f=setup(t);await f.enable();f.db.prepare("INSERT INTO booking_refunds(booking_code,amount,created_at,updated_at) VALUES('BK-TEST',150000,?,?)").run(now(),now());f.db.exec('BEGIN');f.db.prepare("UPDATE booking_refunds SET state='completed',paid_amount=130000,deduction=20000,completion_id='done',completed_at=? WHERE booking_code='BK-TEST'").run(now());f.db.exec('ROLLBACK');assert.equal(f.db.prepare("SELECT COUNT(*) n FROM deposit_notifications WHERE mode='live'").get().n,0);
@@ -69,4 +69,30 @@ test('발송 도중 운영자가 중지하면 다음 고객은 즉시 제외된�
 });
 test('기존 입금 확인 메모형 값도 입금 완료로 인식해 입금 안내 중복을 막는다',async t=>{
  const f=setup(t);await f.enable();f.db.prepare('INSERT INTO inquiry_checks VALUES(?,?,?)').run('MS-TEST','{"guarantee_paid":"입금확인"}',now());f.booking('BK-LEGACY',{ref:'MS-TEST'});const rows=f.db.prepare("SELECT kind FROM deposit_notifications WHERE booking_code='BK-LEGACY'").all();assert.deepEqual(rows.map(x=>x.kind),['account']);
+});
+
+test('미발송 보증금 안내는 예약 변경 후 검토 상태로 남고 최신 미리보기 확인으로만 새 안내를 만든다',async t=>{
+ const f=setup(t);await f.enable();f.booking('BK-EDIT');const old=f.db.prepare("SELECT * FROM deposit_notifications WHERE booking_code='BK-EDIT'").get();
+ f.db.prepare("UPDATE bookings SET end_h=18 WHERE booking_code='BK-EDIT'").run();await f.tick();assert.equal(f.sent.length,3);
+ let row=(await f.api()).items.find(x=>x.id===old.id);assert.equal(row.status,'review');assert.ok(row.review.hash);assert.equal(row.review.blocked,'');
+ await f.api('/'+old.id+'/retry','POST',{confirm_retry:true,reason:'최신 내용 확인'},409);
+ const firstHash=row.review.hash;f.db.prepare("UPDATE bookings SET phone='01033334444' WHERE booking_code='BK-EDIT'").run();
+ await f.api('/'+old.id+'/retry','POST',{confirm_retry:true,reason:'최신 내용 확인',review_hash:firstHash},409);
+ row=(await f.api()).items.find(x=>x.id===old.id);assert.equal(row.review.phone,'01033334444');
+ await f.api('/'+old.id+'/retry','POST',{confirm_retry:true,reason:'변경 수신번호·내용 확인',review_hash:row.review.hash});
+ assert.equal(f.db.prepare('SELECT payload FROM deposit_notifications WHERE id=?').get(old.id).payload,old.payload);
+ assert.equal(f.db.prepare("SELECT COUNT(*) n FROM deposit_notifications WHERE booking_code='BK-EDIT'").get().n,2);
+ await f.api('/'+old.id+'/retry','POST',{confirm_retry:true,reason:'중복 클릭',review_hash:row.review.hash},409);
+ await f.tick();assert.equal(f.sent.length,4);assert.equal(f.sent.at(-1).receiver_1,'01033334444');
+});
+test('예약 변경 검토는 이미 접수·결과 불명인 보증금 안내를 재발송 대상으로 만들지 않는다',async t=>{
+ const f=setup(t);await f.enable();f.booking('BK-SENT');await f.tick();
+ f.db.prepare("UPDATE bookings SET end_h=18 WHERE booking_code='BK-SENT'").run();assert.equal(f.db.prepare("SELECT status FROM deposit_notifications WHERE booking_code='BK-SENT'").get().status,'accepted');
+ f.db.prepare("UPDATE deposit_notifications SET status='unknown' WHERE booking_code='BK-SENT'").run();f.db.prepare("UPDATE bookings SET end_h=19 WHERE booking_code='BK-SENT'").run();
+ assert.equal(f.db.prepare("SELECT status FROM deposit_notifications WHERE booking_code='BK-SENT'").get().status,'unknown');assert.equal(f.sent.length,4);
+});
+test('변경 검토 중 입금·계좌 등록이 완료되면 불필요한 보증금 안내를 다시 준비할 수 없다',async t=>{
+ const f=setup(t);await f.enable();f.booking('BK-PAID');f.db.prepare("UPDATE bookings SET end_h=18 WHERE booking_code='BK-PAID'").run();
+ const row=(await f.api()).items.find(x=>x.booking_code==='BK-PAID');f.db.prepare('INSERT INTO booking_deposit_checks VALUES(?,?,?)').run('BK-PAID',1,now());
+ await f.api('/'+row.id+'/retry','POST',{confirm_retry:true,reason:'변경 안내 확인',review_hash:row.review.hash},409);assert.equal(f.sent.length,3);
 });
