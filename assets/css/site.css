@@ -171,7 +171,7 @@ table{border-collapse:collapse;width:100%}
 .header-cta{display:none;align-items:center;gap:10px}
 .menu-btn{display:inline-flex;flex-direction:column;justify-content:center;gap:5px;width:44px;height:44px;border:1px solid var(--concrete);border-radius:var(--radius);padding:10px;background:#fff}
 .menu-btn span{display:block;height:2px;background:var(--graphite)}
-@media (min-width:1000px){.nav{display:flex}.header-cta{display:flex}.menu-btn{display:none}}
+@media (min-width:1600px){.nav{display:flex}.header-cta{display:flex}.menu-btn{display:none}}
 .mobile-nav{position:fixed;inset:var(--header-h) 0 0 0;background:var(--chalk);z-index:49;padding:24px var(--gutter);display:none;flex-direction:column;gap:6px;overflow:auto}
 .mobile-nav.open{display:flex}
 .mobile-nav a{padding:16px 12px;font-size:18px;font-weight:700;border-bottom:1px solid var(--concrete)}
@@ -869,12 +869,12 @@ iframe{max-width:100%}
 /* 헤더: 메뉴가 줄바꿈되지 않도록 */
 .logo{flex:none}
 .nav a,.header-cta .btn{white-space:nowrap}
-/* 머리말 배치 (2026-10-16): 전체 메뉴는 1280px 이상, 그보다 좁으면 메뉴 버튼(☰) + 카톡문의·예약신청 버튼 */
+/* PC: phone number stays visible; crowded widths use the complete menu drawer. */
+.header-cta{flex:none}.header-cta [data-phone]{flex:none;font-size:14px;font-variant-numeric:tabular-nums}.menu-btn{flex:none}
 @media (min-width:900px){.header-cta{display:flex;gap:8px}}
-@media (min-width:900px) and (max-width:1279px){.site-header .nav{display:none}.menu-btn{display:inline-flex}.header-cta .hdr-account,.header-cta [data-phone]{display:none}.site-header .container{gap:12px}.header-cta{margin-left:auto}}
-@media (min-width:1280px){.header-cta [data-phone]{font-size:0;width:40px;padding:0;justify-content:center}.header-cta [data-phone]::before{content:"☎";font-size:16px;line-height:1}}
-@media (min-width:1280px) and (max-width:1599px){.nav a{padding:10px 11px;font-size:14.5px}}
-@media (min-width:1600px){.site-header .container{max-width:1480px}.header-cta [data-phone]{font-size:14px;width:auto;padding:0 14px}.header-cta [data-phone]::before{content:none}}
+@media (min-width:900px) and (max-width:1599px){.site-header .nav{display:none}.menu-btn{display:inline-flex}.site-header .container{gap:12px}.header-cta{margin-left:auto}}
+@media (min-width:900px) and (max-width:1059px){.header-cta .hdr-account{display:none}}
+@media (min-width:1600px){.site-header .container{max-width:1560px}}
 /* 문의서 안내 문구 */
 p.hint,.form .hint{font-size:12.5px;color:var(--ink-3);line-height:1.55}
 .f .lbl .req{color:var(--rust);margin-left:2px}
@@ -2189,7 +2189,7 @@ body.rs-dragging,body.rs-dragging *{user-select:none;-webkit-user-select:none;cu
 #q-space-hint{display:block;margin-top:4px}
 /* 머리말 — 메뉴가 10개(건대 1호·2호·주차 안내 포함)가 되어 1280px 이상에서 한 줄에 들어가도록 간격을 줄입니다 */
 @media (min-width:1280px){.site-header .container{gap:14px}.nav{gap:0}.nav a{padding:10px 8px;font-size:14px;white-space:nowrap}.header-cta{gap:6px}.hdr-account{padding:8px 4px}}
-@media (min-width:1280px) and (max-width:1439px){.nav a{padding:9px 6px;font-size:13.5px}.site-header .container{gap:10px}.hdr-account{display:none}}
+@media (min-width:1280px) and (max-width:1439px){.nav a{padding:9px 6px;font-size:13.5px}.site-header .container{gap:10px}}
 @media (max-width:1599px){.nav .nav-new{display:none}}
 @media (min-width:1600px){.nav a{padding:10px 9px;font-size:14.5px}.nav .nav-new{margin-left:2px}}
 
@@ -2223,6 +2223,19 @@ body.rs-dragging,body.rs-dragging *{user-select:none;-webkit-user-select:none;cu
 .mobile-nav .mnav-grid a{padding:12px 12px;font-size:14.5px;font-weight:700;background:#fff;border:1px solid var(--concrete);border-radius:var(--radius);line-height:1.35}
 .mobile-nav .mnav-grid a[aria-current="page"]{border-color:var(--cobalt);color:var(--cobalt-2);background:var(--cobalt-soft)}
 .mobile-nav a.mnav-account{padding:14px 4px;font-size:16px}
+/* Complete navigation on compact desktop screens, grouped for quick scanning. */
+@media (min-width:900px) and (max-width:1599px){
+  .mobile-nav{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 24px;align-content:start;padding:24px max(var(--gutter),calc((100vw - 1160px)/2))}
+  .mobile-nav.open{display:grid}
+  .mobile-nav .mnav-sec{min-width:0;padding:0 0 12px}
+  .mobile-nav .mnav-main{font-size:16px;flex-wrap:wrap}
+  .mobile-nav .mnav-grid{grid-template-columns:1fr}
+  .mobile-nav .mnav-grid a{padding:10px 12px}
+  .mobile-nav > .mnav-account{grid-column:1/-1;padding:10px 4px}
+  .mobile-nav > .btn{margin-top:0;min-height:44px;padding:8px 12px;font-size:14px}
+}
+@media (min-width:1200px) and (max-width:1599px){.mobile-nav{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
 /* ---------- 푸터 5단 ---------- */
 @media (min-width:860px){.footer-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.footer-grid > div:first-child{grid-column:1/-1}}
 @media (min-width:1100px){.footer-grid{grid-template-columns:1.35fr 1fr 1fr .95fr 1.2fr}.footer-grid > div:first-child{grid-column:auto}}
