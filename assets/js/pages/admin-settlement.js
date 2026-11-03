@@ -42,7 +42,7 @@
   if(r.history_truncated)$('#payment-history').insertAdjacentHTML('beforeend','<p class="tiny muted">변경 이력은 최근 1,000건을 표시합니다.</p>');
   $('#payment-more').hidden=!r.has_more;$('#payment-save').disabled=state.busy;editor();
  }
- function busy(on){state.busy=on;dialog.querySelectorAll('input,select,button').forEach(function(el){el.disabled=on;});editor();}
+ function busy(on){state.busy=on;dialog.querySelectorAll('input,select,button').forEach(function(el){el.disabled=on;});editor();$('#payment-save').disabled=on||!state.data;}
  function load(code){
   if(state.busy)return;if(state.dirty&&!confirm('입력 중인 내용을 바꾸고 예약을 불러올까요?'))return;
   state.code=code;state.data=null;reset();$('#payment-title').textContent='이용료 수납·정산 · '+code;$('#payment-summary').textContent='불러오는 중…';$('#payment-history').innerHTML='';$('#payment-online').innerHTML='';$('#payment-channels').innerHTML='';$('#payment-more').hidden=true;$('#payment-msg').textContent='';
@@ -74,7 +74,7 @@
   X.A(path,{method:'POST',body:body}).then(function(){
    reset();$('#payment-msg').textContent='저장했습니다. 변경된 정산 내역으로 견적을 저장하고 확정서를 다시 발급해 주세요.';
    window.dispatchEvent(new CustomEvent('admin-settlement-saved',{detail:{code:state.code}}));return X.A('/bookings/'+encodeURIComponent(state.code)+'/settlement').then(function(r){paint(r);});
-  }).catch(function(e){if(e.code==='PAYMENT_CHANGED'){state.pending=null;X.A('/bookings/'+encodeURIComponent(state.code)+'/settlement').then(function(r){paint(r);}).catch(error);}error(e);}).finally(function(){busy(false);});
+  }).catch(function(e){if(e.code==='PAYMENT_CHANGED'){state.data=null;reset();return X.A('/bookings/'+encodeURIComponent(state.code)+'/settlement').then(function(r){paint(r);}).catch(error).then(function(){error(e);});}error(e);}).finally(function(){busy(false);});
  });
  document.addEventListener('click',function(e){var b=e.target.closest('[data-settlement-code]');if(b&&b.dataset.settlementCode){e.preventDefault();e.stopPropagation();load(b.dataset.settlementCode);}},true);
  window.addEventListener('beforeunload',function(e){if(state.dirty){e.preventDefault();e.returnValue='';}});
