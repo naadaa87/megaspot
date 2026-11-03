@@ -36,7 +36,7 @@
       +'<tr><td>'+M.esc(q.feeName)+' <small>('+q.feeLabel+')</small></td><td class="r">'+C.won(q.fee)+'</td></tr>'
       +'<tr class="sum"><td><b>합계</b></td><td class="r"><b>'+C.won(q.total)+'</b></td></tr></tbody></table>'
       +'<a class="btn btn-primary cc-go" href="/inquiry/?reception='+encodeURIComponent(course.value)+'&reception_people='+q.people+(q.people<=200?'&people='+q.people:'')+formatQuery+'#reserve">이 금액으로 상담하기 →</a>'
-      +'<div class="row mt-2"><button type="button" class="btn btn-light btn-sm" data-reception-copy>고객 안내문 복사</button><a class="btn btn-ghost btn-sm" href="tel:01085401886">전화 상담</a></div>'
+      +'<div class="row mt-2"><button type="button" class="btn btn-light btn-sm" data-reception-copy>문의 내용 복사</button><a class="btn btn-ghost btn-sm" href="tel:01085401886">전화 상담</a></div>'
       +'<p class="tiny muted mt-2">제공 방식별 포장·기물·세팅 범위, 부가세 적용 여부·최소 주문 인원·코스 적용 가능 여부는 최종 견적에서 확인합니다. 공간 대관료는 별도입니다.</p>';
   }
   input.addEventListener('input',paint);
@@ -47,7 +47,7 @@
     var b=e.target.closest('[data-reception-people]');if(b){input.value=b.dataset.receptionPeople;paint();return;}
     if(e.target.closest('[data-reception-copy]')){
       var q=C.quote(input.value,format.value,course.value);if(!q.ok)return;
-      M.copy(C.customerText(input.value,format.value,course.value)).then(function(ok){M.toast(ok?'고객 안내문을 복사했습니다.':'복사하지 못했습니다. 아래 안내문을 선택해 복사해 주세요.');if(!ok){var pre=document.createElement('pre');pre.className='dr-pre mt-2';pre.textContent=C.customerText(input.value,format.value,course.value);out.appendChild(pre);}});
+      M.copy(C.inquiryText(input.value,format.value,course.value)).then(function(ok){M.toast(ok?'문의 내용을 복사했습니다.':'복사하지 못했습니다. 아래 문의 내용을 선택해 복사해 주세요.');if(!ok){var pre=document.createElement('pre');pre.className='dr-pre mt-2';pre.textContent=C.inquiryText(input.value,format.value,course.value);out.appendChild(pre);}});
     }
   });
   paint();

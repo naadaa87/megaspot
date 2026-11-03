@@ -9,7 +9,7 @@ import re
 ROOT = Path(__file__).resolve().parents[1]
 ASSET_DIR = '/assets/img/events/20261102'
 FOLDER_ASSET_DIR = '/assets/img/events/20261102-folder'
-CSS_LINK = '<link rel="stylesheet" href="/assets/css/event-gallery.css?v=20261102b">'
+CSS_LINK = '<link rel="stylesheet" href="/assets/css/event-gallery.css?v=20261103customerflow1">'
 SCRIPT_LINK = '<script src="/assets/js/event-gallery.js?v=20261102b"></script>'
 ORIGINAL_PHOTOS = [
     ('테이블에 둘러앉은 모임', '긴 테이블에 둘러앉아 식사와 대화를 나누는 행사 현장'),
@@ -39,8 +39,11 @@ def event_gallery_section():
     cards=[]
     for order,(directory,i,title,alt) in enumerate(PHOTOS,1):
         cards.append(f'''<figure class="event-photo"><a href="{directory}/photo-{i:02}.jpg" data-event-photo data-title="{title}" aria-label="{title} 사진 크게 보기"><img src="{directory}/thumb-{i:02}.jpg" alt="{alt} · 참석자 얼굴 가림 처리" width="720" height="540" loading="lazy" decoding="async"><span class="event-photo-zoom" aria-hidden="true">크게 보기 ↗</span></a><figcaption><span>{order:02}</span>{title}</figcaption></figure>''')
+    preview=''.join(cards[:6])
+    rest=''.join(cards[6:])
+    more=f'<details class="home-gallery-more"><summary>행사 사진 {len(cards)-6}장 더 보기</summary><div class="event-photo-grid">{rest}</div></details>' if rest else ''
     return f'''<!-- EVENT_GALLERY_START -->
-<section class="section sec-white sec-line" id="event-gallery"><div class="container"><div class="section-head"><div class="eyebrow">Real event moments</div><h2 class="h-l">실제 행사 현장</h2><p class="lead">네트워킹과 뷔페, 식사 모임까지 현장의 분위기를 사진으로 만나보세요.<br>사진을 누르면 크게 보고, 좌우로 넘겨 {len(PHOTOS)}장을 살펴볼 수 있습니다.</p></div><div class="event-photo-grid" data-event-gallery>'''+''.join(cards)+'''</div><p class="tiny muted mt-3">참석자 얼굴은 모자이크·흐림 처리했습니다.</p></div></section>
+<section class="section sec-white sec-line" id="event-gallery"><div class="container"><div class="section-head"><div class="eyebrow">Real event moments</div><h2 class="h-l">실제 행사 현장</h2><p class="lead">네트워킹·뷔페·식사 모임의 대표 사진입니다. 사진을 누르면 전체 {len(PHOTOS)}장을 크게 볼 수 있습니다.</p></div><div data-event-gallery><div class="event-photo-grid">{preview}</div>{more}</div><p class="tiny muted mt-3">참석자 얼굴은 모자이크·흐림 처리했습니다.</p></div></section>
 <!-- EVENT_GALLERY_END -->'''
 
 def build_home():
@@ -48,6 +51,8 @@ def build_home():
     section=event_gallery_section()
     if '<!-- EVENT_GALLERY_START -->' in page:
         page=re.sub(r'<!-- EVENT_GALLERY_START -->.*?<!-- EVENT_GALLERY_END -->',lambda _:section,page,flags=re.S)
+    elif 'id="event-gallery"' in page:
+        page=re.sub(r'<section\b[^>]*id="event-gallery"[^>]*>.*?</section>',lambda _:section,page,count=1,flags=re.S)
     else:
         marker='<!-- ===== 활용 장면 ===== -->'
         if marker not in page:raise ValueError('Home-page insertion point missing')

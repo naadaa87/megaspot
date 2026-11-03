@@ -7,6 +7,7 @@
 //   POST  /api/auth/password   비밀번호 변경
 //   POST  /api/auth/withdraw   회원 탈퇴 (비밀번호 확인)
 //   GET   /api/auth/inquiries  회원으로 보낸 문의와 진행 상태
+//   GET   /api/auth/orders     로그인한 회원 소유 주문·결제·환불 내역
 import {
   json, err, hasDb, readJson, str, now, log, hashPassword, verifyPassword, randomToken, sha256, later,
   getCookie, sessionCookies, withCookies, isEmail, clientIp, sameOrigin, getMember, tooMany, hit, clearHits, SESSION_DAYS
@@ -123,6 +124,17 @@ export async function onRequest({ request, env, params }) {
       await env.DB.prepare('DELETE FROM members WHERE id = ?').bind(me.id).run();
       await log(env, 'member.withdrawn', String(me.id), 'member', '');
       return withCookies(json({ ok: true }), sessionCookies('', 0));
+    }
+
+    if (path === 'orders' && method === 'GET') {
+      // 소유권은 검증된 세션의 member_id만 사용합니다. 이메일·전화·쿼리의 회원번호로 주문을 연결하지 않습니다.
+      const { results } = await env.DB.prepare(`SELECT o.oid, o.product_id, o.title, o.event_date, o.people, o.price, o.status, o.booking_code, o.created_at, o.appl_at,
+        COALESCE((SELECT SUM(r.amount) FROM payapp_refunds r WHERE r.oid = o.oid), 0) AS refunded_amount
+        FROM orders o WHERE o.member_id = ? ORDER BY o.created_at DESC LIMIT 100`).bind(me.id).all();
+      const items = (results || []).map(o => ({ oid: o.oid, product_id: o.product_id, title: o.title, date: o.event_date || '', people: o.people,
+        price: o.price, status: o.status, booking_code: o.booking_code || '', created_at: o.created_at, paid_at: o.appl_at || '',
+        refunded_amount: o.status === 'refunded' ? o.price : Math.min(o.price, o.refunded_amount || 0) }));
+      return json({ ok: true, items });
     }
 
     if (path === 'inquiries' && method === 'GET') {
