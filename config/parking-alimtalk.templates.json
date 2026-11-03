@@ -198,5 +198,14 @@
     "note": "알림톡 확정 실패 시 알리고 제공 대체문자 기능으로 발송. 전송 결과 불명 상태에서 별도 SMS 재시도 금지. API 연동 시 실패 대체 옵션·발신번호·치환한 대체 본문을 요청에 별도 포함해야 함. 문자 비용 발생 가능"
   },
   "backend_implemented": true,
-  "server_connection_verified": true
+  "server_connection_verified": true,
+  "backend_deployed": true,
+  "production_connection_verified": true,
+  "scheduler": {
+    "installed": true,
+    "enabled": false,
+    "site_access_verified": false,
+    "blocker": "Cloudflare 1010 응답. 자사 User-Agent로 읽기 전용 상태 조회 허용 여부를 사용자에게 확인 중. 우회 실행하지 않음"
+  },
+  "approval_verified": "주차 7종 실제 조회 결과 전부 REQ. 본문·버튼 일치 확인"
 }

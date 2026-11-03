@@ -86,3 +86,6 @@ test('0으로 채워진 결과 시각을 실제 도착으로 인정하지 않는
 test('서버 전역 발송 잠금은 활성화된 주차 설정보다 우선한다',async t=>{
  const f=fixture(t);await f.enable();f.db.prepare("UPDATE orders SET status='paid',paid_at=? WHERE oid=?").run(now(),OID);f.env.ALIGO_LIVE_ENABLED='false';await parkingNoticeTick(f.env);assert.equal(f.sent.length,1);assert.equal(f.db.prepare("SELECT status FROM parking_notifications WHERE mode='live'").get().status,'cancelled');
 });
+test('관리자 결과 새로고침은 대기 중인 새 고객 메시지를 발송하지 않는다',async t=>{
+ const f=fixture(t);await f.enable();f.db.prepare("UPDATE orders SET status='paid',paid_at=? WHERE oid=?").run(now(),OID);await f.api('/refresh',{});assert.equal(f.sent.length,1);assert.equal(f.db.prepare("SELECT status FROM parking_notifications WHERE mode='live'").get().status,'queued');
+});
