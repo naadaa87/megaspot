@@ -1,4 +1,4 @@
-import {otherReceiptsSql} from '../_settlement.js';
+import {recordPayappRefund} from '../_payapp_refunds.js';
 // 페이앱: 서버에서 결제 요청 → payurl 이동 → 검증된 feedback만 주문·예약 확정.
 import { json, err, hasDb, readJson, str, num, isDate, now, log, sha256, sameOrigin, clientIp, getMember, kstToday, tooMany, hit, randomToken, requireAdmin } from '../_lib.js';
 import { PRODUCTS, HOLIDAYS, PRICING } from '../_catalog.js';
@@ -157,15 +157,21 @@ export async function onRequest({ request, env, params, waitUntil }) {
       const refunds = await env.DB.prepare('SELECT COALESCE(SUM(amount), 0) AS total FROM payapp_refunds WHERE oid = ?').bind(row.oid).first();
       return json({ ok: true, order: { oid: row.oid, product_id: row.product_id, verification: PRODUCTS.get(row.product_id)?.kind === 'verification', title: row.title, event_date: row.event_date, people: row.people, price: row.price, status: row.status,
         buyer_name: row.buyer_name.slice(0, 1) + '*'.repeat(Math.max(1, row.buyer_name.length - 1)), buyer_phone: row.buyer_phone.replace(/(\d{3})\d{3,4}(\d{4})/, '$1-****-$2'), buyer_email: row.buyer_email ? row.buyer_email.replace(/^(.).*(@.*)$/, '$1***$2') : '',
-        lines: data.lines || [], refunded_amount: Math.min(row.price, refunds?.total || 0), pay_method: row.pay_method, tid: row.tid ? row.tid.slice(-8) : '', appl_at: row.appl_at, result_msg: row.result_msg, booking_code: row.booking_code, test: !!row.test, created_at: row.created_at } });
+        lines: data.lines || [], refunded_amount: row.status==='refunded'?row.price:Math.min(row.price, refunds?.total || 0), pay_method: row.pay_method, tid: row.tid ? row.tid.slice(-8) : '', appl_at: row.appl_at, result_msg: row.result_msg, booking_code: row.booking_code, test: !!row.test, created_at: row.created_at } });
     }
     return err('경로를 찾을 수 없습니다.', 404, 'NOT_FOUND');
-  } catch (e) { console.error('pay', e && e.message); return err('처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.', 500, 'SERVER_ERROR'); }
+  } catch (e) { console.error('pay', e && e.message); if(path==='feedback')return notice('FAIL',500); return err('처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.', 500, 'SERVER_ERROR'); }
 }
 function safe(s) { try { return JSON.parse(s || '{}'); } catch { return {}; } }
 
 function notice(text, status = 200) {
   return new Response(text, { status, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } });
+}
+async function existingBooking(env,row){
+ if(row.booking_code)return env.DB.prepare('SELECT booking_code,status FROM bookings WHERE booking_code=?').bind(row.booking_code).first();
+ if(!row.inquiry_ref)return null;
+ const rows=(await env.DB.prepare("SELECT booking_code,status FROM bookings WHERE inquiry_ref=? AND status<>'cancelled' AND (? IS NULL OR date=?) ORDER BY id DESC LIMIT 2").bind(row.inquiry_ref,row.event_date,row.event_date).all()).results||[];
+ return rows.length===1?rows[0]:null;
 }
 async function feedback(request, env, C, waitUntil) {
   const raw = await request.text();
@@ -187,9 +193,12 @@ async function feedback(request, env, C, waitUntil) {
   const t = now(), oid = row.oid, data = safe(row.data);
   const sql = (q, ...args) => env.DB.prepare(q).bind(...args);
   if (state === '4') {
-    const code = data.slot && row.event_date ? 'MS-' + oid.slice(4, 8) + '-' + (await sha256(oid)).slice(0, 12).toUpperCase() : null;
+    if(!['created','pending'].includes(row.status))return notice('SUCCESS');
+    let code = data.slot && row.event_date ? 'MS-' + oid.slice(4, 8) + '-' + (await sha256(oid)).slice(0, 12).toUpperCase() : null;
+    const linked=await existingBooking(env,row);
+    if(linked)code=linked.booking_code;
     const batch = [];
-    if (code) {
+    if (code&&!linked) {
       const sh = { 'pkg-day': [10, 17], 'pkg-allday': [10, 24], 'pkg-allnight': [18, 31] }[data.slot];
       if (!sh) return notice('FAIL', 400);
       const { results: bookings } = await env.DB.prepare("SELECT start_h, end_h FROM bookings WHERE space_id = 'megaspot-gundae' AND date = ? AND status = 'confirmed'").bind(row.event_date).all();
@@ -201,25 +210,13 @@ async function feedback(request, env, C, waitUntil) {
     batch.push(sql("INSERT INTO event_log (kind,ref,actor,detail,created_at) SELECT 'order.paid',oid,'payapp','페이앱 승인 완료',? FROM orders WHERE oid = ? AND status IN ('created','pending')", t, oid));
     batch.push(sql("UPDATE orders SET status = 'paid', tid = ?, pay_method = ?, appl_at = ?, result_msg = '승인 완료', booking_code = ?, paid_at = ?, updated_at = ? WHERE oid = ? AND status IN ('created','pending')", originalNo, 'PayApp:' + (f.pay_type || ''), (f.pay_date || t).slice(0, 30), code, t, t, oid));
     // D1 batch는 트랜잭션입니다. 중복·동시 통보에서 예약 한 건만 만들어집니다.
-    await env.DB.batch(batch);
-    if (code) await confirmedGuide(env, code, waitUntil);
-  } else if (['9', '64'].includes(state)) {
-    await env.DB.batch([
-      sql("INSERT INTO event_log (kind,ref,actor,detail,created_at) SELECT 'order.refunded',oid,'payapp','페이앱 승인 취소',? FROM orders WHERE oid = ? AND status != 'refunded'", t, oid),
-      sql("INSERT OR REPLACE INTO payapp_refunds (mul_no, oid, amount, created_at) VALUES (?,?,?,?)", 'full-' + originalNo, oid, row.price, t),
-      sql(`UPDATE bookings SET status = 'cancelled', updated_at = ? WHERE booking_code = (SELECT booking_code FROM orders WHERE oid = ?) AND ${otherReceiptsSql('bookings.booking_code','?')}<=0`, t, oid, oid),
-      sql("UPDATE inquiries SET status = '취소·환불', updated_at = ? WHERE ref = ? AND status = '예약 확정' AND EXISTS (SELECT 1 FROM orders WHERE oid = ? AND booking_code IS NOT NULL) AND NOT EXISTS (SELECT 1 FROM orders WHERE inquiry_ref = ? AND oid != ? AND status = 'paid') AND NOT EXISTS(SELECT 1 FROM bookings bb WHERE bb.inquiry_ref=inquiries.ref AND bb.status<>'cancelled')", t, row.inquiry_ref || '', oid, row.inquiry_ref || '', oid),
-      sql("UPDATE orders SET status = 'refunded', result_msg = '페이앱 승인 취소', updated_at = ? WHERE oid = ?", t, oid)
-    ]);
-  } else if (partial) {
-    if (!/^\d+$/.test(f.price || '') || Number(f.price) <= 0 || Number(f.price) > row.price || f.mul_no === originalNo) return notice('FAIL', 400);
-    await env.DB.batch([
-      sql('INSERT OR IGNORE INTO payapp_refunds (mul_no, oid, amount, created_at) VALUES (?,?,?,?)', f.mul_no, oid, Number(f.price), t),
-      sql("INSERT INTO event_log (kind,ref,actor,detail,created_at) SELECT 'order.partial_refund',?,'payapp',?,? WHERE changes() > 0", oid, '부분 환불 ' + f.price + '원', t),
-      sql(`UPDATE bookings SET status = 'cancelled', updated_at = ? WHERE booking_code = (SELECT booking_code FROM orders WHERE oid = ?) AND (SELECT COALESCE(SUM(amount),0) FROM payapp_refunds WHERE oid = ?) >= ? AND ${otherReceiptsSql('bookings.booking_code','?')}<=0`, t, oid, oid, row.price, oid),
-      sql("UPDATE inquiries SET status = '취소·환불', updated_at = ? WHERE ref = ? AND status = '예약 확정' AND EXISTS (SELECT 1 FROM orders WHERE oid = ? AND booking_code IS NOT NULL AND price <= (SELECT COALESCE(SUM(amount),0) FROM payapp_refunds WHERE oid = ?)) AND NOT EXISTS (SELECT 1 FROM orders WHERE inquiry_ref = ? AND oid != ? AND status = 'paid') AND NOT EXISTS(SELECT 1 FROM bookings bb WHERE bb.inquiry_ref=inquiries.ref AND bb.status<>'cancelled')", t, row.inquiry_ref || '', oid, oid, row.inquiry_ref || '', oid),
-      sql("UPDATE orders SET status = CASE WHEN (SELECT COALESCE(SUM(amount),0) FROM payapp_refunds WHERE oid = ?) >= price THEN 'refunded' ELSE status END, result_msg = '부분 환불 · 페이앱 내역 확인', updated_at = ? WHERE oid = ?", oid, t, oid)
-    ]);
+    const changed=await env.DB.batch(batch),last=changed.at(-1);
+    if(code&&!linked&&(last?.meta?.changes||last?.changes))await confirmedGuide(env,code,waitUntil);
+  } else if (['9','64'].includes(state)||partial) {
+    if(partial&&(!/^\d+$/.test(f.price||'')||Number(f.price)<=0||Number(f.price)>row.price||f.mul_no===originalNo))return notice('FAIL',400);
+    const linked=await existingBooking(env,row);
+    const result=await recordPayappRefund(env,{...row,booking_code:linked?.booking_code||row.booking_code,payapp_no:originalNo},f,partial);
+    if(!result.ok)return notice('FAIL',400);
   } else if (['8', '16', '31', '32'].includes(state)) {
     await sql("UPDATE orders SET status = 'cancelled', result_msg = '결제 요청 취소', updated_at = ? WHERE oid = ? AND status IN ('created','pending')", t, oid).run();
   } else if (state === '10') {

@@ -1,3 +1,4 @@
+import {onlinePaymentsFor} from './_payapp_refund_history.js';
 import S from '../../assets/js/settlement.js';
 import {json,err,now,str,readJson,log} from './_lib.js';
 import {bookingAmountSql} from './_amounts.js';
@@ -8,7 +9,7 @@ const gross = code => `(SELECT COALESCE(SUM(o.price),0) FROM orders o WHERE o.bo
 const returned = code => `(SELECT COALESCE(SUM(CASE WHEN o.status='refunded' THEN o.price ELSE MIN(o.price,COALESCE((SELECT SUM(r.amount) FROM payapp_refunds r WHERE r.oid=o.oid),0)) END),0) FROM orders o WHERE o.booking_code=${code} AND o.test=0 AND o.status IN ('paid','refunded'))`;
 const manual = (code,kind) => `(SELECT COALESCE(SUM(e.amount),0) FROM booking_payment_current e WHERE e.booking_code=${code} AND e.state='active' AND e.kind='${kind}')`;
 const editVersion = code => `(SELECT COALESCE(MAX(id),0) FROM booking_payment_revisions WHERE booking_code=${code})`;
-const revisionSql = () => `json_array(CAST(${bookingAmountSql()} AS INTEGER),${gross('b.booking_code')},${returned('b.booking_code')},${manual('b.booking_code','receipt')},${manual('b.booking_code','refund')},${editVersion('b.booking_code')})`;
+const revisionSql = () => `json_array(CAST(${bookingAmountSql()} AS INTEGER),${gross('b.booking_code')},${returned('b.booking_code')},${manual('b.booking_code','receipt')},${manual('b.booking_code','refund')},${editVersion('b.booking_code')},b.status)`;
 // Reconstruct the online net at issue time, so a later PG refund is never imported as a bank receipt.
 const legacyStamp = `COALESCE(json_extract(b.confirm_doc,'$.updated_at'),json_extract(b.confirm_doc,'$.issued_at'),b.updated_at,b.created_at)`;
 const legacyPgNet = `(SELECT COALESCE(SUM(MAX(0,o.price-MIN(o.price,COALESCE((SELECT SUM(r.amount) FROM payapp_refunds r WHERE r.oid=o.oid AND datetime(r.created_at)<=datetime(${legacyStamp})),CASE WHEN o.status='refunded' AND datetime(o.updated_at)<=datetime(${legacyStamp}) THEN o.price ELSE 0 END)))),0) FROM orders o WHERE o.booking_code=b.booking_code AND o.test=0 AND o.status IN ('paid','refunded') AND (o.paid_at IS NULL OR datetime(o.paid_at)<=datetime(${legacyStamp})))`;
@@ -26,8 +27,9 @@ export async function settlementsFor(env,codes){
  if(!codes.length)return {};if(codes.length>90){const parts=[];for(let i=0;i<codes.length;i+=90)parts.push(await settlementsFor(env,codes.slice(i,i+90)));return Object.assign({},...parts);}
  const {results}=await env.DB.prepare(QUERY.replace('b.booking_code=?','b.booking_code IN ('+codes.map(()=>'?').join(',')+')')).bind(...codes).all();const out={};for(const row of results||[]){
  let legacy=0;try{if(!row.entries&&!row.legacy_done&&!JSON.parse(row.confirm_doc||'{}').settlement)legacy=Math.max(0,(Number(JSON.parse(row.confirm_doc||'{}').paid)||0)-row.legacy_pg_net);}catch{}
- const result=S.calculate({amount:row.amount,review_required:row.status==='cancelled',received:row.pg_received+row.manual_received+legacy,refunded:row.pg_refunded+row.manual_refunded});
- out[row.booking_code]={...result,pg_received:row.pg_received,pg_refunded:row.pg_refunded,manual_received:row.manual_received+legacy,manual_refunded:row.manual_refunded,legacy_pending:legacy>0,revision:JSON.stringify([row.amount,row.pg_received,row.pg_refunded,row.manual_received+legacy,row.manual_refunded,row.edit_version]),booking_status:row.status};
+ const received=row.pg_received+row.manual_received+legacy,refunded=row.pg_refunded+row.manual_refunded,closed=row.status==='cancelled'&&received>0&&received===refunded;
+ const result=S.calculate({amount:closed?0:row.amount,fully_refunded:closed,review_required:row.status==='cancelled'&&!closed,received,refunded});
+ out[row.booking_code]={...result,pg_received:row.pg_received,pg_refunded:row.pg_refunded,manual_received:row.manual_received+legacy,manual_refunded:row.manual_refunded,legacy_pending:legacy>0,revision:JSON.stringify([row.amount,row.pg_received,row.pg_refunded,row.manual_received+legacy,row.manual_refunded,row.edit_version,row.status]),booking_status:row.status};
  }return out;
 }
 export async function settlementFor(env,code){return (await settlementsFor(env,[code]))[code]||null;}
@@ -43,7 +45,7 @@ export async function settlementAdmin({env,request,path,method}){
   const {results}=await env.DB.prepare('SELECT * FROM booking_payment_current WHERE booking_code=? AND id<? ORDER BY id DESC LIMIT 91').bind(code,before).all();
   const entries=(results||[]).slice(0,90),ids=entries.map(e=>e.id);
   const history=ids.length?(await env.DB.prepare('SELECT id,entry_id,request_id,previous_version,action,kind,amount,note,reason,created_at FROM booking_payment_revisions WHERE booking_code=? AND entry_id IN ('+ids.map(()=>'?').join(',')+') ORDER BY id DESC LIMIT 1001').bind(code,...ids).all()).results||[]:[];
-  return json({ok:true,settlement,entries,has_more:(results||[]).length>90,next_before:entries.at(-1)?.id||null,history:history.slice(0,1000),history_truncated:history.length>1000});
+  return json({ok:true,settlement,entries,has_more:(results||[]).length>90,next_before:entries.at(-1)?.id||null,history:history.slice(0,1000),history_truncated:history.length>1000,online:await onlinePaymentsFor(env,code)});
  }
  const d=await readJson(request),id=str(d.request_id,80),amount=Number(d.amount),kind=d.kind;
  if(!/^[a-zA-Z0-9_-]{8,80}$/.test(id)||!['receipt','refund'].includes(kind)||!Number.isSafeInteger(amount)||amount<=0||amount>1e9)return err('입금·환불 종류와 실제 처리 금액을 확인해 주세요.');

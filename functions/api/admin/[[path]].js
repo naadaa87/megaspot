@@ -1,3 +1,4 @@
+import {refundAmountSql} from '../_payapp_refund_history.js';
 import {S,preserveLegacyPayments,settlementFor,settlementsFor,settlementAdmin} from '../_settlement.js';
 // 운영자 API — 모든 경로는 X-Admin-Key 헤더 검증을 거칩니다.
 import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, log, hashPassword, requireAdmin, adminKeyOk, adminCookie,
@@ -880,7 +881,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
     // ---- 주문·결제 ----
     if (path === 'orders' && method === 'GET') {
       const st = str(url.searchParams.get('status'), 20), q = str(url.searchParams.get('q'), 60);
-      let sql = 'SELECT oid, product_id, title, event_date, people, price, buyer_name, buyer_phone, buyer_email, status, pay_method, tid, appl_at, result_msg, booking_code, inquiry_ref, member_id, memo, test, created_at, paid_at, updated_at, EXISTS (SELECT 1 FROM payapp_payments p WHERE p.oid = orders.oid) AS payapp, MIN(price, (SELECT COALESCE(SUM(amount),0) FROM payapp_refunds WHERE oid = orders.oid)) AS refunded_amount FROM orders WHERE 1=1'; const b = [];
+      let sql = `SELECT oid, product_id, title, event_date, people, price, buyer_name, buyer_phone, buyer_email, status, pay_method, tid, appl_at, result_msg, booking_code, inquiry_ref, member_id, memo, test, created_at, paid_at, updated_at, EXISTS (SELECT 1 FROM payapp_payments p WHERE p.oid = orders.oid) AS payapp, ${refundAmountSql('orders')} AS refunded_amount FROM orders WHERE 1=1`; const b = [];
       if (st) { sql += ' AND status = ?'; b.push(st); }
       if (q) { sql += ' AND (oid LIKE ? OR buyer_name LIKE ? OR buyer_phone LIKE ? OR booking_code LIKE ?)'; b.push('%' + q.toUpperCase() + '%', '%' + q + '%', '%' + q + '%', '%' + q.toUpperCase() + '%'); }
       sql += ' ORDER BY created_at DESC LIMIT 300';
@@ -889,7 +890,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
     }
     const mOrd = path.match(/^orders\/([A-Z0-9-]+)$/);
     if (mOrd && method === 'GET') {
-      const row = await env.DB.prepare('SELECT * FROM orders WHERE oid = ?').bind(mOrd[1]).first();
+      const row = await env.DB.prepare(`SELECT *,${refundAmountSql('orders')} AS refunded_amount FROM orders WHERE oid = ?`).bind(mOrd[1]).first();
       if (!row) return err('주문을 찾을 수 없습니다.', 404, 'NOT_FOUND');
       const { results: lg } = await env.DB.prepare('SELECT kind, actor, detail, created_at FROM event_log WHERE ref = ? ORDER BY id DESC LIMIT 20').bind(mOrd[1]).all();
       return json({ ok: true, item: { ...row, data: safe(row.data) }, log: lg || [] });
