@@ -1,4 +1,4 @@
-/* 메가스팟 예약확정서 — A4 한 장을 캔버스에 그려 이미지(PNG)·PDF로 저장하거나 공유합니다.
+/* 메가스팟 예약확정서 — A4 문서를 캔버스에 그려 이미지(PNG)·PDF로 저장하거나 공유합니다.
    관리자 화면(예약확정서 발급)과 고객 화면(/confirm/)이 같은 그림을 씁니다. 외부 라이브러리 없이 동작합니다.
    doc 값은 functions/api/_confirm.js 의 publicDoc() 과 같은 모양입니다. */
 (function(){
@@ -29,6 +29,19 @@
   function issuedText(doc){ var t = doc.issued_at ? String(doc.issued_at).slice(0, 10) : ''; if (!t) { var n = new Date(Date.now() + 9 * 3600e3); t = n.toISOString().slice(0, 10); } var p = t.split('-'); return p[0] + '. ' + (+p[1]) + '. ' + (+p[2]) + '.'; }
   function fileName(doc, ext){ return '메가스팟_예약확정서_' + (doc.code || '미발급') + '.' + ext; }
 
+  function receptionRows(doc){
+    var r=doc.reception;if(!r)return [];
+    var included=r.included?'확정 금액에 포함':'확정 금액과 별도 · 합계 미포함';
+    var rows=[['코스 · 식사 인원',(r.courseName||'코스 미정')+' · '+(r.people?r.people+'명':'인원 상담')],['제공 방식',r.formatName||'상담 후 결정']];
+    if(r.status==='cancelled'){rows.push(['진행 상태','취소 · 합계 제외']);return rows;}
+    if(doc.show_amount!==false){
+      rows.push(['케이터링 금액',(r.total==null?'상담 후 견적':won(r.total))+' · '+included+' · 부가세 확인 전']);
+      if(r.food!=null&&r.fee!=null)rows.push(['산출 내역','메뉴 '+won(r.food)+(r.unitPrice!=null?' (1인 '+won(r.unitPrice)+' × '+r.people+'명)':'')+' + '+(r.feeName||'출장·세팅비')+' '+won(r.fee)]);
+    }else rows.push(['확정 범위',included]);
+    if(r.note)rows.push(['케이터링 안내',r.note]);
+    return rows;
+  }
+
   /* ---------- 글꼴·이미지 준비 ---------- */
   var ready = null, qr = null;
   function prepare(){
@@ -40,9 +53,10 @@
   }
 
   /* ---------- 그리기 ---------- */
-  function draw(canvas, doc, k){
-    var ctx = canvas.getContext('2d');
-    ctx.setTransform(S, 0, 0, S, 0, 0); ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, W, H); ctx.textBaseline = 'top';
+  function draw(canvas, doc, k, paginate){
+    var pages=[],ctx;
+    function page(){var cv=document.createElement('canvas');cv.width=W*S;cv.height=H*S;pages.push(cv);ctx=cv.getContext('2d');ctx.setTransform(S,0,0,S,0,0);ctx.fillStyle='#FFFFFF';ctx.fillRect(0,0,W,H);ctx.textBaseline='top';}
+    page();
     var L = 56, R = W - 56, IW = R - L;
     function font(w, sz, fam){ ctx.font = w + ' ' + sz + 'px ' + (fam || FF); }
     function sp(px){ try { ctx.letterSpacing = px + 'px'; } catch (e) {} }
@@ -67,6 +81,7 @@
     function hr(y, color, wd){ ctx.fillStyle = color || C.line; ctx.fillRect(L, y, IW, wd || 1); }
     function round(x, y, w, h, r, fill, stroke){ ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); if (fill) { ctx.fillStyle = fill; ctx.fill(); } if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.stroke(); } }
 
+    function header(){
     // 머리말
     var lw = width('MEGA', 400, 34, LOGO);
     text('MEGA', L, 50, { sz: 34, fam: LOGO, c: C.graphite }); text('SPOT', L + lw, 50, { sz: 34, fam: LOGO, c: C.cobalt });
@@ -83,11 +98,15 @@
     var bw = width(st[0], 800, 15) + 40; round(R - bw, 152, bw, 36, 18, st[1]); text(st[0], R - bw / 2, 161, { sz: 15, w: 800, c: '#FFFFFF', align: 'center' });
     hr(208, C.line);
 
+    }
+    header();
     var y = 228, LBL = 104, VX = L + LBL, VW = IW - LBL;
     var fs = Math.round(15 * k), lh = Math.round(23 * k), gap = Math.round(22 * k);
-    function section(t){ text(t, L, y, { sz: Math.round(13.5 * k), w: 800, c: C.cobalt }); y += Math.round(24 * k); }
+    function ensure(need){if(paginate&&y+need>H-190){page();header();y=228;return true;}return false;}
+    function section(t){ ensure(Math.round(120*k));text(t, L, y, { sz: Math.round(13.5 * k), w: 800, c: C.cobalt }); y += Math.round(24 * k); }
     function row(label, value, o){
       o = o || {}; var lines = wrap(value, VW, o.w || 500, o.sz || fs);
+      var subLines=o.sub?wrap(o.sub,VW,400,Math.round(12.5*k)):[];ensure(Math.max(1,lines.length)*lh+subLines.length*Math.round(19*k)+Math.round(11*k));
       text(label, L, y + 2, { sz: Math.round(12.5 * k), w: 600, c: C.ink3 });
       lines.forEach(function(ln, i){ text(ln, VX, y + i * lh, { sz: o.sz || fs, w: o.w || 500, c: o.c || C.ink }); });
       y += Math.max(1, lines.length) * lh;
@@ -97,11 +116,12 @@
     function bullets(list, sz, color, cols){
       sz = sz || Math.round(13.5 * k); var bl = Math.round(sz * 1.55);
       if (cols === 2) {
+        var half=(IW-24)/2, split=Math.ceil(list.length/2), heights=[0,0];list.forEach(function(it,i){heights[i<split?0:1]+=wrap(it,half-14,400,sz).length*bl+Math.round(3*k);});var need=Math.max.apply(null,heights);if(need>H-190-228){bullets(list,sz,color,1);return;}ensure(need);
         var cw = (IW - 24) / 2, rows = Math.ceil(list.length / 2), y0 = y, maxY = y, colY = [y0, y0];
         list.forEach(function(it, i){ var c = i < rows ? 0 : 1, cx = L + c * (cw + 24); var lines = wrap(it, cw - 14, 400, sz); ctx.fillStyle = C.cobalt; ctx.fillRect(cx, colY[c] + sz * 0.55, 4, 4); lines.forEach(function(ln, j){ text(ln, cx + 14, colY[c] + j * bl, { sz: sz, c: color || C.ink }); }); colY[c] += lines.length * bl + Math.round(3 * k); maxY = Math.max(maxY, colY[c]); });
         y = maxY; return;
       }
-      list.forEach(function(it){ var lines = wrap(it, IW - 14, 400, sz); ctx.fillStyle = C.cobalt; ctx.fillRect(L, y + sz * 0.55, 4, 4); lines.forEach(function(ln, j){ text(ln, L + 14, y + j * bl, { sz: sz, c: color || C.ink }); }); y += lines.length * bl + Math.round(3 * k); });
+      list.forEach(function(it){ var lines = wrap(it, IW - 14, 400, sz);ensure(lines.length*bl+Math.round(3*k)); ctx.fillStyle = C.cobalt; ctx.fillRect(L, y + sz * 0.55, 4, 4); lines.forEach(function(ln, j){ text(ln, L + 14, y + j * bl, { sz: sz, c: color || C.ink }); }); y += lines.length * bl + Math.round(3 * k); });
     }
 
     section('예약자');
@@ -126,23 +146,26 @@
       if (doc.deposit != null) row('보증금', doc.deposit > 0 ? won(doc.deposit) + ' · 이용료와 별도, 이용 뒤 확인하고 돌려 드립니다' : '없음');
       y += gap - Math.round(8 * k);
     }
-    if (doc.items && doc.items.length) { section('포함 내역'); bullets(doc.items, null, null, doc.items.length > 3 ? 2 : 1); y += gap - Math.round(4 * k); }
+    var recRows=receptionRows(doc);if(recRows.length){section('선택한 케이터링');recRows.forEach(function(r){row(r[0],r[1]);});y+=gap-Math.round(8*k);}
+    if (doc.items && doc.items.length) {var cols=doc.items.length>3?2:1,isz=Math.round(13.5*k),ih=[0,0],split=Math.ceil(doc.items.length/2);doc.items.forEach(function(it,i){ih[cols===2&&i>=split?1:0]+=wrap(it,(cols===2?(IW-24)/2:IW)-14,400,isz).length*Math.round(isz*1.55)+Math.round(3*k);});ensure(Math.min(H-190-228,Math.max.apply(null,ih)+Math.round(24*k)));section('포함 내역'); bullets(doc.items, null, null, cols); y += gap - Math.round(4 * k); }
     if (doc.refund && doc.refund.length) {
       section('취소 · 환불 기준');
       var cx = L, rh = Math.round(30 * k), rs = Math.round(12.5 * k);
       doc.refund.forEach(function(r){
         var t1 = r.k, t2 = Math.round(r.rate * 100) + '%', w1 = width(t1, 500, rs), w2 = width(t2, 800, rs), bw2 = w1 + w2 + 30;
         if (cx + bw2 > R) { cx = L; y += rh + 6; }
+        if(ensure(rh+10))cx=L;
         round(cx, y, bw2, rh, 6, C.gray); text(t1, cx + 12, y + (rh - rs) / 2 - 1, { sz: rs, w: 500, c: C.ink2 }); text(t2, cx + 18 + w1, y + (rh - rs) / 2 - 1, { sz: rs, w: 800, c: r.rate > 0 ? C.ink : C.rust });
         cx += bw2 + 8;
       });
       y += rh + Math.round(6 * k);
-      text('환불 비율은 결제한 이용료 기준이며, 보증금은 별도로 돌려 드립니다.', L, y, { sz: Math.round(11.5 * k), c: C.ink3 }); y += Math.round(18 * k) + gap - Math.round(6 * k);
+      ensure(Math.round(18*k)+gap);text('환불 비율은 결제한 이용료 기준이며, 보증금은 별도로 돌려 드립니다.', L, y, { sz: Math.round(11.5 * k), c: C.ink3 }); y += Math.round(18 * k) + gap - Math.round(6 * k);
     }
     section('이용 안내'); bullets(GUIDE, Math.round(12.5 * k), C.ink2);
-    if (doc.note) { y += Math.round(8 * k); section('안내 메모'); wrap(doc.note, IW, 500, Math.round(13.5 * k)).forEach(function(ln){ text(ln, L, y, { sz: Math.round(13.5 * k), w: 500 }); y += Math.round(21 * k); }); }
+    if (doc.note) { y += Math.round(8 * k); section('안내 메모'); wrap(doc.note, IW, 500, Math.round(13.5 * k)).forEach(function(ln){ensure(Math.round(21*k)); text(ln, L, y, { sz: Math.round(13.5 * k), w: 500 }); y += Math.round(21 * k); }); }
     var contentEnd = y;
 
+    pages.forEach(function(cv,index){ctx=cv.getContext('2d');
     // 맺음 — 문의와 사업자 정보 (항상 맨 아래)
     var c = cfg(), by = H - 176, bh = 100;
     round(L, by, IW, bh, 10, C.gray);
@@ -153,14 +176,18 @@
     text('확정서 다시 보기: megaspot.kr/confirm  (예약번호 + 휴대폰 뒷 4자리)', L, H - 64, { sz: 11, w: 600, c: C.ink2 });
     text('이 확정서는 ' + ((doc.space && doc.space.name) || '메가스팟 건대 1호') + ' 예약이 확정되었음을 알려 드리는 문서이며, 세금계산서·현금영수증 등 결제 증빙은 따로 발급됩니다.', L, H - 46, { sz: 10, c: C.ink3 });
     text('주식회사 블랭크 · 대표 최시준 · 사업자등록번호 161-86-03494 · megaspot.kr', L, H - 30, { sz: 10, c: C.ink3 });
-    return contentEnd <= by - 14;
+    text((index+1)+' / '+pages.length,R,H-64,{sz:11,c:C.ink3,align:'right'});
+    });
+    canvas.width=W*S;canvas.height=H*S*pages.length;var output=canvas.getContext('2d');pages.forEach(function(cv,index){output.drawImage(cv,0,index*H*S);});canvas.dataset.pages=String(pages.length);
+    return contentEnd <= H - 190;
   }
   function render(doc, canvas){
     canvas = canvas || document.createElement('canvas');
     canvas.width = W * S; canvas.height = H * S;
     return prepare().then(function(){
       var ks = [1, 0.93, 0.86, 0.8, 0.74];
-      for (var i = 0; i < ks.length; i++) { if (draw(canvas, doc, ks[i])) break; }
+      var fits=false;for (var i = 0; i < ks.length; i++) { if (draw(canvas, doc, ks[i],false)){fits=true;break;} }
+      if(!fits)draw(canvas,doc,1,true);
       return canvas;
     });
   }
@@ -169,25 +196,20 @@
   function blob(canvas, type, q){ return new Promise(function(res, rej){ canvas.toBlob(function(b){ b ? res(b) : rej(new Error('이미지를 만들지 못했습니다.')); }, type, q); }); }
   function pngBlob(canvas){ return blob(canvas, 'image/png'); }
   function utf16hex(s){ var h = 'FEFF'; for (var i = 0; i < s.length; i++) h += ('000' + s.charCodeAt(i).toString(16)).slice(-4).toUpperCase(); return h; }
-  // JPEG 한 장을 A4 한 쪽에 꽉 채운 PDF (라이브러리 없이 직접 만듭니다)
-  function pdfBlob(canvas, title){
-    return blob(canvas, 'image/jpeg', 0.92).then(function(b){ return b.arrayBuffer(); }).then(function(buf){
-      var jpg = new Uint8Array(buf), te = new TextEncoder(), parts = [], len = 0, off = [];
-      function push(x){ var b = typeof x === 'string' ? te.encode(x) : x; parts.push(b); len += b.length; }
-      function obj(n, body){ off[n] = len; push(n + ' 0 obj\n' + body + '\nendobj\n'); }
-      var PW = 595.28, PH = 841.89, ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
-      push('%PDF-1.4\n'); push(new Uint8Array([0x25, 0xE2, 0xE3, 0xCF, 0xD3, 0x0A]));
-      obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
-      obj(2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
-      obj(3, '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + PW + ' ' + PH + '] /Resources << /XObject << /Im0 4 0 R >> /ProcSet [/PDF /ImageC] >> /Contents 5 0 R >>');
-      off[4] = len; push('4 0 obj\n<< /Type /XObject /Subtype /Image /Width ' + canvas.width + ' /Height ' + canvas.height + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + jpg.length + ' >>\nstream\n'); push(jpg); push('\nendstream\nendobj\n');
-      var cs = 'q ' + PW + ' 0 0 ' + PH + ' 0 0 cm /Im0 Do Q';
-      obj(5, '<< /Length ' + cs.length + ' >>\nstream\n' + cs + '\nendstream');
-      obj(6, '<< /Title <' + utf16hex(title || '메가스팟 예약확정서') + '> /Producer (MEGASPOT) /CreationDate (D:' + ts + 'Z) >>');
-      var xref = len, x = 'xref\n0 7\n0000000000 65535 f \n';
-      for (var i = 1; i <= 6; i++) x += ('000000000' + off[i]).slice(-10) + ' 00000 n \n';
-      push(x + 'trailer\n<< /Size 7 /Root 1 0 R /Info 6 0 R >>\nstartxref\n' + xref + '\n%%EOF\n');
-      return new Blob(parts, { type: 'application/pdf' });
+  // Export the same page boundaries as the preview, without cropping text.
+  function pdfBlob(canvas,title){
+    var count=Math.ceil(canvas.height/(H*S)),pages=[];
+    for(var i=0;i<count;i++){var cv=document.createElement('canvas');cv.width=canvas.width;cv.height=H*S;cv.getContext('2d').drawImage(canvas,0,i*H*S,canvas.width,H*S,0,0,canvas.width,H*S);pages.push(blob(cv,'image/jpeg',0.92).then(function(b){return b.arrayBuffer();}));}
+    return Promise.all(pages).then(function(buffers){
+      var te=new TextEncoder(),parts=[],len=0,off=[],PW=595.28,PH=841.89;
+      function push(x){var b=typeof x==='string'?te.encode(x):x;parts.push(b);len+=b.length;}
+      function obj(n,body){off[n]=len;push(n+' 0 obj\n'+body+'\nendobj\n');}
+      push('%PDF-1.4\n');push(new Uint8Array([0x25,0xE2,0xE3,0xCF,0xD3,0x0A]));obj(1,'<< /Type /Catalog /Pages 2 0 R >>');
+      obj(2,'<< /Type /Pages /Kids ['+buffers.map(function(_,i){return (3+i*3)+' 0 R';}).join(' ')+'] /Count '+count+' >>');
+      buffers.forEach(function(buf,i){var n=3+i*3,jpg=new Uint8Array(buf);obj(n,'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 '+PW+' '+PH+'] /Resources << /XObject << /Im0 '+(n+1)+' 0 R >> /ProcSet [/PDF /ImageC] >> /Contents '+(n+2)+' 0 R >>');
+        off[n+1]=len;push((n+1)+' 0 obj\n<< /Type /XObject /Subtype /Image /Width '+canvas.width+' /Height '+H*S+' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length '+jpg.length+' >>\nstream\n');push(jpg);push('\nendstream\nendobj\n');var cs='q '+PW+' 0 0 '+PH+' 0 0 cm /Im0 Do Q';obj(n+2,'<< /Length '+cs.length+' >>\nstream\n'+cs+'\nendstream');
+      });
+      var info=3+count*3,ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);obj(info,'<< /Title <'+utf16hex(title||'메가스팟 예약확정서')+'> /Producer (MEGASPOT) /CreationDate (D:'+ts+'Z) >>');var xref=len,x='xref\n0 '+(info+1)+'\n0000000000 65535 f \n';for(var j=1;j<=info;j++)x+=('000000000'+off[j]).slice(-10)+' 00000 n \n';push(x+'trailer\n<< /Size '+(info+1)+' /Root 1 0 R /Info '+info+' 0 R >>\nstartxref\n'+xref+'\n%%EOF\n');return new Blob(parts,{type:'application/pdf'});
     });
   }
   function download(b, name){
@@ -203,6 +225,7 @@
     L.push('· 이용일: ' + dateText(doc.date));
     L.push('· 이용 시간: ' + timeText(doc));
     if (doc.headcount) L.push('· 인원: ' + doc.headcount + '명');
+    receptionRows(doc).forEach(function(row){L.push('· '+row[0]+': '+row[1]);});
     if (link) { L.push(''); L.push('예약확정서는 아래 주소에서 보시고 PDF·이미지로 저장하실 수 있습니다.'); L.push(link); }
     L.push(''); L.push('이용 전에 주차·입장 안내를 따로 보내 드리겠습니다. 감사합니다.');
     return L.join('\n');
@@ -219,5 +242,5 @@
       return 'unsupported';
     });
   }
-  window.MEGASPOT_CONFIRM = { render: render, pngBlob: pngBlob, pdfBlob: pdfBlob, download: download, share: share, kakaoText: kakaoText, fileName: fileName, dateText: dateText, timeText: timeText, PAY: PAY, size: { w: W * S, h: H * S } };
+  window.MEGASPOT_CONFIRM = { render: render, receptionRows:receptionRows, pngBlob: pngBlob, pdfBlob: pdfBlob, download: download, share: share, kakaoText: kakaoText, fileName: fileName, dateText: dateText, timeText: timeText, PAY: PAY, size: { w: W * S, h: H * S } };
 })();

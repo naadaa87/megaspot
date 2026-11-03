@@ -71,5 +71,14 @@
     if(result&&price)result.requested_total=Number(price[1].replace(/,/g,''));
     return result;
   }
-  return {data:D,course:course,selection:selection,fromInquiry:fromInquiry,quote:quote,won:won,formatLabel:formatLabel,customerText:customerText,inquiryText:inquiryText};
+  // Documents use stored amounts, so reopening an issued quote never reprices it.
+  function forDocument(value,total){
+    if(!value||typeof value!=='object')return null;
+    var selected=course(value.course),amount=total===undefined?value.total:total;
+    var money=function(n){return n!=null&&n!==''&&Number.isFinite(Number(n))&&Number(n)>=0?Number(n):null;};
+    var result={course:value.course||'all',courseName:value.courseName||(selected?selected.name:'코스 미정'),people:value.people?Number(value.people):null,format:value.format||'',formatName:value.formatName||formatLabel(value.format)||'제공 방식 상담 후 결정',status:value.status||'pending',total:money(amount),unitPrice:null,food:null,fee:null,feeName:value.feeName||D.feeLabels[value.format]||'출장·세팅 비용',tax_pending:true,note:value.note||'',menuNote:value.menuNote||D.menuNote};
+    if(money(value.total)===result.total&&money(value.food)!=null&&money(value.fee)!=null&&Number(value.food)+Number(value.fee)===result.total){result.food=Number(value.food);result.fee=Number(value.fee);result.unitPrice=money(value.unitPrice);}
+    return result;
+  }
+  return {data:D,course:course,selection:selection,fromInquiry:fromInquiry,forDocument:forDocument,quote:quote,won:won,formatLabel:formatLabel,customerText:customerText,inquiryText:inquiryText};
 });
