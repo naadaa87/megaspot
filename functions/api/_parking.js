@@ -11,7 +11,12 @@ export function arrivalWindow(ms=Date.now()){
  const date=new Date(ms+9*3600e3).toISOString(),minutes=+date.slice(11,13)*60+ +date.slice(14,16);
  return parkingDate(date.slice(0,10))&&minutes>=600&&minutes<1070;
 }
-export const POLICY = 'parking-20261103-v1';
+export const POLICY = 'parking-20261103-v2';
+export const DAILY_BASES = {
+ calendar:'이용일 당일 23:59까지(한국시간). 입차 후 24시간권이 아닙니다.',
+ '24h':'입차 시각부터 24시간(한국시간 기준).',
+ other:'별도 이용시간 기준.'
+};
 export function plateOf(value) {
  const plate=String(value||'').normalize('NFKC').replace(/[\s-]/g,'');
  // Full ordinary, rental, electric and older regional plates. Exceptions go through customer support.
@@ -21,6 +26,7 @@ export function parkingInput(d,options={}){
  const ticket=typeof d.ticket==='string'&&Object.hasOwn(TICKETS,d.ticket)?TICKETS[d.ticket]:null,plate=plateOf(d.plate),date=str(d.date,10);
  if(d.ticket==='daily'&&!options.dailyAllowed)return {error:'일일권의 종료 시각·재입차 조건을 주차장에 확인 중입니다. 카카오톡으로 문의해 주세요.'};
  if(!ticket)return {error:'주차권을 선택해 주세요.'};
+ if(d.ticket==='daily'&&d.agree_daily!==true)return {error:'일일권 종료 기준과 익일·초과 정산 조건을 확인해 주세요.'};
  if(!plate)return {error:'차량번호 전체를 확인해 주세요. 예: 123가4567'};
  if(plateOf(d.plate_confirm)!==plate)return {error:'다시 입력한 차량번호가 일치하지 않습니다.'};
  if(!isDate(date)||date<kstToday()||date>new Date(Date.now()+366*86400000).toISOString().slice(0,10))return {error:'이용일을 확인해 주세요.'};
@@ -34,7 +40,9 @@ const safe=s=>{try{return JSON.parse(s||'{}');}catch{return {};}};
 export async function parkingSettings(env){
  const row=await env.DB.prepare("SELECT value FROM settings WHERE key='parking'").first();
  const v=safe(row?.value);
- return {enabled:v.enabled===true,daily_enabled:v.daily_enabled===true&&!!str(v.daily_terms,500),daily_terms:str(v.daily_terms,500),service_hours:'평일 10:00–18:00 (주말·공휴일 제외)',processing_notice:'입차 알림 후 최대 10분 이내 처리합니다. 당일 등록 접수는 17:50까지이며, 사전 결제만으로 할인이 적용되지 않습니다.'};
+ const basis=Object.hasOwn(DAILY_BASES,v.daily_basis||'')?v.daily_basis:'unconfirmed',details=str(v.daily_details??v.daily_terms,240),rollover=str(v.daily_rollover,160);
+ const terms=basis==='unconfirmed'?'':DAILY_BASES[basis]+' '+details+' 익일·초과 정산: '+rollover;
+ return {enabled:v.enabled===true,daily_enabled:v.daily_enabled===true&&basis!=='unconfirmed'&&!!details&&!!rollover,daily_basis:basis,daily_details:details,daily_rollover:rollover,daily_terms:terms,service_hours:'평일 10:00–18:00 (주말·공휴일 제외)',processing_notice:'입차 알림 후 최대 10분 이내 처리합니다. 당일 등록 접수는 17:50까지이며, 사전 결제만으로 할인이 적용되지 않습니다.'};
 }
 export const JOIN = `SELECT p.*,o.price,o.status AS payment_status,o.buyer_name,o.buyer_phone,o.paid_at,
  s.entry_id,s.entry_at,s.free_external,s.free_order,
@@ -51,11 +59,13 @@ export async function parkingAdmin(request,env,path){
  if(path==='admin/settings'){
   if(method==='GET')return json({ok:true,...await parkingSettings(env)});
   if(method!=='PUT')return err('지원하지 않는 요청입니다.',405);
-  const d=await readJson(request),prior=await parkingSettings(env),value={...prior,enabled:d.enabled===true,daily_enabled:d.daily_enabled===undefined?prior.daily_enabled:d.daily_enabled===true,daily_terms:d.daily_terms===undefined?prior.daily_terms:str(d.daily_terms,500)};
-  if(value.daily_enabled&&(!value.daily_terms||d.daily_enabled!==undefined&&!d.confirm_daily))return err('일일권의 정확한 종료 시각·재입차 조건을 주차장에 확인한 뒤 입력하고 확인 체크를 해 주세요.');
+  const d=await readJson(request),prior=await parkingSettings(env),value={...prior,enabled:d.enabled===true,daily_enabled:d.daily_enabled===undefined?prior.daily_enabled:d.daily_enabled===true,daily_basis:d.daily_basis===undefined?prior.daily_basis:d.daily_basis,daily_details:d.daily_details===undefined?prior.daily_details:str(d.daily_details,240),daily_rollover:d.daily_rollover===undefined?prior.daily_rollover:str(d.daily_rollover,160)};
+  const policyChanged=['daily_enabled','daily_basis','daily_details','daily_rollover','daily_terms'].some(k=>d[k]!==undefined);
+  if(value.daily_enabled&&(!Object.hasOwn(DAILY_BASES,value.daily_basis||'')||!value.daily_details||!value.daily_rollover||policyChanged&&d.confirm_daily!==true))return err('주차장에 종료 기준·재입차·익일 및 초과 정산(연속 적용 가능 여부)을 확인한 뒤 모두 입력하고 확인 체크를 해 주세요.');
+  value.daily_terms=Object.hasOwn(DAILY_BASES,value.daily_basis||'')?DAILY_BASES[value.daily_basis]+' '+value.daily_details+' 익일·초과 정산: '+value.daily_rollover:'';
   if(value.enabled&&(!value.service_hours||!value.processing_notice))return err('판매 시작 전에 등록 처리 시간과 예상 소요 안내를 입력해 주세요.');
   await env.DB.prepare("INSERT INTO settings(key,value,updated_at) VALUES('parking',?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at").bind(JSON.stringify(value),now()).run();
-  await log(env,'parking.settings','parking','admin',{enabled:value.enabled,daily_enabled:value.daily_enabled});return json({ok:true,...value});
+  await log(env,'parking.settings','parking','admin',{enabled:value.enabled,daily_enabled:value.daily_enabled,daily_basis:value.daily_basis,confirmed_daily:policyChanged&&d.confirm_daily===true});return json({ok:true,...value});
  }
  if(path==='admin/count'&&method==='GET'){
   const r=await env.DB.prepare("SELECT COUNT(*) AS n FROM parking_orders p JOIN orders o ON o.oid=p.oid WHERE o.status='paid' AND (p.status<>'applied' OR (p.refund_requested_at IS NOT NULL AND p.refund_reviewed_at IS NULL))").first();return json({ok:true,count:r?.n||0});
