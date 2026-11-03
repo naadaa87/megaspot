@@ -2,6 +2,7 @@
 // reserve:true 이면 '예약 신청'(금액 확인 → 신청)으로 들어온 건입니다. 모임 유형은 선택 사항입니다.
 import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, log, getMember, clientIp, tooMany, hit, kstToday, spaceOk, SPACE_OPENING } from './_lib.js';
 import { cateringFrom } from './_catering.js';
+import { receptionCustomer } from './_reception.js';
 import { cocktailFrom } from './_cocktail.js';
 import { createVisit, timeOk } from './_visits.js';
 const TYPES = ['event', 'regular', 'partner'];
@@ -61,6 +62,8 @@ export async function onRequestPost({ request, env }) {
   const vw = d.visit_wish && typeof d.visit_wish === 'object' && d.visit_wish.want ? d.visit_wish : null;
   const visit_wish = vw ? { date: str(vw.date, 10), time: timeOk(vw.time), people: num(vw.people), note: str(vw.note, 200) } : null;
   if (visit_wish && visit_wish.date && (!isDate(visit_wish.date) || visit_wish.date < kstToday())) return err('현장답사 희망 날짜를 확인해 주세요.');
+  const reception = d.reception == null ? null : receptionCustomer(d.reception);
+  if(d.reception != null && !reception) return err('케이터링 코스·인원·제공 방식을 확인해 주세요.');
   const data = {
     inquiry_type, reserve, channel: 'web', came_from: cameFrom(d.came_from), space_id, purpose, date: isDate(date) ? date : '', date_alt: str(d.date_alt, 10), slot: str(d.slot, 10),
     start_h: num(d.start_h), end_h: num(d.end_h), pkg: str(d.pkg, 20), total: num(d.total),
@@ -72,6 +75,7 @@ export async function onRequestPost({ request, env }) {
     org, partner_kind: str(d.partner_kind, 40), estimate: str(d.estimate, 3000),
     docs: Array.isArray(d.docs) ? d.docs.map(x => str(x, 20)).slice(0, 5) : [], name, phone, email, contact_pref: str(d.contact_pref, 10),
     family: [].concat(d.family || []).map(x => str(x, 20)).filter((x, i, a) => FAMILY_ASK.includes(x) && a.indexOf(x) === i).slice(0, 4),
+    reception,
     catering: cateringFrom(d.catering),
     cocktail: cocktailFrom(d.cocktail),
     listing,   // 등록 공간 문의일 때 { id, name }

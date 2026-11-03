@@ -164,6 +164,7 @@
       var vw=M.visitRead?M.visitRead(form,'visit'):null; Object.keys(d).forEach(function(k){ if(k.indexOf('visit_')===0 && k!=='visit_wish') delete d[k]; }); if(vw) d.visit_wish=vw;
       d.contact_pref='kakao'; d.source=location.pathname; d.summary=summary(d); d.came_from=M.source?M.source():null;
       var btn=$f('#iq-submit'); btn.disabled=true; btn.textContent='보내는 중…';
+      if(M.receptionSelection)d.reception=Object.assign({},M.receptionSelection,{people:M.receptionSelection.people||d.headcount});
       M.api('/inquiry',{method:'POST', body:d}).then(function(r){
         form.hidden=true; done.hidden=false; done.innerHTML=(r.member?'<div class="member-line on mb-3"><span><b>회원 문의로 저장했습니다.</b> 진행 상태는 마이페이지에서 확인할 수 있습니다.</span><a class="btn btn-light btn-sm" href="/mypage/">마이페이지 →</a></div>':'')+donePanel(r.ref, d, true); bind(); done.scrollIntoView({behavior:'smooth',block:'start'});
       }).catch(function(ex){

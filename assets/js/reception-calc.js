@@ -43,5 +43,33 @@
       +'· 예상 금액: '+won(q.total)+' (부가세 적용 여부 확인 전 · 공간 대관료 별도)\n'
       +'행사 날짜·장소와 메뉴 제공 가능 여부, 최소 주문 조건을 함께 안내해 주세요.';
   }
-  return {data:D,course:course,quote:quote,won:won,formatLabel:formatLabel,customerText:customerText,inquiryText:inquiryText};
+  // Save selections separately from prose; incomplete requests stay unpriced.
+  function selection(value){
+    if(!value||typeof value!=='object'||Array.isArray(value))return null;
+    var id=value.course,selected=course(id),fmt=value.format==null?'':value.format;
+    if(id!=='all'&&(!id||!selected)||fmt!==''&&!formatLabel(fmt))return null;
+    var raw=value.people==null?'':String(value.people).trim(),people=raw===''?null:Number(raw);
+    if(raw!==''&&(!/^\d+$/.test(raw)||!Number.isSafeInteger(people)||people<1||people>100000))return null;
+    var q=selected&&people&&fmt?quote(people,fmt,id):null;
+    var result=q&&q.ok?q:{ok:false,course:id,courseName:selected?selected.name:'코스 미정',format:fmt,formatName:formatLabel(fmt)||'제공 방식 상담 후 결정',people:people,unitPrice:selected?selected.price:null,food:null,fee:null,total:null};
+    result.status='pending';result.tax_pending=true;result.menuNote=D.menuNote;
+    result.summary=result.courseName+' '+(people?people+'명':'인원 상담')+' · '+result.formatName+(result.total==null?' · 상담 후 견적':' · 메뉴 '+won(result.food)+' + '+result.feeName+' '+won(result.fee));
+    return result;
+  }
+  function fromInquiry(data){
+    data=data||{};
+    if(data.reception){var normalized=selection(data.reception);return normalized?Object.assign(normalized,data.reception):null;}
+    var text=String(data.message||'')+'\n'+String(data.summary||'');
+    var header=text.match(/\[출장 케이터링 (라이트|클래식|프리미엄|시그니처) 상담\][\s\S]*?(?=\n\s*\n|$)/);
+    var line=text.match(/^(?:도시락·핑거푸드(?: 케이터링)? (?:코스 미정|라이트|클래식|프리미엄|시그니처)[^\n]*|출장 케이터링 (?:라이트|클래식|프리미엄|시그니처) (?:구성\(|\d+명 구성)[^\n]*(?:\n·? ?희망 제공 방식:[^\n]*)?)/m);
+    if(!header&&!line)return null;
+    var sample=header?header[0]:line[0],selected=(D.courses||[D.course]).find(function(c){return sample.indexOf(c.name)>=0;});
+    var count=sample.match(/· 인원: (\d+)명/)||sample.match(/(?:라이트|클래식|프리미엄|시그니처)[^\n]*?(\d+)명/);
+    var fmt=Object.keys(D.formats).find(function(id){return sample.indexOf(D.formats[id])>=0;})||'';
+    var result=selection({course:selected?selected.id:'all',format:fmt,people:count?count[1]:data.headcount});
+    var price=sample.match(/· 예상 금액: ([\d,]+)원/)||(!header&&sample.match(/: ([\d,]+)원/));
+    if(result&&price)result.requested_total=Number(price[1].replace(/,/g,''));
+    return result;
+  }
+  return {data:D,course:course,selection:selection,fromInquiry:fromInquiry,quote:quote,won:won,formatLabel:formatLabel,customerText:customerText,inquiryText:inquiryText};
 });

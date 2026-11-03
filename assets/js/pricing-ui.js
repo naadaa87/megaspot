@@ -432,7 +432,7 @@
       var purpose = form.rv_purpose.value || st.purpose;
       var body = { inquiry_type: st.regular ? 'regular' : 'event', space_id: SPACE_ID, reserve: !(r.plan && r.plan.unknownDate), purpose: purpose, date: r.plan && r.plan.unknownDate ? '' : r.date, slot: 'custom',
         t_start: E.hourLabel(r.start).replace(/^다음 날 /, ''), t_end: E.hourLabel(r.end).replace(/^다음 날 /, ''), start_h: r.start, end_h: r.end, headcount: r.people,
-        options: options(), pkg: r.pkg ? r.pkg.id : '', total: r.plan&&r.plan.unknownDate?null:r.total, name: who.name, phone: who.phone, email: who.email, message: who.message, family: who.family, catering: who.catering, cocktail: who.cocktail, visit_wish: who.visit, contact_pref: 'kakao',
+        options: options(), pkg: r.pkg ? r.pkg.id : '', total: r.plan&&r.plan.unknownDate?null:r.total, name: who.name, phone: who.phone, email: who.email, message: who.message, family: who.family, reception: reception?reception.selection:null, catering: who.catering, cocktail: who.cocktail, visit_wish: who.visit, contact_pref: 'kakao',
         agree_privacy: true, estimate: r.plan&&r.plan.unknownDate?'행사 일정 미정 · 상담 후 견적':E.summaryText(r, purLabel(purpose)), source: location.pathname, summary: reserveText(r, who), website: form.website.value, came_from: M.source ? M.source() : null };
       if(r.plan&&r.plan.unknownDate){body.start_h=null;body.end_h=null;body.t_start='';body.t_end='';body.pkg='';}
       var btn = el.querySelector('[data-act=submit]'); btn.disabled = true; btn.textContent = '신청하는 중…';

@@ -20,3 +20,10 @@ export function receptionExtra(extras) {
   if (!reception || reception.status === 'cancelled' || Number(rows[0].amount) !== reception.total) return { error: '테이블·박스 케이터링의 구성과 금액을 다시 확인해 주세요.' };
   return { amount: reception.total, reception };
 }
+
+// Customers may leave the course/format undecided or request more than 300 meals.
+// Never accept a submitted price or a customer-supplied confirmed/cancelled status.
+export function receptionCustomer(value) {
+  const selection = C.selection(value);
+  return selection ? { ...selection, by: 'customer', status: 'pending' } : null;
+}
