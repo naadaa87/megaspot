@@ -2,12 +2,15 @@
 
 #gm-preview{scroll-margin-top:24px}@media(max-width:900px){#gm-preview{scroll-margin-top:140px}}
 .gm-mobile-selection{display:none}
+.gm-candidate-item{display:grid;gap:8px}.gm-candidate-item>button{justify-self:start}
+#gm-history-card{scroll-margin-top:24px}@media(max-width:900px){#gm-history-card{scroll-margin-top:140px}}
 .gm-phone{white-space:nowrap}.gm-phone::before{content:' · '}
 @media(max-width:720px){
   #view-guide-messages .btn{min-height:44px}
   .gm-filters .input,.gm-filters .select{min-width:0;width:100%;font-size:16px}
   .gm-filters #gm-search{width:100%}
   .gm-filters label{flex:1 1 calc(50% - 6px);min-width:0}
+  .gm-filters label:has(select){flex-basis:100%}
   .gm-candidate input{width:22px;height:22px}
   .gm-candidate span{overflow-wrap:anywhere}
   .gm-candidate .gm-phone{display:block;margin-top:4px;white-space:nowrap}.gm-phone::before{content:none}
