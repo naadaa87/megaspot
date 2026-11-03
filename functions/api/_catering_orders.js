@@ -3,6 +3,7 @@
 //  · 문의와 연결된 건은 문의의 data.catering 에도 같은 구성과 상태를 넣어 문의 목록·상세·예약확정서가 그대로 따라오게 합니다.
 //  · 문의 없이 등록한 예약(예약 관리에서 바로 잡은 예약)은 예약번호로만 연결됩니다.
 import { json, err, str, isDate, now, uniqueRef, log, kstToday, spaceOk, readJson } from './_lib.js';
+import {readFoodPricing,foodPricingData} from './_food_pricing.js';
 import { cateringAdmin } from './_catering.js';
 import { batch } from './_admin_booking.js';
 import {updateFood,F,directFoodRevision,directRevisionStatement} from './_food_services.js';
@@ -166,7 +167,7 @@ async function saveOrder(env, d, cur, tg) {
   if(d.reception_revision!==undefined&&Number(d.reception_revision)!==currentVersion)return err('식음료 구성이 변경됐습니다. 예약·문의를 다시 불러와 주세요.',409,'RECEPTION_CHANGED');
   let q = prev;
   if (d.config !== undefined) {
-    q = cateringAdmin(d.config);
+    q = cateringAdmin(d.config,foodPricingData('catering',await readFoodPricing(env,'catering')));
     if (!q || !q.supply) return err('코스나 바베큐·생맥주를 골라 주세요.');
   }
   if (!q) return err('출장뷔페 구성을 골라 주세요.');

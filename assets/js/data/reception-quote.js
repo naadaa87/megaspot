@@ -166,3 +166,5 @@
     "table": "테이블 세팅 케이터링"
   }
 });
+
+if(typeof window!=='undefined'&&window.MEGASPOT_FOOD_PRICING)window.MEGASPOT_FOOD_PRICING.apply('reception',window.MEGASPOT_RECEPTION_QUOTE,(window.MEGASPOT_FOOD_RATES||{}).reception);

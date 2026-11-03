@@ -64,5 +64,6 @@
     state.initialized=true;state.opening=true;X.go('reception');state.opening=false;if(ref)load(ref);
   };
   X.register('reception',function(){paint();if(state.opening)return;if(state.target&&!state.dirty&&!state.busy){load(state.target.ref);return;}if(!state.initialized){state.initialized=true;var ref=X.quoteInquiryRef();if(ref)load(ref);}});
+  window.addEventListener('food-pricing-updated',function(e){if(e.detail.service!=='reception')return;var selected=$('#ar-course').value;$('#ar-course').innerHTML='<option value="all">상담 후 결정</option>'+C.data.courses.map(function(c){return '<option value="'+esc(c.id)+'">'+esc(c.name)+' · 1인 '+C.won(c.price)+'</option>';}).join('');$('#ar-course').value=selected;paint();});
   paint();if(X.visible()&&X.current()==='reception')X.go('reception');
 })();

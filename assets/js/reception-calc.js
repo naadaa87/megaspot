@@ -2,7 +2,7 @@
 (function(root,factory){
   if(typeof module==='object'&&module.exports) module.exports=factory(require('./data/reception-quote.js'));
   else root.MEGASPOT_RECEPTION_CALC=factory(root.MEGASPOT_RECEPTION_QUOTE);
-})(typeof window!=='undefined'?window:globalThis,function(D){
+})(typeof window!=='undefined'?window:globalThis,function create(D){
   'use strict';
   function won(n){return Number(n).toLocaleString('ko-KR')+'원';}
   function course(value){return (D.courses||[D.course]).find(function(c){return c.id===(value==null?D.course.id:value);});}
@@ -100,5 +100,5 @@
     if(money(value.total)===result.total&&money(value.food)!=null&&money(value.fee)!=null&&Number(value.food)+Number(value.fee)===result.total){result.food=Number(value.food);result.fee=Number(value.fee);result.unitPrice=money(value.unitPrice);}
     return result;
   }
-  return {data:D,course:course,selection:selection,fromInquiry:fromInquiry,revision:revision,syncQuote:syncQuote,quoteCurrent:quoteCurrent,forDocument:forDocument,quote:quote,won:won,formatLabel:formatLabel,customerText:customerText,inquiryText:inquiryText};
+  return {create:create,data:D,course:course,selection:selection,fromInquiry:fromInquiry,revision:revision,syncQuote:syncQuote,quoteCurrent:quoteCurrent,forDocument:forDocument,quote:quote,won:won,formatLabel:formatLabel,customerText:customerText,inquiryText:inquiryText};
 });

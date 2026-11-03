@@ -139,3 +139,5 @@ window.MEGASPOT_CATERING = {
   groups: { buffet: '뷔페 코스', light: '다과·리셉션 · 한식 상차림' },
   menuLabels: { hot: '더운 요리', cold: '찬 요리', korean: '한식 요리', salad: '샐러드', dessert: '디저트·음료', party: '파티 요리', drinks: '다과 음료' }
 };
+
+if(typeof window!=='undefined'&&window.MEGASPOT_FOOD_PRICING)window.MEGASPOT_FOOD_PRICING.apply('catering',window.MEGASPOT_CATERING,(window.MEGASPOT_FOOD_RATES||{}).catering);

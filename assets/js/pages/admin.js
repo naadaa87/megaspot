@@ -881,6 +881,7 @@
       ['결제는 어떻게 하나요?', '대관료와 출장뷔페 금액을 항목별로 나눈 견적을 보내드리고, 안내드린 방법으로 결제해 주시면 주문이 확정됩니다. 세금계산서가 필요하면 사업자 정보를 알려 주세요.']
     ];
   }
+  window.addEventListener('food-pricing-updated',function(e){if(e.detail.service!=='catering')return;var oldFee=CT.fee;if(!CT.order&&(!oldFee||oldFee===100000))CT.fee=CD.delivery.fee;ctFill();ctCalc();$('#ct-check').dataset.done='';ctStatic();});
   function ctMarkup(){ return CSET?(+CSET.markup||0):null; }
   function loadCatering(){
     if(!CC){ $('#ct-result').innerHTML='<div class="empty">출장뷔페 자료(catering.js)를 불러오지 못했습니다.</div>'; return; }
@@ -925,20 +926,14 @@
     ctInternal();
   }
   function ctVendorLines(){
-    var mk=ctMarkup(); if(mk===null||!CR||CR.empty) return null;
-    var lines=CR.lines.map(function(l){ var cut=mk*(l.people||0); return { label:l.label, key:l.key, amount:l.amount, vendor:Math.max(0,l.amount-cut), cut:cut, people:l.people||0 }; });
-    var vSup=lines.reduce(function(a,x){ return a+x.vendor; },0), cut=lines.reduce(function(a,x){ return a+x.cut; },0);
-    return { mk:mk, lines:lines, vSup:vSup, vVat:Math.round(vSup*CD.vat), cut:cut, cutVat:Math.round(cut*(1+CD.vat)) };
+    var pricing=(window.MEGASPOT_FOOD_ADMIN_PRICES||{}).catering;if(!pricing||!CR||CR.empty)return null;
+    var lookup={};pricing.forEach(function(row){lookup[row.id]=row;});
+    var lines=CR.lines.map(function(l){var id=l.key==='course'?'course.'+CR.course.id+(CR.course.kind==='flat'?'.'+CR.billPeople:''):l.key==='bbq'?'bbq.'+CR.bbq.id:l.key==='delivery'?'delivery':'beer',row=lookup[id],quantity=l.key==='course'&&CR.course.kind!=='flat'?CR.billPeople:l.key==='beer'?CR.beer:1,vendor=row&&row.vendor_supply!==null?row.vendor_supply*quantity:null;if(l.key==='delivery'&&row&&l.amount!==row.sale_price)vendor=row.vendor_supply;return {label:l.label,key:l.key,amount:l.amount,vendor:vendor,cut:vendor===null?null:l.amount-vendor,people:l.people||0};});
+    if(lines.some(function(l){return l.vendor===null;}))return {lines:lines,unknown:true};
+    var vSup=lines.reduce(function(a,x){return a+x.vendor;},0),cut=CR.supply-vSup;return {lines:lines,vSup:vSup,vVat:Math.round(vSup*CD.vat),cut:cut,cutVat:Math.round(cut*(1+CD.vat))};
   }
-  function ctInternal(){
-    var box=$('#ct-internal'), v=ctVendorLines();
-    if(!v){ box.innerHTML='<div class="empty small">'+(CSET?'—':'발주처 정보를 불러오는 중…')+'</div>'; return; }
-    box.innerHTML='<table class="q-table ct-int"><thead><tr><td>항목</td><td>고객 금액</td><td>발주 금액</td><td>수수료</td></tr></thead><tbody>'
-      +v.lines.map(function(x){ return '<tr><td>'+esc(x.label)+(x.cut?'<small>1인 '+esc(won(v.mk))+' × '+x.people+'명</small>':'')+'</td><td>'+esc(won(x.amount))+'</td><td>'+esc(won(x.vendor))+'</td><td>'+(x.cut?esc(won(x.cut)):'—')+'</td></tr>'; }).join('')
-      +'</tbody><tfoot><tr><td>공급가 합계</td><td>'+esc(won(CR.supply))+'</td><td>'+esc(won(v.vSup))+'</td><td><b>'+esc(won(v.cut))+'</b></td></tr>'
-      +'<tr><td>부가세 포함</td><td>'+esc(won(CR.total))+'</td><td>'+esc(won(v.vSup+v.vVat))+'</td><td>'+esc(won(v.cutVat))+'</td></tr></tfoot></table>'
-      +'<p class="tiny muted mt-1">발주 금액 = 고객 금액 − 1인 수수료('+esc(won(v.mk))+') × 인원. 바베큐는 중량별 최대 인원 기준이고, 생맥주와 출장·세팅비에는 수수료가 없습니다. 수수료는 아래 \'발주처 정보 · 수수료\'에서 바꿀 수 있습니다.</p>';
-  }
+  function ctInternal(){var box=$('#ct-internal'),v=ctVendorLines();if(!v){box.innerHTML='<p class="small muted">공급가 가격표를 불러오는 중…</p>';return;}
+    box.innerHTML='<table class="q-table ct-int"><thead><tr><td>항목</td><td>판매가</td><td>공급가</td><td>마진</td></tr></thead><tbody>'+v.lines.map(function(x){return '<tr><td>'+esc(x.label)+'</td><td>'+won(x.amount)+'</td><td>'+(x.vendor===null?'미입력':won(x.vendor))+'</td><td>'+(x.cut===null?'—':won(x.cut))+'</td></tr>';}).join('')+'</tbody>'+(!v.unknown?'<tfoot><tr><td>부가세 별도 합계</td><td>'+won(CR.supply)+'</td><td>'+won(v.vSup)+'</td><td>'+won(v.cut)+'</td></tr></tfoot>':'')+'</table><p class="tiny muted mt-1">위 공급가·판매가 관리에서 저장한 항목별 가격으로 계산합니다. 공급가 미입력 항목이 있으면 발주 합계를 확정하지 않습니다.</p>';}
   function ctCustText(){
     var r=CR, c=r.course, cp=custParts(CT.customer), L=[];
     L.push('[메가스팟 출장뷔페 견적 안내]');
@@ -973,20 +968,20 @@
     return L.join('\n');
   }
   function ctOrderText(){
-    var r=CR, c=r.course, v=ctVendorLines(), S=CSET||{}, codes=S.codes||{}, mk=v?v.mk:0, L=[];
+    var r=CR, c=r.course, v=ctVendorLines(), S=CSET||{}, codes=S.codes||{}, L=[];
     L.push('[출장뷔페 주문 요청 — 메가스팟]');
     if(CT.date) L.push('· 행사일: '+E.kdateY(CT.date)+(CT.time?' · 식사 '+CT.time:''));
     L.push('· 장소: 서울 광진구 화양동 10-1 한아름건물 2층 '+spaceName(spaceOk(CT.space))+' (건물 주차 가능)');
     if(CT.rent) L.push('· 대관 시간: '+CT.rent+' (세팅·수거도 이 안에서)');
     if(c){
-      var unit=c.kind==='flat'?null:c.price-mk, tierPrice=c.kind==='flat'?(r.lines[0].amount-mk*r.billPeople):null;
-      L.push('· 코스: '+(codes[c.id]||c.name)+' '+r.billPeople+'명'+(c.kind==='flat'?' (정액 '+won(tierPrice)+')':' (1인 '+won(unit)+')'));
+      var courseLine=v&&v.lines.find(function(x){return x.key==='course';}),tierPrice=courseLine?courseLine.vendor:null,unit=tierPrice===null?null:tierPrice/r.billPeople;
+      L.push('· 코스: '+(codes[c.id]||c.name)+' '+r.billPeople+'명'+(c.kind==='flat'?' (정액 '+(tierPrice===null?'공급가 미입력':won(tierPrice))+')':' (1인 '+(unit===null?'공급가 미입력':won(unit))+')'));
       if(CT.people && CT.people!==r.billPeople) L.push('  (실제 인원 '+CT.people+'명)');
     }
     if(r.bbq) L.push('· 바베큐: '+r.bbq.size+' (실내형 완제품)');
     if(r.beer) L.push('· 생맥주: '+r.beer+'통');
-    L.push('· 출장비: '+won(CT.fee));
-    if(v) L.push('· 금액: '+won(v.vSup)+' + 부가세 '+won(v.vVat)+' = '+won(v.vSup+v.vVat));
+    var deliveryLine=v&&v.lines.find(function(x){return x.key==='delivery';});L.push('· 출장비: '+(deliveryLine&&deliveryLine.vendor!==null?won(deliveryLine.vendor):'공급가 미입력'));
+    if(v&&!v.unknown) L.push('· 금액: '+won(v.vSup)+' + 부가세 '+won(v.vVat)+' = '+won(v.vSup+v.vVat));
     if(CT.note) L.push('· 요청: '+CT.note);
     L.push('· 현장 연락: 메가스팟 '+((M.CONFIG&&M.CONFIG.phone)||'010-2384-9580'));
     if(S.order_note) { L.push(''); L.push(S.order_note); }
@@ -1930,6 +1925,6 @@
   }
   window.MEGASPOT_ADMIN={ A:A, esc:esc, guard:guard, fail:fail, note:note, ago:ago, kd:kd, emptyMsg:emptyMsg, setCount:setCount, spaceName:spaceName,
     openInquiry:openInquiry,foodToQuote:foodToQuote, receptionToQuote:receptionToQuote, quoteInquiryRef:function(){ return Q.ref||''; },
-    openDrawer:openDrawer, closeDrawer:closeDrawer, go:function(v){ go(v); }, register:function(view, fn){ LOAD[view]=fn; },
+    openDrawer:openDrawer, closeDrawer:closeDrawer, go:function(v){ go(v); }, register:function(view, fn){ var previous=LOAD[view];LOAD[view]=previous?function(){previous();fn();}:fn; },
     current:function(){ var v=location.hash.replace('#',''); return LOAD[v]?v:''; }, visible:function(){ return !app.hidden; } };
 })();
