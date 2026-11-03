@@ -105,6 +105,7 @@ async function state(env,id,status,error='',mid=null,result=null) {
 async function dispatch(env,id,s) {
   const m = await env.DB.prepare('SELECT * FROM booking_guide_messages WHERE id=?').bind(id).first();
   if (!m || m.status !== 'queued') return;
+  s=await config(env); // honor an operator's stop/config change during a bulk request
   const snap = parse(m.snapshot);
   if (m.config_hash !== await configHash(env,s)) return state(env,id,'cancelled','발송 설정이 변경되었습니다. 다시 미리보기해 주세요.');
   if (m.mode === 'live') {
@@ -232,11 +233,12 @@ export async function guideAdmin({env,request,url,path,method}) {
     const block=await ready(env,s); if(block) return err(block,409); await approved(env,s);
     // Consume once, atomically, before any provider request. A repeated click cannot replay it.
     if(!changed(await env.DB.prepare('DELETE FROM booking_guide_previews WHERE id=?').bind(p.id).run())) return err('이미 처리된 미리보기입니다.',409);
-    const items=[];
+    const items=[];let halted=false;
     for(const snap of payload.items || []) {
+      if(halted){items.push({booking_code:snap.booking_code,skipped:true,reason:'앞선 발송 결과 확인 또는 발송 재개가 필요하여 보류했습니다.'});continue;}
       const b=await booking(env,snap.booking_code),why=guideEligibility(b,s,Date.now(),payload.include_manual);
       if(why || !sameSnapshot(snap,snapshot(b)) || await active(env,snap.booking_code)){items.push({booking_code:snap.booking_code,skipped:true,reason:why || '예약 내용 또는 발송 이력이 바뀌었습니다.'});continue;}
-      try{const id=await insertMessage(env,b,s,'live','admin',payload.reason);await dispatch(env,id,s);const row=await env.DB.prepare('SELECT status,error FROM booking_guide_messages WHERE id=?').bind(id).first();items.push({booking_code:b.booking_code,id,...row});}catch{items.push({booking_code:b.booking_code,skipped:true,reason:'처리 중이거나 저장할 수 없습니다. 이력을 확인해 주세요.'});}
+      try{const id=await insertMessage(env,b,s,'live','admin',payload.reason);await dispatch(env,id,s);const row=await env.DB.prepare('SELECT status,error FROM booking_guide_messages WHERE id=?').bind(id).first();items.push({booking_code:b.booking_code,id,...row});halted=['unknown','sending','queued'].includes(row.status);}catch{items.push({booking_code:b.booking_code,skipped:true,reason:'처리 중이거나 저장할 수 없습니다. 이력을 확인해 주세요.'});halted=true;}
     }
     return json({ok:true,items});
   }

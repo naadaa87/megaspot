@@ -27,11 +27,11 @@
   function count(){ $('#gm-preview-button').textContent='선택한 예약 미리보기 ('+selected.size+')'; }
   function stamp(t){return t?new Date(t.replace(' ','T')+'Z').toLocaleString('ko-KR',{timeZone:'Asia/Seoul',hour12:false}):'';}
   function status(s){return '<span class="gm-status gm-'+esc(s||'none')+'">'+esc(ST[s]||'미발송')+'</span>';}
-  function settingsLoad(){return api('settings').then(function(r){settings=r;$('#gm-template-code').value=r.template_code||'';$('#gm-enabled').checked=r.enabled;$('#gm-automatic').checked=r.automatic;view.querySelectorAll('[name="gm-space"]').forEach(function(c){c.checked=r.spaces.indexOf(c.value)>=0;});$('#gm-template').textContent=r.template;
+  function settingsLoad(){return api('settings').then(function(r){var first=!settings;settings=r;$('#gm-template-code').value=r.template_code||'';$('#gm-enabled').checked=r.enabled;$('#gm-automatic').checked=r.automatic;view.querySelectorAll('[name="gm-space"]').forEach(function(c){c.checked=r.spaces.indexOf(c.value)>=0;});$('#gm-template').textContent=r.template;
     $('#gm-credentials').innerHTML=Object.keys(r.credentials).map(function(k){return '<p><b>'+esc(k)+'</b> <span>'+ (r.credentials[k]?'등록됨':'미등록')+'</span></p>';}).join('')+'<p><b>ALIGO_LIVE_ENABLED</b> '+(r.live_allowed?'운영 발송 허용':'운영 발송 잠금')+'</p>';
     $('#gm-test-state').textContent=r.test_delivered?'현재 설정으로 시험 수신 성공':'현재 설정의 시험 수신을 완료해 주세요.';
     $('#gm-notice').textContent=r.enabled?'고객 발송 활성화 · '+(r.automatic?'새 예약 확정 시 자동 발송':'관리자가 선택해서 발송'):'발송 준비 중 · 고객에게 자동으로 발송되지 않습니다.';
-    if(!r.template_code||!r.spaces.length||Object.keys(r.credentials).some(function(k){return !r.credentials[k];}))$('#gm-setup').open=true;
+    if(first&&(!r.template_code||!r.spaces.length||Object.keys(r.credentials).some(function(k){return !r.credentials[k];})))$('#gm-setup').open=true;
   });}
   function save(){invalidate();return api('settings',{template_code:$('#gm-template-code').value,spaces:Array.from(view.querySelectorAll('[name="gm-space"]:checked')).map(function(c){return c.value;}),enabled:$('#gm-enabled').checked,automatic:$('#gm-automatic').checked},'PUT').then(function(){return settingsLoad();}).then(function(){settingsDirty=false;M.toast('알림톡 설정을 저장했습니다.');return candidates();});}
   function canChoose(it){var manual=it.exclusion==='기존 현장 안내 발송 체크가 있습니다.'&&$('#gm-include-manual').checked;return (!it.exclusion||manual)&&['queued','sending','accepted','unknown','delivered'].indexOf(it.message_status)<0;}

@@ -132,3 +132,15 @@ test('고정 IP 서버로는 서명된 요청만 보내고 API 키를 전달하�
 test('관리자 결과 동기화로 실제 성공을 반영하고 일시 실패에도 재발송은 하지 않는다',async t=>{
   const f=setup(t);await f.enable();await f.send(await f.preview());await f.api('guide-messages/sync','POST',{});assert.equal(f.db.prepare("SELECT status FROM booking_guide_messages WHERE mode='live'").get().status,'delivered');assert.equal(f.sent.length,2);
 });
+test('잘못된 접수 응답은 실패로 단정하지 않고 이후 일괄 대상도 보류한다',async t=>{
+  const f=setup(t);await f.enable();f.db.prepare("INSERT INTO bookings(booking_code,space_id,customer_name,phone,phone_last4,date,start_h,end_h,status,created_at) VALUES('BK-SECOND','megaspot-gundae','검증 고객','01012345678','5678','2099-02-01',10,17,'confirmed','now')").run();
+  f.setError({message:'unrecognized response'});const p=await f.preview({codes:['BK-TEST','BK-SECOND']}),r=await f.send(p);assert.equal(r.items[0].status,'unknown');assert.equal(r.items[1].skipped,true);assert.equal(f.sent.length,2);
+});
+test('일괄 발송 도중 고객 발송을 끄면 이후 대상은 실제 요청하지 않는다',async t=>{
+  const f=setup(t);await f.enable();f.db.prepare("INSERT INTO bookings(booking_code,space_id,customer_name,phone,phone_last4,date,start_h,end_h,status,created_at) VALUES('BK-SECOND','megaspot-gundae','검증 고객','01012345678','5678','2099-02-01',10,17,'confirmed','now')").run();
+  const upstream=globalThis.fetch;t.mock.method(globalThis,'fetch',async(url,opts)=>{const r=await upstream(url,opts);if(url.endsWith('/alimtalk/send/'))f.db.prepare('UPDATE settings SET value=? WHERE key=?').run(JSON.stringify({...f.settings,enabled:false}),'reservation_guide');return r;});
+  const r=await f.send(await f.preview({codes:['BK-TEST','BK-SECOND']}));assert.equal(r.items[0].status,'accepted');assert.equal(r.items[1].status,'queued');assert.equal(f.sent.length,2);
+});
+test('0으로 채워진 미수신 결과 시각을 실제 성공으로 오인하지 않는다',()=>{
+  assert.equal(guideDelivery({msgid:'123',rslt:'0',rsltdate:'0000-00-00 00:00:00'}),'accepted');
+});
