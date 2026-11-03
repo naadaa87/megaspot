@@ -332,3 +332,24 @@ CREATE TABLE IF NOT EXISTS parking_orders (
 );
 CREATE INDEX IF NOT EXISTS parking_orders_queue ON parking_orders(status,visit_date,created_at);
 CREATE UNIQUE INDEX IF NOT EXISTS parking_one_processing_per_entry ON parking_orders(session_id) WHERE status = 'processing';
+
+-- 이용 안내 알림톡. 운영자 시험 발송은 예약 체크·고객 중복 방지에서 제외합니다.
+CREATE TABLE IF NOT EXISTS booking_guide_messages (
+  id TEXT PRIMARY KEY,
+  booking_code TEXT,
+  purpose TEXT NOT NULL,
+  mode TEXT NOT NULL CHECK (mode IN ('live','test')),
+  status TEXT NOT NULL CHECK (status IN ('queued','sending','accepted','unknown','delivered','failed','cancelled')),
+  snapshot TEXT NOT NULL,
+  config_hash TEXT NOT NULL,
+  provider_mid TEXT,
+  provider_result TEXT,
+  error TEXT NOT NULL DEFAULT '',
+  actor TEXT NOT NULL,
+  reason TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS guide_messages_booking ON booking_guide_messages(booking_code,created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS guide_messages_one_active ON booking_guide_messages(booking_code,purpose) WHERE mode='live' AND status IN ('queued','sending','accepted','unknown','delivered');
+CREATE TABLE IF NOT EXISTS booking_guide_previews (id TEXT PRIMARY KEY,payload TEXT NOT NULL,expires_at INTEGER NOT NULL);

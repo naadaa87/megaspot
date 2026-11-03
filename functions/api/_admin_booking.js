@@ -52,7 +52,7 @@ export async function linkedBookingChanges(env, ref, next) {
 }
 
 export async function bookingStatusStatements(env, code, status) {
-  const b = await env.DB.prepare('SELECT booking_code, inquiry_ref FROM bookings WHERE booking_code = ?').bind(code).first();
+  const b = await env.DB.prepare('SELECT booking_code, inquiry_ref, status FROM bookings WHERE booking_code = ?').bind(code).first();
   if (!b) return { error: err('예약을 찾을 수 없습니다.', 404, 'NOT_FOUND') };
   const statements = [env.DB.prepare('UPDATE bookings SET status = ?, updated_at = ? WHERE booking_code = ?').bind(status, now(), code)];
   if (status === 'cancelled') statements.push(env.DB.prepare('DELETE FROM calendar_blocks WHERE memo = ?').bind('예약 ' + code));
@@ -60,5 +60,5 @@ export async function bookingStatusStatements(env, code, status) {
     const inquiryStatus = { confirmed: '예약 확정', completed: '이용 완료', cancelled: '취소·환불' }[status];
     statements.push(env.DB.prepare('UPDATE inquiries SET status = ?, updated_at = ? WHERE ref = ?').bind(inquiryStatus, now(), b.inquiry_ref));
   }
-  return { statements, ref: b.inquiry_ref };
+  return { statements, ref: b.inquiry_ref, previous: b.status };
 }

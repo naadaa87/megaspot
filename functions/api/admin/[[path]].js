@@ -6,6 +6,7 @@ import { cateringAdmin } from '../_catering.js';
 import { cleanDoc, parseDoc, publicDoc, confirmToken } from '../_confirm.js';
 import { inquiryAmountSql, bookingAmountSql, amountOverrideSql } from '../_amounts.js';
 import { batch, bookingClashes, conflictResponse, linkedBookingChanges, bookingStatusStatements } from '../_admin_booking.js';
+import { guideAdmin, automaticGuide, guideSummary } from '../_guide_messages.js';
 import { platformAdmin, platformCounts } from '../_platform_admin.js';   // 입점·공간 등록·광고 신청, 등록 공간, 모임, 배너 광고
 import { visitsAdmin, createVisit, visitsForInquiry, visitCounts, timeOk } from '../_visits.js';   // 현장답사 일정
 import { cateringOrdersAdmin, cateringCounts, cateringOrderFor, ORDER_OF_BOOKING, ORDER_OF_INQUIRY, orderBrief } from '../_catering_orders.js';   // 출장뷔페 진행 건 (대기·확정)
@@ -141,6 +142,10 @@ export async function onRequest({ request, env, params }) {
   const denied = await requireAdmin(request, env); if (denied) return denied;
   try {
     if (path === 'ping') return json({ ok: true });
+    if (path.startsWith('guide-messages')) {
+      try { return await guideAdmin({ env, request, url, path, method }); }
+      catch (e) { return err(String(e?.message || '알림톡 처리 중 오류가 발생했습니다.').slice(0,300), 400, 'GUIDE_ERROR'); }
+    }
 
     if (path === 'inquiry-notifications' && method === 'GET') {
       const count = await env.DB.prepare("SELECT COUNT(*) AS n FROM inquiries i LEFT JOIN admin_inquiry_reads r ON r.ref = i.ref WHERE r.ref IS NULL AND i.status = '문의 접수'").first();
@@ -207,7 +212,8 @@ export async function onRequest({ request, env, params }) {
       const { results: lg } = await env.DB.prepare('SELECT kind, actor, detail, created_at FROM event_log WHERE ref = ? ORDER BY id DESC LIMIT 30').bind(mDet[1]).all();
       let wait = null;
       if (r.event_date && ['문의 접수', '조건 확인', '견적 발송', '결제 대기'].includes(r.status)) { const wl = await waitList(env, r.event_date, r.space_id); const no = wl.indexOf(r.ref) + 1; if (no) wait = { no, total: wl.length, date: r.event_date, space_id: spaceOk(r.space_id) }; }
-      return json({ ok: true, item: { ...r, data: safe(r.data) }, checks: safe(c && c.checks), quotes: (qs || []).map(q => ({ ...q, data: safe(q.data) })), bookings: bk || [], log: lg || [], wait, visits: await visitsForInquiry(env, mDet[1]), catering_order: await cateringOrderFor(env, mDet[1], '') });
+      const guides=await guideSummary(env,(bk || []).map(x=>x.booking_code));
+      return json({ ok: true, item: { ...r, data: safe(r.data) }, checks: safe(c && c.checks), quotes: (qs || []).map(q => ({ ...q, data: safe(q.data) })), bookings: (bk || []).map(x=>({...x,guide_status:guides[x.booking_code] || ''})), log: lg || [], wait, visits: await visitsForInquiry(env, mDet[1]), catering_order: await cateringOrderFor(env, mDet[1], '') });
     }
     if (path === 'inquiries' && method === 'POST') {
       // 카카오톡·전화·이메일·방문으로 받은 문의를 관리자가 직접 등록합니다.
@@ -438,13 +444,13 @@ export async function onRequest({ request, env, params }) {
         return json({ ok: true, changed, confirm_doc_invalidated: sync.invalidated });
       }
       if (d.status === '대기 취소') return err('일자별 예약의 대기 취소 버튼을 이용해 주세요.');
-      const statusStatements = [];
+      const statusStatements = [], reconfirmed = [];
       if (d.status !== undefined) {
         const { results: linked } = await env.DB.prepare("SELECT booking_code FROM bookings WHERE inquiry_ref = ? AND status <> 'cancelled'").bind(ref).all();
         if (d.status === '예약 확정' && !(linked || []).length) return err('예약 확정 버튼에서 일시·금액을 확인한 뒤 확정해 주세요.', 409, 'USE_CONFIRM');
         if ((linked || []).length && !['예약 확정', '이용 완료', '취소·환불'].includes(d.status)) return err('확정 예약은 취소 처리한 뒤 문의 상태를 변경해 주세요.', 409, 'HAS_BOOKING');
         const bookingStatus = { '예약 확정': 'confirmed', '이용 완료': 'completed', '취소·환불': 'cancelled' }[d.status];
-        for (const booking of linked || []) { const update = await bookingStatusStatements(env, booking.booking_code, bookingStatus); statusStatements.push(...update.statements); }
+        for (const booking of linked || []) { const update = await bookingStatusStatements(env, booking.booking_code, bookingStatus); statusStatements.push(...update.statements); if(bookingStatus==='confirmed' && update.previous!=='confirmed') reconfirmed.push(booking.booking_code); }
       }
       if (d.status !== undefined) { if (!STATUSES.includes(d.status)) return err('상태 값이 올바르지 않습니다.'); sets.push('status = ?'); b.push(d.status); }
       if (d.memo !== undefined) { sets.push('memo = ?'); b.push(str(d.memo, 2000)); }
@@ -471,6 +477,7 @@ export async function onRequest({ request, env, params }) {
       if (d.memo !== undefined) statusStatements.push(env.DB.prepare("UPDATE bookings SET memo = ?, updated_at = ? WHERE inquiry_ref = ? AND status <> 'cancelled'").bind(str(d.memo, 2000), now(), ref));
       await batch(env, [env.DB.prepare('UPDATE inquiries SET ' + sets.join(', ') + ' WHERE ref = ?').bind(...b), ...statusStatements]);
       await log(env, 'inquiry.updated', ref, 'admin', d);
+      for (const code of reconfirmed) await automaticGuide(env, code);
       return json({ ok: true });
     }
 
@@ -551,6 +558,7 @@ export async function onRequest({ request, env, params }) {
       if (typeof env.DB.batch === 'function') await env.DB.batch(stmts); else for (const st of stmts) await st.run();
       await log(env, 'booking.created', code, 'admin', { space_id, date, from: ref });
       await log(env, 'inquiry.confirmed', ref, 'admin', { booking_code: code, date, amount });
+      await automaticGuide(env, code);
       const others = await env.DB.prepare("SELECT COUNT(*) AS n FROM inquiries WHERE event_date = ? AND ref <> ? AND CASE WHEN space_id = 'megaspot-gundae-2' THEN 'megaspot-gundae-2' ELSE 'megaspot-gundae' END = ? AND status IN ('문의 접수', '조건 확인', '견적 발송', '결제 대기')").bind(date, ref, space_id).first();
       return json({ ok: true, booking_code: code, date, others: (others || {}).n || 0, same_day: (same || []).length });
     }
@@ -566,7 +574,8 @@ export async function onRequest({ request, env, params }) {
         CASE WHEN b.inquiry_ref IS NOT NULL THEN (SELECT CASE WHEN json_extract(ic.checks, '$.guarantee_paid') IS NULL THEN NULL WHEN json_extract(ic.checks, '$.guarantee_paid') = 0 THEN 0 ELSE 1 END FROM inquiry_checks ic WHERE ic.ref = b.inquiry_ref)
              ELSE (SELECT dc.paid FROM booking_deposit_checks dc WHERE dc.booking_code = b.booking_code) END AS deposit_paid
         FROM bookings b ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY date DESC, created_at DESC, id DESC LIMIT 301 OFFSET ?`).bind(...args).all();
-      return json({ ok: true, has_more: (results || []).length > 300, items: (results || []).slice(0, 300) });
+      const items=(results || []).slice(0,300), guides=await guideSummary(env,items.map(x=>x.booking_code));
+      return json({ ok: true, has_more: (results || []).length > 300, items: items.map(x=>({...x,guide_status:guides[x.booking_code] || ''})) });
     }
     if (path === 'bookings' && method === 'POST') {
       const d = await readJson(request);
@@ -589,6 +598,7 @@ export async function onRequest({ request, env, params }) {
       if (d.block_calendar) statements.push(env.DB.prepare('INSERT INTO calendar_blocks (space_id, date, state, memo) VALUES (?,?,?,?) ON CONFLICT(space_id, date) DO UPDATE SET state = excluded.state, memo = excluded.memo').bind(space_id, date, 'full', '예약 ' + code));
       await batch(env, statements);
       await log(env, 'booking.created', code, 'admin', { space_id, date });
+      await automaticGuide(env, code);
       return json({ ok: true, booking_code: code });
     }
     // 예약 목록 — 확정 예약(bookings)과 날짜가 정해진 미확정 문의·예약 신청을 날짜순으로 함께 돌려줍니다.
@@ -639,6 +649,8 @@ export async function onRequest({ request, env, params }) {
       for (const p of (pend || []).slice(0, 1000)) items.push({ family: jarr(p.family), kind: 'pending', code: '', ref: p.ref, space_id: p.space_id || '', name: p.name, phone: p.phone, date: p.event_date, slot: p.slot, start_h: p.start_h ?? null, end_h: p.end_h ?? null,
         t_start: p.t_start || '', t_end: p.t_end || '', headcount: p.headcount, memo: p.memo || '', status: p.status, reserve: !!p.reserve, purpose: p.purpose || '', channel: p.channel || 'web', channel_note: p.channel_note || '', inquiry_type: p.inquiry_type || 'event', wait_rank: p.wait_rank == null ? null : Number(p.wait_rank), created_at: p.created_at, wait_restored_at: p.wait_restored_at || '',
         amount: p.effective_amount, deposit_paid: p.deposit_paid, amount_src: p.amount_override ? 'adjusted' : (p.quote_total != null ? 'quote' : (p.inq_total != null ? 'estimate' : '')), catering: orderBrief(p.cat_ord), catering_req: p.cat_req || '' });
+      const guides=await guideSummary(env,items.filter(x=>x.kind==='booking').map(x=>x.code));
+      for(const item of items) if(item.kind==='booking') item.guide_status=guides[item.code] || '';
       items.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : ((a.start_h ?? 99) - (b.start_h ?? 99)));
       const und = await env.DB.prepare("SELECT COUNT(*) AS n FROM inquiries WHERE status IN ('문의 접수', '조건 확인', '견적 발송', '결제 대기') AND (event_date IS NULL OR event_date = '')").first();
       // 같은 기간의 현장답사 (날짜 머리에 '현장답사 n건'으로 표시)
@@ -700,6 +712,7 @@ export async function onRequest({ request, env, params }) {
       await batch(env, update.statements);
       await log(env, 'booking.updated', code, 'admin', d);
       if (update.ref) await log(env, 'booking.updated', update.ref, 'admin', { booking_code: code, status: d.status });
+      if (d.status === 'confirmed' && update.previous !== 'confirmed') await automaticGuide(env, code);
       return json({ ok: true });
     }
 
