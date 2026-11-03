@@ -97,4 +97,6 @@ export const SCHEMA = [
  "CREATE TABLE IF NOT EXISTS booking_cancellation_revisions (\n id INTEGER PRIMARY KEY AUTOINCREMENT,\n booking_code TEXT NOT NULL,\n request_id TEXT NOT NULL,\n previous_version INTEGER NOT NULL,\n processing_token TEXT NOT NULL,\n terms TEXT NOT NULL CHECK(json_valid(terms)),\n created_at TEXT NOT NULL,\n UNIQUE(booking_code,request_id)\n)",
  "CREATE INDEX IF NOT EXISTS idx_cancellation_revisions_booking ON booking_cancellation_revisions(booking_code,id)",
  "CREATE TABLE IF NOT EXISTS booking_cancellation_state (\n booking_code TEXT PRIMARY KEY,\n revision INTEGER NOT NULL,\n document TEXT CHECK(document IS NULL OR json_valid(document))\n)",
+ "CREATE TABLE IF NOT EXISTS booking_reconfirmations (\n id INTEGER PRIMARY KEY AUTOINCREMENT,\n booking_code TEXT NOT NULL,\n request_id TEXT NOT NULL,\n signature TEXT NOT NULL,\n snapshot TEXT NOT NULL CHECK(json_valid(snapshot)),\n show_amount INTEGER NOT NULL DEFAULT 1,\n created_at TEXT NOT NULL,\n processing_token TEXT NOT NULL,\n UNIQUE(booking_code,request_id)\n)",
+ "CREATE INDEX IF NOT EXISTS idx_booking_reconfirmations_code ON booking_reconfirmations(booking_code,id)",
 ];
