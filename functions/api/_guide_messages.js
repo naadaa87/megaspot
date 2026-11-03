@@ -166,14 +166,17 @@ export async function automaticGuide(env,code) {
     await dispatch(env,id,s,template);
   } catch { /* Booking confirmation must remain successful if the messaging service fails. */ }
 }
-export async function guideSummary(env,codes) {
+async function guideLatest(env,codes) {
   if (!codes.length) return {};
   const out={};
   for(let i=0;i<codes.length;i+=80){
-    const chunk=codes.slice(i,i+80),{results}=await env.DB.prepare(`SELECT id,booking_code,status FROM booking_guide_messages WHERE mode='live' AND purpose=? AND booking_code IN (${chunk.map(()=>'?').join(',')}) ORDER BY created_at,rowid`).bind(GUIDE_VERSION,...chunk).all();
-    for(const x of results || []) out[x.booking_code]=x.status;
+    const chunk=codes.slice(i,i+80),{results}=await env.DB.prepare(`SELECT m.booking_code,m.status,m.error,m.provider_result,EXISTS(SELECT 1 FROM booking_guide_messages a WHERE a.booking_code=m.booking_code AND a.purpose=m.purpose AND a.mode='live' AND a.status IN ${ACTIVE}) AS has_active FROM booking_guide_messages m WHERE m.mode='live' AND m.purpose=? AND m.booking_code IN (${chunk.map(()=>'?').join(',')}) ORDER BY m.created_at,m.rowid`).bind(GUIDE_VERSION,...chunk).all();
+    for(const x of results || []) out[x.booking_code]=x;
   }
   return out;
+}
+export async function guideSummary(env,codes) {
+  return Object.fromEntries(Object.entries(await guideLatest(env,codes)).map(([code,m])=>[code,m.status]));
 }
 
 export async function guideAdmin({env,request,url,path,method}) {
@@ -224,7 +227,11 @@ export async function guideAdmin({env,request,url,path,method}) {
       args.push(GUIDE_VERSION);
     }
     const {results}=await env.DB.prepare(`SELECT b.*,json_extract(ic.checks,'$.guide_sent') AS guide_sent FROM bookings b LEFT JOIN inquiry_checks ic ON ic.ref=b.inquiry_ref WHERE ${conditions.join(' AND ')} ORDER BY b.date,b.start_h,b.id LIMIT 101 OFFSET ?`).bind(...args,page*100).all();
-    const rows=(results || []).slice(0,100), summary=await guideSummary(env,rows.map(x=>x.booking_code)),items=rows.map(b=>({booking_code:b.booking_code,name:b.customer_name,phone:b.phone,date:b.date,space_id:b.space_id,time:hours(b).map(hour).join('~'),guide_sent:!!b.guide_sent,message_status:summary[b.booking_code] || '',exclusion:guideEligibility(b,s)}));
+    const rows=(results || []).slice(0,100), latest=await guideLatest(env,rows.map(x=>x.booking_code)),items=rows.map(b=>{
+      const m=latest[b.booking_code],failed=m?.status==='failed',exclusion=guideEligibility(b,s);
+      return {booking_code:b.booking_code,name:b.customer_name,phone:b.phone,date:b.date,space_id:b.space_id,time:hours(b).map(hour).join('~'),guide_sent:!!b.guide_sent,message_status:m?.status || '',exclusion,
+        failure_reason:failed?str(m.error,300):'',failure_code:failed?str(m.provider_result,30):'',retry_allowed:failed&&!exclusion&&!m.has_active};
+    });
     return json({ok:true,items,has_more:(results || []).length>100});
   }
   if(path==='guide-messages/preview' && method==='POST') {
