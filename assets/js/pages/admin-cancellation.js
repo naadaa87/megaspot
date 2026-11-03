@@ -11,7 +11,7 @@
  function message(e){if(!X.guard(e))$('#cancel-msg').textContent=e.message||'처리하지 못했습니다.';}
  function rows(value){return '<dl>'+S.rows(value).map(function(r){return '<div><dt>'+M.esc(r[0])+'</dt><dd>'+M.esc(r[1])+'</dd></div>';}).join('')+'</dl>';}
  function estimate(){
-  if(!state.data)return;var r=state.data,c=r.terms,mode=$('#cancel-mode').value,base=c?c.basis_net:Math.max(0,r.settlement.net),at;try{at=atUTC();}catch{return;}
+  if(!state.data)return;var r=state.data,c=r.terms,mode=$('#cancel-mode').value,base=c?c.basis_net:Math.max(0,r.settlement.net),at;try{at=atUTC();}catch{$('#cancel-estimate').textContent='기존 취소 건은 실제 취소 접수 시각과 확인한 수수료를 입력해 주세요.';$('#cancel-fee-wrap').hidden=$('#cancel-mode').value!=='manual';$('#cancel-fee').required=$('#cancel-mode').value==='manual';return;}
   var eligible=c?.basis_eligible??Math.min(base,r.booking.amount==null?base:r.booking.amount),p=S.cancellationPolicy(r.booking.date,at),rate=mode==='full'?10000:p.rate,fee=mode==='manual'?Number($('#cancel-fee').value):eligible-Math.round(eligible*rate/10000);
   $('#cancel-fee-wrap').hidden=mode!=='manual';$('#cancel-fee').required=mode==='manual';
   var terms={mode:mode,cancelled_at:at,fee:fee,original_amount:c?c.original_amount:r.booking.amount,basis_net:base,basis_eligible:eligible,policy_label:mode==='policy'?p.label+' · '+rate/100+'% 환불':mode==='full'?'전액 환불 · 수수료 없음':'별도 합의 수수료',reason:$('#cancel-reason').value};
@@ -19,13 +19,13 @@
  }
  function paint(r){
   state.data=r;state.dirty=false;state.pending=null;$('#cancel-booking').textContent=r.booking.name+' · '+r.booking.date+' · '+r.booking.code+' · '+(r.booking.status==='cancelled'?'취소된 예약':'취소 전 예약');
-  $('#cancel-at').value=atInput(r.terms?.cancelled_at);$('#cancel-mode').value=r.terms?.mode||'policy';$('#cancel-fee').value=r.terms?.fee??'';$('#cancel-reason').value=r.terms?.reason||'고객 취소 요청 · 기본 환불 기준 적용';
+  var historical=r.booking.status==='cancelled'&&!r.terms;$('#cancel-at').value=historical?'':atInput(r.terms?.cancelled_at);$('#cancel-mode').value=r.terms?.mode||(historical?'manual':'policy');$('#cancel-fee').value=r.terms?.fee??'';$('#cancel-reason').value=r.terms?.reason||(historical?'':'고객 취소 요청 · 기본 환불 기준 적용');
   $('#cancel-save').textContent=r.terms?'취소 정산 변경 저장':'취소 정산 저장·예약 취소';
   $('#cancel-history').innerHTML=r.history.map(function(h){return '<p class="small">'+M.esc(h.created_at)+' · 수수료 '+won(h.terms.fee)+' · '+M.esc(h.terms.policy_label)+'<br>'+M.esc(h.terms.reason)+'</p>';}).join('')||'<p class="small muted">저장한 취소 정산이 없습니다.</p>';
   $('#cancel-show-amount').checked=r.preview?.show_amount!==false;estimate();if(r.preview)C.render(r.preview,$('#cancel-canvas')).catch(message);else $('#cancel-canvas').width=0;
  }
  function load(code){
-  if(state.busy)return;state.code=code;state.data=null;state.dirty=false;state.pending=null;$('#cancel-title').textContent='예약 취소·환불 정산 · '+code;$('#cancel-msg').textContent='';if(!modal.open)modal.showModal();busy(true);var n=++state.load;
+  if(state.busy)return;state.code=code;state.data=null;state.dirty=false;state.pending=null;$('#cancel-estimate').innerHTML='';$('#cancel-title').textContent='예약 취소·환불 정산 · '+code;$('#cancel-msg').textContent='';if(!modal.open)modal.showModal();busy(true);var n=++state.load;
   X.A('/bookings/'+encodeURIComponent(code)+'/cancellation').then(function(r){if(n===state.load)paint(r);}).catch(message).finally(function(){if(n===state.load)busy(false);});
  }
  function close(){if(state.busy)return;if(state.dirty&&!confirm('입력 중인 취소 정산을 버리고 닫을까요?'))return;modal.close();state.dirty=false;state.queue=[];}
