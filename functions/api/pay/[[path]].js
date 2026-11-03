@@ -49,8 +49,22 @@ export function buildOrder(input) {
     const add = input.addons && typeof input.addons === 'object' ? input.addons : {};
     for (const a of P.items.filter(x => x.kind === 'addon')) {
       const v = add[a.opt]; if (!v) continue;
-      const qty = Math.max(1, Math.min(10, parseInt(v, 10) || 1));
-      lines.push({ id: a.id, label: a.name, desc: `${a.unit} × ${qty}`, qty, amount: a.price * qty });
+      const rate = PRICING.options.find(x => x.id === a.opt);
+      if (a.opt === 'manager' && typeof v === 'object') {
+        const count = Number(v.count), hours = Number(v.hours);
+        if (!Number.isSafeInteger(count) || count < 1 || count > 10 || !Number.isSafeInteger(hours) || hours < 1 || hours > 24)
+          return { error: '매니저는 1~10명, 1~24시간 사이의 정수로 입력해 주세요.', code: 'BAD_OPTIONS' };
+        lines.push({ id: a.id, label: rate.label, desc: `${count}명 × ${hours}시간 × ${rate.price.toLocaleString('ko-KR')}원`, qty: count * hours, amount: rate.price * count * hours });
+      } else if (a.opt === 'disposable' && typeof v === 'object') {
+        const count = Number(v.people);
+        if (!Number.isSafeInteger(count) || count < 1 || count > P.people.max)
+          return { error: `1회용 세트는 1~${P.people.max}명 사이의 정수로 입력해 주세요.`, code: 'BAD_OPTIONS' };
+        lines.push({ id: a.id, label: rate.label, desc: `${count}명 × ${rate.price.toLocaleString('ko-KR')}원`, qty: count, amount: rate.price * count });
+      } else {
+        if (typeof v === 'object') return { error: '옵션 수량을 확인해 주세요.', code: 'BAD_OPTIONS' };
+        const qty = Math.max(1, Math.min(10, parseInt(v, 10) || 1));
+        lines.push({ id: a.id, label: a.name, desc: `${a.unit} × ${qty}`, qty, amount: a.price * qty });
+      }
     }
   } else {
     const qty = Math.max(1, Math.min(10, num(input.qty) || 1));
@@ -116,9 +130,14 @@ export async function onRequest({ request, env, params, waitUntil }) {
       // 접수번호는 같은 연락처(끝 4자리)로 들어온 문의일 때만 연결합니다(남의 문의를 결제로 바꾸지 못하게)
       let inquiryRef = str(o.product.kind === 'verification' ? '' : d.inquiry_ref, 20).toUpperCase().replace(/[^0-9A-Z-]/g, '');
       if (inquiryRef) {
-        const iq = await env.DB.prepare('SELECT phone FROM inquiries WHERE ref = ?').bind(inquiryRef).first();
+        const iq = await env.DB.prepare('SELECT phone, data FROM inquiries WHERE ref = ?').bind(inquiryRef).first();
         const same = iq && String(iq.phone || '').replace(/\D/g, '').slice(-4) === phone.replace(/\D/g, '').slice(-4);
         if (!same) inquiryRef = '';
+        else if (o.product.kind === 'pass') {
+          const detail = safe(iq.data);
+          if (detail.catering || detail.cocktail || detail.reception)
+            return err('식음료가 포함된 신청은 담당자가 전체 구성과 최종 금액을 확인한 뒤 결제를 안내합니다. 카카오톡으로 문의번호를 알려 주세요.', 409, 'CONSULTATION_REQUIRED');
+        }
       }
       const data = { lines: o.lines, people: o.people, slot: o.slot, memo: str(d.memo, 500), inquiry_ref: inquiryRef, addons: o.product.kind === 'verification' ? {} : (d.addons || {}), qty: o.product.kind === 'verification' ? 1 : (num(d.qty) || 1), member_email: member ? member.email : '', ua: str(request.headers.get('user-agent'), 200), provider: 'payapp' };
       await env.DB.prepare('INSERT INTO orders (oid, product_id, title, event_date, people, price, buyer_name, buyer_phone, buyer_email, data, status, inquiry_ref, member_id, test, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')

@@ -60,7 +60,7 @@
         return '<td class="rc" data-band="' + b.id + '" data-col="' + c.id + '">' + mn(v) + '</td>';
       }).join('') + '</tr>';
     }).join('');
-    el.innerHTML = '<div class="rate-wrap"><table class="rate-table v2"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>'
+    el.innerHTML = '<p class="table-scroll-hint">좌우로 움직여 전체 요금을 확인하세요. ↔</p><div class="rate-wrap"><table class="rate-table v2"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>'
       + '<div class="rate-legend"><span><span class="lg-hl"></span>계산기에서 고른 시간대</span><span>심야(24–07시)는 이용일 요일 기준으로 계산합니다.</span>' + (D.dawn ? '<span>' + esc(D.dawn.note) + '</span>' : '') + '<span>공휴일은 아래 요일 구분 규칙을 따릅니다.</span>' + (D.peak ? '<span>' + esc(peakRangeText()) + '은 <a href="' + (location.pathname === PAGE ? '#peak' : PAGE + '#peak') + '">성수기 요금표</a>를 따릅니다.</span>' : '') + '</div>';
   };
   R['day-rule'] = function(el){
@@ -135,7 +135,7 @@
           + '<td>' + (t.surcharge ? mn(t.surcharge) : '<span class="muted">없음</span>') + '</td>'
           + D.packages.map(function(p){ return '<td class="pk">' + mn(t.pkg[p.id]) + '</td>'; }).join('') + '</tr>';
       }).join('');
-      return '<div class="tbl-wrap"><table class="tbl peak-table"><thead><tr>' + head.map(function(h, i){ return '<th' + (i === 0 ? ' class="k"' : '') + '>' + h + '</th>'; }).join('') + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+      return '<p class="table-scroll-hint table-scroll-hint-wide">좌우로 움직여 전체 요금을 확인하세요. ↔</p><div class="tbl-wrap"><table class="tbl peak-table"><thead><tr>' + head.map(function(h, i){ return '<th' + (i === 0 ? ' class="k"' : '') + '>' + h + '</th>'; }).join('') + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
     }
     el.innerHTML = '<div class="peak-head"><div class="peak-when">' + pk.periods.map(function(p){ return '<span class="peak-chip' + (p.id === cur ? ' on' : '') + '"><b>' + esc(p.label) + '</b><small>' + esc(E.kdate(p.from)) + (p.from !== p.to ? ' – ' + esc(E.kdate(p.to)) : '') + '</small></span>'; }).join('') + '</div>'
       + '<div class="peak-tabs" role="tablist">' + pk.periods.map(function(p){ return '<button type="button" role="tab" data-period="' + p.id + '" aria-selected="' + (p.id === cur) + '">' + esc(p.label) + ' 요금</button>'; }).join('') + '</div></div>'
@@ -239,7 +239,8 @@
     cfg = cfg || {};
     var q0 = {}; try { q0 = Object.fromEntries(new URLSearchParams(location.search)); } catch (_) {}
     if(PLAN) q0=PLAN.initial(q0, SPACE_ID);
-    var st = { date: cfg.date || q0.date || defaultDate(), start: 13, end: 17, people: E.clampInt(q0.people, 1, D.people.max, D.people.defaultPick || 30), purpose: cfg.purpose || q0.purpose || '', regular: q0.type === 'regular',
+    var requestedPeople = E.clampInt(q0.requestedPeople || q0.people, 1, 350, D.people.defaultPick || 30);
+    var st = { date: cfg.date || q0.date || defaultDate(), start: 13, end: 17, requestedPeople: requestedPeople, people: E.clampInt(requestedPeople, 1, D.people.max, D.people.defaultPick || 30), purpose: cfg.purpose || q0.purpose || '', regular: q0.type === 'regular',
                opt: { manager: false, managerCount: 1, managerHours: 0, cleaning: false, disposable: false, banner: false, xbanner: false } };
     if (q0.pkg){ var pk0 = E.findPkg(q0.pkg); if (pk0){ st.start = pk0.start; st.end = pk0.end; } }
     if (q0.start && q0.end){ st.start = E.clampInt(q0.start, D.openFrom, D.openTo - 1, 13); st.end = E.clampInt(q0.end, st.start + 1, D.openTo, st.start + 4); }
@@ -288,7 +289,7 @@
       + '<div class="est-mini" data-out="mini" hidden><span>예상 금액<small data-out="minisub"></small></span><b data-out="minitotal"></b><button type="button" class="btn btn-primary btn-sm" data-act="show">전체 견적 보기</button></div>'
       + '</div>';
 
-    if(PLAN && +q0.people>D.people.max){var capacity=document.createElement('p');capacity.className='plan-attention hint';capacity.textContent=NAME+'은 최대 '+D.people.max+'명입니다. 비교 금액은 '+D.people.max+'명 기준으로 조정했습니다. 기존 인원으로 이용하려면 다른 공간을 선택해 주세요.';el.querySelector('.rv-head').after(capacity);}
+    if(PLAN){var capacity=document.createElement('p');capacity.className='plan-attention hint';capacity.dataset.out='capacity';capacity.hidden=true;el.querySelector('.rv-head').after(capacity);}
     var f = function(n){ return el.querySelector('[name=' + n + ']'); };
     var out = function(n){ return el.querySelector('[data-out="' + n + '"]'); };
     var last = null, phase = 'calc', member = null, done = null, sideVisible = false;
@@ -308,7 +309,9 @@
       st.date = f('date').value || E.todayIso();
       st.start = +f('start').value; st.end = +f('end').value;
       if (st.end <= st.start){ st.end = Math.min(st.start + 1, D.openTo); f('end').value = st.end; }
-      st.people = E.clampInt(f('people').value, 1, D.people.max, D.people.base);
+      var enteredPeople = E.clampInt(f('people').value, 1, 350, D.people.base);
+      if (enteredPeople !== st.people) st.requestedPeople = enteredPeople;
+      st.people = E.clampInt(enteredPeople, 1, D.people.max, D.people.base);
       st.purpose = f('purpose').value; st.regular = f('regular').checked;
       ['manager', 'cleaning', 'disposable', 'banner', 'xbanner'].forEach(function(k){ st.opt[k] = f(k).checked; });
       st.opt.managerCount = E.clampInt(f('managerCount').value, 1, 10, 1);
@@ -324,7 +327,7 @@
       read();
       var r = E.quote({ date: st.date, start: st.start, end: st.end, people: st.people, purpose: st.purpose, options: options(), regular: st.regular });
       if(PLAN){ PLAN.availability(el,SPACE_ID,st.date); PLAN.saveSpace(st,SPACE_ID); r.plan=PLAN.quote(el,r); }
-      last = r; paint(r); if(PLAN) PLAN.paint(el,r); return r;
+      last = r; paint(r); if(PLAN){ PLAN.paint(el,r); var capacity=out('capacity'); if(capacity){capacity.hidden=st.requestedPeople<=D.people.max;capacity.textContent=NAME+'는 최대 '+D.people.max+'명입니다. 요청하신 '+st.requestedPeople+'명은 다른 공간을 선택해 주세요. 비교 금액은 '+D.people.max+'명 기준이며 공간을 바꾸면 요청 인원으로 다시 계산합니다.';} } return r;
     }
     function lineRows(r){
       var lines = '';
@@ -425,6 +428,7 @@
       if(PLAN && !PLAN.validate(el)){ er.textContent='식사 인원과 답사 희망일을 확인해 주세요.'; er.hidden=false; return; }
       if (!M.validate(form)){ er.textContent = '이름·휴대폰 번호와 동의 여부를 확인해 주세요.'; er.hidden = false; return; }
       read(); var r = last || calc();
+      if (st.requestedPeople > D.people.max){ er.textContent = '요청하신 '+st.requestedPeople+'명은 '+NAME+'의 최대 인원('+D.people.max+'명)을 넘습니다. 다른 공간을 고르거나 인원을 다시 입력해 주세요.'; er.hidden = false; return; }
       if (!(r.plan && r.plan.unknownDate) && r.date < E.todayIso()){ er.textContent = '지난 날짜는 신청할 수 없습니다. 이용일을 다시 골라 주세요.'; er.hidden = false; return; }
       if (!(r.plan && r.plan.unknownDate) && D.opening && r.date < D.opening){ er.textContent = NAME + '은 ' + E.kdateY(D.opening) + ' 오픈합니다. 오픈일 이후 날짜를 골라 주세요.'; er.hidden = false; return; }
       var who = { name: form.rv_name.value.trim(), phone: form.rv_phone.value.trim(), email: form.rv_email.value.trim(), message: form.rv_message.value.trim(), family: [].slice.call(form.querySelectorAll('[name=rv_family]:checked')).map(function(i){ return i.value; }), catering: CC ? CC.read(PLAN?el:form, 'rv_cat', r.people) : null, cocktail: CK ? CK.read(PLAN?el:form) : null, visit: M.visitRead ? M.visitRead(PLAN?el:form, 'rv_visit') : null };
@@ -444,9 +448,12 @@
     }
     function paintDone(){
       var r = done.r, text = reserveText(r, done.who);
-      var passId = !(r.plan&&r.plan.unknownDate) && D.onlinePass && r.pkg && !r.peak ? PASS_ID[r.pkg.id][r.col] : null;   // 성수기는 이용권 금액과 달라 온라인 이용권으로 결제하지 않습니다 · 온라인 이용권은 1호만
-      var addons = Object.keys(options());
-      var payLink = passId ? '/order/?product=' + passId + '&date=' + r.date + '&people=' + r.people + '&ref=' + encodeURIComponent(done.ref) + (addons.length ? '&addons=' + addons.join(',') : '') : '';
+      var hasFood = !!(r.plan && r.plan.hasFood) || !!(done.who.catering || done.who.cocktail || done.who.reception);
+      var passId = !hasFood && !(r.plan&&r.plan.unknownDate) && D.onlinePass && r.pkg && !r.peak ? PASS_ID[r.pkg.id][r.col] : null;   // 성수기는 이용권 금액과 달라 온라인 이용권으로 결제하지 않습니다 · 온라인 이용권은 1호만
+      var selectedOptions = options(), addons = Object.keys(selectedOptions);
+      var optionQuery = selectedOptions.manager ? '&manager_count=' + selectedOptions.manager.count + '&manager_hours=' + selectedOptions.manager.hours : '';
+      if (selectedOptions.disposable) optionQuery += '&disposable_people=' + r.people;
+      var payLink = passId ? '/order/?product=' + passId + '&date=' + r.date + '&people=' + r.people + '&ref=' + encodeURIComponent(done.ref) + (addons.length ? '&addons=' + addons.join(',') : '') + optionQuery : '';
       out('result').innerHTML = '<div class="est-card rv-card rv-done">'
         + '<div class="row between"><div class="eyebrow">' + (done.live ? 'Received' : 'Draft') + '</div><span class="badge ' + (done.live ? 'badge-ok' : 'badge-warn') + '">' + (done.live ? '상담 신청 접수' : '체험 모드 · 전송 대기') + '</span></div>'
         + '<h3 class="est-title">' + (done.live ? '상담 신청이 접수되었습니다' : '예약 신청 내용이 준비되었습니다') + '</h3>'
@@ -457,6 +464,7 @@
         + (done.live
           ? '<ol class="steps-mini mt-3"><li><b>일정 확인</b><span>담당자가 신청하신 날짜·시간이 비어 있는지 확인하고 영업시간 기준 2시간 안에 카카오톡·문자로 연락드립니다.</span></li><li><b>금액 확인·결제 안내</b><span>확정 금액과 결제 방법(카드·계좌이체)을 안내드립니다.</span></li><li><b>예약 확정</b><span>결제가 끝나면 예약번호가 발급되고 현장 안내를 보내 드립니다.</span></li></ol>'
           : '<p class="small muted mt-2">지금은 서버가 연결되지 않아 자동 저장되지 않았습니다. 아래 내용을 카카오톡으로 보내 주시면 같은 순서로 안내해 드립니다.</p>')
+        + (hasFood && done.live ? '<div class="notice mt-3"><div><b>공간과 식음료를 함께 확인한 뒤 결제를 안내합니다.</b><br>담당자가 선택하신 전체 구성의 일정·제공 가능 여부와 최종 금액을 확인해 연락드립니다.</div></div>' : '')
         + (payLink && done.live ? '<div class="notice mt-3"><div><b>지금 바로 결제하고 확정할 수도 있습니다.</b><br>선택하신 시간이 ' + esc(r.pkg.label) + '와 같아서 온라인 이용권으로 바로 결제할 수 있습니다. 고르신 옵션은 주문 화면에 미리 담기고, 결제가 끝나면 이 신청이 자동으로 \'예약 확정\'으로 바뀝니다.</div><a class="btn btn-primary btn-sm" href="' + esc(payLink) + '">바로 결제하기 →</a></div>' : '')
         + '<div class="rv-sub mt-3">' + (KAKAO ? '<a class="btn btn-kakao btn-sm" data-act="kakao" href="' + esc(KAKAO) + '" target="_blank" rel="noopener">카카오톡으로 보내기</a>' : '') + '<button type="button" class="btn btn-light btn-sm" data-act="copy">내용 복사</button><button type="button" class="btn btn-light btn-sm" data-act="pdf">견적서 PDF</button><button type="button" class="btn btn-light btn-sm" data-act="ics">내 캘린더에 저장</button>' + (done.member ? '<a class="btn btn-light btn-sm" href="/mypage/">마이페이지</a>' : '') + '<button type="button" class="btn btn-ghost btn-sm" data-act="again">새로 계산</button></div>'
         + '<pre class="dr-pre mt-3" data-out="summary" hidden>' + esc(text) + '</pre>'
@@ -479,9 +487,9 @@
 
     // 인원·매니저 칸은 입력할 때마다(input) 이미 계산하므로, 칸을 벗어날 때 나는 change 는 건너뜁니다(안 그러면 '금액 구성 보기'를 누르는 순간 카드가 다시 그려져 닫힙니다)
     el.addEventListener('change', function(e){ var n = e.target.name || ''; if (n.indexOf('rv_') === 0 || n === 'people' || n === 'managerCount' || n === 'managerHours') return; calc(); });
-    el.addEventListener('input', function(e){ if (e.target.name === 'people' || e.target.name === 'managerCount' || e.target.name === 'managerHours') calc(); });
+    el.addEventListener('input', function(e){ if (e.target.name === 'people') st.requestedPeople=E.clampInt(e.target.value,1,350,D.people.base); if (e.target.name === 'people' || e.target.name === 'managerCount' || e.target.name === 'managerHours') calc(); });
     out('pkgs').addEventListener('click', function(e){ var b = e.target.closest('.slot-btn'); if (!b) return; var p = E.findPkg(b.dataset.pkg); f('start').value = p.start; f('end').value = p.end; calc(); });
-    out('people-pick').addEventListener('click', function(e){ var b = e.target.closest('button'); if (!b) return; f('people').value = b.dataset.n; calc(); });
+    out('people-pick').addEventListener('click', function(e){ var b = e.target.closest('button'); if (!b) return; f('people').value = b.dataset.n; st.requestedPeople=+b.dataset.n; calc(); });
     out('date-pick').addEventListener('click', function(e){ var b = e.target.closest('button'); if (!b) return; f('date').value = b.dataset.d; calc(); });
     el.addEventListener('click', function(e){
       var b = e.target.closest('[data-act]'); if (!b) return;
@@ -506,7 +514,7 @@
       setDate: function(iso){ if (!iso) return; f('date').value = iso; calc(); },
       setPackage: function(id){ var p = E.findPkg(id); if (!p) return; f('start').value = p.start; f('end').value = p.end; calc(); },
       setRange: function(s, e){ f('start').value = s; f('end').value = e; calc(); },
-      set: function(o){ o = o || {}; if (o.date) f('date').value = o.date; if (o.start) f('start').value = o.start; if (o.end) f('end').value = o.end; if (o.people) f('people').value = o.people; if (o.purpose !== undefined) f('purpose').value = o.purpose;
+      set: function(o){ o = o || {}; if (o.date) f('date').value = o.date; if (o.start) f('start').value = o.start; if (o.end) f('end').value = o.end; if (o.people){ f('people').value = o.people; st.requestedPeople=E.clampInt(o.people,1,350,D.people.base); } if (o.purpose !== undefined) f('purpose').value = o.purpose;
         if (o.options){ ['manager', 'cleaning', 'disposable', 'banner', 'xbanner'].forEach(function(k){ f(k).checked = o.options.indexOf(k) >= 0; }); }
         if (o.regular !== undefined) f('regular').checked = !!o.regular;
         if ((o.options && o.options.length) || o.regular){ var dm = el.querySelector('.rv-more'); if (dm) dm.open = true; }

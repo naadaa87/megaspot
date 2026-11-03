@@ -142,3 +142,27 @@ test('추가 식음료 주문 전액 환불도 다른 결제의 수납이 남아
 test('추가 주문의 누적 전액 부분 환불도 별도 계좌 예약금이 있으면 예약 유지',async()=>{
  const f=fixture(),food=f.seed('ABCDEF',true);await f.call('feedback','POST',await f.form(food));const code=f.order(food.oid).booking_code;f.db.prepare("INSERT INTO booking_payment_entries(booking_code,request_id,kind,amount,note,created_at) VALUES(?,?,'receipt',50000,'계좌 예약금','2026-11-03')").run(code,'bank-receipt-123');await f.call('feedback','POST',await f.form(food,'70',{mul_no:'990001',orig_mul_no:food.mul_no,orig_price:String(food.price),price:String(food.price)}));assert.equal(f.order(food.oid).status,'refunded');assert.equal(f.db.prepare('SELECT status FROM bookings WHERE booking_code=?').get(code).status,'confirmed');
 });
+
+test('정확한 매니저 시간·인원과 일회용품 인원이 결제 요청·저장 내역까지 보존된다',async(t)=>{
+  const f=fixture();let product,date;
+  for(let n=1;n<400;n++){date=kstToday(n);if(peakOf(date))continue;product=PRODUCTS.items.find(x=>x.kind==='pass'&&x.pkg==='day'&&PRODUCTS.dayGroups[x.group].cols.includes(dayCol(date)));if(product)break;}
+  let sent;
+  t.mock.method(globalThis,'fetch',async(url,opts)=>{sent=new URLSearchParams(opts.body);return new Response(new URLSearchParams({state:'1',mul_no:'123456',payurl:'https://payapp.kr/local-test'}));});
+  const addons={manager:{count:2,hours:7},disposable:{people:30}};
+  const response=await f.call('prepare','POST',{product_id:product.id,date,people:30,addons,price:1,buyer:{name:'검증 고객',phone:'01012345678'},agree_terms:true,agree_privacy:true,agree_refund:true});
+  const result=await response.json(),expected=product.price+100000+350000+150000;
+  assert.equal(response.status,200);assert.equal(result.total,expected);assert.equal(sent.get('price'),String(expected));
+  const data=JSON.parse(f.order(result.oid).data);assert.deepEqual(data.addons,addons);assert.equal(data.lines.find(x=>x.id==='addon-manager').qty,14);assert.equal(data.lines.find(x=>x.id==='addon-disposable').qty,30);
+});
+
+
+test('식음료 문의는 기존 바로결제 링크를 열어도 공간료만으로 전체 신청을 확정하지 않는다',async(t)=>{
+ const f=fixture();let product,date;
+ for(let n=1;n<400;n++){date=kstToday(n);if(peakOf(date))continue;product=PRODUCTS.items.find(x=>x.kind==='pass'&&x.pkg==='day'&&PRODUCTS.dayGroups[x.group].cols.includes(dayCol(date)));if(product)break;}
+ t.mock.method(globalThis,'fetch',async()=>{throw Error('식음료 상담 건은 결제 제공자에 전송하면 안 됩니다.');});
+ for(const service of ['catering','cocktail','reception']){
+   const ref='MS-FOOD-'+service.toUpperCase();f.db.prepare('INSERT INTO inquiries(ref,space_id,status,name,phone,data,created_at) VALUES(?,?,?,?,?,?,?)').run(ref,'megaspot-gundae','문의 접수','검증 고객','01012345678',JSON.stringify({[service]:{on:true}}),'2026-11-03');
+   const response=await f.call('prepare','POST',{product_id:product.id,date,people:30,inquiry_ref:ref,buyer:{name:'검증 고객',phone:'01012345678'},agree_terms:true,agree_privacy:true,agree_refund:true});
+   assert.equal(response.status,409);assert.equal((await response.json()).code,'CONSULTATION_REQUIRED');assert.equal(f.db.prepare('SELECT COUNT(*) n FROM orders').get().n,0);
+ }
+});

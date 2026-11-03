@@ -9,7 +9,7 @@ window.MEGASPOT_FACILITIES = {
    "item": "위치",
    "desc": "서울 광진구 화양동 10-1, 한아름건물 2층",
    "basis": "운영자 확인",
-   "note": "한아름건물 2층 전체"
+   "note": "한아름건물 2층 190평 전용 홀"
   },
   {
    "no": 2,

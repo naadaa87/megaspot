@@ -78,3 +78,22 @@ test('부가세 별도 칵테일은 세액을 포함한 합계를 대관 소계�
  const q=f.plan.quote(f.root,{total:500000,deposit:150000,people:60});
  assert.equal(q.total,1490000);assert.match(q.html,/900,000원.*90,000원/);
 });
+
+
+test('최대 인원으로 비교한 뒤 공간을 바꾸면 원래 요청 인원을 복구한다',()=>{
+ const f=fixture();f.plan.saveSpace({people:200,requestedPeople:300,opt:{}},'megaspot-gundae');
+ f.plan.keep({state:{people:200,requestedPeople:300,opt:{}},form:{},fields:{}});
+ const next=f.plan.initial({people:'300'},'megaspot-gundae-2');assert.equal(next.people,300);assert.equal(next.requestedPeople,300);
+});
+test('다른 페이지에서 새 인원을 지정하면 과거의 초과 인원 요청보다 우선한다',()=>{
+ const f=fixture();f.plan.saveSpace({people:200,requestedPeople:300,opt:{}},'megaspot-gundae');
+ const next=f.plan.initial({people:'80'},'megaspot-gundae-2');assert.equal(next.people,'80');assert.equal(next.requestedPeople,'80');
+});
+
+
+test('식음료가 선택된 통합 견적은 상담 결제 대상으로 구분한다',()=>{
+ const f=fixture();assert.equal(f.plan.quote(f.root,{total:500000,deposit:150000,people:30}).hasFood,false);
+ f.food({summary:'뷔페 상담',total:0});assert.equal(f.plan.quote(f.root,{total:500000,deposit:150000,people:30}).hasFood,true);
+ f.food(null,{cups:100,price:900000});assert.equal(f.plan.quote(f.root,{total:500000,deposit:150000,people:30}).hasFood,true);
+ f.food(null,null);f.reception('',30,'all');assert.equal(f.plan.quote(f.root,{total:500000,deposit:150000,people:30}).hasFood,true);
+});

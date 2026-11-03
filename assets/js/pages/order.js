@@ -21,13 +21,22 @@
         app.hidden=false; init();
       }).catch(function(){ $('#od-offline').hidden=false; });
     });
-    function init(){
+    function renderProduct(){
       $('#od-product').innerHTML='<div class="eyebrow">'+(isPass?'공간 이용권':'옵션 상품')+'</div><div class="row between" style="align-items:flex-start;gap:12px"><div><h2 class="h-m">'+esc(prod.name)+'</h2><p class="small muted mt-1">'+esc(isPass?PKG[prod.pkg]+' · 기준 20명':prod.unit)+'</p></div><div class="prod-price small"><b>'+esc(won(prod.price))+'</b><span>부가세 포함</span></div></div><p class="small mt-2" style="color:var(--ink-2)">'+esc(prod.summary)+'</p><a class="small" href="/products/'+prod.id+'/" style="color:var(--cobalt);font-weight:700">상품 상세·환불 기준 보기 →</a>';
+    }
+    function optionRate(id){ var r=E&&E.data&&E.data().options.filter(function(x){return x.id===id;})[0]; return r?r.price:(id==='manager'?25000:5000); }
+    function init(){
+      renderProduct();
       if(isPass){
         $('#od-date').min=todayIso(); if(q.get('date')) $('#od-date').value=q.get('date'); if(q.get('people')) $('#od-people').value=q.get('people');
         if(q.get('ref')&&/^MS-[0-9A-Z-]{3,20}$/i.test(q.get('ref'))){ $('#od-ref').value=q.get('ref').toUpperCase(); var refNote=document.createElement('p'); refNote.className='tiny mt-1'; refNote.style.color='var(--cobalt)'; refNote.textContent='예약 신청 '+q.get('ref').toUpperCase()+' 건과 연결됩니다. 결제가 끝나면 신청 상태가 자동으로 \'예약 확정\'으로 바뀝니다.'; $('#od-ref').insertAdjacentElement('afterend', refNote); }
-        $('#od-addons').innerHTML=addons.map(function(a){ return '<label class="chk od-addon"><input type="checkbox" data-addon="'+a.opt+'"> <span><b>'+esc(a.name)+'</b> <small>'+esc(won(a.price))+' / '+esc(a.unit)+'</small></span><select class="select" data-addon-qty="'+a.opt+'" aria-label="수량">'+[1,2,3,4,5].map(function(n){ return '<option value="'+n+'">'+n+'</option>'; }).join('')+'</select></label>'; }).join('');
-        var pre=(q.get('addons')||'').split(',').filter(Boolean); if(pre.length){ pre.forEach(function(k){ var cb=$('#od-addons input[data-addon="'+k+'"]'); if(cb) cb.checked=true; }); var an=document.createElement('p'); an.className='tiny mt-1'; an.style.color='var(--cobalt)'; an.textContent='예약 신청 때 고르신 옵션을 미리 담았습니다. 수량과 필요 여부를 한 번 더 확인해 주세요.'; $('#od-addons').insertAdjacentElement('afterend', an); }
+        $('#od-addons').innerHTML=addons.map(function(a){
+          if(a.opt==='manager') return '<div class="chk od-addon" style="flex-wrap:wrap"><label class="chk" style="flex:1;min-width:180px"><input type="checkbox" data-addon="manager"> <span><b>현장 매니저</b><small>'+esc(won(optionRate('manager')))+' / 1명 · 1시간</small></span></label><span class="od-addon-fields" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><label class="od-addon-quantity">인원 <input class="input" type="number" min="1" max="10" step="1" data-manager-count aria-label="매니저 인원" value="'+esc(q.get('manager_count')||'1')+'" style="width:70px">명</label><label class="od-addon-quantity">시간 <input class="input" type="number" min="1" max="24" step="1" data-manager-hours aria-label="매니저 시간" value="'+esc(q.get('manager_hours')||prod.hours)+'" style="width:70px">시간</label></span></div>';
+          if(a.opt==='disposable') return '<div class="chk od-addon" style="flex-wrap:wrap"><label class="chk" style="flex:1;min-width:180px"><input type="checkbox" data-addon="disposable"> <span><b>1회용 세트</b><small>'+esc(won(optionRate('disposable')))+' / 1명</small></span></label><span class="od-addon-fields" style="display:flex;gap:6px;align-items:center"><label class="od-addon-quantity">인원 <input class="input" type="number" min="1" max="200" step="1" data-disposable-people aria-label="1회용 세트 인원" value="'+esc(q.get('disposable_people')||$('#od-people').value)+'" style="width:85px">명</label></span></div>';
+          return '<label class="chk od-addon"><input type="checkbox" data-addon="'+a.opt+'"> <span><b>'+esc(a.name)+'</b> <small>'+esc(won(a.price))+' / '+esc(a.unit)+'</small></span><select class="select" data-addon-qty="'+a.opt+'" aria-label="'+esc(a.name)+' 수량">'+[1,2,3,4,5,6,7,8,9,10].map(function(n){ return '<option value="'+n+'">'+n+'</option>'; }).join('')+'</select></label>';
+        }).join('');
+        $$('[data-addon-qty]').forEach(function(x){if(q.has('qty_'+x.dataset.addonQty))x.value=q.get('qty_'+x.dataset.addonQty);});
+        var pre=(q.get('addons')||'').split(',').filter(function(k){return addons.some(function(a){return a.opt===k;});}); if(pre.length){ pre.forEach(function(k){ var cb=$('#od-addons input[data-addon="'+k+'"]'); if(cb) cb.checked=true; }); var an=document.createElement('p'); an.className='tiny mt-1'; an.style.color='var(--cobalt)'; an.textContent='예약 신청 때 고르신 옵션을 미리 담았습니다. 수량과 필요 여부를 한 번 더 확인해 주세요.'; $('#od-addons').insertAdjacentElement('afterend', an); }
       } else {
         $('#od-pass').hidden=true; $('#od-addon-only').hidden=false;
         $('#od-qty').innerHTML=[1,2,3,4,5,6,7,8,9,10].map(function(n){ return '<option value="'+n+'">'+n+' ('+esc(won(prod.price*n))+')</option>'; }).join('');
@@ -49,28 +58,59 @@
       if(M.account){ M.account.me().then(function(m){ if(!m) return; if(!$('#od-name').value) $('#od-name').value=m.name; if(!$('#od-phone').value) $('#od-phone').value=m.phone; if(!$('#od-email').value) $('#od-email').value=m.email; var ml=$('#od-member'); ml.className='member-line on'; ml.innerHTML='<span><b>'+esc(m.name)+'</b>님, 회원 정보로 채웠습니다. 결제한 주문은 마이페이지에서도 볼 수 있습니다.</span>'; ml.hidden=false; }); }
       $('#od-form').addEventListener('input', function(){ $('#od-error').dataset.sticky=''; calc(); }); $('#od-form').addEventListener('change', function(){ $('#od-error').dataset.sticky=''; calc(); }); calc();
       $('#od-pay').addEventListener('click', pay);
+      $('#od-error').addEventListener('click', function(e){
+        var link=e.target.closest('[data-swap-product]'); if(!link) return;
+        var next=P.get(link.dataset.swapProduct); if(!next||next.kind!=='pass'||next.pkg!==prod.pkg) return;
+        e.preventDefault(); prod=next; renderProduct(); history.replaceState(null,'',link.getAttribute('href')); calc();
+        M.toast('이용권을 바꿨습니다. 문의번호·옵션과 입력한 정보는 그대로 유지됩니다.');
+      });
     }
     function state(){
       var s={ product_id:prod.id, buyer:{ name:$('#od-name').value.trim(), phone:$('#od-phone').value.trim(), email:$('#od-email').value.trim() }, memo:$('#od-memo').value.trim(), inquiry_ref:$('#od-ref').value.trim().toUpperCase(),
         agree_terms:$('[name=agree_terms]').checked, agree_privacy:$('[name=agree_privacy]').checked, agree_refund:$('[name=agree_refund]').checked };
       if(isVerification){ s.qty=1; s.inquiry_ref=''; }
-      else if(isPass){ s.date=$('#od-date').value; s.people=parseInt($('#od-people').value,10)||20; s.addons={}; $$('[data-addon]').forEach(function(cb){ if(cb.checked) s.addons[cb.dataset.addon]=parseInt($('[data-addon-qty="'+cb.dataset.addon+'"]').value,10)||1; }); }
+      else if(isPass){ s.date=$('#od-date').value; s.people=Number($('#od-people').value); s.addons={}; $$('[data-addon]').forEach(function(cb){
+        if(!cb.checked) return;
+        if(cb.dataset.addon==='manager') s.addons.manager={count:Number($('[data-manager-count]').value),hours:Number($('[data-manager-hours]').value)};
+        else if(cb.dataset.addon==='disposable') s.addons.disposable={people:Number($('[data-disposable-people]').value)};
+        else s.addons[cb.dataset.addon]=Number($('[data-addon-qty="'+cb.dataset.addon+'"]').value);
+      }); }
       else { s.qty=parseInt($('#od-qty').value,10)||1; s.date=$('#od-date2').value; }
       return s;
+    }
+    function productUrl(product, s){
+      var qs=new URLSearchParams({product:product.id,date:s.date,people:String(s.people)}), keys=Object.keys(s.addons||{});
+      if(s.inquiry_ref) qs.set('ref',s.inquiry_ref); if(keys.length) qs.set('addons',keys.join(','));
+      if(s.addons.manager){qs.set('manager_count',s.addons.manager.count);qs.set('manager_hours',s.addons.manager.hours);}
+      if(s.addons.disposable) qs.set('disposable_people',s.addons.disposable.people);
+      keys.forEach(function(k){if(typeof s.addons[k]==='number')qs.set('qty_'+k,s.addons[k]);});
+      return '/order/?'+qs.toString();
+    }
+    function optionError(s){
+      if(!Number.isSafeInteger(s.people)||s.people<1||s.people>200)return '대관 인원은 1~200명 사이의 정수로 입력해 주세요.';
+      var m=s.addons.manager,d=s.addons.disposable;
+      if(m&&(!Number.isSafeInteger(m.count)||m.count<1||m.count>10||!Number.isSafeInteger(m.hours)||m.hours<1||m.hours>24))return '매니저는 1~10명, 1~24시간 사이의 정수로 입력해 주세요.';
+      if(d&&(!Number.isSafeInteger(d.people)||d.people<1||d.people>200))return '1회용 세트는 1~200명 사이의 정수로 입력해 주세요.';
+      return '';
     }
     function calc(){
       var s=state(), lines=[], warn='';
       if(isPass){
         lines.push({label:prod.name, desc:PKG[prod.pkg]+' · 기준 20명', amount:prod.price});
         var extra=Math.max(0, Math.min(200, s.people)-20); if(extra) lines.push({label:'인원 추가', desc:extra+'명 × 10,000원', amount:extra*10000});
-        addons.forEach(function(a){ var n=s.addons[a.opt]; if(n) lines.push({label:a.name, desc:a.unit+' × '+n, amount:a.price*n}); });
+        addons.forEach(function(a){ var n=s.addons[a.opt]; if(!n)return;
+          if(a.opt==='manager') lines.push({label:'현장 매니저',desc:n.count+'명 × '+n.hours+'시간 × '+won(optionRate('manager')),amount:optionRate('manager')*n.count*n.hours});
+          else if(a.opt==='disposable') lines.push({label:'1회용 세트',desc:n.people+'명 × '+won(optionRate('disposable')),amount:optionRate('disposable')*n.people});
+          else lines.push({label:a.name, desc:a.unit+' × '+n, amount:a.price*n});
+        });
         var hint=$('#od-date-hint'); hint.textContent=''; hint.className='hint';
         if(s.date && E){ var di=E.dayInfo(s.date); if(di){ var g=P.dayGroups[prod.group]; var ok=g.cols.indexOf(di.col)>=0;
           hint.innerHTML=esc(E.kdateY(s.date))+(di.holiday?' · '+esc(di.holiday):'')+' → <b>'+esc(COL[di.col])+'</b> 요금 적용'+(ok?' · 이 이용권으로 결제할 수 있습니다':'');
           if(di.peak){ ok=false; hint.className='hint err-text'; hint.innerHTML=esc(E.kdateY(s.date))+' → <b>성수기 요금</b>('+esc(di.peak.label)+' 기준'+(di.peak.people>P.people.base?' · 기준 '+di.peak.people+'명 포함':'')+')'; warn='이 날짜는 성수기 요금이 적용되어 이용권 금액과 다릅니다. <a href="/inquiry/?date='+s.date+'&pkg='+esc(prod.pkg)+'&people='+s.people+'" style="text-decoration:underline;font-weight:700">예약 신청 · 금액 확인에서 그날 금액 보기 →</a> 신청하시면 결제 방법을 안내해 드립니다.'; }
-          else if(!ok){ var alt=P.items.filter(function(x){ return x.kind==='pass'&&x.pkg===prod.pkg&&P.dayGroups[x.group].cols.indexOf(di.col)>=0; })[0]; hint.className='hint err-text'; warn='이 날짜는 '+COL[di.col]+' 요금이 적용되어 <b>'+esc(prod.name)+'</b>으로는 결제할 수 없습니다.'+(alt?' <a href="/order/?product='+alt.id+'&date='+s.date+'&people='+s.people+'" style="text-decoration:underline;font-weight:700">'+esc(alt.name)+'('+esc(won(alt.price))+')으로 바꾸기</a>':''); }
+          else if(!ok){ var alt=P.items.filter(function(x){ return x.kind==='pass'&&x.pkg===prod.pkg&&P.dayGroups[x.group].cols.indexOf(di.col)>=0; })[0]; hint.className='hint err-text'; warn='이 날짜는 '+COL[di.col]+' 요금이 적용되어 <b>'+esc(prod.name)+'</b>으로는 결제할 수 없습니다.'+(alt?' <a href="'+esc(productUrl(alt,s))+'" data-swap-product="'+esc(alt.id)+'" style="text-decoration:underline;font-weight:700">'+esc(alt.name)+'('+esc(won(alt.price))+')으로 바꾸기</a>':''); }
         } }
       } else lines.push({label:prod.name, desc:prod.unit+' × '+s.qty, amount:prod.price*s.qty});
+      if(isPass) warn=optionError(s)||warn;
       var total=lines.reduce(function(a,l){ return a+l.amount; },0);
       $('#od-lines').innerHTML='<tbody>'+lines.map(function(l){ return '<tr><td>'+esc(l.label)+'<small>'+esc(l.desc)+'</small></td><td>'+esc(won(l.amount))+'</td></tr>'; }).join('')+'</tbody><tfoot><tr class="sum"><td>합계 <small>부가세 포함</small></td><td>'+esc(won(total))+'</td></tr></tfoot>';
       var er=$('#od-error'); if(warn){ er.innerHTML=warn; er.hidden=false; } else if(er.dataset.sticky!=='1'){ er.hidden=true; }
@@ -79,7 +119,7 @@
     function pay(){
       var f=$('#od-form'), er=$('#od-error'); er.dataset.sticky=''; er.hidden=true;
       if(!M.validate(f)){ er.textContent='필수 항목과 동의 여부를 확인해 주세요.'; er.hidden=false; er.dataset.sticky='1'; return; }
-      var s=state(); if(isPass && !s.date){ er.textContent='이용일을 선택해 주세요.'; er.hidden=false; return; }
+      var s=state(); if(isPass && optionError(s)){er.textContent=optionError(s);er.hidden=false;return;} if(isPass && !s.date){ er.textContent='이용일을 선택해 주세요.'; er.hidden=false; return; }
       var btn=$('#od-pay'); btn.disabled=true; btn.textContent='결제창을 여는 중…';
       M.api('/pay/prepare',{method:'POST', body:s}).then(function(r){
         var target=new URL(r.payurl);

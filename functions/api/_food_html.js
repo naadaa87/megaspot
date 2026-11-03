@@ -4,8 +4,13 @@ import ITEMS from '../../assets/js/data/reception-items.js';
 const comma=n=>String(n).replace(/\B(?=(\d{3})+(?!\d))/g,',');
 export function foodHtml(html,path,rates){
  const cp=rates.catering.prices,rp=rates.reception.prices,cmin=Math.min(...CATERING.courses.filter(c=>c.kind==='per'&&c.group!=='light').map(c=>cp['course.'+c.id])),rmin=Math.min(...RECEPTION.courses.map(c=>rp['course.'+c.id]));
- html=html.replace(/25,000원부터 · 핑거푸드·파티/g,comma(rmin)+'원부터 · 핑거푸드·파티');
  const slots=[];function keep(value){slots.push(String(value));return '@@FOODPRICE'+(slots.length-1)+'@@';}
+ // Shared navigation, FAQ answers (including JSON-LD) and cross-service cards
+ // must use the same minimum as the calculator, even outside the service page.
+ // Protect inserted amounts from the legacy per-course substitutions below.
+ html=html.replace(/25,000원부터/g,()=>keep(comma(rmin))+'원부터');
+ html=html.replace(/(<div class="hero-mega"><span><b>)25,000(?=<\/b>원부터)/g,(_,prefix)=>prefix+keep(comma(rmin)));
+ html=html.replace(/(코스별 1인 가격\()35,000(?=원부터, 부가세 별도)/g,(_,prefix)=>prefix+keep(comma(cmin)));
  function money(s,map){return s.replace(/\d[\d,]*(?=원|<)/g,v=>Object.prototype.hasOwnProperty.call(map,v)?keep(comma(map[v])):v);}
  if(path.startsWith('/catering')){
   html=html.replace(/(<div class="hero-mega" aria-label="핵심 정보"><span>1인 <b>)[\d,]+/,(_,prefix)=>prefix+keep(comma(cmin)));
@@ -23,7 +28,6 @@ export function foodHtml(html,path,rates){
   html=money(html,defaults).replace(/@@DRINKS(\d+)@@/g,(_,i)=>drinks[+i]);
  }
  if(path.startsWith('/reception')){
-  html=html.replace(/25,000원부터/g,()=>keep(comma(rmin))+'원부터');
   const drinks=[];html=html.replace(/<!-- drinks-summary:start -->[\s\S]*?<!-- drinks-summary:end -->/g,s=>{drinks.push(s);return '@@RECDRINKS'+(drinks.length-1)+'@@';});
   html=html.replace(/<table class="est-lines reception-fee-table">[\s\S]*?<\/table>/,()=>'<table class="est-lines reception-fee-table"><thead><tr><th>인원</th><th>도시락</th><th>박스</th><th>테이블 세팅</th></tr></thead><tbody>'+[50,100,200,300].map((n,i)=>'<tr><td>'+['50명 이하','51~100명','101~200명','201~300명'][i]+'</td>'+['lunchbox','box','table'].map(f=>'<td class="r">'+keep(comma(rp['fee.'+f+'.'+RECEPTION.feesByFormat[f].find(b=>n<=b.upto).upto]))+'원</td>').join('')+'</tr>').join('')+'</tbody></table>');
   html=html.replace(/테이블 세팅·철수 비용은 50명 이하 20만 원, 51~100명 25만 원입니다\./g,'제공 방식과 인원별 비용은 위 가격표를 확인해 주세요.');

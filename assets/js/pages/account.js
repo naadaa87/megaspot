@@ -63,7 +63,7 @@
       if(!live){ $('#my-offline').hidden=false; $('#my-logout').hidden=true; return; }
       M.api('/auth/me').then(function(j){
         var m=j.member; if(!m){ location.replace('/login/?next=/mypage/'); return; }
-        app.hidden=false; fillProfile(m); loadInquiries();
+        app.hidden=false; fillProfile(m); loadInquiries(); loadOrders();
       }).catch(function(){ location.replace('/login/?next=/mypage/'); });
     });
     $('#my-logout').addEventListener('click', function(){ M.account.logout().then(function(){ location.href='/'; }); });
@@ -92,6 +92,23 @@
             + '</div>';
         }).join('');
       }).catch(function(x){ $('#my-inquiries').innerHTML='<div class="empty">'+esc(x.message||'문의 목록을 불러오지 못했습니다.')+'</div>'; });
+    }
+    function loadOrders(){
+      var inquiries=$('#my-inquiries'), section=document.createElement('section'); section.className='mt-4'; section.setAttribute('aria-labelledby','my-orders-title');
+      section.innerHTML='<div class="row between mb-2"><h2 class="h-s" id="my-orders-title">내 주문·결제</h2><span class="small muted" id="my-order-count"></span></div><div id="my-orders" class="grid" style="gap:12px" aria-live="polite"><div class="empty">주문 내역을 불러오는 중…</div></div><p class="tiny muted mt-2">로그인한 상태에서 주문한 최근 100건을 표시합니다. 로그인 전 구매한 주문은 결제 완료 화면이나 주문번호로 문의해 주세요.</p>';
+      inquiries.parentNode.appendChild(section);
+      var labels={created:'결제 진행 중',pending:'입금 대기',paid:'결제 완료',failed:'결제 실패',cancelled:'취소',refunded:'환불 완료'}, money=function(v){return Number(v||0).toLocaleString('ko-KR')+'원';};
+      M.api('/auth/orders').then(function(j){
+        var list=j.items||[]; $('#my-order-count').textContent=list.length?list.length+'건':'';
+        $('#my-orders').innerHTML=list.length?list.map(function(o){
+          var when=[o.date?M.fmtKDate(o.date):'',o.people?o.people+'명':''].filter(Boolean).join(' · ');
+          return '<article class="card pad-s"><div class="row between"><b>'+esc(o.title)+'</b><span class="badge '+(o.status==='paid'?'badge-ok':'badge-soft')+'">'+esc(labels[o.status]||o.status)+'</span></div>'
+            +'<p class="small muted mt-1">'+esc(String(o.created_at||'').slice(0,10))+' 주문 · '+esc(o.oid)+'</p>'+(when?'<p class="small mt-1">'+esc(when)+'</p>':'')
+            +'<p class="mt-2"><b>'+esc(money(o.price))+'</b>'+(o.refunded_amount?' <span class="small muted">환불 '+esc(money(o.refunded_amount))+' · 남은 결제 '+esc(money(o.price-o.refunded_amount))+'</span>':'')+'</p>'
+            +(o.booking_code?'<p class="small mt-1">예약번호 <b>'+esc(o.booking_code)+'</b></p>':'')
+            +'<div class="row mt-2" style="gap:8px"><a class="btn btn-light btn-sm" href="/order/complete/?oid='+encodeURIComponent(o.oid)+'">주문·결제 상세</a>'+(o.booking_code?'<a class="btn btn-light btn-sm" href="/confirm/?c='+encodeURIComponent(o.booking_code)+'">예약확정서 조회</a>':'')+'</div></article>';
+        }).join(''):'<div class="empty"><b>아직 회원으로 주문한 내역이 없습니다</b><p class="small muted mt-1">이용권을 구매하면 결제와 예약번호를 여기에서 확인할 수 있습니다.</p><a class="btn btn-primary btn-sm mt-2" href="/products/">이용권 보기</a></div>';
+      }).catch(function(x){$('#my-orders').innerHTML='<div class="empty" role="alert">'+esc(x.message||'주문 내역을 불러오지 못했습니다.')+' <button class="btn btn-light btn-sm" type="button" data-order-retry>다시 불러오기</button></div>';var retry=section.querySelector('[data-order-retry]');retry.addEventListener('click',function(){section.remove();loadOrders();});});
     }
     function note(id, msg, ok){ var n=$(id); n.textContent=msg; n.hidden=false; n.classList.toggle('ok', !!ok); }
     $('#my-profile').addEventListener('submit', function(e){

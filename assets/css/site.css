@@ -200,7 +200,7 @@ table{border-collapse:collapse;width:100%}
 .hero-copy .lead{max-width:52ch}
 .hero-visual{position:relative;min-height:320px}
 .hero-visual img{width:100%;height:100%;min-height:320px;object-fit:cover;border-radius:var(--radius-lg) var(--radius-lg) 0 0;filter:saturate(.95)}
-.hero-visual .plate{position:absolute;left:0;bottom:0;background:var(--cobalt);color:#fff;padding:14px 18px;border-radius:0 var(--radius) 0 0;font-size:13px;line-height:1.5}
+.hero-visual .plate{position:absolute;left:0;bottom:0;z-index:2;max-width:100%;background:var(--cobalt);color:#fff;padding:14px 18px;border-radius:0 var(--radius) 0 0;font-size:13px;line-height:1.5}
 .hero-visual .plate b{display:block;font-family:var(--font-display);font-size:22px;letter-spacing:.02em;font-weight:400}
 .hero-actions{display:flex;flex-wrap:wrap;gap:10px}
 @media (max-width:599px){.hero-actions .btn{flex:1 1 100%}}
@@ -476,7 +476,7 @@ iframe{max-width:100%}
 .hero-visual .hero-slides img{position:absolute;inset:0;width:100%;height:100%;min-height:0;object-fit:cover;border-radius:0;flex:none}
 .hero-visual .plate span{display:block}
 .hero-visual .plate .plate-sub{font-size:12px;color:#C9D7FA;margin-top:2px}
-.hero-dots{position:absolute;right:14px;bottom:14px;z-index:3;display:flex;gap:6px}
+.hero-dots{position:absolute;right:14px;top:14px;z-index:3;display:flex;gap:6px}
 .hero-dots button{width:22px;height:22px;display:grid;place-items:center}
 .hero-dots button::before{content:"";width:22px;height:4px;border-radius:2px;background:rgba(255,255,255,.5);transition:background .2s}
 .hero-dots button.on::before{background:#fff}
@@ -1936,9 +1936,16 @@ body.rs-dragging,body.rs-dragging *{user-select:none;-webkit-user-select:none;cu
 .cat-table thead th{font-size:12.5px;font-weight:700;color:var(--ink-3);background:var(--concrete-3);white-space:nowrap}
 .cat-table tbody tr:last-child th,.cat-table tbody tr:last-child td{border-bottom:0}
 .cat-table tbody th{font-weight:600}
-.cat-table tbody th b{font-size:15.5px;color:var(--graphite)}
+.cat-table:not(.compact) tbody th{min-width:156px}
+.cat-table tbody th b{font-size:15.5px;color:var(--graphite);word-break:keep-all;overflow-wrap:normal}
 .cat-table tbody th small{display:block;font-size:12.5px;color:var(--ink-3);font-weight:600;margin-top:2px}
 .cat-table .r{text-align:right;white-space:nowrap}
+.cat-price-line{display:flex;justify-content:flex-end;align-items:baseline;gap:8px;line-height:1.6}
+.cat-price-line + .cat-price-line{margin-top:4px}
+.cat-price-line small{font-size:12px;color:var(--ink-2);font-weight:500}
+.table-scroll-hint{display:none}
+@media(max-width:719px){.table-scroll-hint{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:12.5px;line-height:1.6;color:var(--ink-2)}.cat-table:not(.compact) thead th:first-child,.cat-table:not(.compact) tbody th[scope="row"]{position:sticky;left:0;z-index:1;background:var(--white);box-shadow:1px 0 0 var(--concrete-2)}.cat-table:not(.compact) thead th:first-child{background:var(--concrete-3);z-index:2}.cat-table:not(.compact) tr.pop th[scope="row"]{background:#F6F8FE}}
+@media(max-width:999px){.table-scroll-hint-wide{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:12.5px;line-height:1.6;color:var(--ink-2)}}
 .cat-table tr.pop{background:#F6F8FE}
 .cat-table.compact{min-width:480px}
 .cat-table.compact th,.cat-table.compact td{padding:11px 14px}
@@ -2867,3 +2874,50 @@ body:not(.page-admin) .seller-card .def{margin-top:24px;padding-top:18px}
 /* Mobile journey refinements after hands-on form review. */
 .plan-next{display:flex;width:100%;margin-top:22px;justify-content:center;white-space:normal;text-align:center;min-height:48px}.plan-reception [data-reception-body]>.f{margin-top:16px}.plan-visit-summary{padding:14px 16px;margin:16px 0;background:var(--cobalt-soft);border-radius:8px;color:var(--ink);font-size:13px;font-weight:600;line-height:1.7}.plan-visit-summary small{display:block;font-size:11.5px;color:var(--ink-3);font-weight:400;margin-top:4px}.plan-services [data-reception-sum]{padding:12px;background:var(--concrete-3);border-radius:6px;font-size:13px;line-height:1.7}
 @media(max-width:599px){.est-mini{gap:8px!important}.est-mini>span{min-width:0;font-size:11px}.est-mini>b{font-size:23px}.est-mini>.btn{font-size:12px;padding:0 10px;min-height:40px}.plan-summary h4{font-size:18px}.plan-costs>div{grid-template-columns:minmax(0,1fr) auto;line-height:1.6}.rv-apply h4{font-size:18px}}
+
+/* Keep the first reservation control close to the page introduction. */
+body.page-inquiry .page-hero{padding:28px 0 24px}
+body.page-inquiry .page-hero .h-xl{font-size:38px;margin:12px 0;line-height:1.3}
+body.page-inquiry .page-hero .lead{font-size:16px;line-height:1.7}
+body.page-inquiry #reserve{padding-top:24px}
+body.page-inquiry .inq-flow{display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:12px;font-size:12.5px;color:var(--ink-2)}
+body.page-inquiry .sp-switch{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+body.page-inquiry .sp-switch button{min-width:0;padding:12px 14px}
+body.page-inquiry .sp-switch .sp-name{font-size:17px;gap:6px}
+body.page-inquiry .sp-switch .sp-sub{font-size:13px;color:var(--ink-2)}
+body.page-inquiry .space-help{margin-top:12px;font-size:13px;color:var(--ink-2)}
+body.page-inquiry .space-help summary{cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+body.page-inquiry .space-help p{margin-top:10px;max-width:80ch;line-height:1.7}
+body.page-inquiry #estimator{margin-top:18px}
+.home-space-choice small .nw{display:inline;font-size:inherit;color:inherit}
+.od-addon-fields{display:flex;flex-wrap:wrap;gap:10px 16px;min-width:0}
+.od-addon-fields .f{flex:1 1 140px;min-width:0}
+.od-addon-fields label{white-space:normal;line-height:1.5}
+@media(max-width:599px){
+  body.page-inquiry .page-hero{padding:18px 0 20px}
+  body.page-inquiry .page-hero .eyebrow,body.page-inquiry .inq-flow{display:none}
+  body.page-inquiry .page-hero .h-xl{font-size:28px;line-height:1.3;margin:12px 0 10px}
+  body.page-inquiry .page-hero .lead{font-size:14px;line-height:1.65}
+  body.page-inquiry #reserve{padding-top:18px}
+  body.page-inquiry .sp-switch{gap:8px}
+  body.page-inquiry .sp-switch button{padding:10px;gap:5px}
+  body.page-inquiry .sp-switch .sp-name{font-size:16px;gap:5px}
+  body.page-inquiry .sp-switch .badge{font-size:10px;height:21px;padding:0 5px}
+  body.page-inquiry .sp-switch .sp-sub{font-size:12px;line-height:1.5}
+  body.page-inquiry .space-help{font-size:12.5px;margin-top:10px}
+  body.page-inquiry #estimator{margin-top:14px}
+  body.page-inquiry .rv-head{display:none}
+  body.page-inquiry .rv-form>.plan-service-links{margin-top:14px}
+  body.page-inquiry .rv-form>.rv-step:first-of-type{padding-top:18px}
+}
+
+.od-addon-quantity{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-size:13px}
+.od-addon-fields label.od-addon-quantity{white-space:nowrap}
+.od-addon-quantity .input{flex:none}
+/* Quantity controls share one option card and wrap as complete label/input pairs. */
+.od-addon:has(.od-addon-fields){display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+.od-addon:has(.od-addon-fields)>label.chk{min-width:0!important;border:0;padding:0;background:transparent;box-shadow:none;align-items:flex-start}
+.od-addon .od-addon-fields{width:100%;justify-content:flex-start}
+.od-addon:has(.od-addon-fields)>label.chk>span{display:grid;gap:3px;min-width:0}
+.od-addon:has(.od-addon-fields)>label.chk small{display:block;font-size:12px;line-height:1.5}
+.od-addon:has(.od-addon-fields)>label.chk>input[type="checkbox"]{flex:none;margin-top:4px}
