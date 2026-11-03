@@ -702,7 +702,7 @@
   $('#q-extra-add').addEventListener('click', function(){ readForm(); Q.extras.push({label:'',amount:0}); invalidateQuote(); renderExtras(); var l=$$('#q-extras [data-ex=label]'); if(l.length) l[l.length-1].focus(); });
   $('#q-extras').addEventListener('click', function(e){ var b=e.target.closest('[data-ex-del]'); if(!b) return; readForm(); Q.extras.splice(+b.dataset.exDel,1); renderExtras(); invalidateQuote(); calc(); });
   $('#q-reset').addEventListener('click', function(){ if(quoteDirty && !confirm('작성 중인 견적을 초기화할까요?')) return; savedQuoteSnapshot=null; savedQuoteCreatedAt=''; quoteDirty=false; Q=blankQ(); fillForm(); calc(); $('#q-msg').hidden=true; });
-  $('#q-reception').addEventListener('click',function(){readForm();window.MEGASPOT_ADMIN.openReception(Q.ref,{customer:Q.customer,phone:Q.phone,date:Q.date,space:Q.space,people:Q.people});});
+  $('#q-reception').addEventListener('click',function(){readForm();window.MEGASPOT_ADMIN.openReception(Q.ref,{customer:Q.customer,phone:Q.phone,date:Q.date,space:Q.space,people:Q.people,reception:(Q.extras.find(function(x){return x.kind==='reception';})||{}).reception});});
 
   function quoteFromInquiry(it, lastQuote){
     if(quoteDirty && !confirm('작성 중인 견적을 바꾸고 이 문의를 불러올까요?')) return false;
@@ -1870,7 +1870,7 @@
       Q=blankQ(); Q.customer=target.customer; Q.phone=target.phone; Q.space=spaceOk(target.space); useSpace(Q.space); Q.people=Math.min(D.people.max,quote.people); Q.deposit=D.deposit.amount; if(target.date) Q.date=target.date;
     }
     Q.extras=Q.extras.filter(function(x){ return x.kind!=='reception'; });
-    Q.extras.push({kind:'reception',label:'도시락·핑거푸드 케이터링 · '+quote.formatName+' 클래식 '+quote.people+'명 (세팅비 포함 · 부가세 확인 전)',amount:quote.total,reception:config});
+    Q.extras.push({kind:'reception',label:'도시락·핑거푸드 케이터링 · '+quote.formatName+' '+quote.courseName+' '+quote.people+'명 (세팅비 포함 · 부가세 확인 전)',amount:quote.total,reception:config});
     invalidateQuote(); fillForm(); go('quote'); M.toast('케이터링 '+won(quote.total)+'을(를) 대관 견적에 넣었습니다. 견적 저장을 눌러 문의에도 반영해 주세요.');
     return Promise.resolve(true);
   }

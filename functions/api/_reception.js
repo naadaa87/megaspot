@@ -4,13 +4,12 @@ import { str } from './_lib.js';
 
 export function receptionAdmin(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-  if (value.course && value.course !== 'classic') return null;
-  const q = C.quote(value.people, value.format);
+  const q = C.quote(value.people, value.format, value.course);
   if (!q.ok) return null;
   const status = value.status || 'pending';
   if (!['pending', 'confirmed', 'cancelled'].includes(status)) return null;
   return { ...q, status, by: 'admin', note: str(value.note, 500), menuNote: C.data.menuNote,
-    summary: `클래식 ${q.people}명 · ${q.formatName} · 메뉴 ${C.won(q.food)} + ${q.feeName} ${C.won(q.fee)}`, tax_pending: true };
+    summary: `${q.courseName} ${q.people}명 · ${q.formatName} · 메뉴 ${C.won(q.food)} + ${q.feeName} ${C.won(q.fee)}`, tax_pending: true };
 }
 
 export function receptionExtra(extras) {
