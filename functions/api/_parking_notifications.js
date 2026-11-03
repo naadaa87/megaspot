@@ -111,7 +111,7 @@ async function refresh(env,e){
   await state(env,e.id,'accepted','SMS 대체 발송 결과 대기',{sms:smid});
  }else if(Date.now()-utc(e.occurred_at)>86400000)await state(env,e.id,'unknown','알리고 SMS 대체 발송 결과 확인 필요');
 }
-export async function parkingNoticeTick(env){
+export async function parkingNoticeTick(env,send=true){
  // A process killed during provider I/O must never make the same event eligible again.
  await env.DB.prepare("UPDATE parking_notifications SET status='unknown',error='발송 중 응답 확인 필요' WHERE status='sending' AND updated_at<datetime('now','-5 minutes')").run();
  await env.DB.prepare('DELETE FROM parking_notification_links WHERE expires_at<?').bind(Date.now()).run();
@@ -120,7 +120,7 @@ export async function parkingNoticeTick(env){
  if(!active)await env.DB.prepare("UPDATE parking_notifications SET status='cancelled',error='고객 발송 중지' WHERE status='queued' AND mode='live'").run();
  const {results:pending}=await env.DB.prepare("SELECT * FROM parking_notifications WHERE status='accepted' ORDER BY id LIMIT 10").all();
  for(const e of pending||[]){try{await refresh(env,e);}catch{}}
- if(active){const {results}=await env.DB.prepare("SELECT * FROM parking_notifications WHERE status='queued' AND mode='live' ORDER BY id LIMIT 5").all();for(const e of results||[]){try{await dispatch(env,e);}catch{}}}
+ if(active&&send){const {results}=await env.DB.prepare("SELECT * FROM parking_notifications WHERE status='queued' AND mode='live' ORDER BY id LIMIT 5").all();for(const e of results||[]){try{await dispatch(env,e);}catch{}}}
  return {ok:true,enabled:!!active};
 }
 export async function parkingNoticeCron(request,env,readOnly=false){
@@ -161,6 +161,6 @@ export async function parkingNoticeAdmin(request,env,path){
   await env.DB.prepare("UPDATE parking_notifications SET payload='{}' WHERE id=?").bind(e.id).run();
   return json({ok:true,id:e.id});
  }
- if(path==='admin/notifications/refresh' && method==='POST')return json(await parkingNoticeTick(env));
+ if(path==='admin/notifications/refresh' && method==='POST')return json(await parkingNoticeTick(env,false));
  return err('경로를 찾을 수 없습니다.',404);
 }
