@@ -45,7 +45,7 @@
 <link rel="stylesheet" href="/assets/css/parking-purchase.css?v=20261103daily-live1">
 <link rel="stylesheet" href="/assets/css/admin-guide-messages.css?v=20261103guide8">
 <link rel="stylesheet" href="/assets/css/deposit-refunds.css?v=20261103refund1">
-<link rel="stylesheet" href="/assets/css/quote-print.css?v=20261103recdoc1">
+<link rel="stylesheet" href="/assets/css/quote-print.css?v=20261103food1">
 </head>
 <body class="page-admin">
 <div id="admin-root">
@@ -75,6 +75,7 @@
       <button type="button" data-view="quote">견적 계산</button>
       <button type="button" data-view="catering">출장뷔페<em data-count="catering" hidden></em></button>
       <button type="button" data-view="reception">테이블·박스 케이터링</button>
+      <button type="button" data-view="cocktail">출장 칵테일</button>
       <button type="button" data-view="orders">주문·결제<em data-count="orders" hidden></em></button>
       <button type="button" data-view="bookings">예약 관리</button>
       <button type="button" data-view="calendar">일정 달력</button>
@@ -271,6 +272,7 @@
               <label class="ct-st-o confirmed"><input type="radio" name="ct-status" value="confirmed"><span>확정</span><small>주문 확정 · 발주 진행</small></label>
               <label class="ct-st-o cancelled"><input type="radio" name="ct-status" value="cancelled"><span>취소</span><small>진행하지 않음</small></label>
             </div>
+            <label class="chk" id="ct-include-wrap" hidden><input type="checkbox" id="ct-include-booking"> 출장뷔페 금액을 예약 금액에 포함</label>
             <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center"><button class="btn btn-primary" type="button" id="ct-save">이 건에 저장</button><button class="btn btn-ghost btn-sm" type="button" id="ct-del" hidden>저장한 출장뷔페 삭제</button></div>
             <p class="tiny muted" id="ct-save-hint"></p>
           </div>
@@ -314,6 +316,21 @@
         <div class="f"><span class="lbl">발주처 코스 이름 <span class="tiny muted">(발주 메모에 이 이름으로 들어갑니다)</span></span><div class="ct-codes" id="cv-codes"></div></div>
         <div class="f"><label for="cv-note">발주할 때 참고 <span class="tiny muted">(주문 마감, 입금 방법 등)</span></label><textarea class="textarea" id="cv-note" style="min-height:60px" maxlength="1000"></textarea></div>
         <div class="row" style="gap:8px;align-items:center"><button class="btn btn-primary btn-sm" type="submit" id="cv-save">발주처 정보 저장</button><span class="tiny muted" id="cv-state"></span></div>
+      </form>
+    </section>
+
+    <section class="adm-view" id="view-cocktail" hidden>
+      <header class="adm-head"><div><h1>출장 칵테일</h1><p class="small muted">문의의 패키지·메뉴·진행 상태를 저장합니다. 견적에 포함한 구성은 예약 금액에도 반영됩니다.</p></div></header>
+      <form class="adm-card" id="ak-form">
+        <div class="field-row"><div class="f"><label for="ak-ref">문의번호</label><input class="input" id="ak-ref" placeholder="MS-…"></div><div class="f"><span class="lbl">문의 연결</span><button class="btn btn-light" type="button" id="ak-load">문의 불러오기</button></div></div>
+        <p class="small muted" id="ak-target">문의관리에서 칵테일 계산·변경을 눌러도 연결됩니다.</p>
+        <div class="field-row"><div class="f"><label for="ak-cups">패키지</label><select class="select" id="ak-cups"></select></div><div class="f"><label for="ak-status">진행 상태</label><select class="select" id="ak-status"><option value="pending">대기</option><option value="confirmed">확정</option><option value="cancelled">취소 · 합계 제외</option></select></div></div>
+        <div class="f"><label for="ak-menus">희망 메뉴 (최대 8개 · 여러 개 선택 가능)</label><select class="select" id="ak-menus" multiple size="8"></select></div>
+        <label class="chk"><input type="checkbox" id="ak-nonalcohol"> 논알코올 구성 상담</label>
+        <div class="f"><label for="ak-note">요청·안내</label><textarea class="textarea" id="ak-note" maxlength="300"></textarea></div>
+        <p id="ak-result" role="status"></p><p class="tiny muted">표시 가격은 칵테일 패키지 금액입니다. 부가세·출장·운영·재료 포함 범위는 상담 후 확인합니다. 공간 대관료는 별도입니다.</p>
+        <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-primary" type="button" id="ak-save">이 문의에 저장</button><button class="btn btn-light" type="button" id="ak-to-quote">대관 견적에 넣기 →</button><button class="btn btn-light" type="button" id="ak-open" hidden>문의 열기</button></div>
+        <div class="form-note" id="ak-msg" hidden></div>
       </form>
     </section>
 
@@ -599,12 +616,14 @@
 <script src="/assets/js/catering-calc.js?v=20261102journey3"></script>
 <script src="/assets/js/data/reception-quote.js?v=20261103adminrec2"></script>
 <script src="/assets/js/reception-calc.js?v=20261103reclife1"></script>
-<script src="/assets/js/confirm-doc.js?v=20261103recdoc1"></script>
+<script src="/assets/js/food-services.js?v=20261103food1"></script>
+<script src="/assets/js/confirm-doc.js?v=20261103food1"></script>
 <script src="/assets/js/cards.js?v=202610270438"></script>
 <script src="/assets/js/cocktail-calc.js?v=20261103cocktailprices1"></script>
-<script src="/assets/js/inquiry-overview.js?v=20261103publicrec1"></script>
-<script src="/assets/js/pages/admin.js?v=20261103reclife1"></script>
+<script src="/assets/js/inquiry-overview.js?v=20261103food1"></script>
+<script src="/assets/js/pages/admin.js?v=20261103food1"></script>
 <script src="/assets/js/pages/admin-platform.js?v=20261102adminux1"></script>
+<script src="/assets/js/pages/admin-cocktail.js?v=20261103food1"></script>
 <script src="/assets/js/pages/admin-reception.js?v=20261103reclife1"></script>
 <script src="/assets/js/pages/admin-parking.js?v=20261103daily-live1"></script>
 <script src="/assets/js/pages/admin-parking-notifications.js?v=20261103notify1"></script>

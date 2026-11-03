@@ -6,5 +6,5 @@
   .qp-public .qp-grid{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);margin-top:12px;padding-top:10px}
   .qp-public .qp-grid>div{min-width:0}
   .qp-public .qp-grid p{overflow-wrap:anywhere}
-  .qp-lines tr,.qp-foot{break-inside:avoid}
+  .qp-lines tr,.qp-grid,.qp-foot{break-inside:avoid}
 }

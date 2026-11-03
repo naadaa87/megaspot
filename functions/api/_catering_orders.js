@@ -5,10 +5,12 @@
 import { json, err, str, isDate, now, uniqueRef, log, kstToday, spaceOk, readJson } from './_lib.js';
 import { cateringAdmin } from './_catering.js';
 import { batch } from './_admin_booking.js';
+import {updateFood,F,directFoodRevision,directRevisionStatement} from './_food_services.js';
+import {inquiryAmountSql} from './_amounts.js';
 
 export const CAT_STATUS = { pending: '대기', confirmed: '확정', cancelled: '취소' };
 const ACTIVE_INQ = ['문의 접수', '조건 확인', '견적 발송', '결제 대기'];
-const COLS = 'co.id, co.ref, co.inquiry_ref, co.booking_code, co.space_id, co.event_date, co.meal_time, co.customer, co.phone, co.people, co.status, co.total, co.data, co.created_at, co.updated_at';
+const COLS = `co.id, co.ref, co.inquiry_ref, co.booking_code, co.space_id, co.event_date, co.meal_time, co.customer, co.phone, co.people, co.status, co.total, co.data, co.created_at, co.updated_at, COALESCE((SELECT json_extract(i.data, '$.reception_revision') FROM inquiries i WHERE i.ref=co.inquiry_ref),(SELECT CAST(value AS INTEGER) FROM settings WHERE key='food_revision:'||co.booking_code),json_extract(co.data, '$.food_revision'),0) AS food_revision`;
 function safe(s) { try { return JSON.parse(s || '{}') || {}; } catch { return {}; } }
 function addDays(iso, n) { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
 
@@ -17,7 +19,7 @@ export function publicOrder(r) {
   const d = safe(r.data);
   return { ref: r.ref, inquiry_ref: r.inquiry_ref || '', booking_code: r.booking_code || '', space_id: r.space_id || '', date: r.event_date || '', meal_time: r.meal_time || '',
     customer: r.customer || '', phone: r.phone || '', people: r.people ?? null, status: r.status, status_label: CAT_STATUS[r.status] || r.status, total: r.total ?? null,
-    summary: d.summary || '', course: d.course || '', course_name: d.course_name || '', bill_people: d.bill_people ?? null, bbq: d.bbq || '', bbq_name: d.bbq_name || '', beer: d.beer || 0,
+    reception_revision:r.food_revision||0,include_in_booking:!!d.include_in_booking,included_amount:Number(d.included_amount)||0,summary: d.summary || '', course: d.course || '', course_name: d.course_name || '', bill_people: d.bill_people ?? null, bbq: d.bbq || '', bbq_name: d.bbq_name || '', beer: d.beer || 0,
     fee: d.fee ?? null, supply: d.supply ?? null, vat: d.vat ?? null, note: d.note || '', version: d.version || '', confirmed_at: d.confirmed_at || '',
     created_at: r.created_at, updated_at: r.updated_at || '',
     ...(r.t_status !== undefined ? { target_status: r.t_status || '', target_kind: r.t_kind || '' } : {}) };
@@ -26,22 +28,18 @@ export function publicOrder(r) {
 function forInquiry(q, o) {
   return { ...q, by: 'admin', status: o.status, status_label: CAT_STATUS[o.status], order_ref: o.ref, meal_time: o.meal_time || '' };
 }
-async function syncInquiry(env, ref, value) {
-  if (!ref) return;
-  const t = now();
-  const row = await env.DB.prepare('SELECT data FROM inquiries WHERE ref = ?').bind(ref).first();
-  if (!row) return;
-  const data = safe(row.data), included = Number(data.included_catering_amount) || 0;
-  if (value) data.catering = value;
-  else if (data.catering) { delete data.catering.status; delete data.catering.status_label; delete data.catering.order_ref; data.catering.removed = true; }
-  const statements = [];
-  if ((included > 0 || data.catering_in_quote) && data.total != null) {
-    const next = value && value.status !== 'cancelled' ? Number(value.total) || 0 : 0;
-    data.total = Math.max(0, data.total - included + next); data.included_catering_amount = next;
-    statements.push(env.DB.prepare("UPDATE bookings SET amount = ?, confirm_doc = CASE WHEN amount IS NOT ? THEN NULL ELSE confirm_doc END, updated_at = ? WHERE inquiry_ref = ? AND status <> 'cancelled'").bind(data.total, data.total, t, ref));
-  }
-  statements.push(env.DB.prepare('UPDATE inquiries SET data = ?, updated_at = ? WHERE ref = ?').bind(JSON.stringify(data), t, ref));
-  await batch(env, statements);
+async function syncInquiry(env, ref, value, statements = []) {
+  if(!ref){await batch(env,statements);return 0;}
+  const row=await env.DB.prepare(`SELECT data, ${inquiryAmountSql()} AS effective_amount FROM inquiries i WHERE ref = ?`).bind(ref).first();
+  if(!row){await batch(env,statements);return;}
+  const old=safe(row.data),base={...old};
+  if((Number(old.included_catering_amount)>0||old.catering_in_quote)&&row.effective_amount!=null)base.total=row.effective_amount;
+  const removed={...(old.catering||{}),removed:true};delete removed.status;delete removed.status_label;delete removed.order_ref;
+  const result=updateFood(base,'catering',value||removed);
+  if((Number(old.included_catering_amount)>0||old.catering_in_quote)&&result.data.total!=null)statements.push(env.DB.prepare("UPDATE bookings SET amount = ?, updated_at = ? WHERE inquiry_ref = ? AND status <> 'cancelled'").bind(result.data.total,now(),ref));
+  if(result.changed)statements.push(env.DB.prepare("UPDATE bookings SET confirm_doc = NULL, updated_at = ? WHERE inquiry_ref = ? AND status <> 'cancelled'").bind(now(),ref));
+  statements.push(env.DB.prepare('UPDATE inquiries SET data = ?, updated_at = ? WHERE ref = ?').bind(JSON.stringify(result.data),now(),ref));
+  await batch(env,statements);return result.data.reception_revision||0;
 }
 // 예약 또는 문의 하나의 기본 정보 (이름·연락처·날짜·인원·공간)
 async function loadTarget(env, inquiry_ref, booking_code) {
@@ -52,7 +50,7 @@ async function loadTarget(env, inquiry_ref, booking_code) {
     if (b.inquiry_ref) inquiry_ref = b.inquiry_ref;
   }
   if (inquiry_ref) {
-    i = await env.DB.prepare('SELECT ref, space_id, status, name, phone, event_date, headcount FROM inquiries WHERE ref = ?').bind(inquiry_ref).first();
+    i = await env.DB.prepare('SELECT ref, space_id, status, name, phone, event_date, headcount, data FROM inquiries WHERE ref = ?').bind(inquiry_ref).first();
     if (!i && !b) return { error: '문의를 찾을 수 없습니다.' };
     if (i && !b) b = await env.DB.prepare("SELECT booking_code, space_id, inquiry_ref, customer_name, phone, date, headcount, status, start_h, end_h FROM bookings WHERE inquiry_ref = ? AND status <> 'cancelled' ORDER BY id DESC LIMIT 1").bind(i.ref).first();
   }
@@ -99,17 +97,17 @@ export async function cateringOrdersAdmin(request, env, path, method, url) {
     const qbB = q ? [like, like, like, ...(digits.length >= 3 ? ['%' + digits + '%'] : [])] : [];
     const qbI = q ? [like, like, ...(digits.length >= 3 ? ['%' + digits + '%'] : [])] : [];
     const { results: bks } = await env.DB.prepare(`SELECT b.booking_code, b.space_id, b.inquiry_ref, b.customer_name, b.phone, b.date, b.headcount, b.status, b.start_h, b.end_h,
-        json_extract(i.data, '$.start_h') AS i_start, json_extract(i.data, '$.end_h') AS i_end, json_extract(i.data, '$.org') AS org, json_extract(i.data, '$.catering') AS cat, ${ORDER_OF_BOOKING} AS ord
+        json_extract(i.data, '$.start_h') AS i_start, json_extract(i.data, '$.end_h') AS i_end, json_extract(i.data, '$.org') AS org, json_extract(i.data, '$.catering') AS cat,COALESCE(json_extract(i.data, '$.reception_revision'),(SELECT CAST(value AS INTEGER) FROM settings WHERE key='food_revision:'||b.booking_code),0) AS food_revision, ${ORDER_OF_BOOKING} AS ord
       FROM bookings b LEFT JOIN inquiries i ON i.ref = b.inquiry_ref WHERE b.status <> 'cancelled' AND ${dateB} ${qB} ORDER BY b.date ${scope === 'past' && !q ? 'DESC' : 'ASC'} LIMIT 300`).bind(...dbind, ...qbB).all();
     const { results: inqs } = await env.DB.prepare(`SELECT i.ref, i.space_id, i.status, i.name, i.phone, i.event_date, i.headcount, json_extract(i.data, '$.start_h') AS start_h, json_extract(i.data, '$.end_h') AS end_h,
-        json_extract(i.data, '$.t_start') AS t_start, json_extract(i.data, '$.t_end') AS t_end, json_extract(i.data, '$.reserve') AS reserve, json_extract(i.data, '$.org') AS org, json_extract(i.data, '$.catering') AS cat, ${ORDER_OF_INQUIRY} AS ord
+        json_extract(i.data, '$.t_start') AS t_start, json_extract(i.data, '$.t_end') AS t_end, json_extract(i.data, '$.reserve') AS reserve, json_extract(i.data, '$.org') AS org, json_extract(i.data, '$.catering') AS cat,json_extract(i.data, '$.reception_revision') AS food_revision, ${ORDER_OF_INQUIRY} AS ord
       FROM inquiries i WHERE i.status IN ('${ACTIVE_INQ.join("','")}') AND NOT EXISTS (SELECT 1 FROM bookings b2 WHERE b2.inquiry_ref = i.ref AND b2.status <> 'cancelled') AND ${dateI} ${qI}
       ORDER BY CASE WHEN i.event_date IS NULL OR i.event_date = '' THEN 1 ELSE 0 END, i.event_date ${scope === 'past' && !q ? 'DESC' : 'ASC'}, i.created_at DESC LIMIT 300`).bind(...dbind, ...qbI).all();
     const req = (s) => { const c = safe(s); return c && Object.keys(c).length && c.by !== 'admin' ? (c.summary || '출장뷔페 상담 희망') : ''; };
     const items = [];
-    for (const b of bks || []) items.push({ kind: 'booking', key: 'B:' + b.booking_code, code: b.booking_code, ref: b.inquiry_ref || '', name: b.customer_name, org: b.org || '', phone: b.phone, date: b.date, space_id: b.space_id,
+    for (const b of bks || []) items.push({ reception_revision:b.food_revision||0,kind: 'booking', key: 'B:' + b.booking_code, code: b.booking_code, ref: b.inquiry_ref || '', name: b.customer_name, org: b.org || '', phone: b.phone, date: b.date, space_id: b.space_id,
       start_h: b.start_h ?? b.i_start ?? null, end_h: b.end_h ?? b.i_end ?? null, headcount: b.headcount, status: b.status, request: req(b.cat), order: orderBrief(b.ord) });
-    for (const i of inqs || []) items.push({ kind: 'inquiry', key: 'I:' + i.ref, code: '', ref: i.ref, name: i.name, org: i.org || '', phone: i.phone, date: i.event_date || '', space_id: i.space_id || '',
+    for (const i of inqs || []) items.push({ reception_revision:i.food_revision||0,kind: 'inquiry', key: 'I:' + i.ref, code: '', ref: i.ref, name: i.name, org: i.org || '', phone: i.phone, date: i.event_date || '', space_id: i.space_id || '',
       start_h: i.start_h ?? null, end_h: i.end_h ?? null, t_start: i.t_start || '', t_end: i.t_end || '', headcount: i.headcount, status: i.status, reserve: !!i.reserve, request: req(i.cat), order: orderBrief(i.ord) });
     if (scope !== 'past' || q) items.sort((a, b) => (a.date || '9999') < (b.date || '9999') ? -1 : (a.date || '9999') > (b.date || '9999') ? 1 : ((a.start_h ?? 99) - (b.start_h ?? 99)));
     return json({ ok: true, today, scope, items });
@@ -149,10 +147,12 @@ export async function cateringOrdersAdmin(request, env, path, method, url) {
       return saveOrder(env, d, cur, tg.error ? { inquiry_ref: cur.inquiry_ref || '', booking_code: cur.booking_code || '' } : tg);
     }
     if (method === 'DELETE') {
-      await env.DB.prepare('DELETE FROM catering_orders WHERE ref = ?').bind(cur.ref).run();
-      await syncInquiry(env, cur.inquiry_ref, null);
+      const d=await readJson(request);if(d.reception_revision!==undefined&&Number(d.reception_revision)!==Number(cur.food_revision||0))return err('식음료 구성이 변경됐습니다. 예약·문의를 다시 불러와 주세요.',409,'RECEPTION_CHANGED');
+      const statements=[env.DB.prepare('DELETE FROM catering_orders WHERE ref = ?').bind(cur.ref)];let revision=0;
+      if(!cur.inquiry_ref&&cur.booking_code){const value=safe(cur.data),bk=await env.DB.prepare('SELECT amount FROM bookings WHERE booking_code=?').bind(cur.booking_code).first();revision=(await directFoodRevision(env,cur.booking_code))+1;if(Number(value.included_amount)>0)statements.push(env.DB.prepare('UPDATE bookings SET amount=? WHERE booking_code=?').bind(Math.max(0,Number(bk.amount)-Number(value.included_amount)),cur.booking_code));statements.push(env.DB.prepare('UPDATE bookings SET confirm_doc=NULL,updated_at=? WHERE booking_code=?').bind(now(),cur.booking_code),directRevisionStatement(env,cur.booking_code,revision,now()));}
+      const linkedRevision=await syncInquiry(env, cur.inquiry_ref, null,statements);if(cur.inquiry_ref)revision=linkedRevision;
       await log(env, 'catering.deleted', cur.inquiry_ref || cur.booking_code || cur.ref, 'admin', { order: cur.ref });
-      return json({ ok: true });
+      return json({ ok: true,reception_revision:revision });
     }
     return err('지원하지 않는 요청입니다.', 405, 'METHOD');
   }
@@ -162,6 +162,8 @@ export async function cateringOrdersAdmin(request, env, path, method, url) {
 // 등록·수정 공통. d.config 가 있으면 구성을 다시 계산하고, 없으면 상태·식사 시간 등만 바꿉니다.
 async function saveOrder(env, d, cur, tg) {
   const prev = cur ? safe(cur.data) : null;
+  const currentVersion=tg.i?Number(safe(tg.i.data).reception_revision)||0:(tg.booking_code?await directFoodRevision(env,tg.booking_code):0);
+  if(d.reception_revision!==undefined&&Number(d.reception_revision)!==currentVersion)return err('식음료 구성이 변경됐습니다. 예약·문의를 다시 불러와 주세요.',409,'RECEPTION_CHANGED');
   let q = prev;
   if (d.config !== undefined) {
     q = cateringAdmin(d.config);
@@ -181,21 +183,31 @@ async function saveOrder(env, d, cur, tg) {
     phone: has('phone') ? str(d.phone, 30) : (cur ? cur.phone || '' : (i ? i.phone || '' : (b ? b.phone || '' : ''))),
     people: q.people || q.bill_people || null, status
   };
-  const t = now();
+  const t = now(), statements=[];
   const data = { ...q, confirmed_at: status === 'confirmed' ? ((prev && prev.confirmed_at) || t) : '' };
+  if(!o.inquiry_ref&&o.booking_code){
+    const bk=await env.DB.prepare('SELECT amount FROM bookings WHERE booking_code=?').bind(o.booking_code).first();
+    const include=d.include_in_booking===undefined?!!prev?.include_in_booking:!!d.include_in_booking;
+    if(include&&bk.amount==null)return err('공간 예약 금액을 먼저 정한 뒤 출장뷔페 금액을 포함해 주세요.');
+    const next=include&&status!=='cancelled'?q.total:0,oldAmount=Number(prev?.included_amount)||0;
+    const changed=F.key('catering',{...prev,status:cur?.status,meal_time:cur?.meal_time})!==F.key('catering',{...q,status,meal_time:o.meal_time})||include!==!!prev?.include_in_booking;
+    data.include_in_booking=include;data.included_amount=next;data.food_revision=currentVersion+(changed?1:0);
+    if(include||oldAmount>0)statements.push(env.DB.prepare('UPDATE bookings SET amount=?,updated_at=? WHERE booking_code=?').bind(Math.max(0,Number(bk.amount)-oldAmount+next),t,o.booking_code));
+    if(changed)statements.push(env.DB.prepare('UPDATE bookings SET confirm_doc=NULL,updated_at=? WHERE booking_code=?').bind(t,o.booking_code),directRevisionStatement(env,o.booking_code,data.food_revision,t));
+  }
   let ref = cur ? cur.ref : '';
   if (cur) {
-    await env.DB.prepare('UPDATE catering_orders SET inquiry_ref = ?, booking_code = ?, space_id = ?, event_date = ?, meal_time = ?, customer = ?, phone = ?, people = ?, status = ?, total = ?, data = ?, updated_at = ? WHERE ref = ?')
-      .bind(o.inquiry_ref || null, o.booking_code || null, o.space_id, o.date || null, o.meal_time, o.customer, o.phone, o.people, o.status, q.total, JSON.stringify(data), t, ref).run();
+    statements.push(env.DB.prepare('UPDATE catering_orders SET inquiry_ref = ?, booking_code = ?, space_id = ?, event_date = ?, meal_time = ?, customer = ?, phone = ?, people = ?, status = ?, total = ?, data = ?, updated_at = ? WHERE ref = ?')
+      .bind(o.inquiry_ref || null, o.booking_code || null, o.space_id, o.date || null, o.meal_time, o.customer, o.phone, o.people, o.status, q.total, JSON.stringify(data), t, ref));
   } else {
     ref = await uniqueRef(env, 'catering_orders', 'ref', 'CO');
-    await env.DB.prepare('INSERT INTO catering_orders (ref, inquiry_ref, booking_code, space_id, event_date, meal_time, customer, phone, people, status, total, data, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-      .bind(ref, o.inquiry_ref || null, o.booking_code || null, o.space_id, o.date || null, o.meal_time, o.customer, o.phone, o.people, o.status, q.total, JSON.stringify(data), t, t).run();
+    statements.push(env.DB.prepare('INSERT INTO catering_orders (ref, inquiry_ref, booking_code, space_id, event_date, meal_time, customer, phone, people, status, total, data, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .bind(ref, o.inquiry_ref || null, o.booking_code || null, o.space_id, o.date || null, o.meal_time, o.customer, o.phone, o.people, o.status, q.total, JSON.stringify(data), t, t));
   }
-  await syncInquiry(env, o.inquiry_ref, forInquiry(q, { ...o, ref }));
+  const linkedRevision=await syncInquiry(env, o.inquiry_ref, forInquiry(q, { ...o, ref }),statements),revision=o.inquiry_ref?linkedRevision:data.food_revision||0;
   const changed = cur && cur.status !== status;
   await log(env, !cur ? 'catering.created' : changed ? 'catering.status' : 'catering.updated', o.inquiry_ref || o.booking_code || ref, 'admin',
     { order: ref, status, ...(changed ? { from: cur.status } : {}), total: q.total, summary: q.summary });
   const row = await env.DB.prepare(`SELECT ${COLS} FROM catering_orders co WHERE co.ref = ?`).bind(ref).first();
-  return json({ ok: true, created: !cur, item: publicOrder(row) });
+  return json({ ok: true, created: !cur, item: {...publicOrder(row),reception_revision:revision} });
 }
