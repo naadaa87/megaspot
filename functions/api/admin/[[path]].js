@@ -7,6 +7,7 @@ import { refundAdmin } from '../_deposit_refunds.js';
 import { cateringAdmin } from '../_catering.js';
 import { cleanDoc, parseDoc, publicDoc, confirmToken } from '../_confirm.js';
 import { inquiryAmountSql, bookingAmountSql, amountOverrideSql } from '../_amounts.js';
+import {F,foodExtras,updateFood,syncFoodInput,cocktailAdmin,stripFoodItems,confirmationFoodData,foodDocuments} from '../_food_services.js';
 import { receptionAdmin, receptionExtra, receptionDocument, receptionChanged, withoutReceptionItems, receptionRevision, syncReceptionInput, receptionConflict } from '../_reception.js';
 import { batch, bookingClashes, conflictResponse, linkedBookingChanges, bookingStatusStatements } from '../_admin_booking.js';
 import { guideAdmin, automaticGuide, guideSummary } from '../_guide_messages.js';
@@ -296,9 +297,10 @@ export async function onRequest({ request, env, params }) {
       if (inquiry && [DELETED, '대기 취소'].includes(inquiry.status)) return err('삭제·대기 취소된 문의는 복원한 뒤 견적을 저장해 주세요.');
       const quote_no = await uniqueRef(env, 'quotes', 'quote_no', 'Q');
       const data = d.data && typeof d.data === 'object' ? d.data : {};
+      const food=foodExtras(data.extras,inquiry?safe(inquiry.data):null);if(food.error)return err(food.error);
       const rec = receptionExtra(data.extras);
       if (rec.error) return err(rec.error);
-      if (rec.amount > total) return err('견적 합계가 케이터링 금액보다 작습니다. 추가 항목을 확인해 주세요.');
+      if (rec.amount+food.amount > total) return err('견적 합계가 케이터링 금액보다 작습니다. 추가 항목을 확인해 주세요.');
       const statements = [], input = data.input && typeof data.input === 'object' ? data.input : null;
       if(rec.reception){
         data.extras=data.extras.map(x=>x.kind==='reception'?{...x,reception:rec.reception}:x);
@@ -316,24 +318,29 @@ export async function onRequest({ request, env, params }) {
         if (people !== null && (people < 1 || people > 1000)) return err('인원을 확인해 주세요.');
         let sh = input ? hourOk(input.start) : old.start_h ?? null, eh = input ? hourOk(input.end) : old.end_h ?? null;
         if (sh !== null && (eh === null || eh <= sh)) return err('시작·종료 시간을 확인해 주세요.');
-        const catering = Math.min(total, Math.max(0, (Array.isArray(data.extras) ? data.extras : []).filter(x => x.kind === 'catering' || /^출장뷔페 ·/.test(x.label || '')).reduce((sum, x) => sum + (amountOk(x.amount) || 0), 0)));
-        if (catering + rec.amount > total) return err('견적 합계가 식음료 합계보다 작습니다. 추가 항목을 확인해 주세요.');
-        Object.assign(updated, { total, amount_override: true, amount_mode: 'quote', amount_note: str(data.discountWhy, 200), included_catering_amount: catering, catering_in_quote: catering > 0, date, name, phone, email, headcount: people, space_id: space, start_h: sh, end_h: eh,
+        const catering=food.included.catering||0,cocktail=food.included.cocktail||0;
+        Object.assign(updated, { total, amount_override: true, amount_mode: 'quote', amount_note: str(data.discountWhy, 200), included_catering_amount: catering, catering_in_quote: catering > 0 || !!(old.catering&&(old.catering.status==='cancelled'||old.catering.removed||!old.catering.total)&&(old.catering_in_quote||input?.cateringRequested)&&!input?.cateringExcluded), date, name, phone, email, headcount: people, space_id: space, start_h: sh, end_h: eh,
           t_start: sh === null ? '' : hl(sh).replace('다음 날 ', ''), t_end: eh === null ? '' : hl(eh).replace('다음 날 ', ''), quote_no, quote_input: input,
           price_adjustment: { type: input?.discType || 'none', value: num(input?.discVal) || 0, reason: str(data.discountWhy, 200), discount: amountOk(data.discount) || 0 } });
+        updated.included_cocktail_amount=cocktail;
+        updated.cocktail_in_quote=cocktail>0||!!(old.cocktail&&old.cocktail.status==='cancelled'&&(old.cocktail_in_quote||input?.cocktailRequested)&&!input?.cocktailExcluded);
+        let foodsChanged=false;
+        for(const kind of F.types){if(food.selections[kind])updated[kind]=food.selections[kind];foodsChanged=foodsChanged||F.key(kind,old[kind])!==F.key(kind,updated[kind])||(Number(old['included_'+kind+'_amount'])||0)!==(food.included[kind]||0)||!!old[kind+'_in_quote']!==!!updated[kind+'_in_quote'];}
+        if(input&&Array.isArray(input.extras))for(const kind of F.types){if(food.selections[kind])input.extras=input.extras.map(x=>F.isRow(kind,x)?{...x,kind,amount:food.included[kind],[kind]:food.selections[kind]}:x);}
         updated.included_reception_amount = rec.amount;
         updated.reception_in_quote = rec.amount > 0 || !!(old.reception && (old.reception.status==='cancelled'||old.reception.total==null) && (old.reception_in_quote||input?.receptionRequested) && !input?.receptionExcluded);
         if (rec.reception) updated.reception = rec.reception;
         const recChanged=!!(rec.reception&&receptionChanged(old,rec.reception))||(Number(old.included_reception_amount)||0)!==rec.amount||!!old.reception_in_quote!==updated.reception_in_quote;
-        reception_revision=receptionRevision(old)+(recChanged?1:0);updated.reception_revision=reception_revision;
-        if(input){Object.assign(input,syncReceptionInput(input,updated,updated.reception_in_quote));updated.quote_input=input;}
+        reception_revision=receptionRevision(old)+(recChanged||foodsChanged?1:0);updated.reception_revision=reception_revision;
+        if(input){Object.assign(input,syncFoodInput(syncReceptionInput(input,updated,updated.reception_in_quote),updated));updated.quote_input=input;}
         if (input) Object.assign(updated, { purpose: str(input.purpose, 40), regular: !!input.regular, options: cleanOptions({ ...input.opts, manager: input.opts?.manager?.on ? { count: input.opts.manager.count, hours: input.opts.manager.hours } : false }) });
         if (date !== inquiry.event_date || space !== inquiry.space_id) { delete updated.wait_rank; delete updated.wait_rank_at; }
         if (sh !== null) updated.slot = SLOT_OF[sh + '-' + eh] || 'custom';
         const sync = await linkedBookingChanges(env, ref, { space_id: space, name, phone, date, start_h: sh, end_h: eh, headcount: people, amount: total });
         if (sync.error) return sync.error;
         invalidated = sync.invalidated; statements.push(...sync.statements);
-        if((rec.reception && receptionChanged(old,rec.reception)) || (Number(old.included_reception_amount)||0)!==rec.amount){const issued=await env.DB.prepare("SELECT booking_code FROM bookings WHERE inquiry_ref = ? AND status <> 'cancelled' AND confirm_doc IS NOT NULL LIMIT 1").bind(ref).first();statements.push(env.DB.prepare("UPDATE bookings SET confirm_doc = NULL WHERE inquiry_ref = ? AND status <> 'cancelled'").bind(ref));invalidated=invalidated||!!issued;}
+        if(foodsChanged||(rec.reception && receptionChanged(old,rec.reception)) || (Number(old.included_reception_amount)||0)!==rec.amount){const issued=await env.DB.prepare("SELECT booking_code FROM bookings WHERE inquiry_ref = ? AND status <> 'cancelled' AND confirm_doc IS NOT NULL LIMIT 1").bind(ref).first();statements.push(env.DB.prepare("UPDATE bookings SET confirm_doc = NULL WHERE inquiry_ref = ? AND status <> 'cancelled'").bind(ref));invalidated=invalidated||!!issued;}
+        if(food.selections.catering&&old.catering?.order_ref){const c=updated.catering;statements.push(env.DB.prepare('UPDATE catering_orders SET people=?,status=?,total=?,data=?,meal_time=?,updated_at=? WHERE ref=? AND inquiry_ref=?').bind(c.people,c.status,c.total,JSON.stringify(c),c.meal_time||'',now(),old.catering.order_ref,ref));}
         const status = d.mark_sent && ['문의 접수', '조건 확인'].includes(inquiry.status) ? '견적 발송' : inquiry.status;
         statements.push(env.DB.prepare('UPDATE inquiries SET space_id = ?, status = ?, name = ?, phone = ?, email = ?, event_date = ?, headcount = ?, data = ?, updated_at = ? WHERE ref = ?')
           .bind(space, status, name, phone, email || '', date, people, JSON.stringify(updated), now(), ref));
@@ -344,7 +351,7 @@ export async function onRequest({ request, env, params }) {
         .bind(quote_no, ref || null, str(d.customer, 120), isDate(str(d.event_date, 10)) ? str(d.event_date, 10) : null, total, serialized, now()));
       await batch(env, statements);
       await log(env, 'quote.saved', ref || quote_no, 'admin', { quote_no, total });
-      return json({ ok: true, quote_no, reception_revision, confirm_doc_invalidated: invalidated });
+      return json({ ok: true, quote_no, reception_revision, food_state:input?.food_state, confirm_doc_invalidated: invalidated });
     }
     if (path === 'quotes' && method === 'GET') {
       const { results } = await env.DB.prepare('SELECT quote_no, inquiry_ref, customer, event_date, total, data, created_at FROM quotes ORDER BY id DESC LIMIT 100').all();
@@ -454,10 +461,10 @@ export async function onRequest({ request, env, params }) {
         if (mode === 'auto' || mode === 'manual') {
           const t = amountOk(d.total); if (t === null) return err('금액을 확인해 주세요.');
           if (data.estimate && data.source !== 'admin' && !data.estimate_admin && !data.estimate_customer) data.estimate_customer = data.estimate;
-          Object.assign(data, { total: t, amount_override: true, amount_mode: mode, amount_note: str(d.amount_note, 200), included_catering_amount: 0, catering_in_quote: false, included_reception_amount: 0, reception_in_quote: false, price_adjustment: d.price_adjustment || null });
+          Object.assign(data, { total: t, amount_override: true, amount_mode: mode, amount_note: str(d.amount_note, 200), included_catering_amount: 0, catering_in_quote: false, included_reception_amount: 0, reception_in_quote: false, included_cocktail_amount:0,cocktail_in_quote:false,price_adjustment: d.price_adjustment || null });
           if (d.estimate !== undefined) { data.estimate = str(d.estimate, 3000); data.estimate_admin = true; data.pkg = str(d.pkg, 20); }
         } else if (mode === 'none') {
-          Object.assign(data, { total: null, amount_override: true, amount_mode: '', amount_note: '', included_catering_amount: 0, catering_in_quote: false, included_reception_amount: 0, reception_in_quote: false, price_adjustment: null });
+          Object.assign(data, { total: null, amount_override: true, amount_mode: '', amount_note: '', included_catering_amount: 0, catering_in_quote: false, included_reception_amount: 0, reception_in_quote: false, included_cocktail_amount:0,cocktail_in_quote:false,price_adjustment: null });
         }
         if (data.source === 'admin') data.summary = adminSummary(data);
         data.edited_at = now();
@@ -487,7 +494,7 @@ export async function onRequest({ request, env, params }) {
       if (d.total !== undefined) {
         const t = d.total === '' || d.total === null ? null : amountOk(d.total);
         if (d.total !== '' && d.total !== null && t === null) return err('금액을 확인해 주세요.');
-        jp.push("'$.total', ?", "'$.amount_override', 1", "'$.amount_mode', ?", "'$.amount_note', ?", "'$.included_catering_amount', 0", "'$.catering_in_quote', json('false')", "'$.included_reception_amount', 0", "'$.reception_in_quote', json('false')", "'$.price_adjustment', null"); jb.push(t, t === null ? '' : 'manual', str(d.amount_note, 200));
+        jp.push("'$.total', ?", "'$.amount_override', 1", "'$.amount_mode', ?", "'$.amount_note', ?", "'$.included_catering_amount', 0", "'$.catering_in_quote', json('false')", "'$.included_reception_amount', 0", "'$.reception_in_quote', json('false')", "'$.included_cocktail_amount', 0", "'$.cocktail_in_quote', json('false')", "'$.price_adjustment', null"); jb.push(t, t === null ? '' : 'manual', str(d.amount_note, 200));
         statusStatements.push(env.DB.prepare("UPDATE bookings SET amount = ?, confirm_doc = CASE WHEN amount IS NOT ? THEN NULL ELSE confirm_doc END, updated_at = ? WHERE inquiry_ref = ? AND status <> 'cancelled'").bind(t, t, now(), ref));
       }
       if (d.channel !== undefined) {
@@ -495,10 +502,20 @@ export async function onRequest({ request, env, params }) {
         const note = str(d.channel_note, 40);
         jp.push("'$.channel', ?", "'$.channel_note', ?"); jb.push(d.channel, note);
       }
-      if (d.catering !== undefined) {   // 관리자 화면 '출장뷔페'에서 이 문의의 출장뷔페 구성을 저장 (null 이면 지움)
-        const c = d.catering === null ? null : cateringAdmin(d.catering);
-        if (d.catering !== null && !c) return err('출장뷔페 구성을 확인해 주세요.');
-        jp.push("'$.catering', json(?)"); jb.push(JSON.stringify(c));
+      for(const kind of ['catering','cocktail'])if(d[kind]!==undefined){
+        if(d.total!==undefined||d.reception!==undefined||(d.catering!==undefined&&d.cocktail!==undefined))return err('공간 금액과 식음료 구성은 각각 저장해 주세요.');
+        const item=await env.DB.prepare(`SELECT status,data, ${inquiryAmountSql()} AS effective_amount FROM inquiries i WHERE ref=?`).bind(ref).first();if(!item)return err('문의를 찾을 수 없습니다.',404,'NOT_FOUND');
+        if([DELETED,'대기 취소','취소·환불'].includes(item.status))return err('취소·삭제된 문의는 복원한 뒤 저장해 주세요.');
+        const old=safe(item.data);if(receptionConflict(d.reception_revision,old))return err('식음료 구성이 변경됐습니다. 문의를 다시 불러와 주세요.',409,'RECEPTION_CHANGED');
+        let value=kind==='cocktail'?cocktailAdmin(d[kind]):cateringAdmin(d[kind]);if(d[kind]!==null&&!value)return err('식음료 구성을 확인해 주세요.');
+        if(kind==='catering'&&value){value.status=d[kind].status||old.catering?.status||'pending';if(!['pending','confirmed','cancelled'].includes(value.status))return err('출장뷔페 상태를 확인해 주세요.');value.order_ref=old.catering?.order_ref||'';value.meal_time=d[kind].meal_time===undefined?(old.catering?.meal_time||''):str(d[kind].meal_time,20);}
+        if(!value)value={...(old[kind]||{}),status:'cancelled',removed:true};
+        const base={...old};if((Number(old['included_'+kind+'_amount'])>0||old[kind+'_in_quote'])&&item.effective_amount!=null)base.total=item.effective_amount;
+        const result=updateFood(base,kind,value);for(const key of [kind,'total','amount_override','included_'+kind+'_amount','reception_revision','quote_input'])if(result.data[key]!==undefined){jp.push("'$."+key+"',json(?)");jb.push(JSON.stringify(result.data[key]));}
+        if(old[kind+'_in_quote']||Number(old['included_'+kind+'_amount'])>0)statusStatements.push(env.DB.prepare("UPDATE bookings SET amount=?,updated_at=? WHERE inquiry_ref=? AND status<>'cancelled'").bind(result.data.total,now(),ref));
+        if(result.changed)statusStatements.push(env.DB.prepare("UPDATE bookings SET confirm_doc=NULL,updated_at=? WHERE inquiry_ref=? AND status<>'cancelled'").bind(now(),ref));
+        if(kind==='catering'&&value.order_ref)statusStatements.push(env.DB.prepare('UPDATE catering_orders SET people=?,status=?,total=?,data=?,meal_time=?,updated_at=? WHERE ref=? AND inquiry_ref=?').bind(value.people,value.status,value.total,JSON.stringify(value),value.meal_time||'',now(),value.order_ref,ref));
+        receptionResult={reception_revision:result.data.reception_revision||0,[kind]:value};
       }
       if (d.reception !== undefined) {
         if (d.total !== undefined) return err('공간 금액과 케이터링 구성은 각각 저장해 주세요.');
@@ -513,7 +530,7 @@ export async function onRequest({ request, env, params }) {
         const revision=receptionRevision(old)+(receptionChanged(old,reception)?1:0);
         jp.push("'$.reception_revision', ?");jb.push(revision);
         receptionResult={reception_revision:revision,reception};
-        if(old.quote_input){const draft=syncReceptionInput(old.quote_input,{...old,reception,reception_revision:revision},included>0||!!old.reception_in_quote);jp.push("'$.quote_input', json(?)");jb.push(JSON.stringify(draft));}
+        if(old.quote_input){const draft=syncFoodInput(syncReceptionInput(old.quote_input,{...old,reception,reception_revision:revision},included>0||!!old.reception_in_quote),{...old,reception,reception_revision:revision});jp.push("'$.quote_input', json(?)");jb.push(JSON.stringify(draft));}
         if(receptionChanged(old,reception))statusStatements.push(env.DB.prepare("UPDATE bookings SET confirm_doc = NULL, updated_at = ? WHERE inquiry_ref = ? AND status <> 'cancelled'").bind(now(),ref));
         if ((included > 0 || old.reception_in_quote) && item.effective_amount != null) {
           const next = reception.status === 'cancelled' || reception.total == null ? 0 : reception.total, amount = Math.max(0, item.effective_amount - included + next);
@@ -735,24 +752,27 @@ export async function onRequest({ request, env, params }) {
       // 고객 링크는 대표 주소로 만듭니다 (관리자가 *.pages.dev 로 들어와도 megaspot.kr 링크)
       const base = env.SITE_URL || (/\.pages\.dev$/.test(url.hostname) ? 'https://megaspot.kr' : url.origin);
       const k = await confirmToken(env, code), link = base + '/confirm/?c=' + encodeURIComponent(code) + '&k=' + k;
+      const ord = await cateringOrderFor(env,row.inquiry_ref||'',code),foodData=await confirmationFoodData(env,row,ord);
       if (method === 'GET') {
-        const idata = safe(row.idata) || {};
-        const ord = await cateringOrderFor(env, row.inquiry_ref || '', code);   // 출장뷔페 진행 건 (문의 없이 등록한 예약도)
-        const cat = ord ? { summary: ord.summary, total: ord.total, status: ord.status } : (idata.catering || null);
-        const inq = { ref: row.inquiry_ref || '', name: idata.name || '', org: idata.org || '', purpose: idata.purpose || '', options: idata.options || {}, reception_revision:receptionRevision(idata), catering: cat, reception: idata.reception || null, included_reception_amount: idata.included_reception_amount || 0, t_start: idata.t_start || '', t_end: idata.t_end || '', start_h: idata.start_h ?? null, end_h: idata.end_h ?? null };
-        const doc = parseDoc(row.confirm_doc), currentReception = receptionDocument(idata, row.effective_amount);
-        const needs_reissue = !!(doc?.issued_at && currentReception && !Object.hasOwn(doc,'reception'));
-        const previewDoc = doc && Object.hasOwn(doc,'reception') ? doc : {...(doc||{}),reception:currentReception};
-        if(needs_reissue)previewDoc.items=withoutReceptionItems(previewDoc.items||[]);
-        return json({ ok: true, needs_reissue, reception:currentReception, booking: { code, space_id: row.space_id, name: row.customer_name, phone: row.phone, date: row.date, slot: row.slot, headcount: row.headcount, status: row.status, amount: row.effective_amount, start_h: row.start_h, end_h: row.end_h, order_status: row.order_status || '', paid_amount:row.paid_amount||0 },
+        const idata = foodData;
+        // Full saved buffet configuration is also available for direct bookings.
+           // 출장뷔페 진행 건 (문의 없이 등록한 예약도)
+        const cat = idata.catering || ord || null;
+        const inq = { ref: row.inquiry_ref || '', name: idata.name || '', org: idata.org || '', purpose: idata.purpose || '', options: idata.options || {}, reception_revision:receptionRevision(idata), catering: cat, cocktail:idata.cocktail||null, reception: idata.reception || null, included_reception_amount: idata.included_reception_amount || 0,included_cocktail_amount:idata.included_cocktail_amount||0, t_start: idata.t_start || '', t_end: idata.t_end || '', start_h: idata.start_h ?? null, end_h: idata.end_h ?? null };
+        const doc = parseDoc(row.confirm_doc), currentReception = receptionDocument(idata, row.effective_amount), currentFoods=foodDocuments({...idata,catering:cat},row.effective_amount);
+        const needs_reissue = !!(doc?.issued_at && ((currentReception&&!Object.hasOwn(doc,'reception'))||(currentFoods.length&&!Object.hasOwn(doc,'food_services'))));
+        const previewDoc = {...(doc||{}),reception:doc&&Object.hasOwn(doc,'reception')?doc.reception:currentReception,food_services:doc&&Object.hasOwn(doc,'food_services')?doc.food_services:currentFoods};
+        if(needs_reissue)previewDoc.items=stripFoodItems(withoutReceptionItems(previewDoc.items||[]));
+        return json({ ok: true, needs_reissue, reception:currentReception, food_services:currentFoods, booking: { code, space_id: row.space_id, name: row.customer_name, phone: row.phone, date: row.date, slot: row.slot, headcount: row.headcount, status: row.status, amount: row.effective_amount, start_h: row.start_h, end_h: row.end_h, order_status: row.order_status || '', paid_amount:row.paid_amount||0 },
           inquiry: inq, doc, preview: publicDoc(row, previewDoc), link: doc && doc.issued_at ? link : '', token: k });
       }
       if (method === 'PUT') {
         if (row.status === 'cancelled') return err('취소된 예약은 확정서를 발급할 수 없습니다.', 409, 'CANCELLED');
-        const d = await readJson(request), prev = parseDoc(row.confirm_doc) || {}, t = now(), currentData=safe(row.idata)||{};
-        if(receptionConflict(d.reception_revision,currentData) || (d.reception_revision===undefined&&receptionRevision(currentData)>0&&Number(d.doc?.amount)!==row.effective_amount))return err('케이터링 변경으로 확정서 조건이 달라졌습니다. 최신 예약을 다시 불러와 발급해 주세요.',409,'RECEPTION_CHANGED');
+        const d = await readJson(request), prev = parseDoc(row.confirm_doc) || {}, t = now(), currentData=foodData;
+        if(receptionConflict(d.reception_revision,currentData) || (d.reception_revision===undefined&&receptionRevision(currentData)>0&&Number(d.doc?.amount)!==row.effective_amount))return err('식음료 변경으로 확정서 조건이 달라졌습니다. 최신 예약을 다시 불러와 발급해 주세요.',409,'RECEPTION_CHANGED');
         const doc = { ...cleanDoc(d.doc), issued_at: prev.issued_at || t, updated_at: t, issue_no: (prev.issue_no || 0) + 1 };
-        doc.reception = receptionDocument(safe(row.idata)||{},doc.amount);
+        doc.reception = receptionDocument(currentData,doc.amount);doc.food_services=foodDocuments(currentData,doc.amount);
+        if(doc.food_services.length)doc.items=stripFoodItems(doc.items);
         if(doc.reception)doc.items=withoutReceptionItems(doc.items);
         await env.DB.prepare('UPDATE bookings SET confirm_doc = ?, updated_at = ? WHERE booking_code = ?').bind(JSON.stringify(doc), t, code).run();
         await log(env, prev.issued_at ? 'booking.confirm_doc.updated' : 'booking.confirm_doc.issued', code, 'admin', { issue_no: doc.issue_no });

@@ -12,7 +12,7 @@
     form.hidden = true; errBox.hidden = true; view.hidden = false;
     var esc = M.esc, rows = [['예약자', doc.customer], ['공간', (doc.space && doc.space.name) || '메가스팟 건대'], ['이용일', X.dateText(doc.date)], ['이용 시간', X.timeText(doc) + (doc.time_note ? ' · ' + doc.time_note : '')], ['인원', doc.headcount ? doc.headcount + '명' : ''], ['행사', doc.event]];
     if (doc.show_amount && doc.amount != null) rows.push(['확정 금액', doc.amount.toLocaleString('ko-KR') + '원' + (doc.amount_note ? ' (' + doc.amount_note + ')' : '') + ' · ' + (X.PAY[doc.pay_status] || '')]);
-    rows=rows.concat(X.receptionRows(doc));
+    rows=rows.concat(X.receptionRows(doc),window.MEGASPOT_FOOD_SERVICES.documentRows(doc));
     $('#cfd-info').innerHTML = rows.filter(function(r){ return r[1]; }).map(function(r){ return '<div><dt>' + esc(r[0]) + '</dt><dd>' + esc(r[1]) + '</dd></div>'; }).join('');
     X.render(doc, canvas).then(function(){ canvas.setAttribute('aria-label', '메가스팟 예약확정서 — 예약번호 ' + doc.code + ', ' + X.dateText(doc.date) + ' ' + X.timeText(doc)); });
     document.title = '예약확정서 ' + doc.code + ' · 메가스팟';

@@ -147,6 +147,7 @@
       y += gap - Math.round(8 * k);
     }
     var recRows=receptionRows(doc);if(recRows.length){section('선택한 케이터링');recRows.forEach(function(r){row(r[0],r[1]);});y+=gap-Math.round(8*k);}
+    (doc.food_services||[]).forEach(function(value){section(value.kind==='catering'?'출장뷔페':'출장 칵테일');window.MEGASPOT_FOOD_SERVICES.rows(value,doc.show_amount).forEach(function(r){row(r[0],r[1]);});y+=gap-Math.round(8*k);});
     if (doc.items && doc.items.length) {var cols=doc.items.length>3?2:1,isz=Math.round(13.5*k),ih=[0,0],split=Math.ceil(doc.items.length/2);doc.items.forEach(function(it,i){ih[cols===2&&i>=split?1:0]+=wrap(it,(cols===2?(IW-24)/2:IW)-14,400,isz).length*Math.round(isz*1.55)+Math.round(3*k);});ensure(Math.min(H-190-228,Math.max.apply(null,ih)+Math.round(24*k)));section('포함 내역'); bullets(doc.items, null, null, cols); y += gap - Math.round(4 * k); }
     if (doc.refund && doc.refund.length) {
       section('취소 · 환불 기준');
@@ -225,6 +226,7 @@
     L.push('· 이용일: ' + dateText(doc.date));
     L.push('· 이용 시간: ' + timeText(doc));
     if (doc.headcount) L.push('· 인원: ' + doc.headcount + '명');
+    if(window.MEGASPOT_FOOD_SERVICES)window.MEGASPOT_FOOD_SERVICES.documentRows(doc).forEach(function(r){L.push('· '+r[0]+': '+r[1]);});
     receptionRows(doc).forEach(function(row){L.push('· '+row[0]+': '+row[1]);});
     if (link) { L.push(''); L.push('예약확정서는 아래 주소에서 보시고 PDF·이미지로 저장하실 수 있습니다.'); L.push(link); }
     L.push(''); L.push('이용 전에 주차·입장 안내를 따로 보내 드리겠습니다. 감사합니다.');

@@ -8,6 +8,6 @@ export function cocktailFrom(input) {
   const menus = Array.isArray(input.menus) ? [...new Set(input.menus.filter(id => Object.hasOwn(MENU_NAMES, id)))].slice(0, 8) : [];
   const note = String(input.note || '').slice(0, 300);
   const price = PRICES[cups];
-  return { cups, price, unit: price / cups, menus, nonalcohol: !!input.nonalcohol, note,
+  return { cups, price, unit: price / cups, menus, menu_names:menus.map(id=>MENU_NAMES[id]), nonalcohol: !!input.nonalcohol, note,
     summary: `${cups}잔 패키지 · 표시 가격 ${price.toLocaleString('ko-KR')}원 (잔당 ${Number.isInteger(price / cups) ? '' : '약 '}${(price / cups).toLocaleString('ko-KR', { maximumFractionDigits: 0 })}원)${menus.length ? ` · 희망 메뉴: ${menus.map(id => MENU_NAMES[id]).join(', ')}` : ''}${note ? ` · 요청: ${note}` : ''}${input.nonalcohol ? ' · 논알코올 구성 상담' : ''}` };
 }
