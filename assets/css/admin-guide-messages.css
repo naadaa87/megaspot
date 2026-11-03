@@ -28,3 +28,5 @@
   body:has(#view-guide-messages.gm-has-selection:not([hidden])) .to-top{bottom:calc(104px + env(safe-area-inset-bottom))}
 }
 @media(max-width:360px){.gm-filters label{flex-basis:100%}}
+
+#gm-portal-template-button,#gm-template-button{overflow-wrap:anywhere}#gm-portal-result{scroll-margin-top:24px}@media(max-width:900px){#gm-portal-result{scroll-margin-top:140px}}@media(max-width:720px){#gm-portal-preview-button,#gm-portal-test-button{width:100%}}

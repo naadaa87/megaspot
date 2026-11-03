@@ -1,5 +1,7 @@
 // Reservation guide Alimtalk. No credentials or public sending routes live in the browser.
 import { json, err, now, readJson, str, sha256, SPACES } from './_lib.js';
+import {keyReady} from './_deposit_refunds.js';
+import {PORTAL_GUIDE_CODE,PORTAL_GUIDE_VARIANT,PORTAL_GUIDE_VERSION,PORTAL_GUIDE_TEMPLATE,PORTAL_GUIDE_BUTTON,PORTAL_GUIDE_URL,portalGuideSnapshot,portalGuideButton,portalGuideSimulation} from './_guide_portal.js';
 
 export const GUIDE_URL = 'https://megaspot-guide.pages.dev/';
 export const GUIDE_VERSION = 'reservation-guide-v1';
@@ -21,6 +23,7 @@ export const GUIDE_TEMPLATE = `[메가스팟 예약 고객 이용 안내]
 
 문의가 있으시면 안내 페이지의
 카카오톡 문의를 이용해 주세요.`;
+function profile(s){return s.variant===PORTAL_GUIDE_VARIANT?{template:PORTAL_GUIDE_TEMPLATE,button:PORTAL_GUIDE_BUTTON,url:PORTAL_GUIDE_URL,version:PORTAL_GUIDE_VERSION,subject:'메가스팟 예약 확정 안내'}:{template:GUIDE_TEMPLATE,button:GUIDE_BUTTON,url:GUIDE_URL,version:GUIDE_VERSION,subject:'메가스팟 예약 고객 이용 안내'};}
 const NORMAL_SLOTS = { 'pkg-day': [10,17], 'pkg-allday': [10,24], 'pkg-allnight': [18,31], morning:[7,12], day:[12,17], evening:[17,24], am:[9,13], pm:[13,18], ev:[18,23], ampm:[9,18], pmev:[14,23] };
 const KEY = 'reservation_guide';
 const ACTIVE = "('queued','sending','accepted','unknown','delivered')";
@@ -57,9 +60,9 @@ export function guideEligibility(b, settings, at = Date.now(), includeManual = f
 }
 async function config(env) {
   const row = await env.DB.prepare('SELECT value FROM settings WHERE key = ?').bind(KEY).first(), s = parse(row?.value);
-  return { enabled: s.enabled === true, automatic: s.automatic === true, template_code: s.template_code == null ? 'UN_2584' : str(s.template_code,60), spaces: Array.isArray(s.spaces) ? s.spaces.filter(x => Object.hasOwn(SPACES,x)) : [] };
+  return { variant:s.variant===PORTAL_GUIDE_VARIANT?PORTAL_GUIDE_VARIANT:'legacy', enabled: s.enabled === true, automatic: s.automatic === true, template_code: s.template_code == null ? 'UN_2584' : str(s.template_code,60), spaces: Array.isArray(s.spaces) ? s.spaces.filter(x => Object.hasOwn(SPACES,x)) : [] };
 }
-async function configHash(env,s) { return sha256(JSON.stringify([GUIDE_VERSION,GUIDE_TEMPLATE,GUIDE_BUTTON,s.template_code,s.spaces.slice().sort(),...secrets.map(k=>env[k] || ''),env.ALIGO_RELAY_URL || '',env.ALIGO_RELAY_SECRET || ''])); }
+async function configHash(env,s) { const p=profile(s),values=[p.version,p.template,p.button,s.template_code,s.spaces.slice().sort(),...secrets.map(k=>env[k] || ''),env.ALIGO_RELAY_URL || '',env.ALIGO_RELAY_SECRET || ''];if(s.variant===PORTAL_GUIDE_VARIANT)values.push(await sha256(env.DEPOSIT_ACCOUNT_KEY||''));return sha256(JSON.stringify(values)); }
 const credentialNames = env => env.ALIGO_RELAY_URL ? ['ALIGO_RELAY_URL','ALIGO_RELAY_SECRET','ALIGO_SENDER_KEY','ALIGO_SENDER'] : secrets;
 const missing = env => credentialNames(env).filter(k=>!env[k]);
 async function provider(env, path, data = {}, requestID = crypto.randomUUID()) {
@@ -84,12 +87,13 @@ async function approved(env,s) {
   if (String(r.code) !== '0') throw Error(safeProviderError(r));
   const t = (r.list || []).find(x=>x.templtCode===s.template_code);
   if (!t || t.inspStatus !== 'APR' || !['A','R'].includes(t.status)) throw Error('알리고에서 사용 가능한 승인 템플릿인지 확인해 주세요.');
-  const bs = t.buttons || [];
-  if (normalize(t.templtContent) !== GUIDE_TEMPLATE || bs.length !== 1 || bs[0].name !== GUIDE_BUTTON.name || bs[0].linkType !== 'WL' || bs[0].linkMo !== GUIDE_URL || bs[0].linkPc !== GUIDE_URL) throw Error('승인 템플릿의 본문·버튼이 준비된 이용 안내와 다릅니다. 템플릿을 확인해 주세요.');
+  const bs = t.buttons || [],p=profile(s);
+  if (normalize(t.templtContent) !== p.template || bs.length !== 1 || bs[0].name !== p.button.name || bs[0].linkType !== 'WL' || bs[0].linkMo !== p.url || bs[0].linkPc !== p.url) throw Error('승인 템플릿의 본문·버튼이 준비된 이용 안내와 다릅니다. 템플릿을 확인해 주세요.');
   return t;
 }
 async function tested(env,hash) { return !!await env.DB.prepare("SELECT id FROM booking_guide_messages WHERE mode='test' AND status='delivered' AND config_hash=? LIMIT 1").bind(hash).first(); }
 async function ready(env,s) {
+  if(s.variant===PORTAL_GUIDE_VARIANT&&!keyReady(env))return '통합 안내 링크 암호화 설정이 필요합니다.';
   if (!s.enabled || env.ALIGO_LIVE_ENABLED !== 'true') return '고객 발송이 꺼져 있습니다. 설정에서 준비 상태를 확인해 주세요.';
   if (missing(env).length || !s.template_code) return '알리고 인증정보·템플릿 설정이 필요합니다.';
   if (!await tested(env,await configHash(env,s))) return '현재 설정으로 운영자 시험 수신을 먼저 완료해 주세요.';
@@ -110,9 +114,12 @@ async function active(env,b) {
   return env.DB.prepare(`SELECT id,status FROM booking_guide_messages WHERE booking_code=? AND mode='live' AND ${FAMILY} AND ((purpose=? AND status IN ${ACTIVE}) OR status IN ('sending','accepted','unknown')) ORDER BY created_at DESC,rowid DESC LIMIT 1`).bind(b.booking_code,purpose(b)).first();
 }
 function snapshot(b) { return { booking_code:b.booking_code, revision:b.revision || 0, inquiry_ref:b.inquiry_ref || '', customer_name:b.customer_name, phone:guidePhone(b.phone), space_id:b.space_id, date:b.date, time:hours(b), message:guideMessage(b), guide_sent:b.guide_sent || false }; }
+async function messageSnapshot(env,b,s,issue=false){const snap=snapshot(b);return s.variant===PORTAL_GUIDE_VARIANT?portalGuideSnapshot(env,b,snap,issue):snap;}
+async function presentSnapshot(env,snap){if(snap.delivery_variant!==PORTAL_GUIDE_VARIANT)return {...snap,button:GUIDE_BUTTON,guide_url:GUIDE_URL};const button=await portalGuideButton(env,snap);return {...snap,button,guide_url:button.linkMo};}
+function providerPayload(env,s,snap,template,button){return {senderkey:env.ALIGO_SENDER_KEY,tpl_code:s.template_code,sender:env.ALIGO_SENDER,receiver_1:snap.phone,recvname_1:snap.customer_name,subject_1:profile(s).subject,message_1:snap.message.replace(/\n/g,template?.templtContent?.includes('\r\n')?'\r\n':'\n'),button_1:JSON.stringify({button:[button]}),failover:'N',testMode:'N'};}
 function sameSnapshot(a,b) { const keys=[...new Set([...Object.keys(a),...Object.keys(b),'revision'])].sort();return keys.every(k=>JSON.stringify(k==='revision'?(a[k] || 0):a[k])===JSON.stringify(k==='revision'?(b[k] || 0):b[k])); }
-async function insertMessage(env,b,s,mode,actor,reason='',event=null) {
-  const id = crypto.randomUUID(), snap = snapshot(b), hash = await configHash(env,s), t = now();
+async function insertMessage(env,b,s,mode,actor,reason='',event=null,expectedSnapshot=null) {
+  const id = crypto.randomUUID(), snap = expectedSnapshot||await messageSnapshot(env,b,s,s.variant===PORTAL_GUIDE_VARIANT), hash = await configHash(env,s), t = now();
   const values=[id,mode==='test'?null:b.booking_code,purpose(b),mode,JSON.stringify(snap),hash,actor,str(reason,300),t,t];
   const insert=env.DB.prepare("INSERT INTO booking_guide_messages(id,booking_code,purpose,mode,status,snapshot,config_hash,actor,reason,created_at,updated_at) SELECT ?,?,?,?, 'queued',?,?,?,?,?,?"+(event?" WHERE EXISTS(SELECT 1 FROM booking_guide_events WHERE booking_code=? AND revision=? AND status='pending')":"")).bind(...values,...(event?[b.booking_code,b.revision]:[]));
   if(event){
@@ -131,16 +138,20 @@ async function dispatch(env,id,s,template) {
   s=await config(env); // honor an operator's stop/config change during a bulk request
   const snap = parse(m.snapshot);
   if (m.config_hash !== await configHash(env,s)) return state(env,id,'cancelled','발송 설정이 변경되었습니다. 다시 미리보기해 주세요.');
-  if (m.mode === 'live') {
-    const b = await booking(env,m.booking_code), reason = guideEligibility(b,s,Date.now(),true);
-    if (reason || !sameSnapshot(snap,snapshot(b))) return state(env,id,'cancelled',reason || '예약 내용이 변경되었습니다. 다시 미리보기해 주세요.');
-    if (await ready(env,s)) return; // safely retain an unsent queue when switched off
+  const isPortal=snap.delivery_variant===PORTAL_GUIDE_VARIANT;let currentBooking,button=GUIDE_BUTTON;
+  if (m.mode === 'live'||isPortal) {
+    const b=currentBooking=await booking(env,m.booking_code||snap.booking_code), reason = guideEligibility(b,s,Date.now(),true);
+    let fresh;try{if(!reason)fresh=await messageSnapshot(env,b,s);}catch{return state(env,id,'cancelled','통합 안내 링크가 만료되었거나 변경되었습니다. 새로 미리보기해 주세요.');}
+    if (reason || !sameSnapshot(snap,fresh)) return state(env,id,'cancelled',reason || '예약 내용 또는 통합 링크가 변경되었습니다. 다시 미리보기해 주세요.');
+    if (m.mode==='live'&&await ready(env,s)) return; // safely retain an unsent queue when switched off
   }
-  const claim = await env.DB.prepare("UPDATE booking_guide_messages SET status='sending',updated_at=? WHERE id=? AND status='queued'").bind(now(),id).run();
-  if (!changed(claim)) return;
+  if(isPortal)try{button=await portalGuideButton(env,snap);}catch{return state(env,id,'cancelled','통합 안내 링크가 변경되었습니다. 새로 미리보기해 주세요.');}
+  const ref=snap.portal_reference,guard=isPortal?" AND EXISTS(SELECT 1 FROM booking_portal_links pl JOIN bookings pb ON pb.booking_code=pl.booking_code WHERE pl.booking_code=? AND pl.token_hash=? AND pl.version=? AND pl.recipient_hash=? AND pl.expires_at>? AND pb.status='confirmed' AND pb.phone IS ? AND pb.customer_name IS ?)":'';
+  const claim = await env.DB.prepare("UPDATE booking_guide_messages SET status='sending',updated_at=? WHERE id=? AND status='queued'"+guard).bind(now(),id,...(isPortal?[snap.booking_code,ref.token_hash,ref.version,ref.recipient_hash,Date.now(),currentBooking.phone,currentBooking.customer_name]:[])).run();
+  if (!changed(claim)){if(isPortal)await env.DB.prepare("UPDATE booking_guide_messages SET status='cancelled',error='통합 안내 링크 또는 예약이 변경되었습니다.',updated_at=? WHERE id=? AND status='queued'").bind(now(),id).run();return;}
   // Never retry a transport/JSON failure: Aligo may already have accepted this request.
   try {
-    const r = await provider(env,'alimtalk/send',{senderkey:env.ALIGO_SENDER_KEY,tpl_code:s.template_code,sender:env.ALIGO_SENDER,receiver_1:snap.phone,recvname_1:snap.customer_name,subject_1:'메가스팟 예약 고객 이용 안내',message_1:snap.message.replace(/\n/g,template?.templtContent?.includes('\r\n')?'\r\n':'\n'),button_1:JSON.stringify({button:[GUIDE_BUTTON]}),failover:'N',testMode:'N'},id);
+    const r = await provider(env,'alimtalk/send',providerPayload(env,s,snap,template,button),id);
     if (!r || !/^-?\d+$/.test(String(r.code))) return state(env,id,'unknown','알리고 응답 형식 확인이 필요합니다. 재발송 전에 전송내역을 확인해 주세요.');
     if (String(r.code) !== '0') return state(env,id,'failed',safeProviderError(r));
     const mid = r.info?.mid;
@@ -249,6 +260,31 @@ export async function guideSummary(env,codes) {
 export async function guideAdmin({env,request,url,path,method}) {
   if (!path.startsWith('guide-messages')) return null;
   const s=await config(env), hash=await configHash(env,s);
+  if(path==='guide-messages/portal-template'&&method==='GET')return json({ok:true,variant:PORTAL_GUIDE_VARIANT,version:PORTAL_GUIDE_VERSION,template_code:PORTAL_GUIDE_CODE,template:PORTAL_GUIDE_TEMPLATE,button:PORTAL_GUIDE_BUTTON,active_variant:s.variant,active_template_code:s.template_code});
+  if(path==='guide-messages/portal-check-template'&&method==='POST'){
+    const d=await readJson(request),code=str(d.template_code,60);if(!code)return err('새 통합 안내 템플릿 코드를 입력해 주세요.');
+    await approved(env,{...s,variant:PORTAL_GUIDE_VARIANT,template_code:code});
+    return json({ok:true,approved:true,message:'통합 안내의 승인 본문과 동적 버튼이 일치합니다. 기존 발송 설정은 변경하지 않았습니다.'});
+  }
+  if(['guide-messages/portal-preview','guide-messages/portal-test'].includes(path)&&method==='POST'){
+    const d=await readJson(request),codes=[...new Set(Array.isArray(d.codes)?d.codes:[])],simulation=path.endsWith('/portal-test');
+    if(!codes.length||codes.length>20||codes.some(x=>typeof x!=='string'||!/^[A-Z0-9-]{1,40}$/.test(x)))return err('예약을 1~20건 선택해 주세요.');
+    if(d.confirm_prepare_links!==true||simulation&&d.confirm_simulation!==true)return err('실제 발송 없는 링크 미리보기·모의시험을 확인해 주세요.');
+    const items=[],excluded=[];
+    for(const code of codes){
+      const b=await booking(env,code),why=guideEligibility(b,{...s,spaces:Object.keys(SPACES)},Date.now(),true);
+      if(why){excluded.push({booking_code:code,reason:why});continue;}
+      try{
+        const snap=await messageSnapshot(env,b,{...s,variant:PORTAL_GUIDE_VARIANT},true),shown=await presentSnapshot(env,snap);
+        if(simulation){
+          const checks=await portalGuideSimulation(env,snap,shown.button),payload=providerPayload({}, {...s,variant:PORTAL_GUIDE_VARIANT,template_code:str(d.template_code,60)||'(신규 승인 코드 필요)'},snap,{templtContent:PORTAL_GUIDE_TEMPLATE},shown.button);
+          const {senderkey,sender,...safePayload}=payload;
+          items.push({...shown,checks:{...checks,template_variables_resolved:!/#\{[^}]+\}/.test(safePayload.message_1+safePayload.button_1),external_send_called:false},provider_payload:safePayload});
+        }else items.push(shown);
+      }catch(e){excluded.push({booking_code:code,reason:e.message});}
+    }
+    return json({ok:true,mode:simulation?'simulation':'preview',sendable:false,actual_delivery_tested:false,provider_approval_verified:false,items,excluded,passed:simulation&&items.length===codes.length&&items.every(x=>x.checks.template_variables_resolved),blocked:'실제 발송 없는 준비 화면입니다. 새 템플릿 승인·운영자 실제 수신 확인·별도 설정 적용 전에는 현재 발송 방식이 유지됩니다.'});
+  }
   if(path==='guide-messages/diagnostics' && method==='GET') {
     // Read-only release check: no provider calls, recipient data, enqueue or dispatch.
     const expected=['booking_guide_state','booking_guide_events','booking_guide_lease','guide_booking_created','guide_booking_changed','guide_booking_status','guide_manual_insert','guide_manual_update','guide_manual_delete','booking_deposit_review'];
@@ -277,9 +313,10 @@ export async function guideAdmin({env,request,url,path,method}) {
     }
     return json({ok:true});
   }
-  if(path==='guide-messages/settings' && method==='GET') return json({ok:true,...s,transport:env.ALIGO_RELAY_URL?'relay':'direct',live_allowed:env.ALIGO_LIVE_ENABLED==='true',credentials:Object.fromEntries(credentialNames(env).map(k=>[k,!!env[k]])),test_delivered:await tested(env,hash),template:GUIDE_TEMPLATE,button:GUIDE_BUTTON,guide_url:GUIDE_URL,version:GUIDE_VERSION});
+  if(path==='guide-messages/settings' && method==='GET') return json({ok:true,...s,transport:env.ALIGO_RELAY_URL?'relay':'direct',live_allowed:env.ALIGO_LIVE_ENABLED==='true',credentials:Object.fromEntries(credentialNames(env).map(k=>[k,!!env[k]])),test_delivered:await tested(env,hash),template:profile(s).template,button:profile(s).button,guide_url:profile(s).url,version:profile(s).version,templates:{legacy:profile({variant:'legacy'}),'booking-portal':profile({variant:PORTAL_GUIDE_VARIANT})},portal_template:{code:PORTAL_GUIDE_CODE,variant:PORTAL_GUIDE_VARIANT,template:PORTAL_GUIDE_TEMPLATE,button:PORTAL_GUIDE_BUTTON,version:PORTAL_GUIDE_VERSION}});
   if(path==='guide-messages/settings' && method==='PUT') {
-    const d=await readJson(request), next={enabled:d.enabled===true,automatic:d.automatic===true,template_code:str(d.template_code,60),spaces:Array.isArray(d.spaces)?d.spaces.filter(x=>Object.hasOwn(SPACES,x)):[]};
+    const d=await readJson(request),variant=d.variant??s.variant;if(!['legacy',PORTAL_GUIDE_VARIANT].includes(variant))return err('안내 방식을 확인해 주세요.');
+    const next={variant,enabled:d.enabled===true,automatic:d.automatic===true,template_code:str(d.template_code,60),spaces:Array.isArray(d.spaces)?d.spaces.filter(x=>Object.hasOwn(SPACES,x)):[]};
     if(next.enabled) { if(env.ALIGO_LIVE_ENABLED!=='true') return err('Cloudflare의 ALIGO_LIVE_ENABLED를 true로 설정한 뒤 활성화할 수 있습니다.',409); await approved(env,next); if(!next.spaces.length || !await tested(env,await configHash(env,next))) return err('호점별 안내 확인과 현재 설정의 운영자 시험 수신을 먼저 완료해 주세요.',409); }
     const statements=[env.DB.prepare('INSERT INTO settings(key,value,updated_at) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at').bind(KEY,JSON.stringify(next),now())];
     if(!next.enabled || !next.automatic || await configHash(env,next)!==hash){
@@ -297,7 +334,8 @@ export async function guideAdmin({env,request,url,path,method}) {
     // A real operator test is intentionally distinct from Aligo's non-delivery testMode.
     const recent=await env.DB.prepare("SELECT id FROM booking_guide_messages WHERE mode='test' AND created_at>=? LIMIT 1").bind(new Date(Date.now()-60000).toISOString().slice(0,19).replace('T',' ')).first();
     if(recent) return err('시험 발송은 1분 뒤 다시 요청해 주세요.',429);
-    const b={booking_code:'TEST',customer_name:'메가스팟 운영자',phone,space_id:s.spaces[0] || 'megaspot-gundae',date:'2099-01-01',start_h:18,end_h:22};
+    let b={booking_code:'TEST',customer_name:'메가스팟 운영자',phone,space_id:s.spaces[0] || 'megaspot-gundae',date:'2099-01-01',start_h:18,end_h:22};
+    if(s.variant===PORTAL_GUIDE_VARIANT){b=await booking(env,str(d.booking_code,40));if(!b||guidePhone(b.phone)!==phone||d.confirm_private_preview!==true||guideEligibility(b,s,Date.now(),true))return err('시험 수신 번호와 연락처가 같은 운영자 본인 예약을 지정하고 전용 링크 전달을 확인해 주세요.',409);}
     const id=await insertMessage(env,b,s,'test','admin','운영자 시험 발송'); await dispatch(env,id,s,template); return json({ok:true,id});
   }
   if(path==='guide-messages/candidates' && method==='GET') {
@@ -327,11 +365,11 @@ export async function guideAdmin({env,request,url,path,method}) {
     if(!codes.length || codes.length>20 || codes.some(x=>typeof x!=='string' || !/^[A-Z0-9-]{1,40}$/.test(x))) return err('예약을 1~20건 선택해 주세요.');
     const include=d.include_manual===true,reason=str(d.reason,300); if(include && !reason) return err('기존 안내 고객에게 다시 안내할 사유를 입력해 주세요.');
     const items=[],excluded=[];
-    for(const code of codes){const b=await booking(env,code),why=guideEligibility(b,s,Date.now(),include),previous=await active(env,b); if(why || previous){excluded.push({booking_code:code,reason:why || '이미 발송됐거나 처리 중인 안내가 있습니다.'});continue;} items.push({...snapshot(b),needs_review:!!b.needs_review});}
+    for(const code of codes){const b=await booking(env,code),why=guideEligibility(b,s,Date.now(),include),previous=await active(env,b); if(why || previous){excluded.push({booking_code:code,reason:why || '이미 발송됐거나 처리 중인 안내가 있습니다.'});continue;} try{items.push({...await messageSnapshot(env,b,s,true),needs_review:!!b.needs_review});}catch(e){excluded.push({booking_code:code,reason:e.message});}}
     const id=crypto.randomUUID(),expires=Date.now()+10*60000;
     await env.DB.prepare('DELETE FROM booking_guide_previews WHERE expires_at<?').bind(Date.now()).run();
     await env.DB.prepare('INSERT INTO booking_guide_previews(id,payload,expires_at) VALUES(?,?,?)').bind(id,JSON.stringify({items,config_hash:hash,include_manual:include,reason}),expires).run();
-    return json({ok:true,preview_id:id,items,excluded,expires_at:expires,blocked:await ready(env,s)});
+    return json({ok:true,preview_id:id,items:await Promise.all(items.map(x=>presentSnapshot(env,x))),excluded,expires_at:expires,blocked:await ready(env,s)});
   }
   if(path==='guide-messages/send' && method==='POST') {
     const d=await readJson(request),p=await env.DB.prepare('SELECT * FROM booking_guide_previews WHERE id=?').bind(str(d.preview_id,60)).first();
@@ -345,8 +383,9 @@ export async function guideAdmin({env,request,url,path,method}) {
       if(halted){items.push({booking_code:snap.booking_code,skipped:true,reason:'앞선 발송 결과 확인 또는 발송 재개가 필요하여 보류했습니다.'});continue;}
       const b=await booking(env,snap.booking_code),why=guideEligibility(b,s,Date.now(),payload.include_manual);
       const {needs_review,...immutable}=snap;
-      if(why || !sameSnapshot(immutable,snapshot(b)) || await active(env,b)){items.push({booking_code:snap.booking_code,skipped:true,reason:why || '예약 내용 또는 발송 이력이 바뀌었습니다.'});continue;}
-      try{const id=await insertMessage(env,b,s,'live','admin',payload.reason);await dispatch(env,id,s,template);const row=await env.DB.prepare('SELECT status,error FROM booking_guide_messages WHERE id=?').bind(id).first();items.push({booking_code:b.booking_code,id,...row});halted=['unknown','sending','queued'].includes(row.status);}catch{items.push({booking_code:b.booking_code,skipped:true,reason:'처리 중이거나 저장할 수 없습니다. 이력을 확인해 주세요.'});halted=true;}
+      let fresh;try{if(!why)fresh=await messageSnapshot(env,b,s);}catch{items.push({booking_code:snap.booking_code,skipped:true,reason:'통합 안내 링크가 변경되었습니다. 다시 미리보기해 주세요.'});continue;}
+      if(why || !sameSnapshot(immutable,fresh) || await active(env,b)){items.push({booking_code:snap.booking_code,skipped:true,reason:why || '예약 내용 또는 발송 이력이 바뀌었습니다.'});continue;}
+      try{const id=await insertMessage(env,b,s,'live','admin',payload.reason,null,immutable);await dispatch(env,id,s,template);const row=await env.DB.prepare('SELECT status,error FROM booking_guide_messages WHERE id=?').bind(id).first();items.push({booking_code:b.booking_code,id,...row});halted=['unknown','sending','queued'].includes(row.status);}catch{items.push({booking_code:b.booking_code,skipped:true,reason:'처리 중이거나 저장할 수 없습니다. 이력을 확인해 주세요.'});halted=true;}
     }
     return json({ok:true,items});
   }
