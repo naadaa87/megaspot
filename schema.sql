@@ -605,3 +605,30 @@ INSERT OR IGNORE INTO booking_payment_entries(booking_code,request_id,kind,amoun
  AND NOT EXISTS(SELECT 1 FROM booking_payment_entries e WHERE e.booking_code=b.booking_code)
  AND CAST(json_extract(b.confirm_doc,'$.paid') AS INTEGER)>(SELECT COALESCE(SUM(MAX(0,o.price-MIN(o.price,COALESCE((SELECT SUM(r.amount) FROM payapp_refunds r WHERE r.oid=o.oid AND datetime(r.created_at)<=datetime(COALESCE(json_extract(b.confirm_doc,'$.updated_at'),json_extract(b.confirm_doc,'$.issued_at'),b.updated_at,b.created_at))),CASE WHEN o.status='refunded' AND datetime(o.updated_at)<=datetime(COALESCE(json_extract(b.confirm_doc,'$.updated_at'),json_extract(b.confirm_doc,'$.issued_at'),b.updated_at,b.created_at)) THEN o.price ELSE 0 END)))),0) FROM orders o WHERE o.booking_code=b.booking_code AND o.test=0 AND o.status IN ('paid','refunded') AND (o.paid_at IS NULL OR datetime(o.paid_at)<=datetime(COALESCE(json_extract(b.confirm_doc,'$.updated_at'),json_extract(b.confirm_doc,'$.issued_at'),b.updated_at,b.created_at))));
 INSERT OR IGNORE INTO settings(key,value,updated_at) SELECT 'payment_legacy:'||booking_code,'1',created_at FROM bookings WHERE json_valid(confirm_doc) AND json_type(confirm_doc,'$.settlement') IS NULL AND json_extract(confirm_doc,'$.paid') IS NOT NULL;
+
+-- Corrections append history; original receipt/refund rows remain intact.
+CREATE TABLE IF NOT EXISTS booking_payment_revisions (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ booking_code TEXT NOT NULL,
+ entry_id INTEGER NOT NULL REFERENCES booking_payment_entries(id),
+ request_id TEXT NOT NULL,
+ previous_version INTEGER NOT NULL,
+ action TEXT NOT NULL CHECK(action IN ('correct','void')),
+ kind TEXT NOT NULL CHECK(kind IN ('receipt','refund')),
+ amount INTEGER NOT NULL CHECK(amount>0),
+ note TEXT NOT NULL DEFAULT '',
+ reason TEXT NOT NULL,
+ created_at TEXT NOT NULL,
+ UNIQUE(booking_code,request_id),
+ UNIQUE(entry_id,previous_version)
+);
+CREATE INDEX IF NOT EXISTS idx_payment_revisions_entry ON booking_payment_revisions(entry_id,id);
+CREATE INDEX IF NOT EXISTS idx_payment_revisions_booking ON booking_payment_revisions(booking_code,id);
+CREATE VIEW IF NOT EXISTS booking_payment_current AS
+ SELECT e.id,e.booking_code,e.request_id,COALESCE(r.kind,e.kind) AS kind,
+ COALESCE(r.amount,e.amount) AS amount,COALESCE(r.note,e.note) AS note,
+ CASE WHEN r.action='void' THEN 'void' ELSE 'active' END AS state,
+ COALESCE(r.id,0) AS version,e.created_at,COALESCE(r.created_at,e.created_at) AS updated_at,
+ e.kind AS original_kind,e.amount AS original_amount,e.note AS original_note
+ FROM booking_payment_entries e LEFT JOIN booking_payment_revisions r
+ ON r.id=(SELECT MAX(latest.id) FROM booking_payment_revisions latest WHERE latest.entry_id=e.id);
