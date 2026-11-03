@@ -1,0 +1,16 @@
+[Unit]
+Description=Process Megaspot parking notification outbox
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=megaspot-aligo
+Group=megaspot-aligo
+EnvironmentFile=/etc/megaspot-aligo.env
+ExecStart=/usr/bin/node /opt/megaspot-aligo/parking-tick.mjs
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+TimeoutStartSec=55
+

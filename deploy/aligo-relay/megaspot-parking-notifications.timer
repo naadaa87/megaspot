@@ -1,0 +1,10 @@
+[Unit]
+Description=Check Megaspot parking notifications every minute
+
+[Timer]
+OnBootSec=1min
+OnUnitInactiveSec=1min
+Unit=megaspot-parking-notifications.service
+
+[Install]
+WantedBy=timers.target

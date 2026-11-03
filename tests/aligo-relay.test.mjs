@@ -36,3 +36,14 @@ test('결과·템플릿 조회만 허용하고 임의 URL·추가 수신자 전�
 test('이 연결 서버에서 생성하지 않은 다른 서비스의 전송 내역은 조회하지 않는다',async t=>{
   const f=fixture(t);assert.equal((await f.send(f.input({path:'history/detail',data:{mid:'999999'}}))).status,403);assert.equal(f.calls.length,0);
 });
+test('승인된 주차 7종만 대체 문자를 켜며 본문 누락·변수 미치환 요청은 차단',async t=>{
+ const f=fixture(t);f.env.ALIGO_TEMPLATE_CODES='UN_2584,UN_2583';const v=f.input();v.data.tpl_code='UN_2583';assert.equal((await f.send(v)).status,400);
+ v.data.fmessage_1='주차권 안내 #{주문번호}';assert.equal((await f.send(v)).status,400);
+ v.data.fmessage_1='주차권 결제 완료 MS001';v.data.fsubject_1='메가스팟';assert.equal((await f.send(v)).status,200);assert.equal(f.calls[0].body.get('failover'),'Y');assert.equal(f.calls[0].body.get('fmessage_1'),v.data.fmessage_1);
+});
+test('이 서버의 알림톡 결과에서 확인된 SMS 대체 메시지 ID만 결과 조회 허용',async t=>{
+ const f=fixture(t);await f.send(f.input());const request=f.request(f.input({path:'history/detail',data:{mid:'100'}}));
+ await relayRequest(request,f.env,f.ledger,async()=>Response.json({code:0,list:[{type:'AT',smid:'555'}]}));assert.equal(f.ledger.ownsSmsMid('555'),true);assert.equal(f.ledger.ownsSmsMid('777'),false);
+ assert.equal((await f.send(f.input({path:'sms/detail',data:{mid:'100'}}))).status,403);
+ await f.send(f.input({path:'sms/detail',data:{mid:'555'}}));const q=f.calls.at(-1);assert.equal(q.url,'https://apis.aligo.in/sms_list/');assert.equal(q.body.get('key'),'server-only-key');assert.equal(q.body.get('user_id'),'server-user');assert.equal(q.body.get('apikey'),null);
+});

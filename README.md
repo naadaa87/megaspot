@@ -531,3 +531,7 @@ QR 이미지는 `assets/img/brand/kakao-qr.svg` 입니다. **채널 주소를 �
 - 새 테이블: `booking_guide_messages`, `booking_guide_previews`. 자동 초기화용 `_schema.js`와 별도 검토 SQL `migrations/20261103_guide_messages.sql`에 포함합니다. 기존 예약·주문은 변경하지 않습니다.
 - 고객 안내서의 공용 URL은 `https://megaspot-guide.pages.dev/`를 유지합니다. 호점별 출입·장비 안내, 보증금 기입금 안내는 발송 전 확인해야 합니다. 검색 제외 설정만으로 출입정보가 보호되는 것은 아니며, 현재 안내서에는 별도 예약자 인증이 없습니다.
 - 검증: `node --test tests/*.test.mjs`, `wrangler pages functions build functions`. 시험은 가상 고객과 모의 발송 API로 수행하며 실제 고객 발송·과금은 실행하지 않습니다.
+
+### 주차권 알림톡·문자
+
+주차권 관리의 알림 설정에서 결제·입차 접수·실제 등록·등록 문제·취소 문의·전체/부분 환불 7종을 관리합니다. 등록 템플릿과 본문은 `config/parking-alimtalk.templates.json`, 서버용 문구는 `functions/api/_parking_templates.js`에 있습니다. 기존 고정 IP 알리고 서버와 인증정보를 재사용하며 주차 알림에만 SMS 대체 발송을 적용합니다. 새 상태 변경과 발송 이벤트는 D1 트리거로 함께 기록합니다. 고객 발송은 기본 OFF이고, `ALIGO_LIVE_ENABLED=true`, 7종 승인 및 본문·버튼 일치, 현재 설정의 운영자 결제 완료 시험 수신 성공 후 주차 설정을 켤 수 있습니다. 정기 처리 설치와 결과 확인은 `deploy/aligo-relay/README.md`를 따릅니다. 기존 주문을 소급 발송하거나 통신 결과 불명 건을 자동 재전송하지 않습니다.
