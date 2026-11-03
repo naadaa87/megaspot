@@ -1574,7 +1574,7 @@
       $('#cd-sum').innerHTML='<div><b>'+esc(bk.name||'')+'</b> <span class="st '+(bk.status==='cancelled'?'st-cancel':bk.status==='completed'?'st-done':'st-ok')+'">'+esc(stl)+'</span></div>'
         +'<div class="small">'+esc(CDX.dateText(bk.date))+' · '+esc(CDX.timeText(bk))+(bk.headcount?' · '+bk.headcount+'명':'')+'</div>'
         +'<div class="tiny muted">예약번호 '+esc(bk.code)+(r.inquiry&&r.inquiry.ref?' · 문의 '+esc(r.inquiry.ref):'')+' · '+esc(bk.phone||'')+'</div>';
-      cdFill(r.doc&&r.doc.issued_at?r.doc:cdDefaults(r)); cdDirty=!!r.needs_reissue; cdState();
+      cdFill(r.doc&&r.doc.issued_at?(r.needs_reissue?Object.assign({},r.doc,{items:r.preview.items}):r.doc):cdDefaults(r)); cdDirty=!!r.needs_reissue; cdState();
       if(r.needs_reissue)note($('#cd-msg'),'이전 확정서에 케이터링 상세 기록이 없습니다. 저장·다운로드하면 선택한 구성과 금액을 넣어 다시 발급합니다.');
       var off=bk.status==='cancelled'; ['#cd-save','#cd-pdf','#cd-png','#cd-share','#cd-link','#cd-text'].forEach(function(s){ $(s).disabled=off; });
       if(off) note($('#cd-msg'), '취소된 예약은 확정서를 발급할 수 없습니다.');
@@ -1585,8 +1585,9 @@
   function cdSave(force){
     if(!CDS) return Promise.reject(new Error('예약 정보를 불러오는 중입니다.'));
     if(!force && !cdDirty && CDS.doc && CDS.doc.issued_at && CDS.link) return Promise.resolve(CDS);
-    return A('/bookings/'+encodeURIComponent(CDS.booking.code)+'/confirm-doc',{method:'PUT', body:{doc:cdSettings()}}).then(function(r){
-      CDS.doc=r.doc; CDS.preview=r.preview; CDS.link=r.link; cdDirty=false; drawerDirty['adm-cdoc']=false; cdState(); refreshLists(); return CDS;
+    var sent=cdSettings();
+    return A('/bookings/'+encodeURIComponent(CDS.booking.code)+'/confirm-doc',{method:'PUT', body:{doc:sent}}).then(function(r){
+      CDS.doc=r.doc; CDS.preview=r.preview; CDS.link=r.link; if(cdSettings().items.join('\n')===sent.items.join('\n'))$('#cd-items').value=(r.doc.items||[]).join('\n'); cdDirty=false; drawerDirty['adm-cdoc']=false; cdState(); refreshLists(); return CDS;
     });
   }
   function cdBusy(btn, on, label){ btn.disabled=on; if(on){ btn.dataset.label=btn.textContent; btn.textContent=label||'만드는 중…'; } else if(btn.dataset.label){ btn.textContent=btn.dataset.label; } }

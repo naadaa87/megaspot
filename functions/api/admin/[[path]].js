@@ -734,6 +734,7 @@ export async function onRequest({ request, env, params }) {
         const doc = parseDoc(row.confirm_doc), currentReception = receptionDocument(idata, row.effective_amount);
         const needs_reissue = !!(doc?.issued_at && currentReception && !Object.hasOwn(doc,'reception'));
         const previewDoc = doc && Object.hasOwn(doc,'reception') ? doc : {...(doc||{}),reception:currentReception};
+        if(needs_reissue)previewDoc.items=withoutReceptionItems(previewDoc.items||[]);
         return json({ ok: true, needs_reissue, reception:currentReception, booking: { code, space_id: row.space_id, name: row.customer_name, phone: row.phone, date: row.date, slot: row.slot, headcount: row.headcount, status: row.status, amount: row.effective_amount, start_h: row.start_h, end_h: row.end_h, order_status: row.order_status || '' },
           inquiry: inq, doc, preview: publicDoc(row, previewDoc), link: doc && doc.issued_at ? link : '', token: k });
       }
