@@ -24,6 +24,12 @@ export const GUIDE_TEMPLATE = `[메가스팟 예약 고객 이용 안내]
 const NORMAL_SLOTS = { 'pkg-day': [10,17], 'pkg-allday': [10,24], 'pkg-allnight': [18,31], morning:[7,12], day:[12,17], evening:[17,24], am:[9,13], pm:[13,18], ev:[18,23], ampm:[9,18], pmev:[14,23] };
 const KEY = 'reservation_guide';
 const ACTIVE = "('queued','sending','accepted','unknown','delivered')";
+const FAMILY = "(purpose='reservation-guide-v1' OR purpose GLOB 'reservation-guide-v1:r[0-9]*')";
+const REVISION = 'COALESCE(gs.revision,0)';
+const PURPOSE = "'reservation-guide-v1'||CASE WHEN COALESCE(gs.revision,0)=0 THEN '' ELSE ':r'||gs.revision END";
+const MANUAL = 'CASE WHEN gs.manual_revision=gs.revision THEN gs.manual_sent ELSE NULL END';
+const BOOKING_JOIN = 'FROM bookings b LEFT JOIN booking_guide_state gs ON gs.booking_code=b.booking_code';
+function purpose(b) { return GUIDE_VERSION + (b.revision ? ':r' + b.revision : ''); }
 const secrets = ['ALIGO_USERID','ALIGO_API_KEY','ALIGO_SENDER_KEY','ALIGO_SENDER'];
 const parse = (raw, fallback = {}) => { try { return JSON.parse(raw) || fallback; } catch { return fallback; } };
 const changed = r => Number(r?.meta?.changes ?? r?.changes ?? 0);
@@ -90,14 +96,30 @@ async function ready(env,s) {
   return '';
 }
 async function booking(env,code) {
-  return env.DB.prepare("SELECT b.*, json_extract(ic.checks,'$.guide_sent') AS guide_sent FROM bookings b LEFT JOIN inquiry_checks ic ON ic.ref=b.inquiry_ref WHERE b.booking_code=?").bind(code).first();
+  return env.DB.prepare(`SELECT b.*,${REVISION} AS revision,COALESCE(gs.needs_review,0) AS needs_review,${MANUAL} AS guide_sent ${BOOKING_JOIN} WHERE b.booking_code=?`).bind(code).first();
 }
-async function active(env,code) { return env.DB.prepare(`SELECT id,status FROM booking_guide_messages WHERE booking_code=? AND mode='live' AND purpose=? AND status IN ${ACTIVE} ORDER BY created_at DESC LIMIT 1`).bind(code,GUIDE_VERSION).first(); }
-function snapshot(b) { return { booking_code:b.booking_code, inquiry_ref:b.inquiry_ref || '', customer_name:b.customer_name, phone:guidePhone(b.phone), space_id:b.space_id, date:b.date, time:hours(b), message:guideMessage(b), guide_sent:b.guide_sent || false }; }
-function sameSnapshot(a,b) { return JSON.stringify(a) === JSON.stringify(b); }
-async function insertMessage(env,b,s,mode,actor,reason='') {
+export async function guideInquiryChecks(env,ref,checks) {
+  const any=await env.DB.prepare("SELECT 1 FROM bookings WHERE inquiry_ref=? AND status<>'cancelled' LIMIT 1").bind(ref).first();
+  if(!any)return checks;
+  const outstanding=await env.DB.prepare(`SELECT 1 ${BOOKING_JOIN} WHERE b.inquiry_ref=? AND b.status<>'cancelled' AND COALESCE(${MANUAL},0)=0 AND NOT EXISTS(SELECT 1 FROM booking_guide_messages gm WHERE gm.booking_code=b.booking_code AND gm.mode='live' AND gm.purpose=${PURPOSE} AND gm.status='delivered') LIMIT 1`).bind(ref).first();
+  return {...checks,guide_sent:outstanding?false:(checks.guide_sent || true)};
+}
+async function active(env,b) {
+  if(!b)return null;
+  // Old in-flight/ambiguous requests block all revisions until their outcome is known.
+  return env.DB.prepare(`SELECT id,status FROM booking_guide_messages WHERE booking_code=? AND mode='live' AND ${FAMILY} AND ((purpose=? AND status IN ${ACTIVE}) OR status IN ('sending','accepted','unknown')) ORDER BY created_at DESC,rowid DESC LIMIT 1`).bind(b.booking_code,purpose(b)).first();
+}
+function snapshot(b) { return { booking_code:b.booking_code, revision:b.revision || 0, inquiry_ref:b.inquiry_ref || '', customer_name:b.customer_name, phone:guidePhone(b.phone), space_id:b.space_id, date:b.date, time:hours(b), message:guideMessage(b), guide_sent:b.guide_sent || false }; }
+function sameSnapshot(a,b) { const keys=[...new Set([...Object.keys(a),...Object.keys(b),'revision'])].sort();return keys.every(k=>JSON.stringify(k==='revision'?(a[k] || 0):a[k])===JSON.stringify(k==='revision'?(b[k] || 0):b[k])); }
+async function insertMessage(env,b,s,mode,actor,reason='',event=null) {
   const id = crypto.randomUUID(), snap = snapshot(b), hash = await configHash(env,s), t = now();
-  await env.DB.prepare("INSERT INTO booking_guide_messages(id,booking_code,purpose,mode,status,snapshot,config_hash,actor,reason,created_at,updated_at) VALUES(?,?,?,?, 'queued',?,?,?,?,?,?)").bind(id,mode==='test'?null:b.booking_code,GUIDE_VERSION,mode,JSON.stringify(snap),hash,actor,str(reason,300),t,t).run();
+  const values=[id,mode==='test'?null:b.booking_code,purpose(b),mode,JSON.stringify(snap),hash,actor,str(reason,300),t,t];
+  const insert=env.DB.prepare("INSERT INTO booking_guide_messages(id,booking_code,purpose,mode,status,snapshot,config_hash,actor,reason,created_at,updated_at) SELECT ?,?,?,?, 'queued',?,?,?,?,?,?"+(event?" WHERE EXISTS(SELECT 1 FROM booking_guide_events WHERE booking_code=? AND revision=? AND status='pending')":"")).bind(...values,...(event?[b.booking_code,b.revision]:[]));
+  if(event){
+    const results=await env.DB.batch([insert,env.DB.prepare("UPDATE booking_guide_events SET status='handled',message_id=? WHERE booking_code=? AND revision=? AND status='pending'").bind(id,b.booking_code,b.revision)]);
+    if(!changed(results[0]))return null;
+  }
+  else await insert.run();
   return id;
 }
 async function state(env,id,status,error='',mid=null,result=null) {
@@ -151,40 +173,102 @@ async function reconcile(env,id) {
     return;
   }
   await state(env,id,status,status==='delivered'?'':str(d?.rslt_message,240),null,String(d?.rslt || ''));
-  // Mark only actual delivery. Preserve unrelated/manual checklist entries atomically.
-  if (status==='delivered' && m.mode==='live' && snap.inquiry_ref) {
-    await env.DB.prepare("INSERT INTO inquiry_checks(ref,checks,updated_at) VALUES(?,json_object('guide_sent',?),?) ON CONFLICT(ref) DO UPDATE SET checks=json_set(inquiry_checks.checks,'$.guide_sent',?),updated_at=excluded.updated_at").bind(snap.inquiry_ref,now(),now(),now()).run();
+  if (status==='delivered' && m.mode==='live') {
+    await env.DB.prepare('UPDATE booking_guide_state SET needs_review=0 WHERE booking_code=? AND revision=?').bind(m.booking_code,snap.revision || 0).run();
+    // Inquiry checks are an aggregate, never evidence that an unsent sibling was guided.
+    if(snap.inquiry_ref){
+      // The aggregate check and write are one statement, so a concurrent sibling insert cannot inherit it.
+      await env.DB.prepare(`INSERT INTO inquiry_checks(ref,checks,updated_at) SELECT ?,json_object('guide_sent',?),? WHERE NOT EXISTS(SELECT 1 ${BOOKING_JOIN} WHERE b.inquiry_ref=? AND b.status<>'cancelled' AND COALESCE(${MANUAL},0)=0 AND NOT EXISTS(SELECT 1 FROM booking_guide_messages gm WHERE gm.booking_code=b.booking_code AND gm.mode='live' AND gm.purpose=${PURPOSE} AND gm.status='delivered')) ON CONFLICT(ref) DO UPDATE SET checks=json_set(inquiry_checks.checks,'$.guide_sent',?),updated_at=excluded.updated_at`).bind(snap.inquiry_ref,now(),now(),snap.inquiry_ref,now()).run();
+    }
   }
 }
 export async function automaticGuide(env,code) {
-  // Called only on a newly confirmed booking, never when deploying or listing old bookings.
+  // Every creation path writes the same transactional event. Never scan/backfill old bookings.
   try {
-    const s = await config(env); if (!s.automatic || await ready(env,s)) return;
-    const b=await booking(env,code); if (guideEligibility(b,s) || await active(env,code)) return;
-    const id=await insertMessage(env,b,s,'live','automatic');
+    const b=await booking(env,code);if(!b)return;
+    const event=await env.DB.prepare("SELECT * FROM booking_guide_events WHERE booking_code=? AND revision=? AND status IN ('pending','handled')").bind(code,b.revision).first();
+    if(!event)return;
+    const s=await config(env);
+    if(!s.automatic || !s.enabled || env.ALIGO_LIVE_ENABLED!=='true'){
+      await env.DB.prepare("UPDATE booking_guide_events SET status='cancelled' WHERE booking_code=? AND revision=? AND status='pending'").bind(code,b.revision).run();
+      if(event.message_id)await env.DB.prepare("UPDATE booking_guide_messages SET status='cancelled',error='자동 발송 중지',updated_at=? WHERE id=? AND status='queued'").bind(now(),event.message_id).run();return;
+    }
+    if(await ready(env,s))return; // Keep an observable event on transient readiness/storage failure.
+    if(b.needs_review || guideEligibility(b,s)){
+      await env.DB.prepare("UPDATE booking_guide_events SET status='cancelled' WHERE booking_code=? AND revision=? AND status='pending'").bind(code,b.revision).run();return;
+    }
+    let id=event.message_id;
+    if(!id){
+      if(event.status!=='pending')return;
+      if(await active(env,b)){
+        await env.DB.prepare("UPDATE booking_guide_events SET status='handled' WHERE booking_code=? AND revision=? AND status='pending'").bind(code,b.revision).run();return;
+      }
+      id=await insertMessage(env,b,s,'live','automatic','',event);
+      if(!id)return;
+    }
+    const m=await env.DB.prepare('SELECT status FROM booking_guide_messages WHERE id=?').bind(id).first();if(m?.status!=='queued')return;
     let template;try { template=await approved(env,s); } catch(e) { await state(env,id,'failed',e.message); return; }
     await dispatch(env,id,s,template);
-  } catch { /* Booking confirmation must remain successful if the messaging service fails. */ }
+  } catch { /* Durable events survive: a messaging failure must not roll back a booking/payment. */ }
+}
+export async function confirmedGuide(env,code,waitUntil) {
+  if(typeof waitUntil==='function'){waitUntil(automaticGuide(env,code));return;}
+  await automaticGuide(env,code);
+}
+export async function guideTick(env,send=true) {
+  if(!env.DB)return;
+  const until=Date.now()+120000;
+  const claim=await env.DB.prepare("INSERT INTO booking_guide_lease(name,until_at) VALUES('tick',?) ON CONFLICT(name) DO UPDATE SET until_at=excluded.until_at WHERE booking_guide_lease.until_at<?").bind(until,Date.now()).run();
+  if(!changed(claim))return;
+  try{
+    const s=await config(env),hash=await configHash(env,s);
+    if(!missing(env).length){
+      const {results}=await env.DB.prepare("SELECT id FROM booking_guide_messages WHERE config_hash=? AND (status IN ('accepted','sending') OR (status='unknown' AND provider_mid IS NOT NULL)) ORDER BY updated_at,rowid LIMIT 5").bind(hash).all();
+      for(const m of results || [])try{await reconcile(env,m.id);}catch{break;}
+    }
+    if(!send)return;
+    const {results}=await env.DB.prepare("SELECT e.booking_code FROM booking_guide_events e LEFT JOIN booking_guide_messages m ON m.id=e.message_id WHERE e.status='pending' OR (e.status='handled' AND m.status='queued' AND m.actor='automatic') ORDER BY e.created_at,e.booking_code LIMIT 5").all();
+    for(const e of results || [])await automaticGuide(env,e.booking_code);
+  }finally{await env.DB.prepare("UPDATE booking_guide_lease SET until_at=? WHERE name='tick' AND until_at=?").bind(Date.now()+60000,until).run();}
 }
 async function guideLatest(env,codes) {
-  if (!codes.length) return {};
+  if(!codes.length)return {};
   const out={};
   for(let i=0;i<codes.length;i+=80){
-    const chunk=codes.slice(i,i+80),{results}=await env.DB.prepare(`SELECT m.booking_code,m.status,m.error,m.provider_result,EXISTS(SELECT 1 FROM booking_guide_messages a WHERE a.booking_code=m.booking_code AND a.purpose=m.purpose AND a.mode='live' AND a.status IN ${ACTIVE}) AS has_active FROM booking_guide_messages m WHERE m.mode='live' AND m.purpose=? AND m.booking_code IN (${chunk.map(()=>'?').join(',')}) ORDER BY m.created_at,m.rowid`).bind(GUIDE_VERSION,...chunk).all();
-    for(const x of results || []) out[x.booking_code]=x;
+    const chunk=codes.slice(i,i+80),{results}=await env.DB.prepare(`SELECT m.booking_code,m.status,m.error,m.provider_result,EXISTS(SELECT 1 FROM booking_guide_messages a WHERE a.booking_code=m.booking_code AND a.mode='live' AND (a.purpose=${PURPOSE} OR ((a.purpose='reservation-guide-v1' OR a.purpose GLOB 'reservation-guide-v1:r[0-9]*') AND a.status IN ('sending','accepted','unknown'))) AND a.status IN ${ACTIVE}) AS has_active FROM booking_guide_messages m LEFT JOIN booking_guide_state gs ON gs.booking_code=m.booking_code WHERE m.mode='live' AND (m.purpose=${PURPOSE} OR ((m.purpose='reservation-guide-v1' OR m.purpose GLOB 'reservation-guide-v1:r[0-9]*') AND m.status IN ('sending','accepted','unknown'))) AND m.booking_code IN (${chunk.map(()=>'?').join(',')}) ORDER BY m.created_at,m.rowid`).bind(...chunk).all();
+    for(const x of results || [])out[x.booking_code]=x;
   }
   return out;
 }
 export async function guideSummary(env,codes) {
-  return Object.fromEntries(Object.entries(await guideLatest(env,codes)).map(([code,m])=>[code,m.status]));
+  const out=Object.fromEntries(Object.entries(await guideLatest(env,codes)).map(([code,m])=>[code,m.status]));
+  for(let i=0;i<codes.length;i+=80){const chunk=codes.slice(i,i+80),{results}=await env.DB.prepare(`SELECT booking_code FROM booking_guide_state WHERE needs_review=1 AND booking_code IN (${chunk.map(()=>'?').join(',')})`).bind(...chunk).all();for(const r of results || [])if(!out[r.booking_code])out[r.booking_code]='changed';}
+  return out;
 }
 
 export async function guideAdmin({env,request,url,path,method}) {
   if (!path.startsWith('guide-messages')) return null;
   const s=await config(env), hash=await configHash(env,s);
+  if(path==='guide-messages/diagnostics' && method==='GET') {
+    // Read-only release check: no provider calls, recipient data, enqueue or dispatch.
+    const expected=['booking_guide_state','booking_guide_events','booking_guide_lease','guide_booking_created','guide_booking_changed','guide_booking_status','guide_manual_insert','guide_manual_update','guide_manual_delete','booking_deposit_review'];
+    const {results:objects}=await env.DB.prepare(`SELECT name FROM sqlite_master WHERE name IN (${expected.map(()=>'?').join(',')})`).bind(...expected).all();
+    const have=new Set((objects || []).map(x=>x.name)),missingObjects=expected.filter(x=>!have.has(x));
+    if(missingObjects.length)return json({ok:true,schema_ok:false,missing:missingObjects});
+    const {results:events}=await env.DB.prepare('SELECT status,COUNT(*) AS count FROM booking_guide_events GROUP BY status').all();
+    const {results:messages}=await env.DB.prepare(`SELECT status,COUNT(*) AS count FROM booking_guide_messages WHERE mode='live' AND ${FAMILY} GROUP BY status`).all();
+    const code=str(url.searchParams.get('code'),40);let item=null;
+    if(code&&/^[A-Z0-9-]{1,40}$/.test(code)){
+      const b=await booking(env,code);
+      if(b){const {results}=await env.DB.prepare('SELECT revision,status FROM booking_guide_events WHERE booking_code=? ORDER BY revision').bind(code).all();item={booking_code:code,status:b.status,revision:b.revision,needs_review:!!b.needs_review,manual_sent:!!b.guide_sent,events:results || []};}
+    }
+    return json({ok:true,schema_ok:true,missing:[],enabled:s.enabled,automatic:s.automatic,template_code:s.template_code,events:events || [],messages:messages || [],item});
+  }
   if(path==='guide-messages/count' && method==='GET') {
     const r=await env.DB.prepare("SELECT COUNT(*) AS n FROM booking_guide_messages WHERE mode='live' AND status IN ('failed','unknown','sending','queued')").first();
-    return json({ok:true,count:Number(r?.n || 0)});
+    const pending=await env.DB.prepare("SELECT COUNT(*) AS n FROM booking_guide_events WHERE status='pending'").first();
+    const review=await env.DB.prepare("SELECT COUNT(*) AS n FROM booking_guide_state gs JOIN bookings b ON b.booking_code=gs.booking_code WHERE gs.needs_review=1 AND b.status='confirmed'").first();
+    return json({ok:true,count:Number(r?.n || 0)+Number(pending?.n || 0)+Number(review?.n || 0)});
   }
   if(path==='guide-messages/sync' && method==='POST') {
     if(!missing(env).length){
@@ -197,7 +281,12 @@ export async function guideAdmin({env,request,url,path,method}) {
   if(path==='guide-messages/settings' && method==='PUT') {
     const d=await readJson(request), next={enabled:d.enabled===true,automatic:d.automatic===true,template_code:str(d.template_code,60),spaces:Array.isArray(d.spaces)?d.spaces.filter(x=>Object.hasOwn(SPACES,x)):[]};
     if(next.enabled) { if(env.ALIGO_LIVE_ENABLED!=='true') return err('Cloudflare의 ALIGO_LIVE_ENABLED를 true로 설정한 뒤 활성화할 수 있습니다.',409); await approved(env,next); if(!next.spaces.length || !await tested(env,await configHash(env,next))) return err('호점별 안내 확인과 현재 설정의 운영자 시험 수신을 먼저 완료해 주세요.',409); }
-    await env.DB.prepare('INSERT INTO settings(key,value,updated_at) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at').bind(KEY,JSON.stringify(next),now()).run();
+    const statements=[env.DB.prepare('INSERT INTO settings(key,value,updated_at) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at').bind(KEY,JSON.stringify(next),now())];
+    if(!next.enabled || !next.automatic || await configHash(env,next)!==hash){
+      statements.push(env.DB.prepare("UPDATE booking_guide_events SET status='cancelled' WHERE status='pending'"));
+      statements.push(env.DB.prepare("UPDATE booking_guide_messages SET status='cancelled',error='자동 발송 설정 변경',updated_at=? WHERE mode='live' AND actor='automatic' AND status='queued'").bind(now()));
+    }
+    await env.DB.batch(statements);
     return json({ok:true});
   }
   if(path==='guide-messages/check-template' && method==='POST') { await approved(env,s); return json({ok:true,message:'본문·버튼이 일치하는 승인 템플릿입니다.'}); }
@@ -217,19 +306,18 @@ export async function guideAdmin({env,request,url,path,method}) {
     const conditions=review?['1=1']:["b.status='confirmed'","b.date>=date('now','+9 hours','-1 day')"], args=[];
     if(from){conditions.push('b.date>=?');args.push(from);} if(to){conditions.push('b.date<=?');args.push(to);} if(space){conditions.push('b.space_id=?');args.push(space);}
     if(url.searchParams.get('status')==='unsent'){
-      conditions.push("COALESCE(json_extract(ic.checks,'$.guide_sent'),0)=0");
-      conditions.push(`NOT EXISTS (SELECT 1 FROM booking_guide_messages gm WHERE gm.booking_code=b.booking_code AND gm.mode='live' AND gm.purpose=? AND gm.status IN ${ACTIVE})`);
-      args.push(GUIDE_VERSION);
+      conditions.push(`COALESCE(${MANUAL},0)=0`);
+      conditions.push(`NOT EXISTS (SELECT 1 FROM booking_guide_messages gm WHERE gm.booking_code=b.booking_code AND gm.mode='live' AND ((gm.purpose=${PURPOSE} AND gm.status IN ${ACTIVE}) OR ((gm.purpose='reservation-guide-v1' OR gm.purpose GLOB 'reservation-guide-v1:r[0-9]*') AND gm.status IN ('sending','accepted','unknown'))))`);
     }
+    if(statusFilter==='changed')conditions.push('gs.needs_review=1');
     if(review){
-      const latest="(SELECT gm.status FROM booking_guide_messages gm WHERE gm.booking_code=b.booking_code AND gm.mode='live' AND gm.purpose=? ORDER BY gm.created_at DESC,gm.rowid DESC LIMIT 1)";
+      const latest=`(SELECT gm.status FROM booking_guide_messages gm WHERE gm.booking_code=b.booking_code AND gm.mode='live' AND (gm.purpose=${PURPOSE} OR ((gm.purpose='reservation-guide-v1' OR gm.purpose GLOB 'reservation-guide-v1:r[0-9]*') AND gm.status IN ('sending','accepted','unknown'))) ORDER BY gm.created_at DESC,gm.rowid DESC LIMIT 1)`;
       conditions.push(latest+(statusFilter==='failed'?"='failed'":" IN ('queued','sending','accepted','unknown')"));
-      args.push(GUIDE_VERSION);
     }
-    const {results}=await env.DB.prepare(`SELECT b.*,json_extract(ic.checks,'$.guide_sent') AS guide_sent FROM bookings b LEFT JOIN inquiry_checks ic ON ic.ref=b.inquiry_ref WHERE ${conditions.join(' AND ')} ORDER BY b.date,b.start_h,b.id LIMIT 101 OFFSET ?`).bind(...args,page*100).all();
+    const {results}=await env.DB.prepare(`SELECT b.*,${REVISION} AS revision,COALESCE(gs.needs_review,0) AS needs_review,${MANUAL} AS guide_sent ${BOOKING_JOIN} WHERE ${conditions.join(' AND ')} ORDER BY b.date,b.start_h,b.id LIMIT 101 OFFSET ?`).bind(...args,page*100).all();
     const rows=(results || []).slice(0,100), latest=await guideLatest(env,rows.map(x=>x.booking_code)),items=rows.map(b=>{
       const m=latest[b.booking_code],failed=m?.status==='failed',exclusion=guideEligibility(b,s);
-      return {booking_code:b.booking_code,name:b.customer_name,phone:b.phone,date:b.date,space_id:b.space_id,time:hours(b).map(hour).join('~'),guide_sent:!!b.guide_sent,message_status:m?.status || '',exclusion,
+      return {booking_code:b.booking_code,name:b.customer_name,phone:b.phone,date:b.date,space_id:b.space_id,time:hours(b).map(hour).join('~'),guide_sent:!!b.guide_sent,message_status:m?.status || '',exclusion:exclusion || (m?.has_active?'이미 발송됐거나 처리 중인 안내가 있습니다.':''),revision:b.revision,needs_review:!!b.needs_review,change_note:b.needs_review?'예약 변경 · 최신 내용으로 재안내가 필요합니다.':'',
         failure_reason:failed?str(m.error,300):'',failure_code:failed?str(m.provider_result,30):'',retry_allowed:failed&&!exclusion&&!m.has_active};
     });
     return json({ok:true,items,has_more:(results || []).length>100});
@@ -239,7 +327,7 @@ export async function guideAdmin({env,request,url,path,method}) {
     if(!codes.length || codes.length>20 || codes.some(x=>typeof x!=='string' || !/^[A-Z0-9-]{1,40}$/.test(x))) return err('예약을 1~20건 선택해 주세요.');
     const include=d.include_manual===true,reason=str(d.reason,300); if(include && !reason) return err('기존 안내 고객에게 다시 안내할 사유를 입력해 주세요.');
     const items=[],excluded=[];
-    for(const code of codes){const b=await booking(env,code),why=guideEligibility(b,s,Date.now(),include),previous=await active(env,code); if(why || previous){excluded.push({booking_code:code,reason:why || '이미 발송됐거나 처리 중인 안내가 있습니다.'});continue;} items.push(snapshot(b));}
+    for(const code of codes){const b=await booking(env,code),why=guideEligibility(b,s,Date.now(),include),previous=await active(env,b); if(why || previous){excluded.push({booking_code:code,reason:why || '이미 발송됐거나 처리 중인 안내가 있습니다.'});continue;} items.push({...snapshot(b),needs_review:!!b.needs_review});}
     const id=crypto.randomUUID(),expires=Date.now()+10*60000;
     await env.DB.prepare('DELETE FROM booking_guide_previews WHERE expires_at<?').bind(Date.now()).run();
     await env.DB.prepare('INSERT INTO booking_guide_previews(id,payload,expires_at) VALUES(?,?,?)').bind(id,JSON.stringify({items,config_hash:hash,include_manual:include,reason}),expires).run();
@@ -256,7 +344,8 @@ export async function guideAdmin({env,request,url,path,method}) {
     for(const snap of payload.items || []) {
       if(halted){items.push({booking_code:snap.booking_code,skipped:true,reason:'앞선 발송 결과 확인 또는 발송 재개가 필요하여 보류했습니다.'});continue;}
       const b=await booking(env,snap.booking_code),why=guideEligibility(b,s,Date.now(),payload.include_manual);
-      if(why || !sameSnapshot(snap,snapshot(b)) || await active(env,snap.booking_code)){items.push({booking_code:snap.booking_code,skipped:true,reason:why || '예약 내용 또는 발송 이력이 바뀌었습니다.'});continue;}
+      const {needs_review,...immutable}=snap;
+      if(why || !sameSnapshot(immutable,snapshot(b)) || await active(env,b)){items.push({booking_code:snap.booking_code,skipped:true,reason:why || '예약 내용 또는 발송 이력이 바뀌었습니다.'});continue;}
       try{const id=await insertMessage(env,b,s,'live','admin',payload.reason);await dispatch(env,id,s,template);const row=await env.DB.prepare('SELECT status,error FROM booking_guide_messages WHERE id=?').bind(id).first();items.push({booking_code:b.booking_code,id,...row});halted=['unknown','sending','queued'].includes(row.status);}catch{items.push({booking_code:b.booking_code,skipped:true,reason:'처리 중이거나 저장할 수 없습니다. 이력을 확인해 주세요.'});halted=true;}
     }
     return json({ok:true,items});
