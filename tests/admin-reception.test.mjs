@@ -34,3 +34,42 @@ test('잘못된 구성·인원·코스는 저장하지 않음',async t=>{const {
 test('견적 추가 항목의 금액 변조·중복은 거절함',async t=>{const {api}=state(t);for(const extras of [[{...extra(),amount:1}],[extra(),extra()]])await api('quotes','POST',{inquiry_ref:'MS-TEST',total:5000000,data:{extras}},400);assert.equal((await api('inquiries/MS-TEST')).quotes.length,0);});
 test('공간 금액 직접 수정 후에는 이전 케이터링 포함액을 차감하지 않음',async t=>{const {api}=state(t);await saveQuote(api,{total:2450000,extras:[extra()]});await api('inquiries/MS-TEST','PATCH',{total:600000});const it=(await api('inquiries/MS-TEST')).item;assert.equal(it.data.included_reception_amount,0);assert.equal(overview.build(it,{roomAmount:it.effective_amount}).total,2550000);});
 test('옛 문의 원문이 있어도 저장한 최신 테이블 구성은 한 번만 표시',()=>{const model=overview.build({data:{reception:receptionAdmin({people:50,format:'table'}),message:C.inquiryText(50,'table')}},{roomAmount:500000});assert.equal(model.rows.length,2);assert.equal(model.total,2450000);});
+
+for(const [course,name,unit] of [['light','라이트',25000],['classic','클래식',35000],['premium','프리미엄',45000],['signature','시그니처',55000]]){
+  test(`${name}: 모든 방식·인원 구간에서 계산·저장·안내 금액이 일치`,async t=>{
+    const {api}=state(t);
+    for(const format of ['table','box','lunchbox'])for(const people of [1,50,51,100,101,200,201,300]){
+      const fee=format==='table'?(people<=50?200000:people<=100?250000:people<=200?300000:350000):(people<=100?100000:people<=200?150000:200000);
+      const expected=people*unit+fee,q=C.quote(people,format,course);
+      assert.equal(q.total,expected);assert.equal(q.courseName,name);
+      await api('inquiries/MS-TEST','PATCH',{reception:{people,format,course,total:1,unitPrice:1,fee:1}});
+      const saved=(await api('inquiries/MS-TEST')).item.data.reception;
+      assert.equal(saved.total,expected);assert.equal(saved.unitPrice,unit);assert.equal(saved.fee,fee);assert.equal(saved.course,course);assert.match(saved.summary,new RegExp(name));
+      const text=C.customerText(people,format,course);assert(text.includes(name));assert(text.includes(C.won(expected)));for(const menu of C.course(course).menus)assert(text.includes(menu));
+      assert(C.inquiryText(people,format,course).includes(name));
+    }
+  });
+}
+test('저장된 통합 견적의 코스를 변경·취소·복원하면 예약 금액도 정확히 갱신',async t=>{
+  const {api}=state(t,{booking:true});await saveQuote(api,{total:2450000,extras:[extra()]});
+  for(const [course,status,amount] of [['light','pending',1450000],['premium','confirmed',2450000],['signature','confirmed',2950000],['signature','cancelled',0],['signature','confirmed',2950000]]){
+    await api('inquiries/MS-TEST','PATCH',{reception:{people:50,format:'table',course,status}});
+    const item=(await api('inquiries/MS-TEST')).item;assert.equal(item.effective_amount,500000+amount);assert.equal(item.data.included_reception_amount,amount);assert.equal((await api('bookings')).items[0].amount,500000+amount);
+    assert.equal(overview.build(item,{roomAmount:500000}).total,500000+amount);
+  }
+});
+test('각 코스의 통합 견적 저장은 선택 코스와 금액을 보존하고 변조 단가는 거절',async t=>{
+  const {api}=state(t);
+  for(const course of ['light','premium','signature']){
+    const q=C.quote(50,'table',course),row={kind:'reception',label:q.courseName,amount:q.total,reception:{course,people:50,format:'table'}};
+    await saveQuote(api,{total:500000+q.total,extras:[row]});const item=(await api('inquiries/MS-TEST')).item;
+    assert.equal(item.data.reception.course,course);assert.equal(item.data.reception.courseName,q.courseName);assert.equal(item.data.included_reception_amount,q.total);
+    await api('quotes','POST',{inquiry_ref:'MS-TEST',total:5000000,data:{extras:[{...row,amount:1950000}]}},400);
+  }
+});
+test('알 수 없는 코스를 클래식으로 대체하지 않음',()=>{
+  for(const course of ['','all','vip','constructor','__proto__']){
+    assert.equal(C.quote(50,'table',course).ok,false);assert.equal(C.inquiryText(50,'table',course),null);assert.equal(receptionAdmin({people:50,format:'table',course}),null);
+  }
+  assert.equal(receptionAdmin({people:50,format:'table'}).course,'classic');
+});
