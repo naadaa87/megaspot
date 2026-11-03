@@ -3,9 +3,9 @@
   'use strict';
   var types=['catering','cocktail'];
   function amount(kind,value){if(!value||value.status==='cancelled'||value.removed)return 0;return Math.max(0,Number(kind==='cocktail'?(value.vat_excluded===true?value.total:value.price):value.total)||0);}
-  function key(kind,value){if(!value)return '';var fields=kind==='catering'?['course','people','bill_people','bbq','beer','fee','total','status','note','meal_time','removed']:['cups','price','vat','total','vat_excluded','pricing_version','menus','nonalcohol','note','status'];return JSON.stringify(fields.map(function(k){var v=value[k];return k==='status'?(v||'pending'):v==null?'':v;}));}
+  function key(kind,value){if(!value)return '';var fields=kind==='catering'?['course','people','bill_people','bbq','beer','fee','total','status','note','meal_time','removed']:['cups','price','vat','total','vat_excluded','pricing_version','pricing_revision','menus','nonalcohol','note','status'];return JSON.stringify(fields.map(function(k){var v=value[k];return k==='status'?(v||'pending'):v==null?'':v;}));}
   function isRow(kind,row){return row.kind===kind||(kind==='catering'&&/^출장뷔페 ·/.test(row.label||''));}
-  function publicCocktail(value){var out={};['cups','price','vat','total','vat_excluded','pricing_version','unit','menus','menu_names','nonalcohol','note','summary','status','by','kind','amount','included','removed'].forEach(function(k){if(Object.prototype.hasOwnProperty.call(value,k))out[k]=value[k];});return out;}
+  function publicCocktail(value){var out={};['cups','price','vat','total','vat_excluded','pricing_version','pricing_revision','unit','menus','menu_names','nonalcohol','note','summary','status','by','kind','amount','included','removed'].forEach(function(k){if(Object.prototype.hasOwnProperty.call(value,k))out[k]=value[k];});return out;}
   function extra(kind,value){var row={kind:kind,label:(kind==='catering'?'출장뷔페 · ':'출장 칵테일 · ')+(value.summary||'저장 구성'),amount:amount(kind,value)};row[kind]=JSON.parse(JSON.stringify(kind==='cocktail'?publicCocktail(value):value));return row;}
   function state(data){return JSON.stringify(types.map(function(kind){return [key(kind,data[kind]),!!data[kind+'_in_quote'],Number(data['included_'+kind+'_amount'])||0];}));}
   function syncQuote(input,data,fresh){
