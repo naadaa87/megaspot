@@ -54,7 +54,7 @@ export async function settlementAdmin({env,request,path,method}){
  if(d.expected_revision!==settlement.revision)return err('수납 내역이나 예약 금액이 바뀌었습니다. 최신 금액을 확인한 뒤 다시 기록해 주세요.',409,'PAYMENT_CHANGED');
  if(kind==='refund'&&amount>settlement.net)return err('환불 완료액은 현재 수납액보다 클 수 없습니다.');
  const time=now();const net=`${gross('b.booking_code')}-${returned('b.booking_code')}+${manual('b.booking_code','receipt')}-${manual('b.booking_code','refund')}`;
- await batch(env,[env.DB.prepare(`INSERT INTO booking_payment_entries(booking_code,request_id,kind,amount,note,created_at) SELECT booking_code,?,?,?,?,? FROM bookings b WHERE booking_code=? AND ${revisionSql()}=? AND (?='receipt' OR ?<=(${net}))`).bind(id,kind,amount,str(d.note,300),time,code,d.expected_revision,kind,amount),env.DB.prepare('UPDATE bookings SET confirm_doc=NULL,updated_at=? WHERE booking_code=? AND EXISTS(SELECT 1 FROM booking_payment_entries WHERE booking_code=? AND request_id=?)').bind(time,code,code,id)]);
+ await batch(env,[env.DB.prepare(`INSERT INTO booking_payment_entries(booking_code,request_id,kind,amount,note,created_at) SELECT booking_code,?,?,?,?,? FROM bookings b WHERE booking_code=? AND ${revisionSql()}=? AND (?='receipt' OR ?<=(${net}))`).bind(id,kind,amount,str(d.note,300),time,code,d.expected_revision,kind,amount),env.DB.prepare('UPDATE bookings SET confirm_doc=NULL,updated_at=? WHERE booking_code=? AND EXISTS(SELECT 1 FROM booking_payment_entries WHERE booking_code=? AND request_id=?)').bind(time,code,code,id),...refundCompletionStatements(env,code,'EXISTS(SELECT 1 FROM booking_payment_entries WHERE booking_code=? AND request_id=?)',[code,id],time)]);
  const saved=await env.DB.prepare('SELECT id FROM booking_payment_entries WHERE booking_code=? AND request_id=?').bind(code,id).first();if(!saved)return err('수납 내역이 변경됐습니다. 다시 불러와 확인해 주세요.',409,'PAYMENT_CHANGED');
  await log(env,'booking.payment.'+kind,code,'admin',{amount,request_id:id,note:str(d.note,300)});
  return json({ok:true,settlement:await settlementFor(env,code)});
@@ -76,7 +76,8 @@ async function correctEntry(env,request,code,entryId,settlement){
   env.DB.prepare(`INSERT INTO booking_payment_revisions(booking_code,entry_id,request_id,previous_version,action,kind,amount,note,reason,created_at)
    SELECT b.booking_code,e.id,?,?,?,?,?,?,?,? FROM bookings b JOIN booking_payment_current e ON e.booking_code=b.booking_code
    WHERE b.booking_code=? AND e.id=? AND e.version=? AND ${revisionSql()}=?`).bind(id,entry.version,action,kind,amount,note,reason,time,code,entryId,entry.version,d.expected_revision),
-  env.DB.prepare('UPDATE bookings SET confirm_doc=NULL,updated_at=? WHERE booking_code=? AND EXISTS(SELECT 1 FROM booking_payment_revisions WHERE booking_code=? AND request_id=?)').bind(time,code,code,id)
+  env.DB.prepare('UPDATE bookings SET confirm_doc=NULL,updated_at=? WHERE booking_code=? AND EXISTS(SELECT 1 FROM booking_payment_revisions WHERE booking_code=? AND request_id=?)').bind(time,code,code,id),
+  ...refundCompletionStatements(env,code,'EXISTS(SELECT 1 FROM booking_payment_revisions WHERE booking_code=? AND request_id=?)',[code,id],time)
  ]);
  const saved=await env.DB.prepare('SELECT id FROM booking_payment_revisions WHERE booking_code=? AND request_id=?').bind(code,id).first();
  if(!saved)return err('수납 내역이 변경됐습니다. 최신 기록을 다시 선택해 주세요.',409,'PAYMENT_CHANGED');
@@ -85,3 +86,18 @@ async function correctEntry(env,request,code,entryId,settlement){
 }
 // Refunding an additional food order must not cancel a booking with other receipts.
 export function otherReceiptsSql(code,oid){return `((SELECT COALESCE(SUM(MAX(0,o.price-CASE WHEN o.status='refunded' THEN o.price ELSE MIN(o.price,COALESCE((SELECT SUM(r.amount) FROM payapp_refunds r WHERE r.oid=o.oid),0)) END)),0) FROM orders o WHERE o.booking_code=${code} AND o.oid<>${oid} AND o.test=0 AND o.status IN ('paid','refunded'))+${manual(code,'receipt')}-${manual(code,'refund')})`;}
+
+// Complete a PG cancellation only when every online payment and the combined balance are fully returned.
+// A negative combined balance needs review; a partial refund must leave the reservation active.
+export function refundCompletionStatements(env,code,guard,args,time=now()){
+ if(!code)return [];
+ const received=gross('b.booking_code'),refunded=returned('b.booking_code');
+ return [
+  env.DB.prepare(`UPDATE bookings AS b SET status='cancelled',confirm_doc=NULL,updated_at=? WHERE b.booking_code=? AND b.status<>'cancelled'
+   AND ${received}>0 AND ${received}=${refunded} AND ${manual('b.booking_code','receipt')}=${manual('b.booking_code','refund')} AND (${guard})`).bind(time,code,...args),
+  env.DB.prepare(`UPDATE inquiries SET status='취소·환불',updated_at=? WHERE status='예약 확정'
+   AND ref=(SELECT inquiry_ref FROM bookings WHERE booking_code=? AND status='cancelled')
+   AND NOT EXISTS(SELECT 1 FROM bookings WHERE inquiry_ref=inquiries.ref AND status<>'cancelled') AND (${guard})`).bind(time,code,...args),
+  env.DB.prepare(`DELETE FROM calendar_blocks WHERE memo=? AND EXISTS(SELECT 1 FROM bookings WHERE booking_code=? AND status='cancelled') AND (${guard})`).bind('예약 '+code,code,...args)
+ ];
+}

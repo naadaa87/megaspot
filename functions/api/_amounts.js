@@ -11,17 +11,16 @@ export function amountOverrideSql(i = 'i') {
         SELECT 1 FROM json_each(l.detail, '$.changed') WHERE value = '금액'))))) = 1`;
 }
 const quote = ref => `(SELECT q.total FROM quotes q WHERE q.inquiry_ref = ${ref} ORDER BY q.id DESC LIMIT 1)`;
-const order = code => `(SELECT o.price FROM orders o WHERE o.booking_code = ${code} AND o.status <> 'failed' ORDER BY o.id DESC LIMIT 1)`;
+// Payment installments establish cash received, never the agreed contract total.
 
 export function inquiryAmountSql(i = 'i') {
   return `CASE WHEN ${amountOverrideSql(i)} THEN ${total(i)} ELSE COALESCE(
     (SELECT b.amount FROM bookings b WHERE b.inquiry_ref = ${i}.ref AND b.status <> 'cancelled' ORDER BY b.id DESC LIMIT 1),
-    (SELECT ${order('b.booking_code')} FROM bookings b WHERE b.inquiry_ref = ${i}.ref AND b.status <> 'cancelled' ORDER BY b.id DESC LIMIT 1),
     ${quote(`${i}.ref`)}, ${total(i)}) END`;
 }
 
 export function bookingAmountSql(b = 'b') {
   return `(SELECT CASE WHEN ${amountOverrideSql('i')} THEN ${total('i')} ELSE COALESCE(
-    ${b}.amount, ${order(`${b}.booking_code`)}, ${quote(`${b}.inquiry_ref`)}, ${total('i')}) END
+    ${b}.amount, ${quote(`${b}.inquiry_ref`)}, ${total('i')}) END
     FROM (SELECT 1) LEFT JOIN inquiries i ON i.ref = ${b}.inquiry_ref)`;
 }
