@@ -1,0 +1,31 @@
+(function(){
+ 'use strict';
+ var M=window.MEGASPOT,X=window.MEGASPOT_ADMIN;if(!M||!X)return;
+ var esc=M.esc,busy=false,started=false,seen=new Set(),initialized=false;
+ var top=document.createElement('div');top.className='adm-notify';top.id='pa-payment-alerts';
+ top.innerHTML='<button type="button" class="adm-notify-btn" id="pa-alert-btn" aria-expanded="false" aria-controls="pa-alert-panel">주차 결제 <em id="pa-alert-count" hidden></em></button><div class="adm-notify-panel" id="pa-alert-panel" hidden><div class="adm-notify-head"><strong>확인하지 않은 주차 결제</strong><button class="btn btn-light btn-xs" id="pa-alert-reload" type="button">새로고침</button></div><div class="adm-notify-list" id="pa-alert-list"></div><p class="small muted pa-alert-help">관리자 화면이 열려 있으면 약 10초마다 확인합니다. 주문을 열면 확인 처리됩니다.</p></div>';
+ document.querySelector('.adm-notify-bar').prepend(top);
+ var box=document.createElement('details');box.className='adm-card mt-3';box.id='pa-admin-sms';
+ box.innerHTML='<summary><b>관리자 결제 문자 알림</b></summary><p class="small muted mt-2">새 주차권 결제 완료 시 관리자에게 장문 문자(LMS)를 보냅니다. 문자 요금은 기존 알리고 계정에서 차감됩니다. 고객 알림톡 설정과 별도로 동작하며, 기존 결제는 소급 발송하지 않습니다.</p><label class="pk-label mt-2">수신 관리자 휴대폰 번호<textarea class="textarea" id="pa-sms-phones" rows="2" placeholder="한 줄에 한 번호"></textarea></label><label class="chk mt-2"><input type="checkbox" id="pa-sms-enabled">새 결제 완료 시 관리자 문자 발송</label><p class="small muted mt-2">번호 변경은 서버 수신 허용 목록 등록과 각 번호의 시험 수신 확인이 필요합니다. 아마노는 운영자가 실제 입차를 확인해 직접 등록합니다.</p><label class="chk mt-2"><input type="checkbox" id="pa-sms-test-confirm">저장된 번호마다 시험 장문 문자 1건 발송과 문자 요금 차감에 동의합니다.</label><div class="pk-actions mt-2"><button class="btn btn-primary btn-sm" id="pa-sms-save" type="button">관리자 문자 설정 저장</button><button class="btn btn-light btn-sm" id="pa-sms-test" type="button">저장된 번호에 시험 문자 보내기</button><button class="btn btn-light btn-sm" id="pa-sms-refresh" type="button">문자 도착 결과 확인</button></div><p class="small mt-2" id="pa-sms-state" role="status"></p><div id="pa-sms-history" class="mt-2"></div>';
+ document.querySelector('#view-parking .adm-head').after(box);
+ var status={queued:'발송 대기',sending:'발송 확인 중',accepted:'알리고 접수 · 도착 확인 중',delivered:'문자 도착 성공',failed:'발송 실패',unknown:'결과 확인 필요 · 재발송 중지',cancelled:'발송 취소'};
+ function $(s){return document.querySelector(s);}
+ function api(path,method,body){return fetch('/api/parking/admin/payment-alerts'+path,{method:method||'GET',headers:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)}).then(function(r){return r.json().then(function(j){if(!r.ok)throw Error(j.error||'알림을 확인하지 못했습니다.');return j;});});}
+ function draw(r){
+  var count=$('#pa-alert-count');count.textContent=r.count>99?'99+':r.count;count.hidden=!r.count;
+  $('#pa-alert-list').innerHTML=r.items.length?r.items.map(function(p){return '<button type="button" class="adm-notify-item" data-pa-read="'+esc(p.oid)+'"><span class="adm-notify-item-top"><b>'+esc(p.plate)+'</b><small>'+Number(p.price).toLocaleString('ko-KR')+'원</small></span><span>'+esc(p.visit_date)+' · 결제 완료</span><small>'+esc(p.oid)+' · 주문 확인 →</small></button>';}).join(''):'<p class="small muted pa-alert-help">확인하지 않은 결제가 없습니다.</p>';
+  var fresh=r.items.filter(function(p){return !seen.has(p.oid);});r.items.forEach(function(p){seen.add(p.oid);});if(started&&fresh.length)M.toast('주차권 결제 완료 '+fresh.length+'건이 들어왔습니다.');started=true;
+  var s=r.sms;if(!initialized){$('#pa-sms-phones').value=s.phones.join('\n');$('#pa-sms-enabled').checked=s.enabled;initialized=true;}
+  $('#pa-sms-state').textContent=(s.enabled?'관리자 문자 발송 켜짐':'관리자 문자 발송 꺼짐')+' · '+(s.test_delivered?'모든 번호 시험 도착 확인 완료':'각 번호 시험 문자 도착 확인 필요');
+  $('#pa-sms-history').innerHTML=s.history.map(function(e){return '<p class="small">'+esc(e.mode==='test'?'시험':'결제')+' · '+esc(e.receiver)+' · <b>'+esc(status[e.status]||e.status)+'</b>'+(e.oid?' · '+esc(e.oid):'')+(e.error?' · '+esc(e.error):'')+'</p>';}).join('');
+ }
+ function load(){if(busy||!document.body.classList.contains('adm-on'))return Promise.resolve();busy=true;return api('').then(draw).catch(function(e){$('#pa-sms-state').textContent=e.message;}).finally(function(){busy=false;});}
+ $('#pa-alert-btn').onclick=function(){var p=$('#pa-alert-panel');p.hidden=!p.hidden;this.setAttribute('aria-expanded',String(!p.hidden));if(!p.hidden)load();};
+ $('#pa-alert-reload').onclick=load;
+ document.addEventListener('click',function(e){if(!e.target.closest('#pa-payment-alerts')){$('#pa-alert-panel').hidden=true;$('#pa-alert-btn').setAttribute('aria-expanded','false');}});
+ $('#pa-alert-list').onclick=function(e){var b=e.target.closest('[data-pa-read]');if(!b)return;b.disabled=true;var oid=b.dataset.paRead;api('/'+encodeURIComponent(oid)+'/read','POST',{}).then(function(){$('#pa-alert-panel').hidden=true;$('#pa-alert-btn').setAttribute('aria-expanded','false');$('#pa-filter').value='all';$('#pa-date').value='';$('#pa-search').value=oid;X.go('parking');return load();}).catch(function(err){M.toast(err.message);b.disabled=false;});};
+ $('#pa-sms-save').onclick=function(){var b=this;b.disabled=true;var phones=$('#pa-sms-phones').value.split(/[\s,;]+/).filter(Boolean);api('/settings','PUT',{phones:phones,enabled:$('#pa-sms-enabled').checked}).then(function(){initialized=false;M.toast('관리자 문자 설정을 저장했습니다.');return load();}).catch(function(e){M.toast(e.message);}).finally(function(){b.disabled=false;});};
+ $('#pa-sms-test').onclick=function(){if(!$('#pa-sms-test-confirm').checked){M.toast('시험 문자 요금 차감 동의를 확인해 주세요.');return;}var b=this;b.disabled=true;api('/test','POST',{confirm_test:true}).then(function(){M.toast('시험 문자를 접수했습니다. 도착 결과를 확인해 주세요.');return load();}).catch(function(e){M.toast(e.message);}).finally(function(){b.disabled=false;});};
+ $('#pa-sms-refresh').onclick=function(){var b=this;b.disabled=true;api('/refresh','POST',{}).then(load).catch(function(e){M.toast(e.message);}).finally(function(){b.disabled=false;});};
+ X.register('parking',load);setTimeout(load,1200);setInterval(function(){if(!document.hidden)load();},10000);document.addEventListener('visibilitychange',function(){if(!document.hidden)load();});
+})();

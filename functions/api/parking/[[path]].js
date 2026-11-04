@@ -4,6 +4,7 @@ import {HOLIDAYS} from '../_catalog.js';
 import {onRequest as payRequest} from '../pay/[[path]].js';
 import {TICKETS,POLICY,parkingInput,parkingSettings,parkingAdmin,JOIN,publicParking,arrivalWindow} from '../_parking.js';
 import {parkingNoticeAdmin,parkingNoticeCron,parkingNoticeAccess} from '../_parking_notifications.js';
+import {parkingAdminAlerts} from '../_parking_admin_alerts.js';
 export async function onRequest({request,env,params}){
  const path=(params.path||[]).join('/'),method=request.method;
  if(!hasDb(env))return err('서버를 준비 중입니다.',503);
@@ -14,6 +15,7 @@ export async function onRequest({request,env,params}){
   if(path.startsWith('admin/')){
    const denied=await requireAdmin(request,env);if(denied)return denied;
    if(method!=='GET'&&!sameOrigin(request))return err('허용되지 않은 요청입니다.',403);
+   if(path.startsWith('admin/payment-alerts'))return await parkingAdminAlerts(request,env,path);
    if(path.startsWith('admin/notifications'))return await parkingNoticeAdmin(request,env,path);
    return await parkingAdmin(request,env,path);
   }
