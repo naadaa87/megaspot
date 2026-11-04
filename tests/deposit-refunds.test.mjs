@@ -51,6 +51,16 @@ test('차감 사전 안내·입금·시설·이용 종료 없이는 처리 불�
  await f.api(PATH+'/settlement','POST',{revision:b.revision,amount:150000,deduction:200000,operator:'담당자',inspected:true},400);
  f.db.exec("UPDATE bookings SET date='2026-12-01'");await f.api(PATH+'/settlement','POST',{revision:b.revision,amount:150000,deduction:0,operator:'담당자',inspected:true},409);
 });
+test('송금 시작 거부 사유를 구분하고 누락 확인 중에는 계좌를 잠그지 않는다',async t=>{
+ const f=setup(t);await f.ready();
+ async function blocked(code){const b=await f.item();const r=await f.api(PATH+'/claim','POST',{revision:b.revision,confirm_start:true},409);assert.equal(r.code,code);assert.equal((await f.item()).state,'pending');assert.equal(f.db.prepare('SELECT claimed_by FROM booking_refunds').get().claimed_by,null);}
+ await f.api('bookings/BK-TEST/deposit-paid','PUT',{paid:false});await blocked('DEPOSIT_NOT_PAID');
+ await f.api('bookings/BK-TEST/deposit-paid','PUT',{paid:true});
+ f.db.exec('UPDATE booking_refunds SET inspected=0');await blocked('FACILITY_NOT_INSPECTED');
+ f.db.exec("UPDATE booking_refunds SET inspected=1,operator=''");await blocked('OPERATOR_REQUIRED');
+ f.db.exec("UPDATE booking_refunds SET operator='검증 담당자'; UPDATE bookings SET date='2026-12-01'");await blocked('EVENT_NOT_ENDED');
+ f.db.exec('UPDATE bookings SET start_h=NULL,end_h=NULL,slot=NULL');await blocked('BOOKING_TIME_REQUIRED');
+});
 test('동시 처리 시작은 한 번만 성공·고객 수정 잠금·다른 로그인 완료 금지',async t=>{
  const f=setup(t),b=await f.ready();const req=()=>f.handle(new Request('https://local.test/api/admin/'+PATH+'/claim',{method:'POST',headers:{origin:'https://local.test','x-admin-key':f.env.ADMIN_KEY},body:JSON.stringify({revision:b.revision,confirm_start:true})}));
  const r=await Promise.all([req(),req()]);assert.deepEqual(r.map(x=>x.status).sort(),[200,409]);

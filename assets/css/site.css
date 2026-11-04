@@ -349,6 +349,8 @@ table{border-collapse:collapse;width:100%}
 /* ---------- misc ---------- */
 .toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,20px);background:var(--graphite);color:var(--chalk);padding:12px 18px;border-radius:var(--radius);font-size:14px;opacity:0;pointer-events:none;transition:.25s;z-index:120;max-width:calc(100vw - 32px)}
 .toast.show{opacity:1;transform:translate(-50%,0)}
+.toast[popover]{top:auto;right:auto;margin:0;border:0;overflow:visible;width:max-content;line-height:1.6;text-align:center}
+.toast::backdrop{background:transparent;pointer-events:none}
 
 /* 모바일 빠른 연락 바 (전화 · 카카오톡 · 예약신청) */
 .quick-bar{display:none}
