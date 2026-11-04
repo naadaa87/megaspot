@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fixture, DAY } from './helpers/admin-fixture.mjs';
 import { createHmac } from 'node:crypto';
-import { GUIDE_TEMPLATE, GUIDE_BUTTON, GUIDE_LABEL_CODE, GUIDE_LABEL_BUTTON, GUIDE_URL, GUIDE_VERSION, guideMessage, guideEligibility, guideDelivery, automaticGuide } from '../functions/api/_guide_messages.js';
+import { GUIDE_TEMPLATE, GUIDE_BUTTON, GUIDE_LABEL_CODE, GUIDE_LABEL_BUTTON, GUIDE_MULTI_CODE, GUIDE_MULTI_TEMPLATE, GUIDE_MULTI_BUTTONS, GUIDE_URL, GUIDE_VERSION, guideMessage, guideEligibility, guideDelivery, automaticGuide } from '../functions/api/_guide_messages.js';
 
 function setup(t,{booking=true}={}) {
   const f=fixture({booking});t.after(()=>f.db.close());
@@ -63,6 +63,36 @@ test('새 버튼을 지원해도 기존 템플릿·시험 수신·자동 발송�
   s=await f.api('guide-messages/settings');assert.equal(s.test_delivered,false);
   f.setTemplate({templtCode:GUIDE_LABEL_CODE,buttons:[GUIDE_LABEL_BUTTON]});
   await f.api('guide-messages/settings','PUT',{...f.settings,template_code:GUIDE_LABEL_CODE,enabled:true},409);assert.equal(f.sent.length,2);
+});
+test('3개 버튼 템플릿은 승인과 별도 시험 수신 이후 본문·버튼을 순서대로 미리보기·전송한다',async t=>{
+  const f=setup(t);f.settings.template_code=GUIDE_MULTI_CODE;
+  f.setTemplate({templtCode:GUIDE_MULTI_CODE,templtContent:GUIDE_MULTI_TEMPLATE,buttons:GUIDE_MULTI_BUTTONS});
+  await f.enable(true);const settings=await f.api('guide-messages/settings');
+  assert.equal(settings.template,GUIDE_MULTI_TEMPLATE);assert.deepEqual(settings.facility_templates[GUIDE_MULTI_CODE].buttons,GUIDE_MULTI_BUTTONS);
+  assert.deepEqual(settings.button,GUIDE_MULTI_BUTTONS[0]);assert.equal(settings.automatic,true);
+  const p=await f.preview();assert.deepEqual(p.items[0].buttons,GUIDE_MULTI_BUTTONS);assert.match(p.items[0].message,/입실·시설 이용 방법, 식음료 서비스, 주차권 구매는\n아래 버튼에서 확인해 주세요\./);
+  assert.deepEqual(p.items[0].buttons.map(b=>b.name),['입실 및 이용 안내','뷔페·케이터링·칵테일 안내','주차권 구매']);
+  assert.deepEqual(p.items[0].buttons.map(b=>b.linkMo),['https://megaspot-guide.pages.dev/','https://megaspot.kr/catering/#food-compare','https://megaspot.kr/parking/purchase/']);
+  await f.send(p);assert.equal(f.sent[1].tpl_code,GUIDE_MULTI_CODE);assert.deepEqual(JSON.parse(f.sent[1].button_1),{button:GUIDE_MULTI_BUTTONS});assert.equal((await f.preview()).items.length,0);
+});
+test('3개 버튼의 누락·순서·문구·모바일/PC 링크·본문이 다르거나 미승인이면 발송하지 않는다',async t=>{
+  const f=setup(t);f.settings.template_code=GUIDE_MULTI_CODE;await f.api('guide-messages/settings','PUT',f.settings);
+  const base={templtCode:GUIDE_MULTI_CODE,templtContent:GUIDE_MULTI_TEMPLATE,buttons:GUIDE_MULTI_BUTTONS,inspStatus:'APR'};
+  for(const changed of [
+    {inspStatus:'REQ'},
+    {buttons:GUIDE_MULTI_BUTTONS.slice(0,2)},
+    {buttons:[GUIDE_MULTI_BUTTONS[1],GUIDE_MULTI_BUTTONS[0],GUIDE_MULTI_BUTTONS[2]]},
+    {buttons:GUIDE_MULTI_BUTTONS.map((b,i)=>i===1?{...b,name:'다른 식음료 안내'}:b)},
+    {buttons:GUIDE_MULTI_BUTTONS.map((b,i)=>i===1?{...b,linkMo:'https://wrong.test/'}:b)},
+    {buttons:GUIDE_MULTI_BUTTONS.map((b,i)=>i===2?{...b,linkPc:'https://wrong.test/'}:b)},
+    {templtContent:GUIDE_TEMPLATE}
+  ]){f.setTemplate({...base,...changed});await f.api('guide-messages/test','POST',{phone:'01011112222',confirm_test:true},400);}
+  assert.equal(f.sent.length,0);
+});
+test('3개 버튼으로 바꾸어도 이전 운영자 수신·기존 고객 발송을 자동 재사용하지 않는다',async t=>{
+  const f=setup(t);await f.enable(true);f.setTemplate({templtCode:GUIDE_MULTI_CODE,templtContent:GUIDE_MULTI_TEMPLATE,buttons:GUIDE_MULTI_BUTTONS});
+  await f.api('guide-messages/settings','PUT',{...f.settings,template_code:GUIDE_MULTI_CODE,enabled:true,automatic:true},409);
+  const s=await f.api('guide-messages/settings');assert.equal(s.template_code,'TPL-TEST');assert.equal(s.test_delivered,true);assert.equal(s.automatic,true);assert.deepEqual(s.button,GUIDE_BUTTON);assert.equal(f.sent.length,1);
 });
 test('운영자 시험 수신은 고객 이력·현장 안내 체크·예약 중복 방지에서 제외',async t=>{
   const f=setup(t);await f.prepare();assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM inquiry_checks').get().n,0);
