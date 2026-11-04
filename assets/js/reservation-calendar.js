@@ -28,7 +28,7 @@
  function checkRange(c,fresh){if(!validDate(c.date))return Promise.reject(Error('날짜를 확인해 주세요.'));return loadRange(add(c.date,-1),add(c.date,2),fresh).then(function(data){return selection(data,c);});}
  function inquiryUrl(c){return '/inquiry/?'+new URLSearchParams({space:c.space,date:c.date,start:c.start,end:c.end})+'#reserve';}
  function mount(root,options){
-  options=options||{};var date=validDate(options.date)&&options.date>=today()?options.date:today(),maxMonth=shiftMonth(month(today()),11);
+  options=options||{};var inEstimate=!!options.embedded,applyLabel=inEstimate?'선택한 일정을 견적에 적용 →':'이 일정으로 견적 계산 →';var date=validDate(options.date)&&options.date>=today()?options.date:today(),maxMonth=shiftMonth(month(today()),11);
   if(month(date)>maxMonth)date=today();
   var st={date:date,month:month(date),space:knownRoom(options.space)?options.space:rooms[0].id,filter:'all',start:Number.isInteger(+options.start)?+options.start:13,end:Number.isInteger(+options.end)?+options.end:17,data:null,loading:true,error:'',busy:false},seq=0,destroyed=false;
   if(st.start<5||st.start>30)st.start=13;if(st.end<=st.start||st.end>31)st.end=Math.min(st.start+4,31);
@@ -39,7 +39,7 @@
    +'<p class="rc-updated" role="status" aria-live="polite"></p><div class="rc-error" role="alert" hidden></div>'
    +'<div class="rc-layout"><section class="rc-month" aria-label="월별 확정 예약"><div class="rc-month-head"><button type="button" data-rc="prev" aria-label="이전 달">‹</button><h3 class="rc-month-title"></h3><button type="button" data-rc="next" aria-label="다음 달">›</button></div><div class="rc-weekdays" aria-hidden="true"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div><div class="rc-grid" role="group" aria-label="날짜 선택"></div><p class="rc-legend"><span class="rc-room-one">1호 확정 예약</span><span class="rc-room-two">2호 확정 예약</span></p></section>'
    +'<section class="rc-details" aria-label="선택한 날짜의 확정 시간"><div class="rc-details-head"><h3 class="rc-day-title"></h3><button type="button" data-rc="dates">날짜 다시 선택 ↑</button></div><div class="rc-day-detail"></div></section></div>'
-   +'<section class="rc-choice" aria-label="문의할 공간과 시간 선택"><h3>이 일정으로 상담하기</h3><div class="rc-choice-fields"><label for="'+uid+'-room">공간<select id="'+uid+'-room" class="select" data-rc="room">'+rooms.map(function(r){return '<option value="'+r.id+'">'+r.name+'</option>';}).join('')+'</select></label><label for="'+uid+'-start">시작<select id="'+uid+'-start" class="select" data-rc="start">'+opts(5,30,st.start)+'</select></label><label for="'+uid+'-end">종료<select id="'+uid+'-end" class="select" data-rc="end">'+opts(6,31,st.end)+'</select></label></div><p class="rc-selected-date"></p><p class="rc-selection-status" role="status" aria-live="polite"></p><button type="button" class="btn btn-primary" data-rc="apply" disabled>이 일정으로 예약 상담 →</button><a class="rc-help" href="https://pf.kakao.com/_LnxbmX/chat" target="_blank" rel="noopener">시간 조율이 필요하면 카카오톡 문의 ↗</a></section>';
+   +'<section class="rc-choice" aria-label="견적에 반영할 공간과 시간 선택"><h3>'+(inEstimate?'견적에 반영할 일정':'선택한 일정으로 견적 확인')+'</h3><p class="rc-choice-note">'+(inEstimate?'공간·날짜·시간만 반영합니다. 입력한 인원·식음료·연락처는 유지됩니다.':'원하는 공간과 시간을 고르면 견적 계산 화면으로 이어집니다.')+'</p><div class="rc-choice-fields"><label for="'+uid+'-room">공간<select id="'+uid+'-room" class="select" data-rc="room">'+rooms.map(function(r){return '<option value="'+r.id+'">'+r.name+'</option>';}).join('')+'</select></label><label for="'+uid+'-start">시작<select id="'+uid+'-start" class="select" data-rc="start">'+opts(5,30,st.start)+'</select></label><label for="'+uid+'-end">종료<select id="'+uid+'-end" class="select" data-rc="end">'+opts(6,31,st.end)+'</select></label></div><p class="rc-selected-date"></p><p class="rc-selection-status" role="status" aria-live="polite"></p><button type="button" class="btn btn-primary" data-rc="apply" disabled>'+applyLabel+'</button><a class="rc-help" href="https://pf.kakao.com/_LnxbmX/chat" target="_blank" rel="noopener">시간 조율이 필요하면 카카오톡 문의 ↗</a></section>';
   var $=function(s){return root.querySelector(s);};
   function choice(){return {space:st.space,date:st.date,start:st.start,end:st.end};}
   function dayRanges(id,d){var lo=dayMs(d),hi=lo+DAY;return st.data?st.data.intervals.filter(function(it){return it.space===id&&Date.parse(it.start)<hi&&Date.parse(it.end)>lo;}):[];}
@@ -53,7 +53,7 @@
    var v=st.data?selection(st.data,choice()):null,text=st.loading?'예약 현황을 확인하고 있습니다.':!st.data?'예약 현황을 확인한 후 일정을 선택해 주세요.':v.closed?'선택한 공간은 이 날짜에 신청할 수 없습니다. 오픈일 이후 날짜를 골라 주세요.':v.invalid?'시작·종료 시간을 확인해 주세요.':v.conflict?'선택한 시간과 겹치는 확정 예약이 있습니다. 다른 시간이나 다른 호점을 확인해 주세요.':v.unknown?'이 날짜에 확정 예약이 있어 시간 확인이 필요합니다. 카카오톡으로 문의해 주세요.':'선택한 시간과 겹치는 확정 예약은 표시되지 않습니다. 최종 이용 가능 여부는 상담 시 확인합니다.';
    $('.rc-selection-status').textContent=text;$('.rc-selection-status').classList.toggle('rc-attention',!!(v&&(v.closed||v.invalid||v.conflict||v.unknown)));
    $('[data-rc=apply]').disabled=st.loading||st.busy||!v||v.closed||v.invalid||v.conflict||v.unknown;
-   $('[data-rc=apply]').textContent=st.busy?'최신 일정 확인 중…':'이 일정으로 예약 상담 →';
+   $('[data-rc=apply]').textContent=st.busy?'최신 일정 확인 중…':applyLabel;
   }
   function paint(){
    if(destroyed)return;
@@ -101,7 +101,7 @@
   if(document.querySelector('.rc-dialog[open]'))return;
   var opener=document.activeElement,dialog=document.createElement('dialog');dialog.className='rc-dialog';dialog.setAttribute('aria-label','1·2호 예약 현황');dialog.innerHTML='<div class="rc-dialog-head"><h2>1·2호 예약 현황</h2><button type="button" class="rc-close" aria-label="예약 현황 닫기">✕</button></div><div class="rc-dialog-content"></div>';
   document.body.appendChild(dialog);document.body.classList.add('rc-calendar-open');
-  var panel=mount(dialog.querySelector('.rc-dialog-content'),Object.assign({},options,{onSelect:function(c){dialog.close();if(options&&options.onSelect)options.onSelect(c);else location.assign(inquiryUrl(c));}}));
+  var panel=mount(dialog.querySelector('.rc-dialog-content'),Object.assign({},options,{embedded:!!(options&&options.onSelect),onSelect:function(c){dialog.close();if(options&&options.onSelect)options.onSelect(c);else location.assign(inquiryUrl(c));}}));
   dialog.querySelector('.rc-close').onclick=function(){dialog.close();};dialog.addEventListener('click',function(e){if(e.target===dialog){var r=dialog.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)dialog.close();}});
   dialog.addEventListener('close',function(){panel.destroy();document.body.classList.remove('rc-calendar-open');dialog.remove();if(opener&&opener.isConnected)opener.focus({preventScroll:true});},{once:true});dialog.showModal();
  }
