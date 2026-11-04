@@ -45,10 +45,13 @@
   }
   function bind(root,calc,getPeople){var box=root.querySelector('.plan-fields'),incoming=capture(box),moving=!!transient;restore(box,moving?transient.fields:mergeFields(saved.fields,incoming,q));
     if(!moving&&q.has('reception')){root.querySelector('[name="reception_on"]').checked=true;root.querySelector('[name="reception_course"]').value=q.get('reception');root.querySelector('[name="reception_format"]').value=q.get('reception_format')||'';root.querySelector('[name="reception_people"]').value=q.get('reception_people')||'';}
-    if(!moving&&q.get('visit')==='1'){root.querySelector('[name="rv_visit_on"]').checked=true;root.querySelector('[name="event_date_unknown"]').checked=true;}
+    if(!moving&&q.get('visit')==='1'){root.querySelector('[name="rv_visit_on"]').checked=true;if(!(q.has('date')&&q.has('start')&&q.has('end')))root.querySelector('[name="event_date_unknown"]').checked=true;}
     if(CC)CC.bind(box,'rv_cat',getPeople);if(CK)CK.bind(box);if(M.visitBind)M.visitBind(box,'rv_visit');
     function sync(){var body=box.querySelector('[data-reception-body]');body.hidden=!box.querySelector('[name="reception_on"]').checked;var vb=box.querySelector('.visit-ask-body');if(vb)vb.hidden=!box.querySelector('[name="rv_visit_on"]').checked;saved.fields=capture(box);persist();}
-    box.addEventListener('change',function(){sync();calc();});box.addEventListener('input',function(){sync();calc();});sync();
+    // Text input is already priced as it is typed; its blur/change must not replace a clicked action.
+    var lastFields='';
+    box.addEventListener('change',function(){sync();var next=JSON.stringify(capture(box));if(next!==lastFields){lastFields=next;calc();}});
+    box.addEventListener('input',function(){sync();lastFields=JSON.stringify(capture(box));calc();});sync();lastFields=JSON.stringify(capture(box));
     root.addEventListener('input',function(e){if(e.target.closest('.rv-apply')){form=capture(root.querySelector('.rv-apply'));saved.form=Object.assign({},form);delete saved.form.rv_agree;persist();}});
     root.addEventListener('change',function(e){if(e.target.closest('.rv-apply')){form=capture(root.querySelector('.rv-apply'));saved.form=Object.assign({},form);delete saved.form.rv_agree;persist();}});
     transient=null;
@@ -56,15 +59,17 @@
   function keep(draft){transient=draft;form=draft.form;}
   function saveSpace(st,space){saved.state=JSON.parse(JSON.stringify(st));saved.space=space;persist();}
   function clear(){saved={};transient=null;form={};try{sessionStorage.removeItem(key);sessionStorage.removeItem('ms_catering');sessionStorage.removeItem('ms_cocktail');}catch(e){}}
-  var availabilityCache={};
-  function availability(root,space,date){
-    var key=space+date,box=root.querySelector('.plan-availability');
+  function availability(root,space,date,start,end){
+    var key=[space,date,start,end].join(':'),box=root.querySelector('.plan-availability');
     if(!box){box=document.createElement('p');box.className='plan-availability hint';root.querySelector('[data-out="date-pick"]').after(box);}
-    if(box.dataset.key===key)return;box.dataset.key=key;
-    function draw(info){if(box.dataset.key!==key)return;var state=info&&info.state;box.textContent=state==='full'?'이 날짜는 마감으로 표시되어 있습니다. 다른 날짜를 선택하거나 담당자에게 문의해 주세요.':state==='partial'?'일부 시간에 예약이 있습니다. 선택한 이용 시간은 담당자가 확인합니다.':state==='hold'?'임시 확보 중인 일정이 있습니다. 담당자 확인이 필요합니다.':'선택한 날짜의 최종 이용 가능 시간은 담당자가 확인합니다.';box.classList.toggle('plan-attention',!!state);}
-    if(availabilityCache[key]){draw(availabilityCache[key]);return;}
-    box.textContent='예약 현황 확인 중…';
-    M.api('/availability?space='+encodeURIComponent(space)+'&from='+date+'&to='+date).then(function(r){var day=(r.days||{})[date]||{};availabilityCache[key]=day;draw(day);}).catch(function(){if(box.dataset.key===key)box.textContent='예약 현황을 불러오지 못했습니다. 신청 후 담당자가 확인합니다.';});
+    if(box.dataset.key===key&&Date.now()-Number(box.dataset.checkedAt)<45000)return;
+    box.dataset.key=key;box.dataset.checkedAt=Date.now();box.textContent='확정 예약 현황 확인 중…';
+    if(!M.reservations){box.textContent='최종 이용 가능 시간은 담당자가 확인합니다.';return;}
+    M.reservations.checkRange({space:space,date:date,start:start,end:end},false).then(function(v){
+      if(box.dataset.key!==key)return;
+      box.textContent=v.closed?'선택한 공간은 오픈일 이후 날짜로 신청해 주세요.':v.conflict?'선택한 시간과 겹치는 확정 예약이 있습니다. 1·2호 예약 현황에서 다른 시간을 확인해 주세요.':v.unknown?'확정 예약이 있어 시간 확인이 필요합니다. 카카오톡으로 문의해 주세요.':'선택한 시간과 겹치는 확정 예약은 표시되지 않습니다. 최종 이용 가능 여부는 담당자가 확인합니다.';
+      box.classList.toggle('plan-attention',v.closed||v.conflict||v.unknown);
+    }).catch(function(){if(box.dataset.key===key){box.dataset.checkedAt=0;box.textContent='예약 현황을 불러오지 못했습니다. 새로 확인하거나 카카오톡으로 문의해 주세요.';box.classList.add('plan-attention');}});
   }
   function validate(root){var invalid=Array.from(root.querySelectorAll('.plan-fields input')).find(function(x){return x.offsetParent!==null&&!x.checkValidity();});if(invalid){invalid.reportValidity();return false;}return true;}
   M.eventPlan={mergeFields:mergeFields,validate:validate,availability:availability,initial:initial,fields:fields,reception:reception,quote:quote,paint:paint,bind:bind,capture:capture,restore:restore,keep:keep,saveSpace:saveSpace,formDraft:function(){return form;},space:function(){return saved.space;},clear:clear};

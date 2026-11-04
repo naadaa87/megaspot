@@ -21,6 +21,14 @@
       var d=SPACES[space]||{}; M.toast((d.spaceName||'')+' 요금표로 다시 계산합니다.'+(d.opening&&d.opening>new Date().toISOString().slice(0,10)?' 오픈일('+d.opening.replace(/-/g,'. ')+') 이후 날짜로 잡아 주세요.':''));
     });
   }
+  document.addEventListener('megaspot:calendar-selection',function(e){
+    var c=e.detail;if(!c||!SPACES[c.space])return;
+    if(c.space!==space){space=c.space;markSpace(space);if(M.pricing&&M.pricing.rerender){var fresh=M.pricing.rerender(est,space);if(fresh)est=fresh;}}
+    var unknown=est&&est.querySelector('[name=event_date_unknown]');if(unknown&&unknown.checked){unknown.checked=false;unknown.dispatchEvent(new Event('change',{bubbles:true}));}
+    if(M.pricing&&M.pricing.estimator)M.pricing.estimator.set(c);
+    var u=new URL(location.href);u.searchParams.set('space',space);u.searchParams.set('date',c.date);u.searchParams.set('start',c.start);u.searchParams.set('end',c.end);u.searchParams.delete('pkg');history.replaceState(null,'',u.pathname+u.search+u.hash);
+    M.toast('선택한 공간·날짜·시간을 신청서에 반영했습니다.');
+  });
   var root=$('#inquiry-root');
   if(root && M.renderInquiry){
     M.renderInquiry(root,{ spaceId: mode==='request'?'request':space, mode:mode, type:type, prefill:{ purpose:q.get('purpose')||'', people:q.get('people')||'', region:q.get('region')||'', date:q.get('date')||'' } });
