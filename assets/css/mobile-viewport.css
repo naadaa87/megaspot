@@ -1,0 +1,11 @@
+/* Keyboard coverage can shrink the visual viewport without resizing the page. */
+@media(max-width:999px){
+ .textarea{min-height:min(120px,max(64px,calc(var(--mobile-visible-height,100dvh) - 132px)));max-height:max(64px,calc(var(--mobile-visible-height,100dvh) - 132px))}
+ .input,.select,.textarea,.ct-code .input,.mn-link .input{font-size:16px}
+ html:has(body.bottom-input-active),html.mobile-keyboard-open{scroll-behavior:auto}
+ html.mobile-keyboard-open{scroll-padding-bottom:calc(var(--mobile-keyboard-inset,0px) + 16px)}
+ html.mobile-keyboard-open body::after{content:"";display:block;height:var(--mobile-keyboard-inset,0px);pointer-events:none}
+ .mobile-keyboard-open :is(.quick-bar,.food-mobile-summary,.est-mini,.mv-sticky,.to-top){visibility:hidden!important;pointer-events:none!important}
+ .pk-modal{top:var(--mobile-visible-top,0px);bottom:auto;height:var(--mobile-visible-height,100dvh)}
+ .pk-modal-box{max-height:calc(var(--mobile-visible-height,100dvh) - 36px);overscroll-behavior:contain;scroll-padding-block:16px}
+}
