@@ -9,7 +9,7 @@ export function cancellationPolicy(date,at){
 }
 export async function cancellationState(env,code){
  const row=await env.DB.prepare('SELECT s.revision,s.document,r.terms,r.created_at FROM booking_cancellation_state s JOIN booking_cancellation_revisions r ON r.id=s.revision AND r.booking_code=s.booking_code WHERE s.booking_code=?').bind(code).first();
- return row?{version:row.revision,terms:parse(row.terms),document:parse(row.document),created_at:row.created_at}:null;
+ return row?{version:row.revision,terms:parse(row.terms),document:parse(row.document),document_raw:row.document,created_at:row.created_at}:null;
 }
 export function cancellationDocument(row,state,settlement){
  const issued=state?.document||{};
@@ -27,15 +27,15 @@ export async function cancellationAdmin({env,request,path,method,url}){
  if(method==='GET'&&!m[2]){
   const history=(await env.DB.prepare('SELECT id,previous_version,terms,created_at FROM booking_cancellation_revisions WHERE booking_code=? ORDER BY id DESC LIMIT 50').bind(code).all()).results||[];
   const doc=state&&row.status==='cancelled'?cancellationDocument(row,state,settlement):null;
-  return json({ok:true,booking:{code,name:row.customer_name,date:row.date,status:row.status,amount:row.effective_amount},version:state?.version||0,terms:state?.terms||null,cycle,document_preferences,settlement,history:history.map(r=>({...r,terms:parse(r.terms)})),preview:doc?publicDoc(row,doc):null,issued:!!state?.document?.issued_at});
+  return json({ok:true,booking:{code,name:row.customer_name,date:row.date,status:row.status,amount:row.effective_amount},version:state?.version||0,terms:state?.terms||null,cycle,document_preferences,document_version:state?.document?.issue_no||0,settlement,history:history.map(r=>({...r,terms:parse(r.terms)})),preview:doc?publicDoc(row,doc):null,issued:!!state?.document?.issued_at});
  }
  if(method!=='POST')return err('지원하지 않는 요청입니다.',405);
  const d=await readJson(request),id=str(d.request_id,80);
  if(m[2]){
   if(row.status!=='cancelled'||!state)return err('먼저 취소 수수료와 환불 기준을 저장해 주세요.',409,'NO_CANCELLATION');
-  if(d.expected_revision!==settlement.revision||d.expected_version!==state.version)return stale();
+  if(d.expected_revision!==settlement.revision||d.expected_version!==state.version||(d.expected_document_version!==undefined&&d.expected_document_version!==(state.document?.issue_no||0)))return stale();
   const previous=state.document||{},t=now(),document={issued_at:previous.issued_at||t,updated_at:t,issue_no:(previous.issue_no||0)+1,show_amount:d.show_amount===undefined?previous.show_amount!==false:d.show_amount!==false,customer:previous.customer||row.customer_name};
-  const result=await env.DB.prepare(`UPDATE booking_cancellation_state SET document=? WHERE booking_code=? AND revision=? AND EXISTS(SELECT 1 FROM bookings b WHERE booking_code=? AND status='cancelled' AND ${settlementRevisionSql()}=?)`).bind(JSON.stringify(document),code,state.version,code,settlement.revision).run();
+  const result=await env.DB.prepare(`UPDATE booking_cancellation_state SET document=? WHERE booking_code=? AND revision=? AND COALESCE(document,'')=? AND EXISTS(SELECT 1 FROM bookings b WHERE booking_code=? AND status='cancelled' AND ${settlementRevisionSql()}=?)`).bind(JSON.stringify(document),code,state.version,state.document_raw||'',code,settlement.revision).run();
   if(!(result.meta?.changes??result.changes))return stale();
   const fresh=await settlementFor(env,code);if(fresh.revision!==settlement.revision)return stale();
   await log(env,'booking.cancellation.document',code,'admin',{version:state.version,issue_no:document.issue_no});
@@ -61,7 +61,7 @@ export async function cancellationAdmin({env,request,path,method,url}){
  const version=state?.version||0,financial=settlement.revision,token=randomToken();
  // The serialized revision includes the current terms version; stale writes never change status or publish a new plan.
  await env.DB.batch([
-  env.DB.prepare(`INSERT INTO booking_cancellation_revisions(booking_code,request_id,previous_version,terms,created_at,processing_token) SELECT booking_code,?,?,?,?,? FROM bookings b WHERE booking_code=? AND ${settlementRevisionSql()}=? AND COALESCE((SELECT revision FROM booking_cancellation_state WHERE booking_code=b.booking_code),0)=?`).bind(id,version,JSON.stringify(terms),t,token,code,financial,version),
+  env.DB.prepare(`INSERT INTO booking_cancellation_revisions(booking_code,request_id,previous_version,terms,created_at,processing_token) SELECT booking_code,?,?,?,?,? FROM bookings b WHERE booking_code=? AND ${settlementRevisionSql()}=? AND COALESCE((SELECT revision FROM booking_cancellation_state WHERE booking_code=b.booking_code),0)=? AND COALESCE((SELECT document FROM booking_cancellation_state WHERE booking_code=b.booking_code),'')=?`).bind(id,version,JSON.stringify(terms),t,token,code,financial,version,state?.document_raw||''),
   env.DB.prepare('INSERT INTO booking_cancellation_state(booking_code,revision,document) SELECT booking_code,id,? FROM booking_cancellation_revisions WHERE booking_code=? AND request_id=? AND processing_token=? ON CONFLICT(booking_code) DO UPDATE SET revision=excluded.revision,document=excluded.document').bind(published,code,id,token),
   env.DB.prepare("UPDATE bookings SET status='cancelled',confirm_doc=NULL,updated_at=? WHERE booking_code=? AND EXISTS(SELECT 1 FROM booking_cancellation_revisions WHERE booking_code=? AND request_id=? AND processing_token=?)").bind(t,code,code,id,token),
   env.DB.prepare("DELETE FROM calendar_blocks WHERE memo=? AND EXISTS(SELECT 1 FROM booking_cancellation_revisions WHERE booking_code=? AND request_id=? AND processing_token=?)").bind('예약 '+code,code,id,token),

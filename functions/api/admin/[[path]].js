@@ -1,7 +1,7 @@
 import {reconfirmationAdmin,reconfirmBooking} from '../_reconfirmation.js';
 import {cancellationAdmin} from '../_cancellation.js';
 import {refundAmountSql} from '../_payapp_refund_history.js';
-import {S,preserveLegacyPayments,settlementFor,settlementsFor,settlementAdmin} from '../_settlement.js';
+import {S,preserveLegacyPayments,settlementFor,settlementsFor,settlementAdmin,settlementRevisionSql} from '../_settlement.js';
 // 운영자 API — 모든 경로는 X-Admin-Key 헤더 검증을 거칩니다.
 import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, log, hashPassword, requireAdmin, adminKeyOk, adminCookie,
   randomToken, sha256, later, getCookie, withCookies, clientIp, sameOrigin, tooMany, hit, clearHits, kstToday, SPACES, spaceOk }
@@ -331,9 +331,11 @@ export async function onRequest({ request, env, params, waitUntil }) {
       const related=ref?(await env.DB.prepare('SELECT booking_code,status FROM bookings WHERE inquiry_ref=?').bind(ref).all()).results||[]:[];
       const cancelledQuote=related.length===1&&related[0].status==='cancelled'?(await settlementFor(env,related[0].booking_code)):null;
       if(cancelledQuote?.cancellation){
+        if(d.settlement_revision!==undefined&&d.settlement_revision!==cancelledQuote.revision)return err('정산 내역이 변경됐습니다. 최신 내역을 확인한 뒤 견적을 다시 저장해 주세요.',409,'PAYMENT_CHANGED');
         data.settlement=cancelledQuote;data.cancellation_quote=true;
         const serialized=JSON.stringify(data);if(serialized.length>100000)return err('견적 내용이 너무 깁니다.');
-        await env.DB.prepare('INSERT INTO quotes(quote_no,inquiry_ref,customer,event_date,total,data,created_at) VALUES(?,?,?,?,?,?,?)').bind(quote_no,ref,str(d.customer,120),inquiry.event_date,total,serialized,now()).run();
+        const saved=await env.DB.prepare(`INSERT INTO quotes(quote_no,inquiry_ref,customer,event_date,total,data,created_at) SELECT ?,?,?,?,?,?,? FROM bookings b WHERE booking_code=? AND status='cancelled' AND ${settlementRevisionSql()}=?`).bind(quote_no,ref,str(d.customer,120),inquiry.event_date,total,serialized,now(),related[0].booking_code,cancelledQuote.revision).run();
+        if(!(saved.meta?.changes??saved.changes))return err('정산 내역이 변경됐습니다. 최신 내역을 확인한 뒤 견적을 다시 저장해 주세요.',409,'PAYMENT_CHANGED');
         await log(env,'quote.saved',ref,'admin',{quote_no,total,cancellation:true});return json({ok:true,quote_no,cancellation_quote:true});
       }
       const cocktailRates=publicCocktailPricing(await readCocktailPricing(env));
