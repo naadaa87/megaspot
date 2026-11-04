@@ -48,7 +48,7 @@ export async function relayRequest(request,env,ledger,upstream=fetch){
   if(v.path==='sms/detail' && !ledger.ownsSmsMid(data.mid))return json({error:'SMS not owned by this relay'},403);
   if(['template/list','alimtalk/send'].includes(v.path) && !(env.ALIGO_TEMPLATE_CODES || 'UN_2584').split(',').map(s=>s.trim()).includes(data.tpl_code))return json({error:'Template not allowed'},403);
   const hash=createHash('sha256').update(JSON.stringify([v.path,data,env.ALIGO_USERID,env.ALIGO_SENDER_KEY])).digest('hex');
-  if(adminSMS && (!adminReceivers.includes(data.receiver)||!/^\[메가스팟 주차권 (?:결제 완료|관리자 알림 시험)\]\n/.test(data.msg||'')||data.msg.length>600||!data.msg.endsWith('https://megaspot.kr/admin/#parking')))return json({error:'Unapproved staff recipient/message'},403);
+  if(adminSMS && (!adminReceivers.includes(data.receiver)||!/^\[메가스팟 주차권 (?:결제 완료|관리자 알림 시험|자동 등록 오류|잔액 부족)\]\n/.test(data.msg||'')||data.msg.length>600||!data.msg.endsWith('https://megaspot.kr/admin/#parking')))return json({error:'Unapproved staff recipient/message'},403);
   if(sending){
     if(!adminSMS && (!/^01[016789]\d{7,8}$/.test(data.receiver_1 || '') || !data.message_1 || data.message_1.length>1000 || !data.subject_1))return json({error:'Invalid recipient/message'},400);
     if(PARKING_SMS.has(data.tpl_code) && (!data.fmessage_1 || data.fmessage_1.length>900 || /#\{/.test(data.fmessage_1)))return json({error:'Parking SMS fallback required'},400);
@@ -59,7 +59,7 @@ export async function relayRequest(request,env,ledger,upstream=fetch){
     // Parking fallback is explicitly authorized. Other templates retain their own policy.
     const parking=PARKING_SMS.has(data.tpl_code);
     if(!parking){delete data.fmessage_1;delete data.fsubject_1;}
-    Object.assign(data,adminSMS?{sender:env.ALIGO_SENDER,msg_type:'LMS',title:'메가스팟 주차권 결제 알림',testmode_yn:'N'}:{sender:env.ALIGO_SENDER,failover:parking?'Y':'N',testMode:'N'});
+    Object.assign(data,adminSMS?{sender:env.ALIGO_SENDER,msg_type:'LMS',title:'메가스팟 주차권 관리자 알림',testmode_yn:'N'}:{sender:env.ALIGO_SENDER,failover:parking?'Y':'N',testMode:'N'});
   }
   const smsQuery=v.path==='sms/detail';
   const body=new URLSearchParams((smsQuery||adminSMS)?{...data,key:env.ALIGO_API_KEY,user_id:env.ALIGO_USERID}:{...data,apikey:env.ALIGO_API_KEY,userid:env.ALIGO_USERID});
