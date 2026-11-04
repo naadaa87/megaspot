@@ -9,6 +9,16 @@ import re
 ROOT = Path(__file__).resolve().parents[1]
 ASSET_DIR = '/assets/img/events/20261102'
 FOLDER_ASSET_DIR = '/assets/img/events/20261102-folder'
+RECENT_ASSET_DIR = '/assets/img/events/20261104-wine-setting'
+RECENT_PHOTOS = [
+    ('와인잔과 테이블 세팅', '와인잔과 병이 준비된 긴 테이블과 행사 공간'),
+    ('대형 스크린 행사 준비', '대형 빔프로젝터 스크린과 행사 준비 공간'),
+    ('창가에서 본 행사장', '창가에서 바라본 테이블 배치와 행사장 전경'),
+    ('스크린과 테이블 배치', '스크린 앞에서 이어지는 긴 테이블과 와인잔 세팅'),
+    ('정면에서 본 테이블 세팅', '행사장 정면에서 본 테이블과 스크린 배치'),
+    ('행사 공간과 동선', '스크린과 테이블 사이의 넓은 이동 공간'),
+    ('현장 준비 중인 공간', '와인잔과 테이블을 준비한 실제 행사 현장'),
+]
 CSS_LINK = '<link rel="stylesheet" href="/assets/css/event-gallery.css?v=20261103customerflow1">'
 SCRIPT_LINK = '<script src="/assets/js/event-gallery.js?v=20261102b"></script>'
 ORIGINAL_PHOTOS = [
@@ -32,7 +42,7 @@ FOLDER_PHOTOS = [
 ]
 # New folder photos first; retain all five previously published party photos.
 PHOTOS = [(directory, i, title, alt)
-          for directory, group in [(FOLDER_ASSET_DIR,FOLDER_PHOTOS),(ASSET_DIR,ORIGINAL_PHOTOS)]
+          for directory, group in [(RECENT_ASSET_DIR,RECENT_PHOTOS),(FOLDER_ASSET_DIR,FOLDER_PHOTOS),(ASSET_DIR,ORIGINAL_PHOTOS)]
           for i,(title,alt) in enumerate(group,1)]
 
 def event_gallery_section():
@@ -43,7 +53,7 @@ def event_gallery_section():
     rest=''.join(cards[6:])
     more=f'<details class="home-gallery-more"><summary>행사 사진 {len(cards)-6}장 더 보기</summary><div class="event-photo-grid">{rest}</div></details>' if rest else ''
     return f'''<!-- EVENT_GALLERY_START -->
-<section class="section sec-white sec-line" id="event-gallery"><div class="container"><div class="section-head"><div class="eyebrow">Real event moments</div><h2 class="h-l">실제 행사 현장</h2><p class="lead">네트워킹·뷔페·식사 모임의 대표 사진입니다. 사진을 누르면 전체 {len(PHOTOS)}장을 크게 볼 수 있습니다.</p></div><div data-event-gallery><div class="event-photo-grid">{preview}</div>{more}</div><p class="tiny muted mt-3">참석자 얼굴은 모자이크·흐림 처리했습니다.</p></div></section>
+<section class="section sec-white sec-line" id="event-gallery"><div class="container"><div class="section-head"><div class="eyebrow">Real event moments</div><h2 class="h-l">실제 행사 현장</h2><p class="lead">테이블 세팅·스크린 활용부터 네트워킹·식사 모임까지, 실제 현장 사진입니다. 사진을 누르면 전체 {len(PHOTOS)}장을 크게 볼 수 있습니다.</p></div><div data-event-gallery><div class="event-photo-grid">{preview}</div>{more}</div><p class="tiny muted mt-3">참석자 얼굴은 모자이크·흐림 처리했습니다.</p></div></section>
 <!-- EVENT_GALLERY_END -->'''
 
 def build_home():
@@ -63,4 +73,22 @@ def build_home():
     if SCRIPT_LINK not in page:page=page.replace('</body>',SCRIPT_LINK+'\n</body>')
     path.write_text(page)
 
-if __name__=='__main__':build_home()
+def build_venue():
+    path=ROOT/'spaces/megaspot-gundae/index.html';page=path.read_text()
+    cards=[]
+    for i,(title,alt) in enumerate(RECENT_PHOTOS,1):
+        cards.append(f'<figure class="event-photo"><a href="{RECENT_ASSET_DIR}/photo-{i:02}.jpg" data-event-photo data-title="{title}" aria-label="{title} 사진 크게 보기"><img src="{RECENT_ASSET_DIR}/thumb-{i:02}.jpg" alt="{alt} · 얼굴 가림 처리" width="720" height="540" loading="lazy" decoding="async"><span class="event-photo-zoom" aria-hidden="true">크게 보기 ↗</span></a><figcaption><span>{i:02}</span>{title}</figcaption></figure>')
+    section='<!-- VENUE_EVENT_GALLERY_START -->\n<section class="section sec-white sec-line" id="event-gallery"><div class="container"><div class="section-head"><div class="eyebrow">Real event setting</div><h2 class="h-l">행사 준비 현장 사진</h2><p class="lead">와인잔을 준비한 테이블부터 대형 스크린과 전체 배치까지, 실제 현장 7장을 확인하세요.</p></div><div class="event-photo-grid" data-event-gallery>'+''.join(cards)+'</div><p class="tiny muted mt-3">사진을 누르면 크게 볼 수 있습니다. 참석자 얼굴은 가림 처리했습니다.</p></div></section>\n<!-- VENUE_EVENT_GALLERY_END -->'
+    if '<!-- VENUE_EVENT_GALLERY_START -->' in page:
+        page=re.sub(r'<!-- VENUE_EVENT_GALLERY_START -->.*?<!-- VENUE_EVENT_GALLERY_END -->',lambda _:section,page,flags=re.S)
+    else:
+        marker='<!-- ===== ② 내부 배치와 동선 ===== -->'
+        if marker not in page:raise ValueError('Venue gallery insertion point missing')
+        page=page.replace(marker,section+'\n\n'+marker,1)
+    if CSS_LINK not in page:page=page.replace('</head>',CSS_LINK+'\n</head>')
+    if SCRIPT_LINK not in page:page=page.replace('</body>',SCRIPT_LINK+'\n</body>')
+    path.write_text(page)
+
+if __name__=='__main__':
+    build_home()
+    build_venue()
