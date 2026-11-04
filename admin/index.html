@@ -50,6 +50,7 @@
 <link rel="stylesheet" href="/assets/css/admin-cocktail.css?v=20261103cocktailsettings1">
 <link rel="stylesheet" href="/assets/css/admin-settlement.css?v=20261104retry1">
 <link rel="stylesheet" href="/assets/css/admin-parking-alerts.css?v=20261104adminsms1">
+<link rel="stylesheet" href="/assets/css/admin-navigation.css?v=20261104navrelease1">
 </head>
 <body class="page-admin">
 <div id="admin-root">
@@ -355,7 +356,7 @@
 
     <!-- 예약 관리 -->
     <section class="adm-view" id="view-bookings" hidden>
-      <header class="adm-head"><div><h1>예약 관리</h1><p class="small muted">결제가 끝난 예약을 등록하면 예약번호가 발급되고, 이용 완료 처리 후 고객이 그 번호로 후기를 쓸 수 있습니다.</p></div><button class="btn btn-light btn-sm" type="button" data-go="guide-messages">이용 안내 알림톡</button><button class="btn btn-light btn-sm" type="button" id="bk-reload">새로고침</button></header>
+      <header class="adm-head"><div><h1>예약 관리</h1><p class="small muted">예약별 진행 상태와 수납·안내 내역을 확인합니다. 새 예약은 예약 등록에서 추가하고, 이용 완료 후에는 고객이 예약번호로 후기를 쓸 수 있습니다.</p></div><button class="btn btn-light btn-sm" type="button" data-go="guide-messages">이용 안내 알림톡</button><button class="btn btn-light btn-sm" type="button" id="bk-reload">새로고침</button></header>
       <div class="adm-grid2" style="align-items:start">
         <form class="adm-card form" id="bk-form" novalidate>
           <h2>예약 확정 등록</h2>
@@ -375,7 +376,7 @@
     </section>
 
     <section class="adm-view" id="view-reception" hidden>
-      <header class="adm-head"><div><h1>테이블·박스 케이터링 견적</h1><p class="small muted">선택한 코스의 1인 단가에 식사 인원을 곱하고 제공 방식별 비용과 부가세 10%를 더합니다. 메뉴 단가와 출장·세팅비는 부가세 별도입니다. 아래 가격표에서 코스별 공급가·판매가와 제공 방식별 비용을 관리합니다.</p></div><a class="btn btn-light btn-sm" href="/reception/" target="_blank" rel="noopener">고객용 안내 ↗</a></header>
+      <header class="adm-head"><div><h1>테이블·박스 케이터링 견적</h1><p class="small muted">선택한 코스의 1인 단가에 식사 인원을 곱하고 제공 방식별 비용과 부가세 10%를 더합니다. 메뉴 단가와 출장·세팅비는 부가세 별도입니다. 공급가·판매가와 제공 방식별 비용은 운영 설정의 가격표에서 관리합니다.</p></div><a class="btn btn-light btn-sm" href="/reception/" target="_blank" rel="noopener">고객용 안내 ↗</a></header>
       <div class="adm-card mb-3" id="reception-pricing"></div>
       <div class="adm-quote">
         <form class="adm-card form" id="ar-form" novalidate>
@@ -623,27 +624,29 @@
 <script src="/assets/js/catering-calc.js?v=20261103foodprices1"></script>
 <script src="/assets/js/data/reception-quote.js?v=20261103foodprices1"></script>
 <script src="/assets/js/reception-calc.js?v=20261104receptionvat1"></script>
+<script src="/assets/js/food-pricing.js?v=20261104navrelease1"></script>
 <script src="/assets/js/food-services.js?v=20261103cocktailsettings1"></script>
 <script src="/assets/js/settlement.js?v=20261103feeadjust1"></script>
 <script src="/assets/js/confirm-doc.js?v=20261104receptionvat1"></script>
 <script src="/assets/js/cards.js?v=202610270438"></script>
 <script src="/assets/js/cocktail-calc.js?v=20261103cocktailsettings1"></script>
 <script src="/assets/js/inquiry-overview.js?v=20261104receptionvat1"></script>
-<script src="/assets/js/pages/admin.js?v=20261104paymentreview1"></script>
+<script src="/assets/js/pages/admin.js?v=20261104navrelease1"></script>
 <script src="/assets/js/pages/admin-platform.js?v=20261102adminux1"></script>
-<script src="/assets/js/pages/admin-cocktail.js?v=20261103cocktailsettings1"></script>
-<script src="/assets/js/pages/admin-food-pricing.js?v=20261104receptionvat1"></script>
+<script src="/assets/js/pages/admin-cocktail.js?v=20261104navrelease1"></script>
+<script src="/assets/js/pages/admin-food-pricing.js?v=20261104navrelease1"></script>
 <script src="/assets/js/pages/admin-reception.js?v=20261104receptionvat1"></script>
-<script src="/assets/js/pages/admin-parking.js?v=20261104freefirst1"></script>
+<script src="/assets/js/pages/admin-parking.js?v=20261104navrelease1"></script>
 <script src="/assets/js/pages/admin-amano-server.js?v=20261104amano4"></script>
 <script src="/assets/js/pages/admin-parking-alerts.js?v=20261104adminsms1"></script>
-<script src="/assets/js/pages/admin-parking-notifications.js?v=20261103notify1"></script>
-<script src="/assets/js/pages/admin-guide-messages.js?v=20261104drafttest1"></script>
+<script src="/assets/js/pages/admin-parking-notifications.js?v=20261104navrelease1"></script>
+<script src="/assets/js/pages/admin-guide-messages.js?v=20261104navrelease1"></script>
 <script src="/assets/js/pages/admin-deposit-refunds.js?v=20261104refundux1"></script>
-<script src="/assets/js/pages/admin-deposit-notifications.js?v=20261103journey1"></script>
+<script src="/assets/js/pages/admin-deposit-notifications.js?v=20261104navrelease1"></script>
 <script src="/assets/js/pages/admin-booking-portal.js?v=20261103portal1"></script>
 <script src="/assets/js/admin-save-recovery.js?v=20261104retry1"></script>
 <script src="/assets/js/pages/admin-settlement.js?v=20261104retry1"></script>
 <script src="/assets/js/pages/admin-cancellation.js?v=20261104retry1"></script>
+<script src="/assets/js/pages/admin-navigation.js?v=20261104navrelease1"></script>
 </body>
 </html>

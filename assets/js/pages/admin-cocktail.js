@@ -26,7 +26,7 @@
   }
   function loadPricing(force){
     if((state.pricing&&!force)||state.loadingPricing||state.savingPricing)return Promise.resolve();state.loadingPricing=true;
-    return X.A('/cocktail/pricing').then(acceptPricing).catch(function(e){if(!state.pricing)$('#ak-pricing').textContent='가격표를 불러오지 못했습니다. 다시 불러오기를 눌러 주세요.';error(e);}).finally(function(){state.loadingPricing=false;});
+    return X.A('/cocktail/pricing').then(acceptPricing).catch(function(e){if(!state.pricing)$('#ak-pricing').textContent='가격표를 불러오지 못했습니다. 다시 불러오기를 눌러 주세요.';if(!X.guard(e))X.note($('#ak-pricing-msg'),e.message||'가격표를 불러오지 못했습니다.');}).finally(function(){state.loadingPricing=false;});
   }
   function savePricing(){
     if(!state.pricingDirty||state.savingPricing||state.busy||!priceValid()||!$('#ak-pricing-form').reportValidity())return;
@@ -47,5 +47,5 @@
   $('#ak-form').addEventListener('submit',function(e){e.preventDefault();});['input','change'].forEach(function(name){$('#ak-form').addEventListener(name,function(e){if(e.target.id!=='ak-ref')state.dirty=true;paint();});});$('#ak-ref').addEventListener('input',function(){++state.request;$('#ak-load').disabled=false;if(state.target&&this.value.trim().toUpperCase()!==state.target.ref)state.target=null;paint();});$('#ak-ref').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();load(this.value);}});$('#ak-load').addEventListener('click',function(){load($('#ak-ref').value);});$('#ak-save').addEventListener('click',save);$('#ak-open').addEventListener('click',function(){if(state.target)X.openInquiry(state.target.ref);});
   $('#ak-to-quote').addEventListener('click',function(){if(!valid()||state.busy)return;var next=state.dirty?save():Promise.resolve(true);next.then(function(ok){if(ok)return X.foodToQuote(state.target.ref,'cocktail',state.target.data.cocktail||config(),state.target.data.reception_revision||0);}).catch(error);});
   window.addEventListener('beforeunload',function(e){if(state.dirty||state.pricingDirty){e.preventDefault();e.returnValue='';}});window.addEventListener('admin-food-saved',function(e){if(state.target&&e.detail.ref===state.target.ref&&!state.dirty)load(state.target.ref);});
-  X.openCocktail=function(ref){if(state.busy)return;state.opening=true;X.go('cocktail');state.opening=false;load(ref);};X.register('cocktail',function(){loadPricing();paint();if(state.opening||state.busy||state.dirty)return;var ref=state.target?state.target.ref:X.quoteInquiryRef();if(ref)load(ref);});paint();if(X.visible()&&X.current()==='cocktail')X.go('cocktail');
+  X.openCocktail=function(ref){if(state.busy)return;state.opening=true;X.go('cocktail');state.opening=false;load(ref);};X.register('prices-cocktail',function(){loadPricing();});X.register('cocktail',function(){loadPricing();paint();if(state.opening||state.busy||state.dirty)return;var ref=state.target?state.target.ref:X.quoteInquiryRef();if(ref)load(ref);});paint();if(X.visible()&&X.current()==='cocktail')X.go('cocktail');
 })();

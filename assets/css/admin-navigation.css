@@ -1,0 +1,71 @@
+/* 업무 흐름을 따르는 관리자 메뉴와 화면 내 탐색 */
+.page-admin .adm-nav{flex-direction:column;gap:5px;overflow:visible}
+.page-admin .adm-nav-group{min-width:0;margin:0;padding:0;border:0}
+.adm-nav-group > summary{display:flex;align-items:center;gap:8px;padding:10px 8px;min-height:44px;color:#c9cdd1;font-size:13px;font-weight:750;cursor:pointer;list-style:none;border-radius:6px}
+.adm-nav-group > summary::-webkit-details-marker{display:none}
+.adm-nav-group > summary:hover{background:rgba(255,255,255,.06);color:#fff}
+.adm-nav-group.has-current > summary{color:#fff}
+.adm-nav-step{font-size:10px;font-variant-numeric:tabular-nums;color:#969fa7}
+.adm-nav-chevron{margin-left:auto;transition:transform .15s}
+.adm-nav-group[open] .adm-nav-chevron{transform:rotate(180deg)}
+.page-admin .adm-nav .adm-group-count{margin-left:auto;min-width:18px;height:18px;line-height:18px;font-size:10px}
+.adm-group-count:not([hidden]) + .adm-nav-chevron{margin-left:0}
+.adm-nav-items{display:grid;gap:3px;padding:0 0 5px 17px}
+.page-admin .adm-nav-items button{width:100%;padding:8px 10px;min-height:38px;font-size:13px;white-space:normal}
+.page-admin .adm-nav > button{min-height:42px}
+.adm-nav button:focus-visible,.adm-nav summary:focus-visible,.adm-menu-toggle:focus-visible{outline:2px solid #a8c4ff;outline-offset:2px}
+.adm-channel-links{margin-top:14px;padding-top:10px;border-top:1px solid #ffffff1a}
+.adm-channel-links > summary{padding:7px 10px;color:#a9b1b8;font-size:12px;cursor:pointer}
+.page-admin .adm-channel-links .adm-side-links{margin:6px 0 0;padding:0;border:0;display:grid}
+.adm-channel-links .adm-side-cap{display:none}
+.adm-context{color:var(--ink-3);font-size:12px;line-height:1.6;margin:0 0 18px}
+.adm-context strong{color:var(--ink-2);font-weight:650}
+.adm-workspace-tabs{display:flex;flex-wrap:wrap;gap:5px;padding:5px;background:#e7e6e2;border-radius:9px;margin:0 0 20px;width:fit-content;max-width:100%}
+.adm-workspace-tabs a{display:flex;align-items:center;justify-content:center;min-height:40px;padding:8px 16px;color:var(--ink-2);font-size:13px;font-weight:650;border-radius:6px;text-decoration:none;line-height:1.4}
+.adm-workspace-tabs a:hover{background:#ffffff80}
+.adm-workspace-tabs a.on{color:var(--ink);background:#fff;box-shadow:0 1px 4px #00000012}
+.adm-workspace-tabs a:focus-visible{outline:2px solid var(--cobalt);outline-offset:1px}
+.page-admin .adm-booking-list-only{grid-template-columns:minmax(0,1fr)}
+#view-booking-new #bk-form{max-width:850px}
+.adm-refund-shortcut{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+.adm-refund-shortcut h2{margin-bottom:5px}
+.adm-refund-shortcut p{margin:0}
+.adm-mode-work .adm-settings-block,.adm-mode-work .adm-settings-tabs{display:none!important}
+.adm-mode-settings > :not(.adm-head):not(.adm-workspace-tabs):not(.adm-settings-block):not(.adm-shared-block){display:none!important}
+.adm-mode-settings .adm-work-block,.adm-mode-settings .adm-work-tabs{display:none!important}
+.page-admin .adm-head{column-gap:10px;row-gap:10px}
+.page-admin .adm-head > div:first-child{flex:1 1 420px}
+.adm-menu-toggle{display:none}
+@media(min-width:1000px){
+ .page-admin .adm-side{padding:22px 12px 16px}
+ .page-admin .adm-side-foot{margin-top:18px;padding-top:12px;border-top:1px solid #ffffff1a}
+}
+@media(max-width:999px){
+ .page-admin .adm-side{padding:10px 14px;gap:0}
+ .page-admin .adm-brand{padding:0;min-height:38px;justify-content:space-between}
+ .adm-menu-toggle{display:flex;align-items:center;gap:10px;max-width:60%;min-height:38px;padding:8px 12px;border:1px solid #ffffff35;border-radius:6px;background:#ffffff0d;color:#fff;font:inherit;font-size:12px;cursor:pointer}
+ .adm-menu-toggle:after{content:'☰';font-size:15px}
+ .adm-menu-toggle[aria-expanded=true]:after{content:'×';font-size:19px}
+ .page-admin .adm-nav{display:none}
+ .page-admin .adm-menu-open .adm-nav{display:flex;max-height:65dvh;overflow-y:auto;overscroll-behavior:contain;margin-top:10px;padding:4px 3px}
+ .adm-channel-links{display:none}
+ .page-admin .adm-head{flex-wrap:wrap}
+ .page-admin .adm-head > div:first-child{flex-basis:100%}
+ .adm-workspace-tabs{width:100%;gap:3px}
+ .adm-workspace-tabs a{flex:1 1 auto;padding:8px 10px;font-size:12px}
+ .adm-context{margin-bottom:12px}
+ .adm-refund-shortcut{align-items:flex-start;flex-direction:column}
+ .page-admin .adm-notify-bar{flex-wrap:wrap;gap:6px}
+}
+@media print{
+ .adm-workspace-tabs,.adm-context,.adm-context-action,.adm-refund-shortcut{display:none!important}
+}
+@media(max-width:600px){
+ .page-admin .rs-dates{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);width:100%;min-width:0}
+ .page-admin .rs-dates .input{width:100%;min-width:0;max-width:100%;font-size:12px;padding-left:8px;padding-right:8px}
+}
+@media(max-width:999px){
+ .page-admin .adm-nav-items button{min-height:44px}
+ .page-admin .adm-menu-open .adm-side-foot{display:flex;gap:12px;margin-top:8px;border-top:1px solid #ffffff1a;padding-top:4px}
+ .page-admin .adm-side-foot a,.page-admin .adm-side-foot button{color:#c9cdd1;background:none;border:0;font:inherit;font-size:12px;padding:9px 10px;cursor:pointer}
+}
