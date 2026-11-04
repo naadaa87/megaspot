@@ -42,3 +42,14 @@
  .rc-dialog-content{padding:22px 14px 28px}
 }
 @media(max-width:359px){.rc-page-shell>.reservation-calendar{padding:20px 12px}.rc-filters button{padding:9px 10px}.rc-month{padding:12px 8px}.rc-details-head{align-items:flex-start;flex-wrap:wrap;gap:4px}.rc-details-head button{min-height:32px}}
+
+/* Inline confirmed-occupancy guidance in every estimate calculator. */
+.rv-availability{margin-top:18px;padding:16px 18px;border:1px solid #dbe4f6;border-radius:10px;background:#f4f7fe;font-size:13px;line-height:1.8;min-width:0}
+.rv-availability[hidden],.rv-availability-summary[hidden]{display:none!important}
+.rv-availability p{margin:0}.rv-availability[data-state="blocked"],.rv-availability[data-state="error"]{background:#fff7ef;border-color:#eed4ba;color:#823b21}
+.rv-availability-hint{margin-top:12px!important;color:#5b6168}.rv-availability-choices,.rv-availability-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.rv-availability button,.rv-availability-summary button{font:inherit;cursor:pointer;white-space:normal;text-align:left;min-height:44px;padding:9px 12px;border:1px solid #d5d0c8;border-radius:7px;background:#fff;color:#204ec4;line-height:1.6;max-width:100%}
+.rv-availability-actions button{border-color:transparent;background:transparent;padding:8px 0;margin-right:12px;text-decoration:underline;text-underline-offset:3px}
+.rv-availability button:focus-visible,.rv-availability-summary button:focus-visible{outline:3px solid #1f53d5;outline-offset:2px}
+.rv-availability-summary{margin-bottom:20px;padding:14px 16px;border-radius:8px;background:#fff7ef;color:#823b21;font-size:13px;line-height:1.8}.rv-availability-summary button{display:block;margin-top:10px}
+@media(max-width:719px){.rv-availability{padding:14px 12px}.rv-availability-choices{display:grid;grid-template-columns:1fr}.rv-availability-choices button{width:100%}}
