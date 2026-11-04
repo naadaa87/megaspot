@@ -351,6 +351,9 @@ test('확정 이벤트는 DB 트랜잭션에 포함되고 조회·설정 저장�
 });
 test('온라인 결제 확정도 공통 이벤트로 안내하고 중복 통보·환불 후 늦은 통보는 재발송하지 않는다',async t=>{
   const f=setup(t);await f.enable(true);
+  // The fixture booking occupies 10–17 on DAY. This case exercises an available slot;
+  // overlapping paid orders are covered by payment-booking-review.test.mjs.
+  f.db.prepare("UPDATE bookings SET date=date(?,'-2 days') WHERE booking_code='BK-TEST'").run(DAY);
   const {onRequest:pay}=await import('../functions/api/pay/[[path]].js');const {sha256}=await import('../functions/api/_lib.js');const {kstStamp}=await import('../functions/api/_payapp.js');
   Object.assign(f.env,{PAYAPP_USERID:'fixture-seller',PAYAPP_LINKKEY:'fixture-link',PAYAPP_LINKVAL:'fixture-value',PAYAPP_REQUESTKEY:'fixture-request'});
   const oid='MS20990101000000ABCDEF';

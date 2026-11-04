@@ -1,4 +1,5 @@
 import { err, json, now, isDate } from './_lib.js';
+import { bookingAvailableSql } from './_booking_availability.js';
 
 export async function batch(env, statements) {
   if (!statements.length) return;
@@ -52,14 +53,21 @@ export async function linkedBookingChanges(env, ref, next) {
 }
 
 export async function bookingStatusStatements(env, code, status) {
-  const b = await env.DB.prepare('SELECT booking_code, inquiry_ref, status FROM bookings WHERE booking_code = ?').bind(code).first();
+  const b = await env.DB.prepare('SELECT booking_code, inquiry_ref, status, start_h, end_h FROM bookings WHERE booking_code = ?').bind(code).first();
   if (!b) return { error: err('예약을 찾을 수 없습니다.', 404, 'NOT_FOUND') };
-  const statements = [env.DB.prepare('UPDATE bookings SET status = ?, updated_at = ? WHERE booking_code = ?').bind(status, now(), code)];
+  const review=b.status==='payment_review'&&status==='confirmed';
+  if(review&&(!Number.isFinite(b.start_h)||!Number.isFinite(b.end_h)||b.start_h<0||b.end_h>47||b.end_h<=b.start_h))return {error:err('이용 시작·종료 시간을 확인해 주세요.',409,'BOOKING_REVIEW')};
+  const available=bookingAvailableSql({space:'bookings.space_id',date:'bookings.date',start:'bookings.start_h',end:'bookings.end_h',exclude:'bookings.booking_code'});
+  const gate=`status='payment_review' AND start_h IS NOT NULL AND end_h IS NOT NULL AND start_h>=0 AND end_h>start_h AND end_h<=47 AND (${available})`;
+  const statements=[];
+  if(review)statements.push(env.DB.prepare(`UPDATE booking_guide_state SET needs_review=0 WHERE booking_code=? AND EXISTS(SELECT 1 FROM bookings WHERE booking_code=? AND ${gate})`).bind(code,code));
+  statements.push(env.DB.prepare('UPDATE bookings SET status = ?, updated_at = ?'+(review?",memo=replace(COALESCE(memo,''),' · ※ 결제 완료 · 일정 확인 필요 · 예약 확정 보류','')":'')+' WHERE booking_code = ?'+(review?` AND ${gate}`:'' )).bind(status, now(), code));
+  if(review)statements.push(env.DB.prepare("UPDATE orders SET result_msg='승인 완료 · 일정 검토 후 예약 확정',updated_at=? WHERE booking_code=? AND status='paid' AND EXISTS(SELECT 1 FROM bookings WHERE booking_code=? AND status='confirmed')").bind(now(),code,code));
   if(status!=='cancelled'&&b.status==='cancelled')statements.push(env.DB.prepare('DELETE FROM booking_cancellation_state WHERE booking_code=?').bind(code));
   if (status === 'cancelled') statements.push(env.DB.prepare('DELETE FROM calendar_blocks WHERE memo = ?').bind('예약 ' + code));
   if (b.inquiry_ref) {
     const inquiryStatus = { confirmed: '예약 확정', completed: '이용 완료', cancelled: '취소·환불' }[status];
-    statements.push(env.DB.prepare('UPDATE inquiries SET status = ?, updated_at = ? WHERE ref = ?').bind(inquiryStatus, now(), b.inquiry_ref));
+    statements.push(env.DB.prepare('UPDATE inquiries SET status = ?, updated_at = ? WHERE ref = ?'+(review?' AND EXISTS(SELECT 1 FROM bookings WHERE booking_code=? AND status=?)':'')).bind(inquiryStatus, now(), b.inquiry_ref,...(review?[code,status]:[])));
   }
   return { statements, ref: b.inquiry_ref, previous: b.status };
 }
