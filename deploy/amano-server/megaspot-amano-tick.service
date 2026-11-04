@@ -12,4 +12,6 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
+ReadWritePaths=/var/lib/megaspot-amano
+UMask=0077
 TimeoutStartSec=240

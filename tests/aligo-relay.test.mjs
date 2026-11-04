@@ -57,3 +57,7 @@ test('관리자 문자는 명시적으로 승인된 번호에만 LMS 발송하�
  const b=f.calls[0].body;assert.equal(f.calls[0].url,'https://apis.aligo.in/send/');assert.equal(b.get('key'),'server-only-key');assert.equal(b.get('user_id'),'server-user');assert.equal(b.get('msg_type'),'LMS');assert.equal(b.get('testmode_yn'),'N');assert.equal(b.get('senderkey'),null);assert.ok(f.ledger.ownsSmsMid('777'));
  await relayRequest(f.request(v),f.env,f.ledger,()=>assert.fail('duplicate'));v.request_id=randomUUID();v.data.msg='다른 메시지';assert.equal((await f.send(v)).status,403);
 });
+
+test('아마노 등록 오류·잔액 부족 문자도 승인 관리자 번호와 고정 링크만 허용한다',async t=>{
+ const f=fixture(t);f.env.ALIGO_PARKING_ADMIN_RECEIVERS='01011112222';for(const kind of ['자동 등록 오류','잔액 부족']){const v=f.input({path:'parking-admin/send',data:{receiver:'01011112222',msg:'[메가스팟 주차권 '+kind+']\n관리자 확인 필요\nhttps://megaspot.kr/admin/#parking'}});assert.equal((await f.send(v)).status,200);v.request_id=randomUUID();v.data.receiver='01099998888';assert.equal((await f.send(v)).status,403);}
+});

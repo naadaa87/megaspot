@@ -6,6 +6,8 @@ import {pathToFileURL} from 'node:url';
 import {AmanoClient} from './client.mjs';
 import {runCycle} from './worker.mjs';
 import {parkingSite} from './site.mjs';
+import {notifyProblems} from './alerts.mjs';
+import {finishVerification,VERIFICATION_DATE} from './verification.mjs';
 let cycleBusy=false;
 const json=(body,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store'}});
 export function amanoStore(dir,secret){
@@ -26,18 +28,19 @@ export async function amanoRequest(request,env,store,clientFactory=c=>new AmanoC
  let v;try{v=JSON.parse(raw);}catch{return json({error:'Invalid request'},400);}
  if(!Number.isFinite(v.time)||Math.abs(Date.now()-v.time)>60000)return json({error:'Expired request'},400);
  try{
-  if(v.action==='status')return json({ok:true,configured:!!store.read('credentials'),enabled:store.read('settings')?.enabled===true,adapter_ready:true,busy:cycleBusy,public_key:store.publicKey(),last_run:store.read('last-run')});
+  if(v.action==='status')return json({ok:true,configured:!!store.read('credentials'),enabled:store.read('settings')?.enabled===true,adapter_ready:true,busy:cycleBusy,public_key:store.publicKey(),last_run:store.read('last-run'),verification:store.read('verification-'+VERIFICATION_DATE),error_alert_receivers:(env.ALIGO_PARKING_ADMIN_RECEIVERS||'').split(',').filter(s=>/^01[016789]\d{7,8}$/.test(s)).map(s=>s.slice(-4)),error_notifications:Object.values(store.read('alert-journal')||{}).map(e=>({receiver_last4:e.receiver.slice(-4),status:e.status,error:e.error||'',created_at:e.created_at})).slice(-30)});
   if(v.action==='settings'){
    if(v.enabled===true&&(v.confirm_policy!==true||!store.read('credentials')))return json({error:'계정 연결과 승인된 무료 우선·차감 한도를 확인해 주세요.'},409);
    store.save('settings',{enabled:v.enabled===true,updated_at:new Date().toISOString()});return json({ok:true,enabled:v.enabled===true});
   }
+  if(v.action==='report'){const report=finishVerification(store,v.date||VERIFICATION_DATE);await notifyProblems(env,store);return json({ok:true,report});}
   if(v.action==='cycle'){
    if(cycleBusy)return json({ok:true,busy:true});
    if(!store.read('settings')?.enabled)return json({ok:true,enabled:false,processed:0,waiting:0,issues:[]});
    const credentials=store.read('credentials');if(!credentials)return json({error:'아마노 계정 연결 필요'},409);
    cycleBusy=true;
-   try{return json(await runCycle({site:(action,data)=>parkingSite(env.ALIGO_RELAY_SECRET,action,data),client:clientFactory(credentials),store,isEnabled:()=>store.read('settings')?.enabled===true}));}
-   catch(error){store.save('last-run',{ok:false,error:String(error?.message||'서버 처리 확인 필요').slice(0,180),finished_at:new Date().toISOString()});throw error;}
+   try{const result=await runCycle({site:(action,data)=>parkingSite(env.ALIGO_RELAY_SECRET,action,data),client:clientFactory(credentials),store,isEnabled:()=>store.read('settings')?.enabled===true});await notifyProblems(env,store,result.issues||[]);return json(result);}
+   catch(error){const message=String(error?.message||'서버 처리 확인 필요').slice(0,180);store.save('last-run',{ok:false,error:message,finished_at:new Date().toISOString()});try{await notifyProblems(env,store,[{kind:'system',message}]);}catch{}return json({ok:false,error:'서버 자동 처리 확인 필요',alerts_handled:true},502);}
    finally{cycleBusy=false;}
   }
   if(v.action==='setup'){
