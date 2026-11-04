@@ -1,10 +1,11 @@
 // The persistent supplier/sale configuration is exposed only to administrators.
 export const COCKTAIL_KEY='cocktail_pricing';
 export const CUPS=[100,200,300,400];
+export const BARTENDER_FEE=200000;
 const COSTS={100:800000,200:1100000,300:1500000,400:1800000};
-const SALES={100:900000,200:1300000,300:1800000,400:2200000};
-export function cocktailPricing(config){return CUPS.map(cups=>{const row=config?.packages?.find(p=>p.cups===cups),vendor_supply=row?.vendor_supply??COSTS[cups],sale_price=row?.sale_price??SALES[cups];const vat=Math.round(sale_price/10),margin=sale_price-vendor_supply;return {cups,vendor_supply,sale_price,vat,total:sale_price+vat,margin,margin_rate:margin/sale_price};});}
-export function publicCocktailPricing(config){const prices={};for(const row of cocktailPricing(config))prices[row.cups]=row.sale_price;return {prices,revision:config?.revision||0,updated_at:config?.updated_at||'',vat_rate:0.1};}
+const SALES={100:1200000,200:1800000,300:2300000,400:2700000};
+export function cocktailPricing(config){return CUPS.map(cups=>{const row=config?.packages?.find(p=>p.cups===cups),vendor_supply=row?.vendor_supply??COSTS[cups],sale_price=row?.sale_price??SALES[cups];const subtotal=sale_price+BARTENDER_FEE,vat=Math.round(subtotal/10),margin=sale_price-vendor_supply;return {cups,vendor_supply,sale_price,bartender_fee:BARTENDER_FEE,subtotal,vat,total:subtotal+vat,margin,margin_rate:margin/sale_price};});}
+export function publicCocktailPricing(config){const prices={};for(const row of cocktailPricing(config))prices[row.cups]=row.sale_price;return {prices,bartender_fee:BARTENDER_FEE,revision:config?.revision||0,updated_at:config?.updated_at||'',vat_rate:0.1};}
 function validatedPackages(rows){
  if(!Array.isArray(rows)||rows.length!==4)throw Error('100·200·300·400잔 패키지를 모두 입력해 주세요.');
  const out=CUPS.map(cups=>{const matches=rows.filter(p=>p&&p.cups===cups);if(matches.length!==1)throw Error('패키지 구성을 확인해 주세요.');const p=matches[0];

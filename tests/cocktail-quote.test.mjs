@@ -6,12 +6,12 @@ import vm from 'node:vm';
 import { cocktailFrom } from '../functions/api/_cocktail.js';
 import { onRequestPost } from '../functions/api/inquiry.js';
 
-const expected = [[100, 900000], [200, 1300000], [300, 1800000], [400, 2200000]];
+const expected = [[100, 1200000], [200, 1800000], [300, 2300000], [400, 2700000]];
 test('칵테일 패키지는 서버 가격으로 다시 계산하고 잘못된 메뉴를 제거한다', () => {
   for (const [cups, price] of expected) {
-    const q = cocktailFrom({ cups, price: 1, menus: ['mojito', 'not-a-menu', 'mojito'], nonalcohol: true });
-    assert.equal(q.price, price);
-    assert.equal(q.vat, price / 10);assert.equal(q.total, Math.round(price * 1.1));assert.equal(q.vat_excluded,true);
+    const q = cocktailFrom({ cups, price: 1, bartender_fee: 1, menus: ['mojito', 'not-a-menu', 'mojito'], nonalcohol: true });
+    assert.equal(q.price, price);assert.equal(q.bartender_fee,200000);assert.equal(q.subtotal,price+200000);
+    assert.equal(q.vat, (price+200000) / 10);assert.equal(q.total, Math.round((price+200000) * 1.1));assert.equal(q.vat_excluded,true);
     assert.deepEqual(q.menus, ['mojito']);
     assert.match(q.summary, new RegExp(`${cups}잔`));
     assert.match(q.summary, /희망 메뉴: 모히토/);
@@ -30,8 +30,8 @@ test('대관 신청에 선택한 칵테일 구성이 문의 기록에 저장된�
   assert.equal(res.status, 200);
   const row = db.prepare('SELECT data FROM inquiries LIMIT 1').get();
   const saved = JSON.parse(row.data);
-  assert.equal(saved.cocktail.cups, 200);assert.equal(saved.cocktail.total,1430000);
-  assert.equal(saved.cocktail.price, 1300000);
+  assert.equal(saved.cocktail.cups, 200);assert.equal(saved.cocktail.total,2200000);
+  assert.equal(saved.cocktail.price, 1800000);
   assert.deepEqual(saved.cocktail.menus, ['mojito', 'blue_sapphire']);
   assert.match(saved.cocktail.summary, /희망 메뉴: 모히토, 블루 사파이어/);
   assert.match(saved.cocktail.summary, /요청: 민트 적게/);
@@ -46,8 +46,8 @@ test('고객 계산기·서버 판매가 일치, 이전 금액 재계산과 잔�
   for(const [cups,price] of expected){
     const browser=C.quote({cups,price:1});
     assert.equal(browser.price,price);assert.equal(cocktailFrom({cups,price:1}).price,price);
-    assert.equal(browser.unit,price/cups);assert.equal(browser.total,Math.round(price*1.1));assert.equal(browser.vat,price/10);
+    assert.equal(browser.unit,price/cups);assert.equal(browser.total,Math.round((price+200000)*1.1));assert.equal(browser.vat,(price+200000)/10);
   }
-  assert.equal(C.won(C.quote({cups:300}).unit),'6,000원');
-  assert.match(cocktailFrom({cups:300}).summary,/잔당 6,000원/);
+  assert.equal(C.won(C.quote({cups:300}).unit),'약 7,667원');
+  assert.match(cocktailFrom({cups:300}).summary,/잔당 약 7,667원/);
 });

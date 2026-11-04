@@ -13,10 +13,10 @@ test('관리자 저장 가격은 새 요청에서도 유지되고 공개 API·HT
  const next=await readCocktailPricing(f.env);assert.equal(next.packages[0].sale_price,packages[0].sale_price);
  const response=await publicPrices({env:f.env}),publicData=await response.json();assert.equal(response.headers.get('cache-control'),'no-store');assert(!/vendor_supply|margin/.test(JSON.stringify(publicData)));
  const html=cocktailHtml(readFileSync(new URL('../cocktail/index.html',import.meta.url),'utf8'),'/cocktail/',publicData);
- for(const row of packages){assert(html.includes('"price":"'+row.sale_price+'"'));assert(html.includes(row.sale_price.toLocaleString('ko-KR')));}
+ for(const row of packages){assert(html.includes('"price":"'+(row.sale_price+200000)+'"'));assert(html.includes(row.sale_price.toLocaleString('ko-KR')));}
  assert(!/vendor_supply|margin_rate/.test(html));
  const result=await inquiry({env:f.env,request:new Request('https://local.test/api/inquiry',{method:'POST',headers:{'content-type':'application/json','cf-connecting-ip':'10.21.22.23'},body:JSON.stringify({name:'새 가격 검증',phone:'010-3333-4444',agree_privacy:true,cocktail:{cups:100,price:1,total:1}})})});assert.equal(result.status,200);
- const ref=(await result.json()).ref,data=JSON.parse(f.db.prepare('SELECT data FROM inquiries WHERE ref=?').get(ref).data);assert.equal(data.cocktail.price,packages[0].sale_price);assert.equal(data.cocktail.vat,Math.round(packages[0].sale_price/10));assert.equal(data.cocktail.pricing_revision,1);
+ const ref=(await result.json()).ref,data=JSON.parse(f.db.prepare('SELECT data FROM inquiries WHERE ref=?').get(ref).data);assert.equal(data.cocktail.price,packages[0].sale_price);assert.equal(data.cocktail.vat,Math.round((packages[0].sale_price+200000)/10));assert.equal(data.cocktail.pricing_revision,1);
 });
 
 test('가격 저장은 잘못된 값과 중복 패키지를 거절하고 다른 화면의 변경을 덮어쓰지 않는다',async t=>{
@@ -29,16 +29,16 @@ test('가격 저장은 잘못된 값과 중복 패키지를 거절하고 다른 
 
 test('전체 가격표를 바꿔도 기존 문의·예약·발행 견적 금액은 그대로 유지한다',async t=>{
  const f=fixture({booking:true});t.after(()=>f.db.close());await f.api('inquiries/MS-TEST','PATCH',{cocktail:{cups:100,menus:['mojito']}});let it=(await f.api('inquiries/MS-TEST')).item;
- const input=F.syncQuote(quoteInput(),it.data,true);await saveQuote(f.api,{input,extras:input.extras,total:500000+990000});it=(await f.api('inquiries/MS-TEST')).item;
- const before=await f.api('bookings/BK-TEST/confirm-doc','PUT',{doc:{amount:1490000},reception_revision:it.data.reception_revision});
+ const input=F.syncQuote(quoteInput(),it.data,true);await saveQuote(f.api,{input,extras:input.extras,total:500000+1540000});it=(await f.api('inquiries/MS-TEST')).item;
+ const before=await f.api('bookings/BK-TEST/confirm-doc','PUT',{doc:{amount:2040000},reception_revision:it.data.reception_revision});
  const config=await f.api('cocktail/pricing');await f.api('cocktail/pricing','PUT',{revision:0,packages:changed(config.packages)});
- const after=(await f.api('inquiries/MS-TEST')).item;assert.equal(after.data.cocktail.price,900000);assert.equal(after.effective_amount,1490000);assert.equal((await f.api('bookings/BK-TEST/confirm-doc')).doc.amount,before.doc.amount);
- const existingInput=F.syncQuote(quoteInput(),after.data,true);await saveQuote(f.api,{input:existingInput,extras:existingInput.extras,total:1590000});const roomChanged=(await f.api('inquiries/MS-TEST')).item;assert.equal(roomChanged.data.cocktail.price,900000);assert.equal(roomChanged.data.included_cocktail_amount,990000);
+ const after=(await f.api('inquiries/MS-TEST')).item;assert.equal(after.data.cocktail.price,1200000);assert.equal(after.effective_amount,2040000);assert.equal((await f.api('bookings/BK-TEST/confirm-doc')).doc.amount,before.doc.amount);
+ const existingInput=F.syncQuote(quoteInput(),after.data,true);await saveQuote(f.api,{input:existingInput,extras:existingInput.extras,total:2140000});const roomChanged=(await f.api('inquiries/MS-TEST')).item;assert.equal(roomChanged.data.cocktail.price,1200000);assert.equal(roomChanged.data.included_cocktail_amount,1540000);
 });
 
 test('PDF 숫자 교체는 바이트 길이·xref 위치를 유지하고 수정 판매가만 넣는다',async()=>{
  const {buildCocktailPdf}=await import('../functions/api/_cocktail_pdf.js');const template=readFileSync(new URL('../assets/docs/megaspot-cocktail-pricing-template.pdf',import.meta.url));
  const config={prices:{100:100000001-1,200:1500001,300:1800000,400:2200000}};const bytes=buildCocktailPdf(template,config),before=new TextDecoder('latin1').decode(template),after=new TextDecoder('latin1').decode(bytes);
  assert.equal(bytes.length,template.length);assert.equal(after.match(/startxref\s+(\d+)/)[1],before.match(/startxref\s+(\d+)/)[1]);
- assert(after.includes('100,000,000'));assert(after.includes('110,000,000'));assert(after.includes('1,500,001'));assert(!after.includes('vendor_supply'));
+ assert(after.includes('100,000,000'));assert(after.includes('110,220,000'));assert(after.includes('1,500,001'));assert(!after.includes('vendor_supply'));
 });

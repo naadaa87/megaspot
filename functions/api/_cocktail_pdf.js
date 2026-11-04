@@ -1,3 +1,4 @@
+import {BARTENDER_FEE} from './_cocktail_pricing.js';
 // The prebuilt PDF has fixed-width ASCII number slots in an uncompressed stream.
 // Replacing equal-length bytes keeps every stream length and cross-reference valid.
 let templateBytes=null,lastKey='',lastBytes=null;
@@ -5,7 +6,7 @@ const encoder=new TextEncoder();
 const layout={PRICE:{right:380,y:91,size:22},UNIT:{right:166,y:44,size:11},VAT:{right:166,y:18,size:11},TOTAL:{right:389,y:18,size:11}};
 export function buildCocktailPdf(template,config){
  const bytes=new Uint8Array(template).slice(),text=new TextDecoder('latin1').decode(bytes);
- [100,200,300,400].forEach((cups,i)=>{const x=52+(i%2)*438,price=config.prices[cups],vat=Math.round(price/10),values={PRICE:price,UNIT:Math.round(price/cups),VAT:vat,TOTAL:price+vat};
+ [100,200,300,400].forEach((cups,i)=>{const x=52+(i%2)*438,price=config.prices[cups],vat=Math.round((price+BARTENDER_FEE)/10),values={PRICE:price,UNIT:Math.round(price/cups),VAT:vat,TOTAL:price+BARTENDER_FEE+vat};
   for(const [field,value] of Object.entries(values)){
    const padded=String(value).replace(/\B(?=(\d{3})+(?!\d))/g,',').padStart(16,' '),slot=layout[field];
    if(padded.length!==16)throw Error('Price does not fit PDF');

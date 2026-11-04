@@ -59,10 +59,10 @@ test('예약·문의 목록에서 고르고, 계산한 구성을 그 건에 저�
   r = await f.admin('catering/orders', 'POST', { inquiry_ref: ref, config: CLASSIC60, meal_time: '18:30' });
   assert.equal(r.status, 200); assert.equal(r.json.created, true);
   const o = r.json.item; assert.match(o.ref, /^CO-\d{4}-[A-Z0-9]{4}$/);
-  assert.equal(o.status, 'pending'); assert.equal(o.status_label, '대기'); assert.equal(o.total, 2750000, '클래식 60명 = (40,000×60+100,000)×1.1');
+  assert.equal(o.status, 'pending'); assert.equal(o.status_label, '대기'); assert.equal(o.total, 3080000, '클래식 60명 = (45,000×60+100,000)×1.1');
   assert.equal(o.customer, '김뷔페'); assert.equal(o.date, D1); assert.equal(o.meal_time, '18:30'); assert.equal(o.note, '견과류 알레르기 1명');
   let det = (await f.admin('inquiries/' + ref)).json;
-  assert.equal(det.item.data.catering.status, 'pending'); assert.equal(det.item.data.catering.order_ref, o.ref); assert.equal(det.item.data.catering.by, 'admin'); assert.equal(det.item.data.catering.total, 2750000);
+  assert.equal(det.item.data.catering.status, 'pending'); assert.equal(det.item.data.catering.order_ref, o.ref); assert.equal(det.item.data.catering.by, 'admin'); assert.equal(det.item.data.catering.total, 3080000);
   assert.equal(det.catering_order.ref, o.ref);
   assert.ok(det.log.some(l => l.kind === 'catering.created'));
   let list = (await f.admin('inquiries')).json.items.find(x => x.ref === ref);
@@ -73,7 +73,7 @@ test('예약·문의 목록에서 고르고, 계산한 구성을 그 건에 저�
   // 같은 문의를 다시 저장하면 새로 만들지 않고 고침 + 확정
   r = await f.admin('catering/orders', 'POST', { inquiry_ref: ref, config: { ...CLASSIC60, people: 70, beer: 1 }, status: 'confirmed' });
   assert.equal(r.json.created, false); assert.equal(r.json.item.ref, o.ref); assert.equal(r.json.item.status, 'confirmed'); assert.ok(r.json.item.confirmed_at);
-  assert.equal(r.json.item.total, Math.round((40000 * 70 + 120000 + 100000) * 1.1));
+  assert.equal(r.json.item.total, Math.round((45000 * 70 + 120000 + 100000) * 1.1));
   assert.ok((await f.admin('inquiries/' + ref)).json.log.some(l => l.kind === 'catering.status'));
 
   // 예약에 저장 (문의 없음)

@@ -23,7 +23,7 @@ for(const service of ['catering','reception']){
   const current=await readFoodPricing(f.env,service),a=change(current,'course.classic',42222),b=change(current,'course.classic',43333),r=await Promise.all([saveFoodPricing(f.env,service,a),saveFoodPricing(f.env,service,b)]);assert.equal(r.filter(x=>x.conflict).length,1);
  });
 }
-test('legacy buffet supplier markup initializes correct item costs without changing sales',async()=>{const f=fixture();await f.api('settings/catering','PUT',{value:{markup:7000}});const c=await readFoodPricing(f.env,'catering');assert.equal(c.rows.find(r=>r.id==='course.classic').vendor_supply,33000);assert.equal(c.rows.find(r=>r.id==='course.small.20').vendor_supply,960000);assert.equal(c.rows.find(r=>r.id==='bbq.half').vendor_supply,500000);assert.equal(publicFoodPricing(c).prices['course.classic'],40000);});
+test('legacy buffet supplier markup initializes correct item costs without changing sales',async()=>{const f=fixture();await f.api('settings/catering','PUT',{value:{markup:7000}});const c=await readFoodPricing(f.env,'catering');assert.equal(c.rows.find(r=>r.id==='course.classic').vendor_supply,33000);assert.equal(c.rows.find(r=>r.id==='course.small.20').vendor_supply,960000);assert.equal(c.rows.find(r=>r.id==='bbq.half').vendor_supply,500000);assert.equal(publicFoodPricing(c).prices['course.classic'],45000);});
 test('browser, server, public HTML and all guide slots use the same new prices',async()=>{
  const f=fixture(),rates={};for(const service of ['catering','reception']){let c=await readFoodPricing(f.env,service);c={...c,rows:c.rows.map((r,i)=>({...r,sale_price:r.sale_price+101+i}))};const saved=await saveFoodPricing(f.env,service,c);rates[service]=publicFoodPricing(saved.config);
  const pdf=buildFoodPdf(readFileSync(new URL('../assets/docs/megaspot-'+service+'-pricing-template.pdf',import.meta.url)),service,rates[service]);assert.equal(pdf.length,readFileSync(new URL('../assets/docs/megaspot-'+service+'-pricing-template.pdf',import.meta.url)).length);assert(!Buffer.from(pdf).includes(Buffer.from('vendor_supply')));
@@ -33,7 +33,7 @@ test('browser, server, public HTML and all guide slots use the same new prices',
  const rb=ctx.window.MEGASPOT_RECEPTION_CALC.quote(51,'box','classic'),rs=receptionAdmin({course:'classic',people:51,format:'box',status:'confirmed'},foodPricingData('reception',await readFoodPricing(f.env,'reception')));assert.equal(rb.total,rs.total);
  for(const service of ['catering','reception']){const html=foodHtml(readFileSync(new URL('../'+service+'/index.html',import.meta.url),'utf8'),'/'+service+'/',rates);assert(!html.includes('@@FOODPRICE'));assert(!/vendor_supply|margin_rate/.test(html));assert(html.includes(rates[service].prices['course.classic'].toLocaleString('ko-KR')+'원'));}
  // Server clones prevent one concurrent request's prices leaking into another.
- assert.equal(cateringQuote({course:'classic',people:60}).supply,2500000);assert.equal(receptionAdmin({course:'classic',people:50,format:'table'}).total,2145000);
+ assert.equal(cateringQuote({course:'classic',people:60}).supply,2800000);assert.equal(receptionAdmin({course:'classic',people:50,format:'table'}).total,2145000);
 });
 test('new buffet orders and reception saves use persisted prices; stored quotes keep their snapshots',async()=>{
  const f=fixture();let bc=await f.api('catering/pricing');await f.api('catering/pricing','PUT',change(bc,'course.classic',41000));

@@ -46,7 +46,7 @@ c.line(52, 479, 908, 479)
 text(52, 27, "MEGASPOT  ·  출장 칵테일 서비스 안내", 9, MUTED, "PS")
 text(908, 27, "02", 10, MUTED, "PB", True)
 text(52, 431, "행사 규모에 맞는 네 가지 패키지", 29, DARK, "PB")
-text(52, 398, "판매가는 부가세 별도입니다. 계산 합계에는 부가세 10%가 추가됩니다.", 14, MUTED)
+text(52, 398, "판매가는 부가세 별도입니다. 계산 합계에는 바텐더 출장·제조비 200,000원과 부가세 10%가 추가됩니다.", 14, MUTED)
 for i, (cups, price) in enumerate(prices):
     x, y = 52 + (i % 2) * 438, 235 - (i // 2) * 159
     c.setFillColor(HexColor("#FFFFFF"))
@@ -62,8 +62,8 @@ for i, (cups, price) in enumerate(prices):
     label = ("약 " if price % cups else "") + f"{unit:,.0f}원"
     text(x + 20, y + 32, "잔당", 12, MUTED, "PS")
     text(x + 61, y + 30, label, 16, DARK, "PB")
-    text(x + 397, y + 32, "부가세 별도", 11, MUTED, "PS", True)
-    text(x + 20, y + 10, f"부가세 {price // 10:,}원 · 합계 {price + price // 10:,}원", 9, MUTED)
+    text(x + 397, y + 32, "출장·제조 20만원 별도", 11, MUTED, "PS", True)
+    text(x + 20, y + 10, f"부가세 {(price+200000) // 10:,}원 · 합계 {price+200000+(price+200000) // 10:,}원", 9, MUTED)
 text(52, 51, "※ 판매가는 부가세 별도입니다. 출장 범위·운영 시간·기물 포함 범위는 최종 견적에서 확인합니다.", 10, MUTED)
 c.showPage()
 # Replace the booking page as well, so its footer agrees with the tax policy.
