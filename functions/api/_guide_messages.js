@@ -6,6 +6,9 @@ import {PORTAL_GUIDE_CODE,PORTAL_GUIDE_VARIANT,PORTAL_GUIDE_VERSION,PORTAL_GUIDE
 export const GUIDE_URL = 'https://megaspot-guide.pages.dev/';
 export const GUIDE_VERSION = 'reservation-guide-v1';
 export const GUIDE_BUTTON = { name: '시설 이용 안내 확인', linkType: 'WL', linkTypeName: '웹링크', linkMo: GUIDE_URL, linkPc: GUIDE_URL };
+// Separate reviewed template; keep the active legacy button/fingerprint until switched explicitly.
+export const GUIDE_LABEL_CODE = 'UN_3085';
+export const GUIDE_LABEL_BUTTON = {...GUIDE_BUTTON,name:'시설·주차·케이터링 안내'};
 export const GUIDE_TEMPLATE = `[메가스팟 예약 고객 이용 안내]
 
 #{고객명}님, 예약하신 메가스팟의
@@ -23,7 +26,7 @@ export const GUIDE_TEMPLATE = `[메가스팟 예약 고객 이용 안내]
 
 문의가 있으시면 안내 페이지의
 카카오톡 문의를 이용해 주세요.`;
-function profile(s){return s.variant===PORTAL_GUIDE_VARIANT?{template:PORTAL_GUIDE_TEMPLATE,button:PORTAL_GUIDE_BUTTON,url:PORTAL_GUIDE_URL,version:PORTAL_GUIDE_VERSION,subject:'메가스팟 예약 확정 안내'}:{template:GUIDE_TEMPLATE,button:GUIDE_BUTTON,url:GUIDE_URL,version:GUIDE_VERSION,subject:'메가스팟 예약 고객 이용 안내'};}
+function profile(s){return s.variant===PORTAL_GUIDE_VARIANT?{template:PORTAL_GUIDE_TEMPLATE,button:PORTAL_GUIDE_BUTTON,url:PORTAL_GUIDE_URL,version:PORTAL_GUIDE_VERSION,subject:'메가스팟 예약 확정 안내'}:{template:GUIDE_TEMPLATE,button:s.template_code===GUIDE_LABEL_CODE?GUIDE_LABEL_BUTTON:GUIDE_BUTTON,url:GUIDE_URL,version:GUIDE_VERSION,subject:'메가스팟 예약 고객 이용 안내'};}
 const NORMAL_SLOTS = { 'pkg-day': [10,17], 'pkg-allday': [10,24], 'pkg-allnight': [18,31], morning:[7,12], day:[12,17], evening:[17,24], am:[9,13], pm:[13,18], ev:[18,23], ampm:[9,18], pmev:[14,23] };
 const KEY = 'reservation_guide';
 const ACTIVE = "('queued','sending','accepted','unknown','delivered')";
@@ -115,7 +118,7 @@ async function active(env,b) {
 }
 function snapshot(b) { return { booking_code:b.booking_code, revision:b.revision || 0, inquiry_ref:b.inquiry_ref || '', customer_name:b.customer_name, phone:guidePhone(b.phone), space_id:b.space_id, date:b.date, time:hours(b), message:guideMessage(b), guide_sent:b.guide_sent || false }; }
 async function messageSnapshot(env,b,s,issue=false){const snap=snapshot(b);return s.variant===PORTAL_GUIDE_VARIANT?portalGuideSnapshot(env,b,snap,issue):snap;}
-async function presentSnapshot(env,snap){if(snap.delivery_variant!==PORTAL_GUIDE_VARIANT)return {...snap,button:GUIDE_BUTTON,guide_url:GUIDE_URL};const button=await portalGuideButton(env,snap);return {...snap,button,guide_url:button.linkMo};}
+async function presentSnapshot(env,snap,s={}){if(snap.delivery_variant!==PORTAL_GUIDE_VARIANT)return {...snap,button:profile(s).button,guide_url:GUIDE_URL};const button=await portalGuideButton(env,snap);return {...snap,button,guide_url:button.linkMo};}
 function providerPayload(env,s,snap,template,button){return {senderkey:env.ALIGO_SENDER_KEY,tpl_code:s.template_code,sender:env.ALIGO_SENDER,receiver_1:snap.phone,recvname_1:snap.customer_name,subject_1:profile(s).subject,message_1:snap.message.replace(/\n/g,template?.templtContent?.includes('\r\n')?'\r\n':'\n'),button_1:JSON.stringify({button:[button]}),failover:'N',testMode:'N'};}
 function sameSnapshot(a,b) { const keys=[...new Set([...Object.keys(a),...Object.keys(b),'revision'])].sort();return keys.every(k=>JSON.stringify(k==='revision'?(a[k] || 0):a[k])===JSON.stringify(k==='revision'?(b[k] || 0):b[k])); }
 async function insertMessage(env,b,s,mode,actor,reason='',event=null,expectedSnapshot=null) {
@@ -138,7 +141,7 @@ async function dispatch(env,id,s,template) {
   s=await config(env); // honor an operator's stop/config change during a bulk request
   const snap = parse(m.snapshot);
   if (m.config_hash !== await configHash(env,s)) return state(env,id,'cancelled','발송 설정이 변경되었습니다. 다시 미리보기해 주세요.');
-  const isPortal=snap.delivery_variant===PORTAL_GUIDE_VARIANT;let currentBooking,button=GUIDE_BUTTON;
+  const isPortal=snap.delivery_variant===PORTAL_GUIDE_VARIANT;let currentBooking,button=profile(s).button;
   if (m.mode === 'live'||isPortal) {
     const b=currentBooking=await booking(env,m.booking_code||snap.booking_code), reason = guideEligibility(b,s,Date.now(),true);
     let fresh;try{if(!reason)fresh=await messageSnapshot(env,b,s);}catch{return state(env,id,'cancelled','통합 안내 링크가 만료되었거나 변경되었습니다. 새로 미리보기해 주세요.');}
@@ -313,7 +316,7 @@ export async function guideAdmin({env,request,url,path,method}) {
     }
     return json({ok:true});
   }
-  if(path==='guide-messages/settings' && method==='GET') return json({ok:true,...s,transport:env.ALIGO_RELAY_URL?'relay':'direct',live_allowed:env.ALIGO_LIVE_ENABLED==='true',credentials:Object.fromEntries(credentialNames(env).map(k=>[k,!!env[k]])),test_delivered:await tested(env,hash),template:profile(s).template,button:profile(s).button,guide_url:profile(s).url,version:profile(s).version,templates:{legacy:profile({variant:'legacy'}),'booking-portal':profile({variant:PORTAL_GUIDE_VARIANT})},portal_template:{code:PORTAL_GUIDE_CODE,variant:PORTAL_GUIDE_VARIANT,template:PORTAL_GUIDE_TEMPLATE,button:PORTAL_GUIDE_BUTTON,version:PORTAL_GUIDE_VERSION}});
+  if(path==='guide-messages/settings' && method==='GET') return json({ok:true,...s,transport:env.ALIGO_RELAY_URL?'relay':'direct',live_allowed:env.ALIGO_LIVE_ENABLED==='true',credentials:Object.fromEntries(credentialNames(env).map(k=>[k,!!env[k]])),test_delivered:await tested(env,hash),template:profile(s).template,button:profile(s).button,guide_url:profile(s).url,version:profile(s).version,templates:{legacy:profile({...s,variant:'legacy'}),'booking-portal':profile({variant:PORTAL_GUIDE_VARIANT})},portal_template:{code:PORTAL_GUIDE_CODE,variant:PORTAL_GUIDE_VARIANT,template:PORTAL_GUIDE_TEMPLATE,button:PORTAL_GUIDE_BUTTON,version:PORTAL_GUIDE_VERSION}});
   if(path==='guide-messages/settings' && method==='PUT') {
     const d=await readJson(request),variant=d.variant??s.variant;if(!['legacy',PORTAL_GUIDE_VARIANT].includes(variant))return err('안내 방식을 확인해 주세요.');
     const next={variant,enabled:d.enabled===true,automatic:d.automatic===true,template_code:str(d.template_code,60),spaces:Array.isArray(d.spaces)?d.spaces.filter(x=>Object.hasOwn(SPACES,x)):[]};
@@ -369,7 +372,7 @@ export async function guideAdmin({env,request,url,path,method}) {
     const id=crypto.randomUUID(),expires=Date.now()+10*60000;
     await env.DB.prepare('DELETE FROM booking_guide_previews WHERE expires_at<?').bind(Date.now()).run();
     await env.DB.prepare('INSERT INTO booking_guide_previews(id,payload,expires_at) VALUES(?,?,?)').bind(id,JSON.stringify({items,config_hash:hash,include_manual:include,reason}),expires).run();
-    return json({ok:true,preview_id:id,items:await Promise.all(items.map(x=>presentSnapshot(env,x))),excluded,expires_at:expires,blocked:await ready(env,s)});
+    return json({ok:true,preview_id:id,items:await Promise.all(items.map(x=>presentSnapshot(env,x,s))),excluded,expires_at:expires,blocked:await ready(env,s)});
   }
   if(path==='guide-messages/send' && method==='POST') {
     const d=await readJson(request),p=await env.DB.prepare('SELECT * FROM booking_guide_previews WHERE id=?').bind(str(d.preview_id,60)).first();

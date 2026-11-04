@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fixture, DAY } from './helpers/admin-fixture.mjs';
 import { createHmac } from 'node:crypto';
-import { GUIDE_TEMPLATE, GUIDE_BUTTON, GUIDE_URL, GUIDE_VERSION, guideMessage, guideEligibility, guideDelivery, automaticGuide } from '../functions/api/_guide_messages.js';
+import { GUIDE_TEMPLATE, GUIDE_BUTTON, GUIDE_LABEL_CODE, GUIDE_LABEL_BUTTON, GUIDE_URL, GUIDE_VERSION, guideMessage, guideEligibility, guideDelivery, automaticGuide } from '../functions/api/_guide_messages.js';
 
 function setup(t,{booking=true}={}) {
   const f=fixture({booking});t.after(()=>f.db.close());
@@ -15,11 +15,11 @@ function setup(t,{booking=true}={}) {
     assert.equal(data.get('apikey'),'fixture-secret');
     if(url.endsWith('/template/list/'))return Response.json({code:0,list:[template]});
     if(url.endsWith('/alimtalk/send/')){
-      assert.equal(data.get('failover'),'N');assert.equal(data.get('testMode'),'N');assert.deepEqual(JSON.parse(data.get('button_1')),{button:[GUIDE_BUTTON]});
+      assert.equal(data.get('failover'),'N');assert.equal(data.get('testMode'),'N');assert.deepEqual(JSON.parse(data.get('button_1')),{button:template.buttons});
       sent.push(Object.fromEntries(data));if(sendError instanceof Error)throw sendError;if(sendError)return Response.json(sendError);
       return Response.json({code:0,info:{mid:String(sent.length),scnt:1,fcnt:0}});
     }
-    if(url.endsWith('/history/detail/')){const previous=sent[Number(data.get('mid'))-1];return Response.json({code:0,list:[{msgid:'123',type:'AT',phone:previous.receiver_1,tpl_code:'TPL-TEST',senderKey:'fixture-profile',rsltdate:'2026-11-03 03:00:00',rslt:result,rslt_message:result==='0'?'성공':'실패'}]});}
+    if(url.endsWith('/history/detail/')){const previous=sent[Number(data.get('mid'))-1];return Response.json({code:0,list:[{msgid:'123',type:'AT',phone:previous.receiver_1,tpl_code:previous.tpl_code,senderKey:'fixture-profile',rsltdate:'2026-11-03 03:00:00',rslt:result,rslt_message:result==='0'?'성공':'실패'}]});}
     assert.fail('Unexpected provider request: '+url);
   });
   const settings={template_code:'TPL-TEST',spaces:['megaspot-gundae'],enabled:false,automatic:false};
@@ -43,6 +43,26 @@ test('미승인·본문 또는 링크 불일치 템플릿으로 시험/고객 �
 test('시험 수신 성공과 서버 허용 전 고객 발송은 불가',async t=>{
   const f=setup(t);await f.api('guide-messages/settings','PUT',f.settings);await f.api('guide-messages/settings','PUT',{...f.settings,enabled:true},409);
   await f.prepare();f.env.ALIGO_LIVE_ENABLED='false';await f.api('guide-messages/settings','PUT',{...f.settings,enabled:true},409);
+});
+test('새 버튼 템플릿은 승인·새 시험 수신 이후에만 선택되며 13자 버튼으로 전송한다',async t=>{
+  const f=setup(t);f.settings.template_code=GUIDE_LABEL_CODE;
+  f.setTemplate({templtCode:GUIDE_LABEL_CODE,buttons:[GUIDE_LABEL_BUTTON],inspStatus:'REQ'});
+  await f.api('guide-messages/settings','PUT',f.settings);
+  await f.api('guide-messages/test','POST',{phone:'01011112222',confirm_test:true},400);assert.equal(f.sent.length,0);
+  f.setTemplate({inspStatus:'APR'});
+  await f.api('guide-messages/settings','PUT',{...f.settings,enabled:true},409);
+  await f.enable();const settings=await f.api('guide-messages/settings');
+  assert.equal(settings.button.name,'시설·주차·케이터링 안내');assert.equal(settings.button.name.length,13);assert.equal(settings.templates.legacy.button.name,settings.button.name);
+  const p=await f.preview();assert.deepEqual(p.items[0].button,GUIDE_LABEL_BUTTON);assert.equal(p.items[0].guide_url,GUIDE_URL);
+  await f.send(p);assert.equal(f.sent[1].tpl_code,GUIDE_LABEL_CODE);assert.deepEqual(JSON.parse(f.sent[1].button_1),{button:[GUIDE_LABEL_BUTTON]});
+});
+test('새 버튼을 지원해도 기존 템플릿·시험 수신·자동 발송은 그대로 유지한다',async t=>{
+  const f=setup(t);await f.enable(true);let s=await f.api('guide-messages/settings');assert.equal(s.test_delivered,true);assert.deepEqual(s.button,GUIDE_BUTTON);assert.equal(s.automatic,true);
+  const p=await f.preview();assert.deepEqual(p.items[0].button,GUIDE_BUTTON);await f.send(p);assert.equal(f.sent[1].tpl_code,'TPL-TEST');
+  await f.api('guide-messages/settings','PUT',{...f.settings,template_code:GUIDE_LABEL_CODE});
+  s=await f.api('guide-messages/settings');assert.equal(s.test_delivered,false);
+  f.setTemplate({templtCode:GUIDE_LABEL_CODE,buttons:[GUIDE_LABEL_BUTTON]});
+  await f.api('guide-messages/settings','PUT',{...f.settings,template_code:GUIDE_LABEL_CODE,enabled:true},409);assert.equal(f.sent.length,2);
 });
 test('운영자 시험 수신은 고객 이력·현장 안내 체크·예약 중복 방지에서 제외',async t=>{
   const f=setup(t);await f.prepare();assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM inquiry_checks').get().n,0);
