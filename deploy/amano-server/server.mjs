@@ -4,6 +4,9 @@ import {readFileSync,writeFileSync,mkdirSync,existsSync,renameSync} from 'node:f
 import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {AmanoClient} from './client.mjs';
+import {runCycle} from './worker.mjs';
+import {parkingSite} from './site.mjs';
+let cycleBusy=false;
 const json=(body,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store'}});
 export function amanoStore(dir,secret){
  mkdirSync(dir,{recursive:true,mode:0o700});
@@ -23,15 +26,29 @@ export async function amanoRequest(request,env,store,clientFactory=c=>new AmanoC
  let v;try{v=JSON.parse(raw);}catch{return json({error:'Invalid request'},400);}
  if(!Number.isFinite(v.time)||Math.abs(Date.now()-v.time)>60000)return json({error:'Expired request'},400);
  try{
-  if(v.action==='status')return json({ok:true,configured:!!store.read('credentials'),enabled:false,adapter_ready:false,public_key:store.publicKey(),last_run:store.read('last-run')});
+  if(v.action==='status')return json({ok:true,configured:!!store.read('credentials'),enabled:store.read('settings')?.enabled===true,adapter_ready:true,busy:cycleBusy,public_key:store.publicKey(),last_run:store.read('last-run')});
+  if(v.action==='settings'){
+   if(v.enabled===true&&(v.confirm_policy!==true||!store.read('credentials')))return json({error:'계정 연결과 승인된 무료 우선·차감 한도를 확인해 주세요.'},409);
+   store.save('settings',{enabled:v.enabled===true,updated_at:new Date().toISOString()});return json({ok:true,enabled:v.enabled===true});
+  }
+  if(v.action==='cycle'){
+   if(cycleBusy)return json({ok:true,busy:true});
+   if(!store.read('settings')?.enabled)return json({ok:true,enabled:false,processed:0,waiting:0,issues:[]});
+   const credentials=store.read('credentials');if(!credentials)return json({error:'아마노 계정 연결 필요'},409);
+   cycleBusy=true;
+   try{return json(await runCycle({site:(action,data)=>parkingSite(env.ALIGO_RELAY_SECRET,action,data),client:clientFactory(credentials),store,isEnabled:()=>store.read('settings')?.enabled===true}));}
+   catch(error){store.save('last-run',{ok:false,error:String(error?.message||'서버 처리 확인 필요').slice(0,180),finished_at:new Date().toISOString()});throw error;}
+   finally{cycleBusy=false;}
+  }
   if(v.action==='setup'){
+   if(cycleBusy)return json({error:'현재 등록 처리 중입니다. 완료 후 계정을 변경해 주세요.'},409);
    if(v.confirm_storage!==true)return json({error:'서버에 계정 저장 동의가 필요합니다.'},400);
    let c;try{c=store.decrypt(v.encrypted_credentials);}catch{return json({error:'계정 암호화 요청을 확인해 주세요.'},400);}
    if(typeof c.username!=='string'||!c.username.trim()||c.username.length>100||!/^[a-f0-9]{64}$/.test(c.passwordHash||''))return json({error:'계정 정보를 확인해 주세요.'},400);
-   c.username=c.username.trim();await clientFactory(c).login();store.save('credentials',c);store.save('connection',{checked_at:new Date().toISOString()});return json({ok:true,configured:true,enabled:false});
+   c.username=c.username.trim();await clientFactory(c).login();store.save('settings',{enabled:false,updated_at:new Date().toISOString()});store.save('credentials',c);store.save('connection',{checked_at:new Date().toISOString()});return json({ok:true,configured:true,enabled:false});
   }
   if(v.action==='check'){
-   const c=store.read('credentials');if(!c)return json({error:'아마노 계정을 먼저 연결해 주세요.'},409);await clientFactory(c).login();return json({ok:true,configured:true,enabled:false});
+   const c=store.read('credentials');if(!c)return json({error:'아마노 계정을 먼저 연결해 주세요.'},409);await clientFactory(c).login();return json({ok:true,configured:true,enabled:store.read('settings')?.enabled===true});
   }
   return json({error:'허용되지 않은 작업입니다.'},400);
  }catch(e){const safe=/^아마노/.test(e.message)?e.message:'서버 연결을 확인해 주세요.';return json({error:safe},502);}
