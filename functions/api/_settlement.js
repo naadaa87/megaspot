@@ -55,12 +55,14 @@ export async function settlementAdmin({env,request,path,method}){
  const d=await readJson(request),id=str(d.request_id,80),amount=Number(d.amount),kind=d.kind;
  if(!/^[a-zA-Z0-9_-]{8,80}$/.test(id)||!['receipt','refund'].includes(kind)||!Number.isSafeInteger(amount)||amount<=0||amount>1e9)return err('입금·환불 종류와 실제 처리 금액을 확인해 주세요.');
  const existing=await env.DB.prepare('SELECT kind,amount,note FROM booking_payment_entries WHERE booking_code=? AND request_id=?').bind(code,id).first();
- if(existing){if(existing.kind!==kind||existing.amount!==amount||existing.note!==str(d.note,300))return err('다른 기록에 사용된 요청번호입니다.',409,'PAYMENT_CONFLICT');return json({ok:true,duplicate:true,settlement});}
+ if(existing){if(existing.kind!==kind||existing.amount!==amount||existing.note!==str(d.note,300))return err('다른 기록에 사용된 요청번호입니다.',409,'PAYMENT_CONFLICT');return json({ok:true,duplicate:true,settlement:await settlementFor(env,code)});}
  if(d.expected_revision!==settlement.revision)return err('수납 내역이나 예약 금액이 바뀌었습니다. 최신 금액을 확인한 뒤 다시 기록해 주세요.',409,'PAYMENT_CHANGED');
  if(kind==='refund'&&amount>settlement.net)return err('환불 완료액은 현재 수납액보다 클 수 없습니다.');
  const time=now();const net=`${gross('b.booking_code')}-${returned('b.booking_code')}+${manual('b.booking_code','receipt')}-${manual('b.booking_code','refund')}`;
- await batch(env,[env.DB.prepare(`INSERT INTO booking_payment_entries(booking_code,request_id,kind,amount,note,created_at) SELECT booking_code,?,?,?,?,? FROM bookings b WHERE booking_code=? AND ${settlementRevisionSql()}=? AND (?='receipt' OR ?<=(${net}))`).bind(id,kind,amount,str(d.note,300),time,code,d.expected_revision,kind,amount),env.DB.prepare('UPDATE bookings SET confirm_doc=NULL,updated_at=? WHERE booking_code=? AND EXISTS(SELECT 1 FROM booking_payment_entries WHERE booking_code=? AND request_id=?)').bind(time,code,code,id),...refundCompletionStatements(env,code,'EXISTS(SELECT 1 FROM booking_payment_entries WHERE booking_code=? AND request_id=?)',[code,id],time)]);
- const saved=await env.DB.prepare('SELECT id FROM booking_payment_entries WHERE booking_code=? AND request_id=?').bind(code,id).first();if(!saved)return err('수납 내역이 변경됐습니다. 다시 불러와 확인해 주세요.',409,'PAYMENT_CHANGED');
+ const result=await batch(env,[env.DB.prepare(`INSERT INTO booking_payment_entries(booking_code,request_id,kind,amount,note,created_at) SELECT booking_code,?,?,?,?,? FROM bookings b WHERE booking_code=? AND ${settlementRevisionSql()}=? AND (?='receipt' OR ?<=(${net}))`).bind(id,kind,amount,str(d.note,300),time,code,d.expected_revision,kind,amount),env.DB.prepare('UPDATE bookings SET confirm_doc=NULL,updated_at=? WHERE booking_code=? AND EXISTS(SELECT 1 FROM booking_payment_entries WHERE booking_code=? AND request_id=?)').bind(time,code,code,id),...refundCompletionStatements(env,code,'EXISTS(SELECT 1 FROM booking_payment_entries WHERE booking_code=? AND request_id=?)',[code,id],time)]);
+ const saved=await env.DB.prepare('SELECT id,kind,amount,note FROM booking_payment_entries WHERE booking_code=? AND request_id=?').bind(code,id).first();if(!saved)return err('수납 내역이 변경됐습니다. 다시 불러와 확인해 주세요.',409,'PAYMENT_CHANGED');
+ if(saved.kind!==kind||saved.amount!==amount||saved.note!==str(d.note,300))return err('다른 기록에 사용된 요청번호입니다.',409,'PAYMENT_CONFLICT');
+ if(!(result?.[0]?.meta?.changes??result?.[0]?.changes))return json({ok:true,duplicate:true,settlement:await settlementFor(env,code)});
  await log(env,'booking.payment.'+kind,code,'admin',{amount,request_id:id,note:str(d.note,300)});
  return json({ok:true,settlement:await settlementFor(env,code)});
 }
@@ -73,19 +75,21 @@ async function correctEntry(env,request,code,entryId,settlement){
  const kind=action==='void'?entry.kind:d.kind,amount=action==='void'?entry.amount:Number(d.amount),note=action==='void'?entry.note:str(d.note,300);
  if(!['receipt','refund'].includes(kind)||!Number.isSafeInteger(amount)||amount<=0||amount>1e9)return err('올바른 종류와 금액을 입력해 주세요.');
  const existing=await env.DB.prepare('SELECT * FROM booking_payment_revisions WHERE booking_code=? AND request_id=?').bind(code,id).first();
- if(existing){if(existing.entry_id!==entryId||existing.action!==action||existing.reason!==reason||(action==='correct'&&(existing.kind!==kind||existing.amount!==amount||existing.note!==note)))return err('다른 정정에 사용된 요청번호입니다.',409,'PAYMENT_CONFLICT');return json({ok:true,duplicate:true,settlement});}
+ if(existing){if(existing.entry_id!==entryId||existing.action!==action||existing.reason!==reason||(action==='correct'&&(existing.kind!==kind||existing.amount!==amount||existing.note!==note)))return err('다른 정정에 사용된 요청번호입니다.',409,'PAYMENT_CONFLICT');return json({ok:true,duplicate:true,settlement:await settlementFor(env,code)});}
  if(d.expected_revision!==settlement.revision||d.entry_version!==entry.version)return err('수납 내역이 변경됐습니다. 최신 기록을 다시 선택해 주세요.',409,'PAYMENT_CHANGED');
  if(action==='void'&&entry.state==='void')return err('이미 취소된 기록입니다.',409,'PAYMENT_CHANGED');
  const time=now();
- await batch(env,[
+ const result=await batch(env,[
   env.DB.prepare(`INSERT INTO booking_payment_revisions(booking_code,entry_id,request_id,previous_version,action,kind,amount,note,reason,created_at)
    SELECT b.booking_code,e.id,?,?,?,?,?,?,?,? FROM bookings b JOIN booking_payment_current e ON e.booking_code=b.booking_code
    WHERE b.booking_code=? AND e.id=? AND e.version=? AND ${settlementRevisionSql()}=?`).bind(id,entry.version,action,kind,amount,note,reason,time,code,entryId,entry.version,d.expected_revision),
   env.DB.prepare('UPDATE bookings SET confirm_doc=NULL,updated_at=? WHERE booking_code=? AND EXISTS(SELECT 1 FROM booking_payment_revisions WHERE booking_code=? AND request_id=?)').bind(time,code,code,id),
   ...refundCompletionStatements(env,code,'EXISTS(SELECT 1 FROM booking_payment_revisions WHERE booking_code=? AND request_id=?)',[code,id],time)
  ]);
- const saved=await env.DB.prepare('SELECT id FROM booking_payment_revisions WHERE booking_code=? AND request_id=?').bind(code,id).first();
+ const saved=await env.DB.prepare('SELECT * FROM booking_payment_revisions WHERE booking_code=? AND request_id=?').bind(code,id).first();
  if(!saved)return err('수납 내역이 변경됐습니다. 최신 기록을 다시 선택해 주세요.',409,'PAYMENT_CHANGED');
+ if(saved.entry_id!==entryId||saved.action!==action||saved.reason!==reason||(action==='correct'&&(saved.kind!==kind||saved.amount!==amount||saved.note!==note)))return err('다른 정정에 사용된 요청번호입니다.',409,'PAYMENT_CONFLICT');
+ if(!(result?.[0]?.meta?.changes??result?.[0]?.changes))return json({ok:true,duplicate:true,settlement:await settlementFor(env,code)});
  await log(env,'booking.payment.'+action,code,'admin',{entry_id:entryId,request_id:id,reason,before:{kind:entry.kind,amount:entry.amount,note:entry.note,state:entry.state},after:{kind,amount,note,state:action==='void'?'void':'active'}});
  return json({ok:true,settlement:await settlementFor(env,code)});
 }

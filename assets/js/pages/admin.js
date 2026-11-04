@@ -756,7 +756,7 @@
   }
   function payload(){
     var q=R.q;
-    return { inquiry_ref:Q.ref, customer:Q.customer, event_date:Q.date, total:R.total, mark_sent:Q.ref && $('#q-mark').checked,
+    return { settlement_revision:quoteSettlement?.revision,inquiry_ref:Q.ref, customer:Q.customer, event_date:Q.date, total:R.total, mark_sent:Q.ref && $('#q-mark').checked,
       data:{ settlement:quoteSettlement?window.MEGASPOT_SETTLEMENT.calculate(Object.assign({},quoteSettlement,{amount:R.total})):null,input:JSON.parse(JSON.stringify(Q)), space:Q.space, spaceName:spaceName(Q.space), version:D.version, date:q.date, colLabel:q.colLabel, holiday:q.day.holiday||'', range:q.range, people:q.people, purpose:PUR[Q.purpose]||'',
         lines:R.lines, subtotal:R.sub, discount:R.disc, discountLabel:R.discLabel, discountWhy:Q.discWhy, extras:R.extras, total:R.total, deposit:R.deposit, validUntil:R.validUntil, refund:R.refund, taxNote:quoteVatNote(), note:Q.note, phone:Q.phone, email:Q.email } };
   }
