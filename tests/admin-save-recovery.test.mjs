@@ -1,0 +1,42 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import R from '../assets/js/admin-save-recovery.js';
+import {payappFixture} from './helpers/payapp-refund-fixture.mjs';
+const storage=()=>{const data=new Map();return {getItem:k=>data.get(k)||null,setItem:(k,v)=>data.set(k,v),removeItem:k=>data.delete(k)};};
+const body={kind:'receipt',amount:100000,note:'네트워크 복구',request_id:'recover-request-123',expected_revision:'test'};
+const lost=()=>new TypeError('connection lost');
+
+test('요청 전에 보관하고 응답 유실 뒤 새 인스턴스도 같은 요청번호·본문으로 재시도',async()=>{
+ const s=storage(),calls=[];const api=async(path,opts)=>{calls.push(opts.body);assert(s.getItem(R.key));if(calls.length===1)throw lost();return {ok:true};};const a=R.create({storage:s,api});await assert.rejects(a.submit('payment','BK-TEST','/bookings/BK-TEST/settlement',body));const b=R.create({storage:s,api});assert.deepEqual(b.current().body,body);await b.retry();assert.deepEqual(calls,[body,body]);assert.equal(b.current(),null);
+});
+test('미확인 요청은 입력 변경·다른 예약·다른 종류의 저장으로 덮어쓰지 못함',async()=>{
+ const s=storage();let count=0;const r=R.create({storage:s,api:async()=>{count++;throw lost();}});await assert.rejects(r.submit('payment','BK-TEST','/bookings/BK-TEST/settlement',body));await assert.rejects(r.submit('payment','BK-TEST','/bookings/BK-TEST/settlement',{...body,request_id:'different-request',amount:200000}),e=>e.code==='SAVE_UNCONFIRMED');await assert.rejects(r.submit('cancellation','BK-OTHER','/bookings/BK-OTHER/cancellation',{request_id:'different-request',fee:200000}),e=>e.code==='SAVE_UNCONFIRMED');assert.equal(count,1);assert.deepEqual(r.current().body,body);
+});
+test('타임아웃·서버 오류·로그인 만료는 보관하고 확실한 거절만 해제',async()=>{
+ for(const status of [undefined,500,502,503,401,403,400,404,409,413,422]){const s=storage(),error=Object.assign(Error('failed'),{status}),r=R.create({storage:s,api:async()=>{throw error;}});await assert.rejects(r.submit('payment','BK-TEST','/bookings/BK-TEST/settlement',body));assert.equal(!!r.current(),![400,404,409,413,422].includes(status));}
+});
+test('저장 공간 오류면 서버 요청을 보내지 않음',async()=>{
+ let calls=0;const r=R.create({storage:{getItem:()=>null,setItem:()=>{throw Error('quota');}},api:async()=>{calls++;}});await assert.rejects(r.submit('payment','BK-TEST','/bookings/BK-TEST/settlement',body),e=>e.code==='SAVE_STORAGE_UNAVAILABLE');assert.equal(calls,0);
+});
+test('저장 중 반복 클릭도 서버 요청 한 건만 보냄',async()=>{
+ const s=storage();let release,calls=0;const r=R.create({storage:s,api:()=>{calls++;return new Promise(resolve=>release=resolve);}});const first=r.submit('payment','BK-TEST','/bookings/BK-TEST/settlement',body);await assert.rejects(r.retry(),e=>e.code==='SAVE_BUSY');release({ok:true});await first;assert.equal(calls,1);assert.equal(r.current(),null);
+});
+for(const kind of ['receipt','refund'])test('실제 DB 저장 후 '+kind+' 응답 유실·새로고침·재시도도 원장과 로그 한 건',async t=>{
+ const f=payappFixture();t.after(()=>f.db.close());const initial=(await f.api('bookings/BK-TEST/settlement')).settlement;if(kind==='refund')await f.api('bookings/BK-TEST/settlement','POST',{kind:'receipt',amount:500000,note:'초기 입금',request_id:'initial-receipt-123',expected_revision:initial.revision});const before=(await f.api('bookings/BK-TEST/settlement')).settlement,s=storage();let first=true;
+ const api=async(path,opts)=>{const result=await f.api(path.slice(1),'POST',opts.body);if(first){first=false;throw lost();}return result;};const payload={...body,kind,expected_revision:before.revision};await assert.rejects(R.create({storage:s,api}).submit('payment','BK-TEST','/bookings/BK-TEST/settlement',payload));const result=await R.create({storage:s,api}).retry();assert.equal(result.duplicate,true);const r=await f.api('bookings/BK-TEST/settlement');assert.equal(r.entries.filter(e=>e.request_id===body.request_id).length,1);assert.equal(f.db.prepare("SELECT COUNT(*) n FROM event_log WHERE json_extract(detail,'$.request_id')=?").get(body.request_id).n,1);assert.equal(r.settlement[kind==='receipt'?'received':'refunded'],kind==='receipt'?100000:100000);
+});
+test('서버 도착 전 유실은 재시도에서 한 번 저장',async t=>{
+ const f=payappFixture();t.after(()=>f.db.close());const revision=(await f.api('bookings/BK-TEST/settlement')).settlement.revision,s=storage();let first=true;const api=async(path,opts)=>{if(first){first=false;throw lost();}return f.api(path.slice(1),'POST',opts.body);};const payload={...body,expected_revision:revision};await assert.rejects(R.create({storage:s,api}).submit('payment','BK-TEST','/bookings/BK-TEST/settlement',payload));assert.equal((await f.api('bookings/BK-TEST/settlement')).entries.length,0);await R.create({storage:s,api}).retry();assert.equal((await f.api('bookings/BK-TEST/settlement')).entries.length,1);
+});
+for(const action of ['correct','void'])test('정정·취소 '+action+' 저장 응답 유실 후에도 이력 한 건',async t=>{
+ const f=payappFixture();t.after(()=>f.db.close());let r=await f.api('bookings/BK-TEST/settlement');await f.api('bookings/BK-TEST/settlement','POST',{...body,expected_revision:r.settlement.revision});r=await f.api('bookings/BK-TEST/settlement');const e=r.entries[0],payload={action,kind:'receipt',amount:40000,note:e.note,reason:'복구 검증',request_id:'recover-edit-123',entry_version:e.version,expected_revision:r.settlement.revision},s=storage();let first=true;const api=async(path,opts)=>{const result=await f.api(path.slice(1),'POST',opts.body);if(first){first=false;throw lost();}return result;};await assert.rejects(R.create({storage:s,api}).submit('payment','BK-TEST','/bookings/BK-TEST/settlement/entries/'+e.id,payload));assert.equal((await R.create({storage:s,api}).retry()).duplicate,true);r=await f.api('bookings/BK-TEST/settlement');assert.equal(r.history.length,1);assert.equal(r.settlement.received,action==='void'?0:40000);
+});
+test('취소 수수료 응답 유실 후 새로고침 재시도도 같은 취소 이력 한 건',async t=>{
+ const f=payappFixture();t.after(()=>f.db.close());let r=await f.api('bookings/BK-TEST/settlement');await f.api('bookings/BK-TEST/settlement','POST',{...body,amount:1000000,expected_revision:r.settlement.revision});const c=await f.api('bookings/BK-TEST/cancellation'),payload={mode:'manual',fee:200000,reason:'복구 검증',cancelled_at:new Date().toISOString(),request_id:'recover-fee-123',expected_version:c.version,expected_revision:c.settlement.revision},s=storage();let first=true;const api=async(path,opts)=>{const result=await f.api(path.slice(1),'POST',opts.body);if(first){first=false;throw lost();}return result;};await assert.rejects(R.create({storage:s,api}).submit('cancellation','BK-TEST','/bookings/BK-TEST/cancellation',payload));assert.equal((await R.create({storage:s,api}).retry()).duplicate,true);assert.equal((await f.api('bookings/BK-TEST/cancellation')).history.length,1);
+});
+test('서버 미도착 요청 복구 중 다른 관리자의 변경을 발견하면 명확히 거절하고 최신 기록 보존',async t=>{
+ const f=payappFixture();t.after(()=>f.db.close());const s=storage(),old=(await f.api('bookings/BK-TEST/settlement')).settlement;let first=true;const api=async(path,opts)=>{if(first){first=false;throw lost();}const response=await f.handle(new Request('https://local.test/api/admin'+path,{method:'POST',headers:{'x-admin-key':f.env.ADMIN_KEY,origin:'https://local.test','content-type':'application/json'},body:JSON.stringify(opts.body)})),data=await response.json();if(!response.ok)throw Object.assign(Error(data.error),{status:response.status,code:data.code});return data;};await assert.rejects(R.create({storage:s,api}).submit('payment','BK-TEST','/bookings/BK-TEST/settlement',{...body,expected_revision:old.revision}));await f.api('bookings/BK-TEST/settlement','POST',{...body,request_id:'other-admin-receipt',amount:200000,expected_revision:old.revision});const r=R.create({storage:s,api});await assert.rejects(r.retry(),e=>e.status===409);assert.equal(r.current(),null);assert.equal((await f.api('bookings/BK-TEST/settlement')).settlement.received,200000);
+});
+test('요청 이후 입력 객체가 바뀌어도 보관한 원본 요청 본문은 변경되지 않음',async()=>{
+ const s=storage(),input={...body},r=R.create({storage:s,api:async()=>{throw lost();}});await assert.rejects(r.submit('payment','BK-TEST','/bookings/BK-TEST/settlement',input));input.amount=900000;assert.equal(r.current().body.amount,100000);
+});

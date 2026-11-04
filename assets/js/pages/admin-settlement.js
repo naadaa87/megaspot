@@ -1,7 +1,7 @@
 /* 수납·환불 원본을 보존하고 사유와 함께 정정·취소합니다. 실제 이체는 실행하지 않습니다. */
 (function(){
  'use strict';
- var X=window.MEGASPOT_ADMIN,M=window.MEGASPOT,S=window.MEGASPOT_SETTLEMENT;if(!X||!M||!S)return;
+ var X=window.MEGASPOT_ADMIN,M=window.MEGASPOT,S=window.MEGASPOT_SETTLEMENT,R=window.MEGASPOT_ADMIN_SAVE;if(!X||!M||!S||!R)return;
  var dialog=document.createElement('dialog');dialog.className='rf-modal';dialog.id='payment-dialog';
  dialog.innerHTML='<div class="rf-modal-head"><h2 id="payment-title">이용료 수납·정산</h2><button class="btn btn-light btn-sm" type="button" id="payment-close">닫기</button></div><div class="rf-modal-body"><p class="small muted">페이앱 결제·취소는 자동 기록되므로 수기 기록에 다시 추가하지 않아도 됩니다. 별도로 받은 이용료 또는 완료한 계좌 환불을 기록하세요. 반환 보증금은 별도입니다. 잘못 입력한 기록은 아래에서 정정·취소할 수 있습니다. 기록 정정·취소는 실제 입금·송금을 되돌리지 않습니다.</p><button class="btn btn-light btn-sm" type="button" id="payment-refresh">페이앱·수납 내역 새로고침</button><button class="btn btn-light btn-sm" type="button" id="payment-cancellation">취소 수수료·환불 정산</button><div id="payment-summary"></div><div id="payment-channels"></div><form id="payment-form"><h3 id="payment-mode">새 완료 내역 기록</h3><div class="field-row"><div class="f"><label for="payment-kind">기록 종류</label><select class="select" id="payment-kind"><option value="receipt">이용료 입금 완료</option><option value="refund">이용료 환불 완료</option></select></div><div class="f"><label for="payment-amount">처리 금액 (원)</label><input class="input" id="payment-amount" type="number" min="1" step="1" required></div></div><div class="f"><label for="payment-note">메모 (입금자·처리일·환불 사유)</label><input class="input" id="payment-note" maxlength="300"></div><div class="f" id="payment-reason-wrap" hidden><label for="payment-reason">정정·취소 사유 (필수)</label><input class="input" id="payment-reason" maxlength="300"></div><div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-primary" id="payment-save" type="submit">완료 내역 기록</button><button class="btn btn-light" type="button" id="payment-new" hidden>새 기록으로 전환</button></div></form><div id="payment-msg" role="status"></div><h3>페이앱 자동 수납·환불 <small>읽기 전용 · 최근 결제 90건</small></h3><div id="payment-online"></div><h3>수기 기록 · 정정 이력</h3><div id="payment-history"></div><button class="btn btn-light btn-sm" type="button" id="payment-more" hidden>이전 기록 더 보기</button></div>';
  document.body.appendChild(dialog);
@@ -71,12 +71,13 @@
   if(edit){body.action=edit.action;body.entry_version=edit.version;body.reason=reason;}
   state.pending=body;busy(true);$('#payment-msg').textContent='';
   var path='/bookings/'+encodeURIComponent(state.code)+'/settlement'+(edit?'/entries/'+edit.id:'');
-  X.A(path,{method:'POST',body:body}).then(function(){
-   reset();$('#payment-msg').textContent='저장했습니다. 변경된 정산 내역으로 견적을 저장하고 확정서를 다시 발급해 주세요.';
-   window.dispatchEvent(new CustomEvent('admin-settlement-saved',{detail:{code:state.code}}));return X.A('/bookings/'+encodeURIComponent(state.code)+'/settlement').then(function(r){paint(r);});
+  R.submit('payment',state.code,path,body).then(function(){
+   reset();state.data=null;$('#payment-msg').textContent='저장했습니다. 변경된 정산 내역으로 견적을 저장하고 확정서를 다시 발급해 주세요.';
+   window.dispatchEvent(new CustomEvent('admin-settlement-saved',{detail:{code:state.code}}));return X.A('/bookings/'+encodeURIComponent(state.code)+'/settlement').then(function(r){paint(r);}).catch(function(){$('#payment-msg').textContent='저장은 완료되었습니다. 최신 수납·환불 내역을 다시 불러와 주세요.';});
   }).catch(function(e){if(e.code==='PAYMENT_CHANGED'){state.data=null;reset();return X.A('/bookings/'+encodeURIComponent(state.code)+'/settlement').then(function(r){paint(r);}).catch(error).then(function(){error(e);});}error(e);}).finally(function(){busy(false);});
  });
  document.addEventListener('click',function(e){var b=e.target.closest('[data-settlement-code]');if(b&&b.dataset.settlementCode){e.preventDefault();e.stopPropagation();load(b.dataset.settlementCode);}},true);
+ window.addEventListener('admin-save-recovered',function(e){if(e.detail.kind==='payment'){state.dirty=false;state.pending=null;load(e.detail.code);window.dispatchEvent(new CustomEvent('admin-settlement-saved',{detail:{code:e.detail.code}}));}});
  window.addEventListener('beforeunload',function(e){if(state.dirty){e.preventDefault();e.returnValue='';}});
  new MutationObserver(function(){if(!document.body.classList.contains('adm-on')&&dialog.open){dialog.close();state.dirty=false;state.data=null;}}).observe(document.body,{attributes:true,attributeFilter:['class']});
 })();
