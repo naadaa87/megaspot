@@ -29,7 +29,7 @@
       renderProduct();
       if(isPass){
         $('#od-date').min=todayIso(); if(q.get('date')) $('#od-date').value=q.get('date'); if(q.get('people')) $('#od-people').value=q.get('people');
-        if(q.get('ref')&&/^MS-[0-9A-Z-]{3,20}$/i.test(q.get('ref'))){ $('#od-ref').value=q.get('ref').toUpperCase(); var refNote=document.createElement('p'); refNote.className='tiny mt-1'; refNote.style.color='var(--cobalt)'; refNote.textContent='예약 신청 '+q.get('ref').toUpperCase()+' 건과 연결됩니다. 결제가 끝나면 신청 상태가 자동으로 \'예약 확정\'으로 바뀝니다.'; $('#od-ref').insertAdjacentElement('afterend', refNote); }
+        if(q.get('ref')&&/^MS-[0-9A-Z-]{3,20}$/i.test(q.get('ref'))){ $('#od-ref').value=q.get('ref').toUpperCase(); var refNote=document.createElement('p'); refNote.className='tiny mt-1'; refNote.style.color='var(--cobalt)'; refNote.textContent='예약 신청 '+q.get('ref').toUpperCase()+' 건과 연결됩니다. 결제 완료 후 일정에 문제가 없으면 예약이 확정됩니다. 일정 확인이 필요하면 운영팀에서 안내합니다.'; $('#od-ref').insertAdjacentElement('afterend', refNote); }
         $('#od-addons').innerHTML=addons.map(function(a){
           if(a.opt==='manager') return '<div class="chk od-addon" style="flex-wrap:wrap"><label class="chk" style="flex:1;min-width:180px"><input type="checkbox" data-addon="manager"> <span><b>현장 매니저</b><small>'+esc(won(optionRate('manager')))+' / 1명 · 1시간</small></span></label><span class="od-addon-fields" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><label class="od-addon-quantity">인원 <input class="input" type="number" min="1" max="10" step="1" data-manager-count aria-label="매니저 인원" value="'+esc(q.get('manager_count')||'1')+'" style="width:70px">명</label><label class="od-addon-quantity">시간 <input class="input" type="number" min="1" max="24" step="1" data-manager-hours aria-label="매니저 시간" value="'+esc(q.get('manager_hours')||prod.hours)+'" style="width:70px">시간</label></span></div>';
           if(a.opt==='disposable') return '<div class="chk od-addon" style="flex-wrap:wrap"><label class="chk" style="flex:1;min-width:180px"><input type="checkbox" data-addon="disposable"> <span><b>1회용 세트</b><small>'+esc(won(optionRate('disposable')))+' / 1명</small></span></label><span class="od-addon-fields" style="display:flex;gap:6px;align-items:center"><label class="od-addon-quantity">인원 <input class="input" type="number" min="1" max="200" step="1" data-disposable-people aria-label="1회용 세트 인원" value="'+esc(q.get('disposable_people')||$('#od-people').value)+'" style="width:85px">명</label></span></div>';
@@ -141,7 +141,11 @@
       var rows=(o.lines||[]).map(function(l){ return '<tr><td>'+esc(l.label)+'<small>'+esc(l.desc||'')+'</small></td><td>'+esc(won(l.amount))+'</td></tr>'; }).join('');
       var isVerificationOrder=!!o.verification;
       var pm={'PayApp:1':'신용·체크카드','PayApp:2':'휴대폰','PayApp:4':'대면결제','PayApp:6':'계좌이체','PayApp:7':'가상계좌','PayApp:15':'카카오페이','PayApp:16':'네이버페이','PayApp:21':'스마일페이','PayApp:23':'애플페이','PayApp:24':'내통장결제','PayApp:25':'토스페이',Card:'신용·체크카드',DirectBank:'실시간 계좌이체',VBank:'가상계좌',HPP:'휴대폰'}[o.pay_method]||o.pay_method||'';
-      if(o.status==='paid'){
+      if(o.status==='paid'&&o.booking_status==='payment_review'){
+        $('#oc-title').textContent='결제 완료 · 예약 일정 확인 중';
+        $('#oc-sub').textContent='결제는 완료됐지만 일정 확인이 필요해 예약 확정을 보류했습니다. 다시 결제하지 마세요. 운영팀에서 일정 조정 또는 환불을 안내해 드립니다.';
+        $('#oc-card').innerHTML='<div class="eyebrow">일정 확인 필요</div><dl class="def mt-2"><dt>상품</dt><dd>'+esc(o.title)+'</dd><dt>주문번호</dt><dd>'+esc(o.oid)+'</dd><dt>결제 금액</dt><dd>'+esc(won(o.price))+'</dd></dl><p class="notice mt-3">아직 공간 이용이 확정되지 않았습니다.</p><a class="btn btn-kakao btn-sm mt-3" href="https://pf.kakao.com/_LnxbmX/chat" target="_blank" rel="noopener">운영팀에 문의하기</a>';
+      } else if(o.status==='paid'){
         $('#oc-title').textContent=isVerificationOrder?'1,000원 결제가 완료되었습니다':'결제가 완료되었습니다'; $('#oc-sub').textContent=isVerificationOrder?'페이앱 판매자 관리자에서 이 거래를 전액 취소한 뒤 취소 반영을 확인해 주세요.':(o.test?'테스트 결제 · ':'')+'예약번호를 꼭 보관해 주세요.';
         $('#oc-card').innerHTML='<div class="eyebrow">Confirmed</div><div class="oc-code"><small>'+(isVerificationOrder?'주문번호':'예약번호')+'</small><b>'+esc(isVerificationOrder?o.oid:(o.booking_code||'—'))+'</b></div>'
           +'<dl class="def mt-3"><dt>상품</dt><dd>'+esc(o.title)+'</dd>'+(o.event_date?'<dt>이용일</dt><dd>'+esc(E?E.kdateY(o.event_date):o.event_date)+(o.people?' · '+o.people+'명':'')+'</dd>':'')+'<dt>예약자</dt><dd>'+esc(o.buyer_name)+' · '+esc(o.buyer_phone)+(o.buyer_email?' · '+esc(o.buyer_email):'')+'</dd><dt>결제</dt><dd>'+esc(pm)+' · '+esc(won(o.price))+(o.appl_at?' · '+esc(o.appl_at):'')+'</dd><dt>주문번호</dt><dd>'+esc(o.oid)+'</dd></dl>'
@@ -151,7 +155,7 @@
           +'<div class="row mt-3" style="gap:8px"><button class="btn btn-light btn-sm" type="button" onclick="window.print()">이 화면 인쇄·저장</button><a class="btn btn-light btn-sm" href="/products/">다른 상품 보기</a></div>';
       } else {
         $('#oc-title').textContent=failed||o.status==='failed'?'결제가 완료되지 않았습니다':(o.status==='refunded'?'환불된 주문입니다':(o.status==='cancelled'?'취소된 주문입니다':'결제가 진행 중입니다'));
-        $('#oc-sub').textContent=o.status==='created'?'결제 결과를 확인하고 있습니다. 결제를 마쳤다면 다시 결제하지 말고 잠시 기다려 주세요.':(o.status==='pending'?'가상계좌 입금 대기 중입니다. 입금 확인 후 예약이 확정됩니다.':'');
+        $('#oc-sub').textContent=o.status==='created'?'결제 결과를 확인하고 있습니다. 결제를 마쳤다면 다시 결제하지 말고 잠시 기다려 주세요.':(o.status==='pending'?'가상계좌 입금 대기 중입니다. 입금과 일정 확인 후 예약 상태가 반영됩니다.':'');
         var retry=o.status==='failed';
         $('#oc-card').innerHTML='<div class="eyebrow">'+esc(o.status==='failed'?'Not completed':o.status)+'</div><dl class="def mt-2"><dt>상품</dt><dd>'+esc(o.title)+'</dd>'+(o.event_date?'<dt>이용일</dt><dd>'+esc(E?E.kdateY(o.event_date):o.event_date)+'</dd>':'')+'<dt>금액</dt><dd>'+esc(won(o.price))+'</dd><dt>주문번호</dt><dd>'+esc(o.oid)+'</dd>'+(o.result_msg&&o.status==='failed'?'<dt>사유</dt><dd>'+esc(o.result_msg)+'</dd>':'')+'</dl>'
           +'<p class="small muted mt-2">결제를 마쳤는데 진행 중으로 표시되면 결과를 확인하고 있는 중입니다. 다시 결제하지 마시고 잠시 기다려 주세요. 카카오톡으로 주문번호와 함께 알려 주시면 바로 확인해 드립니다.</p>'

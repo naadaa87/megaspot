@@ -8,6 +8,7 @@ import { confirmToken, tokenEq, parseDoc, publicDoc } from './_confirm.js';
 
 const COLS = 'booking_code, space_id, customer_name, phone, phone_last4, date, slot, headcount, status, start_h, end_h, confirm_doc';
 async function answer(env, row) {
+  if(row.status==='payment_review')return err('결제는 완료됐지만 일정 확인 중으로 예약이 확정되지 않았습니다. 운영팀에 문의해 주세요.',409,'BOOKING_REVIEW');
   const doc = parseDoc(row.confirm_doc);
   if(row.status==='cancelled'){const state=await cancellationState(env,row.booking_code);if(state?.document?.issued_at){const settlement=await settlementFor(env,row.booking_code);return json({ok:true,doc:publicDoc(row,cancellationDocument(row,state,settlement)),k:await confirmToken(env,row.booking_code)},200,{'cache-control':'no-store'});}}
   if (row.status === 'cancelled') return err('취소된 예약입니다. 자세한 내용은 메가스팟으로 문의해 주세요.', 410, 'CANCELLED');

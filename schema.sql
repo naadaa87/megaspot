@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS bookings (
   slot TEXT,                                -- am | pm | ev | ampm | pmev | day(전일) | custom
   headcount INTEGER,
   memo TEXT,
-  status TEXT NOT NULL DEFAULT 'confirmed', -- confirmed | completed | cancelled
+  status TEXT NOT NULL DEFAULT 'confirmed', -- confirmed | completed | cancelled | payment_review(결제 완료·일정 검토)
   amount INTEGER,                           -- 예약 금액(원) — 2026-10-16 추가
   start_h INTEGER,                          -- 시작 시각(7~30, 24 이상은 다음 날)
   end_h INTEGER,                            -- 종료 시각(8~31)

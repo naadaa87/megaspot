@@ -6,6 +6,7 @@ import { PRODUCTS, HOLIDAYS, PRICING } from '../_catalog.js';
 
 import { payappConfig, requestPayment, validFeedback, equalSecret } from '../_payapp.js';
 import { confirmedGuide } from '../_guide_messages.js';
+import { bookingAvailableSql } from '../_booking_availability.js';
 const PKG_SLOT = { day: 'pkg-day', allday: 'pkg-allday', allnight: 'pkg-allnight' };
 const PKG_LABEL = { day: '낮 패키지 10–17시', allday: '올데이 패키지 10–24시', allnight: '올나잇 패키지 18시–다음 날 07시' };
 
@@ -174,10 +175,11 @@ export async function onRequest({ request, env, params, waitUntil }) {
       const row = await env.DB.prepare('SELECT oid, product_id, title, event_date, people, price, buyer_name, buyer_phone, buyer_email, data, status, pay_method, tid, appl_at, result_msg, booking_code, test, created_at FROM orders WHERE oid = ?').bind(mO[1]).first();
       if (!row) return err('주문을 찾을 수 없습니다.', 404, 'NOT_FOUND');
       const data = safe(row.data);
+      const reservation = row.booking_code ? await env.DB.prepare('SELECT status FROM bookings WHERE booking_code=?').bind(row.booking_code).first() : null;
       const refunds = await env.DB.prepare('SELECT COALESCE(SUM(amount), 0) AS total FROM payapp_refunds WHERE oid = ?').bind(row.oid).first();
       return json({ ok: true, order: { oid: row.oid, product_id: row.product_id, verification: PRODUCTS.get(row.product_id)?.kind === 'verification', title: row.title, event_date: row.event_date, people: row.people, price: row.price, status: row.status,
         buyer_name: row.buyer_name.slice(0, 1) + '*'.repeat(Math.max(1, row.buyer_name.length - 1)), buyer_phone: row.buyer_phone.replace(/(\d{3})\d{3,4}(\d{4})/, '$1-****-$2'), buyer_email: row.buyer_email ? row.buyer_email.replace(/^(.).*(@.*)$/, '$1***$2') : '',
-        lines: data.lines || [], refunded_amount: row.status==='refunded'?row.price:Math.min(row.price, refunds?.total || 0), pay_method: row.pay_method, tid: row.tid ? row.tid.slice(-8) : '', appl_at: row.appl_at, result_msg: row.result_msg, booking_code: row.booking_code, test: !!row.test, created_at: row.created_at } });
+        lines: data.lines || [], refunded_amount: row.status==='refunded'?row.price:Math.min(row.price, refunds?.total || 0), pay_method: row.pay_method, tid: row.tid ? row.tid.slice(-8) : '', appl_at: row.appl_at, result_msg: row.result_msg, booking_code: row.booking_code, booking_status:reservation?.status||null, test: !!row.test, created_at: row.created_at } });
     }
     return err('경로를 찾을 수 없습니다.', 404, 'NOT_FOUND');
   } catch (e) { console.error('pay', e && e.message); if(path==='feedback')return notice('FAIL',500); return err('처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.', 500, 'SERVER_ERROR'); }
@@ -223,17 +225,23 @@ async function feedback(request, env, C, waitUntil) {
     if (code&&!linked) {
       const sh = { 'pkg-day': [10, 17], 'pkg-allday': [10, 24], 'pkg-allnight': [18, 31] }[data.slot];
       if (!sh) return notice('FAIL', 400);
-      const { results: bookings } = await env.DB.prepare("SELECT start_h, end_h FROM bookings WHERE space_id = 'megaspot-gundae' AND date = ? AND status = 'confirmed'").bind(row.event_date).all();
-      const clash = (bookings || []).some(b => b.start_h == null || b.end_h == null || (sh[0] < b.end_h && b.start_h < sh[1]));
-      const memo = ('온라인 결제 ' + oid + ' · ' + row.title + (data.memo ? ' · ' + data.memo : '') + (clash ? ' · ※ 같은 시간 다른 예약 확인 필요' : '')).slice(0, 2000);
-      batch.push(sql("INSERT OR IGNORE INTO bookings (booking_code, space_id, inquiry_ref, customer_name, phone, phone_last4, date, slot, headcount, memo, status, amount, start_h, end_h, created_at) SELECT ?, 'megaspot-gundae', inquiry_ref, buyer_name, buyer_phone, substr(buyer_phone, -4), event_date, ?, people, ?, 'confirmed', price, ?, ?, ? FROM orders WHERE oid = ? AND status IN ('created','pending')", code, data.slot, memo, sh[0], sh[1], t, oid));
-      if (row.inquiry_ref) batch.push(sql("UPDATE inquiries SET status = '예약 확정', updated_at = ? WHERE ref = ? AND EXISTS (SELECT 1 FROM orders WHERE oid = ? AND status IN ('created','pending'))", t, row.inquiry_ref, oid));
+      const memo = ('온라인 결제 ' + oid + ' · ' + row.title + (data.memo ? ' · ' + data.memo : '')).slice(0, 1900);
+      const available=bookingAvailableSql({space:"'megaspot-gundae'",date:'o.event_date',start:'span.start_h',end:'span.end_h'});
+      batch.push(sql(`INSERT OR IGNORE INTO bookings (booking_code, space_id, inquiry_ref, customer_name, phone, phone_last4, date, slot, headcount, memo, status, amount, start_h, end_h, created_at)
+        SELECT ?, 'megaspot-gundae', o.inquiry_ref, buyer_name, buyer_phone, substr(buyer_phone, -4), event_date, ?, people, ?,
+          CASE WHEN ${available} THEN 'confirmed' ELSE 'payment_review' END, price, span.start_h, span.end_h, ?
+        FROM orders o CROSS JOIN (SELECT ? AS start_h,? AS end_h) span WHERE oid=? AND status IN ('created','pending')`,code,data.slot,memo,t,sh[0],sh[1],oid));
+      batch.push(sql("UPDATE bookings SET memo=memo||' · ※ 결제 완료 · 일정 확인 필요 · 예약 확정 보류' WHERE booking_code=? AND status='payment_review' AND EXISTS(SELECT 1 FROM orders WHERE oid=? AND status IN ('created','pending'))",code,oid));
+      if (row.inquiry_ref) batch.push(sql("UPDATE inquiries SET status = CASE WHEN EXISTS(SELECT 1 FROM bookings WHERE booking_code=? AND status='payment_review') THEN '결제 대기' ELSE '예약 확정' END, updated_at = ? WHERE ref = ? AND EXISTS (SELECT 1 FROM orders WHERE oid = ? AND status IN ('created','pending'))",code,t,row.inquiry_ref,oid));
     }
     batch.push(sql("INSERT INTO event_log (kind,ref,actor,detail,created_at) SELECT 'order.paid',oid,'payapp','페이앱 승인 완료',? FROM orders WHERE oid = ? AND status IN ('created','pending')", t, oid));
-    batch.push(sql("UPDATE orders SET status = 'paid', tid = ?, pay_method = ?, appl_at = ?, result_msg = '승인 완료', booking_code = ?, paid_at = ?, updated_at = ? WHERE oid = ? AND status IN ('created','pending')", originalNo, 'PayApp:' + (f.pay_type || ''), (f.pay_date || t).slice(0, 30), code, t, t, oid));
+    batch.push(sql("UPDATE orders SET status = 'paid', tid = ?, pay_method = ?, appl_at = ?, result_msg = CASE WHEN EXISTS(SELECT 1 FROM bookings WHERE booking_code=? AND status='payment_review') THEN '승인 완료 · 일정 확인 필요 · 예약 확정 보류' ELSE '승인 완료' END, booking_code = ?, paid_at = ?, updated_at = ? WHERE oid = ? AND status IN ('created','pending')", originalNo, 'PayApp:' + (f.pay_type || ''), (f.pay_date || t).slice(0, 30),code, code, t, t, oid));
     // D1 batch는 트랜잭션입니다. 중복·동시 통보에서 예약 한 건만 만들어집니다.
     const changed=await env.DB.batch(batch),last=changed.at(-1);
-    if(code&&!linked&&(last?.meta?.changes||last?.changes))await confirmedGuide(env,code,waitUntil);
+    if(code&&!linked&&(last?.meta?.changes||last?.changes)){
+      const created=await env.DB.prepare('SELECT status FROM bookings WHERE booking_code=?').bind(code).first();
+      if(created?.status==='confirmed')await confirmedGuide(env,code,waitUntil);
+    }
   } else if (['9','64'].includes(state)||partial) {
     if(partial&&(!/^\d+$/.test(f.price||'')||Number(f.price)<=0||Number(f.price)>row.price||f.mul_no===originalNo))return notice('FAIL',400);
     const linked=await existingBooking(env,row);

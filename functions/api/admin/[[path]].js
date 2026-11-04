@@ -526,7 +526,8 @@ export async function onRequest({ request, env, params, waitUntil }) {
       if (d.status === '대기 취소') return err('일자별 예약의 대기 취소 버튼을 이용해 주세요.');
       const statusStatements = [], reconfirmed = []; let receptionResult=null;
       if (d.status !== undefined) {
-        const { results: linked } = await env.DB.prepare("SELECT booking_code FROM bookings WHERE inquiry_ref = ? AND status <> 'cancelled'").bind(ref).all();
+        const { results: linked } = await env.DB.prepare("SELECT booking_code,status FROM bookings WHERE inquiry_ref = ? AND status <> 'cancelled'").bind(ref).all();
+        if(['예약 확정','이용 완료'].includes(d.status)&&(linked||[]).some(b=>b.status==='payment_review'))return err('결제 후 일정 확인이 필요한 예약입니다. 예약 목록의 일정 확인 필요 항목에서 검토 후 확정해 주세요.',409,'BOOKING_REVIEW');
         if (d.status === '예약 확정' && !(linked || []).length) return err('예약 확정 버튼에서 일시·금액을 확인한 뒤 확정해 주세요.', 409, 'USE_CONFIRM');
         if ((linked || []).length && !['예약 확정', '이용 완료', '취소·환불'].includes(d.status)) return err('확정 예약은 취소 처리한 뒤 문의 상태를 변경해 주세요.', 409, 'HAS_BOOKING');
         const bookingStatus = { '예약 확정': 'confirmed', '이용 완료': 'completed', '취소·환불': 'cancelled' }[d.status];
@@ -815,6 +816,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
           inquiry: inq, doc, preview: publicDoc(row, previewDoc), link: doc && doc.issued_at ? link : '', token: k });
       }
       if (method === 'PUT') {
+        if(row.status==='payment_review')return err('일정 확인 전에는 예약확정서를 발급할 수 없습니다.',409,'BOOKING_REVIEW');
         if (row.status === 'cancelled') return err('취소된 예약은 확정서를 발급할 수 없습니다.', 409, 'CANCELLED');
         const d = await readJson(request), prev = parseDoc(row.confirm_doc) || {}, t = now(), currentData=foodData;
         if(receptionConflict(d.reception_revision,currentData) || (d.reception_revision===undefined&&receptionRevision(currentData)>0&&Number(d.doc?.amount)!==row.effective_amount))return err('식음료 변경으로 확정서 조건이 달라졌습니다. 최신 예약을 다시 불러와 발급해 주세요.',409,'RECEPTION_CHANGED');
@@ -836,9 +838,11 @@ export async function onRequest({ request, env, params, waitUntil }) {
       const d = await readJson(request); const code = mBk[1];
       if (!['confirmed', 'completed', 'cancelled'].includes(d.status)) return err('상태 값이 올바르지 않습니다.');
       const current=await env.DB.prepare('SELECT status FROM bookings WHERE booking_code=?').bind(code).first();
+      if(current?.status==='payment_review'&&d.status!=='cancelled'&&(d.status!=='confirmed'||d.confirm_review!==true))return err('결제 완료 건의 일정 검토 후 확정을 명시적으로 확인해 주세요.',409,'BOOKING_REVIEW');
       if(current?.status==='cancelled'&&d.status==='confirmed')return reconfirmBooking(env,code,d,waitUntil,{legacy:true});
       const update = await bookingStatusStatements(env, code, d.status); if (update.error) return update.error;
       await batch(env, update.statements);
+      if(current?.status==='payment_review'&&d.status==='confirmed'&&(await env.DB.prepare('SELECT status FROM bookings WHERE booking_code=?').bind(code).first())?.status!=='confirmed')return err('예약 일정이 변경됐거나 다른 예약·마감과 겹칩니다. 최신 내용을 확인해 주세요. 예약 확정을 보류했습니다.',409,'DATE_HAS_BOOKING');
       await log(env, 'booking.updated', code, 'admin', d);
       if (update.ref) await log(env, 'booking.updated', update.ref, 'admin', { booking_code: code, status: d.status });
       if (d.status === 'confirmed' && update.previous !== 'confirmed') await confirmedGuide(env, code, waitUntil);
@@ -899,7 +903,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
     // ---- 주문·결제 ----
     if (path === 'orders' && method === 'GET') {
       const st = str(url.searchParams.get('status'), 20), q = str(url.searchParams.get('q'), 60);
-      let sql = `SELECT oid, product_id, title, event_date, people, price, buyer_name, buyer_phone, buyer_email, status, pay_method, tid, appl_at, result_msg, booking_code, inquiry_ref, member_id, memo, test, created_at, paid_at, updated_at, EXISTS (SELECT 1 FROM payapp_payments p WHERE p.oid = orders.oid) AS payapp, ${refundAmountSql('orders')} AS refunded_amount FROM orders WHERE 1=1`; const b = [];
+      let sql = `SELECT oid, product_id, title, event_date, people, price, buyer_name, buyer_phone, buyer_email, status, pay_method, tid, appl_at, result_msg, booking_code, (SELECT status FROM bookings WHERE booking_code=orders.booking_code) AS booking_status, inquiry_ref, member_id, memo, test, created_at, paid_at, updated_at, EXISTS (SELECT 1 FROM payapp_payments p WHERE p.oid = orders.oid) AS payapp, ${refundAmountSql('orders')} AS refunded_amount FROM orders WHERE 1=1`; const b = [];
       if (st) { sql += ' AND status = ?'; b.push(st); }
       if (q) { sql += ' AND (oid LIKE ? OR buyer_name LIKE ? OR buyer_phone LIKE ? OR booking_code LIKE ?)'; b.push('%' + q.toUpperCase() + '%', '%' + q + '%', '%' + q + '%', '%' + q.toUpperCase() + '%'); }
       sql += ' ORDER BY created_at DESC LIMIT 300';
