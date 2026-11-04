@@ -38,5 +38,5 @@ export async function amanoRequest(request,env,store,clientFactory=c=>new AmanoC
 }
 if(process.argv[1]&&pathToFileURL(process.argv[1]).href===import.meta.url){
  const env=process.env,store=amanoStore(env.AMANO_STATE_DIR||'/var/lib/megaspot-amano',env.ALIGO_RELAY_SECRET);
- createServer(async(req,res)=>{try{let body='';for await(const chunk of req){body+=chunk;if(body.length>12000){res.writeHead(413);res.end();return;}}const r=await amanoRequest(new Request('http://localhost'+req.url,{method:req.method,headers:req.headers,...(req.method==='POST'?{body}:{})}),env,store);res.writeHead(r.status,Object.fromEntries(r.headers));res.end(await r.text());}catch{res.writeHead(500);res.end('Unavailable');}}).listen(Number(env.PORT||8788),'127.0.0.1');
+ createServer(async(req,res)=>{try{let body='';for await(const chunk of req){body+=chunk;if(body.length>12000){res.writeHead(413);res.end();return;}}const r=await amanoRequest(new Request('http://localhost'+req.url,{method:req.method,headers:req.headers,...(req.method==='POST'?{body}:{})}),env,store);res.writeHead(r.status,Object.fromEntries(r.headers));res.end(await r.text());}catch{res.writeHead(500);res.end('Unavailable');}}).listen(Number(env.PORT||8790),'127.0.0.1');
 }
