@@ -7,3 +7,38 @@
 .mobile-viewport-short .rc-dialog-head{padding:4px 12px}.mobile-viewport-short .rc-dialog-head h2{font-size:17px}.mobile-viewport-short .rc-close{width:44px;height:44px}
 .page-reservation-calendar .page-hero{padding:34px 0 26px}.page-reservation-calendar .page-hero h1{font-size:clamp(30px,4vw,44px);line-height:1.3}.rc-details,.rc-month{scroll-margin-top:calc(var(--header-h,72px) + 14px)}.rc-details-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px}.rc-details-head button{border:0;background:none;padding:4px 0;font:inherit;font-size:12px;color:var(--rc-one);text-decoration:underline;text-underline-offset:3px;cursor:pointer}.rc-dialog .rc-details,.rc-dialog .rc-month{scroll-margin-top:80px}
 .page-reservation-calendar .quick-bar{display:none!important}.page-reservation-calendar.has-quick-bar{padding-bottom:0}
+
+/* Keep the calendar distinct from the page introduction and the fixed navigation. */
+.page-reservation-calendar .page-hero{padding:42px 0 38px}
+.page-reservation-calendar .page-hero .lead{max-width:780px;margin-top:16px;line-height:1.8}
+.rc-page-shell{max-width:var(--maxw,1240px);padding:40px var(--gutter,40px) 80px}
+.rc-page-shell>.reservation-calendar{padding:32px;background:#fff;border-color:#dfddd7;border-radius:16px;box-shadow:0 6px 24px rgba(38,43,46,.035)}
+.reservation-calendar .rc-intro{max-width:880px;margin-bottom:24px;line-height:1.8}
+.rc-toolbar{gap:16px}.rc-filters{gap:8px}.rc-filters button{min-height:44px;padding:10px 16px;border-radius:8px}
+.rc-updated{margin:14px 0 26px;line-height:1.6}
+.rc-layout{gap:28px}
+.rc-month{padding:20px;border-color:#e2e1dc;border-radius:12px;background:#fcfcfa}
+.rc-month-head{margin-bottom:18px}.rc-month-head button{width:44px;height:44px;border-radius:8px}
+.rc-weekdays{padding:4px 0 12px}.rc-grid{gap:5px}.rc-day{background:#f2f2ee;min-height:76px;border-radius:7px;padding-top:8px}
+.rc-day.is-selected{background:#edf2ff}.rc-legend{margin-top:16px;gap:18px;line-height:1.7}
+.rc-details-head{min-height:44px;margin-bottom:16px;align-items:center}.rc-day-title{margin-bottom:0;line-height:1.5}
+.rc-details-head button{line-height:1.6;flex:none}.rc-day-detail{gap:18px}
+.rc-room-card{padding:20px;border-color:#e2e1dc;border-left-color:var(--rc-one);border-radius:12px}.rc-room-card.rc-two{border-left-color:var(--rc-two)}
+.rc-room-card h4{margin-bottom:16px;line-height:1.5}.rc-time-axis{margin-bottom:7px}.rc-timeline{height:20px}
+.rc-times{margin-top:10px;gap:0}.rc-times li{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px 12px;padding:8px 0;border-bottom:1px solid #efefeb}.rc-times li:last-child{border-bottom:0}.rc-times small{padding:2px 7px;border-radius:4px;background:#f4f5f7;line-height:1.5}
+.rc-empty{line-height:1.8;margin:12px 0}.rc-room-use{display:inline-flex;align-items:center;min-height:40px;margin-top:10px;padding:7px 12px;border-radius:6px;background:#f1f5ff;font-size:13px;line-height:1.5;text-decoration:none}.rc-two .rc-room-use{background:#eef7f2}
+.rc-choice{margin-top:32px;padding-top:28px}.rc-choice h3{margin-bottom:8px;line-height:1.5}.rc-choice-note{margin:0 0 20px;font-size:13px;line-height:1.8;color:var(--ink-2,#5b6168)}
+.rc-choice-fields{gap:16px}.rc-selected-date{margin-top:18px}.rc-selection-status{max-width:860px;line-height:1.8;margin-bottom:20px}
+.rc-details,.rc-month{scroll-margin-top:calc(var(--header-h,72px) + 24px)}
+.rc-dialog-content{padding:28px}.rc-dialog .rc-details,.rc-dialog .rc-month{scroll-margin-top:16px}
+@media(max-width:719px){
+ .page-reservation-calendar .page-hero{padding:30px 0 28px}.page-reservation-calendar .page-hero .lead{font-size:16px;line-height:1.75}
+ .rc-page-shell{padding:24px var(--gutter,16px) 48px}.rc-page-shell>.reservation-calendar{padding:22px 16px;border-radius:14px}
+ .reservation-calendar .rc-intro{margin-bottom:20px}.rc-filters{gap:6px}.rc-filters button{padding:9px 13px}.rc-updated{margin:12px 0 22px}
+ .rc-layout{gap:28px}.rc-month{padding:14px 10px}.rc-grid{gap:3px}.rc-day{min-height:68px}.rc-month-head{margin-bottom:14px}
+ .rc-details-head{gap:10px;margin-bottom:14px}.rc-day-title{font-size:18px}.rc-details-head button{font-size:11px}
+ .rc-room-card{padding:18px 16px}.rc-room-card h4{margin-bottom:14px}.rc-times{font-size:13px}
+ .rc-choice{margin-top:28px;padding-top:24px}.rc-choice-fields{gap:12px}.rc-choice-note{margin-bottom:18px}
+ .rc-dialog-content{padding:22px 14px 28px}
+}
+@media(max-width:359px){.rc-page-shell>.reservation-calendar{padding:20px 12px}.rc-filters button{padding:9px 10px}.rc-month{padding:12px 8px}.rc-details-head{align-items:flex-start;flex-wrap:wrap;gap:4px}.rc-details-head button{min-height:32px}}
