@@ -39,3 +39,7 @@
 #cf-reconfirmation-summary>div{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:12px;padding:8px 0;border-bottom:1px solid #d8dfed;line-height:1.6}
 #cf-reconfirmation-summary>div:last-child{border-bottom:0}
 #cf-reconfirmation-summary b{text-align:right;min-width:0;font-variant-numeric:tabular-nums}
+
+.admin-save-recovery{margin:0 0 18px;padding:16px;border:1px solid #b77a28;border-radius:10px;background:#fff7e8;overflow-wrap:anywhere}
+.admin-save-recovery p{margin:0 0 10px;line-height:1.6}
+.admin-save-recovery .btn{margin:4px 6px 0 0;white-space:normal}
