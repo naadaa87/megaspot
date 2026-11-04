@@ -40,9 +40,19 @@
   /* ---------- toast ---------- */
   var toastEl, toastTimer;
   function toast(msg){
-    if(!toastEl){ toastEl=document.createElement('div'); toastEl.className='toast'; toastEl.setAttribute('role','status'); document.body.appendChild(toastEl); }
+    if(!toastEl){ toastEl=document.createElement('div'); toastEl.className='toast'; toastEl.setAttribute('role','status'); toastEl.setAttribute('aria-atomic','true'); document.body.appendChild(toastEl); }
+    // A native dialog is above every z-index. Put feedback in the top layer too.
+    if(typeof toastEl.showPopover==='function'){
+      toastEl.setAttribute('popover','manual');
+      if(toastEl.matches(':popover-open')) toastEl.hidePopover();
+      toastEl.showPopover();
+    }else{
+      var dialogs=document.querySelectorAll('dialog[open]');
+      var host=dialogs.length?dialogs[dialogs.length-1]:document.body;
+      if(toastEl.parentNode!==host) host.appendChild(toastEl);
+    }
     toastEl.textContent=msg; toastEl.classList.add('show');
-    clearTimeout(toastTimer); toastTimer=setTimeout(function(){ toastEl.classList.remove('show'); }, 3200);
+    clearTimeout(toastTimer); toastTimer=setTimeout(function(){ toastEl.classList.remove('show'); if(typeof toastEl.hidePopover==='function'&&toastEl.matches(':popover-open')) toastEl.hidePopover(); }, 4200);
   }
 
   /* ---------- API client (체험 모드 자동 전환) ---------- */

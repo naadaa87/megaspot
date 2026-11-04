@@ -123,7 +123,11 @@ export async function refundAdmin({env,request,url,path,method}){
   return json({ok:true,account:{...account,bank_name:BANKS.find(x=>x[0]===account.bank)?.[1]||''}});
  }else if(action==='claim'){
   if(!available(b)||b.legacy_returned||b.state!=='pending')return err('송금 처리를 시작할 수 없는 예약입니다.',409);
-  if(!b.deposit_paid||!b.inspected||!eventTime(b)||eventTime(b).end>Date.now()||!b.operator)return err('보증금 입금·이용 종료·시설 확인·담당자를 먼저 확인해 주세요.',409);
+  if(!b.deposit_paid)return err('보증금 입금 확인 기록이 없습니다. 실제 입금을 확인한 뒤 이 화면의 입금 확인을 저장해 주세요.',409,'DEPOSIT_NOT_PAID');
+  if(!eventTime(b))return err('예약의 이용 시작·종료 시간이 없습니다. 예약 정보를 먼저 확인해 주세요.',409,'BOOKING_TIME_REQUIRED');
+  if(eventTime(b).end>Date.now())return err('아직 이용이 종료되지 않았습니다. 이용 종료 후 송금을 시작해 주세요.',409,'EVENT_NOT_ENDED');
+  if(!b.inspected)return err('시설 상태와 정리 확인이 저장되지 않았습니다. 확인 항목을 체크하고 금액·시설 확인을 저장해 주세요.',409,'FACILITY_NOT_INSPECTED');
+  if(!b.operator)return err('처리 담당자가 저장되지 않았습니다. 담당자 이름을 입력하고 금액·시설 확인을 저장해 주세요.',409,'OPERATOR_REQUIRED');
   if(b.deduction&&(!b.deduction_reason||!b.deduction_notified))return err('차감 사유와 고객 안내 여부를 확인해 주세요.',409);
   if(b.deposit_amount-b.deduction>0&&!b.account_cipher)return err('고객 환급 계좌가 아직 등록되지 않았습니다.',409);
   if(d.confirm_start!==true)return err('실제 은행 송금 전 확인 항목을 체크해 주세요.');
