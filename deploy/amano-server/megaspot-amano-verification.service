@@ -1,7 +1,7 @@
 [Unit]
 Description=Record first live order verification for Megaspot parking
 After=network-online.target megaspot-amano.service
-Requires=megaspot-amano.service
+Wants=megaspot-amano.service
 [Service]
 Type=oneshot
 User=megaspot-aligo
