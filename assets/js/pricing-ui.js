@@ -263,7 +263,7 @@
       // ② 날짜
       + '<section class="rv-step"><h4><span>2</span>이용일</h4>'
       + '<div class="est-row"><div class="f" style="flex:0 1 220px"><label for="' + pid + '-date" class="sr-only">이용일</label><input class="input" type="date" id="' + pid + '-date" name="date" value="' + esc(st.date) + '" min="' + minDate() + '"></div><div class="est-daytag" data-out="daytag"></div></div>'
-      + '<div class="pick mt-2" data-out="date-pick">' + quickDates().map(function(q){ return '<button type="button" data-d="' + q.iso + '">' + esc(q.label) + '<small>' + esc(E.kdate(q.iso)) + '</small></button>'; }).join('') + '</div></section>'
+      + '<div class="pick mt-2" data-out="date-pick">' + quickDates().map(function(q){ return '<button type="button" data-d="' + q.iso + '">' + esc(q.label) + '<small>' + esc(E.kdate(q.iso)) + '</small></button>'; }).join('') + '</div><button type="button" class="btn btn-light rc-open-button" data-act="calendar" aria-haspopup="dialog">1·2호 예약 현황 보기 →</button></section>'
       // ③ 인원
       + '<section class="rv-step"><h4><span>3</span>인원 <em data-out="people-base">기준 ' + D.people.base + '명 포함 · ' + (D.people.base + 1) + '명째부터 1명당 ' + esc(man(D.people.extra)) + ' · 최대 ' + D.people.max + '명</em></h4>'
       + '<div class="est-row"><div class="f" style="flex:0 1 140px"><label for="' + pid + '-people" class="sr-only">인원</label><input class="input" type="number" inputmode="numeric" id="' + pid + '-people" name="people" min="1" max="' + D.people.max + '" value="' + st.people + '"></div>'
@@ -326,7 +326,7 @@
     function calc(){
       read();
       var r = E.quote({ date: st.date, start: st.start, end: st.end, people: st.people, purpose: st.purpose, options: options(), regular: st.regular });
-      if(PLAN){ PLAN.availability(el,SPACE_ID,st.date); PLAN.saveSpace(st,SPACE_ID); r.plan=PLAN.quote(el,r); }
+      if(PLAN){ PLAN.availability(el,SPACE_ID,st.date,st.start,st.end); PLAN.saveSpace(st,SPACE_ID); r.plan=PLAN.quote(el,r); }
       last = r; paint(r); if(PLAN){ PLAN.paint(el,r); var capacity=out('capacity'); if(capacity){capacity.hidden=st.requestedPeople<=D.people.max;capacity.textContent=NAME+'는 최대 '+D.people.max+'명입니다. 요청하신 '+st.requestedPeople+'명은 다른 공간을 선택해 주세요. 비교 금액은 '+D.people.max+'명 기준이며 공간을 바꾸면 요청 인원으로 다시 계산합니다.';} } return r;
     }
     function lineRows(r){
@@ -440,7 +440,13 @@
         agree_privacy: true, estimate: r.plan&&r.plan.unknownDate?'행사 일정 미정 · 상담 후 견적':E.summaryText(r, purLabel(purpose)), source: location.pathname, summary: reserveText(r, who), website: form.website.value, came_from: M.source ? M.source() : null };
       if(r.plan&&r.plan.unknownDate){body.start_h=null;body.end_h=null;body.t_start='';body.t_end='';body.pkg='';}
       var btn = el.querySelector('[data-act=submit]'); btn.disabled = true; btn.textContent = '신청하는 중…';
-      M.api('/inquiry', { method: 'POST', body: body }).then(function(res){ done = { ref: res.ref, live: true, who: who, r: r, purpose: purpose, member: !!res.member }; phase = 'done'; if(PLAN) PLAN.clear(); paintDone(); })
+      var signature=JSON.stringify(PLAN?PLAN.capture(el):M.formData(form));
+      var fresh=!(r.plan&&r.plan.unknownDate)&&M.reservations?M.reservations.checkRange({space:SPACE_ID,date:r.date,start:r.start,end:r.end},true):Promise.resolve(null);
+      fresh.then(function(status){
+        if(!el.isConnected||!form.isConnected||signature!==JSON.stringify(PLAN?PLAN.capture(el):M.formData(form)))throw Error('입력한 내용이 바뀌었습니다. 선택한 구성을 확인하고 다시 신청해 주세요.');
+        if(status&&(status.closed||status.invalid||status.conflict||status.unknown))throw Error(status.conflict?'선택한 시간과 겹치는 확정 예약이 있습니다. 1·2호 예약 현황에서 다른 시간이나 공간을 골라 주세요.':'선택한 일정은 시간 확인이 필요합니다. 날짜를 다시 고르거나 카카오톡으로 문의해 주세요.');
+        return M.api('/inquiry', { method: 'POST', body: body });
+      }).then(function(res){ done = { ref: res.ref, live: true, who: who, r: r, purpose: purpose, member: !!res.member }; phase = 'done'; if(PLAN) PLAN.clear(); paintDone(); })
       .catch(function(ex){
         if (ex.code === 'NO_API'){ done = { ref: M.localRef('MS'), live: false, who: who, r: r, purpose: purpose }; phase = 'done'; if(PLAN) PLAN.clear(); paintDone(); return; }
         er.textContent = ex.message || '신청을 보내지 못했습니다. 잠시 후 다시 시도해 주세요.'; er.hidden = false; btn.disabled = false; btn.innerHTML = '상담 신청 보내기 <span class="arrow">→</span>';
@@ -486,7 +492,7 @@
     }
 
     // 인원·매니저 칸은 입력할 때마다(input) 이미 계산하므로, 칸을 벗어날 때 나는 change 는 건너뜁니다(안 그러면 '금액 구성 보기'를 누르는 순간 카드가 다시 그려져 닫힙니다)
-    el.addEventListener('change', function(e){ var n = e.target.name || ''; if (n.indexOf('rv_') === 0 || n === 'people' || n === 'managerCount' || n === 'managerHours') return; calc(); });
+    el.addEventListener('change', function(e){ if(PLAN&&e.target.closest('.plan-fields'))return; var n = e.target.name || ''; if (n.indexOf('rv_') === 0 || n === 'people' || n === 'managerCount' || n === 'managerHours') return; calc(); });
     el.addEventListener('input', function(e){ if (e.target.name === 'people') st.requestedPeople=E.clampInt(e.target.value,1,350,D.people.base); if (e.target.name === 'people' || e.target.name === 'managerCount' || e.target.name === 'managerHours') calc(); });
     out('pkgs').addEventListener('click', function(e){ var b = e.target.closest('.slot-btn'); if (!b) return; var p = E.findPkg(b.dataset.pkg); f('start').value = p.start; f('end').value = p.end; calc(); });
     out('people-pick').addEventListener('click', function(e){ var b = e.target.closest('button'); if (!b) return; f('people').value = b.dataset.n; st.requestedPeople=+b.dataset.n; calc(); });
@@ -495,6 +501,13 @@
       var b = e.target.closest('[data-act]'); if (!b) return;
       var act = b.dataset.act;
       if (act === 'show' || act === 'review'){ out('result').scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+      if (act === 'calendar' && M.reservations){
+        read(); M.reservations.open({space:SPACE_ID,date:st.date,start:st.start,end:st.end,onSelect:function(c){
+          if(location.pathname==='/inquiry/'){document.dispatchEvent(new CustomEvent('megaspot:calendar-selection',{detail:c}));}
+          else if(c.space===SPACE_ID){var unknown=el.querySelector('[name=event_date_unknown]');if(unknown&&unknown.checked){unknown.checked=false;unknown.dispatchEvent(new Event('change',{bubbles:true}));}api.set(c);var u=new URL(location.href);['date','start','end'].forEach(function(k){u.searchParams.set(k,c[k]);});u.searchParams.delete('pkg');history.replaceState(null,'',u.pathname+u.search+u.hash);M.toast('선택한 날짜와 시간을 반영했습니다.');}
+          else location.assign(M.reservations.inquiryUrl(c));
+        }});return;
+      }
       if (act === 'reserve'){ phase = 'form'; paintForm(last || calc()); if (window.matchMedia('(max-width:959px)').matches) el.querySelector('.rv-apply').scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
       if (act === 'back'){ saveForm(); phase = 'calc'; paintResult(last || calc()); out('result').scrollIntoView({behavior:'smooth',block:'start'}); return; }
       if (act === 'ics'){ if (done) icsDownload(); return; }
