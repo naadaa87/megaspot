@@ -29,7 +29,7 @@
   });
   var menu=document.createElement('button');menu.type='button';menu.className='adm-menu-toggle';menu.setAttribute('aria-expanded','false');menu.setAttribute('aria-controls','adm-nav');menu.textContent='전체 메뉴';$('.adm-brand').appendChild(menu);
   function closeMenu(){ $('.adm-side').classList.remove('adm-menu-open');menu.setAttribute('aria-expanded','false'); }
-  menu.addEventListener('click',function(){var open=$('.adm-side').classList.toggle('adm-menu-open');menu.setAttribute('aria-expanded',String(open));if(open)nav.scrollTop=0;});
+  menu.addEventListener('click',function(){var open=$('.adm-side').classList.toggle('adm-menu-open');menu.setAttribute('aria-expanded',String(open));if(open){nav.scrollTop=0;requestAnimationFrame(function(){if($('.adm-side').classList.contains('adm-menu-open'))nav.scrollTop=0;});}});
   document.addEventListener('keydown',function(e){if(e.key==='Escape'&&$('.adm-side').classList.contains('adm-menu-open')){closeMenu();menu.focus();}});
   document.addEventListener('click',function(e){if(!e.target.closest('.adm-side')||e.target.closest('.adm-side-foot'))closeMenu();});
   // 외부 채널은 필요할 때 펼칠 수 있도록 업무 메뉴 아래에 둡니다.

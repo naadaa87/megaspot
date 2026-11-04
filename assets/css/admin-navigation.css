@@ -1,5 +1,5 @@
 /* 업무 흐름을 따르는 관리자 메뉴와 화면 내 탐색 */
-.page-admin .adm-nav{flex-direction:column;gap:5px;overflow:visible}
+.page-admin .adm-nav{flex-direction:column;gap:5px;overflow:visible;overflow-anchor:none}
 .page-admin .adm-nav-group{min-width:0;margin:0;padding:0;border:0}
 .adm-nav-group > summary{display:flex;align-items:center;gap:8px;padding:10px 8px;min-height:44px;color:#c9cdd1;font-size:13px;font-weight:750;cursor:pointer;list-style:none;border-radius:6px}
 .adm-nav-group > summary::-webkit-details-marker{display:none}
