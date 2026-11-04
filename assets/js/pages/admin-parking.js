@@ -16,7 +16,7 @@
  $('#pa-settings-save').onclick=function(){this.disabled=true;api('settings',{enabled:$('#pa-enabled').checked,daily_enabled:$('#pa-daily-enabled').checked,daily_basis:$('#pa-daily-basis').value,daily_details:$('#pa-daily-terms').value,daily_rollover:$('#pa-daily-rollover').value,confirm_daily:$('#pa-daily-confirm').checked},'PUT').then(function(){M.toast('주차권 판매 설정을 저장했습니다.');settings();}).catch(failure).finally(function(){$('#pa-settings-save').disabled=false;});};
  function row(p){
   var pending=p.refund_requested_at&&!p.refund_reviewed_at,eligible=p.payment_status==='paid'&&!p.refunded_amount;
-  var plan=p.ticket==='daily'?'일일권 등록 · '+(p.daily_terms||'이용 조건 확인 필요'):p.free_hours||p.paid_hours?'무료 '+p.free_hours+'시간 + 유료 '+p.paid_hours+'시간':'입차ID 대조 후 무료 1시간 우선 배정';
+  var plan=p.ticket==='daily'?((p.free_hours===1?'무료 1시간 먼저 등록 + ':p.session_id?'무료 1시간 기존 사용 확인 + ':'입차ID 대조 후 무료 1시간 먼저 확인 + ')+'일일권 등록 · '+(p.daily_terms||'이용 조건 확인 필요')):p.free_hours||p.paid_hours?'무료 '+p.free_hours+'시간 + 유료 '+p.paid_hours+'시간':'입차ID 대조 후 무료 1시간 우선 배정';
   return '<article class="pa-order" data-poid="'+esc(p.oid)+'"><div class="pa-top"><h2>'+esc(p.plate)+' · '+esc(p.ticket_label)+'</h2><b>'+esc(won(p.price))+'</b></div><div class="pa-meta">'+esc(p.visit_date)+' · '+esc(p.name)+' · '+esc(p.phone)+'<br>'+esc(PS[p.payment_status]||p.payment_status)+' / '+esc(ST[p.status]||p.status)+' · '+esc(p.oid)+(p.arrival_at?'<br>입차 알림: '+esc(kst(p.arrival_at)):'<br>고객 입차 알림 없음 — 아마노 실제 입차 확인 필요')+'</div>'
    +(p.refunded_amount?'<p class="pa-flag">환불 '+esc(won(p.refunded_amount))+' · 아마노 적용 이력 별도 확인</p>':'')
    +(pending?'<div class="pk-error">취소·정정 문의: '+esc(p.refund_reason)+'<br>등록 전 요청은 먼저 검토하세요. 결제 취소는 페이앱에서 처리한 뒤 통보 결과로 반영됩니다.</div>':'')

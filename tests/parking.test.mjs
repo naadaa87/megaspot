@@ -95,7 +95,7 @@ test('일일권은 확인된 이용 조건 설정 후에만 판매하고 구매 
  assert.equal(JSON.parse(f.db.prepare('SELECT data FROM orders WHERE oid=?').get(p.oid).data).agree_daily,true);
  await f.call('admin/settings','PUT',{enabled:true,daily_enabled:false,daily_details:'미확정 내부 초안'},null,true);
  assert.equal((await(await f.call('config')).json()).daily_terms,'');assert.equal((await f.get(p)).daily_terms,terms);
- assert.equal((await f.claim(p)).status,200);const row=f.db.prepare('SELECT * FROM parking_orders WHERE oid=?').get(p.oid);assert.equal(row.free_hours,0);assert.equal(row.paid_hours,0);assert.equal(f.db.prepare('SELECT free_order FROM parking_sessions').get().free_order,null);
+ assert.equal((await f.claim(p)).status,200);const row=f.db.prepare('SELECT * FROM parking_orders WHERE oid=?').get(p.oid);assert.equal(row.free_hours,1);assert.equal(row.paid_hours,0);assert.equal(f.db.prepare('SELECT free_order FROM parking_sessions').get().free_order,p.oid);
 });
 
 test('일일권 종료 기준과 익일 정산 미확인 상태는 활성화되지 않으며 초안은 공개하지 않는다',async t=>{
@@ -139,5 +139,14 @@ test('익일 일일권도 당일 등록 확인이 필요하며 과거 이용권�
  t.mock.method(Date,'now',()=>Date.parse('2026-11-04T14:00:00+09:00'));
  assert.equal((await f.claim(p,{entry_at:'2026-11-05T13:00',confirm_overnight:true})).status,400);
  assert.equal((await f.claim(p)).status,409);assert.equal((await f.claim(p,{confirm_overnight:true})).status,200);
- const row=f.db.prepare('SELECT * FROM parking_orders WHERE oid=?').get(p.oid);assert.equal(row.free_hours,0);assert.equal(row.paid_hours,0);assert.match((await f.get(p)).daily_terms,/다음 날 시간권 또는 일일권 별도 구매/);
+ const row=f.db.prepare('SELECT * FROM parking_orders WHERE oid=?').get(p.oid);assert.equal(row.free_hours,1);assert.equal(row.paid_hours,0);assert.match((await f.get(p)).daily_terms,/다음 날 시간권 또는 일일권 별도 구매/);
+});
+
+test('일일권도 무료1시간을 먼저 배정하고 같은 입차ID 추가 구매에는 중복 배정하지 않는다',async t=>{
+ const f=fixture(t);await f.call('admin/settings','PUT',{enabled:true,daily_enabled:true,daily_basis:'calendar',daily_details:'당일 자정 종료',daily_rollover:'익일 별도 구매',confirm_daily:true},null,true);
+ const terms=(await(await f.call('config')).json()).daily_terms;
+ const daily=await f.buy({ticket:'daily',daily_terms:terms,agree_daily:true});await f.feedback(daily);await f.claim(daily);
+ assert.equal(f.db.prepare('SELECT free_hours FROM parking_orders WHERE oid=?').get(daily.oid).free_hours,1);await f.complete(daily);
+ const extra=await f.buy({ticket:'1h',confirm_extra:true});await f.feedback(extra);await f.claim(extra);
+ const row=f.db.prepare('SELECT free_hours,paid_hours FROM parking_orders WHERE oid=?').get(extra.oid);assert.equal(row.free_hours,0);assert.equal(row.paid_hours,1);
 });
