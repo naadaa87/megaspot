@@ -4,6 +4,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {readFileSync} from 'node:fs';
 import {parkingAdminSMSTick,adminPaymentMessage} from '../functions/api/_parking_admin_alerts.js';
 import {onRequest} from '../functions/api/parking/[[path]].js';
+import {onRequest as middleware} from '../functions/api/_middleware.js';
 const phones=['01011112222','01033334444'];
 function fixture(t){
  const db=new DatabaseSync(':memory:');db.exec(readFileSync(new URL('../schema.sql',import.meta.url),'utf8'));t.after(()=>db.close());
@@ -52,4 +53,10 @@ test('화면 알림은 결제 완료만 표시하고 확인 상태를 유지하�
  const f=fixture(t);f.order('MSPAID');f.paid('MSPAID');f.order('MSUNPAID');f.order('MSREFUND');f.paid('MSREFUND');f.db.prepare("UPDATE orders SET status='refunded' WHERE oid='MSREFUND'").run();
  let r=await f.api();assert.equal(r.body.count,1);assert.equal(r.body.items[0].oid,'MSPAID');assert.ok(!JSON.stringify(r.body.items).includes('01099998888'));
  assert.equal((await f.api('/MSPAID/read','POST',{})).status,200);assert.equal((await f.api('/MSPAID/read','POST',{})).status,200);assert.equal((await f.api()).body.count,0);assert.equal((await f.api('/MSUNPAID/read','POST',{})).status,404);
+});
+
+test('결제 통보 응답 이후 waitUntil에서 즉시 관리자 문자를 전송한다',async t=>{
+ const f=fixture(t);await f.api('/settings','PUT',{phones,enabled:false});f.enabled();f.order('MSBACKGROUND');
+ const jobs=[];const response=await middleware({env:f.env,request:new Request('https://megaspot.test/api/parking/feedback',{method:'POST'}),waitUntil:p=>jobs.push(p),next:async()=>{f.paid('MSBACKGROUND');return new Response('SUCCESS');}});
+ assert.equal(await response.text(),'SUCCESS');await Promise.all(jobs);assert.equal(f.sent.length,2);assert.ok(f.sent.every(x=>x.data.msg.includes('MSBACKGROUND')));
 });
