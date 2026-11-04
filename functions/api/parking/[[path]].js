@@ -4,12 +4,13 @@ import {HOLIDAYS} from '../_catalog.js';
 import {onRequest as payRequest} from '../pay/[[path]].js';
 import {TICKETS,POLICY,parkingInput,parkingSettings,parkingAdmin,JOIN,publicParking,arrivalWindow} from '../_parking.js';
 import {parkingNoticeAdmin,parkingNoticeCron,parkingNoticeAccess} from '../_parking_notifications.js';
-import {amanoAdmin} from '../_amano_server.js';
+import {amanoAdmin,amanoAutomation} from '../_amano_server.js';
 import {parkingAdminAlerts} from '../_parking_admin_alerts.js';
 export async function onRequest({request,env,params}){
  const path=(params.path||[]).join('/'),method=request.method;
  if(!hasDb(env))return err('서버를 준비 중입니다.',503);
  try{
+  if(path==='automation/server')return await amanoAutomation(request,env);
   if(path==='notifications/tick')return await parkingNoticeCron(request,env);
   if(path==='notifications/status')return await parkingNoticeCron(request,env,true);
   if(path==='feedback'&&method==='POST')return await payRequest({request,env,params:{path:['feedback']}});
