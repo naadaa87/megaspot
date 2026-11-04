@@ -47,3 +47,13 @@ test('이 서버의 알림톡 결과에서 확인된 SMS 대체 메시지 ID만 
  assert.equal((await f.send(f.input({path:'sms/detail',data:{mid:'100'}}))).status,403);
  await f.send(f.input({path:'sms/detail',data:{mid:'555'}}));const q=f.calls.at(-1);assert.equal(q.url,'https://apis.aligo.in/sms_list/');assert.equal(q.body.get('key'),'server-only-key');assert.equal(q.body.get('user_id'),'server-user');assert.equal(q.body.get('apikey'),null);
 });
+
+test('관리자 문자는 명시적으로 승인된 번호에만 LMS 발송하고 중복·응답 불명을 잠근다',async t=>{
+ const f=fixture(t);f.env.ALIGO_PARKING_ADMIN_RECEIVERS='01011112222,01033334444';
+ const v=f.input({path:'parking-admin/send',data:{receiver:'01099998888',msg:'[메가스팟 주차권 결제 완료]\n차량 확인\nhttps://megaspot.kr/admin/#parking'}});
+ assert.equal((await f.send(v)).status,403);v.data.receiver='01011112222';
+ const upstream=async(url,opts)=>{f.calls.push({url,body:new URLSearchParams(opts.body)});return Response.json({result_code:1,msg_id:'777',success_cnt:1,error_cnt:0});};
+ assert.equal((await relayRequest(f.request(v),f.env,f.ledger,upstream)).status,200);
+ const b=f.calls[0].body;assert.equal(f.calls[0].url,'https://apis.aligo.in/send/');assert.equal(b.get('key'),'server-only-key');assert.equal(b.get('user_id'),'server-user');assert.equal(b.get('msg_type'),'LMS');assert.equal(b.get('testmode_yn'),'N');assert.equal(b.get('senderkey'),null);assert.ok(f.ledger.ownsSmsMid('777'));
+ await relayRequest(f.request(v),f.env,f.ledger,()=>assert.fail('duplicate'));v.request_id=randomUUID();v.data.msg='다른 메시지';assert.equal((await f.send(v)).status,403);
+});

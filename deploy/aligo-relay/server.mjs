@@ -7,6 +7,8 @@ import { dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 const json=(body,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store'}});
 const FIELDS={
+  'parking-admin/status':[],
+  'parking-admin/send':['receiver','msg'],
   'template/list':['tpl_code'],
   'history/detail':['mid','page','limit'],
   'sms/detail':['mid','page','page_size'],
@@ -36,14 +38,19 @@ export async function relayRequest(request,env,ledger,upstream=fetch){
   if(!Number.isFinite(v.time) || Math.abs(Date.now()-v.time)>60000 || !/^[a-f0-9-]{36}$/.test(v.request_id || ''))return json({error:'Expired request'},400);
   if(!Object.hasOwn(FIELDS,v.path) || !v.data || typeof v.data!=='object' || Array.isArray(v.data))return json({error:'Unsupported operation'},400);
   if(!env.ALIGO_API_KEY || !env.ALIGO_USERID || !env.ALIGO_SENDER_KEY || !env.ALIGO_SENDER)return json({error:'Provider not configured'},503);
+  const adminReceivers=[...new Set((env.ALIGO_PARKING_ADMIN_RECEIVERS||'').split(',').map(s=>s.trim()).filter(s=>/^01[016789]\d{7,8}$/.test(s)))];
+  if(v.path==='parking-admin/status')return json({ready:!!adminReceivers.length,receivers:adminReceivers});
+  const adminSMS=v.path==='parking-admin/send';
+  const sending=adminSMS||v.path==='alimtalk/send';
   const data=Object.fromEntries(FIELDS[v.path].filter(k=>v.data[k]!=null).map(k=>[k,String(v.data[k])]));
   if(['history/detail','sms/detail'].includes(v.path) && !/^\d{1,30}$/.test(data.mid || ''))return json({error:'Invalid message ID'},400);
   if(v.path==='history/detail' && !ledger.ownsMid(data.mid))return json({error:'Message not owned by this relay'},403);
   if(v.path==='sms/detail' && !ledger.ownsSmsMid(data.mid))return json({error:'SMS not owned by this relay'},403);
   if(['template/list','alimtalk/send'].includes(v.path) && !(env.ALIGO_TEMPLATE_CODES || 'UN_2584').split(',').map(s=>s.trim()).includes(data.tpl_code))return json({error:'Template not allowed'},403);
   const hash=createHash('sha256').update(JSON.stringify([v.path,data,env.ALIGO_USERID,env.ALIGO_SENDER_KEY])).digest('hex');
-  if(v.path==='alimtalk/send'){
-    if(!/^01[016789]\d{7,8}$/.test(data.receiver_1 || '') || !data.message_1 || data.message_1.length>1000 || !data.subject_1)return json({error:'Invalid recipient/message'},400);
+  if(adminSMS && (!adminReceivers.includes(data.receiver)||!/^\[메가스팟 주차권 (?:결제 완료|관리자 알림 시험)\]\n/.test(data.msg||'')||data.msg.length>600||!data.msg.endsWith('https://megaspot.kr/admin/#parking')))return json({error:'Unapproved staff recipient/message'},403);
+  if(sending){
+    if(!adminSMS && (!/^01[016789]\d{7,8}$/.test(data.receiver_1 || '') || !data.message_1 || data.message_1.length>1000 || !data.subject_1))return json({error:'Invalid recipient/message'},400);
     if(PARKING_SMS.has(data.tpl_code) && (!data.fmessage_1 || data.fmessage_1.length>900 || /#\{/.test(data.fmessage_1)))return json({error:'Parking SMS fallback required'},400);
     const old=ledger.get(v.request_id);
     if(old){if(old.hash!==hash)return json({error:'Request ID reused'},409);return old.response?json(JSON.parse(old.response)):json({error:'Delivery outcome requires review'},409);}
@@ -52,18 +59,19 @@ export async function relayRequest(request,env,ledger,upstream=fetch){
     // Parking fallback is explicitly authorized. Other templates retain their own policy.
     const parking=PARKING_SMS.has(data.tpl_code);
     if(!parking){delete data.fmessage_1;delete data.fsubject_1;}
-    Object.assign(data,{sender:env.ALIGO_SENDER,failover:parking?'Y':'N',testMode:'N'});
+    Object.assign(data,adminSMS?{sender:env.ALIGO_SENDER,msg_type:'LMS',title:'메가스팟 주차권 결제 알림',testmode_yn:'N'}:{sender:env.ALIGO_SENDER,failover:parking?'Y':'N',testMode:'N'});
   }
   const smsQuery=v.path==='sms/detail';
-  const body=new URLSearchParams(smsQuery?{...data,key:env.ALIGO_API_KEY,user_id:env.ALIGO_USERID}:{...data,apikey:env.ALIGO_API_KEY,userid:env.ALIGO_USERID});
+  const body=new URLSearchParams((smsQuery||adminSMS)?{...data,key:env.ALIGO_API_KEY,user_id:env.ALIGO_USERID}:{...data,apikey:env.ALIGO_API_KEY,userid:env.ALIGO_USERID});
   if(['template/list','alimtalk/send'].includes(v.path))body.set('senderkey',env.ALIGO_SENDER_KEY);
   try{
-    const response=await upstream(smsQuery?'https://apis.aligo.in/sms_list/':'https://kakaoapi.aligo.in/akv10/'+v.path+'/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body,signal:AbortSignal.timeout(9000),redirect:'error'});
+    const response=await upstream(smsQuery?'https://apis.aligo.in/sms_list/':adminSMS?'https://apis.aligo.in/send/':'https://kakaoapi.aligo.in/akv10/'+v.path+'/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body,signal:AbortSignal.timeout(9000),redirect:'error'});
     if(!response.ok)throw Error('Upstream unavailable');
     const result=await response.json();
     if(v.path==='history/detail' && Number(result.code)===0){for(const x of result.list||[]){if(x.type==='AT' && /^\d+$/.test(String(x.smid||'')) && Number(x.smid)>0)ledger.rememberSms(x.smid,data.mid);}}
     if(v.path==='template/list' && Array.isArray(result.list))result.list=result.list.filter(t=>t.templtCode===data.tpl_code);
-    if(v.path==='alimtalk/send')ledger.complete(v.request_id,result);
+    if(adminSMS && Number(result.result_code)===1 && result.msg_id)ledger.rememberSms(result.msg_id,result.msg_id);
+    if(sending)ledger.complete(v.request_id,result);
     return json(result);
   }catch{return json({error:'Upstream outcome unknown; do not retry sending'},502);}
 }
