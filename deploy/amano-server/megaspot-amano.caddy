@@ -7,7 +7,7 @@ handle @megaspot_amano {
         max_size 16KB
     }
     rewrite * /v1/amano
-    reverse_proxy 127.0.0.1:8788 {
+    reverse_proxy 127.0.0.1:8790 {
         header_up -Cookie
         header_down -Server
         lb_retries 0

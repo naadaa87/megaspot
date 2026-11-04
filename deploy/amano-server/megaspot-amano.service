@@ -8,7 +8,7 @@ User=megaspot-aligo
 Group=megaspot-aligo
 WorkingDirectory=/opt/megaspot-amano
 EnvironmentFile=/etc/megaspot-aligo.env
-Environment=PORT=8788
+Environment=PORT=8790
 Environment=AMANO_STATE_DIR=/var/lib/megaspot-amano
 ExecStart=/usr/bin/node /opt/megaspot-amano/server.mjs
 Restart=on-failure
