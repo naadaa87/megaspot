@@ -1,8 +1,12 @@
 /* Keyboard coverage can shrink the visual viewport without resizing the page. */
-@media(max-width:999px){
+@media(max-width:999px), (pointer:coarse) and (max-height:600px){
  .textarea{min-height:min(120px,max(64px,calc(var(--mobile-visible-height,100dvh) - 132px)));max-height:max(64px,calc(var(--mobile-visible-height,100dvh) - 132px))}
  .input,.select,.textarea,.ct-code .input,.mn-link .input{font-size:16px}
- html:has(body.bottom-input-active),html.mobile-keyboard-open{scroll-behavior:auto}
+ html.mobile-input-active,html.mobile-keyboard-open{scroll-behavior:auto}
+ .mobile-viewport-short :is(.site-header,.subnav){position:static}
+ .mobile-viewport-short :is(.rv-side,.est-result,.cc-result,.order-side,.mv-side,.mn-side,.bp-aside){position:static;max-height:none;overflow:visible}
+ .mobile-viewport-short :is(.quick-bar,.food-mobile-summary,.est-mini,.mv-sticky,.to-top),
+ .mobile-input-active :is(.quick-bar,.food-mobile-summary,.est-mini,.mv-sticky,.to-top){visibility:hidden!important;pointer-events:none!important}
  html.mobile-keyboard-open{scroll-padding-bottom:calc(var(--mobile-keyboard-inset,0px) + 16px)}
  html.mobile-keyboard-open body::after{content:"";display:block;height:var(--mobile-keyboard-inset,0px);pointer-events:none}
  .mobile-keyboard-open :is(.quick-bar,.food-mobile-summary,.est-mini,.mv-sticky,.to-top){visibility:hidden!important;pointer-events:none!important}

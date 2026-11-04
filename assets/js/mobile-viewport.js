@@ -7,8 +7,11 @@
     function field(){var e=document.activeElement;return e&&(e.isContentEditable||e.matches('textarea,input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]):not([type=button]):not([type=submit]):not([type=reset])'))?e:null;}
     function set(name,value){if(root.style.getPropertyValue(name)!==value)root.style.setProperty(name,value);}
     function bringIntoView(e,top,bottom){
-      var r=e.getBoundingClientRect(),header=document.querySelector('.site-header');
-      if(header&&/fixed|sticky/.test(getComputedStyle(header).position))top=Math.max(top,header.getBoundingClientRect().bottom+12);
+      var r=e.getBoundingClientRect();
+      if(!e.closest('[aria-modal="true"],dialog[open]'))document.querySelectorAll('.site-header,.subnav').forEach(function(bar){
+        var s=getComputedStyle(bar),b=bar.getBoundingClientRect();
+        if(/fixed|sticky/.test(s.position)&&b.top<=top&&b.bottom>top)top=b.bottom+12;
+      });
       var delta=r.top<top?r.top-top:r.bottom>bottom?Math.min(r.top-top,r.bottom-bottom):0;
       if(Math.abs(delta)<1)return;
       // Consume scrolling in the dialog first, then in the document.
@@ -22,12 +25,14 @@
     }
     function update(){
       queued=false;
-      var mobile=matchMedia('(max-width:999px)').matches,scaled=vv&&Math.abs(vv.scale-1)>.05;
+      var mobile=matchMedia('(max-width:999px), (pointer:coarse) and (max-height:600px)').matches,scaled=vv&&Math.abs(vv.scale-1)>.05;
       var height=mobile&&!scaled&&vv?vv.height:innerHeight,top=mobile&&!scaled&&vv?vv.offsetTop:0;
       var inset=mobile&&!scaled?Math.max(0,document.documentElement.clientHeight-height):0,e=field();
-      open=mobile&&!scaled&&inset>120&&!!(e||open);
+      open=mobile&&!scaled&&inset>Math.min(120,document.documentElement.clientHeight*.25)&&!!(e||open);
       set('--mobile-visible-height',height+'px');set('--mobile-visible-top',top+'px');set('--mobile-keyboard-inset',open?Math.ceil(inset)+'px':'0px');
       root.classList.toggle('mobile-keyboard-open',open);
+      root.classList.toggle('mobile-input-active',mobile&&!!e);
+      root.classList.toggle('mobile-viewport-short',mobile&&!scaled&&height<280);
       if(reveal&&mobile&&!scaled&&e){requestAnimationFrame(function(){if(document.activeElement===e)bringIntoView(e,top+12,top+height-16);});}
       reveal=false;
     }
