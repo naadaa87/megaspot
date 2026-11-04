@@ -9,6 +9,12 @@ export const GUIDE_BUTTON = { name: '시설 이용 안내 확인', linkType: 'WL
 // Separate reviewed template; keep the active legacy button/fingerprint until switched explicitly.
 export const GUIDE_LABEL_CODE = 'UN_3085';
 export const GUIDE_LABEL_BUTTON = {...GUIDE_BUTTON,name:'시설·주차·케이터링 안내'};
+export const GUIDE_MULTI_CODE = 'UN_3115';
+export const GUIDE_MULTI_BUTTONS = [
+  {...GUIDE_BUTTON,name:'입실 및 이용 안내'},
+  {...GUIDE_BUTTON,name:'뷔페·케이터링·칵테일 안내',linkMo:'https://megaspot.kr/catering/#food-compare',linkPc:'https://megaspot.kr/catering/#food-compare'},
+  {...GUIDE_BUTTON,name:'주차권 구매',linkMo:'https://megaspot.kr/parking/purchase/',linkPc:'https://megaspot.kr/parking/purchase/'}
+];
 export const GUIDE_TEMPLATE = `[메가스팟 예약 고객 이용 안내]
 
 #{고객명}님, 예약하신 메가스팟의
@@ -26,7 +32,12 @@ export const GUIDE_TEMPLATE = `[메가스팟 예약 고객 이용 안내]
 
 문의가 있으시면 안내 페이지의
 카카오톡 문의를 이용해 주세요.`;
-function profile(s){return s.variant===PORTAL_GUIDE_VARIANT?{template:PORTAL_GUIDE_TEMPLATE,button:PORTAL_GUIDE_BUTTON,url:PORTAL_GUIDE_URL,version:PORTAL_GUIDE_VERSION,subject:'메가스팟 예약 확정 안내'}:{template:GUIDE_TEMPLATE,button:s.template_code===GUIDE_LABEL_CODE?GUIDE_LABEL_BUTTON:GUIDE_BUTTON,url:GUIDE_URL,version:GUIDE_VERSION,subject:'메가스팟 예약 고객 이용 안내'};}
+export const GUIDE_MULTI_TEMPLATE = GUIDE_TEMPLATE+'\n\n입실·시설 이용 방법, 식음료 서비스, 주차권 구매는\n아래 버튼에서 확인해 주세요.';
+function profile(s){
+  if(s.variant===PORTAL_GUIDE_VARIANT)return {template:PORTAL_GUIDE_TEMPLATE,button:PORTAL_GUIDE_BUTTON,url:PORTAL_GUIDE_URL,version:PORTAL_GUIDE_VERSION,subject:'메가스팟 예약 확정 안내'};
+  const base={template:GUIDE_TEMPLATE,button:s.template_code===GUIDE_LABEL_CODE?GUIDE_LABEL_BUTTON:GUIDE_BUTTON,url:GUIDE_URL,version:GUIDE_VERSION,subject:'메가스팟 예약 고객 이용 안내'};
+  return s.template_code===GUIDE_MULTI_CODE?{...base,template:GUIDE_MULTI_TEMPLATE,button:GUIDE_MULTI_BUTTONS[0],buttons:GUIDE_MULTI_BUTTONS}:base;
+}
 const NORMAL_SLOTS = { 'pkg-day': [10,17], 'pkg-allday': [10,24], 'pkg-allnight': [18,31], morning:[7,12], day:[12,17], evening:[17,24], am:[9,13], pm:[13,18], ev:[18,23], ampm:[9,18], pmev:[14,23] };
 const KEY = 'reservation_guide';
 const ACTIVE = "('queued','sending','accepted','unknown','delivered')";
@@ -43,9 +54,9 @@ const normalize = s => String(s || '').replace(/\r\n/g, '\n');
 export function guidePhone(p) { let s = String(p || '').replace(/\D/g, ''); if (s.startsWith('82')) s = '0' + s.slice(2); return /^01[016789]\d{7,8}$/.test(s) ? s : ''; }
 function hours(b) { return b.start_h != null && b.end_h != null ? [Number(b.start_h), Number(b.end_h)] : NORMAL_SLOTS[b.slot] || []; }
 function hour(h) { return (h >= 24 ? '다음날 ' : '') + String(Math.floor(h % 24)).padStart(2,'0') + ':' + String(Math.round((h % 1) * 60)).padStart(2,'0'); }
-export function guideMessage(b) {
+export function guideMessage(b,template=GUIDE_TEMPLATE) {
   const [s,e] = hours(b), vars = { 고객명: String(b.customer_name || '').replace(/[\r\n\t]/g, ' ').trim(), 공간명: SPACES[b.space_id] || '', 이용일: String(b.date || '').replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$1년 $2월 $3일'), 이용시간: s == null ? '' : hour(s) + '~' + hour(e) };
-  return GUIDE_TEMPLATE.replace(/#\{([^}]+)\}/g, (_,k) => vars[k]);
+  return template.replace(/#\{([^}]+)\}/g, (_,k) => vars[k]);
 }
 export function guideEligibility(b, settings, at = Date.now(), includeManual = false) {
   if (!b) return '예약을 찾을 수 없습니다.';
@@ -65,7 +76,7 @@ async function config(env) {
   const row = await env.DB.prepare('SELECT value FROM settings WHERE key = ?').bind(KEY).first(), s = parse(row?.value);
   return { variant:s.variant===PORTAL_GUIDE_VARIANT?PORTAL_GUIDE_VARIANT:'legacy', enabled: s.enabled === true, automatic: s.automatic === true, template_code: s.template_code == null ? 'UN_2584' : str(s.template_code,60), spaces: Array.isArray(s.spaces) ? s.spaces.filter(x => Object.hasOwn(SPACES,x)) : [] };
 }
-async function configHash(env,s) { const p=profile(s),values=[p.version,p.template,p.button,s.template_code,s.spaces.slice().sort(),...secrets.map(k=>env[k] || ''),env.ALIGO_RELAY_URL || '',env.ALIGO_RELAY_SECRET || ''];if(s.variant===PORTAL_GUIDE_VARIANT)values.push(await sha256(env.DEPOSIT_ACCOUNT_KEY||''));return sha256(JSON.stringify(values)); }
+async function configHash(env,s) { const p=profile(s),values=[p.version,p.template,p.button,s.template_code,s.spaces.slice().sort(),...secrets.map(k=>env[k] || ''),env.ALIGO_RELAY_URL || '',env.ALIGO_RELAY_SECRET || ''];if(p.buttons)values.push(p.buttons);if(s.variant===PORTAL_GUIDE_VARIANT)values.push(await sha256(env.DEPOSIT_ACCOUNT_KEY||''));return sha256(JSON.stringify(values)); }
 const credentialNames = env => env.ALIGO_RELAY_URL ? ['ALIGO_RELAY_URL','ALIGO_RELAY_SECRET','ALIGO_SENDER_KEY','ALIGO_SENDER'] : secrets;
 const missing = env => credentialNames(env).filter(k=>!env[k]);
 async function provider(env, path, data = {}, requestID = crypto.randomUUID()) {
@@ -90,8 +101,8 @@ async function approved(env,s) {
   if (String(r.code) !== '0') throw Error(safeProviderError(r));
   const t = (r.list || []).find(x=>x.templtCode===s.template_code);
   if (!t || t.inspStatus !== 'APR' || !['A','R'].includes(t.status)) throw Error('알리고에서 사용 가능한 승인 템플릿인지 확인해 주세요.');
-  const bs = t.buttons || [],p=profile(s);
-  if (normalize(t.templtContent) !== p.template || bs.length !== 1 || bs[0].name !== p.button.name || bs[0].linkType !== 'WL' || bs[0].linkMo !== p.url || bs[0].linkPc !== p.url) throw Error('승인 템플릿의 본문·버튼이 준비된 이용 안내와 다릅니다. 템플릿을 확인해 주세요.');
+  const bs = t.buttons || [],p=profile(s),expected=p.buttons||[p.button];
+  if (normalize(t.templtContent) !== p.template || bs.length !== expected.length || !bs.every((b,i)=>b.name===expected[i].name && b.linkType==='WL' && b.linkMo===expected[i].linkMo && b.linkPc===expected[i].linkPc)) throw Error('승인 템플릿의 본문·버튼이 준비된 이용 안내와 다릅니다. 템플릿을 확인해 주세요.');
   return t;
 }
 async function tested(env,hash) { return !!await env.DB.prepare("SELECT id FROM booking_guide_messages WHERE mode='test' AND status='delivered' AND config_hash=? LIMIT 1").bind(hash).first(); }
@@ -117,9 +128,9 @@ async function active(env,b) {
   return env.DB.prepare(`SELECT id,status FROM booking_guide_messages WHERE booking_code=? AND mode='live' AND ${FAMILY} AND ((purpose=? AND status IN ${ACTIVE}) OR status IN ('sending','accepted','unknown')) ORDER BY created_at DESC,rowid DESC LIMIT 1`).bind(b.booking_code,purpose(b)).first();
 }
 function snapshot(b) { return { booking_code:b.booking_code, revision:b.revision || 0, inquiry_ref:b.inquiry_ref || '', customer_name:b.customer_name, phone:guidePhone(b.phone), space_id:b.space_id, date:b.date, time:hours(b), message:guideMessage(b), guide_sent:b.guide_sent || false }; }
-async function messageSnapshot(env,b,s,issue=false){const snap=snapshot(b);return s.variant===PORTAL_GUIDE_VARIANT?portalGuideSnapshot(env,b,snap,issue):snap;}
-async function presentSnapshot(env,snap,s={}){if(snap.delivery_variant!==PORTAL_GUIDE_VARIANT)return {...snap,button:profile(s).button,guide_url:GUIDE_URL};const button=await portalGuideButton(env,snap);return {...snap,button,guide_url:button.linkMo};}
-function providerPayload(env,s,snap,template,button){return {senderkey:env.ALIGO_SENDER_KEY,tpl_code:s.template_code,sender:env.ALIGO_SENDER,receiver_1:snap.phone,recvname_1:snap.customer_name,subject_1:profile(s).subject,message_1:snap.message.replace(/\n/g,template?.templtContent?.includes('\r\n')?'\r\n':'\n'),button_1:JSON.stringify({button:[button]}),failover:'N',testMode:'N'};}
+async function messageSnapshot(env,b,s,issue=false){const snap=snapshot(b);if(s.variant===PORTAL_GUIDE_VARIANT)return portalGuideSnapshot(env,b,snap,issue);snap.message=guideMessage(b,profile(s).template);return snap;}
+async function presentSnapshot(env,snap,s={}){if(snap.delivery_variant!==PORTAL_GUIDE_VARIANT){const p=profile(s);return {...snap,button:p.button,buttons:p.buttons||[p.button],guide_url:GUIDE_URL};}const button=await portalGuideButton(env,snap);return {...snap,button,buttons:[button],guide_url:button.linkMo};}
+function providerPayload(env,s,snap,template,button){return {senderkey:env.ALIGO_SENDER_KEY,tpl_code:s.template_code,sender:env.ALIGO_SENDER,receiver_1:snap.phone,recvname_1:snap.customer_name,subject_1:profile(s).subject,message_1:snap.message.replace(/\n/g,template?.templtContent?.includes('\r\n')?'\r\n':'\n'),button_1:JSON.stringify({button:Array.isArray(button)?button:[button]}),failover:'N',testMode:'N'};}
 function sameSnapshot(a,b) { const keys=[...new Set([...Object.keys(a),...Object.keys(b),'revision'])].sort();return keys.every(k=>JSON.stringify(k==='revision'?(a[k] || 0):a[k])===JSON.stringify(k==='revision'?(b[k] || 0):b[k])); }
 async function insertMessage(env,b,s,mode,actor,reason='',event=null,expectedSnapshot=null) {
   const id = crypto.randomUUID(), snap = expectedSnapshot||await messageSnapshot(env,b,s,s.variant===PORTAL_GUIDE_VARIANT), hash = await configHash(env,s), t = now();
@@ -141,7 +152,7 @@ async function dispatch(env,id,s,template) {
   s=await config(env); // honor an operator's stop/config change during a bulk request
   const snap = parse(m.snapshot);
   if (m.config_hash !== await configHash(env,s)) return state(env,id,'cancelled','발송 설정이 변경되었습니다. 다시 미리보기해 주세요.');
-  const isPortal=snap.delivery_variant===PORTAL_GUIDE_VARIANT;let currentBooking,button=profile(s).button;
+  const isPortal=snap.delivery_variant===PORTAL_GUIDE_VARIANT;let currentBooking,button=profile(s).buttons||profile(s).button;
   if (m.mode === 'live'||isPortal) {
     const b=currentBooking=await booking(env,m.booking_code||snap.booking_code), reason = guideEligibility(b,s,Date.now(),true);
     let fresh;try{if(!reason)fresh=await messageSnapshot(env,b,s);}catch{return state(env,id,'cancelled','통합 안내 링크가 만료되었거나 변경되었습니다. 새로 미리보기해 주세요.');}
@@ -316,7 +327,7 @@ export async function guideAdmin({env,request,url,path,method}) {
     }
     return json({ok:true});
   }
-  if(path==='guide-messages/settings' && method==='GET') return json({ok:true,...s,transport:env.ALIGO_RELAY_URL?'relay':'direct',live_allowed:env.ALIGO_LIVE_ENABLED==='true',credentials:Object.fromEntries(credentialNames(env).map(k=>[k,!!env[k]])),test_delivered:await tested(env,hash),template:profile(s).template,button:profile(s).button,guide_url:profile(s).url,version:profile(s).version,templates:{legacy:profile({...s,variant:'legacy'}),'booking-portal':profile({variant:PORTAL_GUIDE_VARIANT})},portal_template:{code:PORTAL_GUIDE_CODE,variant:PORTAL_GUIDE_VARIANT,template:PORTAL_GUIDE_TEMPLATE,button:PORTAL_GUIDE_BUTTON,version:PORTAL_GUIDE_VERSION}});
+  if(path==='guide-messages/settings' && method==='GET') return json({ok:true,...s,transport:env.ALIGO_RELAY_URL?'relay':'direct',live_allowed:env.ALIGO_LIVE_ENABLED==='true',credentials:Object.fromEntries(credentialNames(env).map(k=>[k,!!env[k]])),test_delivered:await tested(env,hash),template:profile(s).template,button:profile(s).button,guide_url:profile(s).url,version:profile(s).version,templates:{legacy:profile({...s,variant:'legacy'}),'booking-portal':profile({variant:PORTAL_GUIDE_VARIANT})},facility_templates:{[GUIDE_LABEL_CODE]:profile({variant:'legacy',template_code:GUIDE_LABEL_CODE}),[GUIDE_MULTI_CODE]:profile({variant:'legacy',template_code:GUIDE_MULTI_CODE})},portal_template:{code:PORTAL_GUIDE_CODE,variant:PORTAL_GUIDE_VARIANT,template:PORTAL_GUIDE_TEMPLATE,button:PORTAL_GUIDE_BUTTON,version:PORTAL_GUIDE_VERSION}});
   if(path==='guide-messages/settings' && method==='PUT') {
     const d=await readJson(request),variant=d.variant??s.variant;if(!['legacy',PORTAL_GUIDE_VARIANT].includes(variant))return err('안내 방식을 확인해 주세요.');
     const next={variant,enabled:d.enabled===true,automatic:d.automatic===true,template_code:str(d.template_code,60),spaces:Array.isArray(d.spaces)?d.spaces.filter(x=>Object.hasOwn(SPACES,x)):[]};

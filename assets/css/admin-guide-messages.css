@@ -2,6 +2,8 @@
 
 #gm-preview{scroll-margin-top:24px}@media(max-width:900px){#gm-preview{scroll-margin-top:140px}}
 .gm-mobile-selection{display:none}
+.gm-preview-buttons{display:grid;gap:10px}.gm-preview-buttons a{display:flex;align-items:center;justify-content:center;min-height:44px;padding:10px 12px;border:1px solid #ded9d2;border-radius:6px;text-align:center;line-height:1.5}
+#gm-template-button{white-space:pre-line;overflow-wrap:anywhere}
 .gm-candidate-item{display:grid;gap:8px}.gm-candidate-item>button{justify-self:start}
 .gm-candidate-actions{display:flex;gap:8px;flex-wrap:wrap}
 .gm-failure{padding:14px 16px;border-left:3px solid #b4533e;border-radius:4px;background:#fff1eb;color:#813c30;font-size:14px;line-height:1.7;overflow-wrap:anywhere}
