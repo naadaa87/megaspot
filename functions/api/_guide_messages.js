@@ -76,6 +76,14 @@ async function config(env) {
   const row = await env.DB.prepare('SELECT value FROM settings WHERE key = ?').bind(KEY).first(), s = parse(row?.value);
   return { variant:s.variant===PORTAL_GUIDE_VARIANT?PORTAL_GUIDE_VARIANT:'legacy', enabled: s.enabled === true, automatic: s.automatic === true, template_code: s.template_code == null ? 'UN_2584' : str(s.template_code,60), spaces: Array.isArray(s.spaces) ? s.spaces.filter(x => Object.hasOwn(SPACES,x)) : [] };
 }
+function candidateTestConfig(d) {
+  if(d?.variant!=='legacy' || !str(d.template_code,60) || !Array.isArray(d.spaces) || !d.spaces.length || d.spaces.some(x=>!Object.hasOwn(SPACES,x))) throw Error('시험할 시설 안내 템플릿과 호점을 확인해 주세요.');
+  return {variant:'legacy',template_code:str(d.template_code,60),spaces:[...new Set(d.spaces)],enabled:false,automatic:false};
+}
+async function deliveryConfig(env,m,snap) {
+  // Only an explicitly requested operator test may use an unsaved configuration.
+  return m.mode==='test' && snap.test_config ? candidateTestConfig(snap.test_config) : config(env);
+}
 async function configHash(env,s) { const p=profile(s),values=[p.version,p.template,p.button,s.template_code,s.spaces.slice().sort(),...secrets.map(k=>env[k] || ''),env.ALIGO_RELAY_URL || '',env.ALIGO_RELAY_SECRET || ''];if(p.buttons)values.push(p.buttons);if(s.variant===PORTAL_GUIDE_VARIANT)values.push(await sha256(env.DEPOSIT_ACCOUNT_KEY||''));return sha256(JSON.stringify(values)); }
 const credentialNames = env => env.ALIGO_RELAY_URL ? ['ALIGO_RELAY_URL','ALIGO_RELAY_SECRET','ALIGO_SENDER_KEY','ALIGO_SENDER'] : secrets;
 const missing = env => credentialNames(env).filter(k=>!env[k]);
@@ -149,8 +157,8 @@ async function state(env,id,status,error='',mid=null,result=null) {
 async function dispatch(env,id,s,template) {
   const m = await env.DB.prepare('SELECT * FROM booking_guide_messages WHERE id=?').bind(id).first();
   if (!m || m.status !== 'queued') return;
-  s=await config(env); // honor an operator's stop/config change during a bulk request
   const snap = parse(m.snapshot);
+  s=await deliveryConfig(env,m,snap); // live messages always honor the persisted stop/config settings
   if (m.config_hash !== await configHash(env,s)) return state(env,id,'cancelled','발송 설정이 변경되었습니다. 다시 미리보기해 주세요.');
   const isPortal=snap.delivery_variant===PORTAL_GUIDE_VARIANT;let currentBooking,button=profile(s).buttons||profile(s).button;
   if (m.mode === 'live'||isPortal) {
@@ -187,11 +195,11 @@ async function reconcile(env,id) {
     if(m.status==='sending' && Date.parse(m.updated_at.replace(' ','T')+'Z')<Date.now()-60000) await state(env,id,'unknown','전송 응답이 남아 있지 않습니다. 알리고 전송내역 확인이 필요합니다.');
     return;
   }
-  const s = await config(env);
+  const snap=parse(m.snapshot),s = await deliveryConfig(env,m,snap);
   if (m.config_hash !== await configHash(env,s)) return; // another account/template cannot prove this delivery
   const r = await provider(env,'history/detail',{mid:m.provider_mid,limit:'50'});
   if (String(r.code)!=='0') throw Error(safeProviderError(r));
-  const snap=parse(m.snapshot), d=(r.list || []).find(x=>guidePhone(x.phone)===snap.phone && x.type==='AT' && x.tpl_code===s.template_code && x.senderKey===env.ALIGO_SENDER_KEY);
+  const d=(r.list || []).find(x=>guidePhone(x.phone)===snap.phone && x.type==='AT' && x.tpl_code===s.template_code && x.senderKey===env.ALIGO_SENDER_KEY);
   const status=guideDelivery(d);
   if (status==='accepted') {
     await env.DB.prepare('UPDATE booking_guide_messages SET updated_at=? WHERE id=?').bind(now(),id).run();
@@ -344,13 +352,15 @@ export async function guideAdmin({env,request,url,path,method}) {
   if(path==='guide-messages/test' && method==='POST') {
     const d=await readJson(request), phone=guidePhone(d.phone);
     if(!phone || d.confirm_test!==true) return err('시험 수신할 운영자 휴대폰 번호를 확인해 주세요.');
-    const template=await approved(env,s);
+    const testSettings=d.candidate ? candidateTestConfig(d.candidate) : s;
+    const template=await approved(env,testSettings);
     // A real operator test is intentionally distinct from Aligo's non-delivery testMode.
     const recent=await env.DB.prepare("SELECT id FROM booking_guide_messages WHERE mode='test' AND created_at>=? LIMIT 1").bind(new Date(Date.now()-60000).toISOString().slice(0,19).replace('T',' ')).first();
     if(recent) return err('시험 발송은 1분 뒤 다시 요청해 주세요.',429);
-    let b={booking_code:'TEST',customer_name:'메가스팟 운영자',phone,space_id:s.spaces[0] || 'megaspot-gundae',date:'2099-01-01',start_h:18,end_h:22};
-    if(s.variant===PORTAL_GUIDE_VARIANT){b=await booking(env,str(d.booking_code,40));if(!b||guidePhone(b.phone)!==phone||d.confirm_private_preview!==true||guideEligibility(b,s,Date.now(),true))return err('시험 수신 번호와 연락처가 같은 운영자 본인 예약을 지정하고 전용 링크 전달을 확인해 주세요.',409);}
-    const id=await insertMessage(env,b,s,'test','admin','운영자 시험 발송'); await dispatch(env,id,s,template); return json({ok:true,id});
+    let b={booking_code:'TEST',customer_name:'메가스팟 운영자',phone,space_id:testSettings.spaces[0] || 'megaspot-gundae',date:'2099-01-01',start_h:18,end_h:22};
+    if(testSettings.variant===PORTAL_GUIDE_VARIANT){b=await booking(env,str(d.booking_code,40));if(!b||guidePhone(b.phone)!==phone||d.confirm_private_preview!==true||guideEligibility(b,testSettings,Date.now(),true))return err('시험 수신 번호와 연락처가 같은 운영자 본인 예약을 지정하고 전용 링크 전달을 확인해 주세요.',409);}
+    const testSnapshot=d.candidate ? {...await messageSnapshot(env,b,testSettings),test_config:testSettings} : null;
+    const id=await insertMessage(env,b,testSettings,'test','admin','운영자 시험 발송',null,testSnapshot); await dispatch(env,id,testSettings,template); return json({ok:true,id});
   }
   if(path==='guide-messages/candidates' && method==='GET') {
     const from=str(url.searchParams.get('from'),10),to=str(url.searchParams.get('to'),10),space=str(url.searchParams.get('space'),60),page=Math.max(0,Math.min(100000,Number(url.searchParams.get('page'))||0));

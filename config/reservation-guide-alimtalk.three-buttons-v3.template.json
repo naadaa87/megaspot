@@ -40,5 +40,7 @@
   },
   "source_template_code": "UN_2584",
   "supersedes_template_code": "UN_3085",
-  "activation_status": "pending_approval_and_operator_test"
+  "activation_status": "approved_pending_operator_test",
+  "inspection_status": "APR",
+  "approval_verified_at": "2026-11-04"
 }
