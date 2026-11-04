@@ -149,14 +149,17 @@
 
   /* =================== 화면 전환 =================== */
   // 모임·입점·등록 공간·광고 화면은 admin-platform.js 가 MEGASPOT_ADMIN.register 로 붙입니다
-  var LOAD={ 'deposit-notifications':function(){}, 'deposit-refunds':function(){}, 'guide-messages':function(){}, cocktail:function(){}, parking:function(){}, reception:function(){}, dash:loadDash, resv:loadResv, visits:loadVisits, inq:loadInq, quote:function(){ ensureCurrentQuote('view').catch(function(e){if(!guard(e))M.toast(e.message);});calc();loadRecentQuotes(); }, catering:loadCatering, orders:loadOrders, bookings:loadBookings, calendar:loadCalendar, reviews:loadReviews, members:loadMembers };
+  var LOAD={ 'booking-new':function(){}, 'prices-catering':function(){}, 'prices-reception':function(){}, 'prices-cocktail':function(){}, 'guide-settings':function(){}, 'deposit-settings':function(){}, 'parking-settings':function(){}, 'deposit-notifications':function(){}, 'deposit-refunds':function(){}, 'guide-messages':function(){}, cocktail:function(){}, parking:function(){}, reception:function(){}, dash:loadDash, resv:loadResv, visits:loadVisits, inq:loadInq, quote:function(){ ensureCurrentQuote('view').catch(function(e){if(!guard(e))M.toast(e.message);});calc();loadRecentQuotes(); }, catering:loadCatering, orders:loadOrders, bookings:loadBookings, calendar:loadCalendar, reviews:loadReviews, members:loadMembers };
   function go(v){
     if(!LOAD[v]) v='dash';
-    $$('.adm-view').forEach(function(s){ s.hidden = s.id!=='view-'+v; });
+    var layout=window.MEGASPOT_ADMIN_LAYOUT, panel=layout?layout.panel(v):v;
+    $$('.adm-view').forEach(function(s){ s.hidden = s.id!=='view-'+panel; });
     $$('#adm-nav button').forEach(function(b){ b.classList.toggle('on', b.dataset.view===v); });
     if(location.hash!=='#'+v) history.replaceState(null,'','#'+v);
+    if(layout) layout.show(v);
     window.scrollTo(0,0); LOAD[v]();
   }
+  window.addEventListener('hashchange',function(){ if(!app.hidden) go(location.hash.slice(1)||'dash'); });
   $('#adm-nav').addEventListener('click', function(e){ var b=e.target.closest('button[data-view]'); if(b) go(b.dataset.view); });
   document.addEventListener('click', function(e){
     var g=e.target.closest('[data-go]'); if(g){ e.preventDefault(); var t=g.dataset.go; if(t==='inq-new') openNew(); else if(t==='visit-new') openVisit(null); else if(t.indexOf('inq:')===0){ $('#inq-status').value=t.slice(4); go('inq'); } else go(t); return; }
@@ -1954,6 +1957,6 @@
   }
   window.MEGASPOT_ADMIN={ A:A, esc:esc, guard:guard, fail:fail, note:note, ago:ago, kd:kd, emptyMsg:emptyMsg, setCount:setCount, spaceName:spaceName,
     openInquiry:openInquiry,foodToQuote:foodToQuote, receptionToQuote:receptionToQuote, quoteInquiryRef:function(){ return Q.ref||''; },
-    openDrawer:openDrawer, closeDrawer:closeDrawer, go:function(v){ go(v); }, register:function(view, fn){ var previous=LOAD[view];LOAD[view]=previous?function(){previous();fn();}:fn; },
+    openDrawer:openDrawer, closeDrawer:closeDrawer, loadView:function(v){ if(LOAD[v]) return LOAD[v](); }, go:function(v){ go(v); }, register:function(view, fn){ var previous=LOAD[view];LOAD[view]=previous?function(){previous();fn();}:fn; },
     current:function(){ var v=location.hash.replace('#',''); return LOAD[v]?v:''; }, visible:function(){ return !app.hidden; } };
 })();
