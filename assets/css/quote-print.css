@@ -6,5 +6,10 @@
   .qp-public .qp-grid{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);margin-top:12px;padding-top:10px}
   .qp-public .qp-grid>div{min-width:0}
   .qp-public .qp-grid p{overflow-wrap:anywhere}
+  #quote-print .qp{font-size:12px;line-height:1.45}
+  #quote-print .qp-cond th{width:18%}
+  #quote-print .qp-cond th,#quote-print .qp-cond td{padding:5px 7px}
+  #quote-print .qp-grid{margin-top:12px;padding-top:10px}
+  #quote-print .qp-foot{margin-top:10px;padding-top:7px}
   .qp-lines tr,.qp-grid,.qp-foot{break-inside:avoid}
 }

@@ -10,14 +10,14 @@ export function receptionAdmin(value,data) {
   const q = status === 'confirmed' ? calc.quote(value.people,value.format,value.course) : calc.selection({...value,course:value.course===undefined?'classic':value.course});
   if (!q || (status === 'confirmed' && !q.ok)) return null;
   return { ...q, status, by: 'admin', note: str(value.note, 500), menuNote: calc.data.menuNote,
-    summary: q.total == null ? q.summary : `${q.courseName} ${q.people}명 · ${q.formatName} · 메뉴 ${calc.won(q.food)} + ${q.feeName} ${calc.won(q.fee)}`, tax_pending: true };
+    summary: q.total == null ? q.summary : `${q.courseName} ${q.people}명 · ${q.formatName} · 메뉴 ${calc.won(q.food)} + ${q.feeName} ${calc.won(q.fee)}`, tax_pending: false };
 }
 
 export function receptionExtra(extras,data,previous) {
   const rows = (Array.isArray(extras) ? extras : []).filter(x => x.kind === 'reception');
   if (!rows.length) return { amount: 0, reception: null };
   if (rows.length !== 1) return { error: '테이블·박스 케이터링은 견적에 한 번만 추가해 주세요.' };
-  const raw=rows[0].reception,saved=previous?.reception,preserve=saved&&raw&&['course','people','format','status','note'].every(k=>String(raw[k]??'')===String(saved[k]??''))&&Number(rows[0].amount)===Number(saved.total);
+  const raw=rows[0].reception,saved=previous?.reception,preserve=saved&&raw&&['course','people','format','status','note','vat_excluded','supply','vat'].every(k=>String(raw[k]??(k==='vat_excluded'?false:''))===String(saved[k]??(k==='vat_excluded'?false:'')))&&Number(rows[0].amount)===Number(saved.total);
   const reception = preserve?{...saved,...C.forDocument(saved)}:receptionAdmin(raw,data);
   if (!reception || reception.status === 'cancelled' || Number(rows[0].amount) !== reception.total) return { error: '테이블·박스 케이터링의 구성과 금액을 다시 확인해 주세요.' };
   return { amount: reception.total, reception };
@@ -39,7 +39,7 @@ export function receptionDocument(data, amount) {
 }
 export function receptionChanged(data, next) {
   const previous = C.fromInquiry(data);
-  const keys = ['course', 'people', 'format', 'total', 'unitPrice', 'food', 'fee', 'status', 'note'];
+  const keys = ['course', 'people', 'format', 'total', 'unitPrice', 'food', 'fee', 'supply', 'vat', 'vat_excluded', 'status', 'note'];
   return !previous || keys.some(key => String(previous[key] ?? '') !== String(next[key] ?? ''));
 }
 export function withoutReceptionItems(items) {

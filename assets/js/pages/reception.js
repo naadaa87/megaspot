@@ -29,15 +29,15 @@
       return;
     }
     out.innerHTML='<div class="eyebrow">Catering estimate</div>'
-      +'<div class="cc-total"><span>예상 금액<small>부가세 적용 여부 확인 전</small></span><b>'+C.won(q.total)+'</b></div>'
+      +'<div class="cc-total"><span>예상 금액<small>부가세 10% 포함</small></span><b>'+C.won(q.total)+'</b></div>'
       +'<p class="small muted">'+M.esc(q.courseName)+' '+q.people+'명 · '+M.esc(q.feeName)+' 포함</p>'
       +(selected?'<p class="small cc-format-selected">희망 제공 방식: <b>'+M.esc(selected)+'</b></p>':'')
       +'<table class="est-lines cc-lines"><tbody><tr><td>'+M.esc(q.courseName)+' '+C.won(q.unitPrice)+' × '+q.people+'명</td><td class="r">'+C.won(q.food)+'</td></tr>'
       +'<tr><td>'+M.esc(q.feeName)+' <small>('+q.feeLabel+')</small></td><td class="r">'+C.won(q.fee)+'</td></tr>'
-      +'<tr class="sum"><td><b>합계</b></td><td class="r"><b>'+C.won(q.total)+'</b></td></tr></tbody></table>'
+      +'<tr><td>공급가액 (부가세 별도)</td><td class="r">'+C.won(q.supply)+'</td></tr><tr><td>부가세 10%</td><td class="r">'+C.won(q.vat)+'</td></tr><tr class="sum"><td><b>합계</b></td><td class="r"><b>'+C.won(q.total)+'</b></td></tr></tbody></table>'
       +'<a class="btn btn-primary cc-go" href="/inquiry/?reception='+encodeURIComponent(course.value)+'&reception_people='+q.people+(q.people<=200?'&people='+q.people:'')+formatQuery+'#reserve">이 금액으로 상담하기 →</a>'
       +'<div class="row mt-2"><button type="button" class="btn btn-light btn-sm" data-reception-copy>문의 내용 복사</button><a class="btn btn-ghost btn-sm" href="tel:01085401886">전화 상담</a></div>'
-      +'<p class="tiny muted mt-2">제공 방식별 포장·기물·세팅 범위, 부가세 적용 여부·최소 주문 인원·코스 적용 가능 여부는 최종 견적에서 확인합니다. 공간 대관료는 별도입니다.</p>';
+      +'<p class="tiny muted mt-2">제공 방식별 포장·기물·세팅 범위, 최소 주문 인원·코스 적용 가능 여부는 최종 견적에서 확인합니다. 공간 대관료는 별도입니다.</p>';
   }
   input.addEventListener('input',paint);
   format.addEventListener('change',paint);

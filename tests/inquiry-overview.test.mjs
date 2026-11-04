@@ -17,7 +17,7 @@ test('공간과 세 식음료의 구성·가격을 합산하고 칵테일 상세
  assert.match(html,/계산 가능한 소계/);assert.match(html,/반환 보증금은 합계에서 제외/);
 });
 test('예전 문의의 케이터링 본문에서도 인원·방식·당시 저장 금액을 복원한다',()=>{
- const d={message:'별도 고객 요청\n\n'+RC.inquiryText(50,'box')};
+ const d={message:'[출장 케이터링 클래식 상담]\n· 희망 제공 방식: 박스 케이터링\n· 인원: 50명\n· 예상 금액: 1,850,000원 (부가세 적용 여부 확인 전)' };
  const m=O.build({data:d},{...opts,roomAmount:0});assert.equal(m.rows[1].amount,1850000);assert.equal(m.total,1850000);
  assert.match(m.rows[1].detail,/박스 케이터링/);assert.match(m.rows[1].detail,/50명/);
 });
@@ -62,7 +62,7 @@ test('복사문도 수정된 공간 금액과 0원·금액 미정 구분을 유�
  const unknown=O.customerText(O.build({data:{}},{...opts,roomAmount:null}));assert.match(unknown,/상담 후 안내/);assert.ok(!unknown.includes('0원'));assert.match(unknown,/공간 대관 금액은 미정/);
 });
 test('기존 본문의 케이터링 선택도 고객 안내문에 포함된다',()=>{
- const text=O.customerText(O.build({data:{message:RC.inquiryText(50,'table')}},opts));assert.ok(text.includes('테이블 세팅 케이터링'));assert.ok(text.includes('1,950,000원'));assert.ok(text.includes('2,709,000원'));
+ const text=O.customerText(O.build({data:{message:RC.inquiryText(50,'table')}},opts));assert.ok(text.includes('테이블 세팅 케이터링'));assert.ok(text.includes('2,145,000원'));assert.ok(text.includes('2,904,000원'));
 });
 
 

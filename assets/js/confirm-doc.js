@@ -35,8 +35,9 @@
     var rows=[['코스 · 식사 인원',(r.courseName||'코스 미정')+' · '+(r.people?r.people+'명':'인원 상담')],['제공 방식',r.formatName||'상담 후 결정']];
     if(r.status==='cancelled'){rows.push(['진행 상태','취소 · 합계 제외']);return rows;}
     if(doc.show_amount!==false){
-      rows.push(['케이터링 금액',(r.total==null?'상담 후 견적':won(r.total))+' · '+included+' · 부가세 확인 전']);
+      rows.push(['케이터링 금액',(r.total==null?'상담 후 견적':won(r.total))+' · '+included+(r.vat_excluded===true?' · 부가세 포함':' · 이전 저장 금액 · 부가세 조건 확인 필요')]);
       if(r.food!=null&&r.fee!=null)rows.push(['산출 내역','메뉴 '+won(r.food)+(r.unitPrice!=null?' (1인 '+won(r.unitPrice)+' × '+r.people+'명)':'')+' + '+(r.feeName||'출장·세팅비')+' '+won(r.fee)]);
+      if(r.vat_excluded===true&&r.supply!=null&&r.vat!=null)rows.push(['공급가액 · 부가세',won(r.supply)+' (부가세 별도) + 부가세 10% '+won(r.vat)]);
     }else rows.push(['확정 범위',included]);
     if(r.note)rows.push(['케이터링 안내',r.note]);
     return rows;

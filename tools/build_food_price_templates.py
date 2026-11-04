@@ -51,14 +51,18 @@ def build_reception():
     code=code.replace("c.drawString(x,y,s)","live(c,x,y,s,size,color,font)")
     code=code.replace("for row in wrap(s,width,size,font):", "for row in ([s] if '[[' in s else wrap(s,width,size,font)):")
     code=code.replace("f\"{co['price']:,}원\"", "price('course.'+co['id'])+'원'")
-    code=code.replace("'클래식은 1인 35,000원이며, 제공 방식과 인원에 맞는 비용을 더합니다.'", "'클래식은 1인 '+price('course.classic')+'원이며, 제공 방식과 인원에 맞는 비용을 더합니다.'")
+    code=code.replace("'클래식은 1인 35,000원이며, 제공 방식과 인원에 맞는 비용을 더합니다. (모두 부가세 별도)'", "'클래식은 1인 '+price('course.classic')+'원이며, 제공 방식과 인원에 맞는 비용을 더합니다. (모두 부가세 별도)'")
     # Show separate lunchbox and box fees so future edits may differ.
     code=code.replace("[(48,'도시락·박스 / 출장·세팅',PACKED_SERVICE_FEES),(490,'테이블 / 출장·세팅·철수',SERVICE_FEES)]", "[(48,'도시락 / 출장·세팅',PACKED_SERVICE_FEES),(345,'박스 / 출장·세팅',PACKED_SERVICE_FEES),(642,'테이블 / 세팅·철수',SERVICE_FEES)]")
     code=code.replace("text(x,363,title,21", "text(x,363,title,17")
     code=code.replace("text(x+12,y,fee['label'],15,muted);text(x+270,y,f\"{fee['price']:,}원\",20,blue,'B')", "text(x+8,y,fee['label'],12,muted);text(x+130,y,price('fee.'+('lunchbox' if x==48 else 'box' if x==345 else 'table')+'.'+str(fee['upto']))+'원',16,blue,'B')")
-    code=code.replace("rect(x,128,422,98,chalk)", "rect(x,115,270,110,chalk)")
-    code=code.replace("text(x+16,171,f\"메뉴 1,750,000원 + 비용 {fees[0]['price']:,}원\",12,muted)", "text(x+16,170,'메뉴 '+price('example.food')+'원',12,muted);text(x+16,149,'비용 '+price('fee.'+('lunchbox' if x==48 else 'box' if x==345 else 'table')+'.'+str(fees[0]['upto']))+'원',12,muted)")
-    code=code.replace("text(x+16,141,f\"합계 {1750000+fees[0]['price']:,}원\",21,blue,'B')", "text(x+16,125,'합계 '+price('example.'+('lunchbox' if x==48 else 'box' if x==345 else 'table'))+'원',16,blue,'B')")
+    code=code.replace("rect(x,90,422,140,chalk)", "rect(x,90,270,140,chalk)")
+    fmt="('lunchbox' if x==48 else 'box' if x==345 else 'table')"
+    code=code.replace("text(x+16,185,'메뉴 1,750,000원',12,muted)", "text(x+16,185,'메뉴 '+price('example.food')+'원',12,muted)")
+    code=code.replace('f"출장·세팅비 {fees[0][\'price\']:,}원"', "'출장·세팅비 '+price('fee.'+"+fmt+"+'.'+str(fees[0]['upto']))+'원'")
+    code=code.replace('f"공급가액 {1750000+fees[0][\'price\']:,}원"', "'공급가액 '+price('example.'+"+fmt+"+'.supply')+'원'")
+    code=code.replace('f"부가세 10% {round((1750000+fees[0][\'price\'])/10):,}원"', "'부가세 10% '+price('example.'+"+fmt+"+'.vat')+'원'")
+    code=code.replace('f"합계 {round((1750000+fees[0][\'price\'])*1.1):,}원",21', "'합계 '+price('example.'+"+fmt+")+'원',16")
     code=code.replace("f\"{co['name']}  /  {co['price']:,}원\"", "co['name']+'  /  '+price('course.'+co['id'])+'원'")
     code=code.replace("('1BOX' if unit=='BOX' else '1EA')+f' · {price:,}원'", "('1BOX' if unit=='BOX' else '1EA')+' · '+globals()['price']('menu.'+str(j+1).zfill(2))+'원'")
     # Local catalog tuple named price shadows the helper; rename it.

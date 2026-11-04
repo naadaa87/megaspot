@@ -28,7 +28,7 @@
     var receptionCourses={light:['라이트','25,000원'],classic:['클래식','35,000원'],premium:['프리미엄','45,000원'],signature:['시그니처','55,000원'],all:['구성 미정','상담 후 선택']};
     if(Object.prototype.hasOwnProperty.call(receptionCourses,reception)){
       var rc=receptionCourses[reception];
-      var receptionMessage='출장 케이터링 '+rc[0]+' 구성('+rc[1]+')을 상담받고 싶습니다. 행사 날짜·장소·예상 인원에 맞는 구성과 적용 단위, 부가세·출장 및 세팅비·최소 주문 조건을 안내해 주세요.';
+      var receptionMessage='출장 케이터링 '+rc[0]+' 구성('+rc[1]+')을 상담받고 싶습니다. 행사 날짜·장소·예상 인원에 맞는 구성·적용 단위와 출장·세팅비·최소 주문 조건을 안내해 주세요. 메뉴 단가와 출장·세팅비는 부가세 별도이며, 합계에 부가세 10%가 추가되는 것으로 확인했습니다.';
       var receptionCalc=window.MEGASPOT_RECEPTION_CALC;
       var receptionFormat=receptionCalc?receptionCalc.formatLabel(q.get('reception_format')):'';
       if(receptionFormat)receptionMessage+='\n희망 제공 방식: '+receptionFormat+' (포장·기물·세팅 범위 최종 협의)';
