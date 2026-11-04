@@ -9,6 +9,7 @@ export async function amanoAdmin(request,env,path){
   if(d.confirm_storage!==true||typeof d.encrypted_credentials!=='string'||d.encrypted_credentials.length>2000)return err('계정 암호화와 서버 보관 동의를 확인해 주세요.');
   data={encrypted_credentials:d.encrypted_credentials,confirm_storage:true};
  }else if(path==='admin/amano/check'&&request.method==='POST')action='check';
+ else if(path==='admin/amano/settings'&&request.method==='PUT'){const d=await readJson(request);action='settings';data={enabled:d.enabled===true,confirm_policy:d.confirm_policy===true};}
  else return err('경로를 찾을 수 없습니다.',404);
  if(String(env.ALIGO_RELAY_SECRET||'').length<32)return err('기존 서버 연결 설정을 확인해 주세요.',503);
  const body=JSON.stringify({action,...data,time:Date.now()});
@@ -35,7 +36,7 @@ export async function amanoAutomation(request,env){
  }
  if(!['claim','complete','issue','order'].includes(d.action)||!/^MS[A-Z0-9]{1,38}$/.test(d.oid||''))return err('허용되지 않은 작업입니다.',400);
  const p=await env.DB.prepare(JOIN+' WHERE p.oid=? AND o.test=0').bind(d.oid).first();if(!p||p.test||p.visit_date!==kstToday())return err('당일 주차권 주문만 처리할 수 있습니다.',409);
- if(d.action==='order')return json({ok:true,order:{oid:p.oid,plate:p.plate,visit_date:p.visit_date,ticket:p.ticket,status:p.status,price:p.price,payment_status:p.payment_status,refunded_amount:p.refunded_amount,free_hours:p.free_hours,paid_hours:p.paid_hours,entry_id:p.entry_id,entry_at:p.entry_at}});
+ if(d.action==='order')return json({ok:true,order:{oid:p.oid,plate:p.plate,visit_date:p.visit_date,ticket:p.ticket,status:p.status,price:p.price,payment_status:p.payment_status,refunded_amount:p.refunded_amount,refund_pending:!!(p.refund_requested_at&&!p.refund_reviewed_at),free_hours:p.free_hours,paid_hours:p.paid_hours,entry_id:p.entry_id,entry_at:p.entry_at}});
  if(!operating)return err('주차 등록 운영시간이 아닙니다.',409);
  if(d.action!=='issue'&&(p.payment_status!=='paid'||p.refunded_amount||p.refund_requested_at&&!p.refund_reviewed_at))return err('결제·환불 상태가 변경되었습니다.',409);
  const data=d.data||{};
