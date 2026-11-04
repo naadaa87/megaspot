@@ -32,7 +32,7 @@ test('잘못된 선택은 조용히 기본값으로 저장하지 않고 거절',
 });
 test('기존 텍스트 문의에서도 식사 인원·코스·방식을 복원하며 과거 금액을 구별',()=>{
  for(const course of C.data.courses){const q=C.quote(50,'box',course.id),text=C.inquiryText(50,'box',course.id);const rec=C.fromInquiry({headcount:30,message:'고객 요청\n\n'+text});assert.equal(rec.course,course.id);assert.equal(rec.people,50);assert.equal(rec.format,'box');assert.equal(rec.total,q.total);assert.equal(rec.requested_total,q.total);}
- const old=C.fromInquiry({message:C.inquiryText(50,'table','classic').replace('1,950,000원','2,000,000원')});assert.equal(old.total,1950000);assert.equal(old.requested_total,2000000);
+ const old=C.fromInquiry({message:C.inquiryText(50,'table','classic').replace('2,145,000원','2,000,000원')});assert.equal(old.total,2145000);assert.equal(old.requested_total,2000000);
  const summary=C.fromInquiry({headcount:30,summary:'도시락·핑거푸드 시그니처 42명 · 박스 케이터링: 2,410,000원 (부가세 확인 전)'});assert.equal(summary.course,'signature');assert.equal(summary.people,42);assert.equal(summary.format,'box');
  assert.equal(C.fromInquiry({message:'라이트 케이터링을 원하지 않습니다.'}),null);
 });

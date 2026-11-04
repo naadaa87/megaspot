@@ -14,7 +14,7 @@ function change(config,id,price,cost){return {...config,rows:config.rows.map(r=>
 for(const service of ['catering','reception']){
  test(service+': private supplier editor, validation, persistence, conflicts and public price privacy',async()=>{
   const f=fixture(),initial=await f.api(service+'/pricing');assert.equal(initial.revision,0);assert(initial.rows.length>20);
-  const input=change(initial,'course.classic',41234,31234),saved=await f.api(service+'/pricing','PUT',input);assert.equal(saved.revision,1);const row=saved.rows.find(r=>r.id==='course.classic');assert.equal(row.margin,10000);assert.equal(row.margin_rate,10000/41234);assert.equal(row.vat,service==='catering'?4123:null);
+  const input=change(initial,'course.classic',41234,31234),saved=await f.api(service+'/pricing','PUT',input);assert.equal(saved.revision,1);const row=saved.rows.find(r=>r.id==='course.classic');assert.equal(row.margin,10000);assert.equal(row.margin_rate,10000/41234);assert.equal(row.vat,4123);
   assert.equal((await f.api(service+'/pricing')).rows.find(r=>r.id==='course.classic').sale_price,41234);
   await f.api(service+'/pricing','PUT',input,409);
   for(const invalid of [{...saved,rows:saved.rows.slice(1)},change(saved,'course.classic',-1),change(saved,'course.classic',1.5),change(saved,'course.classic',10000001),change(saved,'course.classic',50000,-1)])await f.api(service+'/pricing','PUT',invalid,400);
@@ -33,17 +33,17 @@ test('browser, server, public HTML and all guide slots use the same new prices',
  const rb=ctx.window.MEGASPOT_RECEPTION_CALC.quote(51,'box','classic'),rs=receptionAdmin({course:'classic',people:51,format:'box',status:'confirmed'},foodPricingData('reception',await readFoodPricing(f.env,'reception')));assert.equal(rb.total,rs.total);
  for(const service of ['catering','reception']){const html=foodHtml(readFileSync(new URL('../'+service+'/index.html',import.meta.url),'utf8'),'/'+service+'/',rates);assert(!html.includes('@@FOODPRICE'));assert(!/vendor_supply|margin_rate/.test(html));assert(html.includes(rates[service].prices['course.classic'].toLocaleString('ko-KR')+'원'));}
  // Server clones prevent one concurrent request's prices leaking into another.
- assert.equal(cateringQuote({course:'classic',people:60}).supply,2500000);assert.equal(receptionAdmin({course:'classic',people:50,format:'table'}).total,1950000);
+ assert.equal(cateringQuote({course:'classic',people:60}).supply,2500000);assert.equal(receptionAdmin({course:'classic',people:50,format:'table'}).total,2145000);
 });
 test('new buffet orders and reception saves use persisted prices; stored quotes keep their snapshots',async()=>{
  const f=fixture();let bc=await f.api('catering/pricing');await f.api('catering/pricing','PUT',change(bc,'course.classic',41000));
  const order=await f.api('catering/orders','POST',{inquiry_ref:'MS-TEST',config:{course:'classic',people:60},status:'pending'});assert.equal(order.item.supply,2560000);assert.equal(order.item.total,2816000);
  let rc=await f.api('reception/pricing');await f.api('reception/pricing','PUT',change(rc,'course.classic',36000));
- const rec=await f.api('inquiries/MS-TEST','PATCH',{reception:{course:'classic',people:50,format:'table',status:'confirmed'}});assert.equal(rec.reception.total,2000000);
+ const rec=await f.api('inquiries/MS-TEST','PATCH',{reception:{course:'classic',people:50,format:'table',status:'confirmed'}});assert.equal(rec.reception.total,2200000);
  const data=JSON.parse(f.db.prepare("SELECT data FROM inquiries WHERE ref='MS-TEST'").get().data),r=data.reception,c=data.catering;
  const extras=[{kind:'reception',label:'케이터링',amount:r.total,reception:r},{kind:'catering',label:'출장뷔페',amount:c.total,catering:c}];
  await saveQuote(f.api,{total:6000000,input:quoteInput({extras}),extras});
  bc=await f.api('catering/pricing');rc=await f.api('reception/pricing');await f.api('catering/pricing','PUT',change(bc,'course.classic',50000));await f.api('reception/pricing','PUT',change(rc,'course.classic',45000));
  await saveQuote(f.api,{total:6000000,input:quoteInput({extras,reception_revision:JSON.parse(f.db.prepare("SELECT data FROM inquiries WHERE ref='MS-TEST'").get().data).reception_revision}),extras});
- const after=JSON.parse(f.db.prepare("SELECT data FROM inquiries WHERE ref='MS-TEST'").get().data);assert.equal(after.reception.total,2000000);assert.equal(after.catering.total,2816000);
+ const after=JSON.parse(f.db.prepare("SELECT data FROM inquiries WHERE ref='MS-TEST'").get().data);assert.equal(after.reception.total,2200000);assert.equal(after.catering.total,2816000);
 });

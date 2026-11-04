@@ -18,9 +18,9 @@
     $('#ar-target').textContent=state.target?state.target.ref+' · '+(state.target.name||'')+' · '+X.spaceName(state.target.space_id)+(state.dirty?' · 변경 내용 미저장':'')+' — 고객·행사 정보 수정은 문의 상세에서 해 주세요.':'문의 없이 계산하거나, 문의를 불러와 그 건에 저장할 수 있습니다.';
     var menuCourse=C.course($('#ar-course').value);$('#ar-menu').textContent=(menuCourse?menuCourse.menus.join(' · '):'코스를 선택하면 메뉴를 표시합니다.')+'\n\n'+C.data.menuNote;
     if(!q.ok){box.innerHTML='<h2>케이터링 견적</h2><p role="status">'+esc(cancelled?'취소 · 합계 제외':($('#ar-status').value==='pending'&&C.selection(config())?'상담 후 견적 · 금액 미정':q.message))+'</p>';return;}
-    box.innerHTML='<h2>'+esc(q.formatName)+'</h2><div class="cc-total"><span>'+(cancelled?'취소 구성 · 합계 제외':esc(q.courseName)+' 예상 금액')+'<small>부가세 적용 여부 확인 전</small></span><b>'+C.won(q.total)+'</b></div>'
-      +'<table class="q-table"><tbody><tr><td>'+esc(q.courseName)+' '+q.people+'명<small>1인 '+C.won(q.unitPrice)+'</small></td><td>'+C.won(q.food)+'</td></tr><tr><td>'+esc(q.feeName)+'<small>'+esc(q.feeLabel)+'</small></td><td data-ar-fee>'+C.won(q.fee)+'</td></tr></tbody><tfoot><tr><td>합계</td><td data-ar-total>'+C.won(q.total)+'</td></tr></tfoot></table>'
-      +'<p class="tiny muted">테이블 세팅은 철수 비용까지 포함합니다. 부가세·최소 주문 조건은 최종 견적에서 확인하며, 공간 대관료와 반환 보증금은 별도입니다.</p><p class="small muted">'+esc(C.data.menuNote)+'</p>';
+    box.innerHTML='<h2>'+esc(q.formatName)+'</h2><div class="cc-total"><span>'+(cancelled?'취소 구성 · 합계 제외':esc(q.courseName)+' 예상 금액')+'<small>부가세 10% 포함</small></span><b>'+C.won(q.total)+'</b></div>'
+      +'<table class="q-table"><tbody><tr><td>'+esc(q.courseName)+' '+q.people+'명<small>1인 '+C.won(q.unitPrice)+'</small></td><td>'+C.won(q.food)+'</td></tr><tr><td>'+esc(q.feeName)+'<small>'+esc(q.feeLabel)+'</small></td><td data-ar-fee>'+C.won(q.fee)+'</td></tr><tr><td>공급가액 (부가세 별도)</td><td data-ar-supply>'+C.won(q.supply)+'</td></tr><tr><td>부가세 10%</td><td data-ar-vat>'+C.won(q.vat)+'</td></tr></tbody><tfoot><tr><td>합계</td><td data-ar-total>'+C.won(q.total)+'</td></tr></tfoot></table>'
+      +'<p class="tiny muted">테이블 세팅은 철수 비용까지 포함합니다. 메뉴와 출장·세팅비는 부가세 별도이고 위 합계에 부가세 10%를 반영했습니다. 최소 주문 조건은 최종 견적에서 확인하며, 공간 대관료와 반환 보증금은 별도입니다.</p><p class="small muted">'+esc(C.data.menuNote)+'</p>';
   }
   function load(ref){
     ref=String(ref||'').trim().toUpperCase();

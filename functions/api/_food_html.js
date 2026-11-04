@@ -33,7 +33,7 @@ export function foodHtml(html,path,rates){
   html=html.replace(/테이블 세팅·철수 비용은 50명 이하 20만 원, 51~100명 25만 원입니다\./g,'제공 방식과 인원별 비용은 위 가격표를 확인해 주세요.');
   let item=0;html=html.replace(/<p class="reception-item-price">[^<]*<\/p>/g,s=>{const row=ITEMS[item++];return s.replace(/[\d,]+원$/,v=>v).replace(/[\d,]+원(?=<\/p>)/,keep(comma(rp[row.id]))+'원');});
   const net=rp['course.classic']*50,fee=rp['fee.table.50'];
-  html=money(html,{'1,750,000':net,'200,000':fee,'1,950,000':net+fee,'25,000':rp['course.light'],'35,000':rp['course.classic'],'45,000':rp['course.premium'],'55,000':rp['course.signature']});
+  html=money(html,{'1,750,000':net,'200,000':fee,'1,950,000':net+fee,'195,000':Math.round((net+fee)/10),'2,145,000':net+fee+Math.round((net+fee)/10),'25,000':rp['course.light'],'35,000':rp['course.classic'],'45,000':rp['course.premium'],'55,000':rp['course.signature']});
   html=html.replace(/@@RECDRINKS(\d+)@@/g,(_,i)=>drinks[+i]);
  }
  if(path==='/'){

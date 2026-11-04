@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 IMG = ROOT / "assets/img/reception"
 PDF = ROOT / "assets/docs/megaspot-reception-guide.pdf"
 URL = "/reception/"
-STAMP = "20261103reclife1"
+STAMP = "20261104receptionvat1"
 STYLE_STAMP = STAMP + "-align1"
 LOGO = ROOT / "assets/img/brand/megaspot-official-wordmark-transparent.png"
 KAKAO = "https://pf.kakao.com/_LnxbmX/chat"
@@ -99,7 +99,7 @@ def calculator_section():
     format_options=''.join(f'<option value="{f["id"]}"'+(' selected' if f['id']=='table' else '')+f'>{f["name"]}</option>' for f in CATERING_FORMATS)
     course_options=''.join(f'<option value="{c["id"]}"'+(' selected' if c['id']=='classic' else '')+f'>{c["name"]} · 1인 {c["price"]:,}원</option>' for c in COURSES)
     quick=''.join(f'<button type="button" data-reception-people="{n}" aria-pressed="{str(n==50).lower()}"'+(' class="on"' if n==50 else '')+f'>{n}명</button>' for n in [30,50,80,100,150,200,250,300])
-    return f'''<section class="section sec-white sec-line" id="calc"><div class="container"><div class="section-head"><div class="eyebrow">Catering estimate</div><h2 class="h-l">케이터링 코스별 금액 계산</h2><p class="lead">코스·제공 방식·인원을 선택하면 메뉴 금액과 해당 출장·세팅비를 합산합니다. 고객 안내문도 바로 복사할 수 있습니다.</p></div><div id="reception-calc" class="cc-grid"><div class="cc-form card"><div class="cc-step"><label class="cc-step-h" for="reception-format"><span>1</span>희망 제공 방식</label><select class="input" id="reception-format" name="reception_format"><option value="">상담 후 결정</option>{format_options}</select><p class="tiny muted mt-2">제공 방식별 포장·기물·세팅 범위와 코스 적용 가능 여부는 최종 견적에서 확인합니다.</p></div><div class="cc-step"><label class="cc-step-h" for="reception-course"><span>2</span>케이터링 코스</label><select class="input" id="reception-course" name="reception_course">{course_options}</select><p class="small mt-2"><a href="#course-classic" data-reception-menu style="text-decoration:underline">선택한 코스 메뉴 보기</a></p></div><div class="cc-step"><label class="cc-step-h" for="reception-people"><span>3</span>케이터링 인원</label><div class="cc-people"><input class="input" id="reception-people" name="reception_people" type="number" inputmode="numeric" min="1" max="300" step="1" value="50" aria-describedby="reception-people-hint"><span>명</span></div><div class="pick cc-quick">{quick}</div><p class="tiny muted mt-2" id="reception-people-hint">1~300명 계산 · 최소 주문 인원은 상담에서 확인합니다. 301명 이상은 별도 견적입니다.</p></div><div class="cc-step"><div class="cc-step-h"><span>4</span>제공 방식별 출장·세팅비</div><table class="est-lines reception-fee-table"><thead><tr><th>인원</th><th>도시락·박스</th><th>테이블 세팅</th></tr></thead><tbody>{fees}</tbody></table><p class="tiny muted mt-2">테이블 세팅·철수 비용은 50명 이하 20만 원, 51~100명 25만 원입니다. 100명·200명은 해당 구간에 포함됩니다.</p></div></div><div class="cc-result card" data-reception-result aria-live="polite"><p>테이블 세팅 · 클래식 50명 메뉴 1,750,000원 + 출장·세팅·철수비 200,000원 = <b>1,950,000원</b></p><p class="tiny muted mt-2">부가세 적용 여부 확인 전 · 공간 대관료 별도</p></div></div></div></section>'''
+    return f'''<section class="section sec-white sec-line" id="calc"><div class="container"><div class="section-head"><div class="eyebrow">Catering estimate</div><h2 class="h-l">케이터링 코스별 금액 계산</h2><p class="lead">코스·제공 방식·인원을 선택하면 메뉴 금액과 출장·세팅비에 부가세 10%를 더한 최종 합계를 확인할 수 있습니다. 고객 안내문도 바로 복사할 수 있습니다.</p></div><div id="reception-calc" class="cc-grid"><div class="cc-form card"><div class="cc-step"><label class="cc-step-h" for="reception-format"><span>1</span>희망 제공 방식</label><select class="input" id="reception-format" name="reception_format"><option value="">상담 후 결정</option>{format_options}</select><p class="tiny muted mt-2">제공 방식별 포장·기물·세팅 범위와 코스 적용 가능 여부는 최종 견적에서 확인합니다.</p></div><div class="cc-step"><label class="cc-step-h" for="reception-course"><span>2</span>케이터링 코스</label><select class="input" id="reception-course" name="reception_course">{course_options}</select><p class="small mt-2"><a href="#course-classic" data-reception-menu style="text-decoration:underline">선택한 코스 메뉴 보기</a></p></div><div class="cc-step"><label class="cc-step-h" for="reception-people"><span>3</span>케이터링 인원</label><div class="cc-people"><input class="input" id="reception-people" name="reception_people" type="number" inputmode="numeric" min="1" max="300" step="1" value="50" aria-describedby="reception-people-hint"><span>명</span></div><div class="pick cc-quick">{quick}</div><p class="tiny muted mt-2" id="reception-people-hint">1~300명 계산 · 최소 주문 인원은 상담에서 확인합니다. 301명 이상은 별도 견적입니다.</p></div><div class="cc-step"><div class="cc-step-h"><span>4</span>제공 방식별 출장·세팅비</div><table class="est-lines reception-fee-table"><thead><tr><th>인원</th><th>도시락·박스</th><th>테이블 세팅</th></tr></thead><tbody>{fees}</tbody></table><p class="tiny muted mt-2">테이블 세팅·철수 비용은 50명 이하 20만 원, 51~100명 25만 원입니다. 모든 출장·세팅비는 부가세 별도입니다. 100명·200명은 해당 구간에 포함됩니다.</p></div></div><div class="cc-result card" data-reception-result aria-live="polite"><p>테이블 세팅 · 클래식 50명 메뉴 1,750,000원 + 출장·세팅·철수비 200,000원 · 공급가액 1,950,000원 + 부가세 10% 195,000원 = <b>2,145,000원 (부가세 포함)</b></p><p class="tiny muted mt-2">메뉴 단가·출장·세팅비는 부가세 별도 · 공간 대관료 별도</p></div></div></div></section>'''
 
 def build_web():
     template = (ROOT / "cocktail/index.html").read_text()
@@ -133,7 +133,7 @@ def build_web():
 <section class="section sec-white sec-line" id="menus"><div class="container"><div class="section-head"><div class="eyebrow">Course menus</div><h2 class="h-l">코스별 전체 메뉴를 확인하세요</h2><p class="lead">샌드위치 종류, 스큐어 구성과 디저트 가짓수를 비교해 보세요.</p></div>{courses}<p class="small muted mt-3">위 메뉴는 제공 자료 기준의 구성입니다. 메뉴 변경 가능 여부, 알레르기·식이 제한, 제공량과 최종 구성은 상담에서 확인해 주세요.</p></div></section>
 <section class="section sec-line" id="catalog"><div class="container"><div class="section-head"><div class="eyebrow">Finger food & box menu</div><h2 class="h-l">필요한 메뉴만 따로 상의해도 좋습니다</h2><p class="lead">개별 메뉴와 박스 메뉴 43종의 가격과 참고 사진입니다. 코스에 더하거나 맞춤 구성을 원하면 메뉴 이름과 희망 수량을 알려 주세요.</p></div><div class="reception-note mb-3">{CATALOG_PRICE_NOTE} 사진 속 양이나 식기는 확정 제공 기준이 아닙니다.</div><div class="reception-catalog">{catalog}</div><p class="tiny muted mt-3">{PHOTO_NOTE}</p></div></section>
 <section class="section sec-white sec-line" id="process"><div class="container"><div class="section-head"><div class="eyebrow">How it works</div><h2 class="h-l">날짜와 원하는 메뉴부터 알려 주세요</h2></div><ol class="steps"><li class="step"><div class="n">1</div><h4>일정 문의</h4><p>행사 날짜·장소·시간·예상 인원과 제공 방식을 알려 주세요.</p></li><li class="step"><div class="n">2</div><h4>메뉴 상담</h4><p>희망 제공 방식과 메뉴 구성, 식이 제한·알레르기를 확인합니다.</p></li><li class="step"><div class="n">3</div><h4>최종 견적</h4><p>인원 기준·부가세·출장비와 식기·세팅·수거 포함 범위를 확인합니다.</p></li><li class="step"><div class="n">4</div><h4>주문 확정</h4><p>최종 수량과 변경·취소 기준을 확인하고 안내에 따라 확정합니다.</p></li><li class="step"><div class="n">5</div><h4>행사 준비</h4><p>협의한 시간과 제공 방식으로 준비합니다. 세팅·수거가 있으면 대관 시간에 반영해 주세요.</p></li></ol></div></section>
-<section class="section sec-line" id="faq"><div class="container"><div class="section-head"><div class="eyebrow">FAQ</div><h2 class="h-l">주문 전, 확인해 주세요</h2></div><div class="faq"><details><summary>도시락·박스·테이블 세팅은 어떻게 다른가요?</summary><div class="body">도시락은 한 분씩 드시는 개별 포장, 박스는 음식을 담은 박스를 테이블에 그대로 진열하는 방식입니다. 테이블 세팅은 조화와 다양한 기물로 현장을 연출합니다. 제공 방식과 메뉴 코스는 별도로 상담하며, 포장·기물·현장 작업과 비용은 최종 견적에서 확인합니다.</div></details><details><summary>출장뷔페와 어떤 차이가 있나요?</summary><div class="body">출장뷔페는 밥·국과 다양한 더운 요리로 식사를 준비하는 코스입니다. 이 페이지의 출장 케이터링은 샌드위치·카나페·스큐어·디저트처럼 파티와 리셉션에 어울리는 메뉴를 중심으로 구성합니다. 행사 목적과 식사 필요 여부를 알려 주시면 함께 안내합니다.</div></details><details><summary>가격에 부가세와 출장·세팅비가 포함되나요?</summary><div class="body">{PRICE_NOTE} 기존 출장뷔페의 비용 조건과 별도로 확인하며, 대관료도 따로 안내합니다.</div></details><details><summary>최소 몇 명부터 주문할 수 있나요?</summary><div class="body">최소 주문 인원·수량은 메뉴와 제공 방식에 따라 상담에서 확인합니다. 행사 인원과 희망 구성을 알려 주세요.</div></details><details><summary>사진 속 꽃·식기·음료도 함께 제공되나요?</summary><div class="body">사진은 메뉴와 연출 참고용입니다. 꽃·장식·식기·음료·테이블과 현장 인력, 세팅·수거 포함 여부는 최종 견적에서 확인합니다.</div></details><details><summary>메뉴 변경이나 취소는 어떻게 하나요?</summary><div class="body">식이 제한과 알레르기는 상담 때 미리 알려 주세요. 메뉴 변경 가능 여부와 최종 수량 확정일, 인원 변경·취소 비용 기준은 주문 확정 전에 안내합니다.</div></details></div></div></section>
+<section class="section sec-line" id="faq"><div class="container"><div class="section-head"><div class="eyebrow">FAQ</div><h2 class="h-l">주문 전, 확인해 주세요</h2></div><div class="faq"><details><summary>도시락·박스·테이블 세팅은 어떻게 다른가요?</summary><div class="body">도시락은 한 분씩 드시는 개별 포장, 박스는 음식을 담은 박스를 테이블에 그대로 진열하는 방식입니다. 테이블 세팅은 조화와 다양한 기물로 현장을 연출합니다. 제공 방식과 메뉴 코스는 별도로 상담하며, 포장·기물·현장 작업과 비용은 최종 견적에서 확인합니다.</div></details><details><summary>출장뷔페와 어떤 차이가 있나요?</summary><div class="body">출장뷔페는 밥·국과 다양한 더운 요리로 식사를 준비하는 코스입니다. 이 페이지의 출장 케이터링은 샌드위치·카나페·스큐어·디저트처럼 파티와 리셉션에 어울리는 메뉴를 중심으로 구성합니다. 행사 목적과 식사 필요 여부를 알려 주시면 함께 안내합니다.</div></details><details><summary>가격에 부가세와 출장·세팅비가 포함되나요?</summary><div class="body">{PRICE_NOTE} 출장뷔페·출장칵테일과 같이 부가세 10%를 별도로 계산하며, 공간 대관료도 따로 안내합니다.</div></details><details><summary>최소 몇 명부터 주문할 수 있나요?</summary><div class="body">최소 주문 인원·수량은 메뉴와 제공 방식에 따라 상담에서 확인합니다. 행사 인원과 희망 구성을 알려 주세요.</div></details><details><summary>사진 속 꽃·식기·음료도 함께 제공되나요?</summary><div class="body">사진은 메뉴와 연출 참고용입니다. 꽃·장식·식기·음료·테이블과 현장 인력, 세팅·수거 포함 여부는 최종 견적에서 확인합니다.</div></details><details><summary>메뉴 변경이나 취소는 어떻게 하나요?</summary><div class="body">식이 제한과 알레르기는 상담 때 미리 알려 주세요. 메뉴 변경 가능 여부와 최종 수량 확정일, 인원 변경·취소 비용 기준은 주문 확정 전에 안내합니다.</div></details></div></div></section>
 <section class="section"><div class="container"><div class="reception-cta"><div class="eyebrow">Plan your event</div><h2 class="h-l mt-1">공간과 케이터링을 함께 상담하세요</h2><p class="mt-2">행사 날짜·예상 인원·원하는 구성만 알려 주셔도 상담을 시작할 수 있습니다.</p><div class="row mt-3"><a class="btn btn-primary" href="/inquiry/?reception=all#reserve">출장 케이터링 상담 →</a><a class="btn btn-kakao" href="{KAKAO}" target="_blank" rel="noopener" data-kakao>카카오톡 문의</a><a class="btn btn-light" href="{PDF_URL}" target="_blank" rel="noopener">소개서 PDF ↗</a></div></div><div class="grid grid-2 reception-services mt-3"><a href="/catering/"><b>든든한 식사가 필요하다면 →</b><span class="small muted">출장뷔페 · 코스·바베큐·생맥주</span></a><a href="/cocktail/"><b>한 잔의 분위기를 더하려면 →</b><span class="small muted">출장 칵테일 · 전문 바텐더 현장 제조</span></a></div></div></section>
 </main>'''
     body = body.replace('<section class="section sec-line" id="packages">', formats_section()+'\n<section class="section sec-line" id="packages">')
@@ -237,20 +237,23 @@ def build_pdf():
         rect(x,y,422,126,chalk);rect(x,y+122,422,4,blue)
         text(x+18,y+88,co['name'],21,ink,'B');text(x+258,y+87,f"{co['price']:,}원",24,blue,'B')
         para(x+18,y+54,co['intro'],382,12,leading=18)
-        text(x+18,y+16,'구성 안내가 · 코스별 전체 메뉴는 뒷장 참고',10,muted)
+        text(x+18,y+16,'1인 단가 · 부가세 별도 · 전체 메뉴는 뒷장 참고',10,muted)
     para(48,58,PRICE_NOTE,864,9,leading=12);end()
-    begin('CLASSIC ESTIMATE','제공 방식별 출장·세팅비와 클래식 견적','클래식은 1인 35,000원이며, 제공 방식과 인원에 맞는 비용을 더합니다.')
+    begin('CLASSIC ESTIMATE','제공 방식별 출장·세팅비와 클래식 견적','클래식은 1인 35,000원이며, 제공 방식과 인원에 맞는 비용을 더합니다. (모두 부가세 별도)')
     for x,title,fees in [(48,'도시락·박스 / 출장·세팅',PACKED_SERVICE_FEES),(490,'테이블 / 출장·세팅·철수',SERVICE_FEES)]:
         text(x,363,title,21,ink,'B')
         for i,fee in enumerate(fees):
             y=322-i*28
             text(x+12,y,fee['label'],15,muted);text(x+270,y,f"{fee['price']:,}원",20,blue,'B')
-        rect(x,128,422,98,chalk)
-        text(x+16,199,'클래식 50명 예시',15,ink,'S')
-        text(x+16,171,f"메뉴 1,750,000원 + 비용 {fees[0]['price']:,}원",12,muted)
-        text(x+16,141,f"합계 {1750000+fees[0]['price']:,}원",21,blue,'B')
-    para(48,99,'301명 이상은 별도 상담합니다. 부가세 적용 여부와 최소 주문 조건은 최종 견적에서 확인합니다.',864,11,leading=17)
-    para(48,76,'공간 대관료는 별도이며, 포장·조화·기물과 현장 작업 포함 범위는 제공 방식에 따라 상담합니다.',864,11,leading=17)
+        rect(x,90,422,140,chalk)
+        text(x+16,208,'클래식 50명 예시',15,ink,'S')
+        text(x+16,185,'메뉴 1,750,000원',12,muted)
+        text(x+16,165,f"출장·세팅비 {fees[0]['price']:,}원",12,muted)
+        text(x+16,145,f"공급가액 {1750000+fees[0]['price']:,}원",12,muted)
+        text(x+16,125,f"부가세 10% {round((1750000+fees[0]['price'])/10):,}원",12,muted)
+        text(x+16,102,f"합계 {round((1750000+fees[0]['price'])*1.1):,}원",21,blue,'B')
+    para(48,68,'메뉴·출장·세팅비는 부가세 별도이며 합계에는 부가세 10%가 포함됩니다. 301명 이상·최소 주문 조건은 상담합니다.',864,11,leading=17)
+    para(48,49,'공간 대관료는 별도이며, 포장·조화·기물과 현장 작업 포함 범위는 제공 방식에 따라 상담합니다.',864,11,leading=17)
     end()
     for idx,co in enumerate(COURSES):
         begin(f'COURSE 0{idx+1}',f"{co['name']}  /  {co['price']:,}원",co['intro'])
@@ -286,7 +289,7 @@ def build_pdf():
             # than reserving an empty second line for every short menu name.
             quote_y=caption_y-(len(rows)-1)*15-16
             text(x,quote_y,('1BOX' if unit=='BOX' else '1EA')+f' · {price:,}원',12.5,blue,'S')
-        para(48,76,'최소 주문 수량·박스당 중량 및 제공 인원·부가세·출장 및 세팅비는 상담 후 최종 견적에서 확인합니다.',864,9,leading=14)
+        para(48,76,'모든 메뉴는 부가세 별도입니다. 출장·세팅비를 더한 공급가액에 부가세 10%가 추가됩니다. 최소 주문 조건은 상담합니다.',864,9,leading=14)
         para(48,59,'사진: 제공받은 애드썸 케이터링 자료. 실제 제공량·식기·장식·음료 포함 여부는 최종 견적에 따릅니다.',864,9,leading=14)
         end()
     begin('HOW IT WORKS','문의부터 행사 준비까지','행사 날짜와 예상 인원, 원하는 메뉴를 알려 주시면 가능한 구성과 조건을 안내합니다.')

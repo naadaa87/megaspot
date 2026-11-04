@@ -8,7 +8,7 @@ test('클래식 50명은 메뉴 175만원과 출장·세팅·철수비 20만원�
   assert.equal(q.unitPrice,35000);
   assert.equal(q.food,1750000);
   assert.equal(q.fee,200000);
-  assert.equal(q.total,1950000);
+  assert.equal(q.supply,1950000);assert.equal(q.vat,195000);assert.equal(q.total,2145000);
 });
 
 test('50·100·200·300명 경계에서 비용을 중복 적용하거나 다음 구간으로 올리지 않는다',()=>{
@@ -16,7 +16,7 @@ test('50·100·200·300명 경계에서 비용을 중복 적용하거나 다음 
     const q=C.quote(n);
     assert.equal(q.ok,true);
     assert.equal(q.fee,fee,`${n}명 비용`);
-    assert.equal(q.total,total,`${n}명 총액`);
+    assert.equal(q.total,total+Math.round(total/10),`${n}명 총액`);
   }
 });
 
@@ -38,8 +38,8 @@ test('고객 안내문과 문의 내역에 동일한 인원·비용·부가세 �
     assert.match(text,/50명/);
     assert.match(text,/1,750,000원/);
     assert.match(text,/200,000원/);
-    assert.match(text,/1,950,000원/);
-    assert.match(text,/부가세 적용 여부/);
+    assert.match(text,/1,950,000원/);assert.match(text,/195,000원/);assert.match(text,/2,145,000원/);
+    assert.match(text,/부가세 10%/);
   }
   for(const menu of C.data.course.menus) assert(customer.includes(menu),menu);
   assert.match(customer,/010-8540-1886/);
@@ -69,7 +69,7 @@ test('도시락과 박스는 50·100·200·300명 경계에서 각각 10만·15�
   for(const format of ['lunchbox','box'])for(const [people,fee] of [[1,100000],[50,100000],[100,100000],[101,150000],[200,150000],[201,200000],[300,200000]]){
     const q=C.quote(people,format);
     assert.equal(q.fee,fee,`${format} ${people}명`);
-    assert.equal(q.total,people*35000+fee);
+    assert.equal(q.supply,people*35000+fee);assert.equal(q.total,Math.round((people*35000+fee)*1.1));
     assert.equal(q.feeName,'출장·세팅 비용');
     assert(C.customerText(people,format).includes(C.won(q.total)));
     assert(C.inquiryText(people,format).includes(C.won(fee)));

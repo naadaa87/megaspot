@@ -682,7 +682,7 @@
     return rows;
   }
   var R=null;
-  function quoteVatNote(){ return R && R.extras.some(function(x){ return x.kind==='reception'||(x.kind==='cocktail'&&!(x.cocktail&&x.cocktail.vat_excluded)); })?'공간·뷔페 부가세 포함 · 미확정 식음료 부가세 확인 필요':R&&R.extras.some(function(x){return x.kind==='cocktail';})?'부가세 포함 (칵테일 판매가 + 부가세 10% 반영)':D.vatNote; }
+  function quoteVatNote(){ return R && R.extras.some(function(x){ return (x.kind==='reception'&&!(x.reception&&x.reception.vat_excluded))||(x.kind==='cocktail'&&!(x.cocktail&&x.cocktail.vat_excluded)); })?'공간·뷔페 부가세 포함 · 미확정 식음료 부가세 확인 필요':R&&R.extras.some(function(x){return x.kind==='cocktail';})?'부가세 포함 (칵테일 판매가 + 부가세 10% 반영)':D.vatNote; }
   function calc(){
     if(!E||!D){ $('#q-result').innerHTML='<div class="empty">요금표를 불러오지 못했습니다.</div>'; return; }
     readForm(); R=compute(); if(!R) return;
@@ -819,7 +819,7 @@
     R.extras.forEach(function(x){
       var service=(x.kind==='catering'||x.kind==='cocktail')&&x[x.kind]?{...x[x.kind],kind:x.kind,amount:x.amount,included:true}:null;
       var rec=x.kind==='reception'&&window.MEGASPOT_RECEPTION_CALC.forDocument(x.reception,x.amount),detail='';
-      if(rec){detail='식사 '+(rec.people?rec.people+'명':'인원 상담')+' · '+rec.formatName;if(rec.unitPrice!=null)detail+='\n1인 '+won(rec.unitPrice)+' × '+rec.people+'명 = '+won(rec.food);if(rec.fee!=null)detail+='\n'+rec.feeName+' '+won(rec.fee);detail+='\n부가세 적용 여부 확인 전';}
+      if(rec){detail='식사 '+(rec.people?rec.people+'명':'인원 상담')+' · '+rec.formatName;if(rec.unitPrice!=null)detail+='\n1인 '+won(rec.unitPrice)+' × '+rec.people+'명 = '+won(rec.food);if(rec.fee!=null)detail+='\n'+rec.feeName+' '+won(rec.fee);detail+=rec.vat_excluded===true?(rec.supply!=null&&rec.vat!=null?'\n공급가액 '+won(rec.supply)+' + 부가세 10% '+won(rec.vat)+' · 부가세 포함':'\n부가세 포함'):'\n이전 저장 금액 · 부가세 조건 확인 필요';}
       if(service)detail=window.MEGASPOT_FOOD_SERVICES.rows(service,true).map(function(r){return r[0]+': '+r[1];}).join('\n');
       rows+='<tr><td>'+esc(rec?'케이터링 · '+rec.courseName:service?(service.kind==='catering'?'출장뷔페':'출장 칵테일'):x.label)+'</td><td>'+esc(detail).replace(/\n/g,'<br>')+'</td><td>'+(x.amount<0?'−'+esc(won(-x.amount)):esc(won(x.amount)))+'</td></tr>';
     });
@@ -1577,7 +1577,7 @@
     var o=iq.options||{}; Object.keys(o).forEach(function(k){ var v=o[k]; if(!v) return; L.push((OPTL[k]||k)+(v&&typeof v==='object'?' '+(v.count||1)+'명 × '+(v.hours||1)+'시간':'')); });
     if(D && D.included) L.push(D.included.slice(0,4).map(function(x){ return x.label; }).join('·')+' 기본 제공');
     var nm=iq.name||bk.name||'';
-    return { customer: nm+(iq.org&&nm.indexOf(iq.org)<0?' ('+iq.org+')':''), event: PUR[iq.purpose]||'', time_note:'', show_amount:r.document_preferences?r.document_preferences.show_amount!==false:r.doc?.show_amount!==false, amount: bk.amount==null?null:bk.amount, amount_note:iq.included_reception_amount?'공간·뷔페 부가세 포함 · 케이터링 부가세 확인 전':iq.included_cocktail_amount&&!(iq.cocktail&&iq.cocktail.vat_excluded)?'이전 저장 금액 · 칵테일 부가세 조건 확인 필요':'부가세 포함',
+    return { customer: nm+(iq.org&&nm.indexOf(iq.org)<0?' ('+iq.org+')':''), event: PUR[iq.purpose]||'', time_note:'', show_amount:r.document_preferences?r.document_preferences.show_amount!==false:r.doc?.show_amount!==false, amount: bk.amount==null?null:bk.amount, amount_note:iq.included_reception_amount&&!(iq.reception&&iq.reception.vat_excluded)?'이전 저장 금액 · 케이터링 부가세 조건 확인 필요':iq.included_cocktail_amount&&!(iq.cocktail&&iq.cocktail.vat_excluded)?'이전 저장 금액 · 칵테일 부가세 조건 확인 필요':'부가세 포함',
       pay_status:r.settlement?(r.settlement.status==='unpriced'?'pending':r.settlement.status):'pending',paid:bk.paid_amount||0, deposit: D?D.deposit.amount:150000, items:L, note:'' };
   }
   function cdFill(v){
@@ -1941,7 +1941,7 @@
     }
     setQuoteHistorical(false);Q.receptionExcluded=false;Q.extras=Q.extras.filter(function(x){ return x.kind!=='reception'; });
     Q.note=Q.note.split('\n').filter(function(line){return line.indexOf('케이터링 상담 필요: ')!==0;}).join('\n');
-    Q.extras.push({kind:'reception',label:'도시락·핑거푸드 케이터링 · '+quote.formatName+' '+quote.courseName+' '+quote.people+'명 (세팅비 포함 · 부가세 확인 전)',amount:quote.total,reception:Object.assign({},quote,config)});
+    Q.extras.push({kind:'reception',label:'도시락·핑거푸드 케이터링 · '+quote.formatName+' '+quote.courseName+' '+quote.people+'명 (세팅비·부가세 포함)',amount:quote.total,reception:Object.assign({},quote,config)});
     invalidateQuote(); fillForm(); go('quote'); M.toast('케이터링 '+won(quote.total)+'을(를) 대관 견적에 넣었습니다. 견적 저장을 눌러 문의에도 반영해 주세요.');
     return Promise.resolve(true);
   }

@@ -19,7 +19,7 @@ test('all 57 reception costs are filled, margins calculated and fees use user-co
  for(const [id,cost,sale,margin] of [['course.classic',30000,35000,5000],['menu.01',2800,3700,900],['menu.15',2600,3400,800],['menu.16',60000,78000,18000],['menu.24',12000,15600,3600],['menu.39',70000,91000,21000],['menu.42',120000,156000,36000],['fee.table.50',200000,200000,0]]){const row=r.rows.find(r=>r.id===id);assert.equal(row.vendor_supply,cost,id);assert.equal(row.sale_price,sale,id);assert.equal(row.margin,margin,id);assert.equal(row.margin_rate,margin/sale,id);}
  for(const row of r.rows.filter(r=>r.id.startsWith('fee.')))assert.equal(row.margin,0,row.id);
  const pub=publicFoodPricing({service:'reception',rows:r.rows});assert(!/vendor_supply|source_page|마진|margin/.test(JSON.stringify(pub)));
- const data=foodPricingData('reception',{service:'reception',rows:r.rows}),quote=C.create(data).quote(50,'table','classic');assert.equal(quote.total,1950000);
+ const data=foodPricingData('reception',{service:'reception',rows:r.rows}),quote=C.create(data).quote(50,'table','classic');assert.equal(quote.total,2145000);
  const template=readFileSync(new URL('../assets/docs/megaspot-reception-pricing-template.pdf',import.meta.url));const snapshot=readFileSync(new URL('../assets/docs/megaspot-reception-guide.pdf',import.meta.url));assert.deepEqual(Buffer.from(buildFoodPdf(template,'reception',pub)),snapshot);
 });
 test('manually saved supplier and sale prices (including zero/blank costs) remain editable and persist',async()=>{

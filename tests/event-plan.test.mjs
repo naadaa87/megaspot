@@ -43,7 +43,7 @@ test('통합 견적 소계와 접수 요약이 선택한 케이터링 방식별 
  for(const [format,fee] of [['lunchbox',100000],['box',100000],['table',200000]]){
   const f=fixture();f.reception(format);
   const rec=f.plan.reception(f.root,50);
-  assert.equal(rec.total,1750000+fee);
+  assert.equal(rec.total,1750000+fee+Math.round((1750000+fee)/10));assert.match(rec.note,/부가세 10%/);
   assert(rec.summary.includes(RC.won(fee)));
   assert(rec.summary.includes(RC.won(rec.total)));
   const q=f.plan.quote(f.root,{total:500000,deposit:150000,people:50});
