@@ -10,7 +10,7 @@ export function foodHtml(html,path,rates){
  // Protect inserted amounts from the legacy per-course substitutions below.
  html=html.replace(/25,000원부터/g,()=>keep(comma(rmin))+'원부터');
  html=html.replace(/(<div class="hero-mega"><span><b>)25,000(?=<\/b>원부터)/g,(_,prefix)=>prefix+keep(comma(rmin)));
- html=html.replace(/(코스별 1인 가격\()35,000(?=원부터, 부가세 별도)/g,(_,prefix)=>prefix+keep(comma(cmin)));
+ html=html.replace(/(코스별 1인 가격\()[\d,]+(?=원부터, 부가세 별도)/g,(_,prefix)=>prefix+keep(comma(cmin)));
  function money(s,map){return s.replace(/\d[\d,]*(?=원|<)/g,v=>Object.prototype.hasOwnProperty.call(map,v)?keep(comma(map[v])):v);}
  if(path.startsWith('/catering')){
   html=html.replace(/(<div class="hero-mega" aria-label="핵심 정보"><span>1인 <b>)[\d,]+/,(_,prefix)=>prefix+keep(comma(cmin)));
@@ -21,8 +21,8 @@ export function foodHtml(html,path,rates){
    html=html.replace(new RegExp('<details class="cat-course" id="course-'+c.id+'"[\\s\\S]*?<\\/details>','g'),s=>money(s,map));
   }
   for(const b of CATERING.bbq.rows){const sale=cp['bbq.'+b.id];html=html.replace(new RegExp('<tr><th scope="row">'+b.size+'<\\/th>[\\s\\S]*?<\\/tr>','g'),s=>money(s,{[comma(b.price)]:sale,[comma(Math.round(b.price*1.1))]:Math.round(sale*1.1)}));}
-  const net=cp['course.classic']*60+cp.delivery,gross=net+Math.round(net/10);
-  Object.assign(defaults,{'2,400,000':cp['course.classic']*60,'2,500,000':net,'250,000':Math.round(net/10),'2,750,000':gross,'45,800':Math.round(gross/60/100)*100,'100,000':cp.delivery,'120,000':cp.beer,'132,000':cp.beer+Math.round(cp.beer/10)});
+  const net=cp['course.classic']*60+cp.delivery,gross=net+Math.round(net/10),baseFood=CATERING.courses.find(c=>c.id==='classic').price*60,baseNet=baseFood+CATERING.delivery.fee,baseGross=baseNet+Math.round(baseNet/10);
+  Object.assign(defaults,{[comma(baseFood)]:cp['course.classic']*60,[comma(baseNet)]:net,[comma(Math.round(baseNet/10))]:Math.round(net/10),[comma(baseGross)]:gross,[comma(Math.round(baseGross/60/100)*100)]:Math.round(gross/60/100)*100,'100,000':cp.delivery,'120,000':cp.beer,'132,000':cp.beer+Math.round(cp.beer/10)});
   html=html.replace(/특선 갈비탕 상차림\(1인 40,000원\)/g,'특선 갈비탕 상차림(1인 '+keep(comma(cp['course.galbi']))+'원)');
   const drinks=[];html=html.replace(/<!-- drinks-summary:start -->[\s\S]*?<!-- drinks-summary:end -->/g,s=>{drinks.push(s);return '@@DRINKS'+(drinks.length-1)+'@@';});
   html=money(html,defaults).replace(/@@DRINKS(\d+)@@/g,(_,i)=>drinks[+i]);

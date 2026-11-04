@@ -527,7 +527,7 @@ window.MEGASPOT_CATERING = {
   minPeople: 20,
   courses: [
     { id: 'small', name: '소규모 스페셜', tag: '20·30인 정액', kind: 'flat', dishes: 40,
-      tiers: [{ people: 20, price: 1100000 }, { people: 30, price: 1350000 }],
+      tiers: [{ people: 20, price: 1200000 }, { people: 30, price: 1500000 }],
       min: 20, max: 30, live: '', drink: false,
       summary: '인원이 적어도 프리미엄 코스와 같은 요리 40종이 그대로 나오는 정액 구성입니다.',
       note: '음료수와 즉석 코너는 포함되지 않습니다.',
@@ -538,7 +538,7 @@ window.MEGASPOT_CATERING = {
         salad: ['케이준샐러드', '꽃맛살샐러드', '해산물샐러드', '단호박샐러드'],
         dessert: ['신선한 계절과일 모둠 3종', '모둠조각케익', '전통 모둠떡 3종']
       } },
-    { id: 'basic', name: '베이직', tag: '식사 위주 실속', kind: 'per', price: 35000, min: 40, dishes: 30, drink: true, liveMin: 100,
+    { id: 'basic', name: '베이직', tag: '식사 위주 실속', kind: 'per', price: 40000, min: 40, dishes: 30, drink: true, liveMin: 100,
       live: '잔치국수 / 메밀국수 (택1)',
       summary: '든든한 식사 위주로 구성한 실속 코스입니다. 회는 참치·연어 모둠회로 나옵니다.',
       menu: {
@@ -548,7 +548,7 @@ window.MEGASPOT_CATERING = {
         salad: ['토마토바질샐러드', '케이준샐러드', '그린샐러드'],
         dessert: ['계절과일 모둠 3종', '모둠조각케익', '전통 모둠떡 3종', '음료수']
       } },
-    { id: 'classic', name: '클래식', tag: '가장 많이 찾는 구성', kind: 'per', price: 40000, min: 40, dishes: 34, drink: true, liveMin: 100, popular: true,
+    { id: 'classic', name: '클래식', tag: '가장 많이 찾는 구성', kind: 'per', price: 45000, min: 40, dishes: 34, drink: true, liveMin: 100, popular: true,
       live: '양념 목살구이 · 잔치국수 / 메밀국수 (택1) — 조리사 지원',
       summary: '베이직에 왕새우튀김·로제햄버거스테이크·해파리냉채 등이 더해진 균형 잡힌 코스입니다.',
       menu: {
@@ -558,7 +558,7 @@ window.MEGASPOT_CATERING = {
         salad: ['케이준샐러드', '꽃맛살샐러드', '그린샐러드'],
         dessert: ['신선한 계절과일 모둠 3종', '모둠조각케익', '전통 모둠떡 3종', '음료수']
       } },
-    { id: 'deluxe', name: '디럭스', tag: '한식·구이 강화', kind: 'per', price: 45000, min: 40, dishes: 38, drink: true, liveMin: 100,
+    { id: 'deluxe', name: '디럭스', tag: '한식·구이 강화', kind: 'per', price: 50000, min: 40, dishes: 38, drink: true, liveMin: 100,
       live: '스테이크 · 모둠튀김 3종 · 잔치국수 / 메밀국수 (택1)',
       summary: '모둠전·한방도가니탕·가오리찜 등 한식과 구이가 늘어난 코스입니다.',
       menu: {
@@ -568,7 +568,7 @@ window.MEGASPOT_CATERING = {
         salad: ['케이준샐러드', '그린샐러드', '꽃맛살샐러드'],
         dessert: ['신선한 계절과일 모둠 3종', '모둠조각케익', '전통 모둠떡 3종', '음료수']
       } },
-    { id: 'premium', name: '프리미엄', tag: '메인 요리 17종', kind: 'per', price: 50000, min: 40, dishes: 41, drink: true, liveMin: 100,
+    { id: 'premium', name: '프리미엄', tag: '메인 요리 17종', kind: 'per', price: 55000, min: 40, dishes: 41, drink: true, liveMin: 100,
       live: '스테이크 · 모둠튀김 3종 · 잔치국수 / 메밀국수 (택1)',
       summary: '연어스테이크·장어데리야끼 등 메인 요리가 17종으로 늘고, 샐러드도 4종이 나옵니다.',
       menu: {
@@ -578,7 +578,7 @@ window.MEGASPOT_CATERING = {
         salad: ['케이준샐러드', '꽃맛살샐러드', '해산물샐러드', '단호박샐러드'],
         dessert: ['신선한 계절과일 모둠 3종', '모둠조각케익', '전통 모둠떡 3종', '음료수']
       } },
-    { id: 'signature', name: '시그니처', tag: '활어회·스테이크', kind: 'per', price: 55000, min: 40, dishes: 47, drink: true, liveMin: 100,
+    { id: 'signature', name: '시그니처', tag: '활어회·스테이크', kind: 'per', price: 60000, min: 40, dishes: 47, drink: true, liveMin: 100,
       live: '스테이크 · 모둠튀김 3종 · 잔치국수 / 메밀국수 (택1)',
       summary: '활어회·등심찹스테이크·멘보샤까지 더한, 47종의 가장 풍성한 뷔페 코스입니다.',
       menu: {
@@ -588,7 +588,7 @@ window.MEGASPOT_CATERING = {
         salad: ['케이준샐러드', '해산물 샐러드', '단호박샐러드', '꽃맛살샐러드'],
         dessert: ['신선한 계절과일 모둠 3종', '모둠조각케익', '모둠떡 3종', '음료수']
       } },
-    { id: 'vip', name: 'VIP 스페셜', tag: '즉석 요리 포함', kind: 'per', price: 85000, min: 50, dishes: 40, drink: true, liveMin: 50,
+    { id: 'vip', name: 'VIP 스페셜', tag: '즉석 요리 포함', kind: 'per', price: 90000, min: 50, dishes: 40, drink: true, liveMin: 50,
       live: '안심스테이크(120g) · 프라임급 LA갈비구이 · 활어회 · 민물장어구이 · 잔치국수 / 메밀국수 (택1)',
       summary: '킹크랩·삼선해물탕에 안심스테이크·LA갈비·민물장어를 현장에서 바로 내는 VIP 행사용 코스입니다.',
       note: '50인 이상 행사 기준입니다.',
@@ -600,21 +600,21 @@ window.MEGASPOT_CATERING = {
         dessert: ['계절과일 4종', '전통모듬떡 3종 (두텁떡·절편·바람떡)', '모듬페스츄리', '전통수정과', '음료수', '커피']
       } },
     // ----- 다과·리셉션 · 한식 상차림 (group: 'light') — 뷔페 코스와 같은 방식(1인 가격 × 인원)으로 계산합니다 -----
-    { id: 'partyA', group: 'light', name: '다과 파티 A', tag: '리셉션·네트워킹', kind: 'per', price: 28000, min: 20, dishes: 14, drink: true, live: '',
+    { id: 'partyA', group: 'light', name: '다과 파티 A', tag: '리셉션·네트워킹', kind: 'per', price: 33000, min: 20, dishes: 14, drink: true, live: '',
       summary: '카나페·모둠초밥·탕수육 같은 한입 파티 요리 14종에 커피·녹차·탄산음료·주스가 함께 나오는 가벼운 리셉션 구성입니다.',
       note: '식사보다는 서서 오가며 드시는 행사에 맞습니다. 인원과 일정에 따라 가능 여부를 확인해 드립니다.',
       menu: {
         party: ['카레바베큐치킨', '오믈렛', '감자크로케', '과일타르트와 땅콩타르트', '모둠초밥', '수제 광동식 탕수육', '치킨가라아게', '야채오색김밥', '토마토카프레제', '모둠떡', '카나페', '모둠조각케익', '컵과일', '호밀빵'],
         drinks: ['녹차', '커피', '사이다·콜라', '오렌지주스']
       } },
-    { id: 'partyB', group: 'light', name: '다과 파티 B', tag: '리셉션·네트워킹', kind: 'per', price: 30000, min: 20, dishes: 17, drink: true, live: '',
+    { id: 'partyB', group: 'light', name: '다과 파티 B', tag: '리셉션·네트워킹', kind: 'per', price: 35000, min: 20, dishes: 17, drink: true, live: '',
       summary: '다과 파티 A에 베이컨말이·왕새우튀김·3색 마카롱·케이준치킨샐러드가 더해진 17종 구성으로, 매실주스까지 음료 5가지가 나옵니다.',
       note: '식사보다는 서서 오가며 드시는 행사에 맞습니다. 인원과 일정에 따라 가능 여부를 확인해 드립니다.',
       menu: {
         party: ['카레바베큐치킨', '오믈렛', '감자크로케', '과일타르트와 땅콩타르트', '모둠초밥', '치킨가라아게', '베이컨말이', '왕새우튀김', '수제 광동식 탕수육', '카나페', '토마토카프레제', '3색 마카롱', '모둠조각케익', '컵과일', '케이준치킨샐러드', '모둠떡', '호밀빵'],
         drinks: ['녹차', '커피', '사이다·콜라', '오렌지주스', '매실주스']
       } },
-    { id: 'galbi', group: 'light', name: '특선 갈비탕 상차림', tag: '한식 한 상', kind: 'per', price: 40000, min: 20, dishes: 16, drink: false, live: '',
+    { id: 'galbi', group: 'light', name: '특선 갈비탕 상차림', tag: '한식 한 상', kind: 'per', price: 45000, min: 20, dishes: 16, drink: false, live: '',
       summary: '인삼우 갈비탕과 흰밥에 모둠전·훈제연어·도미회·육회, 김치와 잡채까지 곁들이는 한식 식사입니다. 어르신이 많은 행사나 총회 뒤 식사에 잘 맞습니다.',
       note: '인원과 일정에 따라 가능 여부를 확인해 드립니다.',
       menu: {
@@ -649,12 +649,14 @@ window.MEGASPOT_CATERING = {
     { k: '세팅·수거', d: '뷔페 테이블 세팅과 행사 후 수거까지 진행합니다.' },
     { k: '아이스버킷', d: '50인 이상 행사에는 음료용 아이스버킷을 함께 드립니다.' },
     { k: '즉석 코너', d: '100인 이상 행사에는 코스별 즉석 코너(국수·구이·스테이크 등)를 현장에서 운영합니다.' },
-    { k: '메뉴 조정', d: '계절과 식재료 수급에 따라 일부 메뉴는 같은 급의 다른 요리로 바뀔 수 있고, 회·초밥·전은 규모에 따라 모둠으로 나옵니다.' }
+    { k: '메뉴 조정', d: '메뉴는 계절과 식재료 수급에 따라 일부 달라질 수 있습니다. 원하시는 특정 메뉴가 있다면 상담을 통해 변경 가능합니다. 회·초밥·전은 규모에 따라 모둠으로 나옵니다.' }
   ],
   // 행사 소품 (비용은 상담 후 안내)
   props: ['테이프 커팅 세트 (스탠드봉·오색 테이프·가위·장갑·코사지)', '케이크 커팅 세트 (3단 케이크·샴페인·샴페인 잔)', '얼음조각', '생맥주·칵테일바', '접수대·방명록', '현수막'],
   groups: { buffet: '뷔페 코스', light: '다과·리셉션 · 한식 상차림' },
   menuLabels: { hot: '더운 요리', cold: '찬 요리', korean: '한식 요리', salad: '샐러드', dessert: '디저트·음료', party: '파티 요리', drinks: '다과 음료' }
 };
+
+if(typeof window!=='undefined'&&window.MEGASPOT_FOOD_PRICING)window.MEGASPOT_FOOD_PRICING.apply('catering',window.MEGASPOT_CATERING,(window.MEGASPOT_FOOD_RATES||{}).catering);
 
 return window.MEGASPOT_CATERING; })();

@@ -17,10 +17,10 @@ test('changed selling prices reach shared FAQ, structured FAQ and cross-service 
  reception.rows=reception.rows.map(row=>({...row,sale_price:prices[row.id]??row.sale_price}));
  const rates={catering:publicFoodPricing(catering),reception:publicFoodPricing(reception)};
  const guide=foodHtml(source('guide/index.html'),'/guide/',rates);
- assert(guide.includes('코스별 1인 가격(45,000원부터, 부가세 별도)'));
+ assert(guide.includes('코스별 1인 가격(50,000원부터, 부가세 별도)'));
  const graph=JSON.parse(guide.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1])['@graph'];
  const food=graph.find(item=>item['@type']==='FAQPage').mainEntity.find(item=>item.name==='음식과 주류를 가져가도 되나요?');
- assert(food.acceptedAnswer.text.includes('45,000원부터'));
+ assert(food.acceptedAnswer.text.includes('50,000원부터'));
  for(const page of ['guide','catering','reception']){
   const html=foodHtml(source(page+'/index.html'),'/'+page+'/',rates);
   assert(html.includes('35,000원부터 · 핑거푸드·파티'),page+' navigation');
