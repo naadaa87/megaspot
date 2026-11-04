@@ -1,0 +1,26 @@
+[Unit]
+Description=Megaspot server parking registration
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=simple
+User=megaspot-aligo
+Group=megaspot-aligo
+WorkingDirectory=/opt/megaspot-amano
+EnvironmentFile=/etc/megaspot-aligo.env
+Environment=PORT=8788
+Environment=AMANO_STATE_DIR=/var/lib/megaspot-amano
+ExecStart=/usr/bin/node /opt/megaspot-amano/server.mjs
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+StateDirectory=megaspot-amano
+StateDirectoryMode=0700
+ReadWritePaths=/var/lib/megaspot-amano
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+[Install]
+WantedBy=multi-user.target
