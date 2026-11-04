@@ -26,6 +26,26 @@
   return {closed:closed,invalid:bad,conflict:data.intervals.some(function(it){return it.space===c.space&&start<Date.parse(it.end)&&Date.parse(it.start)<end;}),unknown:data.unknownDates.some(function(it){return it.space===c.space&&dayMs(it.date)<end&&dayMs(add(it.date,1))>start;})};
  }
  function checkRange(c,fresh){if(!validDate(c.date))return Promise.reject(Error('날짜를 확인해 주세요.'));return loadRange(add(c.date,-1),add(c.date,2),fresh).then(function(data){return selection(data,c);});}
+ // Reuse the public occupancy model for inline estimates and actionable alternatives.
+ function inspectRange(c,fresh){
+  if(!validDate(c.date))return Promise.reject(Error('날짜를 확인해 주세요.'));
+  return loadRange(add(c.date,-1),add(c.date,2),fresh).then(function(data){
+   var status=selection(data,c),start=dayMs(c.date)+c.start*HOUR,end=dayMs(c.date)+c.end*HOUR,duration=c.end-c.start,suggestions=[];
+   if(!status.invalid&&(status.conflict||status.unknown||status.closed)){
+    var other=rooms.find(function(r){return r.id!==c.space;}),otherChoice=Object.assign({},c,{space:other.id}),v=selection(data,otherChoice);
+    if(!v.closed&&!v.invalid&&!v.conflict&&!v.unknown)suggestions.push(otherChoice);
+    var candidates=[];
+    for(var h=5;!status.unknown&&h+duration<=31;h++){
+     if(h===c.start)continue;
+     var candidate=Object.assign({},c,{start:h,end:h+duration}),check=selection(data,candidate);
+     if(!check.closed&&!check.invalid&&!check.conflict&&!check.unknown)candidates.push(candidate);
+    }
+    candidates.sort(function(a,b){return Math.abs(a.start-c.start)-Math.abs(b.start-c.start)||a.start-b.start;});
+    suggestions=suggestions.concat(candidates.slice(0,3));
+   }
+   return {status:status,conflicts:data.intervals.filter(function(it){return it.space===c.space&&start<Date.parse(it.end)&&Date.parse(it.start)<end;}),suggestions:suggestions};
+  });
+ }
  function inquiryUrl(c){return '/inquiry/?'+new URLSearchParams({space:c.space,date:c.date,start:c.start,end:c.end})+'#reserve';}
  function mount(root,options){
   options=options||{};var inEstimate=!!options.embedded,applyLabel=inEstimate?'선택한 일정을 견적에 적용 →':'이 일정으로 견적 계산 →';var date=validDate(options.date)&&options.date>=today()?options.date:today(),maxMonth=shiftMonth(month(today()),11);
@@ -105,7 +125,7 @@
   dialog.querySelector('.rc-close').onclick=function(){dialog.close();};dialog.addEventListener('click',function(e){if(e.target===dialog){var r=dialog.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)dialog.close();}});
   dialog.addEventListener('close',function(){panel.destroy();document.body.classList.remove('rc-calendar-open');dialog.remove();if(opener&&opener.isConnected)opener.focus({preventScroll:true});},{once:true});dialog.showModal();
  }
- M.reservations={open:open,mount:mount,checkRange:checkRange,inquiryUrl:inquiryUrl};
+ M.reservations={open:open,mount:mount,checkRange:checkRange,inspectRange:inspectRange,inquiryUrl:inquiryUrl};
  function boot(){document.querySelectorAll('[data-reservation-calendar]').forEach(function(root){var q=new URLSearchParams(location.search);mount(root,{space:q.get('space'),date:q.get('date'),start:q.get('start'),end:q.get('end')});});}
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })();
