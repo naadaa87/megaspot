@@ -201,7 +201,7 @@
   }
 
   /* ---------- 문의서·카카오톡용 요약 글 ---------- */
-  function summaryText(r, purposeLabel){
+  function summaryText(r, purposeLabel, adjustment){
     if (!r) return '';
     var D = P(), L = [];
     L.push('[' + (D.spaceName || '메가스팟 건대 1호') + ' 예상 금액] ' + r.version);
@@ -219,7 +219,13 @@
     if (r.peopleFee) L.push('인원 추가 ' + r.peopleExtra + '명 × ' + won(D.people.extra) + ' = ' + won(r.peopleFee));
     r.options.forEach(function(o){ L.push(o.label + ' ' + o.qty + ' = ' + won(o.amount)); });
     L.push('--------------------');
-    L.push('합계 ' + won(r.total) + ' (' + D.vatNote.replace('표시 금액은 ', '').replace(' 기준입니다.', '') + ')');
+    var adjusted = adjustment && Number(adjustment.base_total) === r.total && adjustment.total != null && isFinite(Number(adjustment.total)) && Number(adjustment.total) >= 0 && Number(adjustment.total) <= r.total;
+    var total = adjusted ? Number(adjustment.total) : r.total;
+    if (total < r.total){
+      L.push('요금표 기준 금액 ' + won(r.total));
+      L.push((adjustment.type === 'pct' ? adjustment.value + '% 할인' : '할인') + ' −' + won(r.total - total) + (adjustment.reason ? ' (' + adjustment.reason + ')' : ''));
+    }
+    L.push('합계 ' + won(total) + ' (' + D.vatNote.replace('표시 금액은 ', '').replace(' 기준입니다.', '') + ')');
     L.push('보증금 ' + won(r.deposit) + ' 별도 (이용 뒤 반환)');
     r.warnings.concat(r.notes).forEach(function(n){ L.push('※ ' + n); });
     return L.join('\n');

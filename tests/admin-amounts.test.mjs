@@ -161,7 +161,7 @@ test('수정 금액이 일자별 목록·월 소계·확정 금액 합계에 렌
   const items = (await api('reservations')).items;
   const nodes = {};
   const context = vm.createContext({ RS: { items, today: date, kind: 'all', undated: 0 }, E: null, E0: null, DOWK: ['일','월','화','수','목','금','토'],
-    $: sel => nodes[sel] ||= { innerHTML: '' }, $$: () => [], resvBase: () => items, resvFiltered: () => items,
+    $: sel => nodes[sel] ||= { innerHTML: '', value: '', classList: { toggle() {} } }, $$: () => [], resvBase: () => items, resvFiltered: () => items,
     waitOrder() {}, dLabel: () => '', esc: String, man: n => n + '원', won: n => n + '원',
     DEFAULT_SPACE: 'megaspot-gundae', SPACE_IDS: ['megaspot-gundae', 'megaspot-gundae-2'], useSpace: () => null, spaceTag: () => '', spKey: id => id === 'megaspot-gundae-2' ? id : 'megaspot-gundae',
     resvRow: it => '<tr><td>' + it.amount + '원</td></tr>' });

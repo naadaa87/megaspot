@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import vm from 'node:vm';
 import {fixture,DAY} from './helpers/admin-fixture.mjs';
+import Calculation from '../assets/js/quote-calculation.js';
 const source=readFileSync(new URL('../assets/js/pages/admin.js',import.meta.url),'utf8');
 const pricing=vm.createContext({window:{}});
 for(const file of ['data/holidays-kr.js','data/pricing-gundae.js','data/pricing-gundae2.js','pricing-engine.js'])vm.runInContext(readFileSync(new URL('../assets/js/'+file,import.meta.url),'utf8'),pricing);
@@ -93,4 +94,25 @@ test('어드민 요금 데이터와 계산기는 내용에 맞는 캐시 버전�
   const hash=createHash('sha256').update(readFileSync(new URL('../assets/js/'+file,import.meta.url))).digest('hex').slice(0,12);
   assert.ok(html.includes('/assets/js/'+file+'?v='+hash),file+'의 오래된 캐시를 사용하지 않음');
  }
+});
+
+test('자동 재계산 수정 저장 후 재조회 금액과 상세 계산 합계·할인·옵션이 일치하고 이름만 다시 저장해도 유지',async t=>{
+ const db=fixture();t.after(()=>db.db.close());const f=inquiryForm();
+ f.ctx.NW.repriceAdjustment={type:'pct',value:10,reason:'기존 할인'};
+ f.change('#nw-date','date','2026-12-18','input');f.people(300);f.option('cleaning',true);f.option('manager',true);
+ f.change('#nw-opts [data-nwmgr=count]','','2','input');f.change('#nw-opts [data-nwmgr=hours]','','6','input');
+ const q=f.ctx.NW.last,adjusted=f.ctx.nwAdjusted(q.total);let operation,sent;
+ f.ctx.M={validate:()=>true,formData:()=>({...db.data,name:'저장 조회 검증',date:f.$('#nw-date').value,start_h:f.$('#nw-start').value,end_h:f.$('#nw-end').value,headcount:f.$('#nw-people').value,space_id:f.$('#nw-space').value,total:f.$('#nw-total').value}),toast(){}};
+ f.ctx.spaceOk=id=>id;f.ctx.PUR={};f.ctx.closeDrawer=()=>{};f.ctx.refreshLists=()=>{};f.ctx.openInquiry=()=>{};f.ctx.note=()=>{};f.ctx.guard=()=>false;
+ f.$('#nw-form').querySelector=()=>({disabled:false});
+ f.ctx.A=(path,opts)=>{sent=opts.body;operation=db.api(path.replace(/^\//,''),opts.method,opts.body);return operation;};
+ vm.runInContext(source.slice(source.indexOf("  $('#nw-form').addEventListener('submit'"),source.indexOf('  /* =================== 견적 계산')),f.ctx);
+ f.$('#nw-form').events.submit({preventDefault(){},target:f.$('#nw-form')});await operation;
+ let stored=await db.api('inquiries/MS-TEST'),view=Calculation.inquiry(stored.item,stored.quotes);
+ assert.equal(sent.amount_mode,'auto');assert.equal(stored.item.data.total,adjusted.total);assert.equal(stored.item.headcount,300);assert.equal(stored.item.space_id,'megaspot-gundae-2');
+ assert.equal(stored.item.data.price_adjustment.discount,adjusted.discount);assert.match(view.text,/300명/);assert.match(view.text,/2명 × 6시간/);assert.match(view.text,/청소/);
+ assert.ok(view.text.includes('합계 '+adjusted.total.toLocaleString('ko-KR')+'원'),'상세의 합계도 할인 후 저장 금액이어야 함');
+ assert.ok(view.text.includes(adjusted.discount.toLocaleString('ko-KR')+'원'),'상세에 적용한 할인 내역 표시');
+ const original=view.text;f.state.mode='keep';f.$('#nw-form').events.submit({preventDefault(){},target:f.$('#nw-form')});await operation;
+ stored=await db.api('inquiries/MS-TEST');assert.equal(stored.item.data.total,adjusted.total);assert.equal(Calculation.inquiry(stored.item,stored.quotes).text,original);
 });
