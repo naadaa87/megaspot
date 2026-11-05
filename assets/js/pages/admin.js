@@ -239,14 +239,30 @@
 
   /* =================== 문의 목록 =================== */
   var inqCache=[], inqRequest=0;
+  var inqSearch={query:'',phase:'ready',count:0};
+  function updateInqSearch(){
+    var draft=$('#inq-q').value.trim(), query=inqSearch.query, active=!!(draft||query), summary='', hint='검색어에 맞는 문의만 표시 중입니다.';
+    $('#inq-search').classList.toggle('is-active',active);
+    $('#inq-search-clear').disabled=!active;
+    $('#inq-search-status').hidden=!active;
+    if(query){
+      summary=(inqSearch.phase==='loading'?'검색 중':inqSearch.phase==='error'?'검색 실패':'검색 적용 중')+' · “'+query+'”'+(inqSearch.phase==='ready'?' · 결과 '+inqSearch.count+'건':'');
+      if(inqSearch.phase==='error')hint='다시 검색하거나 검색 초기화를 눌러 주세요.';
+    }else if(draft){summary='검색어 입력 중 · “'+draft+'”';}
+    if(draft!==query)hint='검색칸을 변경했습니다. 검색 버튼이나 Enter를 누르면 새 조건을 적용합니다.';
+    $('#inq-search-summary').textContent=summary;
+    $('#inq-search-hint').textContent=hint;
+  }
   function loadInq(){
     var box=$('#inq-list'); box.innerHTML='<div class="empty small">불러오는 중…</div>';
-    var request=++inqRequest;
-    AList('/inquiries?status='+encodeURIComponent($('#inq-status').value)+'&type='+encodeURIComponent($('#inq-type').value)+'&ch='+encodeURIComponent($('#inq-ch').value)+'&q='+encodeURIComponent($('#inq-q').value.trim())).then(function(r){
+    var request=++inqRequest, query=$('#inq-q').value.trim();
+    inqSearch={query:query,phase:'loading',count:0}; updateInqSearch();
+    AList('/inquiries?status='+encodeURIComponent($('#inq-status').value)+'&type='+encodeURIComponent($('#inq-type').value)+'&ch='+encodeURIComponent($('#inq-ch').value)+'&q='+encodeURIComponent(query)).then(function(r){
       if(request!==inqRequest) return;
       inqCache=r.items||[];
+      inqSearch={query:query,phase:'ready',count:inqCache.length}; updateInqSearch();
       var keep={}; inqCache.forEach(function(it){ if(SEL[it.ref]) keep[it.ref]=1; }); SEL=keep;
-      if(!inqCache.length){ box.innerHTML='<div class="empty"><b>'+(delView()?'삭제된 문의가 없습니다':'표시할 문의가 없습니다')+'</b>'+(delView()?'<br><span class="small muted">문의를 삭제하면 지워지지 않고 여기에 보관됩니다.</span>':'')+'</div>'; selSync(); return; }
+      if(!inqCache.length){ box.innerHTML='<div class="empty"><b>'+(query?'검색어와 일치하는 문의가 없습니다':delView()?'삭제된 문의가 없습니다':'표시할 문의가 없습니다')+'</b>'+(query?'<br><span class="small muted">위의 검색 초기화 버튼을 눌러 검색어를 지울 수 있습니다.</span>':delView()?'<br><span class="small muted">문의를 삭제하면 지워지지 않고 여기에 보관됩니다.</span>':'')+'</div>'; selSync(); return; }
       box.innerHTML='<div class="tr th"><span class="tr-chk"><input type="checkbox" id="inq-sel-all" aria-label="목록 전체 선택"></span><span>문의</span><span>고객</span><span>행사 조건</span><span>상태</span><span>견적</span><span class="inq-memo-head">운영 메모</span></div>'+inqCache.map(function(it){
         var d=it.data||{}, late=it.status==='문의 접수'&&hoursSince(it.created_at)>=24;
         var time=timeText(d,'–');
@@ -258,7 +274,7 @@
           +'<span class="inq-memo"><small class="inq-memo-label">운영 메모</small><span class="adm-operation-memo">'+esc(it.memo||'–')+'</span></span></div>';
       }).join('');
       selSync();
-    }).catch(function(e){ if(request===inqRequest) fail(box)(e); });
+    }).catch(function(e){ if(request===inqRequest){ inqSearch.phase='error'; updateInqSearch(); fail(box)(e); } });
   }
   /* 목록에서 선택한 문의 복사 · 여러 건 삭제 */
   var SEL={}, inqCopyBusy=false;
@@ -307,6 +323,8 @@
   $('#inq-ch').innerHTML=chOptions('', '모든 경로');
   $('#inq-reload').addEventListener('click', loadInq); $('#inq-status').addEventListener('change', loadInq); $('#inq-type').addEventListener('change', loadInq); $('#inq-ch').addEventListener('change', loadInq);
   $('#inq-q').addEventListener('keydown', function(e){ if(e.key==='Enter') loadInq(); });
+  $('#inq-q').addEventListener('input', updateInqSearch);
+  $('#inq-search-clear').addEventListener('click', function(){ $('#inq-q').value=''; loadInq(); $('#inq-q').focus(); });
   $('#inq-csv').addEventListener('click', function(){
     if(!inqCache.length){ M.toast('내려받을 문의가 없습니다. 먼저 목록을 불러오세요.'); return; }
     var cols=['문의번호','접수일시','상태','구분','유형','경로','유입','함께 알아보기','출장뷔페','이름','연락처','이메일','행사일','시작','종료','인원','목적','금액(원)','저장 견적(원)','회원','운영 메모'];

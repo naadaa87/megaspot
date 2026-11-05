@@ -52,7 +52,7 @@
 <link rel="stylesheet" href="/assets/css/admin-parking-alerts.css?v=20261104adminsms1">
 <link rel="stylesheet" href="/assets/css/admin-navigation.css?v=20261104navrelease3">
 <link rel="stylesheet" href="/assets/css/admin-booking-readiness.css?v=20261105readiness1">
-<link rel="stylesheet" href="/assets/css/admin-reservation-search.css?v=20261105search1">
+<link rel="stylesheet" href="/assets/css/admin-reservation-search.css?v=20261105inquirysearch1">
 </head>
 <body class="page-admin">
 <div id="admin-root">
@@ -170,9 +170,13 @@
         <select class="select" id="inq-status"><option value="open">진행 중 (접수~결제 대기)</option><option value="">전체 (삭제 제외)</option><option>문의 접수</option><option>조건 확인</option><option>견적 발송</option><option>결제 대기</option><option>예약 확정</option><option>이용 완료</option><option>취소·환불</option><option>대기 취소</option><option value="deleted">삭제된 문의 (보관함)</option></select>
         <select class="select" id="inq-type"><option value="">모든 유형</option><option value="event">행사 대관</option><option value="regular">정기·반복 모임</option><option value="partner">제휴·협력</option></select>
         <select class="select" id="inq-ch" aria-label="문의 경로"><option value="">모든 경로</option></select>
-        <input class="input" id="inq-q" placeholder="이름·연락처·이메일·문의번호">
-        <button class="btn btn-light btn-sm" type="button" id="inq-reload">검색</button>
+        <div class="rs-search" id="inq-search">
+          <input class="input" id="inq-q" placeholder="이름·연락처·이메일·문의번호" aria-label="문의 검색" aria-describedby="inq-search-status">
+          <button class="btn btn-light btn-sm" type="button" id="inq-reload">검색</button>
+          <button class="btn btn-light btn-sm" type="button" id="inq-search-clear" disabled>검색 초기화</button>
+        </div>
       </div>
+      <div class="rs-search-status" id="inq-search-status" role="status" aria-live="polite" aria-atomic="true" hidden><strong id="inq-search-summary"></strong><span id="inq-search-hint"></span></div>
       <div class="inq-bulk" id="inq-bulk" hidden><b id="inq-sel-n">0건 선택</b><button class="btn btn-primary btn-sm" type="button" id="inq-sel-copy" disabled>선택한 문의 복사</button><button class="btn btn-light btn-sm" type="button" id="inq-sel-clear">선택 해제</button><button class="btn btn-danger btn-sm" type="button" id="inq-sel-del">선택한 문의 삭제</button><button class="btn btn-primary btn-sm" type="button" id="inq-sel-restore" hidden>선택한 문의 복원</button></div>
       <div class="form-note" id="inq-bulk-msg" hidden></div>
       <div id="inq-list" class="adm-table"></div>
@@ -642,7 +646,7 @@
 <script src="/assets/js/cocktail-calc.js?v=20261104foodprices3"></script>
 <script src="/assets/js/inquiry-overview.js?v=20261104receptionvat1"></script>
 <script src="/assets/js/quote-calculation.js?v=20261105quotespace1"></script>
-<script src="/assets/js/pages/admin.js?v=20261105inquirysave1"></script>
+<script src="/assets/js/pages/admin.js?v=20261105inquirysearch1"></script>
 <script src="/assets/js/pages/admin-platform.js?v=20261102adminux1"></script>
 <script src="/assets/js/pages/admin-cocktail.js?v=20261104foodprices3"></script>
 <script src="/assets/js/pages/admin-food-pricing.js?v=20261104navrelease1"></script>
