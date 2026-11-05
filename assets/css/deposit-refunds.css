@@ -50,3 +50,17 @@
 #view-deposit-refunds .rf-toolbar>label{display:grid;gap:6px;font-size:13px;line-height:1.5;flex:1 1 180px;max-width:220px}
 #view-deposit-refunds .rf-toolbar .input,#view-deposit-refunds .rf-toolbar .select,#view-deposit-refunds .rf-toolbar .btn{height:44px;min-height:44px;margin:0}
 @media(max-width:600px){.rf-modal .rf-detail{padding:20px 16px}.rf-modal-head{padding:14px 16px}.rf-modal .rf-actions{grid-template-columns:minmax(0,1fr)}.rf-modal .rf-section{margin-top:20px;padding-top:18px}.rf-modal .rf-detail>h2{font-size:18px}.rf-modal .input{font-size:16px}}
+.rf-reminder-tools{padding:14px 16px;margin:14px 0;background:#f1f5ff;border:1px solid #ced9f4;border-radius:10px}
+.rf-reminder-tools p{font-size:13px;line-height:1.7;margin:0 0 12px}
+.rf-reminder-tools .rf-actions{align-items:center}
+.rf-reminder-choice{display:flex;align-items:flex-start;gap:10px;min-height:44px;padding:10px 0;line-height:1.6;font-size:14px}
+.rf-reminder-choice input{width:20px;height:20px;min-width:20px;flex-shrink:0;margin-top:2px}
+#view-deposit-refunds [data-rf-remind],#rf-reminder-tools .btn{min-height:44px;white-space:normal}
+#rf-reminder-dialog{width:min(720px,calc(100% - 16px));max-width:calc(100% - 16px)}
+#rf-reminder-dialog .rf-modal-head h2{font-size:17px;line-height:1.5}
+#rf-reminder-dialog .rf-modal-head .btn{min-width:52px;min-height:44px;flex-shrink:0}
+#rf-reminder-dialog .rf-reminder-preview{padding:16px 0;border-bottom:1px solid #dce0e5}
+#rf-reminder-dialog .rf-reminder-preview h3{font-size:16px;margin:0 0 8px}
+#rf-reminder-dialog .rf-reminder-preview p{font-size:14px;line-height:1.7;overflow-wrap:anywhere}
+#rf-reminder-dialog pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;font-size:14px;line-height:1.75;background:#f4f6f9;border-radius:8px;padding:14px}
+@media(max-width:600px){.rf-reminder-tools .rf-actions{display:grid;grid-template-columns:minmax(0,1fr)}#rf-reminder-dialog .rf-main-action,#view-deposit-refunds [data-rf-remind]{width:100%;min-height:44px;white-space:normal}#rf-reminder-dialog .rf-modal-head h2{font-size:16px}}

@@ -5,6 +5,7 @@ import {DEPOSIT_TEMPLATES as T,DEPOSIT_TEMPLATE_CODES as C} from './_deposit_tem
 import {refundAdmin,keyReady,eventTime,refundDate} from './_deposit_refunds.js';
 import {parkingSign} from './_parking_notifications.js';
 import {equalSecret} from './_payapp.js';
+import {accountReminderAdmin} from './_deposit_reminders.js';
 const KEY='deposit_alimtalk',parse=s=>{try{return JSON.parse(s||'{}')||{};}catch{return {};}};
 const changes=r=>Number(r?.meta?.changes??r?.changes??0),normalize=s=>String(s||'').replace(/\r\n/g,'\n');
 const kinds=Object.keys(T),format=n=>Number(n||0).toLocaleString('ko-KR');
@@ -18,11 +19,13 @@ async function template(env,s,kind){if(!configured(env)||!s.codes[kind])throw Er
 const usable=(kind,t)=>t?.inspStatus==='APR'&&['A','R'].includes(t.status)&&depositTemplateMatches(kind,t);
 async function approvals(env,s){const out=[];for(const kind of kinds){try{const t=await template(env,s,kind);out.push({kind,name:T[kind].name,code:s.codes[kind],review:t?.inspStatus||'missing',matches:depositTemplateMatches(kind,t),ready:usable(kind,t)});}catch{out.push({kind,name:T[kind].name,code:s.codes[kind],review:'unavailable',matches:false,ready:false});}}return out;}
 async function tested(env,kind,hash){return !!await env.DB.prepare("SELECT id FROM deposit_notifications WHERE mode='test' AND kind=? AND status='delivered' AND config_hash=? LIMIT 1").bind(kind,hash).first();}
-async function booking(env,code){return env.DB.prepare(`SELECT b.*,r.state AS refund_state,r.account_cipher,r.purged_at,r.completion_id,r.paid_amount,r.deduction,r.completed_at,r.account_version,
+const BOOKING_SELECT=`SELECT b.*,r.state AS refund_state,r.account_cipher,r.purged_at,r.completion_id,r.paid_amount,r.deduction,r.completed_at,r.account_version,
  COALESCE(r.amount,json_extract(b.confirm_doc,'$.deposit'),(SELECT json_extract(q.data,'$.deposit') FROM quotes q WHERE q.inquiry_ref=b.inquiry_ref ORDER BY q.id DESC LIMIT 1),150000) AS deposit_amount,
  CASE WHEN b.inquiry_ref IS NOT NULL THEN COALESCE(json_extract(ic.checks,'$.guarantee_paid'),0) ELSE COALESCE(dc.paid,0) END AS deposit_paid,
  COALESCE(json_extract(ic.checks,'$.guarantee_returned'),0) AS returned
- FROM bookings b LEFT JOIN booking_refunds r ON r.booking_code=b.booking_code LEFT JOIN inquiry_checks ic ON ic.ref=b.inquiry_ref LEFT JOIN booking_deposit_checks dc ON dc.booking_code=b.booking_code WHERE b.booking_code=?`).bind(code).first();}
+ FROM bookings b LEFT JOIN booking_refunds r ON r.booking_code=b.booking_code LEFT JOIN inquiry_checks ic ON ic.ref=b.inquiry_ref LEFT JOIN booking_deposit_checks dc ON dc.booking_code=b.booking_code`;
+async function booking(env,code){return env.DB.prepare(BOOKING_SELECT+' WHERE b.booking_code=?').bind(code).first();}
+async function bookings(env,codes){const out=[];for(let i=0;i<codes.length;i+=80){const group=codes.slice(i,i+80);const r=await env.DB.prepare(BOOKING_SELECT+' WHERE b.booking_code IN ('+group.map(()=>'?').join(',')+')').bind(...group).all();out.push(...r.results||[]);}return out;}
 export function noticeObsolete(b,e,at=Date.now()){
  if(!b||!Object.hasOwn(SPACES,b.space_id))return '예약 정보를 확인해 주세요.';
  const p=parse(e.payload),end=eventTime(b);
@@ -70,6 +73,7 @@ async function dispatch(env,e){
  let token='';try{if(e.kind==='account')token=e.mode==='test'?'DEMO':await accountToken(env,e.booking_code);}catch{return state(env,e.id,'failed','계좌 등록 링크 발급 실패 · 관리자 확인 필요');}
  // Recheck the booking after issuing the link and taking the sending lock.
  if(e.mode==='live'){const latest=await booking(env,e.booking_code),reason=noticeObsolete(latest,e);if(reason)return state(env,e.id,'cancelled',reason);b=latest;const latestSettings=await depositMessageConfig(env);if(!latestSettings.enabled||!latestSettings.types[e.kind]||latestSettings.hash!==hash||env.ALIGO_LIVE_ENABLED!=='true')return state(env,e.id,'cancelled','고객 발송 중지·설정 변경');}
+ if(e.kind==='account'&&e.mode==='live'&&e.event_key.startsWith('account-reminder:')){const other=await env.DB.prepare("SELECT id FROM deposit_notifications WHERE booking_code=? AND mode='live' AND kind='account' AND id<>? AND (status IN ('queued','sending','accepted','unknown') OR (status='delivered' AND updated_at>?)) LIMIT 1").bind(e.booking_code,e.id,new Date(Date.now()-3600000).toISOString().slice(0,19).replace('T',' ')).first();if(other)return state(env,e.id,'cancelled','다른 계좌 안내가 처리 중이거나 최근 수신 완료되었습니다.');}
  const vars=depositNoticeVariables(b,e,token),message=depositNoticeRender(t.templtContent,vars),buttons=T[e.kind].buttons.map(b=>({name:b.name,linkType:'WL',linkMo:depositNoticeRender(b.linkMo,vars),linkPc:depositNoticeRender(b.linkPc,vars)}));
  try{
   const response=await aligoProvider(env,'alimtalk/send',{senderkey:env.ALIGO_SENDER_KEY,tpl_code:s.codes[e.kind],sender:env.ALIGO_SENDER,receiver_1:receiver,recvname_1:clean(b.customer_name),subject_1:'메가스팟 보증금 안내',message_1:message,...(buttons.length?{button_1:JSON.stringify({button:buttons})}:{}),failover:'N',testMode:'N'},id);
@@ -109,6 +113,7 @@ export async function depositNoticeCron(request,env,readOnly=false){
 }
 export async function depositNoticeAdmin({request,env,path,method}){
  const s=await depositMessageConfig(env),hash=await depositMessageHash(env,s);
+ if(path.startsWith('deposit-notifications/account-reminders'))return accountReminderAdmin({request,env,path,method,url:new URL(request.url)},{booking,bookings,bookingSelect:BOOKING_SELECT,hash,ready:configured(env)&&env.ALIGO_LIVE_ENABLED==='true'&&s.enabled&&s.types.account&&s.hash===hash&&await tested(env,'account',hash),approve:async()=>usable('account',await template(env,s,'account')),obsolete:noticeObsolete,render:depositNoticeRender,variables:depositNoticeVariables});
  if(path==='deposit-notifications'&&method==='GET'){
   const {results}=await env.DB.prepare('SELECT n.id,n.booking_code,n.kind,n.mode,n.status,n.provider_mid,n.error,n.occurred_at,n.updated_at,b.customer_name AS name,b.date FROM deposit_notifications n LEFT JOIN bookings b ON b.booking_code=n.booking_code ORDER BY n.id DESC LIMIT 100').all();
   const items=[];for(const e of results||[]){if(e.status==='review'){const original=await env.DB.prepare('SELECT payload FROM deposit_notifications WHERE id=?').bind(e.id).first();const {payload,...review}=await changedNoticeReview(env,{...e,payload:original?.payload},s);items.push({...e,review});}else items.push(e);}
