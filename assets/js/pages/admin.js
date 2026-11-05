@@ -525,7 +525,7 @@
   }
   function nwSyncMode(){ var m=nwMode(); $('#nw-auto').hidden=m!=='auto'&&m!=='keep'; $('#nw-manual').hidden=m!=='manual'; $('#nw-discount').hidden=m==='keep'||m==='none'; if(m==='manual' && !$('#nw-total').value && NW.last){ $('#nw-total').value=NW.last.total; } nwHint(); }
   function nwModeUi(edit, copy){
-    NW.edit=edit||null;
+    NW.edit=edit||null; NW.repriceAdjustment=null;
     NW.copy=copy||null;
     $('#nw-keep-wrap').hidden=!edit; $('#nw-current-amount').hidden=!edit; $('#nw-booking-note').hidden=true;
     $('#nw-date').required=!!copy;
@@ -575,14 +575,25 @@
     var mode=copy?(current==null?'none':'manual'):'keep';
     f.querySelector('input[name=amount_mode][value='+mode+']').checked=true;
     f.total.value=current==null?'':(copy?current:Math.max(0,current-(Number(d.included_catering_amount)||0)-(Number(d.included_reception_amount)||0)-(Number(d.included_cocktail_amount)||0))); f.amount_note.value=d.amount_note||'';
-    var adj=d.price_adjustment||{};
+    var adj=d.price_adjustment||{}; NW.repriceAdjustment=adj;
     $('#nw-current-amount').textContent='현재 금액: '+(current==null?'미정':won(current))+(adj.discount?' · 적용된 할인 '+won(adj.discount)+(adj.reason?' ('+adj.reason+')':''):'')+' — 현재 금액 유지를 선택하면 할인·추가 항목을 그대로 보존합니다.';
     $('#nw-booking-note').hidden=!(cur && cur.item && cur.item.ref===it.ref && (cur.bookings||[]).some(function(b){ return b.status!=='cancelled'; }));
     f.message.value=d.message||''; f.memo.value=it.memo||'';
     nwCalc(); nwSyncMode(); openDrawer('#adm-new'); setTimeout(function(){ (copy?f.date:f.name).focus(); }, 50);
   }
-  $('#nw-form').addEventListener('change', function(e){ if(e.target.name==='amount_mode'){ nwSyncMode(); return; } if(e.target.name==='total'||e.target.name==='amount_note') return; nwCalc(); });
-  $('#nw-form').addEventListener('input', function(e){ if(e.target.name==='headcount'||e.target.dataset.nwmgr) nwCalc(); else nwHint(); });
+  function nwAutoReprice(target){
+    if(!NW.edit || (target.name!=='headcount' && target.name!=='space_id')) return;
+    if(nwMode()==='keep' && NW.repriceAdjustment){
+      var adj=NW.repriceAdjustment;
+      $('#nw-disc-type').value=['pct','won'].indexOf(adj.type)>=0?adj.type:'none';
+      $('#nw-disc-val').value=adj.value||0; $('#nw-disc-why').value=adj.reason||'';
+    }
+    NW.repriceAdjustment=null;
+    $('#nw-form input[name=amount_mode][value=auto]').checked=true;
+    nwSyncMode();
+  }
+  $('#nw-form').addEventListener('change', function(e){ if(e.target.name==='amount_mode'){ nwSyncMode(); return; } if(e.target.name==='total'||e.target.name==='amount_note') return; nwAutoReprice(e.target); nwCalc(); });
+  $('#nw-form').addEventListener('input', function(e){ if(e.target.name==='headcount'||e.target.dataset.nwmgr){ nwAutoReprice(e.target); nwCalc(); } else nwHint(); });
   $('#nw-pkgs').addEventListener('click', function(e){ var b=e.target.closest('[data-nwpkg]'); if(!b) return; useSpace($('#nw-space')?$('#nw-space').value:DEFAULT_SPACE); var p=E.findPkg(b.dataset.nwpkg); $('#nw-start').value=p.start; $('#nw-end').innerHTML=nwHourOpts(p.start+1, ADMIN_HOURS.to, p.end, '미정'); nwCalc(); });
   $('#nw-reprice').addEventListener('click', function(){ if(!NW.last) return; $('#nw-form input[name=amount_mode][value=auto]').checked=true; nwCalc(); nwSyncMode(); });
   $('#nw-use-auto').addEventListener('click', function(){ if(!NW.last){ M.toast('이용일과 시간을 먼저 골라 주세요.'); return; } $('#nw-total').value=NW.last.total; });

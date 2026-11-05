@@ -10,22 +10,39 @@ for(const file of ['data/holidays-kr.js','data/pricing-gundae.js','data/pricing-
 const engine=pricing.window.MEGASPOT_PRICE;
 function inquiryForm(){
  const elements={},state={mode:'keep'};
- const $=s=>elements[s]??=( {value:'',textContent:'',innerHTML:'',hidden:false,events:{},classList:{toggle(){}},addEventListener(k,fn){this.events[k]=fn;}} );
+ const $=s=>elements[s]??=( {value:'',textContent:'',innerHTML:'',hidden:false,events:{},dataset:{},classList:{toggle(){}},addEventListener(k,fn){this.events[k]=fn;}} );
  for(const [s,value]of Object.entries({'#nw-start':'13','#nw-end':'17','#nw-people':'200','#nw-date':'2026-11-18','#nw-space':'megaspot-gundae-2','#nw-total':'1959000','#nw-disc-type':'none','#nw-disc-val':'0','#nw-disc-why':''}))$(s).value=value;
  $('#nw-form').space_id=$('#nw-space');$('#nw-form').date=$('#nw-date');$('#nw-form').start_h=$('#nw-start');$('#nw-form').end_h=$('#nw-end');$('#nw-form').headcount=$('#nw-people');$('#nw-form').purpose={value:''};
  Object.defineProperty($('#nw-form input[name=amount_mode][value=auto]'),'checked',{set(on){if(on)state.mode='auto';}});
- const ctx=vm.createContext({$,$$:()=>[],NW:{last:null},E:engine,D:engine.data(),ADMIN_HOURS:{from:0,to:47},nwMode:()=>state.mode,nwOptions:()=>({}),nwHourOpts:()=>'',esc:String,spaceShort:id=>id,won:n=>n.toLocaleString('ko-KR')+'원'});
+ const ctx=vm.createContext({$,$$:()=>[],NW:{last:null,edit:'MS-TEST',repriceAdjustment:{}},E:engine,D:engine.data(),ADMIN_HOURS:{from:0,to:47},nwMode:()=>state.mode,nwOptions:()=>({}),nwHourOpts:()=>'',esc:String,spaceShort:id=>id,won:n=>n.toLocaleString('ko-KR')+'원'});
  ctx.useSpace=id=>{ctx.E=engine.forSpace(id);ctx.D=ctx.E.data();};
  vm.runInContext(source.slice(source.indexOf('  function nwCalc('),source.indexOf('  function nwModeUi(')),ctx);
+ const handlerStart=source.indexOf('  function nwAutoReprice(');
+ vm.runInContext(source.slice(handlerStart>=0?handlerStart:source.indexOf("  $('#nw-form').addEventListener('change'"),source.indexOf("  $('#nw-pkgs').addEventListener")),ctx);
  const registration=source.split('\n').find(l=>l.startsWith("  $('#nw-reprice').addEventListener"));if(registration)vm.runInContext(registration,ctx);
  ctx.nwCalc();ctx.nwSyncMode();
- return {ctx,$,state,people(n){$('#nw-people').value=String(n);ctx.nwCalc();}};
+ return {ctx,$,state,people(n){const target=$('#nw-people');target.value=String(n);target.name='headcount';$('#nw-form').events.input({target});},space(id){const target=$('#nw-space');target.value=id;target.name='space_id';$('#nw-form').events.change({target});}};
 }
-test('문의 수정에서 현재 금액 유지 중에도 200→300명 새 계산을 표시하고 명시적으로 적용',()=>{
- const f=inquiryForm();f.people(300);
- assert.equal(f.ctx.NW.last.people,300);assert.equal(f.ctx.NW.last.total,2959000);assert.match(f.$('#nw-auto').innerHTML,/인원 300명/);
- assert.equal(f.$('#nw-auto').hidden,false);assert.equal(f.$('#nw-keep-reprice').hidden,false);assert.equal(f.$('#nw-total').value,'1959000','합의된 기존 금액은 유지');
- f.$('#nw-reprice').events.click();assert.equal(f.state.mode,'auto');assert.equal(f.$('#nw-keep-reprice').hidden,true);assert.match(f.$('#nw-discount-result').textContent,/2,959,000원/);
+test('문의 수정에서 200→300명 입력 즉시 자동 계산으로 전환하고 저장 예정 금액을 갱신',()=>{
+ const f=inquiryForm();assert.equal(f.state.mode,'keep');f.people(300);
+ assert.equal(f.state.mode,'auto');assert.equal(f.ctx.NW.last.people,300);assert.equal(f.ctx.NW.last.total,2959000);assert.match(f.$('#nw-auto').innerHTML,/인원 300명/);
+ assert.equal(f.$('#nw-auto').hidden,false);assert.equal(f.$('#nw-keep-reprice').hidden,true);assert.match(f.$('#nw-discount-result').textContent,/2,959,000원/);
+});
+test('문의 수정에서 호점을 바꾸면 해당 요금표로 자동 계산하며 2호점에서는 300명 유지',()=>{
+ const f=inquiryForm();f.$('#nw-people').value='300';f.space('megaspot-gundae');
+ assert.equal(f.state.mode,'auto');assert.equal(f.ctx.NW.last.people,200);assert.equal(f.ctx.NW.last.total,2040000);
+ f.space('megaspot-gundae-2');assert.equal(f.ctx.NW.last.people,300);assert.equal(f.ctx.NW.last.total,2959000);
+});
+test('이름·운영 메모만 바꾸면 현재 금액 유지 선택과 저장 금액을 그대로 보존',()=>{
+ const f=inquiryForm();
+ for(const name of ['name','memo']){const target={name,dataset:{}};f.$('#nw-form').events.input({target});f.$('#nw-form').events.change({target});}
+ assert.equal(f.state.mode,'keep');assert.equal(f.$('#nw-total').value,'1959000');
+});
+test('자동 재계산은 저장된 할인 비율을 새 원금에 적용하고 이후 직접 조정한 할인도 보존',()=>{
+ const f=inquiryForm();f.ctx.NW.repriceAdjustment={type:'pct',value:10,reason:'정기 할인'};f.people(300);
+ assert.equal(f.$('#nw-disc-type').value,'pct');assert.equal(f.$('#nw-disc-val').value,10);assert.equal(f.$('#nw-disc-why').value,'정기 할인');
+ assert.match(f.$('#nw-discount-result').textContent,/2,663,100원/);
+ f.$('#nw-disc-val').value='20';f.space('megaspot-gundae');assert.equal(f.$('#nw-disc-val').value,'20');assert.match(f.$('#nw-discount-result').textContent,/1,632,000원/);
 });
 test('문의 등록·수정은 2호점 201~350명을 유지하고 1호점 계산기 상태와 섞이지 않음',()=>{
  const f=inquiryForm();
