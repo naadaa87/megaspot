@@ -586,12 +586,19 @@ export async function onRequest({ request, env, params, waitUntil }) {
         const revision=receptionRevision(old)+(receptionChanged(old,reception)?1:0);
         jp.push("'$.reception_revision', ?");jb.push(revision);
         receptionResult={reception_revision:revision,reception};
-        if(old.quote_input){const draft=syncFoodInput(syncReceptionInput(old.quote_input,{...old,reception,reception_revision:revision},included>0||!!old.reception_in_quote),{...old,reception,reception_revision:revision});jp.push("'$.quote_input', json(?)");jb.push(JSON.stringify(draft));}
+        let draft=null,currentAmount=item.effective_amount;
+        if(old.quote_input){draft=syncFoodInput(syncReceptionInput(old.quote_input,{...old,reception,reception_revision:revision},included>0||!!old.reception_in_quote),{...old,reception,reception_revision:revision});jp.push("'$.quote_input', json(?)");jb.push(JSON.stringify(draft));}
         if(receptionChanged(old,reception))statusStatements.push(env.DB.prepare("UPDATE bookings SET confirm_doc = NULL, updated_at = ? WHERE inquiry_ref = ? AND status <> 'cancelled'").bind(now(),ref));
         if ((included > 0 || old.reception_in_quote) && item.effective_amount != null) {
           const next = reception.status === 'cancelled' || reception.total == null ? 0 : reception.total, amount = Math.max(0, item.effective_amount - included + next);
+          currentAmount=amount;
           jp.push("'$.total', ?", "'$.amount_override', 1", "'$.included_reception_amount', ?"); jb.push(amount, next);
           statusStatements.push(env.DB.prepare("UPDATE bookings SET amount = ?, confirm_doc = CASE WHEN amount IS NOT ? THEN NULL ELSE confirm_doc END, updated_at = ? WHERE inquiry_ref = ? AND status <> 'cancelled'").bind(amount, amount, now(), ref));
+        }
+        if(draft&&old.amount_mode==='quote'&&old.quote_no){
+          const saved=await env.DB.prepare('SELECT quote_no,data FROM quotes WHERE quote_no=? AND inquiry_ref=?').bind(old.quote_no,ref).first();
+          const calculation=saved&&Calculation.inquiry({data:{...old,reception,quote_input:draft,total:currentAmount},effective_amount:currentAmount},[{...saved,data:safe(saved.data)}]).text;
+          if(calculation){jp.push("'$.estimate', ?", "'$.estimate_admin', json('true')", "'$.estimate_quote_no', ?");jb.push(calculation,old.quote_no);}
         }
       }
       if (jp.length) { sets.push("data = json_set(COALESCE(data, '{}'), " + jp.join(', ') + ')'); b.push(...jb); }
