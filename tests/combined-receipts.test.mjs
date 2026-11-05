@@ -94,3 +94,7 @@ test('확정서 저장 중 실패하면 기존 문서와 수납·보증금·알�
 test('문서 준비 이후 다른 관리자가 문구를 변경하면 덮어쓰지 않고 합산 입금 전체를 보류한다',async t=>{
  const f=setup(t),d=await form(f),run=f.env.DB.batch.bind(f.env.DB),changed=JSON.stringify({customer:'다른 관리자 수정',note:'동시 수정 보호',deposit:150000});f.env.DB.batch=async ss=>{f.env.DB.batch=run;f.db.prepare('UPDATE bookings SET confirm_doc=?').run(changed);return run(ss);};await save(f,d,409);assert.equal(f.db.prepare('SELECT confirm_doc FROM bookings').get().confirm_doc,changed);assert.equal(count(f,'booking_payment_entries'),0);assert.equal(count(f,'deposit_notifications'),0);
 });
+
+test('최초 자동 발급은 현재 행사 목적과 선택한 매니저·청소 옵션을 포함한다',async t=>{
+ const f=setup(t),row=f.db.prepare('SELECT data FROM inquiries').get();f.db.prepare('UPDATE inquiries SET data=?').run(JSON.stringify({...JSON.parse(row.data),purpose:'year-end',options:{manager:{count:2,hours:4},cleaning:true}}));await save(f,await form(f));const r=await f.api('bookings/BK-TEST/confirm-doc');assert.equal(r.doc.event,'송년회');assert(r.doc.items.includes('현장 매니저 2명 × 4시간'));assert(r.doc.items.includes('뒷정리·청소'));
+});
