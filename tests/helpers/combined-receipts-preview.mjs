@@ -30,6 +30,7 @@ if(process.env.QA_HISTORY==='1'){
  add.run('history-success','2026-11-04 01:00:00','delivered','','2026-11-04 01:01:00');add.run('history-failed','2026-11-05 02:00:00','failed','알리고 접수 거절 · 수신번호를 확인해 주세요.','2026-11-05 02:01:00');
 }
 if(process.env.QA_PENDING==='1'){
+ f.db.prepare("INSERT INTO deposit_notifications(booking_code,kind,event_key,occurred_at,payload,status,error) VALUES('BK-TEST','account','qa-newer-failure',?,'{}','failed','최근 요청 접수 거절')").run(now());
  f.db.exec("UPDATE deposit_notifications SET status='unknown',error='접수 결과 확인 필요 · 자동 재발송 중지' WHERE event_key='history-failed'");
  f.db.prepare("INSERT INTO deposit_notifications(booking_code,kind,event_key,occurred_at,payload,status) VALUES('BK-UNSENT','account','qa-pending',?,'{}','queued')").run(now());
 }

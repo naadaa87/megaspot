@@ -77,3 +77,5 @@
 @media(max-width:600px){.rf-notice-summary{padding:14px 12px}.rf-notice-summary dl>div{grid-template-columns:72px minmax(0,1fr);gap:8px}.rf-notice-summary dt{font-size:13px}}
 
 .rf-reminder-filter{display:grid;gap:8px;max-width:360px;font-size:14px;font-weight:700}.rf-reminder-filter .select{width:100%;min-height:44px}
+
+.rf-notice-outstanding{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;padding-bottom:12px;border-bottom:1px solid #dce0e5}.rf-notice-outstanding strong,.rf-notice-outstanding small{flex-basis:100%}.rf-notice-outstanding small{font-size:13px;color:#58616d;line-height:1.6}
