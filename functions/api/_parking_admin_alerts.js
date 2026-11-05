@@ -15,7 +15,7 @@ async function provider(env,path,data,id=crypto.randomUUID()){
  if(!r.ok)throw Error('문자 연결 결과 확인 필요');return r.json();
 }
 export function adminPaymentMessage(p){
- return '[메가스팟 주차권 결제 완료]\n차량: '+p.plate+'\n이용일: '+p.visit_date+'\n주차권: '+({'1h':'1시간권','2h':'2시간권','3h':'3시간권',daily:'일일권'}[p.ticket]||'주차권')+'\n결제: '+Number(p.price).toLocaleString('ko-KR')+'원\n주문: '+p.oid+'\n아마노 등록 전입니다. 실제 입차 확인 후 등록해 주세요.\nhttps://megaspot.kr/admin/#parking';
+ return '[메가스팟 주차권 결제 완료]\n차량: '+p.plate+'\n이용일: '+p.visit_date+'\n주차권: '+({'1h':'1시간권','2h':'2시간권','3h':'3시간권',daily:'일일권'}[p.ticket]||'주차권')+'\n결제: '+Number(p.price).toLocaleString('ko-KR')+'원\n주문: '+p.oid+'\n아마노 등록 전입니다. 서버가 실제 입차를 확인해 자동 등록합니다. 관리자 화면에서 등록 상태를 확인해 주세요.\nhttps://megaspot.kr/admin/#parking';
 }
 const TEST_MESSAGE='[메가스팟 주차권 관리자 알림 시험]\n새 주차권 결제 완료 시 이 번호로 알림을 보냅니다.\n실제 결제나 아마노 등록은 발생하지 않았습니다.\nhttps://megaspot.kr/admin/#parking';
 async function state(env,id,status,error='',mid=null){await env.DB.prepare('UPDATE parking_admin_sms SET status=?,error=?,provider_mid=COALESCE(?,provider_mid),updated_at=? WHERE id=?').bind(status,str(error,200),mid,now(),id).run();}
@@ -65,7 +65,7 @@ export async function parkingAdminAlerts(request,env,path){
  }
  const read=path.match(/^admin\/payment-alerts\/([A-Z0-9]+)\/read$/);
  if(read&&method==='POST'){
-  const p=await env.DB.prepare('SELECT p.oid FROM parking_orders p JOIN orders o ON o.oid=p.oid WHERE p.oid=? AND o.paid_at IS NOT NULL').bind(read[1]).first();if(!p)return err('결제 내역을 찾을 수 없습니다.',404);
+  const p=await env.DB.prepare('SELECT p.oid FROM parking_orders p JOIN orders o ON o.oid=COALESCE(p.payment_oid,p.oid) WHERE p.oid=? AND o.paid_at IS NOT NULL').bind(read[1]).first();if(!p)return err('결제 내역을 찾을 수 없습니다.',404);
   await env.DB.prepare('INSERT INTO admin_parking_payment_reads(oid,read_at) VALUES(?,?) ON CONFLICT(oid) DO NOTHING').bind(read[1],now()).run();return json({ok:true});
  }
  if(path==='admin/payment-alerts/settings'&&method==='PUT'){
