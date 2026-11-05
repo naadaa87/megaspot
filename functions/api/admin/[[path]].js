@@ -579,7 +579,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
         if (!item) return err('문의를 찾을 수 없습니다.', 404, 'NOT_FOUND');
         if ([DELETED, '대기 취소', '취소·환불'].includes(item.status)) return err('취소·삭제된 문의는 복원한 뒤 저장해 주세요.');
         const reception = receptionAdmin(d.reception,foodPricingData('reception',await readFoodPricing(env,'reception')));
-        if (!reception) return err('코스·제공 방식·인원을 확인해 주세요. 확정 구성은 1~300명까지 계산합니다.');
+        if (!reception) return err('코스·제공 방식·인원과 가격 설정을 확인해 주세요. 맞춤 구성은 상담 후 확정합니다.');
         jp.push("'$.reception', json(?)"); jb.push(JSON.stringify(reception));
         const old = safe(item.data), included = Number(old.included_reception_amount) || 0;
         if(receptionConflict(d.reception_revision,old))return err('케이터링 구성이 다른 화면에서 변경됐습니다. 문의를 다시 불러와 주세요.',409,'RECEPTION_CHANGED');

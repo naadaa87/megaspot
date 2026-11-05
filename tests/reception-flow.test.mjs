@@ -9,19 +9,19 @@ async function submit(f,reception,extra={},expected=200){
  const data=await res.json();assert.equal(res.status,expected,JSON.stringify(data));return data;
 }submit.ip=0;
 for(const course of C.activeCourses())for(const format of C.activeFormats().map(f=>f.id)){
- test(`고객 ${course.name}·${format}: 새 업체 상담 구성은 문의·견적에 보존하고 미확정 금액은 합산하지 않음`,async t=>{
+ test(`고객 ${course.name}·${format}: 새 코스·제공방식의 서버 금액을 문의·견적에 동일하게 저장`,async t=>{
   const f=fixture();t.after(()=>f.db.close());const {ref}=await submit(f,{course:course.id,format,people:50,total:1,fee:1,status:'cancelled',menu_ids:['cf-menu-79'],budget_per_person:30000});
-  let item=(await f.api('inquiries/'+ref)).item,rec=item.data.reception;
-  assert.equal(item.headcount,30);assert.equal(rec.people,50);assert.equal(rec.course,course.id);assert.equal(rec.format,format);assert.equal(rec.total,null);assert.equal(rec.fee,null);assert.equal(rec.by,'customer');assert.equal(rec.status,'pending');assert.equal(rec.provider,'cafefriends');assert.deepEqual(rec.menuNames,['훈제연어 카나페']);assert.equal(rec.budget_per_person,30000);
-  assert.equal(O.build(item,{roomAmount:500000}).total,500000);
+  let item=(await f.api('inquiries/'+ref)).item,rec=item.data.reception;const calculated=C.quote(50,format,course.id),total=calculated.ok?calculated.total:0;
+  assert.equal(item.headcount,30);assert.equal(rec.people,50);assert.equal(rec.course,course.id);assert.equal(rec.format,format);assert.equal(rec.total,calculated.ok?total:null);assert.equal(rec.fee,calculated.ok?calculated.fee:null);assert.equal(rec.by,'customer');assert.equal(rec.status,'pending');assert.equal(rec.provider,'cafefriends');assert.deepEqual(rec.menuNames,['훈제연어 카나페']);assert.equal(rec.budget_per_person,30000);
+  assert.equal(O.build(item,{roomAmount:500000}).total,500000+total);
   const input=C.syncQuote(quoteInput({people:30}),item.data,true);
-  await f.api('quotes','POST',{inquiry_ref:ref,customer:item.name,event_date:DAY,total:500000,data:{input,extras:[],total:500000}});
-  const detail=await f.api('inquiries/'+ref);item=detail.item;assert.equal(item.effective_amount,500000);assert.equal(item.data.included_reception_amount,0);assert.equal(item.data.reception_in_quote,true);assert.equal(detail.quotes[0].data.input.reception_request.provider,'cafefriends');assert.deepEqual(detail.quotes[0].data.input.reception_request.menuNames,['훈제연어 카나페']);
+  await f.api('quotes','POST',{inquiry_ref:ref,customer:item.name,event_date:DAY,total:500000+total,data:{input,extras:input.extras,total:500000+total}});
+  const detail=await f.api('inquiries/'+ref);item=detail.item;assert.equal(item.effective_amount,500000+total);assert.equal(item.data.included_reception_amount,total);assert.equal(item.data.reception_in_quote,true);assert.equal(detail.quotes[0].data.input.reception_request.provider,'cafefriends');assert.deepEqual(detail.quotes[0].data.input.reception_request.menuNames,['훈제연어 카나페']);
  });
 }
 test('미정 방식·인원·대규모 상담도 기존 업체로 대체하지 않음',async t=>{
  const f=fixture();t.after(()=>f.db.close());
- for(const choice of [{course:'all',people:50,format:'table'},{course:'cf-meal',people:50,format:''},{course:'cf-finger',people:1000,format:'box'},{course:'cf-snack',people:null,format:''}]){const {ref}=await submit(f,choice);const rec=(await f.api('inquiries/'+ref)).item.data.reception;assert.equal(rec.total,null);assert.equal(rec.people,choice.people);assert.equal(rec.course,choice.course==='all'?'cf-custom':choice.course);assert.equal(rec.provider,'cafefriends');}
+ for(const choice of [{course:'all',people:50,format:'table'},{course:'cf-classic',people:50,format:''},{course:'cf-custom',people:1000,format:'box'},{course:'cf-light',people:null,format:''}]){const {ref}=await submit(f,choice);const rec=(await f.api('inquiries/'+ref)).item.data.reception;assert.equal(rec.total,null);assert.equal(rec.people,choice.people);assert.equal(rec.course,choice.course==='all'?'cf-custom':choice.course);assert.equal(rec.provider,'cafefriends');}
 });
 test('잘못된 선택은 조용히 기본값으로 저장하지 않고 거절',async t=>{
  const f=fixture();t.after(()=>f.db.close());for(const reception of [{course:'vip',people:50,format:'table'},{course:'classic',people:0,format:'table'},{course:'light',people:50,format:'x'},{course:'classic',people:1.5,format:'box'},[]])await submit(f,reception,{},400);

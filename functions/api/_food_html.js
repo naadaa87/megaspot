@@ -28,6 +28,7 @@ export function foodHtml(html,path,rates){
   html=money(html,defaults).replace(/@@DRINKS(\d+)@@/g,(_,i)=>drinks[+i]);
  }
  if(path.startsWith('/reception')&&html.includes('data-reception-provider="cafefriends"'))html=html.replace(/(<p class="cf-package-price" data-cf-price="([^"]+)">)[^<]*(<\/p>)/g,(_,a,id,z)=>a+(rp['course.'+id]==null?'상담 후 견적':'1인 '+keep(comma(rp['course.'+id]))+'원 · 부가세 별도')+z);
+ if(path.startsWith('/reception'))html=html.replace(/(<span data-cf-fee="([^"]+)">)[^<]*(<\/span>)/g,(_,a,id,z)=>a+(rp[id]==null?'상담 후 견적':keep(comma(rp[id]))+'원')+z);
  if(path.startsWith('/reception')&&!html.includes('data-reception-provider="cafefriends"')){
   const drinks=[];html=html.replace(/<!-- drinks-summary:start -->[\s\S]*?<!-- drinks-summary:end -->/g,s=>{drinks.push(s);return '@@RECDRINKS'+(drinks.length-1)+'@@';});
   html=html.replace(/<table class="est-lines reception-fee-table">[\s\S]*?<\/table>/,()=>'<table class="est-lines reception-fee-table"><thead><tr><th>인원</th><th>도시락</th><th>박스</th><th>테이블 세팅</th></tr></thead><tbody>'+[50,100,200,300].map((n,i)=>'<tr><td>'+['50명 이하','51~100명','101~200명','201~300명'][i]+'</td>'+['lunchbox','box','table'].map(f=>'<td class="r">'+keep(comma(rp['fee.'+f+'.'+RECEPTION.feesByFormat[f].find(b=>n<=b.upto).upto]))+'원</td>').join('')+'</tr>').join('')+'</tbody></table>');
@@ -42,5 +43,5 @@ export function foodHtml(html,path,rates){
   html=html.replace(/(<article class="home-food-card" id="reception">[\s\S]*?<div class="hero-mega"><span><b>)[\d,]+/,(_,a)=>a+(rmin==null?'맞춤':comma(rmin)));
  }
  html=html.replace(/@@FOODPRICE(\d+)@@/g,(_,i)=>slots[+i]);
- return html.replace('</head>','<script>window.MEGASPOT_FOOD_RATES='+JSON.stringify(rates).replace(/</g,'\\u003c')+';</script><script src="/assets/js/food-pricing.js?v=20261105cafefriends1"></script></head>');
+ return html.replace('</head>','<script>window.MEGASPOT_FOOD_RATES='+JSON.stringify(rates).replace(/</g,'\\u003c')+';</script><script src="/assets/js/food-pricing.js?v=20261105cfprices1"></script></head>');
 }

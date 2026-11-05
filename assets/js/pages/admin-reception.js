@@ -20,7 +20,7 @@
     if(!q.ok){box.innerHTML='<h2>케이터링 구성 상담</h2><p role="status">'+esc(cancelled?'취소 · 합계 제외':rec?'상담 후 견적 · 미확정 금액은 합계 미포함':q.message)+'</p>'+(rec?'<p class="small mt-2">'+esc(rec.summary)+'</p>'+(rec.budget_per_person?'<p class="small">희망 1인 예산 '+C.won(rec.budget_per_person)+' (확정 가격 아님)</p>':''):'');return;}
     box.innerHTML='<h2>'+esc(q.formatName)+'</h2><div class="cc-total"><span>'+(cancelled?'취소 구성 · 합계 제외':esc(q.courseName)+' 예상 금액')+'<small>부가세 10% 포함</small></span><b>'+C.won(q.total)+'</b></div>'
       +'<table class="q-table"><tbody><tr><td>'+esc(q.courseName)+' '+q.people+'명<small>1인 '+C.won(q.unitPrice)+'</small></td><td>'+C.won(q.food)+'</td></tr><tr><td>'+esc(q.feeName)+'<small>'+esc(q.feeLabel)+'</small></td><td data-ar-fee>'+C.won(q.fee)+'</td></tr><tr><td>공급가액 (부가세 별도)</td><td data-ar-supply>'+C.won(q.supply)+'</td></tr><tr><td>부가세 10%</td><td data-ar-vat>'+C.won(q.vat)+'</td></tr></tbody><tfoot><tr><td>합계</td><td data-ar-total>'+C.won(q.total)+'</td></tr></tfoot></table>'
-      +'<p class="tiny muted">테이블 세팅은 철수 비용까지 포함합니다. 메뉴와 출장·세팅비는 부가세 별도이고 위 합계에 부가세 10%를 반영했습니다. 최소 주문 조건은 최종 견적에서 확인하며, 공간 대관료와 반환 보증금은 별도입니다.</p><p class="small muted">'+esc(C.data.menuNote)+'</p>';
+      +'<p class="tiny muted">테이블은 출장세팅비, 나머지 제공 방식은 인원수와 관계없이 배송비를 적용합니다. 철수 등 포함 범위는 최종 견적에서 확인합니다. 메뉴와 출장·세팅비는 부가세 별도이고 위 합계에 부가세 10%를 반영했습니다. 최소 주문 조건은 최종 견적에서 확인하며, 공간 대관료와 반환 보증금은 별도입니다.</p><p class="small muted">'+esc(C.data.menuNote)+'</p>';
   }
   function load(ref){
     ref=String(ref||'').trim().toUpperCase();
