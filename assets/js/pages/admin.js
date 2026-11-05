@@ -609,7 +609,7 @@
     else if(m==='manual'){ if(d.total===''||d.total==null){ note($('#nw-msg'),'금액을 입력하거나 \'나중에 정하기\'를 골라 주세요.'); $('#nw-total').focus(); return; } d.amount_mode='manual'; if(NW.last && !edit){ d.pkg=NW.last.pkg?NW.last.pkg.id:''; d.estimate=E.summaryText(NW.last, PUR[d.purpose]||''); } }
     else if(m==='keep'){ delete d.total; d.amount_mode='keep'; }
     else { delete d.total; d.amount_mode=edit?'none':''; }
-    if((m==='auto'||m==='manual') && d.total!=null){ var adjustment=nwAdjusted(Number(d.total)); d.total=adjustment.total; d.price_adjustment=adjustment; if(adjustment.reason) d.amount_note=adjustment.reason; }
+    if((m==='auto'||m==='manual') && d.total!=null){ var adjustment=nwAdjusted(Number(d.total)); d.total=adjustment.total; d.price_adjustment=adjustment; if(adjustment.reason) d.amount_note=adjustment.reason; if(m==='auto' && NW.last) d.estimate=E.summaryText(NW.last, PUR[d.purpose]||'', adjustment); }
     var btn=f.querySelector('button[type=submit]'); btn.disabled=true;
     if(edit){
       d.edit=true;
