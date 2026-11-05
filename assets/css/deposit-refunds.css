@@ -64,3 +64,6 @@
 #rf-reminder-dialog .rf-reminder-preview p{font-size:14px;line-height:1.7;overflow-wrap:anywhere}
 #rf-reminder-dialog pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;font-size:14px;line-height:1.75;background:#f4f6f9;border-radius:8px;padding:14px}
 @media(max-width:600px){.rf-reminder-tools .rf-actions{display:grid;grid-template-columns:minmax(0,1fr)}#rf-reminder-dialog .rf-main-action,#view-deposit-refunds [data-rf-remind]{width:100%;min-height:44px;white-space:normal}#rf-reminder-dialog .rf-modal-head h2{font-size:16px}}
+
+.rf-notice-summary{margin-top:16px;padding:14px 16px;background:#f4f6f9;border:1px solid #dce0e5;border-radius:8px;font-size:14px;line-height:1.6;overflow-wrap:anywhere}
+.rf-notice-summary dl{margin:10px 0;display:grid;gap:8px}.rf-notice-summary dl>div{display:grid;grid-template-columns:88px minmax(0,1fr);gap:8px}.rf-notice-summary dt{color:#58616d}.rf-notice-summary dd{margin:0}.rf-notice-summary p{margin:8px 0 0}
