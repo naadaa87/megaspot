@@ -1369,9 +1369,17 @@
   // 날짜별 집계 — 전체(bk·pend)와 공간별(sp[공간].bk·pend)을 함께 셉니다. 겹침 표시는 같은 공간 안에서만 봅니다.
   function dayStats(base){ var day={}; base.forEach(function(it){ var x=day[it.date]||(day[it.date]={bk:0,pend:0,bkList:[],sp:{}}); var k=spKey(it.space_id), s=x.sp[k]||(x.sp[k]={bk:0,pend:0}); if(it.kind==='booking'){ if(['confirmed','completed'].includes(it.status)){ x.bk++; s.bk++; x.bkList.push(it); } } else if(it.status!=='대기 취소'){ x.pend++; s.pend++; } else x.cancelled=(x.cancelled||0)+1; }); return day; }
   function spClash(x){ var sp=x&&x.sp||{}; return Object.keys(sp).some(function(k){ var s=sp[k]; return s.pend>0 && (s.bk>0 || s.pend>1); }); }
+  function updateResvSearch(count){
+    var query=$('#rs-q').value.trim(), active=!!query, status=$('#rs-search-status');
+    $('#rs-search').classList.toggle('is-active',active);
+    $('#rs-search-clear').disabled=!active;
+    status.hidden=!active;
+    $('#rs-search-summary').textContent=active?'검색 적용 중 · “'+query+'” · 결과 '+count+'건':'';
+  }
   function drawResv(){
     waitOrder();
     var base=resvBase(), list=resvFiltered(), box=$('#rs-list'), day=dayStats(base);
+    updateResvSearch(list.length);
     var cnt={ all:base.length, booking:base.filter(function(x){ return x.kind==='booking'; }).length, pending:base.filter(function(x){ return x.kind==='pending' && x.status!=='대기 취소'; }).length };
     $$('#rs-tabs [data-kind]').forEach(function(b){ b.setAttribute('aria-selected', String(b.dataset.kind===RS.kind)); var em=b.querySelector('em'); if(em) em.textContent=cnt[b.dataset.kind]; });
     var bk=list.filter(function(x){ return x.kind==='booking' && ['confirmed','completed'].includes(x.status); }), pend=list.filter(function(x){ return x.kind==='pending' && x.status!=='대기 취소'; });
@@ -1383,7 +1391,7 @@
       +'<div class="kpi'+(pend.length?' hot':'')+'"><small>예약 문의 (미정)</small><b>'+pend.length+'<span class="small">건</span></b>'+(rv?'<span class="tiny">홈페이지 예약 신청 '+rv+'건</span>':'')+'</div>'
       +'<div class="kpi'+(clashDays?' warn':'')+'"><small>후보가 겹치는 날</small><b>'+clashDays+'<span class="small">일</span></b><span class="tiny muted">확정 예약이 있거나 후보가 2건 이상</span></div>';
     var und=RS.undated?'<div class="rs-note">날짜가 정해지지 않은 예약 문의 <b>'+RS.undated+'건</b>은 일자별 목록에 나오지 않습니다. <button type="button" class="linkish" data-go="inq:open">문의 관리에서 보기 →</button></div>':'';
-    if(!list.length){ box.innerHTML=und+emptyMsg('이 기간에 해당하는 예약이 없습니다.'); return; }
+    if(!list.length){ box.innerHTML=und+emptyMsg($('#rs-q').value.trim()?'검색어와 일치하는 예약·문의가 없습니다. 위의 검색 초기화 버튼을 눌러 검색어를 지울 수 있습니다.':'이 기간에 해당하는 예약이 없습니다.'); return; }
     var months={}, mOrder=[];
     list.forEach(function(it){ var mk=String(it.date).slice(0,7); if(!months[mk]){ months[mk]={ days:{}, order:[] }; mOrder.push(mk); } var mo=months[mk]; if(!mo.days[it.date]){ mo.days[it.date]=[]; mo.order.push(it.date); } mo.days[it.date].push(it); });
     var head='<thead><tr><th>구분</th><th>시간</th><th>예약자</th><th>경로</th><th>인원</th><th class="r">금액</th><th>진행</th><th>보증금</th><th>운영 메모</th><th></th></tr></thead>';
@@ -1437,6 +1445,7 @@
   if($('#rs-space')) $('#rs-space').insertAdjacentHTML('beforeend', spaceOptions(''));
   ['#rs-status','#rs-ch','#rs-space'].forEach(function(sel){ if($(sel)) $(sel).addEventListener('change', drawResv); });
   $('#rs-q').addEventListener('input', drawResv);
+  $('#rs-search-clear').addEventListener('click', function(){ $('#rs-q').value=''; drawResv(); $('#rs-q').focus(); });
   $('#rs-list').addEventListener('click', changeDeposit);
   $('#rs-reload').addEventListener('click', loadResv);
   $('#rs-print').addEventListener('click', function(){ document.body.classList.add('print-resv'); window.print(); setTimeout(function(){ document.body.classList.remove('print-resv'); }, 800); });
