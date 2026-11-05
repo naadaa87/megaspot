@@ -41,5 +41,15 @@
  if(query.has('reception_budget'))budget.value=query.get('reception_budget');
  if(query.has('reception_note'))note.value=query.get('reception_note');
  if(query.has('reception_menus'))chosen=query.get('reception_menus').split(',').filter(function(id,i,a){return D.items.some(function(m){return m.id===id;})&&a.indexOf(id)===i;});
+ // Browser history can restore native form fields after initialization. Restore the
+ // full selection on pageshow so the options, displayed total and inquiry link agree.
+ var historyKey='megaspot.reception.selection.v1';
+ window.addEventListener('pagehide',function(){try{var r=selection();if(r)sessionStorage.setItem(historyKey,JSON.stringify(r));}catch(e){}});
+ window.addEventListener('pageshow',function(e){
+  var navigation=window.performance&&window.performance.getEntriesByType('navigation')[0];
+  if(!e.persisted&&(!navigation||navigation.type!=='back_forward'))return;
+  try{var r=C.selection(JSON.parse(sessionStorage.getItem(historyKey)||'null'));if(r){format.value=r.format;people.value=r.people||'';budget.value=r.budget_per_person||'';note.value=r.request_note||'';chosen=r.menu_ids.slice();choices.load(r.course);}}catch(error){}
+  paint();menus();
+ });
  choices.load(query.get('reception')||course.value);paint();menus();
 })();
