@@ -13,6 +13,21 @@ function depositAmount(b){const d=parseDoc(b.confirm_doc),q=parse(b.quote_data);
 const expires=b=>Math.max(Date.now()+30*DAY,(eventTime(b)?.end||Date.now())+90*DAY);
 const urlFor=(origin,token)=>origin+'/booking/#booking='+token;
 
+// Read-only operational status. Never issue a link or return its capability token.
+export async function portalPreparationState(env,b,link,at=Date.now()){
+ const state=(status,label,reason='')=>({status,label,reason,complete:status==='ready',can_open:valid(b)});
+ if(!valid(b))return {...state('blocked','준비 보류',b?.status==='payment_review'?'일정 검토 후 예약을 확정해 주세요.':'취소된 예약은 안내할 수 없습니다.'),can_open:false};
+ if(!keyReady(env))return {...state('unavailable','설정 확인 필요','통합 링크 암호화 설정을 확인해 주세요.'),can_open:false};
+ if(!link)return state('missing','미준비','전용 링크를 아직 준비하지 않았습니다.');
+ if(link.expires_at<=at)return state('expired','만료','기존 통합 링크가 만료됐습니다.');
+ if(link.recipient_hash!==await recipient(b))return state('changed','예약자 변경','예약자 또는 연락처가 변경돼 기존 링크를 사용할 수 없습니다.');
+ try{
+  const token=await unseal(env,b.booking_code,'portal-link',link.link_cipher);
+  if(typeof token!=='string'||!/^[A-Za-z0-9_-]{43}$/.test(token)||await sha256(token)!==link.token_hash)throw Error('INVALID_LINK');
+ }catch{return state('unavailable','링크 확인 필요','저장된 전용 링크를 확인할 수 없습니다.');}
+ return {...state('ready','준비 완료'),expires_at:link.expires_at,version:link.version};
+}
+
 // Server-only copy of the existing, operator-provided 1호 arrival instructions.
 // Never put these values in a public page bundle, an unauthenticated response, or the 2호 guide.
 function arrival(b){
