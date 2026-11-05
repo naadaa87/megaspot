@@ -17,7 +17,7 @@ globalThis.fetch=async(url,opts)=>{
  const {path:operation,data:d}=JSON.parse(opts.body);
  if(operation==='template/list'){const kind=Object.keys(codes).find(k=>codes[k]===d.tpl_code);return Response.json({code:0,list:[{templtCode:codes[kind],inspStatus:'APR',status:'R',templtContent:templates[kind].content,buttons:templates[kind].buttons}]});}
  if(operation==='alimtalk/send'){const id=String(++mid);messages.set(id,d);return Response.json({code:0,info:{mid:id,scnt:1,fcnt:0}});}
- if(operation==='history/detail'){const d0=messages.get(String(d.mid));return Response.json({code:0,list:[{type:'AT',phone:d0.receiver_1,tpl_code:d0.tpl_code,senderKey:f.env.ALIGO_SENDER_KEY,rsltdate:now(),rslt:'0',msgid:'local-only'}]});}
+ if(operation==='history/detail'){const d0=messages.get(String(d.mid));return Response.json({code:0,list:[{type:'AT',phone:d0.receiver_1,tpl_code:d0.tpl_code,senderKey:f.env.ALIGO_SENDER_KEY,rsltdate:now(),rslt:process.env.QA_RESULT==='failed'&&String(d.mid)!=='1'?'500':'0',msgid:'local-only'}]});}
  throw Error('Unexpected mock provider operation');
 };
 f.db.prepare('UPDATE bookings SET amount=2400000').run();const data=JSON.parse(f.db.prepare('SELECT data FROM inquiries').get().data);data.total=2400000;f.db.prepare('UPDATE inquiries SET data=?').run(JSON.stringify(data));
