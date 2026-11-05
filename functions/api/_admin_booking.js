@@ -36,7 +36,7 @@ export async function linkedBookingChanges(env, ref, next) {
   }
   let invalidated = false;
   for (const b of bookings) {
-    const changed = b.customer_name !== next.name || b.phone !== next.phone || b.date !== next.date || b.start_h !== next.start_h || b.end_h !== next.end_h || b.headcount !== next.headcount || ('amount' in next && b.amount !== next.amount);
+    const changed = !!next.document_changed || b.customer_name !== next.name || b.phone !== next.phone || b.date !== next.date || b.start_h !== next.start_h || b.end_h !== next.end_h || b.headcount !== next.headcount || ('amount' in next && b.amount !== next.amount);
     invalidated = invalidated || !!(changed && b.confirm_doc);
     statements.push(env.DB.prepare('UPDATE bookings SET customer_name = ?, phone = ?, phone_last4 = ?, date = ?, start_h = ?, end_h = ?, slot = ?, headcount = ?, amount = ?, memo = ?, confirm_doc = ?, updated_at = ? WHERE booking_code = ?')
       .bind(next.name, next.phone, next.phone.replace(/\D/g, '').slice(-4), next.date, next.start_h, next.end_h, next.start_h == null ? '' : 'custom', next.headcount, 'amount' in next ? next.amount : b.amount, next.memo ?? b.memo, changed ? null : b.confirm_doc, now(), b.booking_code));

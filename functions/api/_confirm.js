@@ -40,6 +40,15 @@ export function maskPhone(p) {
 }
 const amt = v => { if (v === '' || v == null) return null; const n = num(v); return n !== null && n >= 0 && n <= 1e9 ? n : null; };
 
+// Tracks inquiry conditions separately from payment and food revisions.
+export function confirmationConditions(row, inquiry = {}) {
+  const options = inquiry.options || {}, manager = options.manager;
+  return JSON.stringify([row.space_id, row.customer_name, row.phone, row.date, row.slot || '', row.start_h ?? null, row.end_h ?? null, row.headcount ?? null,
+    inquiry.name || '', inquiry.org || '', inquiry.purpose || '', !!inquiry.regular,
+    !!manager, manager ? Number(manager.count) || 1 : 0, manager ? Number(manager.hours) || 1 : 0,
+    ...['cleaning','disposable','banner','xbanner'].map(key => !!options[key])]);
+}
+
 // 관리자 화면에서 보낸 확정서 설정값을 정리합니다 (모르는 값은 버림)
 export function cleanDoc(d) {
   d = d && typeof d === 'object' ? d : {};

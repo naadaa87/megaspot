@@ -1714,15 +1714,17 @@
         CDS=fresh;cdFill(cancelled);cdState();cdPreview();['#cd-save','#cd-pdf','#cd-png','#cd-share','#cd-link','#cd-text'].forEach(function(s){$(s).disabled=true;});
         throw new Error('예약이 취소되어 확정서 발급·다운로드를 중단했습니다. 수납·환불 기록에서 최신 정산을 확인해 주세요.');
       }
-      if(window.MEGASPOT_RECEPTION_CALC.revision(fresh.inquiry)!==expected||(fresh.settlement&&fresh.settlement.revision)!==expectedPayment){
+      var conditionsChanged=fresh.conditions_revision!==CDS.conditions_revision;
+      if(conditionsChanged||window.MEGASPOT_RECEPTION_CALC.revision(fresh.inquiry)!==expected||(fresh.settlement&&fresh.settlement.revision)!==expectedPayment){
         var values=cdSettings();values.paid=fresh.settlement.net;values.pay_status=fresh.settlement.status==='unpriced'?'pending':fresh.settlement.status;
-        values.amount=fresh.booking.amount;values.amount_note=cdDefaults(fresh).amount_note;
+        var defaults=cdDefaults(fresh);values.amount=fresh.booking.amount;values.amount_note=defaults.amount_note;
+        if(conditionsChanged){values.customer=defaults.customer;values.event=defaults.event;values.items=defaults.items;}
         if(values.pay_status==='paid'&&values.paid!=null&&values.amount!=null&&values.paid<values.amount)values.pay_status='deposit';
-        CDS=fresh;cdFill(values);cdDirty=true;cdState();cdPreview();throw new Error('구성·예약 금액 또는 수납 내역이 변경되어 최신 정산 금액을 반영했습니다. 미리보기를 확인한 뒤 다시 발급·다운로드해 주세요.');
+        CDS=fresh;cdFill(values);cdDirty=true;cdState();cdPreview();throw new Error('문의 조건·옵션·예약 금액 또는 수납 내역이 변경되어 최신 내용을 반영했습니다. 미리보기를 확인한 뒤 다시 발급·다운로드해 주세요.');
       }
       if(!force&&!cdDirty&&CDS.doc&&CDS.doc.issued_at&&CDS.link)return CDS;
       var sent=cdSettings();
-      return A('/bookings/'+encodeURIComponent(code)+'/confirm-doc',{method:'PUT',body:{doc:sent,reception_revision:expected,settlement_revision:expectedPayment}}).then(function(r){
+      return A('/bookings/'+encodeURIComponent(code)+'/confirm-doc',{method:'PUT',body:{doc:sent,conditions_revision:CDS.conditions_revision,reception_revision:expected,settlement_revision:expectedPayment}}).then(function(r){
         CDS.doc=r.doc;CDS.preview=r.preview;CDS.link=r.link;CDS.settlement=r.doc.settlement;$('#cd-paid').value=r.doc.paid;$('#cd-amount').value=r.doc.amount==null?'':r.doc.amount;$('#cd-pay').value=r.doc.pay_status;if(cdSettings().items.join('\n')===sent.items.join('\n'))$('#cd-items').value=(r.doc.items||[]).join('\n');cdDirty=false;drawerDirty['adm-cdoc']=false;cdState();refreshLists();return CDS;
       });
     });

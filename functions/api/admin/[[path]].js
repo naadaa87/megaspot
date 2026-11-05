@@ -14,7 +14,7 @@ import { depositNoticeAdmin } from '../_deposit_notifications.js';
 import { refundAdmin } from '../_deposit_refunds.js';
 import { portalAdmin } from '../_booking_portal.js';
 import { cateringAdmin } from '../_catering.js';
-import { cleanDoc, parseDoc, publicDoc, confirmToken } from '../_confirm.js';
+import { cleanDoc, parseDoc, publicDoc, confirmToken, confirmationConditions } from '../_confirm.js';
 import { inquiryAmountSql, bookingAmountSql, amountOverrideSql } from '../_amounts.js';
 import {F,foodExtras,updateFood,syncFoodInput,cocktailAdmin,stripFoodItems,confirmationFoodData,foodDocuments} from '../_food_services.js';
 import { receptionAdmin, receptionExtra, receptionDocument, receptionChanged, withoutReceptionItems, receptionRevision, syncReceptionInput, receptionConflict } from '../_reception.js';
@@ -389,7 +389,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
         if (input) Object.assign(updated, { purpose: str(input.purpose, 40), regular: !!input.regular, options: cleanOptions({ ...input.opts, manager: input.opts?.manager?.on ? { count: input.opts.manager.count, hours: input.opts.manager.hours } : false }) });
         if (date !== inquiry.event_date || space !== inquiry.space_id) { delete updated.wait_rank; delete updated.wait_rank_at; }
         if (sh !== null) updated.slot = SLOT_OF[sh + '-' + eh] || 'custom';
-        const sync = await linkedBookingChanges(env, ref, { space_id: space, name, phone, date, start_h: sh, end_h: eh, headcount: people, amount: total });
+        const sync = await linkedBookingChanges(env, ref, { space_id: space, name, phone, date, start_h: sh, end_h: eh, headcount: people, amount: total, document_changed: JSON.stringify(old.options||{})!==JSON.stringify(updated.options||{})||String(old.purpose||'')!==String(updated.purpose||'') });
         if (sync.error) return sync.error;
         invalidated = sync.invalidated; statements.push(...sync.statements);
         if(foodsChanged||(rec.reception && receptionChanged(old,rec.reception)) || (Number(old.included_reception_amount)||0)!==rec.amount){const issued=await env.DB.prepare("SELECT booking_code FROM bookings WHERE inquiry_ref = ? AND status <> 'cancelled' AND confirm_doc IS NOT NULL LIMIT 1").bind(ref).first();statements.push(env.DB.prepare("UPDATE bookings SET confirm_doc = NULL WHERE inquiry_ref = ? AND status <> 'cancelled'").bind(ref));invalidated=invalidated||!!issued;}
@@ -525,7 +525,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
         const after = pick(data);
         const changed = Object.keys(after).filter(k => String(after[k]) !== String(before[k]));
         const memo = d.memo !== undefined ? str(d.memo, 2000) : row.memo;
-        const sync = await linkedBookingChanges(env, ref, { space_id: newSpace, name, phone, date, start_h: data.start_h ?? null, end_h: data.end_h ?? null, headcount, memo,
+        const sync = await linkedBookingChanges(env, ref, { space_id: newSpace, name, phone, date, start_h: data.start_h ?? null, end_h: data.end_h ?? null, headcount, memo, document_changed: changed.some(key => key==='목적'||key==='옵션'),
           ...(mode === 'keep' ? {} : { amount: data.total }) });
         if (sync.error) return sync.error;
         await batch(env, [env.DB.prepare('UPDATE inquiries SET space_id = ?, name = ?, phone = ?, email = ?, event_date = ?, headcount = ?, data = ?, memo = ?, updated_at = ? WHERE ref = ?')
@@ -829,13 +829,14 @@ export async function onRequest({ request, env, params, waitUntil }) {
         const needs_reissue = !!(doc?.issued_at && ((!Object.hasOwn(doc,'settlement')||doc.settlement.revision!==settlement.revision)||(currentReception&&!Object.hasOwn(doc,'reception'))||(currentFoods.length&&!Object.hasOwn(doc,'food_services'))));
         const previewDoc = {...(doc||{}),settlement:doc&&Object.hasOwn(doc,'settlement')?doc.settlement:settlement,reception:doc&&Object.hasOwn(doc,'reception')?doc.reception:currentReception,food_services:doc&&Object.hasOwn(doc,'food_services')?doc.food_services:currentFoods};
         if(needs_reissue)previewDoc.items=stripFoodItems(withoutReceptionItems(previewDoc.items||[]));
-        return json({ ok: true, settlement, document_preferences:pref?{show_amount:!!pref.show_amount}:null, needs_reissue, reception:currentReception, food_services:currentFoods, booking: { code, space_id: row.space_id, name: row.customer_name, phone: row.phone, date: row.date, slot: row.slot, headcount: row.headcount, status: row.status, amount: row.effective_amount, start_h: row.start_h, end_h: row.end_h, order_status: row.order_status || '', paid_amount:settlement.net },
+        return json({ ok: true, conditions_revision:confirmationConditions(row,idata), settlement, document_preferences:pref?{show_amount:!!pref.show_amount}:null, needs_reissue, reception:currentReception, food_services:currentFoods, booking: { code, space_id: row.space_id, name: row.customer_name, phone: row.phone, date: row.date, slot: row.slot, headcount: row.headcount, status: row.status, amount: row.effective_amount, start_h: row.start_h, end_h: row.end_h, order_status: row.order_status || '', paid_amount:settlement.net },
           inquiry: inq, doc, preview: publicDoc(row, previewDoc), link: doc && doc.issued_at ? link : '', token: k });
       }
       if (method === 'PUT') {
         if(row.status==='payment_review')return err('일정 확인 전에는 예약확정서를 발급할 수 없습니다.',409,'BOOKING_REVIEW');
         if (row.status === 'cancelled') return err('취소된 예약은 확정서를 발급할 수 없습니다.', 409, 'CANCELLED');
         const d = await readJson(request), prev = parseDoc(row.confirm_doc) || {}, t = now(), currentData=foodData;
+        if(d.conditions_revision!==undefined&&d.conditions_revision!==confirmationConditions(row,currentData))return err('문의·예약 조건이 변경됐습니다. 최신 조건을 다시 불러와 확정서를 발급해 주세요.',409,'CONDITIONS_CHANGED');
         if(receptionConflict(d.reception_revision,currentData) || (d.reception_revision===undefined&&receptionRevision(currentData)>0&&Number(d.doc?.amount)!==row.effective_amount))return err('식음료 변경으로 확정서 조건이 달라졌습니다. 최신 예약을 다시 불러와 발급해 주세요.',409,'RECEPTION_CHANGED');
         const settlement=await settlementFor(env,code);
         if(d.settlement_revision!==undefined&&d.settlement_revision!==settlement.revision)return err('수납 내역이 변경됐습니다. 최신 금액으로 다시 발급해 주세요.',409,'PAYMENT_CHANGED');
