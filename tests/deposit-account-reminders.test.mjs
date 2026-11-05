@@ -62,3 +62,11 @@ test('목록에 요청 시각·횟수·성공 횟수·최신 결과·실패 사�
  add.run('account','delivered-old','2026-11-04 01:00:00','live','delivered','','2026-11-04 01:01:00');add.run('payment','other-kind',now(),'live','delivered','',now());add.run('account','cancelled-request',now(),'live','cancelled','등록 완료',now());add.run('account','latest-failure','2026-11-05 02:00:00','live','failed','알리고 접수 거절 -101','2026-11-05 02:01:00');
  r=(await f.api('deposit-notifications/account-reminders')).items[0].reminder;assert.equal(r.request_count,2);assert.equal(r.delivered_count,1);assert.equal(r.last_requested_at,'2026-11-05 02:00:00');assert.equal(r.last_at,'2026-11-05 02:01:00');assert.equal(r.last_status,'failed');assert.equal(r.last_error,'알리고 접수 거절 -101');
 });
+
+test('미발송·최근 실패 필터는 대기/성공/결과 미확인 및 다른 종류·시험 이력을 구분한다',async t=>{
+ const f=await setup(t),list=s=>f.api('deposit-notifications/account-reminders?reminder_status='+s);
+ assert.equal((await list('unsent')).items.length,1);assert.equal((await list('failed')).items.length,0);
+ const add=f.db.prepare("INSERT INTO deposit_notifications(booking_code,kind,event_key,occurred_at,payload,mode,status) VALUES('BK-TEST',?,?,?,'{}',?,?)");add.run('payment','payment',now(),'live','delivered');assert.equal((await list('unsent')).items.length,1);
+ for(const state of ['cancelled','queued','sending','accepted','unknown','delivered','failed']){f.db.exec("DELETE FROM deposit_notifications WHERE kind='account' AND mode='live'");add.run('account','state',now(),'live',state);assert.equal((await list('unsent')).items.length,state==='cancelled'?1:0,state);assert.equal((await list('failed')).items.length,state==='failed'?1:0,state);}
+ add.run('account','retry',now(),'live','queued');assert.equal((await list('failed')).items.length,0);assert.equal((await list('all')).items.length,1);
+});

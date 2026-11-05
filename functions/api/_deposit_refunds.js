@@ -75,6 +75,11 @@ export async function refundAdmin({env,request,url,path,method}){
    if(filter==='completed')where.push("(r.state='completed' OR COALESCE(json_extract(ic.checks,'$.guarantee_returned'),0)<>0)");
    else {where.push("b.status IN ('confirmed','completed') AND COALESCE(r.state,'pending')<>'completed' AND COALESCE(json_extract(ic.checks,'$.guarantee_returned'),0)=0");
     if(filter==='missing')where.push("r.account_cipher IS NULL AND r.purged_at IS NULL AND (CASE WHEN b.inquiry_ref IS NOT NULL THEN COALESCE(json_extract(ic.checks,'$.guarantee_paid'),0) ELSE COALESCE(dc.paid,0) END)<>0 AND COALESCE(r.amount,json_extract(b.confirm_doc,'$.deposit'),(SELECT json_extract(q.data,'$.deposit') FROM quotes q WHERE q.inquiry_ref=b.inquiry_ref ORDER BY q.id DESC LIMIT 1),150000)>COALESCE(r.deduction,0)");
+    if(filter==='missing'){
+     const notice=url.searchParams.get('reminder_status')||'all';
+     if(notice==='unsent')where.push("NOT EXISTS(SELECT 1 FROM deposit_notifications n WHERE n.booking_code=b.booking_code AND n.mode='live' AND n.kind='account' AND n.status<>'cancelled')");
+     if(notice==='failed')where.push("(SELECT n.status FROM deposit_notifications n WHERE n.booking_code=b.booking_code AND n.mode='live' AND n.kind='account' ORDER BY n.id DESC LIMIT 1)='failed'");
+    }
     if(filter==='processing')where.push("r.state='processing'");if(filter==='hold')where.push("r.state='hold'");
     if(filter==='due')where.push('b.date<=?'),args.push(kstToday());
    }
