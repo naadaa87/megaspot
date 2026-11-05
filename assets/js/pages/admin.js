@@ -519,10 +519,11 @@
   }
   function nwHint(){
     var h=$('#nw-total-hint'); if(!h) return; h.textContent=NW.last?'요금표 계산 금액: '+won(NW.last.total):'';
-    var mode=nwMode(), base=mode==='auto'?(NW.last?NW.last.total:null):mode==='manual'&&$('#nw-total').value!==''?Number($('#nw-total').value):null;
+    var mode=nwMode(); $('#nw-keep-reprice').hidden=mode!=='keep'; $('#nw-reprice').disabled=!NW.last;
+    var base=mode==='auto'?(NW.last?NW.last.total:null):mode==='manual'&&$('#nw-total').value!==''?Number($('#nw-total').value):null;
     var adjusted=base==null?null:nwAdjusted(base); $('#nw-discount-result').textContent=adjusted?'할인 '+won(adjusted.discount)+' · 저장할 공간 금액 '+won(adjusted.total):'';
   }
-  function nwSyncMode(){ var m=nwMode(); $('#nw-auto').hidden=m!=='auto'; $('#nw-manual').hidden=m!=='manual'; $('#nw-discount').hidden=m==='keep'||m==='none'; if(m==='manual' && !$('#nw-total').value && NW.last){ $('#nw-total').value=NW.last.total; } nwHint(); }
+  function nwSyncMode(){ var m=nwMode(); $('#nw-auto').hidden=m!=='auto'&&m!=='keep'; $('#nw-manual').hidden=m!=='manual'; $('#nw-discount').hidden=m==='keep'||m==='none'; if(m==='manual' && !$('#nw-total').value && NW.last){ $('#nw-total').value=NW.last.total; } nwHint(); }
   function nwModeUi(edit, copy){
     NW.edit=edit||null;
     NW.copy=copy||null;
@@ -583,6 +584,7 @@
   $('#nw-form').addEventListener('change', function(e){ if(e.target.name==='amount_mode'){ nwSyncMode(); return; } if(e.target.name==='total'||e.target.name==='amount_note') return; nwCalc(); });
   $('#nw-form').addEventListener('input', function(e){ if(e.target.name==='headcount'||e.target.dataset.nwmgr) nwCalc(); else nwHint(); });
   $('#nw-pkgs').addEventListener('click', function(e){ var b=e.target.closest('[data-nwpkg]'); if(!b) return; useSpace($('#nw-space')?$('#nw-space').value:DEFAULT_SPACE); var p=E.findPkg(b.dataset.nwpkg); $('#nw-start').value=p.start; $('#nw-end').innerHTML=nwHourOpts(p.start+1, ADMIN_HOURS.to, p.end, '미정'); nwCalc(); });
+  $('#nw-reprice').addEventListener('click', function(){ if(!NW.last) return; $('#nw-form input[name=amount_mode][value=auto]').checked=true; nwCalc(); nwSyncMode(); });
   $('#nw-use-auto').addEventListener('click', function(){ if(!NW.last){ M.toast('이용일과 시간을 먼저 골라 주세요.'); return; } $('#nw-total').value=NW.last.total; });
   $('#nw-form').addEventListener('submit', function(e){
     e.preventDefault(); var f=e.target; if(!M.validate(f)) return; var d=M.formData(f), m=nwMode();
