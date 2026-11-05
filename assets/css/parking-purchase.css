@@ -55,3 +55,5 @@
 .pk-agree a{color:var(--cobalt);font-weight:700;text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1.5px}
 .pk-agree a:hover,.pk-agree a:focus-visible{color:#1337a7;text-decoration-thickness:2px}
 .pk-agree a:focus-visible{outline:2px solid var(--cobalt);outline-offset:3px;border-radius:2px}
+
+.pk-vehicle{position:relative;min-width:0;margin:0 0 20px;padding:20px;border:1px solid var(--concrete-2);border-radius:9px;display:grid;gap:18px}.pk-vehicle legend{padding:0 8px;font-weight:800;font-size:17px}.pk-remove{justify-self:end}.pk-confirm-plates{display:grid;gap:16px}.pk-receipt{display:grid;gap:16px;padding:20px 0;border-bottom:1px solid var(--concrete-2)}.pk-receipt h3{margin:0;font-size:21px}.pk-receipt details{display:grid;gap:12px}.pk-receipt summary{cursor:pointer;font-weight:700;margin-bottom:12px}#pk-total{align-self:center;margin-left:auto;font-size:18px}#pk-vehicles{min-width:0}.pk-vehicle .pk-ticket{min-width:0}.pk-vehicle .pk-ticket b{font-size:16px}@media(max-width:599px){.pk-vehicle{padding:16px 12px}#pk-total{font-size:16px}.pk-receipt h3{font-size:18px}}

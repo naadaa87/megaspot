@@ -309,7 +309,9 @@ CREATE TABLE IF NOT EXISTS parking_sessions (
  created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS parking_orders (
- oid TEXT PRIMARY KEY REFERENCES orders(oid),
+ oid TEXT PRIMARY KEY,
+ payment_oid TEXT REFERENCES orders(oid),
+ vehicle_price INTEGER CHECK(vehicle_price>0),
  plate TEXT NOT NULL,
  visit_date TEXT NOT NULL,
  ticket TEXT NOT NULL,
@@ -744,3 +746,27 @@ CREATE TABLE IF NOT EXISTS deposit_account_reminder_previews (
  created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS deposit_account_notice_lookup ON deposit_notifications(booking_code,kind,mode,id);
+-- One payment can contain independent parking registrations for up to ten vehicles.
+CREATE TABLE IF NOT EXISTS parking_batches (oid TEXT PRIMARY KEY REFERENCES orders(oid),token_hash TEXT NOT NULL,created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS parking_orders_payment ON parking_orders(payment_oid,created_at);
+CREATE TRIGGER IF NOT EXISTS parking_batch_paid AFTER UPDATE OF status ON orders
+WHEN NEW.status='paid' AND OLD.status IN ('created','pending') AND EXISTS(SELECT 1 FROM parking_batches WHERE oid=NEW.oid)
+BEGIN
+ INSERT OR IGNORE INTO parking_notifications(oid,kind,event_key,occurred_at)
+ SELECT p.oid,'paid',p.oid||':paid',COALESCE(NEW.paid_at,datetime('now')) FROM parking_orders p
+ WHERE p.payment_oid=NEW.oid AND COALESCE((SELECT json_extract(value,'$.enabled') FROM settings WHERE key='parking_alimtalk'),0)=1;
+ INSERT OR IGNORE INTO parking_admin_sms(oid,receiver,event_key,occurred_at,config_hash)
+ SELECT p.oid,j.value,p.oid||':paid:'||j.value,COALESCE(NEW.paid_at,datetime('now')),json_extract(s.value,'$.hash')
+ FROM parking_orders p,settings s,json_each(s.value,'$.phones') j WHERE p.payment_oid=NEW.oid AND NEW.test=0 AND s.key='parking_admin_alerts' AND json_extract(s.value,'$.enabled')=1;
+END;
+CREATE TRIGGER IF NOT EXISTS parking_batch_refund AFTER INSERT ON payapp_refunds
+WHEN EXISTS(SELECT 1 FROM parking_batches WHERE oid=NEW.oid)
+BEGIN
+ UPDATE parking_orders SET status='issue',memo='통합 결제 취소 내역 확인 필요 · 등록 보류',updated_at=NEW.created_at
+ WHERE payment_oid=NEW.oid AND status IN ('waiting','requested');
+ INSERT OR IGNORE INTO parking_notifications(oid,kind,event_key,occurred_at,payload)
+ SELECT p.oid,'refunded','refund:'||NEW.mul_no||':'||p.oid,NEW.created_at,json_object('refund_amount',p.vehicle_price,'refunded_amount',p.vehicle_price)
+ FROM parking_orders p JOIN orders o ON o.oid=p.payment_oid WHERE p.payment_oid=NEW.oid
+ AND (SELECT SUM(amount) FROM payapp_refunds WHERE oid=NEW.oid)>=o.price
+ AND COALESCE((SELECT json_extract(value,'$.enabled') FROM settings WHERE key='parking_alimtalk'),0)=1;
+END;

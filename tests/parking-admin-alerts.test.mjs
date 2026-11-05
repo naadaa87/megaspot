@@ -33,7 +33,7 @@ test('수신 번호는 서버 허용 목록·번호별 시험 도착 확인 후�
  const f=fixture(t);assert.equal((await f.api('/settings','PUT',{phones:['01055556666'],enabled:false})).status,409);
  assert.equal((await f.api('/settings','PUT',{phones,enabled:false})).status,200);assert.equal((await f.api('/settings','PUT',{phones,enabled:true})).status,409);
  await f.api('/test','POST',{confirm_test:true});assert.equal(f.sent.length,2);assert.ok(f.sent.every(x=>x.data.msg.includes('실제 결제나 아마노 등록은 발생하지 않았습니다.')));
- f.delivered();f.db.prepare("UPDATE parking_admin_sms SET updated_at=datetime('now','-20 seconds')").run();await parkingAdminSMSTick(f.env);
+ f.delivered();f.db.prepare("UPDATE parking_admin_sms SET updated_at=datetime('now','-1 hour')").run();await parkingAdminSMSTick(f.env);
  assert.equal(f.db.prepare("SELECT COUNT(*) n FROM parking_admin_sms WHERE status='delivered'").get().n,2);
  assert.equal((await f.api('/settings','PUT',{phones,enabled:true})).status,200);
 });

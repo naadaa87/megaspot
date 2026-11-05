@@ -1,3 +1,4 @@
+import {JOIN} from './_parking.js';
 import {json,err,now,sha256,readJson,str} from './_lib.js';
 import {equalSecret} from './_payapp.js';
 import {PARKING_TEMPLATES as T,PARKING_BUTTONS as B} from './_parking_templates.js';
@@ -51,7 +52,7 @@ export function parkingNoticeVariables(p,e,key){
 export function parkingNoticeRender(text,vars){return text.replace(/#\{([^}]+)\}/g,(_,k)=>{if(vars[k]==null)throw Error('알림 변수 누락');return vars[k];});}
 export function parkingNoticeObsolete(p,e,at=Date.now()){
  if(!p)return true;
- if(['paid','arrival_received','applied','issue'].includes(e.kind) && (p.payment_status!=='paid'||Number(p.refunded_amount)>0))return true;
+ if(['paid','arrival_received','applied','issue'].includes(e.kind) && (p.payment_status!=='paid'||Number(p.refunded_amount)>0||p.refund_hold))return true;
  if(['arrival_received','issue'].includes(e.kind) && p.status==='applied')return true;
  if(e.kind==='paid' && p.status!=='waiting')return true;
  if(e.kind==='issue' && p.status!=='issue')return true;
@@ -61,9 +62,12 @@ export function parkingNoticeObsolete(p,e,at=Date.now()){
  const age=at-utc(e.occurred_at);
  return age>(['arrival_received','issue'].includes(e.kind)?10*60000:24*3600000);
 }
-async function order(env,oid){return env.DB.prepare("SELECT p.*,o.buyer_phone,o.price,o.status AS payment_status,(SELECT COALESCE(SUM(amount),0) FROM payapp_refunds WHERE oid=p.oid) AS refunded_amount FROM parking_orders p JOIN orders o ON o.oid=p.oid WHERE p.oid=?").bind(oid).first();}
+async function order(env,oid){return env.DB.prepare(JOIN+' WHERE p.oid=?').bind(oid).first();}
 async function state(env,id,status,error='',extra={}){
  await env.DB.prepare('UPDATE parking_notifications SET status=?,error=?,provider_mid=COALESCE(?,provider_mid),sms_mid=COALESCE(?,sms_mid),updated_at=? WHERE id=?').bind(status,error,extra.mid||null,extra.sms||null,now(),id).run();
+}
+export function parkingPaidSMS(p,key){
+ return '[메가스팟 주차권 결제 완료]\n차량 끝번호: '+p.plate.slice(-4)+'\n이용일: '+p.visit_date+'\n주차권: '+({'1h':'1시간권','2h':'2시간권','3h':'3시간권',daily:'일일권'})[p.ticket]+'\n이 차량 결제금액: '+format(p.price)+'원\n주문번호: '+p.oid+'\n\n평일 야간에도 실제 입차를 5분 간격으로 확인해 자동 등록합니다. 당일 구매·입차 요청은 23:50까지입니다. 주말·공휴일과 전날 입차·익일 연속 주차는 별도 문의해 주세요. 등록 완료를 확인한 뒤 출차해 주세요.\n\n차량 구매 내역: https://megaspot.kr/parking/purchase/#oid='+p.oid+'&key='+key+'\n문의: https://pf.kakao.com/_LnxbmX/chat';
 }
 async function dispatch(env,e){
  const p=await order(env,e.oid);
@@ -83,6 +87,14 @@ async function dispatch(env,e){
   const key=await parkingSign(env.ALIGO_RELAY_SECRET,'parking-link-v1:'+id);
   const expires=Math.max(Date.now(),Date.parse(p.visit_date+'T23:59:59+09:00'))+7*86400000;
   await env.DB.prepare('INSERT INTO parking_notification_links(notification_id,oid,token_hash,expires_at) VALUES(?,?,?,?)').bind(e.id,p.oid,await sha256(key),expires).run();
+  // The approved v1 payment template mentions the retired 18:00 cutoff.
+  // During v2 review the user authorized this transaction notice as LMS.
+  if(e.kind==='paid'&&e.mode!=='test'&&env.PARKING_PAID_SMS!=='false'){
+   const r=await provider(env,'parking-paid/send',{receiver,msg:parkingPaidSMS(p,key)},id);
+   if(Number(r.result_code)!==1){await state(env,e.id,'failed','결제 안내 문자 접수 거절');return;}
+   if(!r.msg_id||Number(r.success_cnt)!==1||Number(r.error_cnt)!==0){await state(env,e.id,'unknown','결제 안내 문자 접수 결과 확인 필요');return;}
+   await state(env,e.id,'accepted','결제 안내 새 알림톡 심사 중 · 문자 발송',{mid:'sms:'+r.msg_id,sms:String(r.msg_id)});return;
+  }
   const vars=parkingNoticeVariables(p,e,key),message=parkingNoticeRender(actual.templtContent,vars),buttons=B.map(b=>({...b,linkMo:parkingNoticeRender(b.linkM,vars),linkPc:parkingNoticeRender(b.linkP,vars)})).map(({name,linkType,linkMo,linkPc})=>({name,linkType,linkMo,linkPc}));
   const sms=parkingNoticeRender(T[e.kind].sms,vars);
   const r=await provider(env,'alimtalk/send',{tpl_code:T[e.kind].code,receiver_1:receiver,subject_1:'메가스팟 주차권 안내',message_1:message,button_1:JSON.stringify({button:buttons}),fsubject_1:'메가스팟 주차권 안내',fmessage_1:sms},id);
@@ -93,6 +105,12 @@ async function dispatch(env,e){
 }
 async function refresh(env,e){
  if(!e.provider_mid || e.config_hash!==await fingerprint(env))return;
+ if(String(e.provider_mid).startsWith('sms:')){
+  const r=await provider(env,'sms/detail',{mid:e.sms_mid,page_size:'50'});if(Number(r.result_code)!==1)return;
+  for(const x of r.list||[]){if(/^20\d{2}-\d{2}-\d{2} /.test(x.send_date||'') && await sha256(phone(x.receiver))===e.phone_hash && !/중|대기|예약|접수/.test(x.sms_state||'')){
+   await state(env,e.id,x.sms_state==='발송완료'?'sms_delivered':'failed',x.sms_state==='발송완료'?'결제 안내 문자 도착': '결제 안내 문자 전송 실패');return;
+  }}return;
+ }
  const r=await provider(env,'history/detail',{mid:e.provider_mid,limit:'50'});
  if(Number(r.code)!==0)return;
  const rows=r.list||[];let at;
@@ -135,7 +153,7 @@ export async function parkingNoticeAdmin(request,env,path){
  const method=request.method,hash=await fingerprint(env),s=await config(env);
  if(path==='admin/notifications' && method==='GET'){
   const {results}=await env.DB.prepare('SELECT id,oid,kind,mode,status,provider_mid,sms_mid,error,occurred_at,updated_at FROM parking_notifications ORDER BY id DESC LIMIT 100').all();
-  return json({ok:true,enabled:s.enabled,live_allowed:env.ALIGO_LIVE_ENABLED==='true',configured:configured(env),test_delivered:await tested(env,hash),items:results||[],sms_fallback:true,templates:Object.entries(T).map(([kind,t])=>({kind,name:t.name,code:t.code,content:t.content,sms:t.sms}))});
+  return json({ok:true,enabled:s.enabled,live_allowed:env.ALIGO_LIVE_ENABLED==='true',configured:configured(env),test_delivered:await tested(env,hash),items:results||[],sms_fallback:true,paid_notice_channel:env.PARKING_PAID_SMS==='false'?'alimtalk':'sms',templates:Object.entries(T).map(([kind,t])=>({kind,name:t.name,code:t.code,content:t.content,sms:t.sms}))});
  }
  if(path==='admin/notifications/check' && method==='POST')return json({ok:true,items:await approvals(env)});
  if(path==='admin/notifications/settings' && method==='PUT'){

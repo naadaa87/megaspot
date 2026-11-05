@@ -1,3 +1,4 @@
+import {JOIN} from './_parking.js';
 import {json,err,readJson,str,now,sha256} from './_lib.js';
 import {parkingSign} from './_parking_notifications.js';
 const KEY='parking_admin_alerts',RELAY='https://relay.naranhistory.com/megaspot/aligo';
@@ -23,8 +24,8 @@ async function dispatch(env,e,s){
  if(!s.phones.includes(e.receiver)||e.config_hash!==s.hash||e.mode==='live'&&!s.enabled){await state(env,e.id,'cancelled','수신 설정 변경');return;}
  let message=TEST_MESSAGE;
  if(e.mode==='live'){
-  const p=await env.DB.prepare("SELECT p.*,o.price,o.status AS payment_status,o.test,(SELECT COALESCE(SUM(amount),0) FROM payapp_refunds WHERE oid=o.oid) AS refunded_amount FROM parking_orders p JOIN orders o ON o.oid=p.oid WHERE p.oid=?").bind(e.oid).first();
-  if(!p||p.payment_status!=='paid'||p.test||p.refunded_amount>0){await state(env,e.id,'cancelled','결제 상태 변경');return;}
+  const p=await env.DB.prepare(JOIN+' WHERE p.oid=?').bind(e.oid).first();
+  if(!p||p.payment_status!=='paid'||p.test||(p.refunded_amount>0||p.refund_hold)){await state(env,e.id,'cancelled','결제 상태 변경');return;}
   message=adminPaymentMessage(p);
  }
  const id=crypto.randomUUID();
@@ -52,13 +53,13 @@ export async function parkingAdminSMSTick(env){
  const {results}=await env.DB.prepare("SELECT * FROM parking_admin_sms WHERE status='queued' ORDER BY id LIMIT 2").all();
  await Promise.allSettled((results||[]).map(e=>dispatch(env,e,s)));
 }
-const FEED="FROM parking_orders p JOIN orders o ON o.oid=p.oid LEFT JOIN admin_parking_payment_reads r ON r.oid=p.oid WHERE r.oid IS NULL AND o.paid_at IS NOT NULL AND o.status='paid' AND o.test=0 AND NOT EXISTS(SELECT 1 FROM payapp_refunds f WHERE f.oid=p.oid)";
+const FEED="FROM ("+JOIN+") p LEFT JOIN admin_parking_payment_reads r ON r.oid=p.oid WHERE r.oid IS NULL AND p.paid_at IS NOT NULL AND p.payment_status='paid' AND p.test=0 AND p.refunded_amount=0 AND p.refund_hold=0";
 async function tested(env,phones,fingerprint){for(const phone of phones){if(!await env.DB.prepare("SELECT id FROM parking_admin_sms WHERE mode='test' AND receiver=? AND config_hash=? AND status='delivered' LIMIT 1").bind(phone,fingerprint).first())return false;}return !!phones.length;}
 export async function parkingAdminAlerts(request,env,path){
  const method=request.method;
  if(path==='admin/payment-alerts'&&method==='GET'){
   const s=await config(env),count=await env.DB.prepare('SELECT COUNT(*) AS n '+FEED).first();
-  const {results}=await env.DB.prepare('SELECT p.oid,p.plate,p.visit_date,p.ticket,o.price,o.paid_at '+FEED+' ORDER BY o.paid_at DESC,p.oid DESC LIMIT 50').all();
+  const {results}=await env.DB.prepare('SELECT p.oid,p.plate,p.visit_date,p.ticket,p.price,p.paid_at '+FEED+' ORDER BY p.paid_at DESC,p.oid DESC LIMIT 50').all();
   const {results:history}=await env.DB.prepare('SELECT id,oid,receiver,mode,status,error,occurred_at,updated_at FROM parking_admin_sms ORDER BY id DESC LIMIT 20').all();
   return json({ok:true,count:count?.n||0,items:results||[],sms:{enabled:s.enabled,phones:s.phones,configured:configured(env),test_delivered:await tested(env,s.phones,s.hash),history:history||[]}});
  }

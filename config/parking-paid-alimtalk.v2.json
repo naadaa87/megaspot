@@ -1,0 +1,24 @@
+{
+  "code": "UN_3966",
+  "name": "메가스팟_주차권_결제완료_자동등록_v2",
+  "status": "under_review",
+  "registered_date": "2026-11-05",
+  "content": "[메가스팟 주차권 결제 완료]\n\n주차권 결제가 완료되었습니다.\n\n주문번호: #{주문번호}\n차량 끝번호: #{차량끝번호}\n이용일: #{이용일}\n주차권: #{주차권}\n이 차량 결제금액: #{결제금액}원\n\n이용일의 실제 입차 기록을 확인해 차량별로 자동 등록합니다.\n평일 야간에도 5분 간격으로 확인합니다.\n당일 구매·입차 요청은 23:50까지입니다.\n주말·공휴일, 전날 입차 및 익일 연속 주차는 별도 문의가 필요합니다.\n\n결제만으로 주차 할인이 적용되지는 않습니다.\n아래 구매 내역에서 ‘등록 완료’를 확인한 뒤 출차해 주세요.",
+  "buttons": [
+    {
+      "name": "주차권 내역 확인",
+      "linkType": "WL",
+      "linkMo": "https://megaspot.kr/parking/purchase/#oid=#{주문번호}&key=#{구매내역키}",
+      "linkPc": "https://megaspot.kr/parking/purchase/#oid=#{주문번호}&key=#{구매내역키}"
+    },
+    {
+      "name": "카카오톡 문의",
+      "linkType": "WL",
+      "linkMo": "https://pf.kakao.com/_LnxbmX/chat",
+      "linkPc": "https://pf.kakao.com/_LnxbmX/chat"
+    }
+  ],
+  "sms_fallback": true,
+  "interim_delivery": "결제 완료만 LMS, 나머지 6종 기존 승인 알림톡 유지",
+  "activation_note": "승인 본문·버튼 일치 및 운영자 시험 수신을 확인한 뒤 기존 결제 완료 템플릿을 교체할 것"
+}

@@ -9,9 +9,9 @@ export const TICKETS = {
 export function parkingDate(date){const day=new Date(date+'T12:00:00+09:00').getUTCDay();return isDate(date)&&day!==0&&day!==6&&!HOLIDAYS[date];}
 export function arrivalWindow(ms=Date.now()){
  const date=new Date(ms+9*3600e3).toISOString(),minutes=+date.slice(11,13)*60+ +date.slice(14,16);
- return parkingDate(date.slice(0,10))&&minutes>=600&&minutes<1070;
+ return parkingDate(date.slice(0,10))&&minutes>=600&&minutes<1430;
 }
-export const POLICY = 'parking-20261103-v2';
+export const POLICY = 'parking-20261105-v3';
 export const DAILY_BASES = {
  calendar:'이용일 당일 23:59까지(한국시간). 입차 후 24시간권이 아닙니다.',
  '24h':'입차 시각부터 24시간(한국시간 기준).',
@@ -43,14 +43,18 @@ export async function parkingSettings(env){
  // Venue operator confirmed midnight expiry on 2026-11-03. This does not enable sales.
  const basis=typeof v.daily_basis==='string'&&Object.hasOwn(DAILY_BASES,v.daily_basis)?v.daily_basis:'calendar',details=str(v.daily_details??v.daily_terms,240),rollover=str(v.daily_rollover,160);
  const terms=DAILY_BASES[basis]+' '+details+' 익일·초과 정산: '+rollover;
- return {enabled:v.enabled===true,daily_enabled:v.daily_enabled===true&&basis!=='unconfirmed'&&!!details&&!!rollover,daily_basis:basis,daily_details:details,daily_rollover:rollover,daily_terms:terms,service_hours:'평일 10:00–18:00 (주말·공휴일 제외)',processing_notice:'입차 알림 후 최대 10분 이내 처리합니다. 당일 등록 접수는 17:50까지이며, 사전 결제만으로 할인이 적용되지 않습니다.'};
+ return {enabled:v.enabled===true,daily_enabled:v.daily_enabled===true&&basis!=='unconfirmed'&&!!details&&!!rollover,daily_basis:basis,daily_details:details,daily_rollover:rollover,daily_terms:terms,service_hours:'평일 10:00–24:00 자동 등록 (주말·공휴일 제외)',processing_notice:'실제 입차를 5분 간격으로 확인해 자동 등록합니다. 당일 구매·입차 요청은 23:50까지입니다. 등록 완료를 확인한 뒤 출차해 주세요. 전날 입차·익일 연속 주차는 별도 문의가 필요합니다.'};
 }
-export const JOIN = `SELECT p.*,o.price,o.status AS payment_status,o.buyer_name,o.buyer_phone,o.paid_at,
+export const JOIN = `SELECT p.*,COALESCE(p.vehicle_price,o.price) AS price,o.status AS payment_status,o.buyer_name,o.buyer_phone,o.paid_at,o.test,
+ o.price AS payment_total,COALESCE(p.payment_oid,p.oid) AS payment_id,
  s.entry_id,s.entry_at,s.free_external,s.free_order,
- (SELECT COALESCE(SUM(amount),0) FROM payapp_refunds WHERE oid=p.oid) AS refunded_amount
- FROM parking_orders p JOIN orders o ON o.oid=p.oid LEFT JOIN parking_sessions s ON s.id=p.session_id`;
+ (SELECT COALESCE(SUM(amount),0) FROM payapp_refunds WHERE oid=o.oid) AS payment_refund_amount,
+ CASE WHEN p.payment_oid IS NULL THEN (SELECT COALESCE(SUM(amount),0) FROM payapp_refunds WHERE oid=o.oid)
+ WHEN o.status='refunded' THEN p.vehicle_price ELSE 0 END AS refunded_amount,
+ CASE WHEN p.payment_oid IS NOT NULL AND EXISTS(SELECT 1 FROM payapp_refunds WHERE oid=o.oid) THEN 1 ELSE 0 END AS refund_hold
+ FROM parking_orders p JOIN orders o ON o.oid=COALESCE(p.payment_oid,p.oid) LEFT JOIN parking_sessions s ON s.id=p.session_id`;
 export function publicParking(p){
- return {oid:p.oid,plate:p.plate,visit_date:p.visit_date,ticket:p.ticket,ticket_label:TICKETS[p.ticket]?.label||p.ticket,daily_terms:p.daily_terms,price:p.price,
+ return {oid:p.oid,payment_oid:p.payment_oid||p.oid,refund_hold:!!p.refund_hold,payment_refund_amount:p.payment_refund_amount||0,plate:p.plate,visit_date:p.visit_date,ticket:p.ticket,ticket_label:TICKETS[p.ticket]?.label||p.ticket,daily_terms:p.daily_terms,price:p.price,
  payment_status:p.payment_status,refunded_amount:p.refunded_amount,status:p.status,arrival_at:p.arrival_at,applied_at:p.applied_at,
  refund_requested_at:p.refund_requested_at,refund_reviewed_at:p.refund_reviewed_at,created_at:p.created_at};
 }
@@ -69,7 +73,7 @@ export async function parkingAdmin(request,env,path){
   await log(env,'parking.settings','parking','admin',{enabled:value.enabled,daily_enabled:value.daily_enabled,daily_basis:value.daily_basis,confirmed_daily:policyChanged&&d.confirm_daily===true});return json({ok:true,...value});
  }
  if(path==='admin/count'&&method==='GET'){
-  const r=await env.DB.prepare("SELECT COUNT(*) AS n FROM parking_orders p JOIN orders o ON o.oid=p.oid WHERE o.status='paid' AND (p.status<>'applied' OR (p.refund_requested_at IS NOT NULL AND p.refund_reviewed_at IS NULL))").first();return json({ok:true,count:r?.n||0});
+  const r=await env.DB.prepare("SELECT COUNT(*) AS n FROM ("+JOIN+") p WHERE p.payment_status='paid' AND (p.status<>'applied' OR (p.refund_requested_at IS NOT NULL AND p.refund_reviewed_at IS NULL))").first();return json({ok:true,count:r?.n||0});
  }
  if(path==='admin/orders'&&method==='GET'){
   const q=new URL(request.url).searchParams,filter=q.get('filter')||'queue',needle=str(q.get('q'),60),date=str(q.get('date'),10);
@@ -80,7 +84,7 @@ export async function parkingAdmin(request,env,path){
   if(needle){sql+=' AND (p.plate LIKE ? OR o.buyer_name LIKE ? OR p.oid LIKE ?)';args.push('%'+needle+'%','%'+needle+'%','%'+needle+'%');}
   if(date&&isDate(date)){sql+=' AND p.visit_date=?';args.push(date);}
   const {results}=await env.DB.prepare(sql+' ORDER BY CASE WHEN p.refund_requested_at IS NOT NULL AND p.refund_reviewed_at IS NULL THEN 0 WHEN p.status=\'processing\' THEN 1 WHEN p.arrival_at IS NOT NULL THEN 2 ELSE 3 END,p.created_at LIMIT 200').bind(...args).all();
-  const count=await env.DB.prepare("SELECT COUNT(*) AS n FROM parking_orders p JOIN orders o ON o.oid=p.oid WHERE o.status='paid' AND (p.status<>'applied' OR (p.refund_requested_at IS NOT NULL AND p.refund_reviewed_at IS NULL))").first();
+  const count=await env.DB.prepare("SELECT COUNT(*) AS n FROM ("+JOIN+") p WHERE p.payment_status='paid' AND (p.status<>'applied' OR (p.refund_requested_at IS NOT NULL AND p.refund_reviewed_at IS NULL))").first();
   return json({ok:true,items:(results||[]).map(p=>({...publicParking(p),name:p.buyer_name,phone:p.buyer_phone,entry_id:p.entry_id,entry_at:p.entry_at,free_hours:p.free_hours,paid_hours:p.paid_hours,cost:p.cost,memo:p.memo,refund_reason:p.refund_reason,session_id:p.session_id,free_external:p.free_external})),count:count?.n||0});
  }
  const m=path.match(/^admin\/orders\/([A-Z0-9]+)\/(claim|complete|issue|reset|refund-reviewed)$/);
@@ -88,7 +92,7 @@ export async function parkingAdmin(request,env,path){
  const p=await env.DB.prepare(JOIN+' WHERE p.oid=?').bind(m[1]).first();if(!p)return err('주차 주문을 찾을 수 없습니다.',404);
  const d=await readJson(request),t=now(),memo=str(d.memo,1000),action=m[2];
  if(action==='claim'){
-  if(p.payment_status!=='paid'||p.refunded_amount>0)return err('정상 결제가 완료된 주문만 등록할 수 있습니다.',409);
+  if(p.payment_status!=='paid'||(p.refunded_amount>0||p.refund_hold))return err('정상 결제가 완료된 주문만 등록할 수 있습니다.',409);
   if(!['waiting','requested'].includes(p.status)||p.refund_requested_at&&!p.refund_reviewed_at)return err('등록 상태 또는 취소 요청을 먼저 확인해 주세요.',409);
   const entry=str(d.entry_id,80),rawAt=str(d.entry_at,19),entryAt=rawAt.replace('T',' ').slice(0,16);
   if(!Number.isFinite(Date.parse(entryAt.replace(' ','T')+':00+09:00'))||!isDate(entryAt.slice(0,10))||entryAt.slice(0,10)>kstToday()||!/^[\w-]{1,80}$/.test(entry)||!/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(?::\d{2})?$/.test(entryAt)||!d.confirm_entry||plateOf(d.plate_confirm)!==p.plate)return err('아마노 입차ID·입차시각·차량번호를 대조하고 확인해 주세요.');
@@ -100,7 +104,7 @@ export async function parkingAdmin(request,env,path){
   const sql=(s,...a)=>env.DB.prepare(s).bind(...a);
   try{await env.DB.batch([
    sql('INSERT OR IGNORE INTO parking_sessions(entry_id,plate,entry_at,free_external,created_at) VALUES(?,?,?,?,?)',entry,p.plate,entryAt,d.free_used?1:0,t),
-   sql("UPDATE parking_orders SET session_id=(SELECT id FROM parking_sessions WHERE entry_id=? AND plate=? AND entry_at=?),status='processing',memo=?,updated_at=? WHERE oid=? AND status IN ('waiting','requested') AND (refund_requested_at IS NULL OR refund_reviewed_at IS NOT NULL) AND EXISTS(SELECT 1 FROM orders WHERE oid=? AND status='paid') AND NOT EXISTS(SELECT 1 FROM payapp_refunds WHERE oid=?) AND EXISTS(SELECT 1 FROM parking_sessions WHERE entry_id=? AND plate=? AND entry_at=?)",entry,p.plate,entryAt,claimMemo,t,p.oid,p.oid,p.oid,entry,p.plate,entryAt),
+   sql("UPDATE parking_orders SET session_id=(SELECT id FROM parking_sessions WHERE entry_id=? AND plate=? AND entry_at=?),status='processing',memo=?,updated_at=? WHERE oid=? AND status IN ('waiting','requested') AND (refund_requested_at IS NULL OR refund_reviewed_at IS NOT NULL) AND EXISTS(SELECT 1 FROM orders WHERE oid=? AND status='paid') AND NOT EXISTS(SELECT 1 FROM payapp_refunds WHERE oid=?) AND EXISTS(SELECT 1 FROM parking_sessions WHERE entry_id=? AND plate=? AND entry_at=?)",entry,p.plate,entryAt,claimMemo,t,p.oid,p.payment_id,p.payment_id,entry,p.plate,entryAt),
    sql("UPDATE parking_sessions SET free_external=1 WHERE entry_id=? AND free_order IS NULL AND ?=1 AND EXISTS(SELECT 1 FROM parking_orders WHERE oid=? AND status='processing' AND session_id=parking_sessions.id)",entry,d.free_used?1:0,p.oid),
    sql("UPDATE parking_sessions SET free_order=? WHERE entry_id=? AND free_order IS NULL AND free_external=0 AND EXISTS(SELECT 1 FROM parking_orders WHERE oid=? AND status='processing' AND session_id=parking_sessions.id)",p.oid,entry,p.oid),
    sql("UPDATE parking_orders SET free_hours=CASE WHEN (SELECT free_order FROM parking_sessions WHERE id=session_id)=oid THEN 1 ELSE 0 END,paid_hours=CASE WHEN ticket='daily' THEN 0 ELSE hours-CASE WHEN (SELECT free_order FROM parking_sessions WHERE id=session_id)=oid THEN 1 ELSE 0 END END WHERE oid=? AND status='processing'",p.oid)
@@ -109,9 +113,9 @@ export async function parkingAdmin(request,env,path){
   if(after.status!=='processing'||!after.session_id||after.entry_id!==entry)return err('다른 요청에서 상태가 변경되었습니다. 새로고침해 주세요.',409);
  }else if(action==='complete'){
   const cost=integer(d.cost,1000000);
-  if(p.status!=='processing'||p.payment_status!=='paid'||p.refunded_amount>0||!d.confirm_applied)return err('아마노의 실제 등록 성공 내역과 결제 상태를 확인해 주세요.',409);
+  if(p.status!=='processing'||p.payment_status!=='paid'||(p.refunded_amount>0||p.refund_hold)||!d.confirm_applied)return err('아마노의 실제 등록 성공 내역과 결제 상태를 확인해 주세요.',409);
   if(cost===null)return err('실제 차감 원가를 입력해 주세요. 무료 등록만 한 경우 0원입니다.');
-  const result=await env.DB.prepare("UPDATE parking_orders SET status='applied',cost=?,memo=?,applied_at=?,updated_at=? WHERE oid=? AND status='processing' AND EXISTS(SELECT 1 FROM orders WHERE oid=? AND status='paid') AND NOT EXISTS(SELECT 1 FROM payapp_refunds WHERE oid=?)").bind(cost,memo,t,t,p.oid,p.oid,p.oid).run();
+  const result=await env.DB.prepare("UPDATE parking_orders SET status='applied',cost=?,memo=?,applied_at=?,updated_at=? WHERE oid=? AND status='processing' AND EXISTS(SELECT 1 FROM orders WHERE oid=? AND status='paid') AND NOT EXISTS(SELECT 1 FROM payapp_refunds WHERE oid=?)").bind(cost,memo,t,t,p.oid,p.payment_id,p.payment_id).run();
   if(!result.meta?.changes)return err('결제 또는 처리 상태가 변경되었습니다.',409);
  }else if(action==='issue'){
   if(!['processing','waiting','requested'].includes(p.status)||!memo)return err('확인 필요 사유를 입력해 주세요.');
