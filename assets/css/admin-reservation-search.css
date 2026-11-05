@@ -1,4 +1,4 @@
-/* 예약 검색 조건을 목록과 함께 명확하게 표시합니다. */
+/* 예약·문의 검색 조건을 목록과 함께 명확하게 표시합니다. */
 .rs-search{flex:1 1 320px;min-width:0;display:flex;gap:8px;align-items:center;padding:4px;border:2px solid transparent;border-radius:8px}
 .rs-search .input{min-width:0;flex:1 1 160px}
 .rs-search .btn{flex:0 0 auto;white-space:nowrap;min-height:40px}
