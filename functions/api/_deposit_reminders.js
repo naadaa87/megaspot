@@ -26,6 +26,16 @@ export async function accountReminderAdmin({request,env,path,method,url},d){
   const target=new URL(url);target.searchParams.set('filter','missing');const response=await refundAdmin({env,request,url:target,path:'deposit-refunds',method:'GET'});if(!response.ok)return response;const data=await response.json(),codes=data.items.map(x=>x.code),rows=Object.fromEntries((await d.bookings(env,codes)).map(b=>[b.booking_code,b])),last=await latest(env,codes);
   return json({...data,send_ready:d.ready,reminder_cooldown_minutes:60,items:data.items.map(p=>{const n=last[p.code],blocked=reason(rows[p.code],n,d);return {...p,reminder:{eligible:!blocked&&d.ready,reason:blocked||(!d.ready?'계좌 안내 자동 발송 설정·시험 수신을 확인해 주세요.':''),last_status:n?.status||'',last_at:n?.updated_at||'',last_requested_at:n?.occurred_at||'',request_count:Number(n?.request_count||0),delivered_count:Number(n?.delivered_count||0),last_error:n?.error||'',pending_count:Number(n?.pending_count||0),check_count:Number(n?.check_count||0)}};})});
  }
+ if(path===PREFIX+'/refresh'&&method==='POST'){
+  const input=await readJson(request);if(typeof input.code!=='string'||!/^[A-Z0-9-]{1,40}$/.test(input.code))return err('조회할 예약번호를 확인해 주세요.');
+  const b=await d.booking(env,input.code);if(!b)return err('예약을 찾을 수 없습니다.',404);
+  const found=await env.DB.prepare("SELECT * FROM deposit_notifications WHERE booking_code=? AND kind='account' AND mode='live' AND status IN ('accepted','unknown','review') ORDER BY id LIMIT 21").bind(input.code).all(),items=[];
+  for(const e of (found.results||[]).slice(0,20)){
+   let result;try{result=await d.refresh(e);}catch{result={checked:false,reason:'알리고 결과 조회에 실패했습니다. 잠시 후 다시 조회해 주세요.'};}
+   const current=await env.DB.prepare('SELECT status FROM deposit_notifications WHERE id=?').bind(e.id).first();items.push({id:e.id,status:current?.status||e.status,...result});
+  }
+  await log(env,'deposit.account_result_refresh',input.code,'admin',{ids:items.map(x=>x.id),updated:items.filter(x=>x.updated).length});return json({ok:true,items,truncated:(found.results||[]).length>20});
+ }
  if(path===PREFIX+'/preview'&&method==='POST'){
   const input=await readJson(request),codes=codesOf(input.codes);if(!codes)return err('고객을 1~20명 선택해 주세요.');
   if(!d.ready)return err('계좌 등록 안내의 승인·시험 수신·자동 발송 설정을 확인해 주세요.',409);
