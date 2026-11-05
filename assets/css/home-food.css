@@ -9,9 +9,9 @@
 .home-food-card .eyebrow{font-size:11px;letter-spacing:.1em;line-height:1.6}
 .home-food-card h3.h-l{font-size:28px;line-height:1.4;letter-spacing:-.025em;margin-top:10px}
 .home-food-card .cat-band-txt>p:not(.tiny){font-size:14px;line-height:1.8!important;margin-top:16px}
-.home-food-card .hero-mega{gap:8px;margin:20px 0 0;flex-wrap:wrap}
-.home-food-card .hero-mega span{font-size:12px;padding:7px 9px}
-.home-food-card .hero-mega b{font-size:19px}
+.home-food-card .hero-mega{gap:8px;margin:20px 0 0;flex-wrap:wrap;align-items:flex-start}
+.home-food-card .hero-mega>span{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;gap:4px;min-height:36px;max-width:100%;padding:8px 10px;font-family:var(--font-body);font-size:12px;font-weight:700;line-height:20px;word-break:keep-all;text-align:center}
+.home-food-card .hero-mega>span b{font:inherit;letter-spacing:inherit;color:inherit}
 .home-food-card .cat-band-txt>.row{display:grid;grid-template-columns:1fr;gap:8px!important;margin-top:auto;padding-top:24px}
 .home-food-card .btn{width:100%;white-space:normal;text-align:center;justify-content:center;min-height:44px;font-size:13px;padding:10px 12px}
 .home-food-card .cat-band-txt>p.tiny{font-size:11.5px;line-height:1.7;margin-top:14px}

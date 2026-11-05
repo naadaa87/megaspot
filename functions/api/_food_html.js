@@ -40,7 +40,9 @@ export function foodHtml(html,path,rates){
  }
  if(path==='/'){
   html=html.replace(/(<article class="home-food-card" id="catering">[\s\S]*?<div class="hero-mega"><span>1인 <b>)[\d,]+/,(_,a)=>a+comma(cmin));
-  html=html.replace(/(<article class="home-food-card" id="reception">[\s\S]*?<div class="hero-mega"><span><b>)[\d,]+/,(_,a)=>a+(rmin==null?'맞춤':comma(rmin)));
+  // Bound legacy minimum-price updates to this card: a consultation label has no
+  // numeric price, and must never consume the following cocktail card's cup count.
+  html=html.replace(/<article class="home-food-card" id="reception">[\s\S]*?<\/article>/g,card=>card.replace(/(<div class="hero-mega"><span><b>)[\d,]+(<\/b>원부터)/,(_,a,z)=>a+(rmin==null?'맞춤':comma(rmin))+z));
  }
  html=html.replace(/@@FOODPRICE(\d+)@@/g,(_,i)=>slots[+i]);
  return html.replace('</head>','<script>window.MEGASPOT_FOOD_RATES='+JSON.stringify(rates).replace(/</g,'\\u003c')+';</script><script src="/assets/js/food-pricing.js?v=20261105cfbudget1"></script></head>');

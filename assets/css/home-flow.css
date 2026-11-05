@@ -56,3 +56,12 @@
  .home-section-nav a,.home-purpose-links a{min-height:40px;display:flex;align-items:center}
  .home-gallery-more[open]>.event-photo-grid{padding:0 14px 14px}
 }
+
+/* Parallel package cards share row sizes when descriptions wrap differently. */
+@media(min-width:760px){
+ @supports(grid-template-rows:subgrid){
+  .page-home #price .pkg-grid.v2{row-gap:8px}
+  .page-home #price .pkg-grid.v2 .pkg-card{display:grid;grid-template-rows:subgrid;grid-row:span 4}
+  .page-home #price .pkg-grid.v2 .pkg-use{justify-self:start;align-self:start}
+ }
+}
