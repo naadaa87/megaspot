@@ -52,6 +52,7 @@
 <link rel="stylesheet" href="/assets/css/admin-parking-alerts.css?v=20261104adminsms1">
 <link rel="stylesheet" href="/assets/css/admin-navigation.css?v=20261104navrelease3">
 <link rel="stylesheet" href="/assets/css/admin-booking-readiness.css?v=20261105readiness1">
+<link rel="stylesheet" href="/assets/css/admin-reservation-search.css?v=20261105search1">
 </head>
 <body class="page-admin">
 <div id="admin-root">
@@ -153,8 +154,12 @@
         <select class="select" id="rs-space" aria-label="공간"><option value="">1호·2호 전체</option></select>
         <select class="select" id="rs-ch" aria-label="문의 경로"><option value="">모든 경로</option></select>
         <select class="select" id="rs-status" aria-label="상태"><option value="">전체 · 취소 기록 포함</option><option value="active">취소 제외</option><option value="confirmed">예약 확정</option><option value="completed">이용 완료</option><option value="cancelled">취소만</option></select>
-        <input class="input" id="rs-q" placeholder="이름·연락처·예약번호·문의번호" aria-label="검색">
+        <div class="rs-search" id="rs-search">
+          <input class="input" id="rs-q" placeholder="이름·연락처·예약번호·문의번호" aria-label="검색" aria-describedby="rs-search-status">
+          <button class="btn btn-light btn-sm" type="button" id="rs-search-clear" disabled>검색 초기화</button>
+        </div>
       </div>
+      <div class="rs-search-status" id="rs-search-status" role="status" aria-live="polite" aria-atomic="true" hidden><strong id="rs-search-summary"></strong><span>검색어에 맞는 예약·문의만 표시 중입니다.</span></div>
       <div class="rs-kpis" id="rs-kpis"></div>
       <div id="rs-list" class="rs-list"></div>
     </section>
@@ -637,7 +642,7 @@
 <script src="/assets/js/cocktail-calc.js?v=20261104foodprices3"></script>
 <script src="/assets/js/inquiry-overview.js?v=20261104receptionvat1"></script>
 <script src="/assets/js/quote-calculation.js?v=20261105quotespace1"></script>
-<script src="/assets/js/pages/admin.js?v=20261105inquiryauto1&readiness=20261105"></script>
+<script src="/assets/js/pages/admin.js?v=20261105search1"></script>
 <script src="/assets/js/pages/admin-platform.js?v=20261102adminux1"></script>
 <script src="/assets/js/pages/admin-cocktail.js?v=20261104foodprices3"></script>
 <script src="/assets/js/pages/admin-food-pricing.js?v=20261104navrelease1"></script>

@@ -1,0 +1,10 @@
+/* 예약 검색 조건을 목록과 함께 명확하게 표시합니다. */
+.rs-search{flex:1 1 320px;min-width:0;display:flex;gap:8px;align-items:center;padding:4px;border:2px solid transparent;border-radius:8px}
+.rs-search .input{min-width:0;flex:1 1 160px}
+.rs-search .btn{flex:0 0 auto;white-space:nowrap;min-height:40px}
+.rs-search.is-active{border-color:var(--cobalt);background:#eef2ff}
+.rs-search.is-active .input{border-color:var(--cobalt);font-weight:700;color:var(--cobalt)}
+.rs-search-status{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px;margin:0 0 14px;padding:12px 16px;border:1px solid #bdc9ed;border-left:4px solid var(--cobalt);border-radius:6px;background:#eef2ff;color:var(--cobalt);font-size:14px;overflow-wrap:anywhere}
+.rs-search-status strong{font-weight:800}
+.rs-search-status span{color:var(--ink-2)}
+@media(max-width:600px){.rs-search{flex-basis:100%;padding:4px 2px}.rs-search .btn{padding:0 10px;font-size:13px}.rs-search-status{padding:10px 12px}}
