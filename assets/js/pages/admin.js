@@ -787,7 +787,8 @@
     var input=quote.data&&quote.data.input;if(!input)return false;
     var d=it.data||{},h=inqHours(d),op=d.options||{},mgr=op.manager,amount=currentAmount(it,quote);
     var latest={space:it.space_id||d.space_id,customer:d.name||it.name,phone:d.phone||it.phone,email:d.email||it.email,date:d.date||it.event_date,start:h[0]==null?input.start:h[0],end:h[1]==null?input.end:h[1],people:d.headcount||it.headcount,purpose:d.purpose,regular:!!d.regular||d.inquiry_type==='regular',opts:Object.assign({},op,{manager:{on:!!mgr||(d.options==null&&(d.needs||[]).indexOf('manager')>=0),count:mgr&&mgr.count||1,hours:mgr&&mgr.hours||4}})};
-    return quoteInquiryConditions(input)===quoteInquiryConditions(latest)&&(amount==null||Number(quote.total)===Number(amount));
+    var adj=d.price_adjustment,discountCurrent=adj?(String(input.discType||'none')===String(adj.type||'none')&&Number(input.discVal||0)===Number(adj.value||0)&&String(input.discWhy||'')===String(adj.reason||'')):(!(d.amount_mode==='auto'||d.amount_mode==='manual')||!input.discVal||input.discType==='none');
+    return quoteInquiryConditions(input)===quoteInquiryConditions(latest)&&discountCurrent&&(amount==null||Number(quote.total)===Number(amount));
   }
   function ensureCurrentQuote(action){
     if(quoteHistorical){if(action==='save')M.toast('변경 전 견적 원본입니다. 최신 구성으로 열어 새 견적을 저장해 주세요.');return Promise.resolve(action!=='save');}
