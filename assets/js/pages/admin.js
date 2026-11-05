@@ -1252,19 +1252,20 @@
     bkSync();
   }
   function bkSync(){
+    useSpace($('#bk-space').value);
     if(!E||!D) return;
     var sh=$('#bk-start').value, eh=$('#bk-end').value, slot='custom';
     D.packages.forEach(function(p){ var on=sh && +sh===p.start && +eh===p.end; if(on) slot='pkg-'+p.id; var b=$('#bk-pkgs [data-bkpkg="'+p.id+'"]'); if(b) b.classList.toggle('on', !!on); });
     $('#bk-slot').value=slot;
     var date=$('#bk-date').value, h=$('#bk-amount-hint');
-    useSpace($('#bk-space').value);
-    if(date && sh && eh){ var q=E.quote({ adminHours:true, date:date, start:+sh, end:+eh, people:Math.max(1,parseInt($('#bk-people').value,10)||D.people.base) }); h.innerHTML=q?'요금표 기준 '+esc(won(q.total))+' (옵션·할인 제외) <button type="button" class="linkish" id="bk-use-calc">넣기</button>':''; var u=$('#bk-use-calc'); if(u&&q) u.addEventListener('click', function(){ $('#bk-amount').value=q.total; }); }
+    if(date && sh && eh){ var q=E.quote({ adminHours:true, date:date, start:+sh, end:+eh, people:Math.max(1,parseInt($('#bk-people').value,10)||D.people.base) }); h.innerHTML=q?'요금표 기준 '+esc(won(q.total))+' · '+q.people+'명 기준 (옵션·할인 제외) <button type="button" class="linkish" id="bk-use-calc">넣기</button>':''; var u=$('#bk-use-calc'); if(u&&q) u.addEventListener('click', function(){ $('#bk-amount').value=q.total; }); }
     else h.textContent='';
   }
   bkTimes();
   $('#bk-start').addEventListener('change', function(){ var sh=this.value, eh=$('#bk-end').value; $('#bk-end').innerHTML=nwHourOpts(sh?+sh+1:ADMIN_HOURS.from+1, ADMIN_HOURS.to, eh&&+eh>+sh?eh:'', '미정'); bkSync(); });
   $('#bk-space').addEventListener('change',function(){ useSpace(this.value); bkTimes($('#bk-start').value===''?null:+$('#bk-start').value,$('#bk-end').value===''?null:+$('#bk-end').value); });
   ['#bk-end','#bk-date','#bk-people'].forEach(function(sel){ $(sel).addEventListener('change', bkSync); });
+  $('#bk-people').addEventListener('input', bkSync);
   $('#bk-pkgs').addEventListener('click', function(e){ var b=e.target.closest('[data-bkpkg]'); if(!b) return; var p=E.findPkg(b.dataset.bkpkg); bkTimes(p.start, p.end); });
   function settlementSummary(b){var s=b.settlement;if(!s)return '';var text=s.cancellation?'취소 수수료 '+won(s.cancellation.fee)+(s.cancellation.cycle?' · 이번 환불 완료 ':' · 이미 환불 ')+won(s.cycle_refunded??s.refunded)+' · 추가 환불 필요 '+(s.refund_due==null?'확인 필요':won(s.refund_due))+' · 다시 받을 금액 '+(s.balance==null?'확인 필요':won(s.balance)):'현재 수납 '+won(s.net)+(s.reconfirmation?' · 다시 받을 금액 ':' · 잔금 ')+(s.balance==null?'미정':won(s.balance))+' · 초과 수납 환불 필요 '+(s.refund_due==null?'미정':won(s.refund_due));return '<div class="small booking-settlement"><b>'+esc(text)+'</b> <button class="btn btn-light btn-xs" type="button" data-settlement-code="'+esc(b.booking_code)+'">수납·환불 기록</button> <button class="btn btn-light btn-xs" type="button" data-cancellation-code="'+esc(b.booking_code)+'">'+(b.status==='cancelled'?'취소 정산·정산서':'취소·환불 정산')+'</button>'+(b.status==='cancelled'?' <button class="btn btn-light btn-xs" type="button" data-reconfirm-code="'+esc(b.booking_code)+'">이 예약 재확정</button>':'')+'</div>';}
 
