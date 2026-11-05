@@ -1,3 +1,4 @@
+import Calculation from '../../../assets/js/quote-calculation.js';
 import {reconfirmationAdmin,reconfirmBooking} from '../_reconfirmation.js';
 import {cancellationAdmin} from '../_cancellation.js';
 import {refundAmountSql} from '../_payapp_refund_history.js';
@@ -365,6 +366,12 @@ export async function onRequest({ request, env, params, waitUntil }) {
         Object.assign(updated, { total, amount_override: true, amount_mode: 'quote', amount_note: str(data.discountWhy, 200), included_catering_amount: catering, catering_in_quote: catering > 0 || !!(old.catering&&(old.catering.status==='cancelled'||old.catering.removed||!old.catering.total)&&(old.catering_in_quote||input?.cateringRequested)&&!input?.cateringExcluded), date, name, phone, email, headcount: people, space_id: space, start_h: sh, end_h: eh,
           t_start: sh === null ? '' : hl(sh).replace('다음 날 ', ''), t_end: eh === null ? '' : hl(eh).replace('다음 날 ', ''), quote_no, quote_input: input,
           price_adjustment: { type: input?.discType || 'none', value: num(input?.discVal) || 0, reason: str(data.discountWhy, 200), discount: amountOk(data.discount) || 0 } });
+        // Keep the displayed calculation in step with the exact quote being saved.
+        const calculation=Calculation.text({...data,space,date,people,total},{space,spaceName:SPACES[space]});
+        if(calculation){
+          if(old.estimate&&old.source!=='admin'&&!old.estimate_admin&&!old.estimate_customer)updated.estimate_customer=old.estimate;
+          updated.estimate=calculation;updated.estimate_admin=true;updated.estimate_quote_no=quote_no;
+        }
         updated.included_cocktail_amount=cocktail;
         updated.cocktail_in_quote=cocktail>0||!!(old.cocktail&&old.cocktail.status==='cancelled'&&(old.cocktail_in_quote||input?.cocktailRequested)&&!input?.cocktailExcluded);
         let foodsChanged=false;
