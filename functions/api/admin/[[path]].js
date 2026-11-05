@@ -348,6 +348,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
       if (rec.error) return err(rec.error);
       if (rec.amount+food.amount > total) return err('견적 합계가 케이터링 금액보다 작습니다. 추가 항목을 확인해 주세요.');
       const statements = [], input = data.input && typeof data.input === 'object' ? data.input : null;
+      if(input)input.reception_request=inquiry&&input.receptionRequested?receptionDocument(safe(inquiry.data),total):null;
       if(rec.reception){
         data.extras=data.extras.map(x=>x.kind==='reception'?{...x,reception:rec.reception}:x);
         if(Array.isArray(input?.extras))input.extras=input.extras.map(x=>x.kind==='reception'?{...x,amount:rec.amount,reception:rec.reception}:x);

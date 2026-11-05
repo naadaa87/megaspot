@@ -15,9 +15,9 @@ test('all 43 supplier PDF menu prices match the existing selling price and unit'
  assert.equal(receptionMenuSupply({...ITEMS[0],unit:'1BOX'}),null);
 });
 test('all 57 reception costs are filled, margins calculated and fees use user-confirmed costs',async()=>{
- const f=fixture(),r=await f.api('reception/pricing');assert.equal(r.rows.length,57);assert(r.rows.every(row=>Number.isSafeInteger(row.vendor_supply)&&row.margin!==null&&row.margin_rate!==null));
+ const f=fixture(),r=await f.api('reception/pricing');assert.equal(r.rows.filter(r=>!r.provider).length,57);assert(r.rows.filter(r=>!r.provider).every(row=>Number.isSafeInteger(row.vendor_supply)&&row.margin!==null&&row.margin_rate!==null));
  for(const [id,cost,sale,margin] of [['course.classic',30000,35000,5000],['menu.01',2800,3700,900],['menu.15',2600,3400,800],['menu.16',60000,78000,18000],['menu.24',12000,15600,3600],['menu.39',70000,91000,21000],['menu.42',120000,156000,36000],['fee.table.50',200000,200000,0]]){const row=r.rows.find(r=>r.id===id);assert.equal(row.vendor_supply,cost,id);assert.equal(row.sale_price,sale,id);assert.equal(row.margin,margin,id);assert.equal(row.margin_rate,margin/sale,id);}
- for(const row of r.rows.filter(r=>r.id.startsWith('fee.')))assert.equal(row.margin,0,row.id);
+ for(const row of r.rows.filter(r=>r.id.startsWith('fee.')&&!r.provider))assert.equal(row.margin,0,row.id);
  const pub=publicFoodPricing({service:'reception',rows:r.rows});assert(!/vendor_supply|source_page|마진|margin/.test(JSON.stringify(pub)));
  const data=foodPricingData('reception',{service:'reception',rows:r.rows}),quote=C.create(data).quote(50,'table','classic');assert.equal(quote.total,2145000);
  const template=readFileSync(new URL('../assets/docs/megaspot-reception-pricing-template.pdf',import.meta.url));const snapshot=readFileSync(new URL('../assets/docs/megaspot-reception-guide.pdf',import.meta.url));assert.deepEqual(Buffer.from(buildFoodPdf(template,'reception',pub)),snapshot);

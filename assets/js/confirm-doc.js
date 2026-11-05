@@ -33,6 +33,8 @@
     var r=doc.reception;if(!r)return [];
     var included=r.included?'확정 금액에 포함':'확정 금액과 별도 · 합계 미포함';
     var rows=[['코스 · 식사 인원',(r.courseName||'코스 미정')+' · '+(r.people?r.people+'명':'인원 상담')],['제공 방식',r.formatName||'상담 후 결정']];
+    if(r.menuNames&&r.menuNames.length)rows.push(['희망 메뉴',r.menuNames.join(', ')]);
+    if(r.request_note)rows.push(['고객 요청',r.request_note]);
     if(r.status==='cancelled'){rows.push(['진행 상태','취소 · 합계 제외']);return rows;}
     if(doc.show_amount!==false){
       rows.push(['케이터링 금액',(r.total==null?'상담 후 견적':won(r.total))+' · '+included+(r.vat_excluded===true?' · 부가세 포함':' · 이전 저장 금액 · 부가세 조건 확인 필요')]);

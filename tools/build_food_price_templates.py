@@ -45,6 +45,11 @@ def finalize(service,path):
     (ROOT/f'functions/api/_pdf_{service}_slots.js').write_text('export default '+json.dumps(slots,ensure_ascii=False,separators=(',',':'))+';\n')
     print(service,len(reader.pages),'pages',len(slots),'live prices')
 def build_reception():
+    if (ROOT/'tools/cafefriends_catalog.json').exists():
+        import runpy
+        runpy.run_path(str(ROOT/'tools/build_cafefriends_pdf.py'),run_name='__main__')
+        return
+
     global slots;slots=[]
     source=(ROOT/'tools/build_reception.py').read_text();code=source[source.index('def build_pdf():'):source.index("if __name__=='__main__':")]
     code=code.replace('pageCompression=1','pageCompression=0')
