@@ -43,5 +43,5 @@ export function foodHtml(html,path,rates){
   html=html.replace(/(<article class="home-food-card" id="reception">[\s\S]*?<div class="hero-mega"><span><b>)[\d,]+/,(_,a)=>a+(rmin==null?'맞춤':comma(rmin)));
  }
  html=html.replace(/@@FOODPRICE(\d+)@@/g,(_,i)=>slots[+i]);
- return html.replace('</head>','<script>window.MEGASPOT_FOOD_RATES='+JSON.stringify(rates).replace(/</g,'\\u003c')+';</script><script src="/assets/js/food-pricing.js?v=20261105cfprices1"></script></head>');
+ return html.replace('</head>','<script>window.MEGASPOT_FOOD_RATES='+JSON.stringify(rates).replace(/</g,'\\u003c')+';</script><script src="/assets/js/food-pricing.js?v=20261105cfbudget1"></script></head>');
 }

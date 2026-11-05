@@ -32,8 +32,9 @@
   function receptionRows(doc){
     var r=doc.reception;if(!r)return [];
     var included=r.included?'확정 금액에 포함':'확정 금액과 별도 · 합계 미포함';
-    var rows=[['코스 · 식사 인원',(r.courseName||'코스 미정')+' · '+(r.people?r.people+'명':'인원 상담')],['제공 방식',r.formatName||'상담 후 결정']];
+    var rows=[[r.price_basis==='budget'?'1인 예산 · 인원':'참고 코스 · 식사 인원',(r.courseName||'코스 미정')+' · '+(r.people?r.people+'명':'인원 상담')],['제공 방식',r.formatName||'상담 후 결정']];
     if(r.menuNames&&r.menuNames.length)rows.push(['희망 메뉴',r.menuNames.join(', ')]);
+    if(r.price_basis==='budget')rows.push(['금액 기준','선택 예산에 따른 예상 금액 · 메뉴·제공량 상담 후 확정']);
     if(r.request_note)rows.push(['고객 요청',r.request_note]);
     if(r.status==='cancelled'){rows.push(['진행 상태','취소 · 합계 제외']);return rows;}
     if(doc.show_amount!==false){

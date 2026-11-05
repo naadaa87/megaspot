@@ -26,7 +26,7 @@ test('changed selling prices reach shared FAQ, structured FAQ and cross-service 
   assert(html.includes('맞춤 구성 · 식사·다과·핑거푸드'),page+' navigation');
   assert(!html.includes('@@FOODPRICE'),page+' placeholders');
   assert(!html.includes('25,000원부터'),page+' stale reception minimum');
-  if(page==='catering')assert(html.includes('출장 케이터링. 35,000원부터'),page+' cross-service card');
+  if(page==='catering')assert(html.includes('다과·도시락의 1인 예산 선택'),page+' cross-service card');
   if(page==='reception'){
    assert(html.includes('1인 35,000원 · 부가세 별도'),page+' active package price');
    assert(!html.includes('라이트25,000원'),'former supplier package removed');
@@ -41,7 +41,7 @@ test('public reception copy preserves requested supplier, menu and budget in cli
   const out={innerHTML:'',appendChild(node){fallback.push(node.textContent);}},map={'#reception-people':input,'#reception-format':format,'#reception-course':course,'#reception-budget':budget,'#reception-note':note,'[data-reception-result]':out,'#cf-form':field(''),'[data-menu-count]':{},'[data-menu-more]':{}};
   const box={querySelectorAll(){return [];},addEventListener(){}};
   const document={getElementById(){return box;},querySelector(s){return map[s];},querySelectorAll(){return [];},addEventListener(t,fn){listeners[t]=fn;},createElement(){return {};}};
-  const window={MEGASPOT:{esc:String,copy(text){captured.push(text);return Promise.resolve(clipboardWorks);},toast(){}},MEGASPOT_RECEPTION_CALC:C};
+  const window={MEGASPOT:{esc:String,copy(text){captured.push(text);return Promise.resolve(clipboardWorks);},toast(){}},MEGASPOT_RECEPTION_CALC:C,MEGASPOT_RECEPTION_CHOICES:{bind(){return {sync(){},load(){}};}}};
   vm.runInNewContext(source('assets/js/pages/reception.js'),{window,document,URLSearchParams,location:{search:'?reception=cf-classic&reception_people=51&reception_format=box&reception_menus=cf-menu-79&reception_budget=30000'}});
   listeners.click({target:{closest(){return {dataset:{},hasAttribute(n){return n==='data-reception-copy';}};}}});await Promise.resolve();
   const expected=C.requestText({course:'cf-classic',people:51,format:'box',menu_ids:['cf-menu-79'],budget_per_person:30000});assert.equal(captured[0],expected);assert.match(captured[0],/안내해 주세요/);assert.match(captured[0],/훈제연어 카나페/);assert.match(captured[0],/30,000원.*확정 가격 아님/);assert.doesNotMatch(captured[0],/메가스팟입니다|문의하신|안내드립니다/);assert(out.innerHTML.includes('문의 내용 복사'));assert.deepEqual(fallback,clipboardWorks?[]:[expected]);

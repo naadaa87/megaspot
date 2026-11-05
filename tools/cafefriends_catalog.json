@@ -1,7 +1,7 @@
 {
   "provider": "cafefriends",
   "providerName": "카페프렌즈",
-  "version": "20261105cfprices1",
+  "version": "20261105cfbudget1",
   "source": "https://xn--sm2b84auzz14b70jcyab6ix4fvvd.com",
   "categories": [
     {
@@ -499,7 +499,12 @@
         "cf-menu-130",
         "cf-menu-104"
       ],
-      "image": "menu-47.jpg"
+      "image": "menu-47.jpg",
+      "kind": "course",
+      "formats": [
+        "table",
+        "box"
+      ]
     },
     {
       "id": "cf-classic",
@@ -533,7 +538,12 @@
         "cf-menu-15",
         "cf-menu-62"
       ],
-      "image": "menu-79.jpg"
+      "image": "menu-79.jpg",
+      "kind": "course",
+      "formats": [
+        "table",
+        "box"
+      ]
     },
     {
       "id": "cf-premium",
@@ -571,7 +581,12 @@
         "cf-menu-48",
         "cf-menu-24"
       ],
-      "image": "menu-24.jpg"
+      "image": "menu-24.jpg",
+      "kind": "course",
+      "formats": [
+        "table",
+        "box"
+      ]
     },
     {
       "id": "cf-signature",
@@ -613,7 +628,12 @@
         "cf-menu-21",
         "cf-menu-165"
       ],
-      "image": "menu-21.jpg"
+      "image": "menu-21.jpg",
+      "kind": "course",
+      "formats": [
+        "table",
+        "box"
+      ]
     },
     {
       "id": "cf-custom",
@@ -623,11 +643,12 @@
       "intro": "특정 메뉴 변경이나 별도 구성은 원하는 조건으로 상담해 주세요.",
       "menus": [],
       "example_ids": [],
-      "image": "field-76.jpg"
+      "image": "field-76.jpg",
+      "kind": "custom"
     }
   ],
   "menuNote": "메뉴는 계절과 식재료 수급에 따라 일부 달라질 수 있습니다. 원하시는 특정 메뉴가 있다면 상담을 통해 변경 가능합니다.",
-  "proposalNote": "선택한 세트의 기본 메뉴 구성입니다. 메뉴는 계절·식재료 수급에 따라 일부 달라질 수 있으며 특정 메뉴 변경은 상담 가능합니다. 실제 제공량·포장·현장 포함 범위는 최종 견적에서 확인합니다.",
+  "proposalNote": "위 메뉴는 1인 가격대별 참고 예시입니다. 메뉴 선택이 어려운 분들을 위한 제안이며, 고정 구성은 아닙니다. 계절·식재료 수급과 요청에 따라 변경할 수 있습니다.",
   "feesByFormat": {
     "table": [
       {
@@ -759,5 +780,73 @@
     "people": 50,
     "price": 50000,
     "after": 300
-  }
+  },
+  "referenceNote": "위 메뉴는 1인 가격대별 참고 예시입니다. 메뉴 선택이 어려운 분들을 위한 제안이며, 고정 구성은 아닙니다. 계절·식재료 수급과 요청에 따라 변경할 수 있습니다.",
+  "budgetOptions": [
+    {
+      "id": "cf-budget-10000",
+      "name": "1인 예산 10,000원",
+      "price": 10000,
+      "kind": "budget",
+      "formats": [
+        "snackbox",
+        "sandwichbox",
+        "fusionbox"
+      ],
+      "menus": [],
+      "intro": "선택한 예산에 맞춰 메뉴를 상담합니다."
+    },
+    {
+      "id": "cf-budget-15000",
+      "name": "1인 예산 15,000원",
+      "price": 15000,
+      "kind": "budget",
+      "formats": [
+        "snackbox",
+        "sandwichbox",
+        "fusionbox"
+      ],
+      "menus": [],
+      "intro": "선택한 예산에 맞춰 메뉴를 상담합니다."
+    },
+    {
+      "id": "cf-budget-20000",
+      "name": "1인 예산 20,000원",
+      "price": 20000,
+      "kind": "budget",
+      "formats": [
+        "snackbox",
+        "sandwichbox",
+        "fusionbox"
+      ],
+      "menus": [],
+      "intro": "선택한 예산에 맞춰 메뉴를 상담합니다."
+    },
+    {
+      "id": "cf-budget-25000",
+      "name": "1인 예산 25,000원",
+      "price": 25000,
+      "kind": "budget",
+      "formats": [
+        "snackbox",
+        "sandwichbox",
+        "fusionbox"
+      ],
+      "menus": [],
+      "intro": "선택한 예산에 맞춰 메뉴를 상담합니다."
+    },
+    {
+      "id": "cf-budget-30000",
+      "name": "1인 예산 30,000원",
+      "price": 30000,
+      "kind": "budget",
+      "formats": [
+        "snackbox",
+        "sandwichbox",
+        "fusionbox"
+      ],
+      "menus": [],
+      "intro": "선택한 예산에 맞춰 메뉴를 상담합니다."
+    }
+  ]
 }

@@ -8,11 +8,11 @@ async function submit(f,reception,extra={},expected=200){
  const res=await onRequestPost({env:f.env,request:new Request('https://local.test/api/inquiry',{method:'POST',headers:{'content-type':'application/json','cf-connecting-ip':'10.0.0.'+(++submit.ip)},body:JSON.stringify({name:'고객 선택 검증',phone:'010-1234-5678',agree_privacy:true,date:DAY,space_id:'megaspot-gundae',headcount:30,total:500000,reserve:true,start_h:10,end_h:17,reception,...extra})})});
  const data=await res.json();assert.equal(res.status,expected,JSON.stringify(data));return data;
 }submit.ip=0;
-for(const course of C.activeCourses())for(const format of C.activeFormats().map(f=>f.id)){
+for(const format of C.activeFormats().map(f=>f.id))for(const course of C.activeCourses(format)){
  test(`고객 ${course.name}·${format}: 새 코스·제공방식의 서버 금액을 문의·견적에 동일하게 저장`,async t=>{
   const f=fixture();t.after(()=>f.db.close());const {ref}=await submit(f,{course:course.id,format,people:50,total:1,fee:1,status:'cancelled',menu_ids:['cf-menu-79'],budget_per_person:30000});
   let item=(await f.api('inquiries/'+ref)).item,rec=item.data.reception;const calculated=C.quote(50,format,course.id),total=calculated.ok?calculated.total:0;
-  assert.equal(item.headcount,30);assert.equal(rec.people,50);assert.equal(rec.course,course.id);assert.equal(rec.format,format);assert.equal(rec.total,calculated.ok?total:null);assert.equal(rec.fee,calculated.ok?calculated.fee:null);assert.equal(rec.by,'customer');assert.equal(rec.status,'pending');assert.equal(rec.provider,'cafefriends');assert.deepEqual(rec.menuNames,['훈제연어 카나페']);assert.equal(rec.budget_per_person,30000);
+  assert.equal(item.headcount,30);assert.equal(rec.people,50);assert.equal(rec.course,course.id);assert.equal(rec.format,format);assert.equal(rec.total,calculated.ok?total:null);assert.equal(rec.fee,calculated.ok?calculated.fee:null);assert.equal(rec.by,'customer');assert.equal(rec.status,'pending');assert.equal(rec.provider,'cafefriends');assert.deepEqual(rec.menuNames,['훈제연어 카나페']);assert.equal(rec.budget_per_person,C.isBudget(course.id)?course.price:30000);
   assert.equal(O.build(item,{roomAmount:500000}).total,500000+total);
   const input=C.syncQuote(quoteInput({people:30}),item.data,true);
   await f.api('quotes','POST',{inquiry_ref:ref,customer:item.name,event_date:DAY,total:500000+total,data:{input,extras:input.extras,total:500000+total}});
