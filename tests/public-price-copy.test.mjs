@@ -36,14 +36,15 @@ test('changed selling prices reach shared FAQ, structured FAQ and cross-service 
 
 test('public reception copy preserves requested supplier, menu and budget in clipboard and fallback',async()=>{
  for(const clipboardWorks of [true,false]){
-  const listeners={},captured=[],fallback=[];
+  const listeners={},captured=[],fallback=[],windowListeners={},storage=new Map();
   const field=value=>({value,setAttribute(){},addEventListener(){}}),input=field('50'),format=field('table'),course=field('cf-custom'),budget=field(''),note=field('');
   const out={innerHTML:'',appendChild(node){fallback.push(node.textContent);}},map={'#reception-people':input,'#reception-format':format,'#reception-course':course,'#reception-budget':budget,'#reception-note':note,'[data-reception-result]':out,'#cf-form':field(''),'[data-menu-count]':{},'[data-menu-more]':{}};
   const box={querySelectorAll(){return [];},addEventListener(){}};
   const document={getElementById(){return box;},querySelector(s){return map[s];},querySelectorAll(){return [];},addEventListener(t,fn){listeners[t]=fn;},createElement(){return {};}};
-  const window={MEGASPOT:{esc:String,copy(text){captured.push(text);return Promise.resolve(clipboardWorks);},toast(){}},MEGASPOT_RECEPTION_CALC:C,MEGASPOT_RECEPTION_CHOICES:{bind(){return {sync(){},load(){}};}}};
-  vm.runInNewContext(source('assets/js/pages/reception.js'),{window,document,URLSearchParams,location:{search:'?reception=cf-classic&reception_people=51&reception_format=box&reception_menus=cf-menu-79&reception_budget=30000'}});
+  const window={addEventListener(t,fn){windowListeners[t]=fn;},MEGASPOT:{esc:String,copy(text){captured.push(text);return Promise.resolve(clipboardWorks);},toast(){}},MEGASPOT_RECEPTION_CALC:C,MEGASPOT_RECEPTION_CHOICES:{bind(){return {sync(){},load(id){course.value=id;}};}}};
+  vm.runInNewContext(source('assets/js/pages/reception.js'),{window,document,URLSearchParams,sessionStorage:{setItem(k,v){storage.set(k,v);},getItem(k){return storage.get(k);}},location:{search:'?reception=cf-classic&reception_people=51&reception_format=box&reception_menus=cf-menu-79&reception_budget=30000'}});
   listeners.click({target:{closest(){return {dataset:{},hasAttribute(n){return n==='data-reception-copy';}};}}});await Promise.resolve();
   const expected=C.requestText({course:'cf-classic',people:51,format:'box',menu_ids:['cf-menu-79'],budget_per_person:30000});assert.equal(captured[0],expected);assert.match(captured[0],/안내해 주세요/);assert.match(captured[0],/훈제연어 카나페/);assert.match(captured[0],/30,000원.*확정 가격 아님/);assert.doesNotMatch(captured[0],/메가스팟입니다|문의하신|안내드립니다/);assert(out.innerHTML.includes('문의 내용 복사'));assert.deepEqual(fallback,clipboardWorks?[]:[expected]);
+  for(const [id,fmt,b] of [['cf-classic','box',30000],['cf-budget-20000','fusionbox',20000]]){course.value=id;format.value=fmt;budget.value=b;input.value='51';windowListeners.pagehide();course.value='cf-light';format.value='table';input.value='1';budget.value='';windowListeners.pageshow({persisted:true});assert.equal(course.value,id);assert.equal(format.value,fmt);assert.equal(input.value,51);assert.equal(budget.value,b);assert.match(out.innerHTML,new RegExp(C.won(C.quote(51,fmt,id).total)));}
  }
 });

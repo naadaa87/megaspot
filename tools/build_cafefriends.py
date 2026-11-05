@@ -54,5 +54,6 @@ def build_web():
  # Keep current navigation, mobile fixes and contact routing from the existing page.
  html=html.replace('25,000원부터 · 핑거푸드·파티','맞춤 구성 · 식사·다과·핑거푸드')
  html=re.sub(r'(/assets/(?:js/(?:data/reception-quote|reception-calc|pages/reception)|css/reception)\.(?:js|css)\?v=)[^"\s]+',lambda m:m[1]+V,html)
+ html=html.replace('/assets/js/pages/reception.js?v='+V,'/assets/js/pages/reception.js?v=20261105cfbudgethistory1')
  p.write_text(html)
 if __name__=='__main__':build_web()
