@@ -22,7 +22,7 @@
   dialog.querySelector('label[for=payment-amount]').textContent=combined?'실제 총 입금액 (이용료 + 보증금 · 원)':'처리 금액 (원)';
   if(!combined||!d)return;
   var total=Number($('#payment-amount').value),fee=total-d.amount,valid=Number.isSafeInteger(total)&&fee>0&&state.data.settlement.balance!=null&&fee<=state.data.settlement.balance&&!d.reason;
-  $('#payment-split').innerHTML='<b>총 입금 '+won(total||0)+'</b><dl><div><dt>이용료 수납</dt><dd>'+won(Math.max(0,fee))+'</dd></div><div><dt>반환 보증금 입금 확인</dt><dd>'+won(d.amount)+'</dd></div></dl><p class="small">'+M.esc(d.reason||(!valid?'총 입금액에서 보증금을 뺀 금액이 남은 이용료 잔금 이내인지 확인해 주세요.':d.automatic?'저장하면 보증금 입금을 함께 확인하고 환급 계좌 등록 알림톡을 준비합니다. 이미 계좌를 등록한 고객은 재요청하지 않습니다. 발송 시간은 09:00–21:00입니다.':'현재 계좌 등록 알림 자동 발송이 꺼져 있습니다. 입금은 저장되며 계좌 등록 안내는 별도로 전달해 주세요.'))+'</p>';
+  $('#payment-split').innerHTML='<b>총 입금 '+won(total||0)+'</b><dl><div><dt>이용료 수납</dt><dd>'+won(Math.max(0,fee))+'</dd></div><div><dt>반환 보증금 입금 확인</dt><dd>'+won(d.amount)+'</dd></div></dl><p class="small">'+M.esc(d.reason||(!valid?'총 입금액에서 보증금을 뺀 금액이 남은 이용료 잔금 이내인지 확인해 주세요.':d.automatic?'저장하면 보증금 입금 확인과 최신 수납 내역의 확정서 발급을 함께 처리하고, 환급 계좌 등록 알림톡을 준비합니다. 이미 계좌를 등록한 고객은 재요청하지 않습니다. 발송 시간은 09:00–21:00입니다.':'현재 계좌 등록 알림 자동 발송이 꺼져 있습니다. 입금은 저장되며 계좌 등록 안내는 별도로 전달해 주세요.'))+'</p>';
  }
  $('#payment-kind').addEventListener('change',function(){if(this.value==='combined'&&state.data){$('#payment-amount').value=state.data.settlement.balance+state.data.deposit.amount;$('#payment-combined-confirm').checked=false;}editor();});
  $('#payment-amount').addEventListener('input',function(){$('#payment-combined-confirm').checked=false;splitView();});
@@ -85,7 +85,7 @@
   state.pending=body;busy(true);$('#payment-msg').textContent='';
   var path='/bookings/'+encodeURIComponent(state.code)+'/settlement'+(edit?'/entries/'+edit.id:'');
   R.submit('payment',state.code,path,body).then(function(result){
-   reset();state.data=null;$('#payment-msg').textContent=result.combined_receipt?'합산 입금을 저장했습니다. 이용료 '+won(result.combined_receipt.fee)+' · 보증금 '+won(result.combined_receipt.deposit)+' 입금 확인. '+(result.deposit_notice?({queued:'환급 계좌 등록 알림톡 발송 대기.',accepted:'계좌 등록 알림톡 접수 완료.',delivered:'계좌 등록 알림톡 수신 성공.',review:'계좌 안내의 최신 예약 내용 확인이 필요합니다.'}[result.deposit_notice.status]||'계좌 등록 알림톡 이력을 확인해 주세요.'):'환급 계좌가 이미 등록되었거나 자동 발송 설정 확인이 필요합니다.')+' 최신 수납 내역으로 확정서를 다시 발급해 주세요.':'저장했습니다. 변경된 정산 내역으로 견적을 저장하고 확정서를 다시 발급해 주세요.';
+   reset();state.data=null;$('#payment-msg').textContent=result.combined_receipt?'합산 입금을 저장했습니다. 이용료 '+won(result.combined_receipt.fee)+' · 보증금 '+won(result.combined_receipt.deposit)+' 입금 확인. '+(result.deposit_notice?({queued:'환급 계좌 등록 알림톡 발송 대기.',accepted:'계좌 등록 알림톡 접수 완료.',delivered:'계좌 등록 알림톡 수신 성공.',review:'계좌 안내의 최신 예약 내용 확인이 필요합니다.'}[result.deposit_notice.status]||'계좌 등록 알림톡 이력을 확인해 주세요.'):'환급 계좌가 이미 등록되었거나 자동 발송 설정 확인이 필요합니다.')+(result.confirmation&&result.confirmation.current?' 확정서를 최신 수납 내역으로 자동 발급했습니다.':' 후속 변경이 있어 현재 확정서를 확인해 주세요.'):'저장했습니다. 변경된 정산 내역으로 견적을 저장하고 확정서를 다시 발급해 주세요.';
    window.dispatchEvent(new CustomEvent('admin-settlement-saved',{detail:{code:state.code}}));return X.A('/bookings/'+encodeURIComponent(state.code)+'/settlement').then(function(r){paint(r);}).catch(function(){$('#payment-msg').textContent='저장은 완료되었습니다. 최신 수납·환불 내역을 다시 불러와 주세요.';});
   }).catch(function(e){if(e.code==='PAYMENT_CHANGED'){state.data=null;reset();return X.A('/bookings/'+encodeURIComponent(state.code)+'/settlement').then(function(r){paint(r);}).catch(error).then(function(){error(e);});}error(e);}).finally(function(){busy(false);});
  });
