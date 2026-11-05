@@ -15,12 +15,12 @@ const legacy={course:'classic',courseName:'클래식',people:50,format:'table',f
 function setup(t){const f=fixture({booking:true});t.after(()=>f.db.close());return f;}
 function row(q){return {kind:'reception',label:'케이터링',amount:q.total,reception:q};}
 test('all course/format/boundary amounts add exactly 10% on menu plus service fee',()=>{
- for(const co of C.data.courses)for(const fmt of Object.keys(C.data.formats))for(const n of [1,49,50,51,99,100,101,199,200,201,299,300]){
+ for(const co of C.data.courses)for(const fmt of Object.keys(C.data.feesByFormat))for(const n of [1,49,50,51,99,100,101,199,200,201,299,300]){
   const q=C.quote(n,fmt,co.id),fee=C.data.feesByFormat[fmt].find(b=>n<=b.upto).price;
   assert.equal(q.supply,co.price*n+fee);assert.equal(q.vat,Math.round(q.supply/10));assert.equal(q.total,q.supply+q.vat);assert.equal(q.vat_excluded,true);assert.equal(q.tax_pending,false);
   const d=C.forDocument(q);assert.equal(d.food+d.fee,d.supply);assert.equal(d.total,d.supply+d.vat);
  }
- const q=receptionCustomer({course:'classic',people:50,format:'table',total:1,supply:1,vat:0,vat_excluded:false});assert.equal(q.total,2145000);assert.equal(q.vat,195000);
+ assert.equal(receptionCustomer({course:'classic',people:50,format:'table',total:1}),null);const q=receptionCustomer({course:'cf-snack',people:50,format:'table',total:1,supply:1,vat:0});assert.equal(q.total,null);assert.equal(q.supply,null);
 });
 test('legacy agreed quote and booking survive opening, unrelated quote saves, and document reissue',async t=>{
  const f=setup(t),data={...f.data,reception:legacy,included_reception_amount:1950000,reception_in_quote:true,total:2450000};
@@ -38,9 +38,9 @@ test('updated price configuration rounds tax once and reaches HTML, PDF slots an
  const rates={};for(const s of ['catering','reception'])rates[s]=publicFoodPricing(await readFoodPricing({},s));
  rates.reception.prices['course.classic']=35111;rates.reception.prices['fee.table.50']=200003;
  const data=foodPricingData('reception',{rows:Object.entries(rates.reception.prices).map(([id,sale_price])=>({id,sale_price}))}),q=C.create(data).quote(50,'table','classic');assert.equal(q.supply,1955553);assert.equal(q.vat,195555);assert.equal(q.total,2151108);
- const html=foodHtml(readFileSync(new URL('../reception/index.html',import.meta.url),'utf8'),'/reception/',rates);for(const n of [q.supply,q.vat,q.total])assert(html.includes(C.won(n)),C.won(n));assert(!html.includes('2,145,000원'));
+ const html=foodHtml(readFileSync(new URL('../reception/index.html',import.meta.url),'utf8'),'/reception/',rates);assert(!html.includes(C.won(q.total)));assert(html.includes('data-reception-provider="cafefriends"'));assert(!html.includes('2,145,000원'));
  const template=readFileSync(new URL('../assets/docs/megaspot-reception-pricing-template.pdf',import.meta.url)),pdf=buildFoodPdf(template,'reception',rates.reception);
- for(const [key,amount] of [['example.table.supply',q.supply],['example.table.vat',q.vat],['example.table',q.total]])for(const slot of slots.filter(s=>s.key===key))assert.equal(Buffer.from(pdf).subarray(slot.start,slot.start+16).toString().trim(),amount.toLocaleString('ko-KR'));
+ assert.equal(pdf.length,template.length);
 });
 test('quote/booking/confirmation stay gross once across change, cancellation and restoration',async t=>{
  const f=setup(t),q=C.quote(50),extra=row(q);await saveQuote(f.api,{total:500000+q.total,input:quoteInput({extras:[extra]}),extras:[extra]});

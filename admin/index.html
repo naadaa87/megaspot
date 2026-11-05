@@ -389,7 +389,7 @@
     </section>
 
     <section class="adm-view" id="view-reception" hidden>
-      <header class="adm-head"><div><h1>테이블·박스 케이터링 견적</h1><p class="small muted">선택한 코스의 1인 단가에 식사 인원을 곱하고 제공 방식별 비용과 부가세 10%를 더합니다. 메뉴 단가와 출장·세팅비는 부가세 별도입니다. 공급가·판매가와 제공 방식별 비용은 운영 설정의 가격표에서 관리합니다.</p></div><a class="btn btn-light btn-sm" href="/reception/" target="_blank" rel="noopener">고객용 안내 ↗</a></header>
+      <header class="adm-head"><div><h1>케이터링 구성·견적 상담</h1><p class="small muted">현재 업체는 카페프렌즈입니다. 다섯 제공 방식과 희망 구성·메뉴·인원·예산을 문의에 저장합니다. 미확정 금액은 상담 후 견적이며 합계에서 제외합니다. 기존 저장 견적은 당시 구성과 금액을 유지합니다.</p></div><a class="btn btn-light btn-sm" href="/reception/" target="_blank" rel="noopener">고객용 안내 ↗</a></header>
       <div class="adm-card mb-3" id="reception-pricing"></div>
       <div class="adm-quote">
         <form class="adm-card form" id="ar-form" novalidate>
@@ -397,11 +397,11 @@
           <p class="small muted" id="ar-target">문의 없이 계산하거나, 문의를 불러와 그 건에 저장할 수 있습니다.</p>
           <div class="field-row"><div class="f"><label for="ar-customer">고객 이름</label><input class="input" id="ar-customer"></div><div class="f"><label for="ar-phone">연락처</label><input class="input" id="ar-phone" type="tel"></div></div>
           <div class="field-row"><div class="f"><label for="ar-date">행사일</label><input class="input" id="ar-date" type="date"></div><div class="f"><label for="ar-space">공간</label><select class="select" id="ar-space"><option value="megaspot-gundae">건대 1호</option><option value="megaspot-gundae-2">건대 2호</option></select></div></div>
-          <h2>코스 구성</h2><div class="f"><label for="ar-course">케이터링 코스 · 1인 단가</label><select class="select" id="ar-course"><option value="classic">클래식 · 1인 35,000원</option></select></div>
+          <h2>희망 구성</h2><div class="f"><label for="ar-course">희망 구성 · 가격 기준</label><select class="select" id="ar-course"><option value="classic">클래식 · 1인 35,000원</option></select></div>
           <div class="field-row"><div class="f"><label for="ar-format">제공 방식</label><select class="select" id="ar-format"><option value="">상담 후 결정</option><option value="table" selected>테이블 세팅 케이터링</option><option value="box">박스 케이터링</option><option value="lunchbox">도시락 케이터링</option></select></div><div class="f"><label for="ar-people">식사 인원</label><input class="input" id="ar-people" type="number" min="1" max="100000" step="1" value="50"></div></div>
           <div class="f"><label for="ar-status">진행 상태</label><select class="select" id="ar-status"><option value="pending">대기</option><option value="confirmed">확정</option><option value="cancelled">취소 · 합계 제외</option></select></div>
           <div class="f"><label for="ar-note">고객 안내·요청 메모</label><textarea class="textarea" id="ar-note" maxlength="500" placeholder="예: 희망 메뉴 변경, 알레르기, 세팅 위치"></textarea></div>
-          <details><summary>선택한 코스 메뉴</summary><div id="ar-menu" class="small" style="white-space:pre-line"></div></details>
+          <div class="f"><label for="ar-budget">희망 1인 예산 (원, 상담 참고)</label><input class="input" id="ar-budget" type="number" min="1" max="10000000" placeholder="확정 판매가 아님"></div><details><summary>희망 메뉴 선택 · 변경</summary><div id="ar-menu-choices" class="plan-food-menu-grid"></div></details><div class="f"><label for="ar-request-note">고객 추가 요청</label><textarea class="textarea" id="ar-request-note" maxlength="500"></textarea></div><details><summary>추천 구성 안내</summary><div id="ar-menu" class="small" style="white-space:pre-line"></div></details>
         </form>
         <div><div class="adm-card" id="ar-result" aria-live="polite"></div><div class="adm-card q-actions"><button class="btn btn-primary" type="button" id="ar-save" disabled>이 문의에 케이터링 저장</button><button class="btn btn-light" type="button" id="ar-to-quote">대관 견적에 넣기 →</button><button class="btn btn-light" type="button" id="ar-copy">고객 안내문 복사</button><button class="btn btn-light" type="button" id="ar-open" hidden>문의 열기</button><div class="form-note" id="ar-msg" hidden></div></div></div>
       </div>
@@ -636,21 +636,21 @@
 <script src="/assets/js/pricing-engine.js?v=f69e6ca151d0"></script>
 <script src="/assets/js/data/catering.js?v=20261104foodprices3"></script>
 <script src="/assets/js/catering-calc.js?v=20261103foodprices1"></script>
-<script src="/assets/js/data/reception-quote.js?v=20261103foodprices1"></script>
-<script src="/assets/js/reception-calc.js?v=20261104receptionvat1"></script>
-<script src="/assets/js/food-pricing.js?v=20261104navrelease1"></script>
+<script src="/assets/js/data/reception-quote.js?v=20261105cafefriends1"></script>
+<script src="/assets/js/reception-calc.js?v=20261105cafefriends1"></script>
+<script src="/assets/js/food-pricing.js?v=20261105cafefriends1"></script>
 <script src="/assets/js/food-services.js?v=20261104foodprices3"></script>
 <script src="/assets/js/settlement.js?v=20261103feeadjust1"></script>
-<script src="/assets/js/confirm-doc.js?v=20261104receptionvat1"></script>
+<script src="/assets/js/confirm-doc.js?v=20261105cafefriends1"></script>
 <script src="/assets/js/cards.js?v=202610270438"></script>
 <script src="/assets/js/cocktail-calc.js?v=20261104foodprices3"></script>
-<script src="/assets/js/inquiry-overview.js?v=20261104receptionvat1"></script>
+<script src="/assets/js/inquiry-overview.js?v=20261105cafefriends1"></script>
 <script src="/assets/js/quote-calculation.js?v=20261105quotespace1"></script>
-<script src="/assets/js/pages/admin.js?v=20261105inquirysearch1"></script>
+<script src="/assets/js/pages/admin.js?v=20261105cafefriends1"></script>
 <script src="/assets/js/pages/admin-platform.js?v=20261102adminux1"></script>
 <script src="/assets/js/pages/admin-cocktail.js?v=20261104foodprices3"></script>
-<script src="/assets/js/pages/admin-food-pricing.js?v=20261104navrelease1"></script>
-<script src="/assets/js/pages/admin-reception.js?v=20261104receptionvat1"></script>
+<script src="/assets/js/pages/admin-food-pricing.js?v=20261105cafefriends1"></script>
+<script src="/assets/js/pages/admin-reception.js?v=20261105cafefriends1"></script>
 <script src="/assets/js/pages/admin-parking.js?v=20261104navrelease1"></script>
 <script src="/assets/js/pages/admin-amano-server.js?v=20261104amano4"></script>
 <script src="/assets/js/pages/admin-parking-alerts.js?v=20261104adminsms1"></script>

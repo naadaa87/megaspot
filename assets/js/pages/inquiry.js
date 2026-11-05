@@ -32,25 +32,16 @@
   var root=$('#inquiry-root');
   if(root && M.renderInquiry){
     M.renderInquiry(root,{ spaceId: mode==='request'?'request':space, mode:mode, type:type, prefill:{ purpose:q.get('purpose')||'', people:q.get('people')||'', region:q.get('region')||'', date:q.get('date')||'' } });
-    var reception=q.get('reception');
-    var receptionCourses={light:['라이트','25,000원'],classic:['클래식','35,000원'],premium:['프리미엄','45,000원'],signature:['시그니처','55,000원'],all:['구성 미정','상담 후 선택']};
-    if(Object.prototype.hasOwnProperty.call(receptionCourses,reception)){
-      var rc=receptionCourses[reception];
-      var receptionMessage='출장 케이터링 '+rc[0]+' 구성('+rc[1]+')을 상담받고 싶습니다. 행사 날짜·장소·예상 인원에 맞는 구성·적용 단위와 출장·세팅비·최소 주문 조건을 안내해 주세요. 메뉴 단가와 출장·세팅비는 부가세 별도이며, 합계에 부가세 10%가 추가되는 것으로 확인했습니다.';
-      var receptionCalc=window.MEGASPOT_RECEPTION_CALC;
-      var receptionFormat=receptionCalc?receptionCalc.formatLabel(q.get('reception_format')):'';
-      if(receptionFormat)receptionMessage+='\n희망 제공 방식: '+receptionFormat+' (포장·기물·세팅 범위 최종 협의)';
-      if(receptionCalc&&receptionCalc.course(reception)&&q.has('reception_people')){
-        var calculatedMessage=window.MEGASPOT_RECEPTION_CALC.inquiryText(q.get('reception_people'),q.get('reception_format'),reception);
-        if(calculatedMessage) receptionMessage=calculatedMessage;
-      }
-      M.receptionSelection=receptionCalc?{course:reception,people:q.get('reception_people')||q.get('people')||null,format:q.get('reception_format')||''}:null;
-      M.receptionMessage=receptionMessage;
-      var rm=document.querySelector('#iq-msg'); if(rm&&!rm.value) rm.value=receptionMessage;
-      document.querySelectorAll('[name=rv_message]').forEach(function(el){if(!el.value) el.value=receptionMessage;});
-      var rt=document.querySelector('#iq-title');if(rt) rt.textContent='출장 케이터링 상담';
-      var rs=document.querySelector('#iq-sub');if(rs) rs.textContent='날짜·장소·예상 인원과 원하는 메뉴를 알려 주세요. 대관료와 케이터링 비용은 별도로 안내합니다.';
-
+    var reception=q.get('reception'),receptionCalc=window.MEGASPOT_RECEPTION_CALC;
+    if(reception&&receptionCalc){
+      var active=receptionCalc.isActive(reception)?reception:'cf-custom',fmt=q.get('reception_format')||'';if(fmt==='lunchbox')fmt='sandwichbox';
+      var raw={course:active,people:q.get('reception_people')||q.get('people')||null,format:fmt,menu_ids:(q.get('reception_menus')||'').split(',').filter(Boolean),budget_per_person:q.get('reception_budget')||null,request_note:q.get('reception_note')||''};
+      var selected=receptionCalc.selection(raw);if(!selected)selected=receptionCalc.selection({course:'cf-custom',people:null,format:''});
+      M.receptionSelection=selected;var receptionMessage=receptionCalc.requestText(selected);M.receptionMessage=receptionMessage;
+      var rm=document.querySelector('#iq-msg');if(rm&&!rm.value)rm.value=receptionMessage;
+      document.querySelectorAll('[name=rv_message]').forEach(function(el){if(!el.value)el.value=receptionMessage;});
+      var rt=document.querySelector('#iq-title');if(rt)rt.textContent='출장 케이터링 상담';
+      var rs=document.querySelector('#iq-sub');if(rs)rs.textContent='희망 구성·제공 방식·메뉴·인원·예산을 함께 안내해 주세요. 최종 메뉴와 금액은 상담 후 확정합니다.';
     }
     var cocktail=q.get('cocktail');
     if(['100','200','300','400'].indexOf(cocktail)>=0){

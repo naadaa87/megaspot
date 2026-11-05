@@ -13,7 +13,7 @@ test('changed selling prices reach shared FAQ, structured FAQ and cross-service 
  catering.rows=catering.rows.map(row=>({...row,sale_price:row.sale_price+10000}));
  // The new minimum comes from premium, and equals classic's old price.
  // A second numeric substitution must not turn this minimum into 41,000.
- const prices={'course.light':47000,'course.classic':41000,'course.premium':35000,'course.signature':56000};
+ const prices={'course.cf-snack':47000,'course.cf-finger':41000,'course.cf-meal':35000};
  reception.rows=reception.rows.map(row=>({...row,sale_price:prices[row.id]??row.sale_price}));
  const rates={catering:publicFoodPricing(catering),reception:publicFoodPricing(reception)};
  const guide=foodHtml(source('guide/index.html'),'/guide/',rates);
@@ -23,33 +23,27 @@ test('changed selling prices reach shared FAQ, structured FAQ and cross-service 
  assert(food.acceptedAnswer.text.includes('50,000원부터'));
  for(const page of ['guide','catering','reception']){
   const html=foodHtml(source(page+'/index.html'),'/'+page+'/',rates);
-  assert(html.includes('35,000원부터 · 핑거푸드·파티'),page+' navigation');
+  assert(html.includes('맞춤 구성 · 식사·다과·핑거푸드'),page+' navigation');
   assert(!html.includes('@@FOODPRICE'),page+' placeholders');
   assert(!html.includes('25,000원부터'),page+' stale reception minimum');
   if(page==='catering')assert(html.includes('출장 케이터링. 35,000원부터'),page+' cross-service card');
   if(page==='reception'){
-   assert(html.includes('<span><b>35,000</b>원부터'),page+' hero minimum');
-   assert(html.includes('빌라 엠 비앙코</span><b>35,000원</b>'),'unrelated drinks price');
+   assert(html.includes('1인 35,000원 · 부가세 별도'),page+' active package price');
+   assert(!html.includes('라이트25,000원'),'former supplier package removed');
   }
  }
 });
 
-test('public reception copy uses the customer request voice for both clipboard and fallback',async()=>{
+test('public reception copy preserves requested supplier, menu and budget in clipboard and fallback',async()=>{
  for(const clipboardWorks of [true,false]){
   const listeners={},captured=[],fallback=[];
-  const input={value:'50',setAttribute(){},addEventListener(){}},format={value:'table',setAttribute(){},addEventListener(){}},course={value:'classic',addEventListener(){}};
-  const out={innerHTML:'',appendChild(node){fallback.push(node.textContent);}},menu={};
-  const box={querySelector(selector){return {'[name=reception_people]':input,'[name=reception_format]':format,'[name=reception_course]':course,'[data-reception-result]':out,'[data-reception-menu]':menu}[selector];},querySelectorAll(){return [];},addEventListener(type,fn){listeners[type]=fn;}};
-  const document={getElementById(){return box;},querySelectorAll(){return [];},createElement(){return {};}};
+  const field=value=>({value,setAttribute(){},addEventListener(){}}),input=field('50'),format=field('table'),course=field('cf-custom'),budget=field(''),note=field('');
+  const out={innerHTML:'',appendChild(node){fallback.push(node.textContent);}},map={'#reception-people':input,'#reception-format':format,'#reception-course':course,'#reception-budget':budget,'#reception-note':note,'[data-reception-result]':out,'#cf-form':field(''),'[data-menu-count]':{},'[data-menu-more]':{}};
+  const box={querySelectorAll(){return [];},addEventListener(){}};
+  const document={getElementById(){return box;},querySelector(s){return map[s];},querySelectorAll(){return [];},addEventListener(t,fn){listeners[t]=fn;},createElement(){return {};}};
   const window={MEGASPOT:{esc:String,copy(text){captured.push(text);return Promise.resolve(clipboardWorks);},toast(){}},MEGASPOT_RECEPTION_CALC:C};
-  vm.runInNewContext(source('assets/js/pages/reception.js'),{window,document,URLSearchParams,location:{search:'?reception=premium&reception_people=51&reception_format=box'}});
-  listeners.click({target:{closest(selector){return selector==='[data-reception-copy]'?{}:null;}}});
-  await Promise.resolve();
-  const expected=C.inquiryText(51,'box','premium');
-  assert.equal(captured[0],expected);
-  assert.match(captured[0],/안내해 주세요/);
-  assert.doesNotMatch(captured[0],/메가스팟입니다|문의하신|안내드립니다/);
-  assert(out.innerHTML.includes('문의 내용 복사'));
-  assert.deepEqual(fallback,clipboardWorks?[]:[expected]);
+  vm.runInNewContext(source('assets/js/pages/reception.js'),{window,document,URLSearchParams,location:{search:'?reception=cf-finger&reception_people=51&reception_format=box&reception_menus=cf-menu-79&reception_budget=30000'}});
+  listeners.click({target:{closest(){return {dataset:{},hasAttribute(n){return n==='data-reception-copy';}};}}});await Promise.resolve();
+  const expected=C.requestText({course:'cf-finger',people:51,format:'box',menu_ids:['cf-menu-79'],budget_per_person:30000});assert.equal(captured[0],expected);assert.match(captured[0],/안내해 주세요/);assert.match(captured[0],/훈제연어 카나페/);assert.match(captured[0],/30,000원.*확정 가격 아님/);assert.doesNotMatch(captured[0],/메가스팟입니다|문의하신|안내드립니다/);assert(out.innerHTML.includes('문의 내용 복사'));assert.deepEqual(fallback,clipboardWorks?[]:[expected]);
  }
 });

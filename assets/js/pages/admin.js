@@ -862,10 +862,11 @@
     R.extras.forEach(function(x){
       var service=(x.kind==='catering'||x.kind==='cocktail')&&x[x.kind]?{...x[x.kind],kind:x.kind,amount:x.amount,included:true}:null;
       var rec=x.kind==='reception'&&window.MEGASPOT_RECEPTION_CALC.forDocument(x.reception,x.amount),detail='';
-      if(rec){detail='식사 '+(rec.people?rec.people+'명':'인원 상담')+' · '+rec.formatName;if(rec.unitPrice!=null)detail+='\n1인 '+won(rec.unitPrice)+' × '+rec.people+'명 = '+won(rec.food);if(rec.fee!=null)detail+='\n'+rec.feeName+' '+won(rec.fee);detail+=rec.vat_excluded===true?(rec.supply!=null&&rec.vat!=null?'\n공급가액 '+won(rec.supply)+' + 부가세 10% '+won(rec.vat)+' · 부가세 포함':'\n부가세 포함'):'\n이전 저장 금액 · 부가세 조건 확인 필요';}
+      if(rec){detail=(rec.provider==='cafefriends'?'케이터링 ':'식사 ')+(rec.people?rec.people+'명':'인원 상담')+' · '+rec.formatName;if(rec.unitPrice!=null)detail+='\n1인 '+won(rec.unitPrice)+' × '+rec.people+'명 = '+won(rec.food);if(rec.fee!=null)detail+='\n'+rec.feeName+' '+won(rec.fee);if(rec.menuNames&&rec.menuNames.length)detail+='\n희망 메뉴: '+rec.menuNames.join(', ');detail+=rec.vat_excluded===true?(rec.supply!=null&&rec.vat!=null?'\n공급가액 '+won(rec.supply)+' + 부가세 10% '+won(rec.vat)+' · 부가세 포함':'\n부가세 포함'):'\n이전 저장 금액 · 부가세 조건 확인 필요';}
       if(service)detail=window.MEGASPOT_FOOD_SERVICES.rows(service,true).map(function(r){return r[0]+': '+r[1];}).join('\n');
       rows+='<tr><td>'+esc(rec?'케이터링 · '+rec.courseName:service?(service.kind==='catering'?'출장뷔페':'출장 칵테일'):x.label)+'</td><td>'+esc(detail).replace(/\n/g,'<br>')+'</td><td>'+(x.amount<0?'−'+esc(won(-x.amount)):esc(won(x.amount)))+'</td></tr>';
     });
+    if(Q.receptionRequested&&Q.reception_request&&Q.reception_request.total==null){var pending=Q.reception_request;rows+='<tr><td>케이터링 상담 구성</td><td>'+esc((pending.courseName||'맞춤 구성')+' · '+(pending.people?pending.people+'명':'인원 상담')+' · '+pending.formatName+(pending.menuNames&&pending.menuNames.length?'\n희망 메뉴: '+pending.menuNames.join(', '):'')+(pending.request_note?'\n요청: '+pending.request_note:'')).replace(/\n/g,'<br>')+'</td><td>상담 후 견적<br><small>합계 미포함</small></td></tr>';}
     var refund=R.refund.map(function(x){ return '<span>'+esc(x.k)+' <b>'+Math.round(x.rate*100)+'%</b></span>'; }).join('');
     $('#quote-print').innerHTML='<div class="qp">'
       +(quoteSettlement?.cancellation?'<p class="qp-small"><b>예약 취소·환불 정산 안내</b> · 아래 이용 조건은 원래 견적의 참고 내역이며, 공간 이용을 확정하지 않습니다.</p>':'')+'<header class="qp-head"><div><div class="qp-logo">MEGA<b>SPOT</b></div><div class="qp-sub">'+esc(spaceName(Q.space))+' · '+esc(D.address||'서울 광진구 화양동 10-1 한아름건물 2층')+'</div></div><div class="qp-meta"><b>견 적 서</b><span>견적번호 '+esc(Q.quoteNo||'(저장 전)')+'</span><span>작성일 '+esc(stamp)+'</span><span>유효기간 '+esc(E.kdateY(R.validUntil))+'까지</span></div></header>'
@@ -1997,8 +1998,12 @@
     }
     setQuoteHistorical(false);Q.receptionExcluded=false;Q.extras=Q.extras.filter(function(x){ return x.kind!=='reception'; });
     Q.note=Q.note.split('\n').filter(function(line){return line.indexOf('케이터링 상담 필요: ')!==0;}).join('\n');
-    Q.extras.push({kind:'reception',label:'도시락·핑거푸드 케이터링 · '+quote.formatName+' '+quote.courseName+' '+quote.people+'명 (세팅비·부가세 포함)',amount:quote.total,reception:Object.assign({},quote,config)});
-    invalidateQuote(); fillForm(); go('quote'); M.toast('케이터링 '+won(quote.total)+'을(를) 대관 견적에 넣었습니다. 견적 저장을 눌러 문의에도 반영해 주세요.');
+    if(target.reception_revision!=null)Q.reception_revision=target.reception_revision;
+    Q.reception_request=window.MEGASPOT_RECEPTION_CALC.forDocument(Object.assign({},quote,config));
+    Q.receptionRequested=true;
+    if(quote.total==null){Q.note+=(Q.note?'\n':'')+'케이터링 상담 필요: '+quote.summary+' (금액 미정 · 합계 제외)';}
+    else Q.extras.push({kind:'reception',label:'도시락·핑거푸드 케이터링 · '+quote.formatName+' '+quote.courseName+' '+quote.people+'명 (세팅비·부가세 포함)',amount:quote.total,reception:Object.assign({},quote,config)});
+    invalidateQuote();fillForm();go('quote');M.toast(quote.total==null?'케이터링 상담 구성을 견적에 연결했습니다. 미확정 금액은 합계에 포함하지 않습니다.':'케이터링 '+won(quote.total)+'을(를) 대관 견적에 넣었습니다. 견적 저장을 눌러 문의에도 반영해 주세요.');
     return Promise.resolve(true);
   }
   function foodToQuote(ref,kind,value,revision){

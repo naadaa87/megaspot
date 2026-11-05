@@ -17,3 +17,5 @@
 .plan-services>.cat-ask>label.chk .muted,
 .plan-services>.plan-reception>label.chk small,
 .plan-services>.cocktail-ask>label.chk:first-child .muted{display:block;font-size:12.5px;font-weight:600}
+
+.plan-food-menu{margin:12px 0}.plan-food-menu summary{font-size:14px;font-weight:600;cursor:pointer}.plan-food-menu-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:16px 0}.plan-food-menu-grid .chk{align-items:flex-start;font-size:13px}.plan-food-menu-grid input{flex-shrink:0;margin-top:3px}@media(max-width:600px){.plan-food-menu-grid{grid-template-columns:1fr}}
