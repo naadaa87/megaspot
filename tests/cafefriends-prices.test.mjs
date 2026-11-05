@@ -12,7 +12,7 @@ test('four published sets keep old sale tiers, use real supplier menu IDs, and a
  const courses=C.activeCourses().filter(x=>x.id!=='cf-custom');assert.deepEqual(courses.map(c=>c.price),[25000,35000,45000,55000]);
  for(const co of courses){assert(co.menus.length>=9);assert.deepEqual(co.menus,co.example_ids.map(id=>C.data.activeCatalog.items.find(i=>i.id===id).name));assert.notDeepEqual(co.menus,C.course(co.id.replace('cf-','')).menus);
   for(const [n,fee] of table){const q=C.quote(n,'table',co.id);assert(q.ok);assert.equal(q.fee,fee);assert.equal(q.food,co.price*n);assert.equal(q.supply,co.price*n+fee);assert.equal(q.vat,Math.round(q.supply*.1));assert.equal(q.total,q.supply+q.vat);}
-  for(const format of ['box','snackbox','sandwichbox','fusionbox'])for(const n of [1,30,50,100,200,300,301,350,1000]){const q=C.quote(n,format,co.id);assert(q.ok);assert.equal(q.fee,30000);assert.equal(q.total,co.price*n+30000+Math.round((co.price*n+30000)/10));}
+  for(const format of ['box'])for(const n of [1,30,50,100,200,300,301,350,1000]){const q=C.quote(n,format,co.id);assert(q.ok);assert.equal(q.fee,30000);assert.equal(q.total,co.price*n+30000+Math.round((co.price*n+30000)/10));}
  }
  assert.equal(C.quote(50,'table','cf-classic').total,2200000);assert.equal(C.quote(50,'box','cf-classic').total,1958000);
 });

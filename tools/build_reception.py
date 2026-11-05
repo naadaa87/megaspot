@@ -132,7 +132,7 @@ def build_web():
     head = head.replace('</head>',f'<link rel="stylesheet" href="/assets/css/reception.css?v={STYLE_STAMP}">\n</head>').replace('page-cocktail','page-reception')
     logo_markup = '<img class="reception-brand-logo" src="/assets/img/brand/megaspot-official-wordmark-transparent.png" alt="메가스팟 MEGASPOT" width="2131" height="738">'
     text_logo = '<span class="en">MEGA<b>SPOT</b></span><span class="ko">메가스팟</span>'
-    head = head.replace(text_logo, logo_markup)
+    head = head.replace(logo_markup, text_logo)
     packages = ''.join(f'<article class="reception-package"><div class="eyebrow">0{i+1} / {c["id"]}</div><h3 class="mt-1">{c["name"]}</h3><div class="reception-price">{c["price"]:,}원<small>'+('1인 기준' if c.get('unit')=='1인' else '메가스팟 구성 안내가')+f'</small></div><p>{c["intro"]}</p><a class="btn btn-light btn-sm" href="#course-{c["id"]}">상세 메뉴 보기 ↓</a></article>' for i,c in enumerate(COURSES))
     courses = ''.join(f'<article class="reception-course" id="course-{c["id"]}"><header><div><h3>{c["name"]}<span>{c["price"]:,}원</span></h3><p class="small muted mt-1">{c["intro"]}</p></div><a class="btn btn-primary btn-sm" href="{inquiry(c)}">이 구성으로 상담 →</a></header><ul class="reception-menu-list">'+''.join(f'<li><b>{name}</b>'+ (f'<small>{detail}</small>' if detail else '')+'</li>' for name,detail in c['menus'])+'</ul><p class="small muted mt-2">'+MENU_NOTE+'</p></article>' for c in COURSES)
     catalog = ''.join(f'<article class="reception-item"><img src="/assets/img/reception/menu-{i+1:02}.jpg" alt="{name} 메뉴 참고 사진" width="640" height="480" loading="lazy"><div><h3>{name}</h3><p class="reception-item-price">{"1BOX" if unit=="BOX" else "1EA"} · {price:,}원</p></div></article>' for i,(name,unit,price) in enumerate(CATALOG))
@@ -157,7 +157,7 @@ def build_web():
     body = body.replace('<section class="section sec-white sec-line" id="process">', drinks_section()+'\n<section class="section sec-white sec-line" id="process">')
     body = body.replace('출장 케이터링 상담 →</a>', f'출장 케이터링 상담 →</a><a class="btn btn-light" href="tel:{PHONE_TEL}">케이터링 전화 {PHONE}</a>')
     foot = template[template.index('<footer class="site-footer">'):]
-    foot = foot.replace(text_logo, logo_markup)
+    foot = foot.replace(logo_markup, text_logo)
     # Override the shared contact configuration only in this service document,
     # before its DOMContentLoaded header and mobile quick-bar setup runs.
     site_script=re.search(r'<script src="/assets/js/site.js[^"]*"></script>',template).group(0)

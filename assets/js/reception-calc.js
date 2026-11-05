@@ -5,10 +5,15 @@
 })(typeof window!=='undefined'?window:globalThis,function create(D){
   'use strict';
   function won(n){return Number(n).toLocaleString('ko-KR')+'원';}
-  function activeCourses(){return D.activeCatalog?D.activeCatalog.offerings:(D.courses||[D.course]);}
+  function formatMode(format){return ['snackbox','sandwichbox','fusionbox'].indexOf(format)>=0?'budget':'course';}
+  function activeCourses(format){if(!D.activeCatalog)return D.courses||[D.course];return formatMode(format)==='budget'?(D.activeCatalog.budgetOptions||[]).concat(D.activeCatalog.offerings.filter(function(c){return c.id==='cf-custom';})):D.activeCatalog.offerings;}
+  function isBudget(id){return !!(D.activeCatalog&&(D.activeCatalog.budgetOptions||[]).some(function(c){return c.id===id;}));}
+  function compatible(id,format){var co=course(id);return !!co&&(!co.formats||!format||co.formats.indexOf(format)>=0);}
+  function choiceLabel(co){return co.id==='cf-custom'?'별도 상담':co.kind==='budget'?co.name:co.name+(co.price!=null?' · 1인 '+won(co.price):' · 상담 후 견적');}
+
   function activeFormats(){return D.activeCatalog?D.activeCatalog.formats.map(function(f){return {id:f.id,name:f.name};}):Object.keys(D.formats).map(function(id){return {id:id,name:D.formats[id]};});}
-  function isActive(id){return activeCourses().some(function(c){return c.id===id;});}
-  function course(value){return (D.courses||[D.course]).concat(D.activeCatalog?D.activeCatalog.offerings.concat(D.activeCatalog.retiredOfferings||[]):[]).find(function(c){return c.id===(value==null?D.course.id:value);});}
+  function isActive(id){return activeCourses().concat(D.activeCatalog?D.activeCatalog.budgetOptions||[]:[]).some(function(c){return c.id===id;});}
+  function course(value){return (D.courses||[D.course]).concat(D.activeCatalog?D.activeCatalog.offerings.concat(D.activeCatalog.budgetOptions||[],D.activeCatalog.retiredOfferings||[]):[]).find(function(c){return c.id===(value==null?D.course.id:value);});}
   function quote(value,format,courseId){
     var selected=course(courseId);
     if(!selected)return {ok:false,reason:'course',message:'케이터링 코스를 선택해 주세요.'};
@@ -19,12 +24,13 @@
     var id=format==null?D.defaultFormat:format;
     if(!formatLabel(id))return {ok:false,reason:'format',message:'제공 방식을 선택하면 출장·세팅비를 계산합니다.'};
     var active=String(selected.id).indexOf('cf-')===0,fees=active?D.activeCatalog.feesByFormat:D.feesByFormat;
+    if(active&&!compatible(selected.id,id))return {ok:false,reason:'format',message:formatMode(id)==='budget'?'이 제공 방식은 1인 예산을 선택해 주세요.':'테이블·박스는 참고 코스를 선택해 주세요.'};
     if(!fees[id])return {ok:false,reason:'format',message:'현재 제공 방식으로 상담해 주세요.'};
     var band=active&&id!=='table'?fees[id][0]:fees[id].find(function(f){return people<=f.upto;});
     if(active&&id==='table'&&!band&&D.activeCatalog.tableFeeIncrement){var step=D.activeCatalog.tableFeeIncrement,last=fees.table[fees.table.length-1];if(last.price!=null&&step.price!=null)band={price:last.price+Math.ceil((people-last.upto)/step.people)*step.price,label:people+'명 · '+step.people+'명 단위 출장세팅비'};}
     if(!band) return {ok:false,reason:'consult',people:people,format:id,message:'301명 이상은 별도 상담으로 견적을 안내합니다.'};
     if(active&&(selected.price==null||band.price==null||selected.id==='cf-custom'))return {ok:false,reason:'pricing',people:people,course:selected.id,format:id,message:'선택한 구성은 상담 후 견적을 안내합니다. 메뉴·제공량·출장 및 세팅 조건을 함께 확인해 주세요.'};
-    return {provider:active?'cafefriends':undefined,providerName:active?'카페프렌즈':undefined,ok:true,course:selected.id,courseName:selected.name,format:id,formatName:formatLabel(id),people:people,unitPrice:selected.price,food:people*selected.price,fee:band.price,feeLabel:band.label,feeName:active?(id==='table'?'출장세팅비':'배송비'):D.feeLabels[id],supply:people*selected.price+band.price,vat:Math.round((people*selected.price+band.price)/10),vat_excluded:true,pricing_version:active?D.activeCatalog.version:'reception-vat-20261104',tax_pending:false,total:people*selected.price+band.price+Math.round((people*selected.price+band.price)/10)};
+    return {price_basis:isBudget(selected.id)?'budget':'course',provider:active?'cafefriends':undefined,providerName:active?'카페프렌즈':undefined,ok:true,course:selected.id,courseName:selected.name,format:id,formatName:formatLabel(id),people:people,unitPrice:selected.price,food:people*selected.price,fee:band.price,feeLabel:band.label,feeName:active?(id==='table'?'출장세팅비':'배송비'):D.feeLabels[id],supply:people*selected.price+band.price,vat:Math.round((people*selected.price+band.price)/10),vat_excluded:true,pricing_version:active?D.activeCatalog.version:'reception-vat-20261104',tax_pending:false,total:people*selected.price+band.price+Math.round((people*selected.price+band.price)/10)};
   }
   function formatLabel(id){return Object.prototype.hasOwnProperty.call(D.formats||{},id)?D.formats[id]:'';}
   function formatText(id){var label=formatLabel(id);return label?'· 희망 제공 방식: '+label+' (포장·기물·세팅 범위 최종 협의)\n':'';}
@@ -66,15 +72,16 @@
       var ids=value.menu_ids==null?[]:value.menu_ids;if(!Array.isArray(ids)||ids.length>30||ids.some(function(mid){return !D.activeCatalog.items.some(function(m){return m.id===mid;});}))return null;
       result.menu_ids=ids.filter(function(mid,i,a){return a.indexOf(mid)===i;});result.menuNames=result.menu_ids.map(function(mid){return D.activeCatalog.items.find(function(m){return m.id===mid;}).name;});
       var budget=value.budget_per_person==null||value.budget_per_person===''?null:Number(value.budget_per_person);if(budget!==null&&(!Number.isSafeInteger(budget)||budget<1||budget>10000000))return null;
-      result.budget_per_person=budget;result.provider='cafefriends';result.providerName='카페프렌즈';result.catalog_version=D.activeCatalog.version;
+      if(isBudget(id))budget=selected.price;
+      result.price_basis=isBudget(id)?'budget':'course';result.budget_per_person=budget;result.provider='cafefriends';result.providerName='카페프렌즈';result.catalog_version=D.activeCatalog.version;
       result.request_note=String(value.request_note||'').slice(0,500);result.supply=result.supply??null;result.vat=result.vat??null;
     }
-    result.status='pending';result.vat_excluded=true;result.tax_pending=false;result.menuNote=D.menuNote;
-    result.summary=result.courseName+' '+(people?people+'명':'인원 상담')+' · '+result.formatName+(result.total==null?' · 상담 후 견적':' · 메뉴 '+won(result.food)+' + '+result.feeName+' '+won(result.fee));
+    result.status='pending';result.vat_excluded=true;result.tax_pending=false;result.menuNote=active?(isBudget(id)?'선택한 예산 기준의 예상 금액입니다. 메뉴·제공량은 상담 후 확정합니다.':D.activeCatalog.referenceNote):D.menuNote;
+    result.summary=(isBudget(id)?'예산 기준 · ':'')+result.courseName+' '+(people?people+'명':'인원 상담')+' · '+result.formatName+(result.total==null?' · 상담 후 견적':' · 메뉴 '+won(result.food)+' + '+result.feeName+' '+won(result.fee));
     if(active&&result.menuNames.length)result.summary+=' · 희망 메뉴 '+result.menuNames.length+'종';
     return result;
   }
-  function requestText(value){var r=selection(value);if(!r)return null;return '[출장 케이터링 상담]\n· 희망 구성: '+r.courseName+'\n'+formatText(r.format)+'· 인원: '+(r.people?r.people+'명':'상담 후 결정')+'\n'+(r.menuNames&&r.menuNames.length?'· 희망 메뉴: '+r.menuNames.join(', ')+'\n':'')+(r.budget_per_person?'· 희망 1인 예산: '+won(r.budget_per_person)+' (확정 가격 아님)\n':'')+(r.total!=null?'· 공급가액: '+won(r.supply)+'\n· 부가세 10%: '+won(r.vat)+'\n· 예상 금액: '+won(r.total)+' (부가세 포함)\n':'· 금액: 상담 후 견적 (미확정 금액은 합계 미포함)\n')+'메뉴·출장·세팅비는 부가세 별도이며 최종 공급가액에 부가세 10%를 더합니다.\n선택한 구성과 행사 일정에 맞는 최종 견적을 안내해 주세요.'+(r.request_note?'\n· 요청: '+r.request_note:'');}
+  function requestText(value){var r=selection(value);if(!r)return null;return '[출장 케이터링 상담]\n· '+(isBudget(r.course)?'선택 기준':'참고 코스')+': '+r.courseName+'\n'+formatText(r.format)+'· 인원: '+(r.people?r.people+'명':'상담 후 결정')+'\n'+(r.menuNames&&r.menuNames.length?'· 희망 메뉴: '+r.menuNames.join(', ')+'\n':'')+(r.budget_per_person&&!isBudget(r.course)?'· 희망 1인 예산: '+won(r.budget_per_person)+' (확정 가격 아님)\n':'')+(r.total!=null?'· 공급가액: '+won(r.supply)+'\n· 부가세 10%: '+won(r.vat)+'\n· 예상 금액: '+won(r.total)+' (부가세 포함)\n':'· 금액: 상담 후 견적 (미확정 금액은 합계 미포함)\n')+(isBudget(r.course)?'위 금액은 선택한 예산 기준 예상 금액이며, 메뉴·제공량은 상담 후 확정합니다.\n':'코스 메뉴는 1인 가격대별 참고 예시이며, 요청과 계절에 따라 변경 가능합니다.\n')+'메뉴·출장·세팅비는 부가세 별도이며 최종 공급가액에 부가세 10%를 더합니다.\n선택한 구성과 행사 일정에 맞는 최종 견적을 안내해 주세요.'+(r.request_note?'\n· 요청: '+r.request_note:'');}
   function fromInquiry(data){
     data=data||{};
     if(data.reception){var saved=data.reception,normalized=selection(saved);if(!normalized)return null;var result=Object.assign(normalized,saved);if(saved.total!=null&&saved.vat_excluded!==true)Object.assign(result,{vat_excluded:false,tax_pending:true,supply:null,vat:null,pricing_version:null});return result;}
@@ -118,8 +125,8 @@
     var result={course:value.course||'all',courseName:value.courseName||(selected?selected.name:'코스 미정'),people:value.people?Number(value.people):null,format:value.format||'',formatName:value.formatName||formatLabel(value.format)||'제공 방식 상담 후 결정',status:value.status||'pending',total:money(amount),unitPrice:null,food:null,fee:null,feeName:value.feeName||D.feeLabels[value.format]||'출장·세팅 비용',vat_excluded:value.vat_excluded===true,tax_pending:value.vat_excluded!==true,supply:null,vat:null,pricing_version:value.pricing_version||null,note:value.note||'',menuNote:value.menuNote||D.menuNote};
     if(money(value.total)===result.total&&money(value.food)!=null&&money(value.fee)!=null&&Number(value.food)+Number(value.fee)===(result.vat_excluded?money(value.supply):result.total)){result.food=Number(value.food);result.fee=Number(value.fee);result.unitPrice=money(value.unitPrice);}
     if(result.vat_excluded&&money(value.supply)!=null&&money(value.vat)!=null&&Number(value.supply)+Number(value.vat)===result.total){result.supply=Number(value.supply);result.vat=Number(value.vat);}
-    ['provider','providerName','catalog_version','menu_ids','menuNames','budget_per_person','request_note'].forEach(function(k){if(value[k]!==undefined)result[k]=value[k];});
+    ['price_basis','provider','providerName','catalog_version','menu_ids','menuNames','budget_per_person','request_note'].forEach(function(k){if(value[k]!==undefined)result[k]=value[k];});
     return result;
   }
-  return {activeCourses:activeCourses,activeFormats:activeFormats,isActive:isActive,requestText:requestText,create:create,data:D,course:course,selection:selection,fromInquiry:fromInquiry,revision:revision,syncQuote:syncQuote,quoteCurrent:quoteCurrent,forDocument:forDocument,quote:quote,won:won,formatLabel:formatLabel,customerText:customerText,inquiryText:inquiryText};
+  return {formatMode:formatMode,isBudget:isBudget,compatible:compatible,choiceLabel:choiceLabel,activeCourses:activeCourses,activeFormats:activeFormats,isActive:isActive,requestText:requestText,create:create,data:D,course:course,selection:selection,fromInquiry:fromInquiry,revision:revision,syncQuote:syncQuote,quoteCurrent:quoteCurrent,forDocument:forDocument,quote:quote,won:won,formatLabel:formatLabel,customerText:customerText,inquiryText:inquiryText};
 });
