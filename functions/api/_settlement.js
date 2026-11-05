@@ -3,6 +3,8 @@ import S from '../../assets/js/settlement.js';
 import {json,err,now,str,readJson,log} from './_lib.js';
 import {bookingAmountSql} from './_amounts.js';
 import {batch} from './_admin_booking.js';
+import {confirmationSourceSQL,prepareCombinedConfirmation} from './_confirmation_auto.js';
+import {parseDoc} from './_confirm.js';
 export {S};
 // Test orders never count as real receipts. Full refunds remain visible in both totals.
 const gross = code => `(SELECT COALESCE(SUM(o.price),0) FROM orders o WHERE o.booking_code=${code} AND o.test=0 AND o.status IN ('paid','refunded'))`;
@@ -49,7 +51,8 @@ async function combinedContext(env,code){
 }
 async function combinedResult(env,code,receipt,duplicate=false){
  const notice=await env.DB.prepare("SELECT status,error FROM deposit_notifications WHERE booking_code=? AND kind='account' AND mode='live' ORDER BY id DESC LIMIT 1").bind(code).first();
- return json({ok:true,duplicate,combined_receipt:receipt,deposit_notice:notice||null,settlement:await settlementFor(env,code)});
+ const settlement=await settlementFor(env,code),doc=parseDoc((await env.DB.prepare('SELECT confirm_doc FROM bookings WHERE booking_code=?').bind(code).first())?.confirm_doc);
+ return json({ok:true,duplicate,combined_receipt:receipt,deposit_notice:notice||null,confirmation:{issued:!!doc?.issued_at,current:!!doc?.issued_at&&doc.settlement?.revision===settlement.revision,issue_no:doc?.issue_no||0},settlement});
 }
 async function combinedReceipt(env,code,d,settlement){
  const id=str(d.request_id,80),total=Number(d.amount),deposit=Number(d.deposit_amount),note=str(d.note,300);
@@ -63,12 +66,15 @@ async function combinedReceipt(env,code,d,settlement){
  if(settlement.balance==null||fee>settlement.balance)return err('보증금을 제외한 이용료가 남은 잔금보다 큽니다. 입금 내역을 다시 확인해 주세요.');
  if(typeof env.DB.batch!=='function')return err('합산 입금의 일괄 저장을 지원하지 않습니다.',503);
  const time=now(),summary=`합산 입금 ${total.toLocaleString('ko-KR')}원 (이용료 ${fee.toLocaleString('ko-KR')}원 + 반환 보증금 ${deposit.toLocaleString('ko-KR')}원)`,paymentNote=str(summary+(note?' · '+note:''),300);
+ const confirmation=await prepareCombinedConfirmation(env,code,settlement,fee,deposit,time);
  const statements=[
-  env.DB.prepare(`INSERT OR IGNORE INTO booking_combined_receipts(booking_code,request_id,total,fee,deposit,note,created_at) SELECT booking_code,?,?,?,?,?,? FROM bookings b WHERE booking_code=? AND ${settlementRevisionSql()}=? AND ${depositContextSql()}=?`).bind(id,total,fee,deposit,note,time,code,d.expected_revision,d.deposit_revision),
+  env.DB.prepare(`INSERT OR IGNORE INTO booking_combined_receipts(booking_code,request_id,total,fee,deposit,note,created_at) SELECT booking_code,?,?,?,?,?,? FROM bookings b WHERE booking_code=? AND ${settlementRevisionSql()}=? AND ${depositContextSql()}=? AND ${confirmationSourceSQL}=?`).bind(id,total,fee,deposit,note,time,code,d.expected_revision,d.deposit_revision,confirmation.revision),
   env.DB.prepare("INSERT INTO booking_payment_entries(booking_code,request_id,kind,amount,note,created_at) SELECT booking_code,request_id,'receipt',fee,?,created_at FROM booking_combined_receipts WHERE booking_code=? AND request_id=? AND changes()>0").bind(paymentNote,code,id),
   env.DB.prepare('INSERT INTO booking_refunds(booking_code,amount,created_at,updated_at) SELECT ?,?,?,? WHERE changes()>0 ON CONFLICT(booking_code) DO UPDATE SET amount=booking_refunds.amount').bind(code,deposit,time,time),
-  // Invalidate the old financial document before the paid flag creates a new notice.
-  env.DB.prepare('UPDATE bookings SET confirm_doc=NULL,updated_at=? WHERE booking_code=? AND changes()>0').bind(time,code)
+  // The updated document and its audit record commit with the receipt, before the paid
+  // flag creates the account invitation. Any failure rolls the entire operation back.
+  env.DB.prepare('UPDATE bookings SET confirm_doc=?,updated_at=? WHERE booking_code=? AND changes()>0').bind(JSON.stringify(confirmation.doc),time,code),
+  env.DB.prepare("INSERT INTO event_log(kind,ref,actor,detail,created_at) SELECT ?,?,'admin',?,? WHERE changes()>0").bind(confirmation.previously_issued?'booking.confirm_doc.updated':'booking.confirm_doc.issued',code,JSON.stringify({issue_no:confirmation.doc.issue_no,request_id:id,source:'combined_receipt'}),time)
  ];
  if(c.inquiry_ref){
   statements.push(env.DB.prepare("INSERT INTO inquiry_checks(ref,checks,updated_at) SELECT ?,json_object('guarantee_paid',?),? WHERE changes()>0 ON CONFLICT(ref) DO UPDATE SET checks=json_set(inquiry_checks.checks,'$.guarantee_paid',?),updated_at=excluded.updated_at").bind(c.inquiry_ref,time,time,time));
