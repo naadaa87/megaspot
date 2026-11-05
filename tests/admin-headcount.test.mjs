@@ -9,14 +9,23 @@ function bookingForm(){
   for(const file of ['data/holidays-kr.js','data/pricing-gundae.js','data/pricing-gundae2.js','pricing-engine.js'])
     vm.runInContext(readFileSync(new URL('../assets/js/'+file,import.meta.url),'utf8'),pricing);
   const engine=pricing.window.MEGASPOT_PRICE,elements={};
-  function $(selector){return elements[selector]??=(
-    {value:'',innerHTML:'',events:{},classList:{toggle(){}},addEventListener(type,fn){this.events[type]=fn;}}
-  );}
+  function element(){return {value:'',innerHTML:'',connected:true,events:{},classList:{toggle(){}},addEventListener(type,fn){this.events[type]=fn;}};}
+  function $(selector){
+    if(elements[selector])return elements[selector];
+    const el=elements[selector]=element();
+    if(selector==='#bk-amount-hint'){
+      let html='';Object.defineProperty(el,'innerHTML',{get(){return html;},set(value){
+        html=value;const old=elements['#bk-use-calc'];if(old)old.connected=false;
+        if(value.includes('bk-use-calc'))elements['#bk-use-calc']=element();
+      }});
+    }
+    return el;
+  }
   for(const [id,value] of Object.entries({'bk-space':'megaspot-gundae-2','bk-start':'13','bk-end':'17','bk-date':'2026-11-18','bk-people':'200'}))$('#'+id).value=value;
   const ctx=vm.createContext({$,esc:String,ADMIN_HOURS:{from:0,to:47},E:engine,D:engine.data(),nwHourOpts:()=>'',won:n=>n.toLocaleString('ko-KR')+'원'});
   ctx.useSpace=id=>{ctx.E=engine.forSpace(id);ctx.D=ctx.E.data();};
   vm.runInContext(source.slice(source.indexOf('  function bkTimes('),source.indexOf('  function settlementSummary(')),ctx);
-  return {ctx,$,engine,input(people){$('#bk-people').value=String(people);const handler=$('#bk-people').events.input;assert.equal(typeof handler,'function','인원 입력 중에도 재계산해야 함');handler();},hint(){return $('#bk-amount-hint').innerHTML;},apply(){assert.equal(typeof $('#bk-use-calc').events.click,'function');$('#bk-use-calc').events.click();return $('#bk-amount').value;}};
+  return {ctx,$,engine,input(people){$('#bk-people').value=String(people);const handler=$('#bk-people').events.input;assert.equal(typeof handler,'function','인원 입력 중에도 재계산해야 함');handler();},hint(){return $('#bk-amount-hint').innerHTML;},apply(){const target=$('#bk-use-calc');assert.equal(typeof target.events.click,'function');/* 포인터 클릭은 입력칸 blur/change 뒤에 전달됩니다. */$('#bk-people').events.change?.();if(target.connected)target.events.click();return $('#bk-amount').value;}};
 }
 test('2호점 200명 → 300명 입력 즉시 금액을 갱신하고 넣기도 300명 금액을 적용',()=>{
   const f=bookingForm(),old=f.hint();assert.match(old,/1,959,000원/);
