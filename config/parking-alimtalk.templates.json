@@ -219,5 +219,18 @@
     "mode": "test",
     "test_count": 1,
     "verified_date": "2026-11-04"
+  },
+  "paid_delivery": {
+    "mode": "sms_until_v2_approved",
+    "user_authorized": true,
+    "pending_template_code": "UN_3966",
+    "pending_status": "under_review",
+    "details": "새 결제 완료 문구 심사 중에는 LMS로 발송. 나머지 6종 승인 알림톡·문자 대체는 유지"
+  },
+  "purchase_policy": {
+    "hours": "평일 10:00–24:00",
+    "same_day_cutoff": "23:50",
+    "max_vehicles": 10,
+    "payment": "one_payment_per_batch"
   }
 }

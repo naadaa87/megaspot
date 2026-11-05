@@ -8,7 +8,7 @@ import {now,kstToday} from '../functions/api/_lib.js';
 const OID='MSPARKINGTEST001';
 function fixture(t){
  const f=base();t.after(()=>f.db.close());
- Object.assign(f.env,{ALIGO_LIVE_ENABLED:'true',ALIGO_RELAY_URL:'https://relay.naranhistory.com/megaspot/aligo',ALIGO_RELAY_SECRET:'test-parking-relay-secret-more-than-32',ALIGO_SENDER_KEY:'test-profile',ALIGO_SENDER:'01012345678'});
+ Object.assign(f.env,{PARKING_PAID_SMS:'false',ALIGO_LIVE_ENABLED:'true',ALIGO_RELAY_URL:'https://relay.naranhistory.com/megaspot/aligo',ALIGO_RELAY_SECRET:'test-parking-relay-secret-more-than-32',ALIGO_SENDER_KEY:'test-profile',ALIGO_SENDER:'01012345678'});
  f.db.prepare("INSERT INTO orders(oid,product_id,title,price,buyer_name,buyer_phone,data,status,created_at) VALUES(?,'parking-2h','주차 2시간',8000,'시험 고객','01012345678','{}','created',?)").run(OID,now());
  f.db.prepare("INSERT INTO parking_orders(oid,plate,visit_date,ticket,hours,token_hash,created_at,updated_at) VALUES(?,'123가4567',?,'2h',2,?,?,?)").run(OID,kstToday(),'b'.repeat(64),now(),now());
  let review='APR',result='0',sms=false,broken=false,reportDate=null;
@@ -17,12 +17,13 @@ function fixture(t){
   assert.equal(url,f.env.ALIGO_RELAY_URL);assert.equal(opts.redirect,'manual');const r=JSON.parse(opts.body);
   assert.equal(opts.headers['X-Megaspot-Signature'],await parkingSign(f.env.ALIGO_RELAY_SECRET,opts.body));
   if(r.path==='template/list'){const t=Object.values(T).find(t=>t.code===r.data.tpl_code);return Response.json({code:0,list:[{templtCode:t.code,inspStatus:review,status:'R',templtContent:t.content,buttons:B.map(b=>({name:b.name,linkType:b.linkType,linkMo:b.linkM,linkPc:b.linkP}))}]});}
+  if(r.path==='parking-paid/send'){sent.push(r);if(broken)throw Error('unknown outcome');return Response.json({result_code:1,msg_id:String(sent.length),success_cnt:1,error_cnt:0});}
   if(r.path==='alimtalk/send'){sent.push(r);if(broken)throw Error('unknown outcome');return Response.json({code:0,info:{mid:String(sent.length),scnt:1}});}
   if(r.path==='history/detail'){
    const previous=sent[Number(r.data.mid)-1].data;
    return Response.json({code:0,list:[{type:'AT',phone:previous.receiver_1,tpl_code:previous.tpl_code,senderKey:f.env.ALIGO_SENDER_KEY,rsltdate:reportDate??now(),rslt:result,smid:sms?'999':'0'}]});
   }
-  if(r.path==='sms/detail')return Response.json({result_code:1,list:[{type:'LMS',receiver:'01011112222',send_date:now(),sms_state:'발송완료'}]});
+  if(r.path==='sms/detail')return Response.json({result_code:1,list:[{type:'LMS',receiver:sent.some(s=>s.path==='parking-paid/send')?'01012345678':'01011112222',send_date:now(),sms_state:'발송완료'}]});
   assert.fail('Unexpected operation');
  });
  async function api(path,body,method=body?'POST':'GET',expected=200){const r=await onRequest({env:f.env,params:{path:('admin/notifications'+path).split('/')},request:new Request('https://megaspot.test/api/parking/admin/notifications'+path,{method,headers:{origin:'https://megaspot.test','Content-Type':'application/json','x-admin-key':f.env.ADMIN_KEY},...(body===undefined?{}:{body:JSON.stringify(body)})})});const j=await r.json();assert.equal(r.status,expected,JSON.stringify(j));return j;}
@@ -89,3 +90,5 @@ test('서버 전역 발송 잠금은 활성화된 주차 설정보다 우선한�
 test('관리자 결과 새로고침은 대기 중인 새 고객 메시지를 발송하지 않는다',async t=>{
  const f=fixture(t);await f.enable();f.db.prepare("UPDATE orders SET status='paid',paid_at=? WHERE oid=?").run(now(),OID);await f.api('/refresh',{});assert.equal(f.sent.length,1);assert.equal(f.db.prepare("SELECT status FROM parking_notifications WHERE mode='live'").get().status,'queued');
 });
+
+test('새 결제 문자는 야간 안내·차량별 금액·보안 링크를 보내며 실제 전달을 확인한다',async t=>{const f=fixture(t);await f.enable();delete f.env.PARKING_PAID_SMS;f.db.prepare("UPDATE orders SET status='paid',paid_at=? WHERE oid=?").run(now(),OID);await parkingNoticeTick(f.env);const sent=f.sent.at(-1);assert.equal(sent.path,'parking-paid/send');assert.equal(sent.data.receiver,'01012345678');assert.match(sent.data.msg,/평일 야간/);assert.match(sent.data.msg,/23:50/);assert.ok(!sent.data.msg.includes('18:00'));assert.match(sent.data.msg,/이 차량 결제금액: 8,000원/);const e=f.db.prepare("SELECT * FROM parking_notifications WHERE mode='live'").get();assert.equal(e.status,'accepted');assert.match(e.provider_mid,/^sms:/);await parkingNoticeTick(f.env);assert.equal(f.db.prepare('SELECT status FROM parking_notifications WHERE id=?').get(e.id).status,'sms_delivered');});

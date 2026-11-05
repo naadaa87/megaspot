@@ -1,3 +1,4 @@
+import {prepareParkingBatch} from '../_parking_checkout.js';
 import {json,err,hasDb,readJson,str,now,randomToken,sha256,sameOrigin,requireAdmin,tooMany,hit,clientIp,log,kstToday} from '../_lib.js';
 import {payappConfig,requestPayment,equalSecret} from '../_payapp.js';
 import {HOLIDAYS} from '../_catalog.js';
@@ -30,11 +31,11 @@ export async function onRequest({request,env,params}){
   }
   if(path==='prepare'&&method==='POST'){
    if(!settings.enabled||!C.live)return err('주차권 온라인 판매를 준비 중입니다. 카카오톡으로 문의해 주세요.',503);
-   const d=await readJson(request),v=parkingInput(d,{dailyAllowed:settings.daily_enabled});if(v.error)return err(v.error);
+   const d=await readJson(request);if(d.vehicles!==undefined)return await prepareParkingBatch(request,env,settings,C,d);const v=parkingInput(d,{dailyAllowed:settings.daily_enabled});if(v.error)return err(v.error);
    if(v.ticket==='daily'&&str(d.daily_terms,500)!==settings.daily_terms)return err('일일권 이용 조건이 변경되었습니다. 새로고침 후 확인해 주세요.',409);
-   if(v.date===kstToday()&&!arrivalWindow())return err('당일 주차권은 평일 10:00–17:50에 구매·입차 알림이 가능합니다. 다른 날짜를 선택하거나 카카오톡으로 문의해 주세요.');
+   if(v.date===kstToday()&&!arrivalWindow())return err('당일 주차권은 평일 23:50까지 구매·입차 요청이 가능합니다. 다른 날짜를 선택하거나 카카오톡으로 문의해 주세요.');
    // The UI requires an explicit extra-purchase confirmation. Do not reveal other buyers' orders.
-   const duplicate=await env.DB.prepare("SELECT COUNT(*) AS n FROM parking_orders p JOIN orders o ON o.oid=p.oid WHERE p.plate=? AND p.visit_date=? AND o.status='paid'").bind(v.plate,v.date).first();
+   const duplicate=await env.DB.prepare("SELECT COUNT(*) AS n FROM parking_orders p JOIN orders o ON o.oid=COALESCE(p.payment_oid,p.oid) WHERE p.plate=? AND p.visit_date=? AND o.status='paid'").bind(v.plate,v.date).first();
    if(duplicate.n&&!d.confirm_extra)return err('동일 차량·이용일에 결제된 주차권이 있습니다. 추가 구매가 맞는지 확인해 주세요.',409,'EXTRA_CONFIRM');
    const oid='MS'+new Date(Date.now()+9*3600e3).toISOString().replace(/[-:T]/g,'').slice(0,14)+(await sha256(randomToken())).slice(0,6).toUpperCase(),t=now(),key=await sha256(randomToken()),nonce=randomToken();
    const title='메가스팟 주차 '+v.label;
@@ -52,6 +53,15 @@ export async function onRequest({request,env,params}){
    await log(env,'parking.created',oid,'customer',{ticket:v.ticket,date:v.date,price:v.price});
    return json({ok:true,oid,key,payurl:payment.payurl,total:v.price});
   }
+  const batch=path.match(/^batches\/([A-Z0-9]+)$/);
+  if(batch&&method==='GET'){
+   const token=(request.headers.get('authorization')||'').replace(/^Bearer /,'');
+   if(!/^[0-9a-f]{64}$/.test(token))return err('구매 내역 확인 링크가 필요합니다.',403);
+   const b=await env.DB.prepare('SELECT b.token_hash,o.oid,o.status,o.price,(SELECT COALESCE(SUM(amount),0) FROM payapp_refunds WHERE oid=o.oid) AS refunded_amount FROM parking_batches b JOIN orders o ON o.oid=b.oid WHERE b.oid=?').bind(batch[1]).first();
+   if(!b||!equalSecret(await sha256(token),b.token_hash))return err('구매 내역을 확인할 수 없습니다.',403);
+   const {results}=await env.DB.prepare(JOIN+' WHERE p.payment_oid=? ORDER BY p.created_at,p.oid').bind(b.oid).all();
+   return json({ok:true,batch:true,payment:{oid:b.oid,status:b.status,price:b.price,refunded_amount:b.refunded_amount},items:(results||[]).map(publicParking),...publicSettings,accepting_arrivals:arrivalWindow()});
+  }
   const m=path.match(/^orders\/([A-Z0-9]+)(?:\/(arrive|cancel-request))?$/);
   if(!m)return err('경로를 찾을 수 없습니다.',404);
   const token=(request.headers.get('authorization')||'').replace(/^Bearer /,'');
@@ -60,9 +70,9 @@ export async function onRequest({request,env,params}){
   if(!p||(!equalSecret(await sha256(token),p.token_hash)&&!await parkingNoticeAccess(env,p.oid,token)))return err('구매 내역을 확인할 수 없습니다.',403);
   if(!m[2]&&method==='GET')return json({ok:true,order:publicParking(p),...publicSettings,accepting_arrivals:arrivalWindow()});
   if(method!=='POST')return err('지원하지 않는 요청입니다.',405);
-  if(p.payment_status!=='paid'||p.refunded_amount>0)return err('결제·환불 상태를 먼저 확인해 주세요.',409);
+  if(p.payment_status!=='paid'||(p.refunded_amount>0||p.refund_hold))return err('결제·환불 상태를 먼저 확인해 주세요.',409);
   if(m[2]==='arrive'){
-   if(p.visit_date!==kstToday()||!arrivalWindow())return err('이용일의 평일 10:00–17:50에 입차 후 알려 주세요. 그 외 시간은 카카오톡으로 문의해 주세요.',409);
+   if(p.visit_date!==kstToday()||!arrivalWindow())return err('이용일의 평일 23:50까지 입차 후 알려 주세요. 그 외 시간은 카카오톡으로 문의해 주세요.',409);
    if(p.refund_requested_at&&!p.refund_reviewed_at)return err('취소 요청 검토 중입니다.',409);
    await env.DB.prepare("UPDATE parking_orders SET arrival_at=COALESCE(arrival_at,?),status=CASE WHEN status='waiting' THEN 'requested' ELSE status END,updated_at=? WHERE oid=? AND status IN ('waiting','requested') AND (refund_requested_at IS NULL OR refund_reviewed_at IS NOT NULL)").bind(now(),now(),p.oid).run();
   }else{

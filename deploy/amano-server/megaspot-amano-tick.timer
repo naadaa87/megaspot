@@ -1,7 +1,7 @@
 [Unit]
-Description=Check Amano registrations every five minutes during Korean business hours
+Description=Check Amano registrations every five minutes throughout Korean weekdays
 [Timer]
-OnCalendar=Mon..Fri *-*-* 10..17:00/5:00 Asia/Seoul
+OnCalendar=Mon..Fri *-*-* 10..23:00/5:00 Asia/Seoul
 Persistent=false
 Unit=megaspot-amano-tick.service
 [Install]

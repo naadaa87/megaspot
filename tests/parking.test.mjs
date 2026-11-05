@@ -2,29 +2,13 @@ import test from 'node:test';import assert from 'node:assert/strict';import {Dat
 import {onRequest} from '../functions/api/parking/[[path]].js';
 import {parkingInput,plateOf,POLICY,arrivalWindow} from '../functions/api/_parking.js';
 import {sha256,kstToday} from '../functions/api/_lib.js';import {kstStamp} from '../functions/api/_payapp.js';
+import {fixture} from './helpers/parking-fixture.mjs';
 const ORIGIN='https://megaspot.test';
-function fixture(t){
- const db=new DatabaseSync(':memory:');db.exec(readFileSync(new URL('../schema.sql',import.meta.url),'utf8'));t.after(()=>db.close());
- const DB={prepare(sql){const st=db.prepare(sql);let a=[];return{bind(...v){a=v;return this;},async first(){return st.get(...a)||null;},async all(){return{results:st.all(...a)};},async run(){return{meta:{changes:Number(st.run(...a).changes)}};},exec(){return{meta:{changes:Number(st.run(...a).changes)}};}};},async batch(stmts){db.exec('BEGIN');try{const out=stmts.map(s=>s.exec());db.exec('COMMIT');return out;}catch(e){db.exec('ROLLBACK');throw e;}}};
- const env={DB,ADMIN_KEY:'test-admin',PAYAPP_USERID:'test-seller',PAYAPP_LINKKEY:'test-link',PAYAPP_LINKVAL:'test-value',PAYAPP_REQUESTKEY:'test-request'};let sent,n=123;
- t.mock.method(globalThis,'fetch',async(url,o)=>{assert.equal(url,'https://api.payapp.kr/oapi/v2');sent=new URLSearchParams(o.body);return new Response(new URLSearchParams({state:'1',mul_no:String(n++),payurl:'https://payapp.kr/test-payment'}));});
- t.mock.method(Date,'now',()=>Date.parse('2026-11-03T14:00:00+09:00'));
- function call(path,method='GET',body,key,admin=false,origin=ORIGIN){return onRequest({env,params:{path:path.split('?')[0].split('/')},request:new Request(ORIGIN+'/api/parking/'+path,{method,headers:{origin,'content-type':path==='feedback'?'application/x-www-form-urlencoded':'application/json',...(key?{Authorization:'Bearer '+key}:{}),...(admin?{'x-admin-key':'test-admin'}:{})},...(body===undefined?{}:{body:path==='feedback'?new URLSearchParams(body).toString():JSON.stringify(body)})})});}
- const admin=(path,body)=>call('admin/'+path,body?'POST':'GET',body,null,true);
- async function enable(){const r=await call('admin/settings','PUT',{enabled:true},null,true);assert.equal(r.status,200);}
- const input=(extra={})=>({ticket:'2h',plate:'123가4567',plate_confirm:'123가4567',date:'2026-11-03',name:'주차 테스트',phone:'01000000000',policy:POLICY,agree_terms:true,agree_privacy:true,agree_refund:true,confirmed:true,...extra});
- async function buy(extra={}){await enable();const r=await call('prepare','POST',input(extra));const j=await r.json();assert.equal(r.status,200,JSON.stringify(j));return j;}
- async function feedback(p,state='4',extra={}){const row=db.prepare('SELECT o.*,p.nonce,p.mul_no FROM orders o JOIN payapp_payments p ON p.oid=o.oid WHERE o.oid=?').get(p.oid),stamp=kstStamp();return call('feedback','POST',{userid:env.PAYAPP_USERID,linkkey:env.PAYAPP_LINKKEY,linkval:env.PAYAPP_LINKVAL,responsedate:stamp,hash:await sha256(env.PAYAPP_USERID+stamp+env.PAYAPP_REQUESTKEY),var1:row.oid,var2:row.nonce,mul_no:row.mul_no,price:String(row.price),pay_state:state,...extra});}
- const get=async p=>(await (await call('orders/'+p.oid,'GET',undefined,p.key)).json()).order;
- const claim=(p,extra={})=>admin('orders/'+p.oid+'/claim',{entry_id:'ENTRY-001',entry_at:'2026-11-03T13:00',plate_confirm:'123가4567',confirm_entry:true,...extra});
- const complete=p=>admin('orders/'+p.oid+'/complete',{cost:0,confirm_applied:true});
- return{db,env,call,admin,input,buy,get,claim,complete,feedback,sent:()=>sent};
-}
 test('차량번호 정규화·전체 재입력·정책 확인·판매 기간·일일권 미확정 검증',t=>{
  const f=fixture(t);assert.equal(plateOf(' 123 가-4567 '),'123가4567');assert.equal(plateOf('서울12가3456'),'서울12가3456');assert.equal(plateOf('4567'),null);
  for(const extra of [{plate_confirm:'123가4568'},{price:1,confirmed:false},{ticket:'daily'},{date:'2026-11-07'},{date:'2026-11-01'},{date:'2026-12-25'},{phone:'abc'},{agree_privacy:'false'},{ticket:['1h']},{ticket:'constructor'},{ticket:'__proto__'}])assert.ok(parkingInput(f.input(extra)).error,JSON.stringify(extra));
  assert.equal(parkingInput(f.input({price:1})).price,8000);
- assert.equal(arrivalWindow(Date.parse('2026-11-03T09:59:00+09:00')),false);assert.equal(arrivalWindow(Date.parse('2026-11-03T17:49:00+09:00')),true);assert.equal(arrivalWindow(Date.parse('2026-11-03T17:50:00+09:00')),false);
+ assert.equal(arrivalWindow(Date.parse('2026-11-03T09:59:00+09:00')),false);assert.equal(arrivalWindow(Date.parse('2026-11-03T17:49:00+09:00')),true);assert.equal(arrivalWindow(Date.parse('2026-11-03T17:50:00+09:00')),true);
 });
 test('판매는 기본 준비 상태·관리자 인증·외부 출처 요청 거절',async t=>{
  const f=fixture(t);assert.equal((await(await f.call('config')).json()).enabled,false);assert.equal((await f.call('prepare','POST',f.input())).status,503);
@@ -41,7 +25,8 @@ test('주차 결제는 서버 판매가·서명 통보만 사용하고 예약을
 test('입차 알림은 운영일·운영시간·결제 확인 후에만 접수한다',async t=>{
  const f=fixture(t),p=await f.buy();assert.equal((await f.call('orders/'+p.oid+'/arrive','POST',{},p.key)).status,409);await f.feedback(p);
  assert.equal((await f.call('orders/'+p.oid+'/arrive','POST',{},p.key)).status,200);assert.equal((await f.get(p)).status,'requested');
- t.mock.method(Date,'now',()=>Date.parse('2026-11-03T19:00:00+09:00'));assert.equal((await f.call('orders/'+p.oid+'/arrive','POST',{},p.key)).status,409);
+ t.mock.method(Date,'now',()=>Date.parse('2026-11-03T19:00:00+09:00'));assert.equal((await f.call('orders/'+p.oid+'/arrive','POST',{},p.key)).status,200);
+ t.mock.method(Date,'now',()=>Date.parse('2026-11-03T23:50:00+09:00'));assert.equal((await f.call('orders/'+p.oid+'/arrive','POST',{},p.key)).status,409);
 });
 test('1·2·3시간권 각각 무료1+유료0·1·2 배정',async t=>{
  const f=fixture(t);let i=1;for(const ticket of ['1h','2h','3h']){const p=await f.buy({ticket,plate:'123가'+String(4500+i),plate_confirm:'123가'+String(4500+i)});await f.feedback(p);const r=await f.claim(p,{entry_id:'ENTRY-'+i,plate_confirm:'123가'+String(4500+i)});assert.equal(r.status,200,await r.text());const row=f.db.prepare('SELECT * FROM parking_orders WHERE oid=?').get(p.oid);assert.equal(row.free_hours,1);assert.equal(row.paid_hours,i-1);i++;}
