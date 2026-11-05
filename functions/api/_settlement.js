@@ -38,6 +38,52 @@ export async function settlementsFor(env,codes){
  }return out;
 }
 export async function settlementFor(env,code){return (await settlementsFor(env,[code]))[code]||null;}
+const depositAmountSql=alias=>`COALESCE((SELECT amount FROM booking_refunds WHERE booking_code=${alias}.booking_code),json_extract(${alias}.confirm_doc,'$.deposit'),(SELECT json_extract(data,'$.deposit') FROM quotes WHERE inquiry_ref=${alias}.inquiry_ref ORDER BY id DESC LIMIT 1),150000)`;
+const depositPaidSql=alias=>`CASE WHEN ${alias}.inquiry_ref IS NOT NULL THEN COALESCE((SELECT json_extract(checks,'$.guarantee_paid') FROM inquiry_checks WHERE ref=${alias}.inquiry_ref),0) ELSE COALESCE((SELECT paid FROM booking_deposit_checks WHERE booking_code=${alias}.booking_code),0) END`;
+const depositContextSql=()=>`json_array(b.status,b.inquiry_ref,b.customer_name,b.phone,b.space_id,b.date,b.start_h,b.end_h,${depositAmountSql('b')},${depositPaidSql('b')},(SELECT state FROM booking_refunds WHERE booking_code=b.booking_code),(SELECT purged_at FROM booking_refunds WHERE booking_code=b.booking_code),(SELECT json_extract(checks,'$.guarantee_returned') FROM inquiry_checks WHERE ref=b.inquiry_ref),(SELECT COUNT(*) FROM bookings WHERE inquiry_ref=b.inquiry_ref AND status<>'cancelled'))`;
+async function combinedContext(env,code){
+ const b=await env.DB.prepare(`SELECT b.inquiry_ref,b.status,${depositAmountSql('b')} AS amount,${depositPaidSql('b')} AS paid,${depositContextSql()} AS revision,(SELECT state FROM booking_refunds WHERE booking_code=b.booking_code) AS refund_state,(SELECT purged_at FROM booking_refunds WHERE booking_code=b.booking_code) AS purged,(SELECT json_extract(checks,'$.guarantee_returned') FROM inquiry_checks WHERE ref=b.inquiry_ref) AS returned,(SELECT COUNT(*) FROM bookings WHERE inquiry_ref=b.inquiry_ref AND status<>'cancelled') AS siblings FROM bookings b WHERE booking_code=?`).bind(code).first();
+ const settings=JSON.parse((await env.DB.prepare("SELECT value FROM settings WHERE key='deposit_alimtalk'").first())?.value||'{}');
+ const reason=b.status!=='confirmed'?'확정 예약에서 합산 입금을 처리해 주세요.':b.paid?'보증금 입금이 이미 확인되어 있습니다.':!Number.isSafeInteger(b.amount)||b.amount<=0||b.amount>10000000?'예약의 보증금 금액을 먼저 확인해 주세요.':b.inquiry_ref&&b.siblings!==1?'같은 문의에 연결된 예약이 여러 건입니다. 보증금을 예약별로 확인해 주세요.':b.purged||b.returned||(b.refund_state&&b.refund_state!=='pending')?'환급 처리 상태를 먼저 확인해 주세요.':'';
+ return {...b,reason,automatic:settings.enabled===true&&settings.types?.account!==false&&env.ALIGO_LIVE_ENABLED==='true'};
+}
+async function combinedResult(env,code,receipt,duplicate=false){
+ const notice=await env.DB.prepare("SELECT status,error FROM deposit_notifications WHERE booking_code=? AND kind='account' AND mode='live' ORDER BY id DESC LIMIT 1").bind(code).first();
+ return json({ok:true,duplicate,combined_receipt:receipt,deposit_notice:notice||null,settlement:await settlementFor(env,code)});
+}
+async function combinedReceipt(env,code,d,settlement){
+ const id=str(d.request_id,80),total=Number(d.amount),deposit=Number(d.deposit_amount),note=str(d.note,300);
+ if(!/^[a-zA-Z0-9_-]{8,80}$/.test(id)||d.kind!=='receipt'||d.confirm_combined!==true||!Number.isSafeInteger(total)||total<=0||total>1e9||!Number.isSafeInteger(deposit)||deposit<=0||deposit>=total)return err('합산 입금액과 이용료·보증금 구분을 확인해 주세요.');
+ const existing=await env.DB.prepare('SELECT * FROM booking_combined_receipts WHERE booking_code=? AND request_id=?').bind(code,id).first();
+ if(existing){if(existing.total!==total||existing.deposit!==deposit||existing.note!==note)return err('다른 합산 입금에 사용된 요청번호입니다.',409,'PAYMENT_CONFLICT');return combinedResult(env,code,existing,true);}
+ if(await env.DB.prepare('SELECT id FROM booking_payment_entries WHERE booking_code=? AND request_id=?').bind(code,id).first())return err('이미 다른 수납 기록에 사용된 요청번호입니다.',409,'PAYMENT_CONFLICT');
+ const c=await combinedContext(env,code),fee=total-deposit;
+ if(c.reason)return err(c.reason,409,'DEPOSIT_CHANGED');
+ if(d.expected_revision!==settlement.revision||d.deposit_revision!==c.revision||deposit!==c.amount)return err('수납 또는 보증금 정보가 바뀌었습니다. 새로고침 후 확인해 주세요.',409,'PAYMENT_CHANGED');
+ if(settlement.balance==null||fee>settlement.balance)return err('보증금을 제외한 이용료가 남은 잔금보다 큽니다. 입금 내역을 다시 확인해 주세요.');
+ if(typeof env.DB.batch!=='function')return err('합산 입금의 일괄 저장을 지원하지 않습니다.',503);
+ const time=now(),summary=`합산 입금 ${total.toLocaleString('ko-KR')}원 (이용료 ${fee.toLocaleString('ko-KR')}원 + 반환 보증금 ${deposit.toLocaleString('ko-KR')}원)`,paymentNote=str(summary+(note?' · '+note:''),300);
+ const statements=[
+  env.DB.prepare(`INSERT OR IGNORE INTO booking_combined_receipts(booking_code,request_id,total,fee,deposit,note,created_at) SELECT booking_code,?,?,?,?,?,? FROM bookings b WHERE booking_code=? AND ${settlementRevisionSql()}=? AND ${depositContextSql()}=?`).bind(id,total,fee,deposit,note,time,code,d.expected_revision,d.deposit_revision),
+  env.DB.prepare("INSERT INTO booking_payment_entries(booking_code,request_id,kind,amount,note,created_at) SELECT booking_code,request_id,'receipt',fee,?,created_at FROM booking_combined_receipts WHERE booking_code=? AND request_id=? AND changes()>0").bind(paymentNote,code,id),
+  env.DB.prepare('INSERT INTO booking_refunds(booking_code,amount,created_at,updated_at) SELECT ?,?,?,? WHERE changes()>0 ON CONFLICT(booking_code) DO UPDATE SET amount=booking_refunds.amount').bind(code,deposit,time,time),
+  // Invalidate the old financial document before the paid flag creates a new notice.
+  env.DB.prepare('UPDATE bookings SET confirm_doc=NULL,updated_at=? WHERE booking_code=? AND changes()>0').bind(time,code)
+ ];
+ if(c.inquiry_ref){
+  statements.push(env.DB.prepare("INSERT INTO inquiry_checks(ref,checks,updated_at) SELECT ?,json_object('guarantee_paid',?),? WHERE changes()>0 ON CONFLICT(ref) DO UPDATE SET checks=json_set(inquiry_checks.checks,'$.guarantee_paid',?),updated_at=excluded.updated_at").bind(c.inquiry_ref,time,time,time));
+  statements.push(env.DB.prepare("UPDATE inquiries SET memo=CASE WHEN COALESCE(memo,'')='' THEN ? ELSE memo||char(10)||? END,updated_at=? WHERE ref=? AND changes()>0").bind(time+' '+paymentNote,time+' '+paymentNote,time,c.inquiry_ref));
+ }else{
+  statements.push(env.DB.prepare('INSERT INTO booking_deposit_checks(booking_code,paid,updated_at) SELECT ?,1,? WHERE changes()>0 ON CONFLICT(booking_code) DO UPDATE SET paid=1,updated_at=excluded.updated_at').bind(code,time));
+ }
+ statements.push(env.DB.prepare("UPDATE deposit_notifications SET status='cancelled',error='합산 입금으로 보증금 확인 완료',updated_at=? WHERE booking_code=? AND kind='payment' AND mode='live' AND status IN ('queued','review') AND request_id IS NULL AND provider_mid IS NULL AND EXISTS(SELECT 1 FROM booking_combined_receipts WHERE booking_code=? AND request_id=?)").bind(time,code,code,id));
+ const result=await env.DB.batch(statements),saved=await env.DB.prepare('SELECT * FROM booking_combined_receipts WHERE booking_code=? AND request_id=?').bind(code,id).first();
+ if(!saved)return err('다른 관리자가 수납·보증금 정보를 변경했습니다. 새로고침 후 확인해 주세요.',409,'PAYMENT_CHANGED');
+ if(saved.total!==total||saved.deposit!==deposit||saved.note!==note)return err('다른 합산 입금에 사용된 요청번호입니다.',409,'PAYMENT_CONFLICT');
+ const duplicate=!(result[0]?.meta?.changes??result[0]?.changes);
+ if(!duplicate)await log(env,'booking.payment.combined',code,'admin',{request_id:id,total,fee,deposit,note});
+ return combinedResult(env,code,saved,duplicate);
+}
 export async function settlementAdmin({env,request,path,method}){
  const match=path.match(/^bookings\/([A-Z0-9-]+)\/settlement(?:\/entries\/(\d+))?$/);if(!match)return null;const code=match[1];
  if(!['GET','POST'].includes(method))return err('지원하지 않는 요청입니다.',405,'METHOD');
@@ -50,9 +96,10 @@ export async function settlementAdmin({env,request,path,method}){
   const {results}=await env.DB.prepare('SELECT * FROM booking_payment_current WHERE booking_code=? AND id<? ORDER BY id DESC LIMIT 91').bind(code,before).all();
   const entries=(results||[]).slice(0,90),ids=entries.map(e=>e.id);
   const history=ids.length?(await env.DB.prepare('SELECT id,entry_id,request_id,previous_version,action,kind,amount,note,reason,created_at FROM booking_payment_revisions WHERE booking_code=? AND entry_id IN ('+ids.map(()=>'?').join(',')+') ORDER BY id DESC LIMIT 1001').bind(code,...ids).all()).results||[]:[];
-  return json({ok:true,settlement,entries,has_more:(results||[]).length>90,next_before:entries.at(-1)?.id||null,history:history.slice(0,1000),history_truncated:history.length>1000,online:await onlinePaymentsFor(env,code)});
+  return json({ok:true,settlement,deposit:await combinedContext(env,code),entries,has_more:(results||[]).length>90,next_before:entries.at(-1)?.id||null,history:history.slice(0,1000),history_truncated:history.length>1000,online:await onlinePaymentsFor(env,code)});
  }
- const d=await readJson(request),id=str(d.request_id,80),amount=Number(d.amount),kind=d.kind;
+ const d=await readJson(request);if(d.combined===true)return combinedReceipt(env,code,d,settlement);
+ const id=str(d.request_id,80),amount=Number(d.amount),kind=d.kind;
  if(!/^[a-zA-Z0-9_-]{8,80}$/.test(id)||!['receipt','refund'].includes(kind)||!Number.isSafeInteger(amount)||amount<=0||amount>1e9)return err('입금·환불 종류와 실제 처리 금액을 확인해 주세요.');
  const existing=await env.DB.prepare('SELECT kind,amount,note FROM booking_payment_entries WHERE booking_code=? AND request_id=?').bind(code,id).first();
  if(existing){if(existing.kind!==kind||existing.amount!==amount||existing.note!==str(d.note,300))return err('다른 기록에 사용된 요청번호입니다.',409,'PAYMENT_CONFLICT');return json({ok:true,duplicate:true,settlement:await settlementFor(env,code)});}
