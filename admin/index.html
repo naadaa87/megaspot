@@ -51,6 +51,7 @@
 <link rel="stylesheet" href="/assets/css/admin-settlement.css?v=20261104retry1">
 <link rel="stylesheet" href="/assets/css/admin-parking-alerts.css?v=20261104adminsms1">
 <link rel="stylesheet" href="/assets/css/admin-navigation.css?v=20261104navrelease3">
+<link rel="stylesheet" href="/assets/css/admin-booking-readiness.css?v=20261105readiness1">
 </head>
 <body class="page-admin">
 <div id="admin-root">
@@ -83,6 +84,7 @@
       <button type="button" data-view="cocktail">출장 칵테일</button>
       <button type="button" data-view="orders">주문·결제<em data-count="orders" hidden></em></button>
       <button type="button" data-view="bookings">예약 관리</button>
+      <button type="button" data-view="booking-readiness">미안내·미발급</button>
       <button type="button" data-view="calendar">일정 달력</button>
       <button type="button" data-view="reviews">후기<em data-count="reviews" hidden></em></button>
       <button type="button" data-view="members">회원</button>
@@ -353,6 +355,8 @@
       <p class="tiny muted mb-2">환불·취소는 <b>페이앱 판매자 관리자(seller.payapp.kr)</b>에서 처리하세요. 페이앱 주문은 취소 통보를 받으면 자동 반영됩니다. 전체 취소는 연결된 예약도 취소하고, 부분 취소는 환불 금액을 기록하며 예약을 유지합니다.</p>
       <div id="ord-list" class="adm-list"></div>
     </section>
+
+    <section class="adm-view" id="view-booking-readiness" hidden></section>
 
     <!-- 예약 관리 -->
     <section class="adm-view" id="view-bookings" hidden>
@@ -632,7 +636,7 @@
 <script src="/assets/js/cocktail-calc.js?v=20261104foodprices3"></script>
 <script src="/assets/js/inquiry-overview.js?v=20261104receptionvat1"></script>
 <script src="/assets/js/quote-calculation.js?v=20261105quotespace1"></script>
-<script src="/assets/js/pages/admin.js?v=20261105headcount2"></script>
+<script src="/assets/js/pages/admin.js?v=20261105headcount2&readiness=20261105"></script>
 <script src="/assets/js/pages/admin-platform.js?v=20261102adminux1"></script>
 <script src="/assets/js/pages/admin-cocktail.js?v=20261104foodprices3"></script>
 <script src="/assets/js/pages/admin-food-pricing.js?v=20261104navrelease1"></script>
@@ -641,13 +645,14 @@
 <script src="/assets/js/pages/admin-amano-server.js?v=20261104amano4"></script>
 <script src="/assets/js/pages/admin-parking-alerts.js?v=20261104adminsms1"></script>
 <script src="/assets/js/pages/admin-parking-notifications.js?v=20261104navrelease1"></script>
-<script src="/assets/js/pages/admin-guide-messages.js?v=20261104navrelease1"></script>
+<script src="/assets/js/pages/admin-guide-messages.js?v=20261104navrelease1&readiness=20261105"></script>
 <script src="/assets/js/pages/admin-deposit-refunds.js?v=20261104refundux1"></script>
 <script src="/assets/js/pages/admin-deposit-notifications.js?v=20261104navrelease1"></script>
 <script src="/assets/js/pages/admin-booking-portal.js?v=20261103portal1"></script>
 <script src="/assets/js/admin-save-recovery.js?v=20261104retry1"></script>
 <script src="/assets/js/pages/admin-settlement.js?v=20261104retry1"></script>
 <script src="/assets/js/pages/admin-cancellation.js?v=20261104retry1"></script>
-<script src="/assets/js/pages/admin-navigation.js?v=20261104navrelease4"></script>
+<script src="/assets/js/pages/admin-navigation.js?v=20261104navrelease4&readiness=20261105"></script>
+<script src="/assets/js/pages/admin-booking-readiness.js?v=20261105readiness1"></script>
 </body>
 </html>
