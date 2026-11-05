@@ -81,3 +81,6 @@
 .rf-notice-outstanding{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;padding-bottom:12px;border-bottom:1px solid #dce0e5}.rf-notice-outstanding strong,.rf-notice-outstanding small{flex-basis:100%}.rf-notice-outstanding small{font-size:13px;color:#58616d;line-height:1.6}
 
 [data-rf-result]{min-height:44px;white-space:normal}#rf-refresh-result{overflow-wrap:anywhere}
+
+.rf-result-button{border-color:#2354dd;background:#edf2ff;color:#214bb4;font-weight:700}#rf-refresh-result:focus{outline:2px solid #2354dd;outline-offset:3px}#rf-refresh-result{scroll-margin-block:20px}
+@media(max-width:600px){#view-deposit-refunds .rf-result-button{width:100%;min-height:48px}}
