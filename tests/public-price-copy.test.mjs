@@ -48,3 +48,16 @@ test('public reception copy preserves requested supplier, menu and budget in cli
   for(const [id,fmt,b] of [['cf-classic','box',30000],['cf-budget-20000','fusionbox',20000]]){course.value=id;format.value=fmt;budget.value=b;input.value='51';windowListeners.pagehide();course.value='cf-light';format.value='table';input.value='1';budget.value='';windowListeners.pageshow({persisted:true});assert.equal(course.value,id);assert.equal(format.value,fmt);assert.equal(input.value,51);assert.equal(budget.value,b);assert.match(out.innerHTML,new RegExp(C.won(C.quote(51,fmt,id).total)));}
  }
 });
+
+
+test('home reception consultation badges never replace the following cocktail cup count with a menu price',async()=>{
+ const catering=await readFoodPricing(null,'catering'),reception=await readFoodPricing(null,'reception');
+ for(const price of [25000,47000]){
+  reception.rows=reception.rows.map(row=>({...row,sale_price:row.id==='course.cf-light'?price:row.sale_price}));
+  const html=foodHtml(source('index.html'),'/',{catering:publicFoodPricing(catering),reception:publicFoodPricing(reception)});
+  const card=id=>html.match(new RegExp('<article class="home-food-card" id="'+id+'">[\\s\\S]*?</article>'))[0];
+  assert.match(card('reception'),/맞춤 구성 상담/);assert.match(card('reception'),/5가지 제공 방식/);
+  assert.match(card('cocktail'),/<span><b>100<\/b>잔부터<\/span>/);assert.doesNotMatch(card('cocktail'),/25,000|35,000|47,000/);
+  assert.match(card('catering'),/1인 <b>40,000<\/b>원부터/);
+ }
+});
