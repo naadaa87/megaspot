@@ -43,3 +43,11 @@
 .admin-save-recovery{margin:0 0 18px;padding:16px;border:1px solid #b77a28;border-radius:10px;background:#fff7e8;overflow-wrap:anywhere}
 .admin-save-recovery p{margin:0 0 10px;line-height:1.6}
 .admin-save-recovery .btn{margin:4px 6px 0 0;white-space:normal}
+
+#payment-combined{padding:16px;margin:14px 0;border:1px solid #c8d5f8;border-radius:8px;background:#f2f6ff}
+#payment-combined[hidden]{display:none}
+#payment-split dl{margin:12px 0}
+#payment-split dl>div{display:flex;justify-content:space-between;gap:12px;margin:8px 0}
+#payment-split dd{margin:0;font-weight:700;font-variant-numeric:tabular-nums}
+#payment-combined .chk{align-items:flex-start;line-height:1.6}
+@media(max-width:600px){#payment-dialog input,#payment-dialog select{font-size:16px}#payment-save{min-height:44px}#payment-combined{padding:12px}#payment-split dt,#payment-split dd{font-size:13px}}
