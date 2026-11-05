@@ -78,6 +78,8 @@ export async function refundAdmin({env,request,url,path,method}){
     if(filter==='missing'){
      const notice=url.searchParams.get('reminder_status')||'all';
      if(notice==='unsent')where.push("NOT EXISTS(SELECT 1 FROM deposit_notifications n WHERE n.booking_code=b.booking_code AND n.mode='live' AND n.kind='account' AND n.status<>'cancelled')");
+     if(notice==='pending')where.push("EXISTS(SELECT 1 FROM deposit_notifications n WHERE n.booking_code=b.booking_code AND n.mode='live' AND n.kind='account' AND n.status IN ('queued','sending'))");
+     if(notice==='needs_check')where.push("EXISTS(SELECT 1 FROM deposit_notifications n WHERE n.booking_code=b.booking_code AND n.mode='live' AND n.kind='account' AND n.status IN ('accepted','unknown','review'))");
      if(notice==='failed')where.push("(SELECT n.status FROM deposit_notifications n WHERE n.booking_code=b.booking_code AND n.mode='live' AND n.kind='account' ORDER BY n.id DESC LIMIT 1)='failed'");
     }
     if(filter==='processing')where.push("r.state='processing'");if(filter==='hold')where.push("r.state='hold'");

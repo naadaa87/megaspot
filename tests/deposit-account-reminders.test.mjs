@@ -70,3 +70,11 @@ test('미발송·최근 실패 필터는 대기/성공/결과 미확인 및 다�
  for(const state of ['cancelled','queued','sending','accepted','unknown','delivered','failed']){f.db.exec("DELETE FROM deposit_notifications WHERE kind='account' AND mode='live'");add.run('account','state',now(),'live',state);assert.equal((await list('unsent')).items.length,state==='cancelled'?1:0,state);assert.equal((await list('failed')).items.length,state==='failed'?1:0,state);}
  add.run('account','retry',now(),'live','queued');assert.equal((await list('failed')).items.length,0);assert.equal((await list('all')).items.length,1);
 });
+
+test('대기·확인 필요 필터는 미완료 이력을 조회하고 재발송을 막으며 시험·다른 종류는 제외한다',async t=>{
+ const f=await setup(t),list=s=>f.api('deposit-notifications/account-reminders?reminder_status='+s),add=f.db.prepare("INSERT INTO deposit_notifications(booking_code,kind,event_key,occurred_at,payload,mode,status) VALUES('BK-TEST',?,?,?,'{}',?,?)");
+ assert.equal((await list('pending')).items.length,0);assert.equal((await list('needs_check')).items.length,0);
+ for(const state of ['queued','sending','accepted','unknown','review','failed','delivered','cancelled']){f.db.exec("DELETE FROM deposit_notifications WHERE mode='live'");add.run('account','state',now(),'live',state);const pending=await list('pending'),check=await list('needs_check');assert.equal(pending.items.length,['queued','sending'].includes(state)?1:0,state);assert.equal(check.items.length,['accepted','unknown','review'].includes(state)?1:0,state);for(const p of [...pending.items,...check.items])assert.equal(p.reminder.eligible,false,state);}
+ f.db.exec("DELETE FROM deposit_notifications WHERE mode='live'");add.run('payment','other',now(),'live','unknown');add.run('account','test',now(),'test','queued');assert.equal((await list('pending')).items.length,0);assert.equal((await list('needs_check')).items.length,0);
+ add.run('account','old-unknown',now(),'live','unknown');add.run('account','latest-failed',now(),'live','failed');assert.equal((await list('needs_check')).items.length,1);
+});
