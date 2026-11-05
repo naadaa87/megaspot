@@ -16,6 +16,7 @@
   document.querySelectorAll('[data-cf-price]').forEach(function(el){var co=C.course(el.dataset.cfPrice);el.textContent=co&&co.price!=null?'1인 '+C.won(co.price)+' · 부가세 별도':'상담 후 견적';});
   document.querySelectorAll('[data-menu-pick]').forEach(function(b){var on=chosen.indexOf(b.dataset.menuPick)>=0;b.setAttribute('aria-pressed',String(on));b.textContent=on?'선택 해제':'희망 메뉴에 담기';});
   if(!r){out.innerHTML='<h3>입력 내용을 확인해 주세요</h3><p class="mt-2" role="status">인원은 1명 이상의 정수, 희망 1인 예산은 1~10,000,000원으로 입력해 주세요. 예산은 비워 두어도 됩니다.</p>';return;}
+  document.querySelectorAll('[data-cf-fee]').forEach(function(el){var price=(window.MEGASPOT_FOOD_RATES||{}).reception;var value=price&&price.prices[el.dataset.cfFee];if(value!==undefined)el.textContent=value==null?'상담 후 견적':C.won(value);});
   var amount=q.ok?C.won(q.total):'상담 후 견적';
   out.innerHTML='<div class="eyebrow">Your catering plan</div><div class="cc-total"><span>예상 금액<small>'+(q.ok?'부가세 10% 포함':'메뉴·제공량·가격 최종 협의')+'</small></span><b>'+amount+'</b></div>'+selectionHtml(r)
    +(q.ok?'<table class="est-lines"><tbody><tr><td>메뉴 '+C.won(q.unitPrice)+' × '+q.people+'명</td><td class="r">'+C.won(q.food)+'</td></tr><tr><td>'+esc(q.feeName)+'</td><td class="r">'+C.won(q.fee)+'</td></tr><tr><td>공급가액 (부가세 별도)</td><td class="r">'+C.won(q.supply)+'</td></tr><tr><td>부가세 10%</td><td class="r">'+C.won(q.vat)+'</td></tr><tr class="sum"><td>최종 합계</td><td class="r">'+C.won(q.total)+'</td></tr></tbody></table>':'<p class="cf-request-state">선택한 메뉴와 행사 조건을 확인한 뒤 최종 견적을 안내합니다. 미확정 금액은 합계에 포함하지 않습니다.</p>')
@@ -37,6 +38,7 @@
  if(query.has('reception_people'))people.value=query.get('reception_people');
  if(D.formats.some(function(f){return f.id===query.get('reception_format');}))format.value=query.get('reception_format');
  if(query.has('reception_budget'))budget.value=query.get('reception_budget');
+ if(query.has('reception_note'))note.value=query.get('reception_note');
  if(query.has('reception_menus'))chosen=query.get('reception_menus').split(',').filter(function(id,i,a){return D.items.some(function(m){return m.id===id;})&&a.indexOf(id)===i;});
  paint();menus();
 })();

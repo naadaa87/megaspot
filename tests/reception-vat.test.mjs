@@ -20,7 +20,7 @@ test('all course/format/boundary amounts add exactly 10% on menu plus service fe
   assert.equal(q.supply,co.price*n+fee);assert.equal(q.vat,Math.round(q.supply/10));assert.equal(q.total,q.supply+q.vat);assert.equal(q.vat_excluded,true);assert.equal(q.tax_pending,false);
   const d=C.forDocument(q);assert.equal(d.food+d.fee,d.supply);assert.equal(d.total,d.supply+d.vat);
  }
- assert.equal(receptionCustomer({course:'classic',people:50,format:'table',total:1}),null);const q=receptionCustomer({course:'cf-snack',people:50,format:'table',total:1,supply:1,vat:0});assert.equal(q.total,null);assert.equal(q.supply,null);
+ assert.equal(receptionCustomer({course:'classic',people:50,format:'table',total:1}),null);const q=receptionCustomer({course:'cf-custom',people:50,format:'table',total:1,supply:1,vat:0});assert.equal(q.total,null);assert.equal(q.supply,null);
 });
 test('legacy agreed quote and booking survive opening, unrelated quote saves, and document reissue',async t=>{
  const f=setup(t),data={...f.data,reception:legacy,included_reception_amount:1950000,reception_in_quote:true,total:2450000};

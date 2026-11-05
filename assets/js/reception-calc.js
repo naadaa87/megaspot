@@ -8,7 +8,7 @@
   function activeCourses(){return D.activeCatalog?D.activeCatalog.offerings:(D.courses||[D.course]);}
   function activeFormats(){return D.activeCatalog?D.activeCatalog.formats.map(function(f){return {id:f.id,name:f.name};}):Object.keys(D.formats).map(function(id){return {id:id,name:D.formats[id]};});}
   function isActive(id){return activeCourses().some(function(c){return c.id===id;});}
-  function course(value){return (D.courses||[D.course]).concat(D.activeCatalog?D.activeCatalog.offerings:[]).find(function(c){return c.id===(value==null?D.course.id:value);});}
+  function course(value){return (D.courses||[D.course]).concat(D.activeCatalog?D.activeCatalog.offerings.concat(D.activeCatalog.retiredOfferings||[]):[]).find(function(c){return c.id===(value==null?D.course.id:value);});}
   function quote(value,format,courseId){
     var selected=course(courseId);
     if(!selected)return {ok:false,reason:'course',message:'케이터링 코스를 선택해 주세요.'};
@@ -20,10 +20,11 @@
     if(!formatLabel(id))return {ok:false,reason:'format',message:'제공 방식을 선택하면 출장·세팅비를 계산합니다.'};
     var active=String(selected.id).indexOf('cf-')===0,fees=active?D.activeCatalog.feesByFormat:D.feesByFormat;
     if(!fees[id])return {ok:false,reason:'format',message:'현재 제공 방식으로 상담해 주세요.'};
-    var band=fees[id].find(function(f){return people<=f.upto;});
+    var band=active&&id!=='table'?fees[id][0]:fees[id].find(function(f){return people<=f.upto;});
+    if(active&&id==='table'&&!band&&D.activeCatalog.tableFeeIncrement){var step=D.activeCatalog.tableFeeIncrement,last=fees.table[fees.table.length-1];if(last.price!=null&&step.price!=null)band={price:last.price+Math.ceil((people-last.upto)/step.people)*step.price,label:people+'명 · '+step.people+'명 단위 출장세팅비'};}
     if(!band) return {ok:false,reason:'consult',people:people,format:id,message:'301명 이상은 별도 상담으로 견적을 안내합니다.'};
     if(active&&(selected.price==null||band.price==null||selected.id==='cf-custom'))return {ok:false,reason:'pricing',people:people,course:selected.id,format:id,message:'선택한 구성은 상담 후 견적을 안내합니다. 메뉴·제공량·출장 및 세팅 조건을 함께 확인해 주세요.'};
-    return {provider:active?'cafefriends':undefined,providerName:active?'카페프렌즈':undefined,ok:true,course:selected.id,courseName:selected.name,format:id,formatName:formatLabel(id),people:people,unitPrice:selected.price,food:people*selected.price,fee:band.price,feeLabel:band.label,feeName:active?(id==='table'?'출장·세팅·철수 비용':'배송·포장·세팅 비용'):D.feeLabels[id],supply:people*selected.price+band.price,vat:Math.round((people*selected.price+band.price)/10),vat_excluded:true,pricing_version:active?D.activeCatalog.version:'reception-vat-20261104',tax_pending:false,total:people*selected.price+band.price+Math.round((people*selected.price+band.price)/10)};
+    return {provider:active?'cafefriends':undefined,providerName:active?'카페프렌즈':undefined,ok:true,course:selected.id,courseName:selected.name,format:id,formatName:formatLabel(id),people:people,unitPrice:selected.price,food:people*selected.price,fee:band.price,feeLabel:band.label,feeName:active?(id==='table'?'출장세팅비':'배송비'):D.feeLabels[id],supply:people*selected.price+band.price,vat:Math.round((people*selected.price+band.price)/10),vat_excluded:true,pricing_version:active?D.activeCatalog.version:'reception-vat-20261104',tax_pending:false,total:people*selected.price+band.price+Math.round((people*selected.price+band.price)/10)};
   }
   function formatLabel(id){return Object.prototype.hasOwnProperty.call(D.formats||{},id)?D.formats[id]:'';}
   function formatText(id){var label=formatLabel(id);return label?'· 희망 제공 방식: '+label+' (포장·기물·세팅 범위 최종 협의)\n':'';}

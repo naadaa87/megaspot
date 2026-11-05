@@ -1,7 +1,7 @@
 {
   "provider": "cafefriends",
   "providerName": "카페프렌즈",
-  "version": "20261105cafefriends1",
+  "version": "20261105cfprices1",
   "source": "https://xn--sm2b84auzz14b70jcyab6ix4fvvd.com",
   "categories": [
     {
@@ -472,6 +472,232 @@
   ],
   "offerings": [
     {
+      "id": "cf-light",
+      "name": "라이트",
+      "price": 25000,
+      "tag": "가벼운 모임 · 세미나",
+      "intro": "샌드위치와 카나페, 카프레제에 치킨·과일·디저트를 곁들인 구성",
+      "menus": [
+        "크로아상 샌드위치",
+        "브리치즈 부르스게타",
+        "토마토 카프레제",
+        "훈제연어 카나페",
+        "치킨 강정",
+        "과일 꽂이",
+        "미니 컵과일",
+        "사르르 버터쿠키",
+        "미니 마카롱"
+      ],
+      "example_ids": [
+        "cf-menu-47",
+        "cf-menu-60",
+        "cf-menu-55",
+        "cf-menu-79",
+        "cf-menu-25",
+        "cf-menu-56",
+        "cf-menu-63",
+        "cf-menu-130",
+        "cf-menu-104"
+      ],
+      "image": "menu-47.jpg"
+    },
+    {
+      "id": "cf-classic",
+      "name": "클래식",
+      "price": 35000,
+      "tag": "리셉션 · 네트워킹",
+      "intro": "라이트 구성에 유부초밥과 머쉬룸 브루스게타를 더한 구성",
+      "menus": [
+        "크로아상 샌드위치",
+        "브리치즈 부르스게타",
+        "토마토 카프레제",
+        "훈제연어 카나페",
+        "치킨 강정",
+        "과일 꽂이",
+        "미니 컵과일",
+        "사르르 버터쿠키",
+        "미니 마카롱",
+        "토핑유부초밥(불고기,김치) 2P",
+        "머쉬룸 부르스게타"
+      ],
+      "example_ids": [
+        "cf-menu-47",
+        "cf-menu-60",
+        "cf-menu-55",
+        "cf-menu-79",
+        "cf-menu-25",
+        "cf-menu-56",
+        "cf-menu-63",
+        "cf-menu-130",
+        "cf-menu-104",
+        "cf-menu-15",
+        "cf-menu-62"
+      ],
+      "image": "menu-79.jpg"
+    },
+    {
+      "id": "cf-premium",
+      "name": "프리미엄",
+      "price": 45000,
+      "tag": "워크숍 · 식사 겸 모임",
+      "intro": "클래식 구성에 모닝 샌드위치와 훈제오리 야채구이를 더한 구성",
+      "menus": [
+        "크로아상 샌드위치",
+        "브리치즈 부르스게타",
+        "토마토 카프레제",
+        "훈제연어 카나페",
+        "치킨 강정",
+        "과일 꽂이",
+        "미니 컵과일",
+        "사르르 버터쿠키",
+        "미니 마카롱",
+        "토핑유부초밥(불고기,김치) 2P",
+        "머쉬룸 부르스게타",
+        "모닝 에그포테이토 샌드위치",
+        "훈제오리 야채구이"
+      ],
+      "example_ids": [
+        "cf-menu-47",
+        "cf-menu-60",
+        "cf-menu-55",
+        "cf-menu-79",
+        "cf-menu-25",
+        "cf-menu-56",
+        "cf-menu-63",
+        "cf-menu-130",
+        "cf-menu-104",
+        "cf-menu-15",
+        "cf-menu-62",
+        "cf-menu-48",
+        "cf-menu-24"
+      ],
+      "image": "menu-24.jpg"
+    },
+    {
+      "id": "cf-signature",
+      "name": "시그니처",
+      "price": 55000,
+      "tag": "주요 행사 · 풍성한 식사",
+      "intro": "프리미엄 구성에 비프 찹스테이크와 훈제연어 롤밥을 더한 구성",
+      "menus": [
+        "크로아상 샌드위치",
+        "브리치즈 부르스게타",
+        "토마토 카프레제",
+        "훈제연어 카나페",
+        "치킨 강정",
+        "과일 꽂이",
+        "미니 컵과일",
+        "사르르 버터쿠키",
+        "미니 마카롱",
+        "토핑유부초밥(불고기,김치) 2P",
+        "머쉬룸 부르스게타",
+        "모닝 에그포테이토 샌드위치",
+        "훈제오리 야채구이",
+        "비프 찹스테이크",
+        "훈제연어 롤밥"
+      ],
+      "example_ids": [
+        "cf-menu-47",
+        "cf-menu-60",
+        "cf-menu-55",
+        "cf-menu-79",
+        "cf-menu-25",
+        "cf-menu-56",
+        "cf-menu-63",
+        "cf-menu-130",
+        "cf-menu-104",
+        "cf-menu-15",
+        "cf-menu-62",
+        "cf-menu-48",
+        "cf-menu-24",
+        "cf-menu-21",
+        "cf-menu-165"
+      ],
+      "image": "menu-21.jpg"
+    },
+    {
+      "id": "cf-custom",
+      "name": "맞춤 구성 상담",
+      "price": null,
+      "tag": "원하는 메뉴 · 예산에 맞춰",
+      "intro": "특정 메뉴 변경이나 별도 구성은 원하는 조건으로 상담해 주세요.",
+      "menus": [],
+      "example_ids": [],
+      "image": "field-76.jpg"
+    }
+  ],
+  "menuNote": "메뉴는 계절과 식재료 수급에 따라 일부 달라질 수 있습니다. 원하시는 특정 메뉴가 있다면 상담을 통해 변경 가능합니다.",
+  "proposalNote": "선택한 세트의 기본 메뉴 구성입니다. 메뉴는 계절·식재료 수급에 따라 일부 달라질 수 있으며 특정 메뉴 변경은 상담 가능합니다. 실제 제공량·포장·현장 포함 범위는 최종 견적에서 확인합니다.",
+  "feesByFormat": {
+    "table": [
+      {
+        "upto": 30,
+        "price": 200000,
+        "label": "30명 이하"
+      },
+      {
+        "upto": 50,
+        "price": 250000,
+        "label": "31~50명"
+      },
+      {
+        "upto": 100,
+        "price": 300000,
+        "label": "51~100명"
+      },
+      {
+        "upto": 150,
+        "price": 350000,
+        "label": "101~150명"
+      },
+      {
+        "upto": 200,
+        "price": 400000,
+        "label": "151~200명"
+      },
+      {
+        "upto": 250,
+        "price": 450000,
+        "label": "201~250명"
+      },
+      {
+        "upto": 300,
+        "price": 500000,
+        "label": "251~300명"
+      }
+    ],
+    "box": [
+      {
+        "upto": 300,
+        "price": 30000,
+        "label": "인원수 관계없이 · 배송 1건"
+      }
+    ],
+    "snackbox": [
+      {
+        "upto": 300,
+        "price": 30000,
+        "label": "인원수 관계없이 · 배송 1건"
+      }
+    ],
+    "sandwichbox": [
+      {
+        "upto": 300,
+        "price": 30000,
+        "label": "인원수 관계없이 · 배송 1건"
+      }
+    ],
+    "fusionbox": [
+      {
+        "upto": 300,
+        "price": 30000,
+        "label": "인원수 관계없이 · 배송 1건"
+      }
+    ]
+  },
+  "pricePolicy": "cafefriends-confirmed-20261105",
+  "retiredOfferings": [
+    {
       "id": "cf-snack",
       "name": "세미나 다과형",
       "price": null,
@@ -487,7 +713,8 @@
         "cf-menu-104",
         "cf-menu-63"
       ],
-      "image": "menu-48.jpg"
+      "image": "menu-48.jpg",
+      "retired": true
     },
     {
       "id": "cf-finger",
@@ -505,7 +732,8 @@
         "cf-menu-60",
         "cf-menu-56"
       ],
-      "image": "menu-79.jpg"
+      "image": "menu-79.jpg",
+      "retired": true
     },
     {
       "id": "cf-meal",
@@ -523,71 +751,13 @@
         "cf-menu-21",
         "cf-menu-99"
       ],
-      "image": "menu-21.jpg"
-    },
-    {
-      "id": "cf-custom",
-      "name": "맞춤 구성 상담",
-      "price": null,
-      "tag": "원하는 메뉴 · 예산에 맞춰",
-      "intro": "제공 방식과 희망 메뉴, 인원·예산을 알려 주세요.",
-      "menus": [],
-      "example_ids": [],
-      "image": "field-76.jpg"
+      "image": "menu-21.jpg",
+      "retired": true
     }
   ],
-  "menuNote": "메뉴는 계절과 식재료 수급에 따라 일부 달라질 수 있습니다. 원하시는 특정 메뉴가 있다면 상담을 통해 변경 가능합니다.",
-  "proposalNote": "행사별 추천 구성은 상담을 위한 예시입니다. 실제 메뉴·제공량·가격은 상담 후 확정합니다.",
-  "feesByFormat": {
-    "table": [
-      {
-        "upto": 50,
-        "price": 200000,
-        "label": "50명 이하"
-      },
-      {
-        "upto": 100,
-        "price": null,
-        "label": "51~100명"
-      },
-      {
-        "upto": 200,
-        "price": null,
-        "label": "101~200명"
-      },
-      {
-        "upto": 300,
-        "price": null,
-        "label": "201~300명"
-      }
-    ],
-    "box": [
-      {
-        "upto": 300,
-        "price": null,
-        "label": "행사별 상담"
-      }
-    ],
-    "snackbox": [
-      {
-        "upto": 300,
-        "price": null,
-        "label": "행사별 상담"
-      }
-    ],
-    "sandwichbox": [
-      {
-        "upto": 300,
-        "price": null,
-        "label": "행사별 상담"
-      }
-    ],
-    "fusionbox": [
-      {
-        "upto": 300,
-        "price": null,
-        "label": "행사별 상담"
-      }
-    ]
+  "tableFeeIncrement": {
+    "people": 50,
+    "price": 50000,
+    "after": 300
   }
 }

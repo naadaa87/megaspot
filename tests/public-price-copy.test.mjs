@@ -13,7 +13,7 @@ test('changed selling prices reach shared FAQ, structured FAQ and cross-service 
  catering.rows=catering.rows.map(row=>({...row,sale_price:row.sale_price+10000}));
  // The new minimum comes from premium, and equals classic's old price.
  // A second numeric substitution must not turn this minimum into 41,000.
- const prices={'course.cf-snack':47000,'course.cf-finger':41000,'course.cf-meal':35000};
+ const prices={'course.cf-light':47000,'course.cf-classic':41000,'course.cf-premium':35000,'course.cf-signature':55000};
  reception.rows=reception.rows.map(row=>({...row,sale_price:prices[row.id]??row.sale_price}));
  const rates={catering:publicFoodPricing(catering),reception:publicFoodPricing(reception)};
  const guide=foodHtml(source('guide/index.html'),'/guide/',rates);
@@ -42,8 +42,8 @@ test('public reception copy preserves requested supplier, menu and budget in cli
   const box={querySelectorAll(){return [];},addEventListener(){}};
   const document={getElementById(){return box;},querySelector(s){return map[s];},querySelectorAll(){return [];},addEventListener(t,fn){listeners[t]=fn;},createElement(){return {};}};
   const window={MEGASPOT:{esc:String,copy(text){captured.push(text);return Promise.resolve(clipboardWorks);},toast(){}},MEGASPOT_RECEPTION_CALC:C};
-  vm.runInNewContext(source('assets/js/pages/reception.js'),{window,document,URLSearchParams,location:{search:'?reception=cf-finger&reception_people=51&reception_format=box&reception_menus=cf-menu-79&reception_budget=30000'}});
+  vm.runInNewContext(source('assets/js/pages/reception.js'),{window,document,URLSearchParams,location:{search:'?reception=cf-classic&reception_people=51&reception_format=box&reception_menus=cf-menu-79&reception_budget=30000'}});
   listeners.click({target:{closest(){return {dataset:{},hasAttribute(n){return n==='data-reception-copy';}};}}});await Promise.resolve();
-  const expected=C.requestText({course:'cf-finger',people:51,format:'box',menu_ids:['cf-menu-79'],budget_per_person:30000});assert.equal(captured[0],expected);assert.match(captured[0],/안내해 주세요/);assert.match(captured[0],/훈제연어 카나페/);assert.match(captured[0],/30,000원.*확정 가격 아님/);assert.doesNotMatch(captured[0],/메가스팟입니다|문의하신|안내드립니다/);assert(out.innerHTML.includes('문의 내용 복사'));assert.deepEqual(fallback,clipboardWorks?[]:[expected]);
+  const expected=C.requestText({course:'cf-classic',people:51,format:'box',menu_ids:['cf-menu-79'],budget_per_person:30000});assert.equal(captured[0],expected);assert.match(captured[0],/안내해 주세요/);assert.match(captured[0],/훈제연어 카나페/);assert.match(captured[0],/30,000원.*확정 가격 아님/);assert.doesNotMatch(captured[0],/메가스팟입니다|문의하신|안내드립니다/);assert(out.innerHTML.includes('문의 내용 복사'));assert.deepEqual(fallback,clipboardWorks?[]:[expected]);
  }
 });
