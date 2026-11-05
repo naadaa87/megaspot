@@ -75,3 +75,5 @@
 .rf-notice-state[data-status="queued"],.rf-notice-state[data-status="sending"],.rf-notice-state[data-status="accepted"]{background:#e5edff;color:#214bb4}
 .rf-notice-summary+.rf-actions{margin-top:16px}
 @media(max-width:600px){.rf-notice-summary{padding:14px 12px}.rf-notice-summary dl>div{grid-template-columns:72px minmax(0,1fr);gap:8px}.rf-notice-summary dt{font-size:13px}}
+
+.rf-reminder-filter{display:grid;gap:8px;max-width:360px;font-size:14px;font-weight:700}.rf-reminder-filter .select{width:100%;min-height:44px}
