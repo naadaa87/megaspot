@@ -51,3 +51,35 @@
 #payment-split dd{margin:0;font-weight:700;font-variant-numeric:tabular-nums}
 #payment-combined .chk{align-items:flex-start;line-height:1.6}
 @media(max-width:600px){#payment-dialog input,#payment-dialog select{font-size:16px}#payment-save{min-height:44px}#payment-combined{padding:12px}#payment-split dt,#payment-split dd{font-size:13px}}
+
+/* Keep mobile entry and its outcome ahead of the full accounting history. */
+#payment-overview{display:grid;gap:8px;padding:14px;background:#f3f5fa;border-radius:8px;margin-bottom:18px}
+#payment-overview>div{display:flex;justify-content:space-between;gap:12px;font-size:14px}
+#payment-overview b{text-align:right;font-variant-numeric:tabular-nums}
+#payment-dialog .payment-details{border-top:1px solid #dde1e6;margin-top:18px;padding-top:8px}
+#payment-dialog .payment-details>summary{min-height:44px;padding:10px 0;cursor:pointer;font-size:14px;font-weight:650;line-height:1.6}
+#payment-dialog .payment-actions{position:sticky;bottom:0;z-index:1;display:flex;gap:8px;flex-wrap:wrap;background:#fff;padding:12px 0;margin-top:12px;border-top:1px solid #dde1e6}
+#payment-dialog .payment-actions .btn{min-height:44px;white-space:normal}
+#payment-split dl>div{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start}
+#payment-split dd{white-space:nowrap;text-align:right}
+#payment-combined .chk{display:flex;gap:10px;padding:8px 0;min-height:44px;font-size:14px}
+#payment-combined .chk input{width:20px;height:20px;min-width:20px;flex-shrink:0;margin:2px 0 0}
+#payment-result{border:1px solid #bdd8c7;border-radius:10px;background:#f1f8f4;padding:16px;scroll-margin-top:96px}
+#payment-result[hidden],#payment-form[hidden]{display:none!important}
+#payment-result h3{margin:0 0 10px;line-height:1.5}
+#payment-result p{font-size:14px;line-height:1.7;margin:0 0 14px}
+#payment-result .payment-result-stage{display:grid;gap:8px;margin:16px 0;padding-bottom:16px;border-bottom:1px solid #d5e2d9;font-size:14px;line-height:1.6}
+#payment-result .payment-result-actions{display:flex;gap:8px;flex-wrap:wrap}
+#payment-result .btn{min-height:44px;white-space:normal}
+@media(max-width:600px){
+ #payment-dialog{width:calc(100% - 16px);max-height:96dvh;scroll-padding-top:100px}
+ #payment-dialog .rf-modal-head{padding:12px 16px}
+ #payment-dialog .rf-modal-head h2{font-size:16px;line-height:1.5}
+ #payment-close{min-width:52px;min-height:44px;flex-shrink:0}
+ #payment-dialog .rf-modal-body{padding:16px}
+ #payment-dialog .payment-actions .btn{width:100%}
+ #payment-overview{padding:12px}
+ #payment-overview>div{font-size:13px}
+ #payment-result{padding:14px}
+ #payment-result .btn,#payment-result .payment-result-actions{width:100%}
+}
