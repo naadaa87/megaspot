@@ -344,6 +344,7 @@
   function kv(k,v){ return v?'<div class="kv"><span>'+esc(k)+'</span><b>'+v+'</b></div>':''; }
   function renderDetail(){
     var it=cur.item, d=it.data||{}, ch=cur.checks||{};
+    var calculation=window.MEGASPOT_QUOTE_CALCULATION?window.MEGASPOT_QUOTE_CALCULATION.inquiry(it,cur.quotes||[]):{text:d.estimate||'',admin:d.source==='admin'||!!d.estimate_admin,customerOriginal:d.estimate_customer||''};
     var time=timeText(d,' – ');
     var needs=(d.needs||[]).join(', ');
     $('#dr-title').textContent=it.ref+' · '+(d.name||it.name||'');
@@ -368,8 +369,8 @@
       +(d.message?'<div class="dr-msg">'+esc(d.message)+'</div>':'')+'</div>'
       +visitSection(it, d)
       +amountSection(it, d)
-      +(d.estimate?'<details class="dr-sec"><summary><h3 style="display:inline">'+((d.source==='admin'||d.estimate_admin)?'요금표 계산 내역':'고객이 보낸 예상 금액')+'</h3></summary><pre class="dr-pre">'+esc(d.estimate)+'</pre></details>':'')
-      +(d.estimate_customer?'<details class="dr-sec"><summary><h3 style="display:inline">고객이 처음 보낸 예상 금액</h3></summary><pre class="dr-pre">'+esc(d.estimate_customer)+'</pre></details>':'')
+      +(calculation.text?'<details class="dr-sec" id="dr-calculation"><summary><h3 style="display:inline">'+(calculation.admin?'요금표 계산 내역':'고객이 보낸 예상 금액')+'</h3></summary><pre class="dr-pre">'+esc(calculation.text)+'</pre></details>':'')
+      +(calculation.customerOriginal?'<details class="dr-sec"><summary><h3 style="display:inline">고객이 처음 보낸 예상 금액</h3></summary><pre class="dr-pre">'+esc(calculation.customerOriginal)+'</pre></details>':'')
       +'<div class="dr-sec"><h3>진행 체크리스트</h3><div class="dr-checks">'+CHECKS.map(function(c){ var v=ch[c[0]]; return '<label class="chk"><input type="checkbox" data-chk="'+c[0]+'"'+(v?' checked':'')+'> '+esc(c[0]==='guide_sent'&&(cur.bookings||[]).filter(function(b){return b.status!=='cancelled';}).length>1?'연결된 예약 전체 현장 안내 확인':c[1])+(v&&typeof v==='string'?' <small>'+esc(v.slice(5,16))+'</small>':'')+'</label>'; }).join('')+'</div></div>'
       +'<div class="dr-sec"><h3>저장한 견적</h3>'+((cur.quotes||[]).length?cur.quotes.map(function(q){ return '<div class="dr-quote"><div><b>'+esc(q.quote_no)+'</b> <span class="small muted">'+esc(String(q.created_at).slice(0,16))+'</span></div><b>'+esc(won(q.total))+'</b><button class="btn btn-light btn-sm" type="button" data-openq="'+esc(q.quote_no)+'">열기</button></div>'; }).join(''):'<p class="small muted">아직 저장한 견적이 없습니다.</p>')+'</div>'
       +((cur.bookings||[]).length?'<div class="dr-sec"><h3>연결된 예약</h3>'+cur.bookings.map(function(b){ return '<div class="dr-bk"><span class="small">'+esc(b.booking_code)+' · '+esc(kd(b.date))+' · '+esc({confirmed:'예약 확정',completed:'이용 완료',payment_review:'결제 완료 · 일정 확인 필요',cancelled:'취소'}[b.status]||b.status)+'</span>'+(b.status==='payment_review'?'<span class="small">예약 목록의 일정 확인 필요 항목에서 검토해 주세요.</span>':'')+(b.status==='confirmed'?guideControl(b.booking_code,b.guide_status):'')+settlementSummary(b)+(['confirmed','completed'].includes(b.status)?cdBtn(b.booking_code, b.confirm_issued, 'btn-sm')+(b.confirm_issued?'':' <span class="tiny muted">고객에게 보낼 예약확정서를 만들 수 있습니다</span>'):'')+'</div>'; }).join('')+'</div>':'')
@@ -625,12 +626,16 @@
     $('#q-start').innerHTML=hourOpts(ADMIN_HOURS.from, ADMIN_HOURS.to-1, Q.start); $('#q-end').innerHTML=hourOpts(Q.start+1, ADMIN_HOURS.to, Q.end);
     $('#q-people').value=Q.people; $('#q-purpose').innerHTML=purOptions(Q.purpose); $('#q-regular').checked=Q.regular;
     $('#q-disc-type').value=Q.discType; $('#q-disc-val').value=Q.discVal; $('#q-disc-why').value=Q.discWhy; $('#q-deposit').value=Q.deposit; $('#q-valid').value=String(Q.valid); $('#q-note').value=Q.note;
+    renderQuoteRates();
+    renderExtras(); renderLink();
+  }
+  function renderQuoteRates(){
+    qSpaceHint();$('#q-people').max=D.people.max;
     $('#q-pkgs').innerHTML=D.packages.map(function(p){ return '<button type="button" class="chip" data-pkg="'+p.id+'">'+esc(p.label)+' '+esc(p.time)+'</button>'; }).join('');
     $('#q-opts').innerHTML=D.options.map(function(o){
       if(o.per==='manager') return '<div class="q-opt"><label class="chk"><input type="checkbox" data-opt="manager"'+(Q.opts.manager.on?' checked':'')+'> '+esc(o.label)+' <small>'+esc(won(o.price))+'/'+esc(o.unit)+'</small></label><span class="q-mini">인원 <input class="input" type="number" min="1" max="10" data-mgr="count" value="'+Q.opts.manager.count+'"> 시간 <input class="input" type="number" min="1" max="24" data-mgr="hours" value="'+Q.opts.manager.hours+'"></span></div>';
       return '<div class="q-opt"><label class="chk"><input type="checkbox" data-opt="'+o.id+'"'+(Q.opts[o.id]?' checked':'')+'> '+esc(o.label)+' <small>'+esc(won(o.price))+'/'+esc(o.unit)+'</small></label></div>';
     }).join('');
-    renderExtras(); renderLink();
   }
   function renderExtras(){
     $('#q-extras').innerHTML=Q.extras.map(function(x,i){ return '<div class="q-extra"><input class="input" data-ex="label" data-i="'+i+'" value="'+esc(x.label)+'" placeholder="항목명 (예: 케이터링 60인분)"><input class="input" type="number" step="1000" data-ex="amount" data-i="'+i+'" value="'+(x.amount||0)+'"><button type="button" class="btn btn-light btn-sm" data-ex-del="'+i+'" aria-label="삭제">✕</button></div>'; }).join('');
@@ -642,7 +647,8 @@
     var u=$('#q-unlink'); if(u) u.addEventListener('click', function(){ Q.ref=''; renderLink(); });
   }
   function readForm(){
-    var qs=$('#q-space'); if(qs && qs.value && qs.value!==Q.space){ Q.space=spaceOk(qs.value); useSpace(Q.space); Q.quoteNo=''; qSpaceHint(); $('#q-pkgs').innerHTML=D.packages.map(function(p){ return '<button type="button" class="chip" data-pkg="'+p.id+'">'+esc(p.label)+' '+esc(p.time)+'</button>'; }).join(''); } else useSpace(Q.space);
+    var qs=$('#q-space'), spaceChanged=!!(qs&&qs.value&&qs.value!==Q.space);
+    if(spaceChanged){Q.space=spaceOk(qs.value);Q.quoteNo='';}useSpace(Q.space);
     Q.customer=$('#q-customer').value.trim(); Q.phone=$('#q-phone').value.trim(); Q.email=$('#q-email').value.trim();
     Q.date=$('#q-date').value||todayIso(); Q.start=+$('#q-start').value; Q.end=+$('#q-end').value;
     if(Q.end<=Q.start){ Q.end=Math.min(Q.start+1, ADMIN_HOURS.to); }
@@ -652,6 +658,7 @@
     Q.discType=$('#q-disc-type').value; Q.discVal=Math.max(0, Number($('#q-disc-val').value)||0); Q.discWhy=$('#q-disc-why').value.trim();
     $$('#q-extras [data-ex]').forEach(function(el){ var x=Q.extras[+el.dataset.i]; if(!x) return; if(el.dataset.ex==='label') x.label=el.value; else x.amount=Math.round(Number(el.value)||0); });
     Q.deposit=Math.max(0, Number($('#q-deposit').value)||0); Q.valid=+$('#q-valid').value||1; Q.note=$('#q-note').value.trim();
+    if(spaceChanged){renderQuoteRates();$('#q-people').value=Q.people;}
   }
   function compute(){
     var opts={}; if(Q.opts.manager.on) opts.manager={count:Q.opts.manager.count, hours:Q.opts.manager.hours}; ['cleaning','disposable','banner','xbanner'].forEach(function(k){ if(Q.opts[k]) opts[k]=true; });
