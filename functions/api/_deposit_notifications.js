@@ -84,10 +84,17 @@ async function dispatch(env,e){
  }catch{await state(env,e.id,'unknown','접수 결과 불명 · 알리고 확인 전 재발송하지 마세요.');}
 }
 async function refresh(env,e){
- const s=await depositMessageConfig(env);if(!e.provider_mid||e.config_hash!==await depositMessageHash(env,s))return;
- const r=await aligoProvider(env,'history/detail',{mid:e.provider_mid,limit:'50'});if(Number(r.code)!==0)return;
+ if(!['accepted','unknown'].includes(e.status))return {checked:false,reason:'예약 변경 건은 보증금 안내 내역에서 내용을 확인해 주세요.'};
+ const s=await depositMessageConfig(env);
+ if(!e.provider_mid)return {checked:false,reason:'접수번호가 없어 자동 조회할 수 없습니다. 알리고 발송 내역을 직접 확인해 주세요.'};
+ if(e.config_hash!==await depositMessageHash(env,s))return {checked:false,reason:'발송 당시 설정과 현재 설정이 달라 직접 확인이 필요합니다.'};
+ const r=await aligoProvider(env,'history/detail',{mid:e.provider_mid,limit:'50'});
+ if(Number(r.code)!==0)return {checked:false,reason:'알리고 결과 조회에 실패했습니다. 잠시 후 다시 조회해 주세요.'};
  let detail;for(const x of r.list||[])if(x.type==='AT'&&x.tpl_code===s.codes[e.kind]&&x.senderKey===env.ALIGO_SENDER_KEY&&await sha256(guidePhone(x.phone))===e.phone_hash){detail=x;break;}
- const status=guideDelivery(detail);if(status!=='accepted')await state(env,e.id,status,status==='delivered'?'':'알림톡 전송 실패 '+str(detail?.rslt,20));
+ const status=guideDelivery(detail);
+ if(status==='accepted')return {checked:true,reason:'수신 결과가 아직 확정되지 않았습니다. 잠시 후 다시 조회해 주세요.'};
+ const updated=await env.DB.prepare("UPDATE deposit_notifications SET status=?,error=?,updated_at=? WHERE id=? AND status IN ('accepted','unknown') AND provider_mid=? AND config_hash=?").bind(status,status==='delivered'?'':'알림톡 전송 실패 '+str(detail?.rslt,20),now(),e.id,e.provider_mid,e.config_hash).run();
+ return {checked:true,updated:!!changes(updated),reason:status==='delivered'?'수신 성공으로 갱신했습니다.':'발송 실패로 갱신했습니다.'};
 }
 export async function depositNoticeTick(env,send=true){
  if(!configured(env))return {ok:true,enabled:false};
@@ -113,7 +120,7 @@ export async function depositNoticeCron(request,env,readOnly=false){
 }
 export async function depositNoticeAdmin({request,env,path,method}){
  const s=await depositMessageConfig(env),hash=await depositMessageHash(env,s);
- if(path.startsWith('deposit-notifications/account-reminders'))return accountReminderAdmin({request,env,path,method,url:new URL(request.url)},{booking,bookings,bookingSelect:BOOKING_SELECT,hash,ready:configured(env)&&env.ALIGO_LIVE_ENABLED==='true'&&s.enabled&&s.types.account&&s.hash===hash&&await tested(env,'account',hash),approve:async()=>usable('account',await template(env,s,'account')),obsolete:noticeObsolete,render:depositNoticeRender,variables:depositNoticeVariables});
+ if(path.startsWith('deposit-notifications/account-reminders'))return accountReminderAdmin({request,env,path,method,url:new URL(request.url)},{booking,bookings,bookingSelect:BOOKING_SELECT,hash,refresh:async e=>configured(env)?refresh(env,e):{checked:false,reason:'알리고 서버 연결 설정을 확인해 주세요.'},ready:configured(env)&&env.ALIGO_LIVE_ENABLED==='true'&&s.enabled&&s.types.account&&s.hash===hash&&await tested(env,'account',hash),approve:async()=>usable('account',await template(env,s,'account')),obsolete:noticeObsolete,render:depositNoticeRender,variables:depositNoticeVariables});
  if(path==='deposit-notifications'&&method==='GET'){
   const {results}=await env.DB.prepare('SELECT n.id,n.booking_code,n.kind,n.mode,n.status,n.provider_mid,n.error,n.occurred_at,n.updated_at,b.customer_name AS name,b.date FROM deposit_notifications n LEFT JOIN bookings b ON b.booking_code=n.booking_code ORDER BY n.id DESC LIMIT 100').all();
   const items=[];for(const e of results||[]){if(e.status==='review'){const original=await env.DB.prepare('SELECT payload FROM deposit_notifications WHERE id=?').bind(e.id).first();const {payload,...review}=await changedNoticeReview(env,{...e,payload:original?.payload},s);items.push({...e,review});}else items.push(e);}
