@@ -55,3 +55,10 @@ test('최근 실패보다 이전의 처리 중·최근 수신 성공 이력이 �
 test('로그인하지 않은 요청은 고객 조회·미리보기·재요청을 모두 거절한다',async t=>{
  const f=await setup(t);for(const [path,method] of [['','GET'],['/preview','POST'],['/send','POST']]){const r=await f.handle(new Request('https://local.test/api/admin/deposit-notifications/account-reminders'+path,{method,headers:{origin:'https://local.test','content-type':'application/json'},...(method==='POST'?{body:'{}'}:{})}));assert.equal(r.status,401);}assert.equal(f.sent.length,1);
 });
+
+test('목록에 요청 시각·횟수·성공 횟수·최신 결과·실패 사유를 표시하며 시험/타 종류/취소는 요청 횟수에서 제외한다',async t=>{
+ const f=await setup(t);let r=(await f.api('deposit-notifications/account-reminders')).items[0].reminder;assert.equal(r.request_count,0);assert.equal(r.last_requested_at,'');
+ const add=f.db.prepare("INSERT INTO deposit_notifications(booking_code,kind,event_key,occurred_at,payload,mode,status,error,updated_at) VALUES('BK-TEST',?,?,?,'{}',?,?,?,?)");
+ add.run('account','delivered-old','2026-11-04 01:00:00','live','delivered','','2026-11-04 01:01:00');add.run('payment','other-kind',now(),'live','delivered','',now());add.run('account','cancelled-request',now(),'live','cancelled','등록 완료',now());add.run('account','latest-failure','2026-11-05 02:00:00','live','failed','알리고 접수 거절 -101','2026-11-05 02:01:00');
+ r=(await f.api('deposit-notifications/account-reminders')).items[0].reminder;assert.equal(r.request_count,2);assert.equal(r.delivered_count,1);assert.equal(r.last_requested_at,'2026-11-05 02:00:00');assert.equal(r.last_at,'2026-11-05 02:01:00');assert.equal(r.last_status,'failed');assert.equal(r.last_error,'알리고 접수 거절 -101');
+});
