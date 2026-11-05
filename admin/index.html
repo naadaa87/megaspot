@@ -513,6 +513,7 @@
         </div>
         <p class="small muted" id="nw-current-amount" hidden></p>
         <p class="notice small" id="nw-booking-note" hidden>확정된 예약의 고객 정보·일시·인원도 함께 수정합니다. 다른 예약과 시간이 겹치면 저장되지 않습니다. 이미 발급한 확정서는 변경 후 다시 발급해 주세요.</p>
+        <div id="nw-keep-reprice" hidden><p class="small muted">아래는 변경한 공간·시간·인원으로 다시 계산한 금액입니다. 현재 금액을 바꾸려면 다시 계산을 적용해 주세요. 할인은 적용 후 확인할 수 있습니다.</p><button type="button" class="btn btn-light btn-sm" id="nw-reprice">이 조건으로 다시 계산</button></div>
         <div class="nw-auto" id="nw-auto"><div class="nw-auto-empty small muted">이용일과 시작·종료 시간을 고르면 요금표(성수기 포함)로 바로 계산합니다.</div></div>
         <div class="nw-manual" id="nw-manual" hidden>
           <div class="field-row"><div class="f"><label for="nw-total">금액 (원, 부가세 포함)</label><input class="input" type="number" min="0" step="1000" inputmode="numeric" name="total" id="nw-total" placeholder="예: 650000"><span class="hint" id="nw-total-hint"></span></div>
@@ -620,10 +621,10 @@
 <div id="quote-print" aria-hidden="true"></div>
 <script src="/assets/js/site.js?v=20261104refundux1"></script>
 <script src="/assets/js/data/spaces.js?v=20261103customerflow2"></script>
-<script src="/assets/js/data/pricing-gundae2.js?v=202610270438"></script>
+<script src="/assets/js/data/pricing-gundae2.js?v=6fe4b86cc64b"></script>
 <script src="/assets/js/data/holidays-kr.js?v=202610270438"></script>
-<script src="/assets/js/data/pricing-gundae.js?v=202610270438"></script>
-<script src="/assets/js/pricing-engine.js?v=202610270438"></script>
+<script src="/assets/js/data/pricing-gundae.js?v=89876ff18d6a"></script>
+<script src="/assets/js/pricing-engine.js?v=156460ccdfdb"></script>
 <script src="/assets/js/data/catering.js?v=20261104foodprices3"></script>
 <script src="/assets/js/catering-calc.js?v=20261103foodprices1"></script>
 <script src="/assets/js/data/reception-quote.js?v=20261103foodprices1"></script>
@@ -636,7 +637,7 @@
 <script src="/assets/js/cocktail-calc.js?v=20261104foodprices3"></script>
 <script src="/assets/js/inquiry-overview.js?v=20261104receptionvat1"></script>
 <script src="/assets/js/quote-calculation.js?v=20261105quotespace1"></script>
-<script src="/assets/js/pages/admin.js?v=20261105headcount2&readiness=20261105"></script>
+<script src="/assets/js/pages/admin.js?v=20261105inquirycount1&readiness=20261105"></script>
 <script src="/assets/js/pages/admin-platform.js?v=20261102adminux1"></script>
 <script src="/assets/js/pages/admin-cocktail.js?v=20261104foodprices3"></script>
 <script src="/assets/js/pages/admin-food-pricing.js?v=20261104navrelease1"></script>
