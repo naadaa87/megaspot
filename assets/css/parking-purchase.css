@@ -60,7 +60,7 @@
 
 /* Keep purchase fields first; use the shared quick-bar clearance and keyboard handling. */
 .page-parking-purchase>.quick-bar{display:none!important}
-.page-parking-purchase .pk-shell{max-width:900px;padding-top:24px}
+.page-parking-purchase .pk-shell{max-width:900px;padding-top:24px;padding-bottom:130px}
 .page-parking-purchase .pk-shell h1{font-size:clamp(26px,4vw,36px);margin:8px 0 10px}
 .page-parking-purchase .pk-lead{font-size:14px;line-height:1.65;margin:0 0 12px}
 .pk-registration-time{padding:11px 14px;background:#edf2ff;border-radius:8px;font-size:14px;line-height:1.6;margin:0 0 16px;color:var(--ink-2)}
@@ -80,7 +80,7 @@
 .pk-details summary{cursor:pointer;font-weight:700}
 .pk-details[open]>summary{margin-bottom:12px}
 .pk-guide-body{display:grid;gap:12px}.pk-guide-body #pk-overnight-notice{margin:0}
-.pk-checkout.quick-bar{position:static;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 20px;margin:16px 0;border:1px solid var(--concrete-2);border-radius:10px;background:#fff;backdrop-filter:none}
+.pk-checkout.quick-bar{position:fixed;left:max(16px,calc((100vw - 852px)/2));right:max(16px,calc((100vw - 852px)/2));bottom:16px;z-index:110;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 20px;margin:0;border:1px solid var(--concrete-2);border-radius:10px;background:#fff;box-shadow:0 -3px 20px #0000000a;backdrop-filter:none}
 .pk-checkout>div{display:grid;gap:3px}.pk-checkout>div>span{font-size:12px;color:var(--ink-3)}
 .pk-checkout #pk-total{font-size:19px;margin:0;line-height:1.5}
 .pk-checkout .btn{min-height:48px;white-space:nowrap}
