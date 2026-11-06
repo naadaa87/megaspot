@@ -22,3 +22,6 @@
 @media(max-width:480px){.parking-ticket-options>div,.parking-ticket-guide{padding:20px}.parking-ticket-guide .btn{width:100%}}
 
 .parking-ticket-summary{display:grid;gap:6px;margin:18px 0 26px}.parking-ticket-summary>span{font-size:18px;font-weight:700;color:#CBD5FF}.parking-ticket-summary>b{font-family:var(--font-display);font-size:clamp(48px,7vw,76px);line-height:1.1}.parking-ticket-summary>b small{font-family:var(--font-body);font-size:24px;margin-left:8px}.parking-ticket-summary>p{margin:8px 0 0;font-size:18px;color:#CDD3DB}.parking-ticket-summary strong{color:#fff;margin-left:6px}
+
+.parking-purchase-cta{margin:24px 0}.parking-purchase-cta .btn{min-height:52px;padding:14px 24px;font-size:17px}.parking-purchase-cta p{margin:9px 0 0;font-size:13px;line-height:1.6;color:var(--ink-2)}
+@media(max-width:480px){.parking-purchase-cta .btn{width:100%}}
