@@ -101,6 +101,19 @@
 .page-parking-purchase .pk-checkout #pk-total{overflow-wrap:anywhere}
 @media(max-width:599px){.page-parking-purchase .pk-grid{grid-template-columns:minmax(0,1fr)}.page-parking-purchase .pk-ticket-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
+.page-parking-purchase{--pk-safe-top:env(safe-area-inset-top,0px);--pk-safe-right:env(safe-area-inset-right,0px);--pk-safe-bottom:env(safe-area-inset-bottom,0px);--pk-safe-left:env(safe-area-inset-left,0px)}
+@media(max-width:999px){
+ .page-parking-purchase .pk-checkout.quick-bar{padding-left:max(16px,var(--pk-safe-left));padding-right:max(16px,var(--pk-safe-right));padding-bottom:calc(10px + var(--pk-safe-bottom))}
+ /* A native picker can retain focus after closing. Keep checkout reachable in the form. */
+ .page-parking-purchase.bottom-input-active:not(.menu-open) .pk-checkout.quick-bar,
+ html:is(.mobile-input-active,.mobile-keyboard-open,.mobile-viewport-short) .page-parking-purchase:not(.menu-open) .pk-checkout.quick-bar{position:static;visibility:visible!important;pointer-events:auto!important;margin-top:18px;border:1px solid var(--concrete-2);border-radius:10px;padding:12px;box-shadow:none}
+ .page-parking-purchase .pk-modal{padding:max(18px,var(--pk-safe-top)) max(18px,var(--pk-safe-right)) max(18px,var(--pk-safe-bottom)) max(18px,var(--pk-safe-left))}
+ .page-parking-purchase .pk-modal-box{max-height:calc(var(--mobile-visible-height,100dvh) - max(18px,var(--pk-safe-top)) - max(18px,var(--pk-safe-bottom)))}
+}
+@media(max-width:999px) and (max-height:450px){
+ .page-parking-purchase:not(.menu-open) .pk-checkout.quick-bar{position:static;visibility:visible!important;pointer-events:auto!important;margin-top:18px;border:1px solid var(--concrete-2);border-radius:10px;padding:12px;box-shadow:none}
+}
+
 .pk-result{display:grid;gap:16px;margin-top:20px}
 .pk-receipt-summary{display:grid;gap:10px;padding:20px;background:#fff;border:1px solid var(--concrete-2);border-radius:10px}
 .pk-summary-top,.pk-receipt-top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
