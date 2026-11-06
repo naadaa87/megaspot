@@ -20,6 +20,7 @@ export async function amanoAdmin(request,env,path){
 import {equalSecret} from './_payapp.js';
 import {kstToday} from './_lib.js';
 import {parkingDate,parkingAdmin,JOIN} from './_parking.js';
+import {parkingBatchAudit} from './_parking_audit.js';
 export function amanoOperating(at=Date.now()){
  const kst=new Date(at+9*36e5).toISOString();return parkingDate(kst.slice(0,10))&&Number(kst.slice(11,13))>=10;
 }
@@ -29,6 +30,7 @@ export async function amanoAutomation(request,env){
  let d;try{d=JSON.parse(raw);}catch{return err('허용되지 않은 요청입니다.',403);}
  const sig=await parkingSign(env.ALIGO_RELAY_SECRET,raw);
  if(!Number.isFinite(d.time)||Math.abs(Date.now()-d.time)>60000||!equalSecret(request.headers.get('X-Megaspot-Signature')||'',sig))return err('허용되지 않은 요청입니다.',403);
+ if(d.action==='audit-batch')return parkingBatchAudit(env,d.since);
  const operating=amanoOperating();
  if(d.action==='orders'){
   if(!operating)return json({ok:true,operating:false,date:kstToday(),items:[]});
