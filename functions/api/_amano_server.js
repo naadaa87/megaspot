@@ -30,7 +30,7 @@ export async function amanoAutomation(request,env){
  let d;try{d=JSON.parse(raw);}catch{return err('허용되지 않은 요청입니다.',403);}
  const sig=await parkingSign(env.ALIGO_RELAY_SECRET,raw);
  if(!Number.isFinite(d.time)||Math.abs(Date.now()-d.time)>60000||!equalSecret(request.headers.get('X-Megaspot-Signature')||'',sig))return err('허용되지 않은 요청입니다.',403);
- if(d.action==='audit-batch')return parkingBatchAudit(env,d.since);
+ if(d.action==='audit-batch')return parkingBatchAudit(env,d.since,d.oid);
  const operating=amanoOperating();
  if(d.action==='orders'){
   if(!operating)return json({ok:true,operating:false,date:kstToday(),items:[]});
