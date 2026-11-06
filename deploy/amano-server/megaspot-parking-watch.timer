@@ -1,0 +1,8 @@
+[Unit]
+Description=Check the next multi-vehicle parking verification every five minutes
+[Timer]
+OnCalendar=*-*-* *:00/5:00 Asia/Seoul
+Persistent=true
+Unit=megaspot-parking-watch.service
+[Install]
+WantedBy=timers.target

@@ -49,7 +49,7 @@ export async function relayRequest(request,env,ledger,upstream=fetch){
   if(v.path==='sms/detail' && !ledger.ownsSmsMid(data.mid))return json({error:'SMS not owned by this relay'},403);
   if(['template/list','alimtalk/send'].includes(v.path) && !(env.ALIGO_TEMPLATE_CODES || 'UN_2584').split(',').map(s=>s.trim()).includes(data.tpl_code))return json({error:'Template not allowed'},403);
   const hash=createHash('sha256').update(JSON.stringify([v.path,data,env.ALIGO_USERID,env.ALIGO_SENDER_KEY])).digest('hex');
-  if(adminSMS && (!adminReceivers.includes(data.receiver)||!/^\[메가스팟 주차권 (?:결제 완료|관리자 알림 시험|자동 등록 오류|잔액 부족)\]\n/.test(data.msg||'')||data.msg.length>600||!data.msg.endsWith('https://megaspot.kr/admin/#parking')))return json({error:'Unapproved staff recipient/message'},403);
+  if(adminSMS && (!adminReceivers.includes(data.receiver)||!/^\[메가스팟 주차권 (?:결제 완료|관리자 알림 시험|자동 등록 오류|잔액 부족|검증 완료|검증 확인 필요)\]\n/.test(data.msg||'')||data.msg.length>600||!data.msg.endsWith('https://megaspot.kr/admin/#parking')))return json({error:'Unapproved staff recipient/message'},403);
   if(customerSMS && (!/^01[016789]\d{7,8}$/.test(data.receiver||'')||!data.msg.startsWith('[메가스팟 주차권 결제 완료]\n')||data.msg.length>900||/#\{/.test(data.msg)||!data.msg.endsWith('https://pf.kakao.com/_LnxbmX/chat')))return json({error:'Invalid parking payment notice'},400);
   if(sending){
     if(!directSMS && (!/^01[016789]\d{7,8}$/.test(data.receiver_1 || '') || !data.message_1 || data.message_1.length>1000 || !data.subject_1))return json({error:'Invalid recipient/message'},400);

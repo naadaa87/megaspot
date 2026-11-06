@@ -1,0 +1,17 @@
+[Unit]
+Description=Verify the next real multi-vehicle parking purchase and report to approved administrators
+After=network-online.target megaspot-aligo.service
+Wants=megaspot-aligo.service
+[Service]
+Type=oneshot
+User=megaspot-aligo
+Group=megaspot-aligo
+EnvironmentFile=/etc/megaspot-aligo.env
+ExecStart=/usr/bin/node /opt/megaspot-amano/watch-next-batch.mjs "--since=2026-11-06 01:39:02"
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/megaspot-amano
+UMask=0077
+TimeoutStartSec=180

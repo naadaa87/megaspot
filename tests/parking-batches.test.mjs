@@ -21,6 +21,6 @@ test('다음 여러 차량 주문 검증은 서명된 읽기 전용 조회로 �
  assert.equal((await signed(f,'audit-batch',{since:'2099-01-01 00:00:00'})).body.batch,null);
  const snapshot=()=>JSON.stringify({orders:f.db.prepare('SELECT * FROM orders').all(),parking:f.db.prepare('SELECT * FROM parking_orders').all(),notices:f.db.prepare('SELECT * FROM parking_notifications').all(),sms:f.db.prepare('SELECT * FROM parking_admin_sms').all()});
  const before=snapshot();t.mock.method(Date,'now',()=>Date.parse('2026-11-08T02:00:00+09:00'));assert.equal((await signed(f,'audit-batch',{since})).body.batch.oid,p.oid);assert.equal(snapshot(),before);
- f.db.prepare("INSERT INTO payapp_refunds VALUES('confirmed-partial',?,1000,datetime('now'))").run(p.oid);assert.equal((await signed(f,'audit-batch',{since})).body.batch,null);
+ f.db.prepare("INSERT INTO payapp_refunds VALUES('confirmed-partial',?,1000,datetime('now'))").run(p.oid);assert.equal((await signed(f,'audit-batch',{since})).body.batch,null);const pinned=await signed(f,'audit-batch',{since,oid:p.oid});assert.equal(pinned.body.batch.oid,p.oid);assert.equal(pinned.body.batch.refunded_amount,1000);assert.equal((await signed(f,'audit-batch',{since,oid:"bad'input"})).status,400);
  const body=JSON.stringify({time:Date.now(),action:'audit-batch',since});const {onRequest}=await import('../functions/api/parking/[[path]].js');assert.equal((await onRequest({env:f.env,params:{path:['automation','server']},request:new Request('https://megaspot.test/api/parking/automation/server',{method:'POST',body})})).status,403);
 });
