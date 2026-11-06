@@ -68,13 +68,13 @@
 .page-parking-purchase .pk-card{gap:14px;margin:14px 0;padding:20px}
 .page-parking-purchase .pk-vehicle{padding:14px;margin:0 0 12px;gap:12px}
 .page-parking-purchase .pk-vehicle legend{font-size:15px}
-.page-parking-purchase .pk-ticket{grid-template-columns:auto 1fr;gap:3px 8px;padding:12px 10px;text-align:left;align-items:center}
+.page-parking-purchase .pk-ticket{grid-template-columns:auto minmax(0,1fr);gap:3px 8px;padding:12px 10px;text-align:left;align-items:center}
 .page-parking-purchase .pk-ticket:has(input:checked){padding:11px 9px}
 .page-parking-purchase .pk-ticket input{grid-row:1/3;margin:0}
 .page-parking-purchase .pk-ticket b{font-size:14px}
 .page-parking-purchase .pk-ticket span{font-size:14px}
 .page-parking-purchase .pk-help{margin:0;line-height:1.7}
-.pk-date-label{max-width:320px}
+.pk-date-label{width:100%;max-width:320px}
 .pk-details{border:1px solid var(--concrete-2);border-radius:8px;padding:12px 14px;font-size:14px;line-height:1.7}
 .pk-details[hidden]{display:none}
 .pk-details summary{cursor:pointer;font-weight:700}
@@ -85,6 +85,21 @@
 .pk-checkout #pk-total{font-size:19px;margin:0;line-height:1.5}
 .pk-checkout .btn{min-height:48px;white-space:nowrap}
 @media(max-width:599px){.page-parking-purchase .pk-shell{padding:18px 16px 105px}.page-parking-purchase .pk-card{padding:16px 14px}.page-parking-purchase .pk-vehicle{padding:12px 10px}.page-parking-purchase .pk-ticket-grid{gap:8px}.pk-checkout.quick-bar{position:fixed;left:0;right:0;bottom:0;z-index:110;margin:0;border-radius:0;border-width:1px 0 0;padding:10px 16px calc(10px + env(safe-area-inset-bottom));box-shadow:0 -4px 20px #0000000a}.pk-checkout #pk-total{font-size:16px}.pk-checkout .btn{padding:12px 20px}.pk-registration-time{font-size:13px;padding:10px 12px}.pk-date-label{max-width:none}}
+
+/* Let native date controls and nested grids shrink inside narrow mobile cards. */
+.page-parking-purchase :is(.pk-card,.pk-grid,.pk-label,.pk-ticket-grid,.pk-confirm-plates,.pk-modal-box){min-width:0}
+.page-parking-purchase :is(.pk-card,.pk-label,.pk-vehicle,.pk-confirm-plates,.pk-modal-box){grid-template-columns:minmax(0,1fr)}
+.page-parking-purchase .pk-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.page-parking-purchase .pk-ticket-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.page-parking-purchase :is(.input,.select,.textarea){min-width:0;min-inline-size:0;max-width:100%;box-sizing:border-box}
+.page-parking-purchase input[type=date]{display:block;width:100%;inline-size:100%;-webkit-appearance:none;appearance:none}
+.page-parking-purchase input[type=date]::-webkit-datetime-edit{min-width:0;padding:0}
+.page-parking-purchase input[type=date]::-webkit-date-and-time-value{min-height:1.5em;text-align:left}
+.page-parking-purchase .pk-check{min-width:0;overflow-wrap:anywhere}
+.page-parking-purchase .pk-modal .pk-actions>.btn{min-width:0;max-width:100%;white-space:normal}
+.page-parking-purchase .pk-checkout>div{min-width:0;flex:1}
+.page-parking-purchase .pk-checkout #pk-total{overflow-wrap:anywhere}
+@media(max-width:599px){.page-parking-purchase .pk-grid{grid-template-columns:minmax(0,1fr)}.page-parking-purchase .pk-ticket-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 .pk-result{display:grid;gap:16px;margin-top:20px}
 .pk-receipt-summary{display:grid;gap:10px;padding:20px;background:#fff;border:1px solid var(--concrete-2);border-radius:10px}
