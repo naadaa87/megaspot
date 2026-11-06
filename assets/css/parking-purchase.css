@@ -129,4 +129,8 @@
 .pk-receipt-actions{display:flex;flex-wrap:wrap;gap:8px}
 .pk-receipt-actions .btn{font-size:13px;min-height:44px}
 .pk-receipt-actions .text-link{align-self:center;font-size:13px;color:var(--cobalt);padding:8px}
+.page-parking-purchase :is(.pk-result,.pk-receipt-summary,.pk-receipt-list,.pk-receipt-card,.pk-receipt-more){min-width:0;grid-template-columns:minmax(0,1fr)}
+.page-parking-purchase #pk-result :is(h2,p,summary,.pk-summary-top>*,.pk-receipt-top>*){min-width:0;overflow-wrap:anywhere}
+.page-parking-purchase #pk-result .btn{min-width:0;max-width:100%;white-space:normal;padding-top:12px;padding-bottom:12px;line-height:1.5}
+.page-parking-purchase #pk-result .textarea{resize:vertical}
 @media(max-width:599px){.pk-result{gap:12px;margin-top:16px}.pk-receipt-summary{padding:16px}.pk-summary-top strong{font-size:23px}.pk-receipt-card{padding:16px 14px}.pk-receipt-card .pk-receipt-top h2{font-size:20px}.pk-receipt-actions .btn{flex:1 1 auto}.pk-state{font-size:12px;padding:6px 9px}}

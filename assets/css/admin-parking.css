@@ -25,3 +25,23 @@
 #view-parking .pa-overview>div:first-child strong{font-size:clamp(17px,2vw,24px)}
 #view-parking .pa-vehicle-tools .pa-fields{grid-template-columns:minmax(0,1fr)}
 @media(max-width:599px){#view-parking .pa-filter-bar{grid-template-columns:repeat(2,minmax(0,1fr))}#view-parking .pa-filter-bar #pa-search{grid-column:auto}#view-parking .pa-filter-bar .input,#view-parking .pa-filter-bar .select{min-width:0}}
+
+/* Expanded vehicle tools must fit the card as well as the viewport. */
+#view-parking :is(.pa-list,.pa-order,.pa-fields,.pk-label,.pa-settings-panels){min-width:0;grid-template-columns:minmax(0,1fr)}
+#view-parking :is(.pa-batch,.pa-batch-head>div,.pa-overview>div,.pa-vehicle-tools,.pa-fields>*,.pa-top>*,.adm-card){min-width:0}
+#view-parking :is(.pa-meta,.pa-plan,.pa-batch-head,.pa-vehicle-meta,.pa-vehicle-facts,.pa-vehicle-top,.pk-notice,summary){overflow-wrap:anywhere}
+#view-parking :is(.input,.select,.textarea){min-width:0;min-inline-size:0;max-width:100%;box-sizing:border-box}
+#view-parking .textarea{resize:vertical}
+#view-parking pre{min-width:0;max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere}
+#view-parking .tbl-wrap{min-width:0;max-width:100%}
+#view-parking input:is([type=date],[type=datetime-local]){display:block;width:100%;inline-size:100%;-webkit-appearance:none;appearance:none}
+#view-parking input:is([type=date],[type=datetime-local])::-webkit-datetime-edit{min-width:0;padding:0}
+#view-parking input:is([type=date],[type=datetime-local])::-webkit-date-and-time-value{min-height:1.5em;text-align:left}
+#view-parking .btn{min-width:0;max-width:100%;white-space:normal;height:auto;padding-top:10px;padding-bottom:10px;line-height:1.5}
+#view-parking .pa-filter-bar{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.5fr) auto}
+#pa-payment-alerts :is(.adm-notify-item,.adm-notify-item-top,.adm-notify-head){min-width:0;overflow-wrap:anywhere}
+#pa-payment-alerts .adm-notify-item{grid-template-columns:minmax(0,1fr)}
+#pa-payment-alerts .adm-notify-item-top{flex-wrap:wrap}
+@media(max-width:1099px){#view-parking .pa-filter-bar{grid-template-columns:repeat(2,minmax(0,1fr))}#view-parking .pa-filter-bar #pa-search{grid-column:auto}}
+@media(max-width:599px){#view-parking .btn{min-height:44px}}
+@media(max-width:399px){#view-parking .pa-filter-bar{grid-template-columns:minmax(0,1fr)}}
