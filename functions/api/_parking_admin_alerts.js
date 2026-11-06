@@ -59,11 +59,17 @@ export async function parkingAdminAlerts(request,env,path){
  const method=request.method;
  if(path==='admin/payment-alerts'&&method==='GET'){
   const s=await config(env),count=await env.DB.prepare('SELECT COUNT(*) AS n '+FEED).first();
-  const {results}=await env.DB.prepare('SELECT p.oid,p.plate,p.visit_date,p.ticket,p.price,p.paid_at '+FEED+' ORDER BY p.paid_at DESC,p.oid DESC LIMIT 50').all();
+  const {results}=await env.DB.prepare('SELECT p.oid,p.payment_id AS payment_oid,p.payment_total,p.payment_status,p.status,p.plate,p.visit_date,p.ticket,p.price,p.paid_at '+FEED+' ORDER BY p.paid_at DESC,p.oid DESC LIMIT 50').all();
+  const paymentCount=await env.DB.prepare('SELECT COUNT(DISTINCT p.payment_id) AS n '+FEED).first();
   const {results:history}=await env.DB.prepare('SELECT id,oid,receiver,mode,status,error,occurred_at,updated_at FROM parking_admin_sms ORDER BY id DESC LIMIT 20').all();
-  return json({ok:true,count:count?.n||0,items:results||[],sms:{enabled:s.enabled,phones:s.phones,configured:configured(env),test_delivered:await tested(env,s.phones,s.hash),history:history||[]}});
+  return json({ok:true,count:count?.n||0,payment_count:paymentCount?.n||0,items:results||[],sms:{enabled:s.enabled,phones:s.phones,configured:configured(env),test_delivered:await tested(env,s.phones,s.hash),history:history||[]}});
  }
  const read=path.match(/^admin\/payment-alerts\/([A-Z0-9]+)\/read$/);
+ const readGroup=path.match(/^admin\/payment-alerts\/([A-Z0-9]+)\/read-group$/);
+ if(readGroup&&method==='POST'){
+  const p=await env.DB.prepare('SELECT o.oid FROM orders o WHERE o.oid=? AND o.paid_at IS NOT NULL AND EXISTS(SELECT 1 FROM parking_orders p WHERE COALESCE(p.payment_oid,p.oid)=o.oid)').bind(readGroup[1]).first();if(!p)return err('결제 내역을 찾을 수 없습니다.',404);
+  await env.DB.prepare('INSERT OR IGNORE INTO admin_parking_payment_reads(oid,read_at) SELECT p.oid,? FROM parking_orders p WHERE COALESCE(p.payment_oid,p.oid)=?').bind(now(),p.oid).run();return json({ok:true});
+ }
  if(read&&method==='POST'){
   const p=await env.DB.prepare('SELECT p.oid FROM parking_orders p JOIN orders o ON o.oid=COALESCE(p.payment_oid,p.oid) WHERE p.oid=? AND o.paid_at IS NOT NULL').bind(read[1]).first();if(!p)return err('결제 내역을 찾을 수 없습니다.',404);
   await env.DB.prepare('INSERT INTO admin_parking_payment_reads(oid,read_at) VALUES(?,?) ON CONFLICT(oid) DO NOTHING').bind(read[1],now()).run();return json({ok:true});

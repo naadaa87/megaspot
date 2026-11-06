@@ -1,7 +1,7 @@
 (function(){
  'use strict';
  var M=window.MEGASPOT,X=window.MEGASPOT_ADMIN;if(!M||!X)return;
- var esc=M.esc,busy=false,started=false,seen=new Set(),initialized=false;
+ var V=window.MEGASPOT_ADMIN_PARKING_VIEW,groups=[],esc=M.esc,busy=false,started=false,seen=new Set(),initialized=false;
  var top=document.createElement('div');top.className='adm-notify';top.id='pa-payment-alerts';
  top.innerHTML='<button type="button" class="adm-notify-btn" id="pa-alert-btn" aria-expanded="false" aria-controls="pa-alert-panel">주차 결제 <em id="pa-alert-count" hidden></em></button><div class="adm-notify-panel" id="pa-alert-panel" hidden><div class="adm-notify-head"><strong>확인하지 않은 주차 결제</strong><button class="btn btn-light btn-xs" id="pa-alert-reload" type="button">새로고침</button></div><div class="adm-notify-list" id="pa-alert-list"></div><p class="small muted pa-alert-help">관리자 화면이 열려 있으면 약 10초마다 확인합니다. 주문을 열면 확인 처리됩니다.</p></div>';
  document.querySelector('.adm-notify-bar').prepend(top);
@@ -12,9 +12,9 @@
  function $(s){return document.querySelector(s);}
  function api(path,method,body){return fetch('/api/parking/admin/payment-alerts'+path,{method:method||'GET',headers:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)}).then(function(r){return r.json().then(function(j){if(!r.ok)throw Error(j.error||'알림을 확인하지 못했습니다.');return j;});});}
  function draw(r){
-  var count=$('#pa-alert-count');count.textContent=r.count>99?'99+':r.count;count.hidden=!r.count;
-  $('#pa-alert-list').innerHTML=r.items.length?r.items.map(function(p){return '<button type="button" class="adm-notify-item" data-pa-read="'+esc(p.oid)+'"><span class="adm-notify-item-top"><b>'+esc(p.plate)+'</b><small>'+Number(p.price).toLocaleString('ko-KR')+'원</small></span><span>'+esc(p.visit_date)+' · 결제 완료</span><small>'+esc(p.oid)+' · 주문 확인 →</small></button>';}).join(''):'<p class="small muted pa-alert-help">확인하지 않은 결제가 없습니다.</p>';
-  var fresh=r.items.filter(function(p){return !seen.has(p.oid);});r.items.forEach(function(p){seen.add(p.oid);});if(started&&fresh.length)M.toast('주차권 결제 완료 '+fresh.length+'건이 들어왔습니다.');started=true;
+  groups=V.groups(r.items);var count=$('#pa-alert-count'),payments=r.payment_count==null?groups.length:r.payment_count;count.textContent=payments>99?'99+':payments;count.hidden=!payments;
+  $('#pa-alert-list').innerHTML=groups.length?groups.map(function(g){return '<button type="button" class="adm-notify-item" data-pa-read="'+esc(g.oid)+'"><span class="adm-notify-item-top"><b>'+g.items.length+'대 함께 결제</b><small>'+(g.total==null?'총액 확인 필요':Number(g.total).toLocaleString('ko-KR')+'원')+'</small></span><span>'+g.items.map(function(p){return esc(p.plate);}).join(' · ')+'</span><small>'+esc(g.oid)+' · 결제 묶음 확인 →</small></button>';}).join(''):'<p class="small muted pa-alert-help">확인하지 않은 결제가 없습니다.</p>';
+  var fresh=groups.filter(function(g){return !seen.has(g.oid);});groups.forEach(function(g){seen.add(g.oid);});if(started&&fresh.length)M.toast('주차권 결제 완료 '+fresh.length+'건이 들어왔습니다.');started=true;
   var s=r.sms;if(!initialized){$('#pa-sms-phones').value=s.phones.join('\n');$('#pa-sms-enabled').checked=s.enabled;initialized=true;}
   $('#pa-sms-state').textContent=(s.enabled?'관리자 문자 발송 켜짐':'관리자 문자 발송 꺼짐')+' · '+(s.test_delivered?'모든 번호 시험 도착 확인 완료':'각 번호 시험 문자 도착 확인 필요');
   $('#pa-sms-history').innerHTML=s.history.map(function(e){return '<p class="small">'+esc(e.mode==='test'?'시험':'결제')+' · '+esc(e.receiver)+' · <b>'+esc(status[e.status]||e.status)+'</b>'+(e.oid?' · '+esc(e.oid):'')+(e.error?' · '+esc(e.error):'')+'</p>';}).join('');
@@ -23,7 +23,7 @@
  $('#pa-alert-btn').onclick=function(){var p=$('#pa-alert-panel');p.hidden=!p.hidden;this.setAttribute('aria-expanded',String(!p.hidden));if(!p.hidden)load();};
  $('#pa-alert-reload').onclick=load;
  document.addEventListener('click',function(e){if(!e.target.closest('#pa-payment-alerts')){$('#pa-alert-panel').hidden=true;$('#pa-alert-btn').setAttribute('aria-expanded','false');}});
- $('#pa-alert-list').onclick=function(e){var b=e.target.closest('[data-pa-read]');if(!b)return;b.disabled=true;var oid=b.dataset.paRead;api('/'+encodeURIComponent(oid)+'/read','POST',{}).then(function(){$('#pa-alert-panel').hidden=true;$('#pa-alert-btn').setAttribute('aria-expanded','false');$('#pa-filter').value='all';$('#pa-date').value='';$('#pa-search').value=oid;X.go('parking');return load();}).catch(function(err){M.toast(err.message);b.disabled=false;});};
+ $('#pa-alert-list').onclick=function(e){var b=e.target.closest('[data-pa-read]');if(!b)return;b.disabled=true;var oid=b.dataset.paRead,group=groups.find(function(g){return g.oid===oid;});if(!group){b.disabled=false;return;}api('/'+encodeURIComponent(oid)+'/read-group','POST',{}).then(function(){$('#pa-alert-panel').hidden=true;$('#pa-alert-btn').setAttribute('aria-expanded','false');$('#pa-filter').value='all';$('#pa-date').value='';$('#pa-search').value=oid;X.go('parking');return load();}).catch(function(err){M.toast(err.message);b.disabled=false;});};
  $('#pa-sms-save').onclick=function(){var b=this;b.disabled=true;var phones=$('#pa-sms-phones').value.split(/[\s,;]+/).filter(Boolean);api('/settings','PUT',{phones:phones,enabled:$('#pa-sms-enabled').checked}).then(function(){initialized=false;M.toast('관리자 문자 설정을 저장했습니다.');return load();}).catch(function(e){M.toast(e.message);}).finally(function(){b.disabled=false;});};
  $('#pa-sms-test').onclick=function(){if(!$('#pa-sms-test-confirm').checked){M.toast('시험 문자 요금 차감 동의를 확인해 주세요.');return;}var b=this;b.disabled=true;api('/test','POST',{confirm_test:true}).then(function(){M.toast('시험 문자를 접수했습니다. 도착 결과를 확인해 주세요.');return load();}).catch(function(e){M.toast(e.message);}).finally(function(){b.disabled=false;});};
  $('#pa-sms-refresh').onclick=function(){var b=this;b.disabled=true;api('/refresh','POST',{}).then(load).catch(function(e){M.toast(e.message);}).finally(function(){b.disabled=false;});};
