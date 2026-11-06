@@ -42,12 +42,12 @@
 <link rel="stylesheet" href="/assets/css/site.css?v=20261103bottomclearance5">
 <meta name="theme-color" content="#F1EFEB">
 
-<link rel="stylesheet" href="/assets/css/parking-purchase.css?v=20261105multi-20261103daily-live1">
+<link rel="stylesheet" href="/assets/css/parking-purchase.css?v=20261106compact-purchase">
 
 <link rel="stylesheet" href="/assets/css/mobile-viewport.css?v=20261104landscape2">
 <script src="/assets/js/mobile-viewport.js?v=20261104landscape2" defer></script>
 </head>
-<body class="page-parking">
+<body class="page-parking page-parking-purchase">
 <a class="skip-link" href="#main">본문으로 바로가기</a>
 <header class="site-header">
   <div class="container">
@@ -140,17 +140,18 @@
 </nav>
 <main id="main" class="pk-shell">
 <a class="small" href="/parking/">← 주차 안내</a><h1>주차권 구매 · 차량 등록</h1>
-<p class="pk-lead">여러 차량의 주차권을 한 번에 결제하세요. 실제 입차를 확인해 차량마다 자동 등록합니다.</p>
-<div class="pk-notice" id="pk-service-notice">평일 야간에도 자동 등록 · 당일 구매·입차 요청 23:50 마감<br>주말·공휴일 제외. 등록 완료를 확인한 뒤 출차해 주세요.</div>
-<div class="pk-notice" id="pk-overnight-notice"><b>자정(00:00)을 넘겨 출차하시나요?</b><br>일일권은 이용일 당일 23:59에 종료됩니다. 전날 입차·익일 연속 주차는 자동 등록 대상이 아니므로 구매 전에 <a href="https://pf.kakao.com/_LnxbmX/chat" target="_blank" rel="noopener">카카오톡으로 문의</a>해 주세요.</div>
+<p class="pk-lead">차량번호와 주차권을 선택하세요. 최대 10대까지 한 번에 결제할 수 있습니다.</p>
+<p class="pk-registration-time">결제·입차 확인 후 등록까지 <strong>최대 약 5분</strong> 소요</p>
 <p id="pk-loading" class="pk-help">구매 정보를 불러오는 중입니다.</p><div id="pk-error" class="pk-error" role="alert" hidden></div>
 <section id="pk-unavailable" class="pk-card" hidden><h2>온라인 판매를 준비 중입니다</h2><p>주차권은 카카오톡으로 문의해 주세요.</p><a class="btn btn-primary" href="https://pf.kakao.com/_LnxbmX/chat" target="_blank" rel="noopener">카카오톡 문의</a></section>
 <form id="pk-form" hidden>
-<p class="pk-help"><span class="pk-required" aria-hidden="true">*</span> 표시는 필수 항목입니다.</p>
-<section class="pk-card"><h2>1. 이용일</h2><label class="pk-label"><span>모든 차량의 이용일 <span class="pk-required">*</span></span><input class="input" type="date" name="date" required></label><p class="pk-help">평일 23:50까지 당일 구매·입차 요청이 가능합니다. 주말·공휴일과 전날 입차·익일 연속 주차는 구매 전 문의해 주세요.</p></section>
-<section class="pk-card"><h2>2. 차량별 주차권</h2><p class="pk-help">차량마다 주차권을 선택하고 한 번에 결제합니다. 최대 10대까지 가능합니다.</p><div id="pk-vehicles"></div><div class="pk-actions"><button class="btn btn-light" type="button" id="pk-add-vehicle">+ 차량 추가</button><strong id="pk-total" aria-live="polite"></strong></div><p class="pk-help" id="pk-daily-notice"></p><label class="pk-agree" id="pk-daily-agree" hidden><input type="checkbox" name="agree_daily"><span>일일권은 당일 23:59에 종료되며, 전날 입차·익일 연속 주차는 별도 확인이 필요함을 확인했습니다.</span></label></section>
-<section class="pk-card"><h2>3. 구매자 정보</h2><div class="pk-grid"><label class="pk-label"><span>이름<span class="pk-required" aria-hidden="true">*</span><span class="sr-only"> (필수)</span></span><input class="input" name="name" autocomplete="name" maxlength="40" required></label><label class="pk-label"><span>휴대폰 번호<span class="pk-required" aria-hidden="true">*</span><span class="sr-only"> (필수)</span></span><input class="input" name="phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="15" required></label></div></section>
-<section class="pk-card"><h2>구매·취소 안내</h2><p class="pk-help">구매·입차 접수·등록·취소 처리 결과는 입력한 휴대폰 번호로 안내할 수 있습니다. 알림톡이 전달되지 않으면 문자로 안내합니다. 결제 직후 구매 내역 링크도 본인 기기에 보관해 주세요.</p><p class="pk-help">통합 결제의 일부 차량 취소는 담당자 확인 후 처리합니다. 등록 전 취소·차량번호 정정은 구매 내역에서 취소 문의 후 재구매로 진행합니다. 등록·적용 후 단순 변심에 따른 취소·변경은 제한될 수 있습니다. 등록 실패·미제공 및 법령상 환불 사유는 별도로 확인합니다.</p><label class="pk-agree"><input type="checkbox" name="agree_terms" required><span><span class="pk-required" aria-hidden="true">*</span><span class="sr-only"> (필수)</span> 이용일·운영시간·입차 후 등록 및 취소 안내를 확인했습니다. <a href="/terms/" target="_blank" rel="noopener">이용약관</a></span></label><label class="pk-agree"><input type="checkbox" name="agree_privacy" required><span><span class="pk-required" aria-hidden="true">*</span><span class="sr-only"> (필수)</span> 주차권 구매·차량 등록을 위한 이름·연락처·차량번호·이용일 수집·이용에 동의합니다. 차량번호·입차 기록은 주차 등록을 위해 아마노 시스템에서 처리됩니다. <a href="/privacy/" target="_blank" rel="noopener">개인정보처리방침</a></span></label><button class="btn btn-primary" type="submit">구매 내용 확인 →</button></section>
+<section class="pk-card pk-purchase-card"><h2>차량번호 · 주차권 선택</h2><div id="pk-vehicles"></div><div class="pk-actions"><button class="btn btn-light" type="button" id="pk-add-vehicle">+ 차량 추가</button></div>
+<label class="pk-label pk-date-label"><span>이용일 <span class="pk-required">*</span></span><input class="input" type="date" name="date" required></label><p class="pk-help">모든 차량에 같은 이용일이 적용됩니다. 평일 이용 · 당일 구매·입차 요청 23:50까지</p>
+<details class="pk-details" id="pk-daily-info" hidden><summary>일일권 이용 조건 보기</summary><p class="pk-help" id="pk-daily-notice"></p></details><label class="pk-agree" id="pk-daily-agree" hidden><input type="checkbox" name="agree_daily"><span>일일권은 당일 23:59에 종료되며, 전날 입차·익일 연속 주차는 별도 확인이 필요함을 확인했습니다.</span></label></section>
+<section class="pk-card"><h2>구매자 정보</h2><div class="pk-grid"><label class="pk-label"><span>이름<span class="pk-required" aria-hidden="true">*</span><span class="sr-only"> (필수)</span></span><input class="input" name="name" autocomplete="name" maxlength="40" required></label><label class="pk-label"><span>휴대폰 번호<span class="pk-required" aria-hidden="true">*</span><span class="sr-only"> (필수)</span></span><input class="input" name="phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="15" required></label></div><p class="pk-help">등록 결과는 알림톡 또는 문자로 안내합니다. 출차 전 등록 완료를 확인해 주세요.</p>
+<details class="pk-details"><summary>이용시간 · 취소 안내 보기</summary><div class="pk-guide-body"><div class="pk-notice" id="pk-service-notice">평일 10:00–24:00 자동 등록 · 당일 구매·입차 요청 23:50까지<br>주말·공휴일은 이용 전 문의해 주세요.</div><div class="pk-notice" id="pk-overnight-notice"><b>자정을 넘겨 출차하시나요?</b><br>일일권은 당일 23:59에 종료됩니다. 전날 입차·익일 연속 주차는 구매 전에 <a href="https://pf.kakao.com/_LnxbmX/chat" target="_blank" rel="noopener">문의</a>해 주세요.</div><p class="pk-help">여러 차량 결제 중 일부 차량 취소는 담당자가 확인합니다. 등록 전 취소·차량번호 정정은 구매 내역에서 문의해 주세요. 등록·적용 후 단순 변심에 따른 취소·변경은 제한될 수 있으며, 등록 실패·미제공 및 법령상 환불 사유는 별도로 확인합니다.</p><p class="pk-help">알림톡 실패 시 문자로 안내합니다. 결제 후 구매 내역 링크를 본인 기기에 보관해 주세요.</p></div></details>
+<label class="pk-agree"><input type="checkbox" name="agree_terms" required><span><span class="pk-required" aria-hidden="true">*</span><span class="sr-only"> (필수)</span> 이용일·운영시간·입차 후 등록 및 취소 안내를 확인했습니다. <a href="/terms/" target="_blank" rel="noopener">이용약관</a></span></label><label class="pk-agree"><input type="checkbox" name="agree_privacy" required><span><span class="pk-required" aria-hidden="true">*</span><span class="sr-only"> (필수)</span> 이름·연락처·차량번호·이용일 수집·이용에 동의합니다. 차량번호·입차 기록은 아마노 주차 등록에 사용됩니다. <a href="/privacy/" target="_blank" rel="noopener">개인정보처리방침</a></span></label></section>
+<div class="pk-checkout quick-bar"><div><span>총 결제금액</span><strong id="pk-total" aria-live="polite"></strong></div><button class="btn btn-primary" type="submit">결제하기 →</button></div>
 </form>
 <section id="pk-result" class="pk-card" hidden aria-live="polite"></section>
 <div class="pk-modal" id="pk-confirm" hidden role="dialog" aria-modal="true" aria-labelledby="pk-confirm-title"><div class="pk-modal-box"><h2 id="pk-confirm-title">차량별 구매 내용을 확인해 주세요</h2><div class="pk-check" id="pk-confirm-summary"></div><div id="pk-plate-confirms" class="pk-confirm-plates"></div><label class="pk-agree"><input id="pk-final-agree" type="checkbox" aria-required="true"><span><span class="pk-required" aria-hidden="true">*</span><span class="sr-only"> (필수)</span> 차량번호·이용일·주차권과 입차 후 적용되는 절차, 취소 안내를 확인했습니다.</span></label><div class="pk-error" id="pk-confirm-error" hidden role="alert"></div><div class="pk-actions"><button type="button" class="btn btn-light" id="pk-edit">수정하기</button><button type="button" class="btn btn-primary" id="pk-pay">확인하고 한 번에 결제하기</button></div></div></div>
@@ -235,6 +236,6 @@
   </div>
 </footer>
 <script src="/assets/js/site.js?v=20261103bottomclearance5"></script>
-<script src="/assets/js/pages/parking-purchase.js?v=20261105multi-20261103daily-live1"></script>
+<script src="/assets/js/pages/parking-purchase.js?v=20261106compact-purchase"></script>
 </body>
 </html>
