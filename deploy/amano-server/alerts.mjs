@@ -8,7 +8,7 @@ export function alertKey(issue,at=Date.now()){
 }
 export function alertMessage(issue){
  const low=issue.kind==='balance'||/잔액 부족/.test(issue.message);
- return '[메가스팟 주차권 '+(low?'잔액 부족':'자동 등록 오류')+']\n'+(issue.oid?'주문: '+issue.oid+'\n':'')+'사유: '+String(issue.message||'서버 처리 확인 필요').replace(/[\r\n\t]/g,' ').slice(0,160)+'\n자동 처리를 완료하지 못해 관리자 확인이 필요합니다.\n아마노 할인내역을 확인하기 전 같은 건을 다시 등록하지 마세요.\n'+LINK;
+ return '[메가스팟 주차권 '+(low?'잔액 부족':'자동 등록 오류')+']\n'+(issue.oid?'주문: '+issue.oid+'\n':'')+(issue.plate?'차량: '+String(issue.plate).replace(/[\r\n\t]/g,' ').slice(0,15)+'\n':'')+(issue.visit_date?'이용일: '+String(issue.visit_date).slice(0,10)+'\n':'')+'사유: '+String(issue.message||'서버 처리 확인 필요').replace(/[\r\n\t]/g,' ').slice(0,160)+'\n자동 처리를 완료하지 못해 관리자 확인이 필요합니다.\n아마노 할인내역을 확인하기 전 같은 건을 다시 등록하지 마세요.\n'+LINK;
 }
 export async function notifyProblems(env,store,issues=[],upstream=fetch,at=Date.now()){
  const receivers=[...new Set((env.ALIGO_PARKING_ADMIN_RECEIVERS||'').split(',').filter(s=>/^01[016789]\d{7,8}$/.test(s)))];

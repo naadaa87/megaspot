@@ -27,12 +27,36 @@ export const DISCOUNTS={
  '10':{minutes:1440,price:20000,name:'당일권'}
 };
 export const plateParts=s=>String(s||'').split('/').map(x=>x.normalize('NFKC').replace(/[\s-]/g,'')).filter(x=>/^(?:[가-힣]{2})?\d{2,3}[가-힣]\d{4}$/.test(x));
+export class PlateMatchError extends Error{
+ constructor(plate,rows){
+  const candidates=rows.slice(0,3).map(r=>String(r.carNo||'번호 확인 불가').replace(/[\r\n\t]/g,' ').slice(0,50));
+  super('차량번호 대조 불가: 주문 '+plate+' / 아마노 표시 '+candidates.join(', ')+' · 입차 후보를 수기로 확인해 주세요.');
+  this.code='PLATE_MATCH_REQUIRED';
+ }
+}
+function possiblePlate(value,plate){
+ const suffix=plate.slice(-4),prefix=plate.match(/\d{2,3}(?=[가-힣]\d{4}$)/)?.[0];
+ return String(value||'').split('/').some(part=>{
+  const v=part.normalize('NFKC').replace(/[\s-]/g,'');if(!v.endsWith(suffix))return false;
+  const head=v.slice(0,-4),digits=head.match(/\d+/g);
+  return digits?digits[digits.length-1]===prefix:/[Xx*?●]/.test(head);
+ });
+}
 const stamp=s=>{const v=String(s||'').replace(/\D/g,'');if(v.length!==14)throw Error('아마노 입차시각 확인 필요');return v.slice(0,4)+'-'+v.slice(4,6)+'-'+v.slice(6,8)+'T'+v.slice(8,10)+':'+v.slice(10,12)+':'+v.slice(12,14);};
 AmanoClient.prototype.json=async function(path,data){const r=await this.request(path,data);if(r.status!==200)throw Error('아마노 세션 확인 필요');try{return JSON.parse(r.text);}catch{throw Error('아마노 응답 형식 확인 필요');}};
 AmanoClient.prototype.entries=async function(plate,date){
- const rows=await this.json('/discount/registration/listForDiscount',{iLotArea:'24188',entryDate:date.replaceAll('-',''),carNo:plate});
- if(!Array.isArray(rows))throw Error('아마노 입차 목록 확인 필요');
- return rows.filter(r=>plateParts(r.carNo).includes(plate)).map(r=>({id:String(r.id),plate:String(r.carNo),cardType:String(r.iCardType),entryAt:String(r.entryDateToString).replace(' ','T'),out:String(r.dtOutDate||'')}));
+ const lookup=async carNo=>{const rows=await this.json('/discount/registration/listForDiscount',{iLotArea:'24188',entryDate:date.replaceAll('-',''),carNo});if(!Array.isArray(rows))throw Error('아마노 입차 목록 확인 필요');return rows;};
+ const map=rows=>rows.map(r=>({id:String(r.id),plate:String(r.carNo),cardType:String(r.iCardType),entryAt:String(r.entryDateToString).replace(' ','T'),out:String(r.dtOutDate||'')}));
+ if(!plateParts(plate).includes(plate))throw Error('조회 차량번호 확인 필요');
+ const direct=await lookup(plate),matched=direct.filter(r=>plateParts(r.carNo).includes(plate));
+ if(matched.length)return map(matched);
+ if(direct.length)throw new PlateMatchError(plate,direct);
+ // A partial number can exist even when the full-number lookup returns nothing.
+ const candidates=await lookup(plate.slice(-4)),exact=candidates.filter(r=>plateParts(r.carNo).includes(plate));
+ const unresolved=candidates.filter(r=>!plateParts(r.carNo).includes(plate)&&possiblePlate(r.carNo,plate));
+ if(exact.length){if(unresolved.some(r=>!plateParts(r.carNo).length))throw new PlateMatchError(plate,[...exact,...unresolved]);return map(exact);}
+ if(unresolved.length)throw new PlateMatchError(plate,unresolved);
+ return [];
 };
 AmanoClient.prototype.detail=async function(entry,date){
  const d=await this.json('/discount/registration/getForDiscount',{id:entry.id,iCardType:entry.cardType,member_id:this.credentials.username,startDate:date.replaceAll('-','')});

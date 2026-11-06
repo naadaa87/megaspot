@@ -18,14 +18,14 @@ export function plan(d,p){
 }
 function sameHistory(a,b){const ids=d=>d.discounts.map(x=>x.id).sort().join(',');return ids(a)===ids(b)&&a.balance===b.balance;}
 function paid(p){if(p.payment_status!=='paid'||p.refunded_amount||p.refund_pending||p.status!=='processing')throw Error('결제·환불·처리 상태 변경');}
-export async function runCycle({site,client,store,maxOrders=10,now=()=>Date.now(),isEnabled=()=>true}){
+export async function runCycle({site,client,store,maxOrders=10,now=()=>Date.now(),isEnabled=()=>true,onIssue=async()=>{}}){
  const started=now(),feed=await site('orders'),summary={ok:true,operating:!!feed.operating,started_at:new Date(started).toISOString(),processed:0,waiting:0,issues:[],checked:0};
  if(!feed.operating){store.save('last-run',summary);return summary;}
  const date=feed.date||new Date(now()+9*36e5).toISOString().slice(0,10),observation=store.read('observation-'+date)||{date,order_ids:[],waiting_ids:[]};
  observation.order_ids=[...new Set([...observation.order_ids,...feed.items.map(p=>p.oid)])];store.save('observation-'+date,observation);
  const ledger=store.read('operations')||{};
  const save=(oid,phase,extra={})=>{const at=new Date(now()).toISOString();ledger[oid]={...ledger[oid],...extra,phase,updated_at:at,steps:[...(ledger[oid]?.steps||[]),{phase,at}].slice(-20)};store.save('operations',ledger);};
- const issue=async(oid,message)=>{summary.issues.push({oid,message,kind:/잔액 부족/.test(message)?'balance':'registration'});save(oid,'review',{message});try{await site('issue',{oid,data:{memo:message}});}catch{}};
+ const issue=async(oid,message,extra={})=>{const problem={oid,message,kind:/잔액 부족/.test(message)?'balance':'registration',...extra};summary.issues.push(problem);save(oid,'review',{message});try{await site('issue',{oid,data:{memo:message}});}catch{}try{await onIssue(problem);}catch{}};
  for(const [oid,r] of Object.entries(ledger)){if(['completed','review'].includes(r.phase))continue;try{const q=(await site('order',{oid})).order;if(q.status==='applied'){save(oid,'completed');continue;}}catch{}await issue(oid,'이전 서버 처리 결과 확인 필요 · 자동 재등록 중지');}
  const orders=feed.items.slice(0,maxOrders);if(orders.length)await client.login();
  for(const p of orders){
@@ -63,7 +63,7 @@ export async function runCycle({site,client,store,maxOrders=10,now=()=>Date.now(
    const freeRecord=d.discounts.find(h=>h.code==='1'),paidRecord=wanted.code?d.discounts.find(h=>h.code===wanted.code&&h.memo===p.oid):null;
    const proof={date:p.visit_date,entry_id:e.id,free_confirmed:freeCount(d)===1,free_existing:!wanted.free,free_registered_at:freeRecord?.at||null,paid_registered_at:paidRecord?.at||null,free_first_verified:freeFirst,cost:wanted.cost,history_ids:d.discounts.map(h=>h.id),site_status:'applied',steps:ledger[p.oid].steps};
    save(p.oid,'completed',{verification:proof});recordVerification(store,p.oid,proof);summary.processed++;
-  }catch(error){const message=String(error?.message||'서버 처리 확인 필요').slice(0,180);await issue(p.oid,(locked?'등록 처리 중 · ':'등록 전 확인 · ')+message);}
+  }catch(error){const message=String(error?.message||'서버 처리 확인 필요').slice(0,180);await issue(p.oid,(locked?'등록 처리 중 · ':'등록 전 확인 · ')+message,{plate:p.plate,visit_date:p.visit_date,...(error.code==='PLATE_MATCH_REQUIRED'?{kind:'plate'}:{})});}
  }
  summary.finished_at=new Date(now()).toISOString();store.save('last-run',summary);return summary;
 }
