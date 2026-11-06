@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {runCycle,plan,freeCount} from '../deploy/amano-server/worker.mjs';import {DISCOUNTS,AmanoClient} from '../deploy/amano-server/client.mjs';
+import {runCycle,plan,freeCount} from '../deploy/amano-server/worker.mjs';import {DISCOUNTS,AmanoClient,PlateMatchError} from '../deploy/amano-server/client.mjs';
 function fixture({ticket='2h',usedFree=false,entries=true}={}){
  const p={oid:'MSTEST001',plate:'123가4567',visit_date:'2026-11-04',ticket,hours:ticket==='daily'?null:Number(ticket[0]),price:ticket==='daily'?30000:Number(ticket[0])*4000,status:'waiting'};
  const entry={id:'100',plate:'123가4567/XXXX나4567',cardType:'0',entryAt:'2026-11-04T13:00:00',out:false};
@@ -25,3 +25,10 @@ test('아마노 등록 요청은 검증한 정상 폼만 보내고 실패 응답
 
 test('실제 완료 시 무료 선등록 순서와 원가를 검증 기록으로 남긴다',async()=>{const f=fixture();await f.run();const proof=f.memory['verification-2026-11-04'].orders[0];assert.equal(proof.free_first_verified,true);assert.equal(proof.cost,3000);assert.ok(proof.steps.findIndex(s=>s.phase==='verified_1')<proof.steps.findIndex(s=>s.phase==='request_6'));assert.equal(proof.site_status,'applied');});
 test('잔액 부족은 별도 알림 종류로 기록하고 아마노 등록을 실행하지 않는다',async()=>{const f=fixture();f.d.balance=0;const r=await f.run();assert.equal(r.issues[0].kind,'balance');assert.deepEqual(f.mutations,[]);});
+test('번호 대조 실패는 대기가 아닌 확인 필요로 보류하고 다음 주문 확인 전에 알린다',async()=>{
+ const f=fixture();let notified=false,checks=0;
+ f.client.entries=async()=>{if(++checks===1)throw new PlateMatchError(f.p.plate,[{carNo:'XXXX123XX4567'}]);assert.equal(notified,true);return [];};
+ const r=await runCycle({client:f.client,store:f.store,site:(action,data)=>action==='orders'?Promise.resolve({operating:true,items:[f.p,{...f.p,oid:'MSNEXT',plate:'234나5678'}]}):f.site(action,data),onIssue:async issue=>{assert.equal(f.q.status,'issue');assert.equal(issue.kind,'plate');assert.equal(issue.plate,f.p.plate);assert.equal(issue.visit_date,f.p.visit_date);assert.deepEqual(f.mutations,[]);notified=true;}});
+ assert.equal(r.waiting,1);assert.equal(r.issues.length,1);assert.equal(f.memory.operations[f.p.oid].phase,'review');assert.equal(r.processed,0);
+});
+test('문자 접수 오류가 있어도 번호 대조 실패 보류와 오류 요약은 유지한다',async()=>{const f=fixture();f.client.entries=async()=>{throw new PlateMatchError(f.p.plate,[{carNo:'XXXX123XX4567'}]);};const r=await runCycle({site:f.site,client:f.client,store:f.store,onIssue:async()=>{throw Error('relay unavailable');}});assert.equal(f.q.status,'issue');assert.equal(r.issues[0].kind,'plate');assert.deepEqual(f.mutations,[]);});
