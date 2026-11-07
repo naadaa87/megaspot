@@ -43,7 +43,7 @@
     L.push('· 식사 인원: ' + (st.people || r.billPeople) + '명' + (r.billPeople && r.billPeople !== st.people ? ' (계산 기준 ' + r.billPeople + '명)' : ''));
     if (r.bbq) L.push('· 바베큐: ' + r.bbq.size + ' (' + r.bbq.people + ')');
     if (r.beer) L.push('· 생맥주: ' + r.beer + '통');
-    L.push('· 예상 금액: ' + won(r.total) + ' (공급가 ' + won(r.supply) + ' + 부가세 ' + won(r.vat) + ', ' + D.delivery.label + ' 포함)');
+    L.push(r.requiresConsultation ? '· 금액: 상담 후 견적 · ' + r.warn[0] : '· 예상 금액: ' + won(r.total) + ' (공급가 ' + won(r.supply) + ' + 부가세 ' + won(r.vat) + ', ' + D.delivery.label + ' 포함)');
     L.push('· 행사 날짜·시간: ');
     L.push('대관과 함께 상담 부탁드립니다.');
     return L.join('\n');
@@ -54,6 +54,12 @@
     box.querySelectorAll('.cc-opt').forEach(function(l){ l.classList.toggle('on', l.querySelector('input').checked); });
     var r = C.quote(st), out = box.querySelector('[data-out=result]');
     if (r.empty){ out.innerHTML = '<div class="eyebrow">Estimate</div><p class="mt-2 muted">코스나 바베큐·생맥주를 고르면 예상 금액이 나옵니다.</p>'; return; }
+    if (r.requiresConsultation) {
+      out.innerHTML = '<div class="eyebrow">Estimate</div><div class="cc-total"><span>선택한 구성<small>인원에 맞는 코스 확인 필요</small></span><b>상담 후 견적</b></div><p class="mt-2" role="status">' + esc(r.warn[0]) + '</p>'
+        + '<p class="small muted mt-2">제공 가능한 코스를 정하기 전에는 뷔페·바베큐·생맥주 금액을 합계에 넣지 않습니다.</p><button type="button" class="btn btn-light mt-3" data-pick="basic">베이직 코스로 다시 계산</button>'
+        + '<a class="btn btn-primary cc-go" href="/inquiry/' + query() + '#reserve" data-act="go">이 인원으로 코스 상담하기 →</a>';
+      return;
+    }
     var rows = r.lines.map(function(l){ return '<tr><td>' + esc(l.label) + '</td><td class="r">' + esc(won(l.amount)) + '</td></tr>'; }).join('');
     out.innerHTML = '<div class="row between"><div class="eyebrow">Estimate</div><span class="tiny muted">' + esc(D.version) + ' 기준</span></div>'
       + '<div class="cc-total"><span>예상 금액<small>부가세 포함</small></span><b>' + esc(won(r.total)) + '</b></div>'

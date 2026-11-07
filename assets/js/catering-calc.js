@@ -17,10 +17,13 @@
     var c = course(o.course), b = bbqRow(o.bbq), beer = Math.max(0, Math.min(20, Math.round(+o.beer || 0)));
     var people = Math.max(0, Math.min(999, Math.round(+o.people || 0))), lines = [], warn = [], billPeople = people;
     var fee = o.fee != null && o.fee !== '' && !isNaN(+o.fee) ? Math.max(0, Math.round(+o.fee)) : D.delivery.fee;
+    if (c && c.kind === 'flat' && people > c.max) {
+      return { course: c, bbq: b, beer: beer, people: people, billPeople: null, lines: [], supply: null, vat: null, total: null, fee: null, perPerson: null,
+        requiresConsultation: true, warn: [c.name + '은 ' + c.max + '인까지입니다. 인원에 맞는 코스를 다시 고르거나 상담해 주세요.'], empty: false };
+    }
     if (c) {
       if (c.kind === 'flat') {
         var tier = people > 20 ? c.tiers[1] : c.tiers[0];
-        if (people > 30) warn.push(c.name + '은 30인까지입니다. 31인 이상은 베이직(40인부터) 이상 코스를 골라 주세요.');
         if (people && people < 20) warn.push('출장뷔페는 20인부터 주문할 수 있어 20인 기준으로 계산했습니다.');
         billPeople = tier.people;
         lines.push({ key: 'course', label: c.name + ' ' + tier.people + '인 정액', amount: tier.price, people: tier.people });
@@ -42,13 +45,14 @@
   }
   function parts(r){
     var p = [];
-    if (r.course) p.push(r.course.name + (r.course.kind === 'flat' ? '' : ' 코스') + ' ' + r.billPeople + '명');
+    if (r.course) p.push(r.course.name + (r.course.kind === 'flat' ? '' : ' 코스') + ' ' + (r.requiresConsultation ? r.people : r.billPeople) + '명' + (r.requiresConsultation ? ' 희망' : ''));
     if (r.bbq) p.push('바베큐 ' + r.bbq.size);
     if (r.beer) p.push('생맥주 ' + r.beer + '통');
     return p.join(' · ');
   }
   function summary(r){
     if (!r || r.empty) return '';
+    if (r.requiresConsultation) return parts(r) + ' — 상담 후 견적 (' + r.warn[0] + ')';
     return parts(r) + ' — 예상 ' + won(r.total) + ' (부가세 포함)';
   }
 
@@ -98,7 +102,7 @@
     var pv = parseInt(field(root, name, 'people').value, 10);
     o.people = pv > 0 ? pv : (+fallbackPeople || 0);
     var r = quote(o);
-    o.total = r.empty ? 0 : r.total; o.summary = r.empty ? '출장뷔페 상담 희망 (코스 미정' + (o.people ? ' · ' + o.people + '명' : '') + ')' : summary(r);
+    o.total = r.empty ? 0 : r.total; o.requires_consultation = !!r.requiresConsultation; o.summary = r.empty ? '출장뷔페 상담 희망 (코스 미정' + (o.people ? ' · ' + o.people + '명' : '') + ')' : summary(r);
     return o;
   }
   function bind(root, name, getPeople){
@@ -111,6 +115,7 @@
       if (!o){ sum.innerHTML = ''; return; }
       var r = quote(o);
       sum.innerHTML = r.empty ? '<span class="muted">코스나 바베큐·생맥주를 고르면 예상 금액이 함께 나옵니다.</span>'
+        : r.requiresConsultation ? '<b>상담 후 견적 · 합계 미포함</b><small class="cat-ask-warn">' + esc(r.warn[0]) + '</small>'
         : '<b>' + esc(parts(r)) + '</b> <span class="cat-ask-total">예상 ' + esc(won(r.total)) + '</span> <small class="muted">부가세·' + esc(D.delivery.label) + ' 포함' + (r.course ? ' · 1인 약 ' + esc(won(Math.round(r.perPerson / 100) * 100)) : '') + '</small>'
           + (r.warn.length ? '<small class="cat-ask-warn">' + esc(r.warn[0]) + '</small>' : '');
       if (o.course || o.bbq || o.beer) savePreset(o);

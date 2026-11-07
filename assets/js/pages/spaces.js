@@ -14,10 +14,13 @@
   // URL → 폼
   var q=new URLSearchParams(location.search);
   ['region','people','purpose'].forEach(function(k){ if(q.get(k)){ var el=form.elements[k]; if(!el) return; var v=q.get(k);
-    // 인원은 보기 중에서 가장 가까운(같거나 큰) 값으로 맞춥니다 (예: 60 → 80명 안팎)
-    if(k==='people' && el.tagName==='SELECT'){ var n=parseInt(v,10)||0, opts=Array.prototype.slice.call(el.options).map(function(o){ return +o.value; }).filter(Boolean).sort(function(a,b){ return a-b; }); var pick=opts.filter(function(o){ return o>=n; })[0]||opts[opts.length-1]; if(n) v=String(pick); }
+    // 전달받은 인원을 그대로 유지합니다. 선택지 밖의 인원도 작은 값으로 줄이지 않습니다.
+    if(k==='people' && el.tagName==='SELECT'){if(!/^[1-9]\d{0,4}$/.test(v))v='';else if(!Array.prototype.some.call(el.options,function(o){return o.value===v;})){var option=document.createElement('option');option.value=v;option.textContent=v+'명';el.appendChild(option);}}
     el.value=v; } });
   q.getAll('feature').forEach(function(v){ var el=form.querySelector('input[name=feature][value="'+v+'"]'); if(el) el.checked=true; });
+  q.getAll('theme').forEach(function(v){var el=form.querySelector('input[name=theme][value="'+v+'"]');if(el)el.checked=true;});
+  if(q.get('fav')==='1')$('#f-fav').checked=true;
+  var advanced=$('#filter-advanced');if(advanced&&(q.getAll('feature').length||q.getAll('theme').length))advanced.open=true;
 
   var LST=[];   // 관리자가 공개한 외부 호스트 공간 (/api/listings/list)
   function state(){
@@ -51,11 +54,12 @@
     $('#results-empty').hidden = list.length>0;
     var nl=list.filter(function(s){ return s.kind==='listing'; }).length;
     $('#result-count').textContent = list.length ? list.length+'개 공간'+(nl?' (외부 호스트 '+nl+'곳 포함)':'')+(st.fav?' · 찜한 공간':'') : (st.fav?'찜한 공간이 없습니다':'조건에 맞는 공간이 없습니다');
+    if(advanced){var selected=st.features.length+st.themes.length;advanced.querySelector('summary').textContent='시설·분위기 조건 더 보기'+(selected?' · '+selected+'개 선택':'');}
     // 맞춤 요청 링크에 조건 전달
     var p=new URLSearchParams({mode:'request'}); if(st.purpose) p.set('purpose',st.purpose); if(st.people) p.set('people',st.people); if(st.region) p.set('region',st.region);
     $('#empty-request').href='/inquiry/?'+p.toString();
     // URL 동기화
-    var u=new URLSearchParams(); if(st.region) u.set('region',st.region); if(st.people) u.set('people',st.people); if(st.purpose) u.set('purpose',st.purpose); st.features.forEach(function(f){ u.append('feature',f); }); if(st.sort) u.set('sort',st.sort);
+    var u=new URLSearchParams(); if(st.region) u.set('region',st.region); if(st.people) u.set('people',st.people); if(st.purpose) u.set('purpose',st.purpose); st.features.forEach(function(f){ u.append('feature',f); });st.themes.forEach(function(t){u.append('theme',t);});if(st.fav)u.set('fav','1'); if(st.sort) u.set('sort',st.sort);
     history.replaceState(null,'', location.pathname+(u.toString()?'?'+u.toString():''));
   }
   if(q.get('sort')) $('#f-sort').value=q.get('sort');

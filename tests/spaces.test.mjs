@@ -38,7 +38,8 @@ test('공간 목록·요금표: 1호·2호가 서버 카탈로그와 확정서 �
   assert.equal(SPACE_OPENING['megaspot-gundae-2'], '2026-11-13');
 });
 
-test('홈페이지 문의: 2호 예약 신청은 저장되고, 모르는 공간은 1호로, 오픈 전 날짜는 거절', async () => {
+test('홈페이지 문의: 2호 예약 신청은 저장되고, 모르는 공간은 1호로, 오픈 전 날짜는 거절', async t => {
+  t.mock.method(Date, 'now', () => Date.parse('2026-11-01T12:00:00+09:00'));
   const { admin, inquiry } = fixture();
   const a = await inquiry({ space_id: 'megaspot-gundae-2', reserve: true, date: DATE, start_h: 19, end_h: 23, headcount: 120, total: 1159000 });
   assert.equal(a.status, 200); assert.ok(a.json.ref);

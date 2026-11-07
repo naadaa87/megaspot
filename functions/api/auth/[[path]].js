@@ -12,6 +12,7 @@ import {
   json, err, hasDb, readJson, str, now, log, hashPassword, verifyPassword, randomToken, sha256, later,
   getCookie, sessionCookies, withCookies, isEmail, clientIp, sameOrigin, getMember, tooMany, hit, clearHits, SESSION_DAYS
 } from '../_lib.js';
+import {memberWaits} from '../_reservation_waitlist.js';
 
 const PW_RULE = '비밀번호는 8자 이상, 영문과 숫자를 함께 넣어 주세요.';
 function pwOk(pw) { return typeof pw === 'string' && pw.length >= 8 && pw.length <= 100 && /[A-Za-z]/.test(pw) && /\d/.test(pw); }
@@ -128,22 +129,35 @@ export async function onRequest({ request, env, params }) {
 
     if (path === 'orders' && method === 'GET') {
       // 소유권은 검증된 세션의 member_id만 사용합니다. 이메일·전화·쿼리의 회원번호로 주문을 연결하지 않습니다.
-      const { results } = await env.DB.prepare(`SELECT o.oid, o.product_id, o.title, o.event_date, o.people, o.price, o.status, o.booking_code, o.created_at, o.appl_at,
+      const { results } = await env.DB.prepare(`SELECT o.oid, o.product_id, o.title, o.event_date, o.people, o.price, o.status, o.booking_code, o.created_at, o.appl_at,b.status AS booking_status,
         COALESCE((SELECT SUM(r.amount) FROM payapp_refunds r WHERE r.oid = o.oid), 0) AS refunded_amount
-        FROM orders o WHERE o.member_id = ? ORDER BY o.created_at DESC LIMIT 100`).bind(me.id).all();
+        FROM orders o LEFT JOIN bookings b ON b.booking_code=o.booking_code WHERE o.member_id = ? ORDER BY o.created_at DESC LIMIT 100`).bind(me.id).all();
       const items = (results || []).map(o => ({ oid: o.oid, product_id: o.product_id, title: o.title, date: o.event_date || '', people: o.people,
-        price: o.price, status: o.status, booking_code: o.booking_code || '', created_at: o.created_at, paid_at: o.appl_at || '',
+        price: o.price, status: o.status, booking_code: o.booking_code || '', booking_status:o.booking_status||null,created_at: o.created_at, paid_at: o.appl_at || '',
         refunded_amount: o.status === 'refunded' ? o.price : Math.min(o.price, o.refunded_amount || 0) }));
       return json({ ok: true, items });
     }
 
     if (path === 'inquiries' && method === 'GET') {
       const { results } = await env.DB.prepare("SELECT ref, space_id, status, event_date, headcount, data, created_at, updated_at FROM inquiries WHERE json_extract(data, '$.member_id') = ? AND status <> '삭제됨' ORDER BY created_at DESC LIMIT 100").bind(me.id).all();
+      // Only bookings attached to this authenticated member's inquiries are returned. Keep original requests intact.
+      const {results:bookings}=await env.DB.prepare(`SELECT b.inquiry_ref,b.booking_code,b.space_id,b.date,b.start_h,b.end_h,b.headcount,b.status,b.amount,b.confirm_doc
+        FROM bookings b WHERE b.status IN ('confirmed','completed') AND b.inquiry_ref IN (SELECT ref FROM inquiries WHERE json_extract(data,'$.member_id')=? AND status<>'삭제됨' ORDER BY created_at DESC LIMIT 100)
+        ORDER BY b.date,b.start_h,b.id`).bind(me.id).all();
+      const byInquiry=new Map();
+      for(const b of bookings||[]){
+        let doc={};try{doc=JSON.parse(b.confirm_doc||'{}')||{};}catch{}
+        const list=byInquiry.get(b.inquiry_ref)||[];
+        list.push({code:b.booking_code,space_id:b.space_id,date:b.date,start_h:b.start_h,end_h:b.end_h,headcount:b.headcount,status:b.status,amount:doc.show_amount===false?null:b.amount});
+        byInquiry.set(b.inquiry_ref,list);
+      }
       const items = (results || []).map(r => {
         let d = {}; try { d = JSON.parse(r.data || '{}'); } catch {}
         return { ref: r.ref, space_id: r.space_id, status: r.status, date: r.event_date || d.date || '', headcount: r.headcount, created_at: r.created_at, updated_at: r.updated_at,
-          inquiry_type: d.inquiry_type || 'event', reserve: !!d.reserve, purpose: d.purpose || '', slot: d.slot || '', t_start: d.t_start || '', t_end: d.t_end || '', start_h: d.start_h || null, end_h: d.end_h || null, pkg: d.pkg || '', total: d.total || null, estimate: d.estimate ? String(d.estimate).slice(0, 600) : '' };
+          inquiry_type: d.inquiry_type || 'event', reserve: !!d.reserve, purpose: d.purpose || '', slot: d.slot || '', t_start: d.t_start || '', t_end: d.t_end || '', start_h: d.start_h ?? null, end_h: d.end_h ?? null, pkg: d.pkg || '', total: d.total || null, estimate: d.estimate ? String(d.estimate).slice(0, 600) : '',confirmed_bookings:byInquiry.get(r.ref)||[] };
       });
+      const waits=await memberWaits(env,me.id);
+      for(const item of items)item.wait=waits.get(item.ref)||null;
       return json({ ok: true, items });
     }
 

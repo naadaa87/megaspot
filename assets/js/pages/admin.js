@@ -983,6 +983,7 @@
   var CR=null;
   function ctCalc(){
     if(!CC) return; ctRead(); CR=CC.quote(CT); var r=CR, c=r.course;
+    if(r.requiresConsultation){ $('#ct-result').innerHTML='<h2>상담 후 견적 · 합계 미포함</h2><p class="q-notes" role="status">'+esc(r.warn[0])+'</p>'; $('#ct-internal').innerHTML='<p class="small muted">인원에 맞는 코스를 정한 뒤 판매가·공급가·발주 금액을 계산합니다.</p>'; return; }
     if(r.empty){ $('#ct-result').innerHTML='<h2>고객 안내 금액</h2><div class="empty small">코스나 바베큐·생맥주를 고르면 금액이 나옵니다.</div>'; $('#ct-internal').innerHTML='<div class="empty small">—</div>'; return; }
     var rows=r.lines.map(function(l){ return '<tr><td>'+esc(l.label)+'</td><td>'+esc(won(l.amount))+'</td></tr>'; }).join('');
     var cond=[CT.date?kd(CT.date):'', CT.time?CT.time+' 식사':'', (CT.people||r.billPeople)?(CT.people||r.billPeople)+'명':''].filter(Boolean).join(' · ');
@@ -996,7 +997,7 @@
     ctInternal();
   }
   function ctVendorLines(){
-    var pricing=(window.MEGASPOT_FOOD_ADMIN_PRICES||{}).catering;if(!pricing||!CR||CR.empty)return null;
+    var pricing=(window.MEGASPOT_FOOD_ADMIN_PRICES||{}).catering;if(!pricing||!CR||CR.empty||CR.requiresConsultation)return null;
     var lookup={};pricing.forEach(function(row){lookup[row.id]=row;});
     var lines=CR.lines.map(function(l){var id=l.key==='course'?'course.'+CR.course.id+(CR.course.kind==='flat'?'.'+CR.billPeople:''):l.key==='bbq'?'bbq.'+CR.bbq.id:l.key==='delivery'?'delivery':'beer',row=lookup[id],quantity=l.key==='course'&&CR.course.kind!=='flat'?CR.billPeople:l.key==='beer'?CR.beer:1,vendor=row&&row.vendor_supply!==null?row.vendor_supply*quantity:null;if(l.key==='delivery'&&row&&l.amount!==row.sale_price)vendor=row.vendor_supply;return {label:l.label,key:l.key,amount:l.amount,vendor:vendor,cut:vendor===null?null:l.amount-vendor,people:l.people||0};});
     if(lines.some(function(l){return l.vendor===null;}))return {lines:lines,unknown:true};
@@ -1005,6 +1006,7 @@
   function ctInternal(){var box=$('#ct-internal'),v=ctVendorLines();if(!v){box.innerHTML='<p class="small muted">공급가 가격표를 불러오는 중…</p>';return;}
     box.innerHTML='<table class="q-table ct-int"><thead><tr><td>항목</td><td>판매가</td><td>공급가</td><td>마진</td></tr></thead><tbody>'+v.lines.map(function(x){return '<tr><td>'+esc(x.label)+'</td><td>'+won(x.amount)+'</td><td>'+(x.vendor===null?'미입력':won(x.vendor))+'</td><td>'+(x.cut===null?'—':won(x.cut))+'</td></tr>';}).join('')+'</tbody>'+(!v.unknown?'<tfoot><tr><td>부가세 별도 합계</td><td>'+won(CR.supply)+'</td><td>'+won(v.vSup)+'</td><td>'+won(v.cut)+'</td></tr></tfoot>':'')+'</table><p class="tiny muted mt-1">위 공급가·판매가 관리에서 저장한 항목별 가격으로 계산합니다. 공급가 미입력 항목이 있으면 발주 합계를 확정하지 않습니다.</p>';}
   function ctCustText(){
+    if(CR&&CR.requiresConsultation)return CC.summary(CR);
     var r=CR, c=r.course, cp=custParts(CT.customer), L=[];
     L.push('[메가스팟 출장뷔페 견적 안내]');
     L.push((cp[0]?cp[0]+' 님, ':'')+'문의하신 출장뷔페 구성으로 안내드립니다.');
@@ -1038,6 +1040,7 @@
     return L.join('\n');
   }
   function ctOrderText(){
+    if(CR&&CR.requiresConsultation)return '';
     var r=CR, c=r.course, v=ctVendorLines(), S=CSET||{}, codes=S.codes||{}, L=[];
     L.push('[출장뷔페 주문 요청 — 메가스팟]');
     if(CT.date) L.push('· 행사일: '+E.kdateY(CT.date)+(CT.time?' · 식사 '+CT.time:''));
@@ -1092,6 +1095,7 @@
   function ctToQuote(){
     if(CT.status==='cancelled'){M.toast('취소된 출장뷔페는 견적에 추가할 수 없습니다. 상태를 복원해 주세요.');return;}
     if(!CR||CR.empty){ M.toast('코스나 바베큐·생맥주를 먼저 골라 주세요.'); return; }
+    if(CR.requiresConsultation){ M.toast(CR.warn[0]); return; }
     if(!E||!D){ M.toast('요금표를 불러오지 못했습니다.'); return; }
     if(CT.ref && Q.ref!==CT.ref){
       var ref=CT.ref, button=$('#ct-to-quote'); button.disabled=true;
@@ -1179,6 +1183,7 @@
     ctCalc(); var t=CT.target, msg=$('#ct-msg'); msg.hidden=true;
     if(!t) return M.toast('먼저 위 ① 목록에서 예약이나 문의를 골라 주세요.');
     if(!CR||CR.empty) return M.toast('코스나 바베큐·생맥주를 먼저 골라 주세요.');
+    if(CR.requiresConsultation) return M.toast(CR.warn[0]);
     var ck=$('#ct-save-box input[name=ct-status]:checked'), b=$('#ct-save'); b.disabled=true;
     var body={ inquiry_ref:t.ref||'', booking_code:t.code||'', status:ck?ck.value:'pending', meal_time:CT.time, date:CT.date, customer:CT.customer, phone:CT.phone, space_id:CT.space,
       reception_revision:t.reception_revision, include_in_booking:t.code&&!t.ref?$('#ct-include-booking').checked:undefined, config:{ course:CT.course, people:CT.people, bbq:CT.bbq, beer:CT.beer, fee:CT.fee, note:CT.note } };
@@ -1231,9 +1236,9 @@
   if($('#ct-form')){
     $('#ct-form').addEventListener('input', ctCalc); $('#ct-form').addEventListener('change', ctCalc);
     $('#ct-reset').addEventListener('click', function(){ CT=blankCT(); ctFill(); ctCalc(); ctPickCollapse(false); drawCtTargets(); $$('#ct-check input').forEach(function(x){ x.checked=false; }); $('#ct-msg').hidden=true; });
-    $('#ct-copy-cust').addEventListener('click', function(){ ctCalc(); if(!CR||CR.empty) return M.toast('구성을 먼저 골라 주세요.'); ctCopy(ctCustText(), '고객 안내문을 복사했습니다. 카카오톡·문자에 붙여 넣으세요.'); });
+    $('#ct-copy-cust').addEventListener('click', function(){ ctCalc(); if(!CR||CR.empty) return M.toast('구성을 먼저 골라 주세요.'); if(CR.requiresConsultation) return M.toast(CR.warn[0]); ctCopy(ctCustText(), '고객 안내문을 복사했습니다. 카카오톡·문자에 붙여 넣으세요.'); });
     $('#ct-copy-menu').addEventListener('click', function(){ ctCalc(); var t=ctMenuText(); if(!t) return M.toast('코스를 먼저 골라 주세요.'); ctCopy(t, '코스 메뉴를 복사했습니다.'); });
-    $('#ct-copy-order').addEventListener('click', function(){ ctCalc(); if(!CR||CR.empty) return M.toast('구성을 먼저 골라 주세요.'); if(!CSET) return M.toast('발주처 정보를 불러온 뒤 다시 눌러 주세요.'); ctCopy(ctOrderText(), '발주 메모를 복사했습니다.'+(CSET.vendor_name?' '+CSET.vendor_name+'에 보내 주세요.':'')); });
+    $('#ct-copy-order').addEventListener('click', function(){ ctCalc(); if(!CR||CR.empty) return M.toast('구성을 먼저 골라 주세요.'); if(CR.requiresConsultation) return M.toast(CR.warn[0]); if(!CSET) return M.toast('발주처 정보를 불러온 뒤 다시 눌러 주세요.'); ctCopy(ctOrderText(), '발주 메모를 복사했습니다.'+(CSET.vendor_name?' '+CSET.vendor_name+'에 보내 주세요.':'')); });
     $('#ct-to-quote').addEventListener('click', function(){ ctCalc(); ctToQuote(); });
     $('#ct-pick').addEventListener('click', function(e){
       var k=e.target.closest('[data-ctk]'); if(k){ var was=CTP.kind; CTP.kind=k.dataset.ctk; $$('#ct-pick [data-ctk]').forEach(function(b){ b.classList.toggle('on', b===k); }); if((was==='past')!==(CTP.kind==='past')) loadCtTargets(); else drawCtTargets(); return; }
@@ -1555,7 +1560,7 @@
     var b=e.target.closest('button[data-rsact]');
     if(b){ e.stopPropagation(); var s=b.dataset.rsact;
       if(s==='cancelled'){window.dispatchEvent(new CustomEvent('admin-cancellation-open',{detail:{codes:[b.dataset.code]}}));return;}
-      if(!confirm(s==='completed'?'이용 완료로 처리할까요? 처리 후 고객이 예약번호로 후기를 쓸 수 있습니다.':'이 예약을 취소할까요? 달력의 마감 표시도 풀립니다.')) return;
+      if(!confirm(s==='confirmed'?'일정 검토 후 예약을 확정할까요? 최신 일정이 겹치면 확정하지 않습니다. 확정하면 기존 설정에 따른 안내가 이어집니다.':s==='completed'?'이용 완료로 처리할까요? 처리 후 고객이 예약번호로 후기를 쓸 수 있습니다.':'이 예약을 취소할까요? 달력의 마감 표시도 풀립니다.')) return;
       A('/bookings/'+b.dataset.code,{method:'PATCH', body:{status:s}}).then(function(){ M.toast('변경했습니다.'); loadResv(); }).catch(function(x){ if(!guard(x)) M.toast(x.message); }); return; }
   });
 

@@ -69,6 +69,10 @@ async function state(env,id,status,error='',extra={}){
 export function parkingPaidSMS(p,key){
  return '[메가스팟 주차권 결제 완료]\n차량 끝번호: '+p.plate.slice(-4)+'\n이용일: '+p.visit_date+'\n주차권: '+({'1h':'1시간권','2h':'2시간권','3h':'3시간권',daily:'일일권'})[p.ticket]+'\n이 차량 결제금액: '+format(p.price)+'원\n주문번호: '+p.oid+'\n\n평일 야간에도 등록하며, 결제·입차 확인 후 등록까지 최대 약 5분이 소요됩니다. 당일 구매·입차 요청은 23:50까지입니다. 주말·공휴일과 전날 입차·익일 연속 주차는 별도 문의해 주세요. 등록 완료를 확인한 뒤 출차해 주세요.\n\n차량 구매 내역: https://megaspot.kr/parking/purchase/#oid='+p.oid+'&key='+key+'\n문의: https://pf.kakao.com/_LnxbmX/chat';
 }
+export function parkingArrivalSMS(p,e,key){
+ const vars=parkingNoticeVariables(p,e,key);
+ return '[메가스팟 주차 등록 요청 접수]\n\n입차 알림이 접수되었습니다.\n\n주문번호: '+p.oid+'\n차량 끝번호: '+vars.차량끝번호+'\n이용일: '+p.visit_date+'\n주차권: '+vars.주차권+'\n접수일시: '+vars.접수일시+'\n\n평일 10:00~24:00에 실제 입차 기록을 자동 확인해 차량별로 주차권을 등록합니다. 입차 확인 후 등록까지 최대 약 5분이 소요됩니다.\n현재는 등록 완료 전입니다. 구매 내역에서 ‘등록 완료’를 확인한 뒤 출차해 주세요.\n5분이 지나도 완료되지 않으면 카카오톡으로 문의해 주세요.\n\n차량 구매 내역: https://megaspot.kr/parking/purchase/#oid='+p.oid+'&key='+key+'\n문의: https://pf.kakao.com/_LnxbmX/chat';
+}
 async function dispatch(env,e){
  const p=await order(env,e.oid);
  if(e.mode!=='test' && parkingNoticeObsolete(p,e)){await state(env,e.id,'cancelled','현재 상태 또는 안내 유효시간 변경');return;}
@@ -87,13 +91,15 @@ async function dispatch(env,e){
   const key=await parkingSign(env.ALIGO_RELAY_SECRET,'parking-link-v1:'+id);
   const expires=Math.max(Date.now(),Date.parse(p.visit_date+'T23:59:59+09:00'))+7*86400000;
   await env.DB.prepare('INSERT INTO parking_notification_links(notification_id,oid,token_hash,expires_at) VALUES(?,?,?,?)').bind(e.id,p.oid,await sha256(key),expires).run();
-  // The approved v1 payment template mentions the retired 18:00 cutoff.
-  // During v2 review the user authorized this transaction notice as LMS.
-  if(e.kind==='paid'&&e.mode!=='test'&&env.PARKING_PAID_SMS!=='false'){
-   const r=await provider(env,'parking-paid/send',{receiver,msg:parkingPaidSMS(p,key)},id);
-   if(Number(r.result_code)!==1){await state(env,e.id,'failed','결제 안내 문자 접수 거절');return;}
-   if(!r.msg_id||Number(r.success_cnt)!==1||Number(r.error_cnt)!==0){await state(env,e.id,'unknown','결제 안내 문자 접수 결과 확인 필요');return;}
-   await state(env,e.id,'accepted','결제 안내 새 알림톡 심사 중 · 문자 발송',{mid:'sms:'+r.msg_id,sms:String(r.msg_id)});return;
+  // Keep registered v1 text and the approval fingerprint intact. Payment and
+  // arrival transaction notices use their restricted LMS routes until v2 is approved.
+  const directSMS=e.mode!=='test'&&(e.kind==='paid'&&env.PARKING_PAID_SMS!=='false'||e.kind==='arrival_received'&&env.PARKING_ARRIVAL_SMS!=='false');
+  if(directSMS){
+   const arrival=e.kind==='arrival_received',label=arrival?'입차 접수':'결제 안내';
+   const r=await provider(env,arrival?'parking-arrival/send':'parking-paid/send',{receiver,msg:arrival?parkingArrivalSMS(p,e,key):parkingPaidSMS(p,key)},id);
+   if(Number(r.result_code)!==1){await state(env,e.id,'failed',label+' 문자 접수 거절');return;}
+   if(!r.msg_id||Number(r.success_cnt)!==1||Number(r.error_cnt)!==0){await state(env,e.id,'unknown',label+' 문자 접수 결과 확인 필요');return;}
+   await state(env,e.id,'accepted',label+' 새 알림톡 승인·전환 전 · 문자 발송',{mid:'sms:'+r.msg_id,sms:String(r.msg_id)});return;
   }
   const vars=parkingNoticeVariables(p,e,key),message=parkingNoticeRender(actual.templtContent,vars),buttons=B.map(b=>({...b,linkMo:parkingNoticeRender(b.linkM,vars),linkPc:parkingNoticeRender(b.linkP,vars)})).map(({name,linkType,linkMo,linkPc})=>({name,linkType,linkMo,linkPc}));
   const sms=parkingNoticeRender(T[e.kind].sms,vars);
@@ -108,7 +114,8 @@ async function refresh(env,e){
  if(String(e.provider_mid).startsWith('sms:')){
   const r=await provider(env,'sms/detail',{mid:e.sms_mid,page_size:'50'});if(Number(r.result_code)!==1)return;
   for(const x of r.list||[]){if(/^20\d{2}-\d{2}-\d{2} /.test(x.send_date||'') && await sha256(phone(x.receiver))===e.phone_hash && !/중|대기|예약|접수/.test(x.sms_state||'')){
-   await state(env,e.id,x.sms_state==='발송완료'?'sms_delivered':'failed',x.sms_state==='발송완료'?'결제 안내 문자 도착': '결제 안내 문자 전송 실패');return;
+   const label=e.kind==='arrival_received'?'입차 접수':'결제 안내';
+   await state(env,e.id,x.sms_state==='발송완료'?'sms_delivered':'failed',x.sms_state==='발송완료'?label+' 문자 도착':label+' 문자 전송 실패');return;
   }}return;
  }
  const r=await provider(env,'history/detail',{mid:e.provider_mid,limit:'50'});
@@ -153,7 +160,7 @@ export async function parkingNoticeAdmin(request,env,path){
  const method=request.method,hash=await fingerprint(env),s=await config(env);
  if(path==='admin/notifications' && method==='GET'){
   const {results}=await env.DB.prepare('SELECT id,oid,kind,mode,status,provider_mid,sms_mid,error,occurred_at,updated_at FROM parking_notifications ORDER BY id DESC LIMIT 100').all();
-  return json({ok:true,enabled:s.enabled,live_allowed:env.ALIGO_LIVE_ENABLED==='true',configured:configured(env),test_delivered:await tested(env,hash),items:results||[],sms_fallback:true,paid_notice_channel:env.PARKING_PAID_SMS==='false'?'alimtalk':'sms',templates:Object.entries(T).map(([kind,t])=>({kind,name:t.name,code:t.code,content:t.content,sms:t.sms}))});
+  return json({ok:true,enabled:s.enabled,live_allowed:env.ALIGO_LIVE_ENABLED==='true',configured:configured(env),test_delivered:await tested(env,hash),items:results||[],sms_fallback:true,paid_notice_channel:env.PARKING_PAID_SMS==='false'?'alimtalk':'sms',arrival_notice_channel:env.PARKING_ARRIVAL_SMS==='false'?'alimtalk':'sms',templates:Object.entries(T).map(([kind,t])=>({kind,name:t.name,code:t.code,content:t.content,sms:t.sms}))});
  }
  if(path==='admin/notifications/check' && method==='POST')return json({ok:true,items:await approvals(env)});
  if(path==='admin/notifications/settings' && method==='PUT'){

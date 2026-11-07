@@ -1,0 +1,24 @@
+{
+  "code": null,
+  "name": "메가스팟_주차권_입차접수_자동등록_v2",
+  "status": "draft_not_submitted",
+  "prepared_date": "2026-11-07",
+  "content": "[메가스팟 주차 등록 요청 접수]\n\n입차 알림이 접수되었습니다.\n\n주문번호: #{주문번호}\n차량 끝번호: #{차량끝번호}\n이용일: #{이용일}\n주차권: #{주차권}\n접수일시: #{접수일시}\n\n평일 10:00~24:00에 실제 입차 기록을 자동 확인해 차량별로 주차권을 등록합니다.\n입차 확인 후 등록까지 최대 약 5분이 소요됩니다.\n현재는 등록 완료 전입니다.\n아래 구매 내역에서 ‘등록 완료’를 확인한 뒤 출차해 주세요.\n5분이 지나도 완료되지 않으면 카카오톡으로 문의해 주세요.",
+  "buttons": [
+    {
+      "name": "주차권 내역 확인",
+      "linkType": "WL",
+      "linkMo": "https://megaspot.kr/parking/purchase/#oid=#{주문번호}&key=#{구매내역키}",
+      "linkPc": "https://megaspot.kr/parking/purchase/#oid=#{주문번호}&key=#{구매내역키}"
+    },
+    {
+      "name": "카카오톡 문의",
+      "linkType": "WL",
+      "linkMo": "https://pf.kakao.com/_LnxbmX/chat",
+      "linkPc": "https://pf.kakao.com/_LnxbmX/chat"
+    }
+  ],
+  "sms_fallback": true,
+  "interim_delivery": "운영 반영 후 입차 접수는 기존 승인·시험 수신·고객 발송 잠금을 그대로 확인하고 전용 parking-arrival/send LMS로 안내합니다. 이 파일은 심사 제출 전 초안이며 기존 승인 v1 코드·본문·버튼과 설정 지문은 변경하지 않습니다.",
+  "activation_note": "먼저 릴레이의 parking-arrival/send 경로를 운영 반영·검증한 뒤 홈페이지 발송 코드를 반영해야 합니다. 외부 템플릿 등록·심사 승인, 승인 본문·버튼 일치 확인, 운영자 시험 수신 및 명시적 전환 전에는 v2 알림톡으로 발송하지 않습니다. 로컬 변경만으로 운영 서버·고객 발송 설정을 바꾸지 않습니다."
+}

@@ -34,8 +34,8 @@ test('매니저와 일회용품의 지원 범위를 벗어난 옵션은 축소 �
 test('기존 4시간·20인분 단위 옵션 주문과 단독 상품은 가격 호환을 유지한다',()=>{
   const input=passInput(),o=buildOrder({...input,addons:{manager:2,disposable:2}});
   assert.equal(o.lines.find(x=>x.id==='addon-manager').amount,200000);assert.equal(o.lines.find(x=>x.id==='addon-disposable').amount,200000);
-  assert.equal(buildOrder({product_id:'addon-manager',qty:2}).total,200000);
-  assert.equal(buildOrder({product_id:'addon-disposable',qty:3}).total,300000);
+  assert.equal(buildOrder({product_id:'addon-manager',date:kstToday(7),qty:2}).total,200000);
+  assert.equal(buildOrder({product_id:'addon-disposable',date:kstToday(7),qty:3}).total,300000);
 });
 async function memberFixture(){
   const db=new DatabaseSync(':memory:');db.exec(readFileSync(new URL('../schema.sql',import.meta.url),'utf8'));

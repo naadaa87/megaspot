@@ -106,7 +106,7 @@ def build_catering():
             while pdfmetrics.stringWidth(item,font,size)>278:size-=.25
             text(x,y,item,size,'#1F53D5' if heading else '#262B2E',font)
         text(48,76,'메뉴는 계절·식재료 수급에 따라 일부 달라질 수 있습니다. 특정 메뉴 변경은 상담해 주세요.',10,'#5B6168')
-        if co.get('live'):text(48,58,'즉석 코너: '+co['live'],9,'#5B6168')
+        if co.get('live'):text(48,58,'즉석 코너 · '+str(co.get('liveMin',100))+'인 이상: '+co['live'],9,'#5B6168')
         end()
     begin('바베큐 · 생맥주','실내형 완제품 바베큐 · 부가세 별도 판매가')
     for i,b in enumerate(CAT['bbq']['rows']):

@@ -10,7 +10,7 @@
   // 공간 선택: ?space=megaspot-gundae-2 로 열면 2호 계산기부터 보여 줍니다 (pricing-ui.js 가 data-space-query 자리를 보고 고릅니다)
   var SPACES=(window.MEGASPOT_PRICING||{}); var space=SPACES[q.get('space')] ? q.get('space') : (M.eventPlan&&SPACES[M.eventPlan.space()]?M.eventPlan.space():'megaspot-gundae');
   var sw=$('#space-switch'), est=$('#estimator');
-  function markSpace(id){ if(!sw) return; sw.querySelectorAll('[data-space]').forEach(function(b){ var on=b.dataset.space===id; b.setAttribute('aria-selected',String(on)); b.classList.toggle('on',on); }); var hid=document.querySelector('#inquiry-form [name=space_id]'); if(hid && hid.value!=='request') hid.value=id; }
+  function markSpace(id){ if(!sw) return; sw.querySelectorAll('[data-space]').forEach(function(b){ var on=b.dataset.space===id; b.setAttribute('aria-selected',String(on)); b.classList.toggle('on',on); }); var hid=document.querySelector('#inquiry-form [name=space_id]'); if(hid && hid.value!=='request'){hid.value=id;hid.dispatchEvent(new Event('change',{bubbles:true}));} }
   markSpace(space);
   if(sw && est){
     sw.addEventListener('click', function(e){

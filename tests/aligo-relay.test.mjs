@@ -64,4 +64,37 @@ test('아마노 등록 오류·잔액 부족 문자도 승인 관리자 번호�
 
 test('승인된 결제 안내 LMS는 고정 발신번호로 보내고 동일 요청을 중복 발송하지 않는다',async t=>{const f=fixture(t),msg='[메가스팟 주차권 결제 완료]\n평일 야간 자동 등록\n문의: https://pf.kakao.com/_LnxbmX/chat',v=f.input({path:'parking-paid/send',data:{receiver:'01011112222',msg,sender:'other',key:'bad'}});await f.send(v);await f.send(v);assert.equal(f.calls.length,1);assert.equal(f.calls[0].url,'https://apis.aligo.in/send/');assert.equal(f.calls[0].body.get('receiver'),'01011112222');assert.equal(f.calls[0].body.get('sender'),f.env.ALIGO_SENDER);assert.equal(f.calls[0].body.get('msg_type'),'LMS');assert.equal(f.calls[0].body.get('key'),f.env.ALIGO_API_KEY);for(const bad of ['광고 안내',msg.replace('010','')+' extra',msg+' #{남은변수}'])assert.equal((await f.send(f.input({path:'parking-paid/send',data:{receiver:'01011112222',msg:bad}}))).status,400);});
 
+const arrivalMessage='[메가스팟 주차 등록 요청 접수]\n실제 입차 자동 확인 · 최대 약 5분 · 등록 완료 확인 후 출차\n문의: https://pf.kakao.com/_LnxbmX/chat';
+test('입차 안내 전용 LMS는 고정 발신자·허용 필드·서명·지속 중복 잠금으로만 발송한다',async t=>{
+ const f=fixture(t),v=f.input({path:'parking-arrival/send',data:{receiver:'01011112222',msg:arrivalMessage,sender:'other',key:'bad',receiver_2:'01099998888',url:'https://evil.test'}});
+ assert.equal((await f.send(v,'wrong-secret')).status,401);assert.equal(f.calls.length,0);
+ const upstream=async(url,opts)=>{f.calls.push({url,body:new URLSearchParams(opts.body)});return Response.json({result_code:1,msg_id:'888',success_cnt:1,error_cnt:0});};
+ assert.equal((await relayRequest(f.request(v),f.env,f.ledger,upstream)).status,200);
+ const call=f.calls[0],body=call.body;assert.equal(call.url,'https://apis.aligo.in/send/');assert.equal(body.get('receiver'),'01011112222');assert.equal(body.get('sender'),f.env.ALIGO_SENDER);assert.equal(body.get('msg_type'),'LMS');assert.equal(body.get('title'),'메가스팟 주차 등록 요청 접수');assert.equal(body.get('key'),f.env.ALIGO_API_KEY);assert.equal(body.get('receiver_2'),null);assert.equal(body.get('url'),null);assert.equal(body.get('senderkey'),null);assert.equal(f.ledger.ownsSmsMid('888'),true);
+ assert.equal((await relayRequest(f.request(v),f.env,relayLedger(f.db),()=>assert.fail('duplicate after restart'))).status,200);assert.equal(f.calls.length,1);
+ v.data.msg=arrivalMessage.replace('5분','약 5분');assert.equal((await f.send(v)).status,409);
+});
+test('입차 LMS는 입차 접수 접두어·문의 접미어·900자·변수 치환·휴대폰 형식을 제한한다',async t=>{
+ const f=fixture(t);
+ for(const msg of [undefined,'광고 안내',arrivalMessage.replace('등록 요청 접수','결제 완료'),arrivalMessage+' extra',arrivalMessage.replace('\n문의: ','\n'),arrivalMessage.replace('자동 확인','#{미치환}'),arrivalMessage.replace('자동 확인','가'.repeat(901))]){
+  assert.equal((await f.send(f.input({path:'parking-arrival/send',data:{receiver:'01011112222',msg}}))).status,400);
+ }
+ for(const receiver of ['0211112222','+821011112222','010-1111-2222','01011112222222',''])assert.equal((await f.send(f.input({path:'parking-arrival/send',data:{receiver,msg:arrivalMessage}}))).status,400);
+ assert.equal(f.calls.length,0);
+});
+test('입차 문자 통신 불명은 재시작 후에도 다시 발송하지 않는다',async t=>{
+ const f=fixture(t),v=f.input({path:'parking-arrival/send',data:{receiver:'01011112222',msg:arrivalMessage}});f.fail();
+ assert.equal((await f.send(v)).status,502);
+ assert.equal((await relayRequest(f.request(v),f.env,relayLedger(f.db),()=>assert.fail('retry after unknown'))).status,409);assert.equal(f.calls.length,1);
+});
+
+test('운영 중인 소셜팩토리 관리자 경로와 수신자 교집합·전용 본문 제한을 유지한다',async t=>{
+ const f=fixture(t);f.env.ALIGO_PARKING_ADMIN_RECEIVERS='01011112222,01033334444';f.env.SOCIALFACTORY_PARKING_ADMIN_RECEIVERS='01011112222,01099998888';
+ const status=await f.send(f.input({path:'socialfactory-admin/status',data:{}}));assert.deepEqual(await status.json(),{ready:true,receiver_last4:['2222']});assert.equal(f.calls.length,0);
+ const msg='[소셜팩토리 주차권 자동 등록 오류]\n운영 확인 필요\nhttps://socialfactory.co.kr/admin#parking';
+ for(const receiver of ['01033334444','01099998888'])assert.equal((await f.send(f.input({path:'socialfactory-admin/send',data:{receiver,msg}}))).status,403);
+ for(const invalid of [msg.replace('소셜팩토리','메가스팟'),msg.replace('자동 등록 오류','결제 완료'),msg.replace('socialfactory.co.kr/admin#parking','evil.test'),msg+'x'])assert.equal((await f.send(f.input({path:'socialfactory-admin/send',data:{receiver:'01011112222',msg:invalid}}))).status,403);
+ const valid=f.input({path:'socialfactory-admin/send',data:{receiver:'01011112222',msg}});assert.equal((await f.send(valid)).status,200);assert.equal(f.calls.length,1);assert.equal(f.calls[0].body.get('title'),'소셜팩토리 주차권 관리자 알림');await f.send(valid);assert.equal(f.calls.length,1);
+});
+
 test('실주문 검증 결과 두 종류는 기존 승인 관리자·고정 링크·지속 중복 방지를 유지한다',async t=>{const f=fixture(t);f.env.ALIGO_PARKING_ADMIN_RECEIVERS='01011112222';for(const kind of ['검증 완료','검증 확인 필요']){const v=f.input({path:'parking-admin/send',data:{receiver:'01011112222',msg:'[메가스팟 주차권 '+kind+']\n실제 주문 확인 결과\nhttps://megaspot.kr/admin/#parking'}});assert.equal((await f.send(v)).status,200);assert.equal((await f.send(v)).status,200);v.request_id=randomUUID();v.data.receiver='01099998888';assert.equal((await f.send(v)).status,403);}assert.equal(f.calls.length,2);});
