@@ -51,6 +51,7 @@
     + '<div class="f"><label for="iq-people">인원</label><input class="input" type="number" inputmode="numeric" min="1" max="350" id="iq-people" name="headcount" value="'+esc(pf.people||'')+'" placeholder="예: 80"></div>'
     + '<div class="f"><label for="iq-purpose">모임 유형</label><select class="select" id="iq-purpose" name="purpose"><option value="">선택 안 함</option>'+opt(PUR, pf.purpose)+'<option value="other"'+(pf.purpose==='other'?' selected':'')+'>기타</option></select></div>'
     + '</div>'
+    + '<div id="iq-wait" class="notice reservation-wait" role="status" aria-live="polite" hidden></div>'
     + '<div class="f"><span class="lbl">시간대</span><div class="pick" id="iq-slot">'+SLOTS.map(function(s){ return '<button type="button" data-v="'+s[0]+'"'+(s[0]===(pf.slot||'undecided')?' class="on"':'')+'>'+esc(s[1])+'</button>'; }).join('')+'</div><input type="hidden" name="slot" value="'+esc(pf.slot||'undecided')+'"></div>'
     + '<div class="field-row" id="iq-regular-row" hidden>'
     + '<div class="f"><label for="iq-cycle">반복 주기</label><select class="select" id="iq-cycle" name="repeat_cycle">'+opt(CYCLE,'')+'</select></div>'
@@ -93,15 +94,19 @@
     return L.join('\n');
   }
 
-  function donePanel(ref, d, live){
+  function donePanel(ref, d, live, wait){
     var text=summary(d), t=d.inquiry_type||'event', kakao=M.CONFIG.kakaoChannel;
+    var ownWait=live&&wait&&wait.date===d.date&&wait.space_id===d.space_id&&Number.isSafeInteger(wait.no)&&wait.no>=1&&Number.isSafeInteger(wait.total)&&wait.total>=wait.no;
+    if(ownWait)text+='\n접수 시점 예약대기 '+wait.no+'번 · 총 '+wait.total+'건 (예약 확정 전 · 담당자 결제 안내)';
     var next = t==='partner' ? '제안 내용을 확인한 담당자가 직접 연락드립니다. 협력 범위와 조건은 요금표와 별도로 협의합니다.'
       : t==='regular' ? '반복 주기와 기간을 확인해 회차별 일정과 정기 이용 조건을 안내드립니다.'
       : '영업시간에 들어온 문의는 보통 2시간 안에 첫 답을 드립니다. 날짜가 정해져 있다면 \'예약 신청 · 금액 확인\'에서 금액을 보고 바로 신청할 수도 있습니다.';
+    if(ownWait)next='같은 호점·이용일 기준의 예약대기입니다. 1번도 예약 확정은 아니며, 대기 중에는 온라인 결제가 제한됩니다. 담당자가 순번과 이용 가능 여부를 확인한 뒤 결제 방법을 안내합니다.';
     return '<div class="card" style="border-color:var(--cobalt)">'
       + '<div class="row between"><div class="eyebrow">'+(live?'Received':'Draft')+'</div><span class="badge '+(live?'badge-ok':'badge-warn')+'">'+(live?'문의 접수':'체험 모드 · 전송 대기')+'</span></div>'
       + '<h3 class="h-m mt-1">'+(live?'문의가 접수되었습니다':'문의 내용이 준비되었습니다')+'</h3>'
       + '<div class="oc-code mt-2"><small>접수번호</small><b>'+esc(ref)+'</b></div>'
+      + (ownWait?'<div class="notice reservation-wait mt-3" role="status"><div><b>접수 시점 내 예약대기 <strong>'+wait.no+'번</strong> · 총 '+wait.total+'건</b><p>'+esc((wait.space_id==='megaspot-gundae-2'?'건대 2호':'건대 1호')+' · '+wait.date)+' 기준입니다.</p></div></div>':'')
       + (d.visit_wish && M.visitLabel ? '<div class="visit-done mt-2"><b>현장답사 희망도 함께 받았습니다</b><span>'+esc(M.visitLabel(d.visit_wish))+' — 담당자가 연락드려 답사 시간을 확정합니다.</span></div>' : '')
       + (live ? '<p class="small muted mt-2">'+esc(next)+'</p>'
               : '<p class="small muted mt-2">지금은 서버가 연결되지 않아 자동 저장되지 않았습니다. 아래 내용을 카카오톡으로 보내 주시면 같은 순서로 안내드립니다.</p>')
@@ -138,6 +143,7 @@
       var hint=$f('#iq-type-hint'); if(hint) hint.textContent = t==='event' ? '날짜가 정해진 행사는 위 \'예약 신청 · 금액 확인\'에서 금액을 보고 바로 신청하는 편이 빠릅니다.' : '';
       $f('#iq-submit').innerHTML = esc(SUBMIT[t])+' <span class="arrow">→</span>';
       form.querySelectorAll('.invalid').forEach(function(el){ el.classList.remove('invalid'); });
+      if(dateIn)refreshWait();
     }
     if(typeBox) typeBox.addEventListener('click', function(e){ var b=e.target.closest('.iq-type'); if(b) setType(b.dataset.v); });
     if(CC) CC.bind(form, 'cat', function(){ return $f('#iq-people').value; });
@@ -150,6 +156,21 @@
     seg.addEventListener('click', function(e){ var b=e.target.closest('button'); if(b) setSlot(b.dataset.v); });
     setSlot(slotIn.value);
     var dateIn=$f('#iq-date'); dateIn.min=M.fmtDate(new Date());
+    var waitSequence=0,waitTimer,waitBox=$f('#iq-wait');
+    function refreshWait(){
+      var token=++waitSequence,date=dateIn.value,space=$f('input[name=space_id]').value;
+      clearTimeout(waitTimer);waitBox.hidden=true;
+      if(form.hidden||!/^\d{4}-\d{2}-\d{2}$/.test(date)||['megaspot-gundae','megaspot-gundae-2'].indexOf(space)<0)return;
+      waitBox.hidden=false;waitBox.textContent='희망일의 예약대기를 확인하고 있습니다…';
+      waitTimer=setTimeout(function(){
+        M.api('/pay/availability?'+new URLSearchParams({date:date,space:space})).then(function(r){
+          if(token!==waitSequence||form.hidden||dateIn.value!==date||$f('input[name=space_id]').value!==space)return;
+          if(r.date!==date||r.space!==space||!Number.isSafeInteger(r.pending_count)||r.pending_count<0||r.next_wait_no!==r.pending_count+1)throw Error('대기 현황을 확인하지 못했습니다.');
+          waitBox.textContent=r.pending_count?'이 호점·이용일 예약대기 '+r.pending_count+'건 · 지금 접수 시 예상 '+r.next_wait_no+'번입니다. 대기 중에는 온라인 결제가 제한되며 상담 신청은 가능합니다.':'현재 이 호점·이용일의 예약대기는 없습니다. 지금 접수 시 예상 1번이며, 접수 후 담당자가 순서대로 결제를 안내합니다.';
+        }).catch(function(){if(token===waitSequence&&!form.hidden)waitBox.textContent='예약대기 현황을 확인하지 못했습니다. 접수 후 담당자가 정확한 순번과 이용 가능 여부를 안내합니다.';});
+      },150);
+    }
+    dateIn.addEventListener('change',refreshWait);$f('input[name=space_id]').addEventListener('change',refreshWait);refreshWait();
     $f('#iq-phone').addEventListener('input', function(){ var v=this.value.replace(/[^0-9]/g,'').slice(0,11); if(v.length>7) v=v.replace(/(\d{3})(\d{3,4})(\d{4})/,'$1-$2-$3'); else if(v.length>3) v=v.replace(/(\d{3})(\d+)/,'$1-$2'); this.value=v; });
 
     form.addEventListener('submit', function(e){
@@ -166,7 +187,8 @@
       var btn=$f('#iq-submit'); btn.disabled=true; btn.textContent='보내는 중…';
       if(M.receptionSelection)d.reception=Object.assign({},M.receptionSelection,{people:M.receptionSelection.people||d.headcount});
       M.api('/inquiry',{method:'POST', body:d}).then(function(r){
-        form.hidden=true; done.hidden=false; done.innerHTML=(r.member?'<div class="member-line on mb-3"><span><b>회원 문의로 저장했습니다.</b> 진행 상태는 마이페이지에서 확인할 수 있습니다.</span><a class="btn btn-light btn-sm" href="/mypage/">마이페이지 →</a></div>':'')+donePanel(r.ref, d, true); bind(); done.scrollIntoView({behavior:'smooth',block:'start'});
+        if(M.reservations&&M.reservations.invalidate)M.reservations.invalidate();
+        form.hidden=true; waitSequence++;clearTimeout(waitTimer);done.hidden=false; done.innerHTML=(r.member?'<div class="member-line on mb-3"><span><b>회원 문의로 저장했습니다.</b> 진행 상태는 마이페이지에서 확인할 수 있습니다.</span><a class="btn btn-light btn-sm" href="/mypage/">마이페이지 →</a></div>':'')+donePanel(r.ref, d, true, r.wait); bind(); done.scrollIntoView({behavior:'smooth',block:'start'});
       }).catch(function(ex){
         if(ex.code==='NO_API'){ var ref=M.localRef('MS'); form.hidden=true; done.hidden=false; done.innerHTML=donePanel(ref, d, false); bind(); done.scrollIntoView({behavior:'smooth',block:'start'}); }
         else { err.textContent=ex.message||'전송에 실패했습니다. 잠시 후 다시 시도해 주세요.'; err.hidden=false; }
@@ -176,10 +198,10 @@
     function bind(){
       var k=done.querySelector('#iq-kakao'); if(k) k.addEventListener('click', function(){ copyText(done.querySelector('#iq-summary').textContent, '문의 내용을 복사했습니다. 카카오톡 채팅창에 붙여 넣어 보내 주세요.'); });
       var c=done.querySelector('#iq-copy'); if(c) c.addEventListener('click', function(){ copyText(done.querySelector('#iq-summary').textContent, '문의 내용을 복사했습니다.'); });
-      var a=done.querySelector('#iq-again'); if(a) a.addEventListener('click', function(){ var t=cur; form.reset(); setType(t); setSlot('undecided'); var vb=form.querySelector('.visit-ask-body'); if(vb) vb.hidden=true; form.hidden=false; done.hidden=true; form.scrollIntoView({behavior:'smooth'}); });
+      var a=done.querySelector('#iq-again'); if(a) a.addEventListener('click', function(){ var t=cur; form.reset(); setType(t); setSlot('undecided'); var vb=form.querySelector('.visit-ask-body'); if(vb) vb.hidden=true; form.hidden=false; done.hidden=true; refreshWait();form.scrollIntoView({behavior:'smooth'}); });
     }
     var api = {
-      setDate:function(iso){ dateIn.value=iso; dateIn.classList.remove('invalid'); },
+      setDate:function(iso){ dateIn.value=iso; dateIn.classList.remove('invalid'); refreshWait(); },
       setSlot:setSlot, setType:setType,
       setPurpose:function(v){ var el=$f('#iq-purpose'); if(el && v && el.querySelector('option[value="'+v+'"]')) el.value=v; },
       prefill:function(p){ p=p||{}; if(p.type) setType(p.type); if(p.date) api.setDate(p.date); if(p.slot) setSlot(p.slot); if(p.purpose) api.setPurpose(p.purpose); if(p.people){ $f('#iq-people').value=p.people; } },

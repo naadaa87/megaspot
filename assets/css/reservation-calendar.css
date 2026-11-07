@@ -53,3 +53,7 @@
 .rv-availability button:focus-visible,.rv-availability-summary button:focus-visible{outline:3px solid #1f53d5;outline-offset:2px}
 .rv-availability-summary{margin-bottom:20px;padding:14px 16px;border-radius:8px;background:#fff7ef;color:#823b21;font-size:13px;line-height:1.8}.rv-availability-summary button{display:block;margin-top:10px}
 @media(max-width:719px){.rv-availability{padding:14px 12px}.rv-availability-choices{display:grid;grid-template-columns:1fr}.rv-availability-choices button{width:100%}}
+
+/* Waiting requests remain distinct from confirmed occupancy. */
+.rc-wait-dot{display:grid;gap:1px;border:1px dashed #b67624;background:#fff3db;color:#805018;line-height:1.2;text-align:center;max-width:100%;padding:2px 3px}.rc-wait-dot span{display:block;font-size:10px;letter-spacing:-.03em}.rc-wait-legend{color:#805018}.rc-pending{padding:12px;border-radius:7px;border:1px solid #ecd4af;background:#fff7e8;color:#805018;font-size:13px;line-height:1.7;margin:0 0 14px}.rc-pending b{display:block}.rc-pending p{margin:5px 0 0;font-size:12px}.rv-availability[data-state="waiting"]{background:#fff7e8;border-color:#ecd4af;color:#805018}.reservation-wait b{display:block}.reservation-wait p{margin:6px 0 0}.reservation-wait strong{color:var(--cobalt,#1f53d5)}
+@media(max-width:359px){.rc-wait-dot{padding:2px 1px}.rc-wait-dot span{font-size:9px}}

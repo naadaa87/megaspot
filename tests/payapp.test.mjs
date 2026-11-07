@@ -29,7 +29,7 @@ test('설정은 비밀값을 노출하지 않고 키 없으면 주문 생성 차
 test('결제 요청은 서버 금액·서명·주문 nonce로 만들어지고 키가 브라우저에 전달되지 않음',async(t)=>{
   const f=fixture(),product=PRODUCTS.items.find(x=>x.kind==='addon');let sent;
   t.mock.method(globalThis,'fetch',async(url,opts)=>{assert.equal(url,'https://api.payapp.kr/oapi/v2');sent=new URLSearchParams(opts.body);return new Response(new URLSearchParams({state:'1',mul_no:'12345',payurl:'https://payapp.kr/test-payment'}));});
-  const r=await f.call('prepare','POST',{product_id:product.id,qty:2,price:1,buyer:{name:'테스트',phone:'01012345678'},agree_terms:true,agree_privacy:true,agree_refund:true});
+  const r=await f.call('prepare','POST',{product_id:product.id,date:kstToday(7),qty:2,price:1,buyer:{name:'테스트',phone:'01012345678'},agree_terms:true,agree_privacy:true,agree_refund:true});
   const result=await r.json();assert.equal(r.status,200);assert.equal(result.total,product.price*2);assert.equal(sent.get('price'),String(product.price*2));assert.equal(sent.get('smsuse'),'n');assert.equal(sent.get('checkretry'),'y');assert.equal(sent.get('feedbackurl'),ORIGIN+'/api/pay/feedback');
   assert.equal(sent.get('hash'),await sha256(f.env.PAYAPP_USERID+sent.get('requestdate')+f.env.PAYAPP_REQUESTKEY));assert.equal(sent.has('requestkey'),false);
   assert.equal(f.order(result.oid).status,'created');assert.equal(f.db.prepare('SELECT mul_no FROM payapp_payments WHERE oid=?').get(result.oid).mul_no,'12345');
@@ -69,7 +69,7 @@ test('API 응답보다 먼저 도착한 통보도 같은 거래로 연결',async
   assert.equal(await(await f.call('feedback','POST',await f.form(o))).text(),'SUCCESS');assert.equal(f.order(o.oid).status,'paid');
 });
 test('결제 요청 실패·통신 실패는 완료 처리하지 않음',async(t)=>{
-  const f=fixture(),product=PRODUCTS.items.find(x=>x.kind==='addon'),body={product_id:product.id,buyer:{name:'테스트',phone:'01012345678'},agree_terms:true,agree_privacy:true,agree_refund:true};
+  const f=fixture(),product=PRODUCTS.items.find(x=>x.kind==='addon'),body={product_id:product.id,date:kstToday(7),buyer:{name:'테스트',phone:'01012345678'},agree_terms:true,agree_privacy:true,agree_refund:true};
   t.mock.method(globalThis,'fetch',async()=>new Response('state=0&errno=70060&errorMessage=secret'));
   assert.equal((await f.call('prepare','POST',body)).status,502);assert.equal(f.db.prepare('SELECT status FROM orders').get().status,'failed');
 });
@@ -85,7 +85,7 @@ test('서로 다른 원거래와 nonce는 다른 주문을 갱신할 수 없음'
 });
 test('결제 요청 타임아웃은 확정하지 않으며 뒤늦은 통보를 받을 수 있게 유지',async(t)=>{
   const f=fixture(),p=PRODUCTS.items.find(x=>x.kind==='addon');t.mock.method(globalThis,'fetch',async()=>{throw new Error('timeout');});
-  const r=await f.call('prepare','POST',{product_id:p.id,buyer:{name:'테스트',phone:'01012345678'},agree_terms:true,agree_privacy:true,agree_refund:true});assert.equal(r.status,502);assert.equal(f.db.prepare('SELECT status FROM orders').get().status,'created');assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM payapp_payments').get().n,1);
+  const r=await f.call('prepare','POST',{product_id:p.id,date:kstToday(7),buyer:{name:'테스트',phone:'01012345678'},agree_terms:true,agree_privacy:true,agree_refund:true});assert.equal(r.status,502);assert.equal(f.db.prepare('SELECT status FROM orders').get().status,'created');assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM payapp_payments').get().n,1);
 });
 test('관리자는 페이앱 주문 상태를 수동 덮어쓸 수 없고 환불 차감액을 조회',async()=>{
   const {onRequest:adminApi}=await import('../functions/api/admin/[[path]].js');

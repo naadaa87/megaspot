@@ -9,6 +9,11 @@ export function cateringQuote(o, fee, data=CATERING) {   // fee: 관리자가 �
   const bbq = D.bbq.rows.find(x => x.id === String(o.bbq || '')) || null;
   const beer = Math.max(0, Math.min(20, Math.round(+o.beer || 0)));
   const people = Math.max(0, Math.min(999, Math.round(+o.people || 0)));
+  if (course && course.kind === 'flat' && people > course.max) return {
+    course: course.id, course_name: course.name, people, bill_people: null, bbq: bbq ? bbq.id : '', bbq_name: bbq ? bbq.size : '', beer,
+    fee: null, supply: null, vat: null, total: null, version: D.version, requires_consultation: true,
+    summary: course.name + ' ' + people + '명 희망 — 상담 후 견적 (' + course.max + '인 초과 · 인원에 맞는 코스 재선택 필요)'
+  };
   let bill = 0, supply = 0;
   if (course) {
     if (course.kind === 'flat') { const t = people > 20 ? course.tiers[1] : course.tiers[0]; bill = t.people; supply += t.price; }
@@ -35,7 +40,7 @@ export function cateringFrom(c,data) {
 // 관리자 화면 '출장뷔페'에서 문의에 저장하는 구성 (출장·세팅비 조정과 메모 포함)
 export function cateringAdmin(c,data) {
   if (!c || typeof c !== 'object' || Array.isArray(c)) return null;
-  const q = cateringQuote(c, c.fee,data); if (!q) return null;
+  const q = cateringQuote(c, c.fee,data); if (!q || q.requires_consultation) return null;
   q.note = String(c.note == null ? '' : c.note).slice(0, 300); q.by = 'admin';
   return q;
 }

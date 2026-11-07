@@ -29,8 +29,9 @@
       + '<span><b>'+esc(s.area.pyeong)+'</b>평</span>'
       + '<span>최대 <b>'+esc(s.capacity.max)+'</b>명</span>'
       + (s.ceiling && s.ceiling.mm ? '<span>H <b>'+(s.ceiling.mm/1000).toFixed(1)+'</b>m</span>' : (s.capacity.base ? '<span>기준 <b>'+esc(s.capacity.base)+'</b>명 포함</span>' : ''))
-      + (s.price ? '<span class="price">시간당 <b>'+M.fmtNum(s.price.from/10000)+'</b>만 원부터</span>' : '')
+      + (s.price ? '<span class="price">'+(s.price.minTotal?'1시간 <b>'+M.fmtNum(s.price.minTotal/10000)+'</b>만 원부터':'시간당 <b>'+M.fmtNum(s.price.from/10000)+'</b>만 원부터')+'</span>' : '')
       + '</div>'
+      + (s.price&&s.price.surcharge?'<p class="small muted mt-1">평소 월–목 아침 기준 · 시간당 '+M.fmtNum(s.price.from)+'원 + 1건당 기본 인원 가산액 '+M.fmtNum(s.price.surcharge)+'원. 인원 추가·옵션·보증금 별도.</p>':'')
       + '<div class="tags mt-2">'+feats+'</div>'
       + '<div class="foot"><span class="muted">'+purs+'</span><span style="font-weight:700;color:var(--cobalt)">자세히 보기 →</span></div>'
       + '</div></a>';

@@ -40,19 +40,7 @@
   },
   "source_template_code": "UN_2584",
   "supersedes_template_code": "UN_3085",
-  "activation_status": "active",
+  "activation_status": "approved_pending_operator_test",
   "inspection_status": "APR",
-  "approval_verified_at": "2026-11-04",
-  "activated_at": "2026-11-04",
-  "operator_test": {
-    "provider_mid": "1496057722",
-    "status": "delivered",
-    "phone_last4": "1886"
-  },
-  "active_spaces": [
-    "megaspot-gundae",
-    "megaspot-gundae-2"
-  ],
-  "enabled": true,
-  "automatic": true
+  "approval_verified_at": "2026-11-04"
 }

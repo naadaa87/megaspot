@@ -157,6 +157,7 @@
             <div class="f"><label for="od-date">이용일 <span class="req">*</span></label><input class="input" type="date" id="od-date" name="date" required><span class="hint" id="od-date-hint"></span></div>
             <div class="f"><label for="od-people">인원 <span class="req">*</span></label><input class="input" type="number" id="od-people" name="people" min="1" max="200" value="20" required><span class="hint">기준 20명 포함 · 21명째부터 1명당 10,000원 · 최대 200명</span></div>
           </div>
+          <section id="od-availability" class="notice mt-2" hidden aria-label="예약 대기 및 결제 가능 여부"><div><p id="od-availability-message" role="status" aria-live="polite"></p><a id="od-wait-link" class="btn btn-primary btn-sm mt-2" href="/inquiry/" hidden>예약 대기 신청 →</a><button id="od-availability-retry" class="btn btn-light btn-sm mt-2" type="button" hidden>다시 확인</button></div></section>
           <h3 class="h-s mt-2">옵션 함께 담기 <span class="muted" style="font-weight:500;font-size:13px">(선택)</span></h3>
           <div class="od-addons" id="od-addons"></div>
         </div>
@@ -164,7 +165,7 @@
           <h3 class="h-s">수량과 이용일</h3>
           <div class="field-row">
             <div class="f"><label for="od-qty">수량</label><select class="select" id="od-qty" name="qty"></select></div>
-            <div class="f"><label for="od-date2">이용일 (선택)</label><input class="input" type="date" id="od-date2" name="date2"><span class="hint">이미 예약한 행사가 있으면 그 날짜를 적어 주세요.</span></div>
+            <div class="f"><label for="od-date2">이용일 <span class="req">*</span></label><input class="input" type="date" id="od-date2" name="date2"><span class="hint">옵션을 제공받을 행사 날짜를 선택해 주세요. 현수막·X배너는 이용일 5일 전까지 결제할 수 있습니다.</span></div>
           </div>
         </div>
         <h3 class="h-s mt-2">예약자 정보</h3>
@@ -288,7 +289,7 @@
 <script src="/assets/js/data/holidays-kr.js?v=202610270438"></script>
 <script src="/assets/js/data/pricing-gundae.js?v=202610270438"></script>
 <script src="/assets/js/pricing-engine.js?v=202610270438"></script>
-<script src="/assets/js/data/products.js?v=20261030check1000"></script>
-<script src="/assets/js/pages/order.js?v=20261104paymentreview1"></script>
+<script src="/assets/js/data/products.js?v=68de828914a5"></script>
+<script src="/assets/js/pages/order.js?v=81e9a571a479"></script>
 </body>
 </html>

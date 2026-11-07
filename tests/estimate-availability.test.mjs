@@ -9,7 +9,7 @@ function setup(intervals=[],unknownDates=[]){
   let fail=false,calls=0;
   const M={esc:s=>String(s)};
   class Clock extends Date{static now(){return Date.parse('2026-11-04T12:00:00+09:00');}}
-  vm.runInNewContext(code,{window:{MEGASPOT:M},document:{readyState:'loading',addEventListener(){}},Date:Clock,URLSearchParams,AbortController,setTimeout,clearTimeout,fetch:async()=>{calls++;return {ok:!fail,json:async()=>({ok:true,timezone:'Asia/Seoul',range:{from:'2026-11-01',to:'2026-12-31'},updatedAt:'2026-11-04T12:00:00+09:00',spaces:[{id:ONE},{id:TWO}],intervals,unknownDates})};}});
+  vm.runInNewContext(code,{window:{MEGASPOT:M},document:{readyState:'loading',addEventListener(){}},Date:Clock,URLSearchParams,AbortController,setTimeout,clearTimeout,fetch:async()=>{calls++;return {ok:!fail,json:async()=>({ok:true,timezone:'Asia/Seoul',range:{from:'2026-11-01',to:'2026-12-31'},updatedAt:'2026-11-04T12:00:00+09:00',spaces:[{id:ONE},{id:TWO}],intervals,unknownDates,pendingDates:[]})};}});
   return {inspect:M.reservations.inspectRange,check:M.reservations.checkRange,fail:v=>{fail=v;},calls:()=>calls};
 }
 const choice={space:ONE,date,start:13,end:17};

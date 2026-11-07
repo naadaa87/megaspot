@@ -12,6 +12,8 @@ import {onRequestPost as customerConfirmation} from '../functions/api/confirm.js
 
 function setup(t){
   const f=payappFixture({booking:false});t.after(()=>f.db.close());
+  // These cases isolate occupancy races; a dated pending inquiry is now a separate payment block.
+  f.db.prepare("UPDATE inquiries SET event_date=NULL WHERE ref='MS-TEST'").run();
   t.mock.method(globalThis,'fetch',async()=>assert.fail('외부 결제·알림톡 전송 금지'));
   const occupied=({code='BK-OCCUPIED',date=DAY,start=10,end=17,space='megaspot-gundae',status='confirmed'}={})=>f.db.prepare('INSERT INTO bookings(booking_code,space_id,customer_name,phone,phone_last4,date,start_h,end_h,status,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)').run(code,space,'다른 가상 고객','01000000000','0000',date,start,end,status,'2026-11-04');
   function enabled(){

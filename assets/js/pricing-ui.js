@@ -43,7 +43,7 @@
     var minRate = Math.min.apply(null, D.cols.map(function(c){ return Math.min.apply(null, D.bands.map(function(b){ return D.hourly[c.id][b.id]; })); }));
     var minPkg = Math.min.apply(null, D.cols.map(function(c){ return D.packages[0].price[c.id]; }));
     el.innerHTML = [
-      ['<small>시간당</small>' + esc(man(minRate)) + '<small>부터</small>', '월–목 아침 기준 · 요일·시간대별로 다릅니다'],
+      [BASE_SUR ? '<small>1시간 공간료</small>' + esc(man(minRate + BASE_SUR)) + '<small>부터</small>' : '<small>시간당</small>' + esc(man(minRate)) + '<small>부터</small>', '평소 월–목 아침 기준 · ' + (BASE_SUR ? '시간당 ' + won(minRate) + ' + 1건당 기본 인원 가산액 ' + won(BASE_SUR) : '요일·시간대별로 다릅니다')],
       ['<small>낮 7시간</small>' + esc(man(minPkg)), '낮 패키지(10–17시) 월–금 · 시간 요금보다 ' + Math.floor(Math.min.apply(null, D.cols.map(function(c){ return pct(D.packages[0], c.id); }))) + '% 이상 저렴'],
       ['<small>기준</small>' + D.people.base + '명<small>포함</small>', (D.people.base + 1) + '명째부터 1명당 ' + esc(man(D.people.extra)) + ' · 최대 ' + D.people.max + '명' + (peakBig() ? ' · 성수기 주말·특정일은 50명 포함' : (BASE_SUR ? ' · 시간제는 1건당 가산액 ' + esc(man(BASE_SUR)) : ''))],
       ['<small>보증금</small>' + esc(man(D.deposit.amount)), '이용료와 따로 받고, 이용 뒤 확인 후 돌려 드립니다']
@@ -96,8 +96,11 @@
       + '<p class="tiny muted mt-2">옵션은 필요한 것만 고르시면 됩니다. 금액이 적힌 항목은 계산기에서 바로 더해 볼 수 있고, \'상담 시 안내\' 항목은 행사 내용을 듣고 금액을 정합니다.</p>';
   };
   R.included = function(el){
-    el.innerHTML = '<div class="inc-grid">' + D.included.map(function(i){ return '<div class="inc' + (i.big ? ' big' : '') + '"><span class="inc-check" aria-hidden="true">✓</span>' + esc(i.label) + (i.big ? '<small>' + esc(i.sub || '초대형 화면 · 무료') + '</small>' : '') + '</div>'; }).join('') + '</div><p class="tiny muted mt-2">' + esc(D.includedNote) + '</p>';
+    el.innerHTML = '<div class="inc-grid">' + D.included.map(function(i){ return '<div class="inc' + (i.big ? ' big' : '') + '"><span class="inc-check" aria-hidden="true">✓</span>' + esc(i.label) + (i.big ? '<small>' + esc(i.sub || '초대형 화면 · 무료') + '</small>' : '') + '</div>'; }).join('') + '</div><p class="tiny muted mt-2">' + esc(D.includedNote) + '</p>' + paidFacilitiesHtml();
   };
+  function paidFacilitiesHtml(){
+    return (D.paidFacilities || []).map(function(i){ return '<p class="small muted mt-2"><b>' + esc(i.label) + ' · 유료</b><br>' + esc(i.note) + (i.href ? ' <a href="' + esc(i.href) + '">주차 요금·등록 안내 →</a>' : '') + '</p>'; }).join('');
+  }
 
   /* ---------- 보증금·환불·별도 협의 ---------- */
   R.deposit = function(el){
@@ -233,7 +236,6 @@
     var seen = {}; out = out.filter(function(q){ if (seen[q.iso]) return false; seen[q.iso] = 1; return true; });
     return out.sort(function(a, b){ return a.iso < b.iso ? -1 : 1; });
   }
-  var PASS_ID = { day: { wd: 'pass-day-wdfri', fri: 'pass-day-wdfri', sat: 'pass-day-satsun', sun: 'pass-day-satsun' }, allday: { wd: 'pass-allday-wd', fri: 'pass-allday-fri', sat: 'pass-allday-sat', sun: 'pass-allday-sun' }, allnight: { wd: 'pass-allnight-wd', fri: 'pass-allnight-fri', sat: 'pass-allnight-sat', sun: 'pass-allnight-sun' } };
 
   function renderEstimator(el, cfg){
     cfg = cfg || {};
@@ -263,7 +265,7 @@
       // ② 날짜
       + '<section class="rv-step"><h4><span>2</span>이용일</h4>'
       + '<div class="est-row"><div class="f" style="flex:0 1 220px"><label for="' + pid + '-date" class="sr-only">이용일</label><input class="input" type="date" id="' + pid + '-date" name="date" value="' + esc(st.date) + '" min="' + minDate() + '"></div><div class="est-daytag" data-out="daytag"></div></div>'
-      + '<div class="pick mt-2" data-out="date-pick">' + quickDates().map(function(q){ return '<button type="button" data-d="' + q.iso + '">' + esc(q.label) + '<small>' + esc(E.kdate(q.iso)) + '</small></button>'; }).join('') + '</div><button type="button" class="btn btn-light rc-open-button" data-act="calendar" aria-haspopup="dialog">1·2호 예약 현황 보기 →</button><section class="rv-availability" data-out="availability" aria-label="선택한 일정의 확정 예약 확인" hidden><p data-availability-message role="status" aria-live="polite" aria-atomic="true"></p><div data-availability-options></div></section></section>'
+      + '<div class="pick mt-2" data-out="date-pick">' + quickDates().map(function(q){ return '<button type="button" data-d="' + q.iso + '">' + esc(q.label) + '<small>' + esc(E.kdate(q.iso)) + '</small></button>'; }).join('') + '</div><button type="button" class="btn btn-light rc-open-button" data-act="calendar" aria-haspopup="dialog">1·2호 예약 현황 보기 →</button><section class="rv-availability" data-out="availability" aria-label="선택한 일정의 확정 예약과 예약대기 확인" hidden><p data-availability-message role="status" aria-live="polite" aria-atomic="true"></p><div data-availability-options></div></section></section>'
       // ③ 인원
       + '<section class="rv-step"><h4><span>3</span>인원 <em data-out="people-base">기준 ' + D.people.base + '명 포함 · ' + (D.people.base + 1) + '명째부터 1명당 ' + esc(man(D.people.extra)) + ' · 최대 ' + D.people.max + '명</em></h4>'
       + '<div class="est-row"><div class="f" style="flex:0 1 140px"><label for="' + pid + '-people" class="sr-only">인원</label><input class="input" type="number" inputmode="numeric" id="' + pid + '-people" name="people" min="1" max="' + D.people.max + '" value="' + st.people + '"></div>'
@@ -329,35 +331,35 @@
       if(PLAN){ PLAN.saveSpace(st,SPACE_ID); r.plan=PLAN.quote(el,r); }
       last = r; paint(r); if(PLAN){ PLAN.paint(el,r); var capacity=out('capacity'); if(capacity){capacity.hidden=st.requestedPeople<=D.people.max;capacity.textContent=NAME+'는 최대 '+D.people.max+'명입니다. 요청하신 '+st.requestedPeople+'명은 다른 공간을 선택해 주세요. 비교 금액은 '+D.people.max+'명 기준이며 공간을 바꾸면 요청 인원으로 다시 계산합니다.';} } return r;
     }
-    var availabilityKey='',availabilityAt=0,availabilitySeq=0,availabilityTimer,availabilityState='idle',availabilityMessage='',availabilityChoices=[];
+    var availabilityKey='',availabilityAt=0,availabilitySeq=0,availabilityTimer,availabilityState='idle',availabilityMessage='',availabilityChoices=[],availabilityWait=null;
     function scheduleChoice(){return {space:SPACE_ID,date:f('date').value,start:+f('start').value,end:+f('end').value};}
     function dateUnknown(){return !!el.querySelector('[name=event_date_unknown]:checked');}
     function paintAvailability(){
       var box=out('availability');if(!box)return;
       box.hidden=availabilityState==='idle'||phase==='done';box.dataset.state=availabilityState;
       box.querySelector('[data-availability-message]').textContent=availabilityMessage;
-      var blocked=availabilityState==='blocked',options=box.querySelector('[data-availability-options]');
+      var blocked=availabilityState==='blocked',waiting=availabilityState==='waiting',options=box.querySelector('[data-availability-options]');
       // Do not replace focused alternatives when unrelated estimate fields change.
       var markup=(blocked?'<p class="rv-availability-hint">'+(availabilityChoices.length?'같은 이용 시간 길이로 다른 일정을 확인해 보세요.':'같은 길이의 대체 시간이 표시되지 않습니다. 다른 날짜나 호점의 일정을 확인해 주세요.')+'</p><div class="rv-availability-choices">'+availabilityChoices.map(function(c,i){var room=c.space===SPACE_ID?'같은 호점':c.space==='megaspot-gundae'?'건대 1호':'건대 2호';return '<button type="button" data-act="availability-select" data-choice="'+i+'">'+esc(room+' · '+E.hourLabel(c.start)+'–'+E.hourLabel(c.end))+'</button>';}).join('')+'</div>':'')
-        +((blocked||availabilityState==='error')?'<div class="rv-availability-actions"><button type="button" data-act="calendar" aria-haspopup="dialog">다른 날짜·시간·호점 보기 →</button><button type="button" data-act="availability-retry">다시 확인</button></div>':'');
+        +((blocked||waiting||availabilityState==='error')?'<div class="rv-availability-actions"><button type="button" data-act="calendar" aria-haspopup="dialog">다른 날짜·시간·호점 보기 →</button><button type="button" data-act="availability-retry">다시 확인</button></div>':'');
       if(options.innerHTML!==markup)options.innerHTML=markup;
-      var summary=out('availability-summary');if(summary){summary.hidden=!blocked&&availabilityState!=='error';summary.textContent=availabilityMessage;if(!summary.hidden)summary.insertAdjacentHTML('beforeend','<button type="button" data-act="availability-focus">다른 일정 선택 ↑</button>');}
-      el.querySelectorAll('[data-act=reserve],[data-act=submit]').forEach(function(b){b.disabled=(b.dataset.act==='submit'&&submitting)||blocked||availabilityState==='loading'||availabilityState==='error';});
+      var summary=out('availability-summary');if(summary){summary.hidden=!blocked&&!waiting&&availabilityState!=='error';summary.textContent=availabilityMessage;if(!summary.hidden)summary.insertAdjacentHTML('beforeend','<button type="button" data-act="availability-focus">다른 일정 선택 ↑</button>');}
+      el.querySelectorAll('[data-act=reserve],[data-act=submit]').forEach(function(b){b.disabled=(b.dataset.act==='submit'&&submitting)||blocked||availabilityState==='loading'||availabilityState==='error';if(!(b.dataset.act==='submit'&&submitting))b.innerHTML=(b.dataset.act==='reserve'?(waiting?'이 일정으로 예약 대기 신청':'이 구성으로 예약 상담'):(waiting?'예약 대기 신청 보내기':'상담 신청 보내기'))+' <span class="arrow">→</span>';});
     }
     function checkAvailability(fresh){
       if(!el.isConnected)return;
       var c=scheduleChoice(),key=JSON.stringify(c);
-      if(dateUnknown()||!c.date){availabilitySeq++;clearTimeout(availabilityTimer);availabilityKey='';availabilityState='idle';availabilityMessage='';availabilityChoices=[];paintAvailability();return;}
+      if(dateUnknown()||!c.date){availabilitySeq++;clearTimeout(availabilityTimer);availabilityKey='';availabilityState='idle';availabilityMessage='';availabilityChoices=[];availabilityWait=null;paintAvailability();return;}
       if(!fresh&&key===availabilityKey&&(availabilityState==='loading'||Date.now()-availabilityAt<45000)){paintAvailability();return;}
-      availabilityKey=key;availabilityAt=Date.now();availabilityState='loading';availabilityMessage='확정 예약과 겹치는지 확인 중…';availabilityChoices=[];
+      availabilityKey=key;availabilityAt=Date.now();availabilityState='loading';availabilityMessage='확정 예약과 예약대기를 확인 중…';availabilityChoices=[];availabilityWait=null;
       var token=++availabilitySeq;clearTimeout(availabilityTimer);paintAvailability();
       availabilityTimer=setTimeout(function(){
         var request=M.reservations&&M.reservations.inspectRange?M.reservations.inspectRange(c,!!fresh):Promise.reject(Error('예약 현황을 확인할 수 없습니다. 다시 확인해 주세요.'));
         request.then(function(result){
           if(token!==availabilitySeq||!el.isConnected||key!==JSON.stringify(scheduleChoice())||dateUnknown())return;
-          var v=result.status;availabilityChoices=result.suggestions;
-          availabilityState=v.closed||v.invalid||v.conflict||v.unknown?'blocked':'clear';
-          availabilityMessage=v.closed?'선택한 호점의 운영일 이후 날짜를 골라 주세요.':v.invalid?'날짜와 시작·종료 시간을 확인해 주세요.':v.conflict?'선택한 시간과 확정 예약이 겹칩니다. 겹치는 예약: '+result.conflicts.map(function(it){function stamp(t){return (t.slice(0,10)!==c.date?+t.slice(5,7)+'월 '+ +t.slice(8,10)+'일 ':'')+t.slice(11,16);}return stamp(it.start)+'–'+stamp(it.end);}).join(', '):v.unknown?'확정 예약이 있어 이 날짜의 시간 확인이 필요합니다. 다른 호점이나 날짜를 선택하거나 카카오톡으로 문의해 주세요.':'선택한 시간과 겹치는 확정 예약이 없습니다. 최종 이용 가능 여부는 상담 시 확인합니다.';
+          var v=result.status;availabilityChoices=result.suggestions;availabilityWait={count:v.pending_count||0,next:v.next_wait_no||1};
+          availabilityState=v.closed||v.invalid||v.conflict||v.unknown?'blocked':availabilityWait.count?'waiting':'clear';
+          availabilityMessage=v.closed?'선택한 호점의 운영일 이후 날짜를 골라 주세요.':v.invalid?'날짜와 시작·종료 시간을 확인해 주세요.':v.conflict?'선택한 시간과 확정 예약이 겹칩니다. 겹치는 예약: '+result.conflicts.map(function(it){function stamp(t){return (t.slice(0,10)!==c.date?+t.slice(5,7)+'월 '+ +t.slice(8,10)+'일 ':'')+t.slice(11,16);}return stamp(it.start)+'–'+stamp(it.end);}).join(', '):v.unknown?'확정 예약이 있어 이 날짜의 시간 확인이 필요합니다. 다른 호점이나 날짜를 선택하거나 카카오톡으로 문의해 주세요.':availabilityWait.count?'이 호점·이용일에 예약대기 '+availabilityWait.count+'건이 있습니다. 지금 접수하면 예상 '+availabilityWait.next+'번입니다. 온라인 결제는 제한되며 대기 상담을 신청할 수 있습니다.':'선택한 시간과 겹치는 확정 예약과 현재 예약대기가 없습니다. 지금 상담 신청 시 예상 대기 1번이며, 접수 후 담당자가 순서대로 결제를 안내합니다.';
           paintAvailability();
         }).catch(function(ex){if(token!==availabilitySeq||!el.isConnected)return;availabilityAt=0;availabilityState='error';availabilityMessage=ex.message||'예약 현황을 불러오지 못했습니다. 다시 확인해 주세요.';paintAvailability();});
       },150);
@@ -465,6 +467,7 @@
       var L = [r.plan&&r.plan.unknownDate?NAME+' · 행사 일정 상담 후 결정':E.summaryText(r, purLabel(r.purpose))];
       if(r.plan) L.push(r.plan.text);
       if (who) L.unshift('[' + NAME + ' 예약 신청] ' + who.name + ' / ' + who.phone + (who.email ? ' / ' + who.email : '') + (who.message ? '\n요청사항: ' + who.message : '') + (who.family && who.family.length && M.familyLabel ? '\n함께 알아보기: ' + M.familyLabel(who.family) : '') + (who.catering ? '\n출장뷔페: ' + who.catering.summary : '') + (who.cocktail ? '\n출장 칵테일: ' + who.cocktail.summary : '') + (who.visit && M.visitLabel ? '\n현장답사 희망: ' + M.visitLabel(who.visit) : ''));
+      if(done&&done.live&&done.r===r&&done.who===who&&done.wait&&!(r.plan&&r.plan.unknownDate)&&done.wait.space_id===SPACE_ID&&done.wait.date===r.date&&Number.isSafeInteger(done.wait.no)&&done.wait.no>=1&&Number.isSafeInteger(done.wait.total)&&done.wait.total>=done.wait.no)L.unshift('접수 시점 예약대기 '+done.wait.no+'번 · 총 '+done.wait.total+'건 (예약 확정 전 · 담당자 결제 안내)');
       return L.join('\n');
     }
     function submit(){
@@ -491,7 +494,7 @@
         if(!el.isConnected||!form.isConnected||signature!==JSON.stringify(PLAN?PLAN.capture(el):M.formData(form)))throw Error('입력한 내용이 바뀌었습니다. 선택한 구성을 확인하고 다시 신청해 주세요.');
         if(status&&(status.closed||status.invalid||status.conflict||status.unknown)){checkAvailability(true);throw Error(status.conflict?'선택한 시간과 겹치는 확정 예약이 있습니다. 1·2호 예약 현황에서 다른 시간이나 공간을 골라 주세요.':'선택한 일정은 시간 확인이 필요합니다. 날짜를 다시 고르거나 카카오톡으로 문의해 주세요.');}
         return M.api('/inquiry', { method: 'POST', body: body });
-      }).then(function(res){ submitting = false; done = { ref: res.ref, live: true, who: who, r: r, purpose: purpose, member: !!res.member }; phase = 'done'; if(PLAN) PLAN.clear(); paintDone(); })
+      }).then(function(res){ submitting = false;availabilitySeq++;clearTimeout(availabilityTimer);availabilityAt=0;availabilityKey='';if(M.reservations&&M.reservations.invalidate)M.reservations.invalidate(); done = { ref: res.ref, live: true, who: who, r: r, purpose: purpose, member: !!res.member, wait:res.wait||null }; phase = 'done'; if(PLAN) PLAN.clear(); paintDone(); })
       .catch(function(ex){
         submitting = false;
         if (ex.code === 'NO_API'){ done = { ref: M.localRef('MS'), live: false, who: who, r: r, purpose: purpose }; phase = 'done'; if(PLAN) PLAN.clear(); paintDone(); return; }
@@ -501,34 +504,30 @@
     function paintDone(){
       var r = done.r, text = reserveText(r, done.who);
       var hasFood = !!(r.plan && r.plan.hasFood) || !!(done.who.catering || done.who.cocktail || done.who.reception);
-      var passId = !hasFood && !(r.plan&&r.plan.unknownDate) && D.onlinePass && r.pkg && !r.peak ? PASS_ID[r.pkg.id][r.col] : null;   // 성수기는 이용권 금액과 달라 온라인 이용권으로 결제하지 않습니다 · 온라인 이용권은 1호만
-      var selectedOptions = options(), addons = Object.keys(selectedOptions);
-      var optionQuery = selectedOptions.manager ? '&manager_count=' + selectedOptions.manager.count + '&manager_hours=' + selectedOptions.manager.hours : '';
-      if (selectedOptions.disposable) optionQuery += '&disposable_people=' + r.people;
-      var payLink = passId ? '/order/?product=' + passId + '&date=' + r.date + '&people=' + r.people + '&ref=' + encodeURIComponent(done.ref) + (addons.length ? '&addons=' + addons.join(',') : '') + optionQuery : '';
+      var w=done.wait,queued=!!(done.live&&!(r.plan&&r.plan.unknownDate)),knownWait=queued&&w&&w.space_id===SPACE_ID&&w.date===r.date&&Number.isSafeInteger(w.no)&&w.no>=1&&Number.isSafeInteger(w.total)&&w.total>=w.no;
       out('result').innerHTML = '<div class="est-card rv-card rv-done">'
-        + '<div class="row between"><div class="eyebrow">' + (done.live ? 'Received' : 'Draft') + '</div><span class="badge ' + (done.live ? 'badge-ok' : 'badge-warn') + '">' + (done.live ? '상담 신청 접수' : '체험 모드 · 전송 대기') + '</span></div>'
-        + '<h3 class="est-title">' + (done.live ? '상담 신청이 접수되었습니다' : '예약 신청 내용이 준비되었습니다') + '</h3>'
+        + '<div class="row between"><div class="eyebrow">' + (done.live ? 'Received' : 'Draft') + '</div><span class="badge ' + (done.live ? 'badge-ok' : 'badge-warn') + '">' + (done.live ? (queued?'예약대기 접수':'상담 신청 접수') : '체험 모드 · 전송 대기') + '</span></div>'
+        + '<h3 class="est-title">' + (done.live ? (queued?'예약 대기 신청이 접수되었습니다':'상담 신청이 접수되었습니다') : '예약 신청 내용이 준비되었습니다') + '</h3>'
         + '<div class="oc-code mt-2"><small>접수번호</small><b>' + esc(done.ref) + '</b></div>'
+        + (queued?'<div class="notice reservation-wait mt-3" role="status"><div><b>'+(knownWait?'접수 시점 내 예약대기 <strong>'+w.no+'번</strong> · 총 '+w.total+'건':'예약대기 순번은 담당자가 확인해 안내합니다')+'</b><p>'+esc(NAME+' · '+E.kdateY(r.date))+' 기준입니다. 예약대기 1번도 예약 확정은 아니며, 대기가 있는 동안 온라인 결제는 제한됩니다. 담당자가 순번과 이용 가능 여부를 확인한 뒤 결제 방법을 안내합니다.</p></div></div>':'')
         + (done.who && done.who.visit && M.visitLabel ? '<div class="visit-done mt-2"><b>현장답사 희망도 함께 받았습니다</b><span>' + esc(M.visitLabel(done.who.visit)) + ' — 담당자가 연락드려 답사 시간을 확정합니다.</span></div>' : '')
         + '<dl class="def mt-3"><div><dt>이용일</dt><dd>' + esc(r.plan&&r.plan.unknownDate?'상담 후 결정':E.kdateY(r.date)) + '</dd></div><div><dt>시간</dt><dd>' + esc(r.plan&&r.plan.unknownDate?'상담 후 결정':r.range) + (r.pkg&&!(r.plan&&r.plan.unknownDate) ? ' · ' + esc(r.pkg.label) : '') + '</dd></div><div><dt>인원</dt><dd>' + r.people + '명</dd></div><div><dt>공간 대관료</dt><dd><b>' + esc(r.plan&&r.plan.unknownDate?'상담 후 안내':won(r.total)) + '</b> <span class="muted">(' + esc(D.deposit.label) + ' ' + esc(won(r.deposit)) + ' 별도)</span></dd></div>' + (done.who.catering ? '<div><dt>출장뷔페</dt><dd>' + esc(done.who.catering.summary) + ' <span class="muted">(대관료와 별도)</span></dd></div>' : '') + (done.who.cocktail ? '<div><dt>출장 칵테일</dt><dd>' + esc(done.who.cocktail.summary) + ' <span class="muted">(대관료와 별도 · 조건 확인 전)</span></dd></div>' : '') + '<div><dt>예약자</dt><dd>' + esc(done.who.name) + ' · ' + esc(done.who.phone) + '</dd></div></dl>'
         + (r.plan?'<section class="plan-summary">'+r.plan.html+'</section>':'')
         + (done.live
-          ? '<ol class="steps-mini mt-3"><li><b>일정 확인</b><span>담당자가 신청하신 날짜·시간이 비어 있는지 확인하고 영업시간 기준 2시간 안에 카카오톡·문자로 연락드립니다.</span></li><li><b>금액 확인·결제 안내</b><span>확정 금액과 결제 방법(카드·계좌이체)을 안내드립니다.</span></li><li><b>예약 확정</b><span>결제가 끝나면 예약번호가 발급되고 현장 안내를 보내 드립니다.</span></li></ol>'
+          ? '<ol class="steps-mini mt-3"><li><b>대기 순번·일정 확인</b><span>담당자가 대기 순번과 신청하신 날짜·시간의 이용 가능 여부를 확인하고 영업시간 기준 2시간 안에 카카오톡·문자로 연락드립니다.</span></li><li><b>금액 확인·결제 안내</b><span>확정 금액과 결제 방법(카드·계좌이체)을 안내드립니다.</span></li><li><b>예약 확정</b><span>결제가 끝나면 예약번호가 발급되고 현장 안내를 보내 드립니다.</span></li></ol>'
           : '<p class="small muted mt-2">지금은 서버가 연결되지 않아 자동 저장되지 않았습니다. 아래 내용을 카카오톡으로 보내 주시면 같은 순서로 안내해 드립니다.</p>')
         + (hasFood && done.live ? '<div class="notice mt-3"><div><b>공간과 식음료를 함께 확인한 뒤 결제를 안내합니다.</b><br>담당자가 선택하신 전체 구성의 일정·제공 가능 여부와 최종 금액을 확인해 연락드립니다.</div></div>' : '')
-        + (payLink && done.live ? '<div class="notice mt-3"><div><b>지금 바로 결제하고 확정할 수도 있습니다.</b><br>선택하신 시간이 ' + esc(r.pkg.label) + '와 같아서 온라인 이용권으로 바로 결제할 수 있습니다. 고르신 옵션은 주문 화면에 미리 담기고, 결제가 끝나면 이 신청이 자동으로 \'예약 확정\'으로 바뀝니다.</div><a class="btn btn-primary btn-sm" href="' + esc(payLink) + '">바로 결제하기 →</a></div>' : '')
         + '<div class="rv-sub mt-3">' + (KAKAO ? '<a class="btn btn-kakao btn-sm" data-act="kakao" href="' + esc(KAKAO) + '" target="_blank" rel="noopener">카카오톡으로 보내기</a>' : '') + '<button type="button" class="btn btn-light btn-sm" data-act="copy">내용 복사</button><button type="button" class="btn btn-light btn-sm" data-act="pdf">견적서 PDF</button><button type="button" class="btn btn-light btn-sm" data-act="ics">내 캘린더에 저장</button>' + (done.member ? '<a class="btn btn-light btn-sm" href="/mypage/">마이페이지</a>' : '') + '<button type="button" class="btn btn-ghost btn-sm" data-act="again">새로 계산</button></div>'
         + '<pre class="dr-pre mt-3" data-out="summary" hidden>' + esc(text) + '</pre>'
         + '</div>';
-      out('mini').hidden = true; syncMiniClass();
+      out('mini').hidden = true; syncMiniClass(); paintAvailability();
       out('result').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
     function icsDownload(){
       var r = done.r, C = M.CONFIG || {};
       function dt(iso, h){ var d = E.parse(iso); d.setHours(0, 0, 0, 0); d.setHours(h); var p = function(n){ return ('0' + n).slice(-2); }; return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + 'T' + p(d.getHours()) + p(d.getMinutes()) + '00'; }
       var now = new Date(), stamp = now.toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';
-      var desc = ('접수번호 ' + done.ref + '\\n' + E.summaryText(r, purLabel(done.purpose)).replace(/\n/g, '\\n') + '\\n예약 신청 상태이며 결제가 끝나면 확정됩니다.');
+      var desc = ('접수번호 ' + done.ref + '\\n' + E.summaryText(r, purLabel(done.purpose)).replace(/\n/g, '\\n') + '\\n예약대기 신청 상태입니다. 담당자가 순번과 이용 가능 여부를 확인한 뒤 결제를 안내합니다.');
       var lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//MEGASPOT//reserve//KO', 'CALSCALE:GREGORIAN', 'BEGIN:VEVENT', 'UID:' + done.ref + '@megaspot.kr', 'DTSTAMP:' + stamp,
         'DTSTART;TZID=Asia/Seoul:' + dt(r.date, r.start), 'DTEND;TZID=Asia/Seoul:' + dt(r.date, r.end), 'SUMMARY:' + NAME + ' 예약 신청 (' + r.people + '명)',
         'LOCATION:' + (D.address ? NAME + ' · ' + D.address : (C.venueAddress || '서울특별시 광진구 화양동 10-1 한아름건물 2층')), 'DESCRIPTION:' + desc, 'STATUS:TENTATIVE', 'END:VEVENT', 'END:VCALENDAR'];
@@ -627,7 +626,7 @@
       + (r.plan ? '<section class="qp-plan"><h3>행사 전체 예상 비용</h3>'+r.plan.html+'</section>' : '')
       + (notes ? '<ul class="qp-notes">' + notes + '</ul>' : '')
       + '<div class="qp-grid">'
-      + '<div><h3>기본 제공 (무료)</h3><p>' + D.included.map(function(i){ return esc(i.label); }).join(' · ') + '</p><h3>환불 기준</h3><p class="qp-refund">' + refund + '</p><p class="qp-small">' + esc(D.refundNote) + ' ' + esc(D.corporate) + '</p></div>'
+      + '<div><h3>기본 제공 (무료)</h3><p>' + D.included.map(function(i){ return esc(i.label); }).join(' · ') + '</p>' + (D.paidFacilities && D.paidFacilities.length ? '<h3>유료 시설</h3>' + paidFacilitiesHtml() : '') + '<h3>환불 기준</h3><p class="qp-refund">' + refund + '</p><p class="qp-small">' + esc(D.refundNote) + ' ' + esc(D.corporate) + '</p></div>'
       + '<div class="qp-contact"><h3>문의</h3><p>전화 ' + esc(C.phone || '') + '<br>이메일 ' + esc(C.email || '') + '<br>카카오톡 ' + esc(String(KAKAO).replace(/^https?:\/\//, '')) + '<br>홈페이지 megaspot.kr</p>' + (KAKAO ? '<img src="/assets/img/brand/kakao-qr.svg" alt="카카오톡 문의 채널 QR코드" width="88" height="88">' : '') + '<p class="qp-small">' + esc(C.kakaoNote || '') + '</p></div>'
       + '</div>'
       + '<footer class="qp-foot">이 문서는 공개 요금표로 계산한 예상 금액이며 정식 견적서가 아닙니다. 날짜·시간·인원·모임 유형을 알려 주시면 가능 여부와 확정 금액을 빠르게 안내드립니다. 성수기(' + esc(peakRangeText()) + ')는 성수기 요금표로 계산했습니다. 조찬 모임·정기 모임·제휴 모임과 팝업·전시·행사·촬영은 따로 연락 주시면 추가 협찬과 할인을 안내해 드립니다.</footer>'

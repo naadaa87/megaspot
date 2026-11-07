@@ -20,7 +20,7 @@
   }
   function quote(root,r){var rows=[],pending=[],unknown=!!root.querySelector('[name="event_date_unknown"]:checked');
     rows.push({label:(saved.space==='megaspot-gundae-2'?'건대 2호':'건대 1호')+' 대관 · '+r.people+'명',amount:unknown?null:r.total,note:unknown?'날짜·시간 상담 후 산정':'부가세 포함 · 공간 옵션 포함'});
-    var cat=CC&&CC.read(root,'rv_cat',r.people);if(cat)rows.push({label:'출장뷔페 · '+CC.parts(CC.quote(cat)),amount:cat.total||null,note:'부가세·출장비 포함'});
+    var cat=CC&&CC.read(root,'rv_cat',r.people);if(cat)rows.push({label:'출장뷔페 · '+CC.parts(CC.quote(cat)),amount:cat.total||null,note:cat.requires_consultation?'인원에 맞는 코스 상담 필요 · 합계 미포함':'부가세·출장비 포함'});
     var rec=reception(root,r.people);if(rec)rows.push({label:rec.label,amount:rec.total,note:rec.note});
     var ck=CK&&CK.read(root);if(ck)rows.push({label:'출장 칵테일 '+ck.cups+'잔',amount:(ck.vat_excluded===true?ck.total:ck.price)||null,note:[ck.menus&&ck.menus.length?'희망 메뉴 '+ck.menus.map(function(id){return CK.names[id];}).join(', '):'',ck.nonalcohol?'논알코올 구성 상담':'',ck.note?'요청 '+ck.note:'',ck.vat_excluded===true?'패키지 판매가 '+won(ck.price)+(ck.bartender_fee!=null?' + 바텐더 출장 및 제조 '+won(ck.bartender_fee):'')+' + 부가세 '+won(ck.vat)+' 포함 · 출장·운영 조건 확인 필요':'이전 저장 금액 · 부가세·출장·운영 조건 확인 전'].filter(Boolean).join(' · ')});
     var total=0;rows.forEach(function(x){if(x.amount==null)pending.push(x.label);else total+=x.amount;});

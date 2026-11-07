@@ -147,3 +147,6 @@
 .page-parking-purchase #pk-result .btn{min-width:0;max-width:100%;white-space:normal;padding-top:12px;padding-bottom:12px;line-height:1.5}
 .page-parking-purchase #pk-result .textarea{resize:vertical}
 @media(max-width:599px){.pk-result{gap:12px;margin-top:16px}.pk-receipt-summary{padding:16px}.pk-summary-top strong{font-size:23px}.pk-receipt-card{padding:16px 14px}.pk-receipt-card .pk-receipt-top h2{font-size:20px}.pk-receipt-actions .btn{flex:1 1 auto}.pk-state{font-size:12px;padding:6px 9px}}
+
+.pk-history summary{cursor:pointer;font-weight:700;color:var(--cobalt)}
+.pk-history-list{display:grid;gap:8px;margin-top:12px}.pk-history-list .btn{display:flex;flex-direction:column;align-items:flex-start;min-width:0;white-space:normal;overflow-wrap:anywhere;text-align:left}.pk-history-list small{font-size:11px;font-weight:400}

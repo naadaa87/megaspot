@@ -1,5 +1,6 @@
 // Public read model: confirmed occupancy only; never select customer or booking identifiers.
 import {json,err,hasDb,isDate,kstToday,SPACES,SPACE_OPENING} from './_lib.js';
+import {pendingInquirySql,waitSpaceSql} from './_reservation_waitlist.js';
 const DAY=864e5,HOUR=36e5;
 const midnight=d=>Date.parse(d+'T00:00:00Z');
 const dayAt=n=>new Date(n).toISOString().slice(0,10);
@@ -32,6 +33,10 @@ export async function onRequestGet({request,env}){
   intervals.sort((a,b)=>a.space.localeCompare(b.space)||a.start-b.start||a.end-b.end);
   const merged=[];
   for(const it of intervals){const last=merged.at(-1);if(last&&last.space===it.space&&it.start<=last.end)last.end=Math.max(last.end,it.end);else merged.push({...it});}
-  return json({ok:true,timezone:'Asia/Seoul',range:{from,to},spaces:Object.entries(SPACES).map(([id,name])=>({id,name,opensOn:SPACE_OPENING[id]||null})),intervals:merged.map(it=>({space:it.space,start:stamp(it.start),end:stamp(it.end)})),unknownDates,updatedAt:new Date().toISOString()},200,{'cache-control':'no-store'});
+  const {results:pending}=await env.DB.prepare(`SELECT ${waitSpaceSql('i')} AS space,i.event_date AS date,COUNT(*) AS count FROM inquiries i
+    WHERE ${pendingInquirySql({alias:'i',date:'i.event_date',space:waitSpaceSql('i')})} AND i.event_date BETWEEN ? AND ?
+    GROUP BY ${waitSpaceSql('i')},i.event_date ORDER BY i.event_date,space`).bind(from,to).all();
+  const pendingDates=(pending||[]).map(row=>({space:row.space,date:row.date,count:row.count,next_wait_no:row.count+1}));
+  return json({ok:true,timezone:'Asia/Seoul',range:{from,to},spaces:Object.entries(SPACES).map(([id,name])=>({id,name,opensOn:SPACE_OPENING[id]||null})),intervals:merged.map(it=>({space:it.space,start:stamp(it.start),end:stamp(it.end)})),unknownDates,pendingDates,updatedAt:new Date().toISOString()},200,{'cache-control':'no-store'});
  }catch{return err('예약 현황을 불러오지 못했습니다. 잠시 후 다시 확인해 주세요.',503,'CALENDAR_UNAVAILABLE');}
 }

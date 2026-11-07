@@ -13,19 +13,36 @@ export function foodHtml(html,path,rates){
  html=html.replace(/(코스별 1인 가격\()[\d,]+(?=원부터, 부가세 별도)/g,(_,prefix)=>prefix+keep(comma(cmin)));
  function money(s,map){return s.replace(/\d[\d,]*(?=원|<)/g,v=>Object.prototype.hasOwnProperty.call(map,v)?keep(comma(map[v])):v);}
  if(path.startsWith('/catering')){
-  html=html.replace(/(<div class="hero-mega" aria-label="핵심 정보"><span>1인 <b>)[\d,]+/,(_,prefix)=>prefix+keep(comma(cmin)));
-  const defaults={};function set(old,value){defaults[comma(old)]=value;}
-  for(const c of CATERING.courses){
-   const map={};if(c.kind==='flat')c.tiers.forEach(t=>{map[comma(t.price)]=cp['course.'+c.id+'.'+t.people];map[comma(Math.round(t.price*1.1))]=Math.round(cp['course.'+c.id+'.'+t.people]*1.1);set(t.price,cp['course.'+c.id+'.'+t.people]);});else{map[comma(c.price)]=cp['course.'+c.id];map[comma(Math.round(c.price*1.1))]=Math.round(cp['course.'+c.id]*1.1);if(c.id!=='galbi')set(c.price,cp['course.'+c.id]);}
-   html=html.replace(new RegExp('<tr[^>]*><th scope="row"><b>'+c.name+'<\\/b>[\\s\\S]*?<\\/tr>','g'),s=>money(s,map));
-   html=html.replace(new RegExp('<details class="cat-course" id="course-'+c.id+'"[\\s\\S]*?<\\/details>','g'),s=>money(s,map));
-  }
-  for(const b of CATERING.bbq.rows){const sale=cp['bbq.'+b.id];html=html.replace(new RegExp('<tr><th scope="row">'+b.size+'<\\/th>[\\s\\S]*?<\\/tr>','g'),s=>money(s,{[comma(b.price)]:sale,[comma(Math.round(b.price*1.1))]:Math.round(sale*1.1)}));}
-  const net=cp['course.classic']*60+cp.delivery,gross=net+Math.round(net/10),baseFood=CATERING.courses.find(c=>c.id==='classic').price*60,baseNet=baseFood+CATERING.delivery.fee,baseGross=baseNet+Math.round(baseNet/10);
-  Object.assign(defaults,{[comma(baseFood)]:cp['course.classic']*60,[comma(baseNet)]:net,[comma(Math.round(baseNet/10))]:Math.round(net/10),[comma(baseGross)]:gross,[comma(Math.round(baseGross/60/100)*100)]:Math.round(gross/60/100)*100,'100,000':cp.delivery,'120,000':cp.beer,'132,000':cp.beer+Math.round(cp.beer/10)});
-  html=html.replace(/특선 갈비탕 상차림\(1인 40,000원\)/g,'특선 갈비탕 상차림(1인 '+keep(comma(cp['course.galbi']))+'원)');
-  const drinks=[];html=html.replace(/<!-- drinks-summary:start -->[\s\S]*?<!-- drinks-summary:end -->/g,s=>{drinks.push(s);return '@@DRINKS'+(drinks.length-1)+'@@';});
-  html=money(html,defaults).replace(/@@DRINKS(\d+)@@/g,(_,i)=>drinks[+i]);
+  // Each visible amount is bound to its catalog ID. Equal default prices must
+  // never link unrelated products, examples, or bottle drinks together.
+  const values={...cp,'minimum.buffet':cmin};
+  for(const [key,value] of Object.entries(cp))values[key+'.gross']=value+Math.round(value/10);
+  values['example.food']=cp['course.classic']*60;
+  values['example.net']=values['example.food']+cp.delivery;
+  values['example.vat']=Math.round(values['example.net']/10);
+  values['example.total']=values['example.net']+values['example.vat'];
+  values['example.perPerson']=Math.round(values['example.total']/60/100)*100;
+  html=html.replace(/<data data-catering-price="([^"]+)" value="[^"]*">[^<]*<\/data>/g,(_,key)=>{
+   if(!Number.isSafeInteger(values[key])||values[key]<0)throw Error('Unknown catering price: '+key);
+   return '<data data-catering-price="'+key+'" value="'+values[key]+'">'+comma(values[key])+'</data>';
+  });
+  const title='메가스팟 출장뷔페 | 1인 '+comma(cmin)+'원부터 · 대관과 함께 신청 · 바베큐·생맥주';
+  const description='메가스팟 건대 1호·2호 대관과 출장뷔페를 함께 준비합니다. 20·30인 정액 소규모 스페셜, 1인 '+comma(cp['course.basic'])+'원 베이직부터 VIP 스페셜까지 뷔페 코스와 다과 파티·갈비탕 상차림, 바베큐·생맥주 가격과 메뉴를 확인하고 출장·세팅비·부가세를 포함한 예상 금액을 계산하세요.';
+  html=html.replace(/<title>[^<]*<\/title>/,'<title>'+title+'</title>')
+   .replace(/(<meta (?:name="description"|property="og:description"|name="twitter:description") content=")[^"]*/g,(_,a)=>a+description)
+   .replace(/(<meta (?:property="og:title"|name="twitter:title") content=")[^"]*/g,(_,a)=>a+title);
+  const answers=new Map();
+  html.replace(/<details data-catering-faq="[^"]+"><summary>([^<]+)<\/summary><div class="body">([\s\S]*?)<\/div><\/details>/g,(_,question,answer)=>{answers.set(question,answer.replace(/<[^>]*>/g,''));return '';});
+  const unitPrices=CATERING.courses.filter(c=>c.kind==='per').map(c=>cp['course.'+c.id]);
+  html=html.replace(/(<script type="application\/ld\+json">)([\s\S]*?)(<\/script>)/g,(_,a,raw,z)=>{
+   const schema=JSON.parse(raw);
+   for(const item of schema['@graph']||[]){
+    if(item['@type']==='Service'){item.description=description;if(item.offers)Object.assign(item.offers,{lowPrice:String(Math.min(...unitPrices)),highPrice:String(Math.max(...unitPrices)),offerCount:String(unitPrices.length)});}
+    if(item['@type']==='WebPage'){item.name=title;item.description=description;}
+    if(item['@type']==='FAQPage')for(const question of item.mainEntity||[])if(answers.has(question.name))question.acceptedAnswer.text=answers.get(question.name);
+   }
+   return a+JSON.stringify(schema).replace(/</g,'\\u003c')+z;
+  });
  }
  if(path.startsWith('/reception')&&html.includes('data-reception-provider="cafefriends"'))html=html.replace(/(<p class="cf-package-price" data-cf-price="([^"]+)">)[^<]*(<\/p>)/g,(_,a,id,z)=>a+(rp['course.'+id]==null?'상담 후 견적':'1인 '+keep(comma(rp['course.'+id]))+'원 · 부가세 별도')+z);
  if(path.startsWith('/reception'))html=html.replace(/(<span data-cf-fee="([^"]+)">)[^<]*(<\/span>)/g,(_,a,id,z)=>a+(rp[id]==null?'상담 후 견적':keep(comma(rp[id]))+'원')+z);

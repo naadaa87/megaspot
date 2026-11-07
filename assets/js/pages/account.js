@@ -85,8 +85,11 @@
         if(!list.length){ $('#my-inquiries').innerHTML='<div class="empty"><b>아직 회원으로 보낸 예약 신청·문의가 없습니다</b><p class="small muted mt-1">시간·날짜·인원을 골라 금액을 확인하고 그 자리에서 예약을 신청해 보세요.</p><div class="row mt-2" style="justify-content:center;gap:8px"><a class="btn btn-primary btn-sm" href="/inquiry/">예약 신청 · 금액 확인</a><a class="btn btn-light btn-sm" href="/inquiry/?type=regular">정기 모임 상담</a></div></div>'; return; }
         $('#my-inquiries').innerHTML=list.map(function(it){
           var hl=function(h){ return (h>=24?'다음 날 ':'')+('0'+(h%24)).slice(-2)+':00'; }; var when=[it.date?M.fmtKDate(it.date):'', (it.start_h!=null&&it.end_h!=null)?hl(+it.start_h)+'–'+hl(+it.end_h)+' ('+(it.end_h-it.start_h)+'시간)':((it.t_start&&it.t_end)?it.t_start+'–'+it.t_end:''), it.headcount?it.headcount+'명':'', it.total?'예상 '+Number(it.total).toLocaleString('ko-KR')+'원':''].filter(Boolean).join(' · ');
+          var confirmed=it.confirmed_bookings||[],request='<b>'+esc(SPACE[it.space_id]||it.space_id)+'</b>'+(when?' · '+esc(when):'');
+          var actual=confirmed.map(function(b){var info=[b.date?M.fmtKDate(b.date):'',b.start_h!=null&&b.end_h!=null?hl(+b.start_h)+'–'+hl(+b.end_h):'시간 확인 중',b.headcount?b.headcount+'명':'',b.amount!=null?'확정 '+Number(b.amount).toLocaleString('ko-KR')+'원':''].filter(Boolean).join(' · ');return '<div class="small mt-2"><b>'+esc(b.status==='completed'?'이용 완료':'확정된 예약')+' · '+esc(SPACE[b.space_id]||b.space_id)+'</b><p>'+esc(info)+'</p><p class="tiny muted">예약번호 '+esc(b.code)+'</p></div>';}).join('');
           return '<div class="card pad-s my-inq"><div class="row between"><div class="row" style="gap:8px"><b class="ref">'+esc(it.ref)+'</b><span class="badge badge-soft">'+esc(it.reserve?'예약 신청':(TYPE[it.inquiry_type]||'문의'))+'</span>'+(it.purpose&&PUR[it.purpose]?'<span class="badge badge-cobalt">'+esc(PUR[it.purpose])+'</span>':'')+'</div><span class="small muted">'+esc(String(it.created_at||'').slice(0,10))+' 접수</span></div>'
-            + '<div class="small mt-1"><b>'+esc(SPACE[it.space_id]||it.space_id)+'</b>'+(when?' · '+esc(when):'')+'</div>'
+            + (confirmed.length?actual+'<details class="mt-2"><summary class="small">처음 신청한 조건</summary><div class="small mt-1">'+request+'</div></details>':'<div class="small mt-1">'+request+'</div>')
+            + (it.wait?'<p class="notice small mt-2"><span><b>예약 대기 '+esc(it.wait.no)+'번</b> · 같은 날 '+esc(it.wait.total)+'건 가운데 현재 '+esc(it.wait.no)+'번째입니다. 운영팀에서 순서대로 예약 가능 여부와 결제 방법을 안내합니다.</span></p>':'')
             + steps(it.status)
             + (it.estimate?'<details class="mt-2"><summary class="small" style="cursor:pointer;color:var(--cobalt);font-weight:700">함께 보낸 예상 금액</summary><pre class="my-est">'+esc(it.estimate)+'</pre></details>':'')
             + '</div>';
@@ -101,12 +104,12 @@
       M.api('/auth/orders').then(function(j){
         var list=j.items||[]; $('#my-order-count').textContent=list.length?list.length+'건':'';
         $('#my-orders').innerHTML=list.length?list.map(function(o){
-          var when=[o.date?M.fmtKDate(o.date):'',o.people?o.people+'명':''].filter(Boolean).join(' · ');
-          return '<article class="card pad-s"><div class="row between"><b>'+esc(o.title)+'</b><span class="badge '+(o.status==='paid'?'badge-ok':'badge-soft')+'">'+esc(labels[o.status]||o.status)+'</span></div>'
+          var when=[o.date?M.fmtKDate(o.date):'',o.people?o.people+'명':''].filter(Boolean).join(' · '),review=o.status==='paid'&&o.booking_status==='payment_review',confirmed=o.booking_code&&['confirmed','completed'].indexOf(o.booking_status)>=0;
+          return '<article class="card pad-s"><div class="row between"><b>'+esc(o.title)+'</b><span class="badge '+(o.status==='paid'&&!review?'badge-ok':'badge-soft')+'">'+esc(review?'결제 완료 · 예약 일정 확인 중':labels[o.status]||o.status)+'</span></div>'
             +'<p class="small muted mt-1">'+esc(String(o.created_at||'').slice(0,10))+' 주문 · '+esc(o.oid)+'</p>'+(when?'<p class="small mt-1">'+esc(when)+'</p>':'')
             +'<p class="mt-2"><b>'+esc(money(o.price))+'</b>'+(o.refunded_amount?' <span class="small muted">환불 '+esc(money(o.refunded_amount))+' · 남은 결제 '+esc(money(o.price-o.refunded_amount))+'</span>':'')+'</p>'
-            +(o.booking_code?'<p class="small mt-1">예약번호 <b>'+esc(o.booking_code)+'</b></p>':'')
-            +'<div class="row mt-2" style="gap:8px"><a class="btn btn-light btn-sm" href="/order/complete/?oid='+encodeURIComponent(o.oid)+'">주문·결제 상세</a>'+(o.booking_code?'<a class="btn btn-light btn-sm" href="/confirm/?c='+encodeURIComponent(o.booking_code)+'">예약확정서 조회</a>':'')+'</div></article>';
+            +(review?'<p class="small mt-1">아직 공간 이용은 확정되지 않았습니다. 다시 결제하지 마세요. 운영팀에서 일정 조정 또는 환불을 안내합니다.</p>':confirmed?'<p class="small mt-1">예약번호 <b>'+esc(o.booking_code)+'</b></p>':'')
+            +'<div class="row mt-2" style="gap:8px"><a class="btn btn-light btn-sm" href="/order/complete/?oid='+encodeURIComponent(o.oid)+'">주문·결제 상세</a>'+(confirmed?'<a class="btn btn-light btn-sm" href="/confirm/?c='+encodeURIComponent(o.booking_code)+'">예약확정서 조회</a>':'')+'</div></article>';
         }).join(''):'<div class="empty"><b>아직 회원으로 주문한 내역이 없습니다</b><p class="small muted mt-1">이용권을 구매하면 결제와 예약번호를 여기에서 확인할 수 있습니다.</p><a class="btn btn-primary btn-sm mt-2" href="/products/">이용권 보기</a></div>';
       }).catch(function(x){$('#my-orders').innerHTML='<div class="empty" role="alert">'+esc(x.message||'주문 내역을 불러오지 못했습니다.')+' <button class="btn btn-light btn-sm" type="button" data-order-retry>다시 불러오기</button></div>';var retry=section.querySelector('[data-order-retry]');retry.addEventListener('click',function(){section.remove();loadOrders();});});
     }

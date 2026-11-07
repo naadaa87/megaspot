@@ -1,6 +1,7 @@
+import {waitList} from '../_reservation_waitlist.js';
 import Calculation from '../../../assets/js/quote-calculation.js';
-import {bookingReadiness} from '../_booking_readiness.js';
 import {reconfirmationAdmin,reconfirmBooking} from '../_reconfirmation.js';
+import {bookingReadiness} from '../_booking_readiness.js';
 import {cancellationAdmin} from '../_cancellation.js';
 import {refundAmountSql} from '../_payapp_refund_history.js';
 import {S,preserveLegacyPayments,settlementFor,settlementsFor,settlementAdmin,settlementRevisionSql} from '../_settlement.js';
@@ -41,16 +42,6 @@ function settingsValue(key, raw) { const S = SETTINGS[key]; let v = {}; try { v 
 const STATUSES = ['문의 접수', '조건 확인', '견적 발송', '결제 대기', '예약 확정', '이용 완료', '취소·환불', '대기 취소'];
 // 삭제한 문의는 지우지 않고 이 상태로 보관합니다(고객 DB 관리용). 목록·집계에서는 빠지고 '삭제된 문의'에서만 보입니다.
 const DELETED = '삭제됨';
-// 예약 대기(같은 날 아직 확정되지 않은 예약 문의) — 대기 순번은 data.wait_rank, 없으면 문의가 들어온 순서
-const PENDING = "('문의 접수', '조건 확인', '견적 발송', '결제 대기')";
-const WAIT_ORDER = "CASE WHEN json_extract(i.data, '$.wait_rank') IS NULL THEN 1 ELSE 0 END, CAST(json_extract(i.data, '$.wait_rank') AS INTEGER), COALESCE(json_extract(i.data, '$.wait_restored_at'), i.created_at), i.ref";
-// 대기 순번은 공간(1호·2호)마다 따로 셉니다. space 를 주지 않으면 1호 기준입니다.
-async function waitList(env, date, space) {
-  const sp = spaceOk(space);
-  const { results } = await env.DB.prepare(`SELECT i.ref FROM inquiries i WHERE i.status IN ${PENDING} AND i.event_date = ? AND CASE WHEN i.space_id = 'megaspot-gundae-2' THEN 'megaspot-gundae-2' ELSE 'megaspot-gundae' END = ?
-    AND NOT EXISTS (SELECT 1 FROM bookings b2 WHERE b2.inquiry_ref = i.ref AND b2.status <> 'cancelled') ORDER BY ${WAIT_ORDER}`).bind(date, sp).all();
-  return (results || []).map(r => r.ref);
-}
 // 두 시간대가 겹치는지 (시간 정보가 없는 예약은 겹친다고 봅니다)
 function overlaps(s1, e1, s2, e2) { if (s1 == null || e1 == null || s2 == null || e2 == null) return true; return s1 < e2 && s2 < e1; }
 const OPEN = ['문의 접수', '조건 확인', '견적 발송', '결제 대기'];
@@ -161,13 +152,13 @@ export async function onRequest({ request, env, params, waitUntil }) {
     if(/^bookings\/[A-Z0-9-]+\/reconfirm$/.test(path))return await reconfirmationAdmin({env,request,path,method,waitUntil});
     if(/^bookings\/[A-Z0-9-]+\/cancellation(?:\/document)?$/.test(path))return await cancellationAdmin({env,request,path,method,url});
     if(/^bookings\/[A-Z0-9-]+\/settlement(?:\/entries\/\d+)?$/.test(path))return await settlementAdmin({env,request,path,method});
-    if (path === 'ping') return json({ ok: true });
     if (/^(catering|reception)\/pricing$/.test(path)) {
       const service=path.split('/')[0];
       if(method==='GET')return json(adminFoodPricing(await readFoodPricing(env,service)),200,{'cache-control':'no-store'});
       if(method==='PUT'){try{const saved=await saveFoodPricing(env,service,await readJson(request));if(saved.conflict)return err('다른 화면에서 가격표가 변경됐습니다. 최신 가격표를 불러온 뒤 다시 저장해 주세요.',409,'PRICE_CONFLICT');if(!saved.unchanged)await log(env,service+'.pricing.updated',service+'_pricing','admin',{revision:saved.config.revision});return json(adminFoodPricing(saved.config),200,{'cache-control':'no-store'});}catch(e){return err(e.message||'가격표를 저장하지 못했습니다.',400,'INVALID_PRICING');}}
       return err('지원하지 않는 요청입니다.',405);
     }
+    if (path === 'ping') return json({ ok: true });
     if (path === 'cocktail/pricing') {
       if(method==='GET')return json(adminCocktailPricing(await readCocktailPricing(env)),200,{'cache-control':'no-store'});
       if(method==='PUT'){
