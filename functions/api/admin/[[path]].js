@@ -43,6 +43,10 @@ function settingsValue(key, raw) { const S = SETTINGS[key]; let v = {}; try { v 
 const STATUSES = ['문의 접수', '조건 확인', '견적 발송', '결제 대기', '예약 확정', '이용 완료', '취소·환불', '대기 취소'];
 // 삭제한 문의는 지우지 않고 이 상태로 보관합니다(고객 DB 관리용). 목록·집계에서는 빠지고 '삭제된 문의'에서만 보입니다.
 const DELETED = '삭제됨';
+// Archived inquiries retain their linked cancellation records in inquiry detail.
+const OPERATIONAL_BOOKING_SQL = `NOT (b.status='cancelled' AND EXISTS (
+  SELECT 1 FROM inquiries archived WHERE archived.ref=b.inquiry_ref AND archived.status='${DELETED}'
+))`;
 // 두 시간대가 겹치는지 (시간 정보가 없는 예약은 겹친다고 봅니다)
 function overlaps(s1, e1, s2, e2) { if (s1 == null || e1 == null || s2 == null || e2 == null) return true; return s1 < e2 && s2 < e1; }
 const OPEN = ['문의 접수', '조건 확인', '견적 발송', '결제 대기'];
@@ -716,7 +720,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
 
     // ---- 예약 ----
     if (path === 'bookings' && method === 'GET') {
-      const where = [], args = [];
+      const where = [OPERATIONAL_BOOKING_SQL], args = [];
       for (const [param, column, op] of [['from', 'date', '>='], ['to', 'date', '<='], ['space', 'space_id', '='], ['status', 'status', '=']]) {
         const value = str(url.searchParams.get(param), 60); if (value) { where.push('b.' + column + ' ' + op + ' ?'); args.push(value); }
       }
@@ -782,7 +786,8 @@ export async function onRequest({ request, env, params, waitUntil }) {
           json_extract(i.data, '$.total') AS inq_total, json_extract(i.data, '$.start_h') AS inq_start, json_extract(i.data, '$.end_h') AS inq_end, json_extract(i.data, '$.purpose') AS purpose, json_extract(i.data, '$.channel') AS channel, json_extract(i.data, '$.channel_note') AS channel_note, json_extract(i.data, '$.family') AS family,
           ${ORDER_OF_BOOKING} AS cat_ord, CASE WHEN COALESCE(json_extract(i.data, '$.catering.by'), '') <> 'admin' THEN json_extract(i.data, '$.catering.summary') END AS cat_req
         FROM bookings b LEFT JOIN orders o ON o.id = (SELECT ox.id FROM orders ox WHERE ox.booking_code = b.booking_code ORDER BY ox.id DESC LIMIT 1) LEFT JOIN inquiries i ON i.ref = b.inquiry_ref
-        WHERE b.date BETWEEN ? AND ? ORDER BY b.date ASC, COALESCE(b.start_h, json_extract(i.data, '$.start_h'), 99) ASC, b.id ASC LIMIT 1001 OFFSET ?`).bind(f, t, offset).all();
+        WHERE b.date BETWEEN ? AND ? AND ${OPERATIONAL_BOOKING_SQL}
+        ORDER BY b.date ASC, COALESCE(b.start_h, json_extract(i.data, '$.start_h'), 99) ASC, b.id ASC LIMIT 1001 OFFSET ?`).bind(f, t, offset).all();
       const iqQ = "(SELECT q.total FROM quotes q WHERE q.inquiry_ref = i.ref ORDER BY q.id DESC LIMIT 1)";
       const { results: pend } = await env.DB.prepare(`WITH wait_queue AS (${rankedWaitsSql('i.event_date BETWEEN ? AND ?')})
         SELECT i.ref, i.space_id, i.status, i.name, i.phone, i.event_date, i.headcount, i.memo, i.created_at, (SELECT CASE WHEN json_extract(ic.checks, '$.guarantee_paid') IS NULL THEN NULL WHEN json_extract(ic.checks, '$.guarantee_paid') = 0 THEN 0 ELSE 1 END FROM inquiry_checks ic WHERE ic.ref = i.ref) AS deposit_paid, ${iqQ} AS quote_total, ${inquiryAmountSql()} AS effective_amount, ${amountOverrideSql()} AS amount_override,
