@@ -7,10 +7,11 @@ import { PRODUCTS, HOLIDAYS, PRICING } from '../_catalog.js';
 import { payappConfig, requestPayment, validFeedback, equalSecret } from '../_payapp.js';
 import { confirmedGuide } from '../_guide_messages.js';
 import { bookingAvailableSql } from '../_booking_availability.js';
-import {noPendingWaitSql,waitSummary} from '../_reservation_waitlist.js';
+import {noPendingWaitSql,rankedWaitsSql,waitSpaceSql,waitSummary} from '../_reservation_waitlist.js';
 const PKG_SLOT = { day: 'pkg-day', allday: 'pkg-allday', allnight: 'pkg-allnight' };
 const PKG_LABEL = { day: '낮 패키지 10–17시', allday: '올데이 패키지 10–24시', allnight: '올나잇 패키지 18시–다음 날 07시' };
 const PKG_HOURS = { 'pkg-day': [10, 17], 'pkg-allday': [10, 24], 'pkg-allnight': [18, 31] };
+const PASS_AVAILABLE_SQL = bookingAvailableSql({space:"'megaspot-gundae'",date:'span.date',start:'span.start_h',end:'span.end_h',exclude:'span.exclude_code'});
 const digits = v => String(v || '').replace(/\D/g, '');
 const sqlText = v => "'" + String(v).replace(/'/g, "''") + "'";
 function matchesPass(booking, row, slot) {
@@ -18,6 +19,25 @@ function matchesPass(booking, row, slot) {
   return !!(booking && hours && booking.status === 'confirmed' && booking.space_id === 'megaspot-gundae'
     && booking.date === row.event_date && booking.start_h === hours[0] && booking.end_h === hours[1]
     && booking.headcount === row.people && digits(booking.phone) === digits(row.buyer_phone));
+}
+async function passSlotAvailable(env, date, slot, exclude = '') {
+  const hours = PKG_HOURS[slot];
+  const occupancy = await env.DB.prepare(`SELECT ${PASS_AVAILABLE_SQL} AS available FROM (SELECT ? AS date,? AS start_h,? AS end_h,? AS exclude_code) span`)
+    .bind(date,hours[0],hours[1],exclude).first();
+  return !!occupancy?.available;
+}
+async function passAvailabilitySummary(env, date, product, ownRef) {
+  const [start,end] = PKG_HOURS[PKG_SLOT[product.pkg]];
+  // Read the queue and slot together so a concurrent confirmation cannot disappear from both.
+  const queue = rankedWaitsSql(`i.event_date=(SELECT date FROM span) AND ${waitSpaceSql('i')}='megaspot-gundae'`);
+  const row = await env.DB.prepare(`WITH span(date,start_h,end_h,exclude_code,own_ref) AS (VALUES(?,?,?,'',?)),
+    queue AS (${queue})
+    SELECT ${PASS_AVAILABLE_SQL} AS available, (SELECT COUNT(*) FROM queue) AS pending_count,
+      (SELECT no FROM queue WHERE ref=span.own_ref) AS wait_no FROM span`).bind(date,start,end,ownRef).first();
+  const {pending_count:count,wait_no:no} = row;
+  return {pending_count:count,next_wait_no:count+1,payment_blocked:count>0,
+    wait:no?{no,total:count,date,space_id:'megaspot-gundae'}:null,
+    product_id:product.id,slot_blocked:!row.available};
 }
 function retrySelection(row, data) {
   if (row.status !== 'failed' || !PRODUCTS.get(row.product_id)) return null;
@@ -124,13 +144,18 @@ export async function onRequest({ request, env, params, waitUntil }) {
     if(path==='availability'&&method==='GET'){
       const q=new URL(request.url).searchParams,date=q.get('date')||'',space=q.get('space')||'megaspot-gundae';
       if(!isDate(date)||date<kstToday()||!Object.hasOwn(SPACES,space))return err('공간과 이용일을 확인해 주세요.',400,'INVALID_DATE');
+      let product;
+      if(q.has('product_id')){
+        product=PRODUCTS.get(q.get('product_id'));
+        if(space!=='megaspot-gundae'||product?.kind!=='pass'||!Object.hasOwn(PKG_SLOT,product.pkg))return err('확인할 공간 이용권을 선택해 주세요.',400,'INVALID_PRODUCT');
+      }
       let ownRef='';const ref=str(q.get('ref'),20).toUpperCase();
       if(ref){
         const member=await getMember(request,env);
         const inquiry=member?await env.DB.prepare('SELECT data FROM inquiries WHERE ref=?').bind(ref).first():null;
         if(inquiry&&Number(safe(inquiry.data).member_id)===member.id)ownRef=ref;
       }
-      const summary=await waitSummary(env,date,space,ownRef);
+      const summary=product?await passAvailabilitySummary(env,date,product,ownRef):await waitSummary(env,date,space,ownRef);
       return json({ok:true,date,space,...summary,code:summary.payment_blocked?'RESERVATION_PENDING':null},200,{'cache-control':'no-store'});
     }
     if (path === 'diagnostics' && method === 'GET') {
@@ -193,11 +218,8 @@ export async function onRequest({ request, env, params, waitUntil }) {
         if (candidate && !matchesPass(candidate,{event_date:o.event_date,people:o.people,buyer_phone:phone},o.slot))
           return err('기존 예약과 공간·시간·인원이 다릅니다. 예약을 변경하려면 운영팀에 문의해 주세요.',409,'BOOKING_MISMATCH');
         linkedBooking = candidate;
-        const hours = PKG_HOURS[o.slot];
-        const available = bookingAvailableSql({space:"'megaspot-gundae'",date:'span.date',start:'span.start_h',end:'span.end_h',exclude:'span.exclude_code'});
-        const occupancy = await env.DB.prepare(`SELECT ${available} AS available FROM (SELECT ? AS date,? AS start_h,? AS end_h,? AS exclude_code) span`)
-          .bind(o.event_date,hours[0],hours[1],linkedBooking?.booking_code||'').first();
-        if (!occupancy?.available) return err(`${kdate(o.event_date)}의 선택한 시간은 이미 예약되었거나 임시 확보 중입니다. 다른 일정을 고르거나 운영팀에 문의해 주세요.`,409,'DATE_TAKEN');
+        if (!(await passSlotAvailable(env,o.event_date,o.slot,linkedBooking?.booking_code)))
+          return err(`${kdate(o.event_date)}의 선택한 시간은 이미 예약되었거나 임시 확보 중입니다. 다른 일정을 고르거나 운영팀에 문의해 주세요.`,409,'DATE_TAKEN');
       }
       const data = { lines: o.lines, people: o.people, slot: o.slot, memo: str(d.memo, 500), inquiry_ref: inquiryRef, linked_booking_code:linkedBooking?.booking_code||null, addons: o.product.kind === 'verification' ? {} : (d.addons || {}), qty: o.product.kind === 'verification' ? 1 : (num(d.qty) || 1), member_email: member ? member.email : '', ua: str(request.headers.get('user-agent'), 200), provider: 'payapp' };
       await env.DB.prepare('INSERT INTO orders (oid, product_id, title, event_date, people, price, buyer_name, buyer_phone, buyer_email, data, status, inquiry_ref, member_id, test, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')

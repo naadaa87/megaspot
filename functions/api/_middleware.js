@@ -9,7 +9,8 @@ export async function onRequest(context) {
   const path=new URL(context.request.url).pathname;
   const readOnlyPortal=/^\/api\/pay\/availability\/?$/.test(path)||/^\/api\/reservation-calendar\/?$/.test(path)||path.startsWith('/api/booking-portal/')||/^\/api\/admin\/bookings\/[^/]+\/portal-link/.test(path)||/^\/api\/admin\/guide-messages\/(portal-preview|portal-test|portal-template|portal-check-template)$/.test(path);
   const readOnlyReadiness=/^\/api\/admin\/booking-readiness\/?$/.test(path);
-  if(typeof context.waitUntil==='function'&&!path.startsWith('/api/deposit-notifications/')&&!readOnlyPortal&&!readOnlyReadiness){
+  const readOnlyMemberInquiries=context.request.method==='GET'&&/^\/api\/auth\/inquiries\/?$/.test(path);
+  if(typeof context.waitUntil==='function'&&!path.startsWith('/api/deposit-notifications/')&&!readOnlyPortal&&!readOnlyReadiness&&!readOnlyMemberInquiries){
     context.waitUntil(depositNoticeTick(context.env).catch(()=>{}));
     context.waitUntil(guideTick(context.env).catch(()=>{}));
     context.waitUntil(parkingAdminSMSTick(context.env).catch(()=>{}));

@@ -14,3 +14,29 @@ test('public calendar reads do not schedule notification or outbound-message job
 
 test('legacy confirmed reservations reuse linked hour data only when both booking hours are absent',async t=>{const f=setup(t),code=f.insert({start:null,end:null});f.db.prepare('UPDATE bookings SET inquiry_ref=? WHERE booking_code=?').run('MS-TEST',code);let r=await f.get();assert.equal(r.data.unknownDates.length,0);assert.equal(r.data.intervals[0].start,DAY+'T10:00:00+09:00');f.db.prepare('UPDATE bookings SET start_h=18,end_h=22 WHERE booking_code=?').run(code);r=await f.get();assert.equal(r.data.intervals[0].start,DAY+'T18:00:00+09:00');f.db.prepare('UPDATE bookings SET end_h=NULL WHERE booking_code=?').run(code);assert.equal((await f.get()).data.unknownDates.length,1);});
 test('a public range with too many intervals fails explicitly instead of silently truncating availability',async t=>{const f=setup(t),env={DB:{prepare(){return {bind(){return this;},async all(){return {results:Array(5001).fill({space_id:'megaspot-gundae',date:DAY,start_h:10,end_h:17})};}};}}};const r=await f.get(DAY,DAY,env);assert.equal(r.status,503);assert.equal(r.data.code,'TOO_MANY_INTERVALS');assert.equal(r.data.intervals,undefined);});
+
+test('한 달력 응답 안에서 확정 전의 대기와 확정 후의 예약이 동시에 사라지지 않는다',async t=>{
+ const f=setup(t);
+ const prepare=f.env.DB.prepare;
+ let confirmed=false;
+ f.env.DB.prepare=sql=>{
+  const statement=prepare(sql),all=statement.all;
+  statement.all=async()=>{
+   const snapshot=await all();
+   if(!confirmed){
+    confirmed=true;
+    const code=f.insert();
+    f.db.prepare("UPDATE bookings SET inquiry_ref='MS-TEST' WHERE booking_code=?").run(code);
+    f.db.exec("UPDATE inquiries SET status='예약 확정' WHERE ref='MS-TEST'");
+   }
+   return snapshot;
+  };
+  return statement;
+ };
+ const before=await f.get();
+ assert.equal(before.data.pendingDates[0]?.count,1);
+ assert.equal(before.data.intervals.length,0);
+ const after=await f.get();
+ assert.deepEqual(after.data.pendingDates,[]);
+ assert.equal(after.data.intervals.length,1);
+});

@@ -59,11 +59,12 @@
   /* ---------- 마이페이지 ---------- */
   var app=$('#my-app');
   if(app){
+    var inquiriesHTML=null, inquiriesLoading=false;
     M.checkApi().then(function(live){
       if(!live){ $('#my-offline').hidden=false; $('#my-logout').hidden=true; return; }
       M.api('/auth/me').then(function(j){
         var m=j.member; if(!m){ location.replace('/login/?next=/mypage/'); return; }
-        app.hidden=false; fillProfile(m); loadInquiries(); loadOrders();
+        app.hidden=false; fillProfile(m); watchInquiries(); loadOrders();
       }).catch(function(){ location.replace('/login/?next=/mypage/'); });
     });
     $('#my-logout').addEventListener('click', function(){ M.account.logout().then(function(){ location.href='/'; }); });
@@ -79,22 +80,55 @@
       var at=STEPS.indexOf(st);
       return '<ol class="my-steps">'+STEPS.map(function(s,i){ return '<li class="'+(i<at?'done':i===at?'now':'')+'">'+s+'</li>'; }).join('')+'</ol>';
     }
+    function watchInquiries(){
+      function refreshVisible(){ if(!document.hidden&&!app.hidden) loadInquiries(); }
+      $('#my-inquiry-refresh').addEventListener('click',loadInquiries);
+      document.addEventListener('visibilitychange',refreshVisible);
+      window.addEventListener('focus',refreshVisible);
+      window.addEventListener('pageshow',function(e){ if(e.persisted) refreshVisible(); });
+      window.setInterval(refreshVisible,30000);
+      loadInquiries();
+    }
     function loadInquiries(){
+      if(inquiriesLoading) return;
+      inquiriesLoading=true;
+      var box=$('#my-inquiries'), refresh=$('#my-inquiry-refresh'), status=$('#my-inquiry-status');
+      refresh.disabled=true;
+      box.setAttribute('aria-busy','true');
       M.api('/auth/inquiries').then(function(j){
-        var list=j.items||[]; $('#my-count').textContent=list.length?list.length+'건':'';
-        if(!list.length){ $('#my-inquiries').innerHTML='<div class="empty"><b>아직 회원으로 보낸 예약 신청·문의가 없습니다</b><p class="small muted mt-1">시간·날짜·인원을 골라 금액을 확인하고 그 자리에서 예약을 신청해 보세요.</p><div class="row mt-2" style="justify-content:center;gap:8px"><a class="btn btn-primary btn-sm" href="/inquiry/">예약 신청 · 금액 확인</a><a class="btn btn-light btn-sm" href="/inquiry/?type=regular">정기 모임 상담</a></div></div>'; return; }
-        $('#my-inquiries').innerHTML=list.map(function(it){
+        if(!Array.isArray(j.items)) throw Error('문의 목록을 확인하지 못했습니다.');
+        var list=j.items;
+        var html=list.length?list.map(function(it){
           var hl=function(h){ return (h>=24?'다음 날 ':'')+('0'+(h%24)).slice(-2)+':00'; }; var when=[it.date?M.fmtKDate(it.date):'', (it.start_h!=null&&it.end_h!=null)?hl(+it.start_h)+'–'+hl(+it.end_h)+' ('+(it.end_h-it.start_h)+'시간)':((it.t_start&&it.t_end)?it.t_start+'–'+it.t_end:''), it.headcount?it.headcount+'명':'', it.total?'예상 '+Number(it.total).toLocaleString('ko-KR')+'원':''].filter(Boolean).join(' · ');
           var confirmed=it.confirmed_bookings||[],request='<b>'+esc(SPACE[it.space_id]||it.space_id)+'</b>'+(when?' · '+esc(when):'');
           var actual=confirmed.map(function(b){var info=[b.date?M.fmtKDate(b.date):'',b.start_h!=null&&b.end_h!=null?hl(+b.start_h)+'–'+hl(+b.end_h):'시간 확인 중',b.headcount?b.headcount+'명':'',b.amount!=null?'확정 '+Number(b.amount).toLocaleString('ko-KR')+'원':''].filter(Boolean).join(' · ');return '<div class="small mt-2"><b>'+esc(b.status==='completed'?'이용 완료':'확정된 예약')+' · '+esc(SPACE[b.space_id]||b.space_id)+'</b><p>'+esc(info)+'</p><p class="tiny muted">예약번호 '+esc(b.code)+'</p></div>';}).join('');
           return '<div class="card pad-s my-inq"><div class="row between"><div class="row" style="gap:8px"><b class="ref">'+esc(it.ref)+'</b><span class="badge badge-soft">'+esc(it.reserve?'예약 신청':(TYPE[it.inquiry_type]||'문의'))+'</span>'+(it.purpose&&PUR[it.purpose]?'<span class="badge badge-cobalt">'+esc(PUR[it.purpose])+'</span>':'')+'</div><span class="small muted">'+esc(String(it.created_at||'').slice(0,10))+' 접수</span></div>'
-            + (confirmed.length?actual+'<details class="mt-2"><summary class="small">처음 신청한 조건</summary><div class="small mt-1">'+request+'</div></details>':'<div class="small mt-1">'+request+'</div>')
-            + (it.wait?'<p class="notice small mt-2"><span><b>예약 대기 '+esc(it.wait.no)+'번</b> · 같은 날 '+esc(it.wait.total)+'건 가운데 현재 '+esc(it.wait.no)+'번째입니다. 운영팀에서 순서대로 예약 가능 여부와 결제 방법을 안내합니다.</span></p>':'')
+            + (confirmed.length?actual+'<details class="mt-2" data-inquiry-detail="'+esc(it.ref)+'-request"><summary class="small">처음 신청한 조건</summary><div class="small mt-1">'+request+'</div></details>':'<div class="small mt-1">'+request+'</div>')
+            + (it.wait?'<p class="notice small mt-2"><span><b>예약 대기 '+esc(it.wait.no)+'번</b> · '+esc(SPACE[it.wait.space_id]||'같은 호점')+'에서 같은 날 '+esc(it.wait.total)+'건 가운데 현재 '+esc(it.wait.no)+'번째입니다. 운영팀에서 순서대로 예약 가능 여부와 결제 방법을 안내합니다.</span></p>':'')
             + steps(it.status)
-            + (it.estimate?'<details class="mt-2"><summary class="small" style="cursor:pointer;color:var(--cobalt);font-weight:700">함께 보낸 예상 금액</summary><pre class="my-est">'+esc(it.estimate)+'</pre></details>':'')
+            + (it.estimate?'<details class="mt-2" data-inquiry-detail="'+esc(it.ref)+'-estimate"><summary class="small" style="cursor:pointer;color:var(--cobalt);font-weight:700">함께 보낸 예상 금액</summary><pre class="my-est">'+esc(it.estimate)+'</pre></details>':'')
             + '</div>';
-        }).join('');
-      }).catch(function(x){ $('#my-inquiries').innerHTML='<div class="empty">'+esc(x.message||'문의 목록을 불러오지 못했습니다.')+'</div>'; });
+        }).join(''):'<div class="empty"><b>아직 회원으로 보낸 예약 신청·문의가 없습니다</b><p class="small muted mt-1">시간·날짜·인원을 골라 금액을 확인하고 그 자리에서 예약을 신청해 보세요.</p><div class="row mt-2" style="justify-content:center;gap:8px"><a class="btn btn-primary btn-sm" href="/inquiry/">예약 신청 · 금액 확인</a><a class="btn btn-light btn-sm" href="/inquiry/?type=regular">정기 모임 상담</a></div></div>';
+        if(html!==inquiriesHTML){
+          var openDetails=new Set($$('details[open][data-inquiry-detail]',box).map(function(el){ return el.dataset.inquiryDetail; }));
+          var focused=document.activeElement&&document.activeElement.closest('details[data-inquiry-detail]');
+          var focusKey=focused&&box.contains(focused)?focused.dataset.inquiryDetail:'';
+          box.innerHTML=html;
+          $$('details[data-inquiry-detail]',box).forEach(function(el){
+            if(openDetails.has(el.dataset.inquiryDetail)) el.open=true;
+            if(el.dataset.inquiryDetail===focusKey) $('summary',el).focus({preventScroll:true});
+          });
+          $('#my-count').textContent=list.length?list.length+'건':'';
+          inquiriesHTML=html;
+        }
+        if(status.textContent) status.textContent='';
+      }).catch(function(error){
+        if(error.status===401){ app.hidden=true; location.replace('/login/?next=/mypage/'); return; }
+        if(inquiriesHTML===null) box.innerHTML='<div class="empty">문의 목록을 불러오지 못했습니다.</div>';
+        status.textContent=inquiriesHTML===null?'상태 새로고침을 눌러 다시 확인해 주세요.':'최신 상태를 확인하지 못했습니다. 마지막으로 확인한 내용을 표시합니다.';
+      }).finally(function(){
+        inquiriesLoading=false; refresh.disabled=false; box.setAttribute('aria-busy','false');
+      });
     }
     function loadOrders(){
       var inquiries=$('#my-inquiries'), section=document.createElement('section'); section.className='mt-4'; section.setAttribute('aria-labelledby','my-orders-title');

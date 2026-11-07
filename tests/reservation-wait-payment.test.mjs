@@ -57,7 +57,56 @@ test('로그인 소유 문의만 본인 현재 순번을 조회하고 마이페�
  const path='availability?'+new URLSearchParams({date:DAY,space:SPACE,ref:'MS-OWN'});
  assert.equal((await f.api(path)).body.wait,null);assert.equal((await f.api(path,'GET',undefined,'ms_in=1')).body.wait,null);assert.equal((await f.api(path,'GET',undefined,'ms_session=wait-member-2')).body.wait,null);
  const own=(await f.api(path,'GET',undefined,'ms_session=wait-member-1')).body;assert.deepEqual(own.wait,{no:2,total:3,date:DAY,space_id:SPACE});
+ const passPath=path+'&product_id='+pass().product_id;
+ assert.equal((await f.api(passPath)).body.wait,null);
+ assert.deepEqual((await f.api(passPath,'GET',undefined,'ms_session=wait-member-1')).body.wait,own.wait);
  const res=await auth({env:f.env,params:{path:['inquiries']},request:new Request('https://local.test/api/auth/inquiries',{headers:{cookie:'ms_session=wait-member-1'}})});const items=(await res.json()).items;assert.deepEqual(items.map(x=>x.ref),['MS-OWN']);assert.deepEqual(items[0].wait,own.wait);
+});
+
+test('대기와 시간대 조회는 같은 스냅숏을 보며 마지막 문의가 확정돼도 겹친 시간이 열린 것으로 보이지 않는다',async t=>{
+ const f=setup(t),input=pass(),ref=f.pending({date:input.date});
+ const path='availability?'+new URLSearchParams({date:input.date,space:SPACE,product_id:input.product_id});
+ const prepare=f.env.DB.prepare;let reads=0;
+ f.env.DB.prepare=sql=>{
+  const s=prepare(sql);
+  for(const method of ['first','all']){
+   const read=s[method];
+   s[method]=async(...args)=>{
+    const result=await read.apply(s,args);
+    if(++reads===1)f.booking(ref,{date:input.date});
+    return result;
+   };
+  }
+  return s;
+ };
+ const before=await f.api(path);assert.equal(reads,1);assert.equal(before.status,200);assert.equal(before.body.pending_count,1);assert.equal(before.body.payment_blocked,true);assert.equal(before.body.slot_blocked,false);
+ const after=await f.api(path);assert.equal(reads,2);assert.equal(after.body.pending_count,0);assert.equal(after.body.payment_blocked,false);assert.equal(after.body.slot_blocked,true);assert.equal(after.body.product_id,input.product_id);
+ const dateOnly=(await f.api('availability?date='+input.date)).body;assert.equal(dateOnly.pending_count,0);assert.equal('slot_blocked' in dateOnly,false);assert.equal('product_id' in dateOnly,false);
+ const r=await f.order(input);assert.equal(r.status,409);assert.equal(r.body.code,'DATE_TAKEN');assert.equal(f.calls(),0);assert.equal(f.db.prepare('SELECT COUNT(*) n FROM orders').get().n,0);
+});
+
+test('시간대 조회는 대기 취소와 맞닿는 예약을 허용하고 관리자 임시 확보는 결제와 동일하게 차단한다',async t=>{
+ const f=setup(t),input=pass();f.pending({date:input.date,status:'대기 취소'});f.booking(null,{date:input.date,start:17,end:19});
+ const path='availability?'+new URLSearchParams({date:input.date,product_id:input.product_id});
+ const clear=(await f.api(path)).body;assert.equal(clear.pending_count,0);assert.equal(clear.slot_blocked,false);
+ f.db.prepare('INSERT INTO calendar_blocks(space_id,date,state) VALUES(?,?,?)').run(SPACE,input.date,'hold');
+ const held=(await f.api(path)).body;assert.equal(held.pending_count,0);assert.equal(held.slot_blocked,true);assert.equal((await f.order(input)).body.code,'DATE_TAKEN');assert.equal(f.calls(),0);
+ for(const query of ['product_id=','product_id=addon-cleaning','product_id='+input.product_id+'&space=megaspot-gundae-2']){
+  const r=await f.api('availability?date='+input.date+'&'+query);assert.equal(r.status,400);assert.equal(r.body.code,'INVALID_PRODUCT');
+ }
+});
+
+test('확정 예약과 겹친 공개 응답은 예약 정보를 숨기고 비회원 연결·재결제는 서버 일치 검증을 유지한다',async t=>{
+ const f=setup(t),input=pass(),code=f.booking('MS-TEST',{date:input.date,code:'BK-LINKED'});
+ const path='availability?'+new URLSearchParams({date:input.date,product_id:input.product_id,ref:'MS-TEST'});
+ const state=(await f.api(path)).body;assert.equal(state.slot_blocked,true);assert.equal(state.wait,null);
+ for(const privateValue of [code,'MS-TEST','01012345678','booking_code','customer_name'])assert.ok(!JSON.stringify(state).includes(privateValue));
+ const wrong=await f.order({...input,inquiry_ref:'MS-TEST',buyer:{name:'모의 고객',phone:'01099995678'}});
+ assert.equal(wrong.body.code,'BOOKING_MISMATCH');assert.equal(f.calls(),0);
+ const linked=await f.order({...input,inquiry_ref:'MS-TEST'});assert.equal(linked.status,200);
+ const previous=f.seed({status:'failed',linked:false});
+ const retry=await f.order({...input,retry_oid:previous.oid});assert.equal(retry.status,200);assert.equal(f.calls(),2);
+ for(const result of [linked,retry])assert.equal(JSON.parse(f.db.prepare('SELECT data FROM orders WHERE oid=?').get(result.body.oid).data).linked_booking_code,code);
 });
 
 test('유효 예약 대기 한 건이면 시간이 달라도 이용권 결제 요청·주문 생성을 차단한다',async t=>{
@@ -112,10 +161,39 @@ test('검토 예약 생성으로 대기가 제외돼도 같은 트랜잭션의 �
  await f.feedback(await f.form(seed,'4'));const row=f.db.prepare('SELECT o.booking_code,b.status FROM orders o JOIN bookings b ON b.booking_code=o.booking_code WHERE o.oid=?').get(seed.oid);assert.notEqual(row.booking_code,'BK-TEST');assert.equal(row.status,'payment_review');assert.equal(f.db.prepare("SELECT status FROM bookings WHERE booking_code='BK-TEST'").get().status,'confirmed');
 });
 
-test('회원 문의 화면에 현재 예약 대기 순번과 전체 문의 건수를 표시한다',async()=>{
- const nodes=new Map(),element=s=>{if(!nodes.has(s))nodes.set(s,{innerHTML:'',textContent:'',value:'',addEventListener(){},setAttribute(){},parentNode:{appendChild(){}}});return nodes.get(s);};
- const inquiry={ref:'MS-OWN',space_id:SPACE,status:'문의 접수',date:DAY,headcount:30,wait:{no:2,total:3,date:DAY,space_id:SPACE}};
- const M={$:s=>['#signup-form','#login-form'].includes(s)?null:element(s),$$:()=>[],esc:v=>String(v??''),fmtKDate:s=>s,checkApi:async()=>true,api:async p=>p==='/auth/me'?{member:{name:'검증 고객'}}:p==='/auth/inquiries'?{items:[inquiry]}:{items:[]}};
- runInNewContext(readFileSync(new URL('../assets/js/pages/account.js',import.meta.url),'utf8'),{window:{MEGASPOT:M},document:{createElement:()=>({innerHTML:'',setAttribute(){}})},location:{search:''},URLSearchParams});await new Promise(resolve=>setImmediate(resolve));
- const html=element('#my-inquiries').innerHTML;assert.match(html,/예약 대기 2번/);assert.match(html,/같은 날 3건 가운데 현재 2번째/);assert.match(html,/순서대로 예약 가능 여부와 결제 방법/);
+test('회원 문의는 최초 순번을 표시한 뒤 현재 탭·복귀·수동 갱신에서 최신 상태를 반영한다',async t=>{
+ t.mock.timers.enable({apis:['setInterval']});
+ const nodes=new Map(),element=s=>{
+  if(!nodes.has(s)) nodes.set(s,Object.assign(new EventTarget(),{innerHTML:'',textContent:'',value:'',setAttribute(){},parentNode:{appendChild(){}}}));
+  return nodes.get(s);
+ };
+ let requests=0,draws=0,html='',next;
+ let details={dataset:{inquiryDetail:'MS-OWN-estimate'},open:false};
+ Object.defineProperty(element('#my-inquiries'),'innerHTML',{get:()=>html,set:value=>{html=value;draws++;details={dataset:{inquiryDetail:'MS-OWN-estimate'},open:false};}});
+ const inquiry={ref:'MS-OWN',space_id:SPACE,status:'문의 접수',date:DAY,headcount:30,estimate:'고객이 보낸 견적',wait:{no:2,total:3,date:DAY,space_id:SPACE}};
+ next=()=>({items:[inquiry]});
+ const M={$:s=>['#signup-form','#login-form'].includes(s)?null:element(s),$$:s=>s.includes('[open]')?(details.open?[details]:[]):[details],esc:v=>String(v??''),fmtKDate:s=>s,checkApi:async()=>true,api:async p=>{
+  if(p==='/auth/me')return {member:{name:'검증 고객'}};
+  if(p==='/auth/inquiries'){requests++;return next();}
+  return {items:[]};
+ }};
+ const window=Object.assign(new EventTarget(),{MEGASPOT:M,setInterval});
+ const document=Object.assign(new EventTarget(),{hidden:false,createElement:()=>({innerHTML:'',setAttribute(){}})});
+ const flush=()=>new Promise(resolve=>setImmediate(resolve));
+ runInNewContext(readFileSync(new URL('../assets/js/pages/account.js',import.meta.url),'utf8'),{window,document,location:{search:''},URLSearchParams});await flush();
+ assert.match(html,/예약 대기 2번/);assert.match(html,/같은 날 3건 가운데 현재 2번째/);assert.match(html,/순서대로 예약 가능 여부와 결제 방법/);
+ details.open=true;
+ t.mock.timers.tick(30000);await flush();assert.equal(requests,2);assert.equal(draws,1);assert.equal(details.open,true);
+ document.hidden=true;document.dispatchEvent(new Event('visibilitychange'));t.mock.timers.tick(60000);await flush();assert.equal(requests,2);
+ let resolvePending;next=()=>new Promise(resolve=>{resolvePending=resolve;});
+ document.hidden=false;document.dispatchEvent(new Event('visibilitychange'));window.dispatchEvent(new Event('focus'));
+ assert.equal(requests,3,'동일 시점의 복귀 이벤트는 같은 요청을 사용');
+ resolvePending({items:[{...inquiry,wait:{...inquiry.wait,no:1,total:2}}]});await flush();
+ assert.match(html,/예약 대기 1번/);assert.equal(details.open,true,'순번이 바뀌어도 열어 둔 견적은 유지');
+ next=()=>{throw Error('temporary failure');};
+ element('#my-inquiry-refresh').dispatchEvent(new Event('click'));await flush();
+ assert.match(html,/예약 대기 1번/);assert.match(element('#my-inquiry-status').textContent,/마지막으로 확인한 내용/);
+ next=()=>({items:[{...inquiry,status:'예약 확정',wait:null,confirmed_bookings:[{code:'BK-ACTUAL',space_id:SPACE,date:DAY,status:'confirmed'}]}]});
+ window.dispatchEvent(new Event('focus'));await flush();
+ assert.doesNotMatch(html,/예약 대기 [12]번/);assert.match(html,/확정된 예약/);assert.equal(element('#my-inquiry-status').textContent,'');
 });

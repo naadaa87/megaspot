@@ -20,13 +20,12 @@ export async function waitSummary(env,date,space,ref=''){
  const space_id=spaceOk(space),list=await waitList(env,date,space_id),no=ref?list.indexOf(ref)+1:0;
  return {pending_count:list.length,next_wait_no:list.length+1,payment_blocked:list.length>0,wait:no?{no,total:list.length,date,space_id}:null};
 }
-export async function memberWaits(env,memberId){
- const {results}=await env.DB.prepare(`SELECT ref,no,total,date,space_id FROM (
-   SELECT i.ref,i.event_date AS date,${waitSpaceSql('i')} AS space_id,json_extract(i.data,'$.member_id') AS member_id,
-     ROW_NUMBER() OVER(PARTITION BY i.event_date,${waitSpaceSql('i')} ORDER BY ${WAIT_ORDER_SQL}) AS no,
-     COUNT(*) OVER(PARTITION BY i.event_date,${waitSpaceSql('i')}) AS total
-   FROM inquiries i WHERE ${pendingInquirySql({alias:'i',date:'i.event_date',space:waitSpaceSql('i')})}
-     AND i.event_date IN(SELECT event_date FROM inquiries WHERE json_extract(data,'$.member_id')=? AND status<>'삭제됨' ORDER BY created_at DESC LIMIT 100)
- ) queue WHERE member_id=?`).bind(memberId,memberId).all();
- return new Map((results||[]).map(row=>[row.ref,{no:row.no,total:row.total,date:row.date,space_id:row.space_id}]));
+// Filter dates here. Filter individual inquiries after ranking to preserve the full queue.
+export function rankedWaitsSql(dateFilter = '1') {
+ const space = waitSpaceSql('i');
+ return `SELECT i.ref,i.event_date AS date,${space} AS space_id,
+     ROW_NUMBER() OVER(PARTITION BY i.event_date,${space} ORDER BY ${WAIT_ORDER_SQL}) AS no,
+     COUNT(*) OVER(PARTITION BY i.event_date,${space}) AS total
+   FROM inquiries i
+   WHERE ${pendingInquirySql({alias:'i',date:'i.event_date',space})} AND (${dateFilter})`;
 }
