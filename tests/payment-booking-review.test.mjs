@@ -61,6 +61,16 @@ for(const scenario of [
   if(scenario.held)f.noNotices(f.booking(order.oid).booking_code);
 });
 
+test('결제 승인 시 시간값을 문의에만 저장한 다음 날 확정 예약과도 겹치지 않게 한다',async t=>{
+  const f=setup(t),order=f.seed(),next=new Date(Date.parse(DAY+'T00:00:00Z')+864e5).toISOString().slice(0,10);
+  f.db.prepare("UPDATE orders SET data=?,inquiry_ref=NULL WHERE oid=?").run(JSON.stringify({slot:'pkg-allnight'}),order.oid);
+  f.occupied({date:next,start:null,end:null});
+  f.db.prepare("UPDATE inquiries SET data=? WHERE ref='MS-TEST'").run(JSON.stringify({start_h:6,end_h:10}));
+  f.db.exec("UPDATE bookings SET inquiry_ref='MS-TEST' WHERE booking_code='BK-OCCUPIED'");
+  await f.feedback(await f.form(order,'4'));
+  assert.equal(f.booking(order.oid).status,'payment_review');
+});
+
 for(const state of ['hold','full'])test('결제 후 '+state+' 표시도 확정 보류',async t=>{
   const f=setup(t),o=f.seed();f.db.prepare('INSERT INTO calendar_blocks(space_id,date,state) VALUES(?,?,?)').run('megaspot-gundae',DAY,state);
   await f.feedback(await f.form(o,'4'));assert.equal(f.booking(o.oid).status,'payment_review');

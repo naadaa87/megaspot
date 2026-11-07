@@ -150,7 +150,8 @@
   <div class="container">
     <div class="my-grid">
       <div>
-        <div class="row between mb-2"><h2 class="h-s">내 문의</h2><span class="small muted" id="my-count"></span></div>
+        <div class="row between mb-2" style="gap:8px"><h2 class="h-s">내 문의</h2><div class="row" style="gap:8px"><span class="small muted" id="my-count"></span><button class="btn btn-light btn-sm" id="my-inquiry-refresh" type="button" aria-controls="my-inquiries">상태 새로고침</button></div></div>
+        <p class="tiny muted" id="my-inquiry-status" role="status"></p>
         <div id="my-inquiries" class="grid" style="gap:12px"><div class="empty">불러오는 중…</div></div>
         <p class="tiny muted mt-2">회원으로 로그인한 상태에서 보낸 문의만 표시됩니다. 카카오톡·전화로 진행한 상담이나 로그인 전에 보낸 문의는 여기에 나오지 않습니다.</p>
       </div>
@@ -272,6 +273,6 @@
 </footer>
 <script src="/assets/js/site.js?v=20261103bottomclearance5"></script>
 <script src="/assets/js/data/spaces.js?v=daf088fdc359"></script>
-<script src="/assets/js/pages/account.js?v=ca7fdb2ef030"></script>
+<script src="/assets/js/pages/account.js?v=0bf57ba57e24"></script>
 </body>
 </html>

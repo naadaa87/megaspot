@@ -14,7 +14,8 @@
     var q=new URLSearchParams(location.search), prod=P.get(q.get('product')||'');
     if(!prod){ app.hidden=false; $('#od-form').innerHTML='<div class="empty"><b>상품을 찾을 수 없습니다</b><p class="small muted mt-1">이용권 목록에서 다시 골라 주세요.</p><a class="btn btn-primary btn-sm mt-2" href="/products/">이용권 보기</a></div>'; $('.order-side').hidden=true; return; }
     var isPass=prod.kind==='pass', isVerification=prod.kind==='verification', addons=P.items.filter(function(x){ return x.kind==='addon'; }), retryOid=q.get('retry')||'';
-    var waitState='idle',waitKey='',waitAt=0,waitSeq=0,waitTimer,waitInfo=null,checkoutWarn='',payBusy=false;
+    var WAIT_REFRESH_MS=20000;
+    var waitState='idle',waitKey='',waitAt=0,waitSeq=0,waitTimer,waitRefreshTimer,waitStartedAt=0,waitChecking=false,waitInfo=null,checkoutWarn='',payBusy=false;
     M.checkApi().then(function(live){
       if(!live){ $('#od-offline').hidden=false; return; }
       M.api('/pay/config').then(function(c){
@@ -71,9 +72,10 @@
       all.addEventListener('change', function(){ boxes.forEach(function(b){ b.checked=all.checked; b.classList.remove('invalid'); }); });
       boxes.forEach(function(b){ b.addEventListener('change', function(){ all.checked=boxes.every(function(x){ return x.checked; }); }); });
       if(M.account){ M.account.me().then(function(m){ if(!m) return; if(!$('#od-name').value) $('#od-name').value=m.name; if(!$('#od-phone').value) $('#od-phone').value=m.phone; if(!$('#od-email').value) $('#od-email').value=m.email; var ml=$('#od-member'); ml.className='member-line on'; ml.innerHTML='<span><b>'+esc(m.name)+'</b>님, 회원 정보로 채웠습니다. 결제한 주문은 마이페이지에서도 볼 수 있습니다.</span>'; ml.hidden=false; }); }
-      $('#od-form').addEventListener('input', function(){ $('#od-error').dataset.sticky=''; calc(); }); $('#od-form').addEventListener('change', function(){ $('#od-error').dataset.sticky=''; calc(); }); calc();
+      function formChanged(){ var error=$('#od-error');error.dataset.sticky='';error.dataset.waitError='';calc(); }
+      $('#od-form').addEventListener('input',formChanged);$('#od-form').addEventListener('change',formChanged);calc();
       $('#od-pay').addEventListener('click', pay);
-      $('#od-availability-retry').addEventListener('click',function(){requestWait(state()).catch(function(){});});
+      if(isPass)bindWaitRefresh();
       $('#od-error').addEventListener('click', function(e){
         var link=e.target.closest('[data-swap-product]'); if(!link) return;
         var next=P.get(link.dataset.swapProduct); if(!next||next.kind!=='pass'||next.pkg!==prod.pkg) return;
@@ -126,32 +128,90 @@
       note.hidden=!fabrication;note.textContent=P.exchange.productionNote||'결제 후 2시간 이내에는 제작 착수 여부와 관계없이 전액 환불합니다. 이후 제작에 착수한 현수막·X배너는 해당 제작 상품의 환불이 제한되며, 공간 이용료와 다른 옵션에는 일반 환불 기준이 적용됩니다.';
       $('#od-date2').min=fabrication?new Date(Date.parse(todayIso()+'T00:00:00Z')+5*86400000).toISOString().slice(0,10):todayIso();
     }
-    function waitChoice(s){return s.date+'|'+s.inquiry_ref;}
-    function waitUrl(s){var p=new URLSearchParams({date:s.date,space:'megaspot-gundae'});if(s.inquiry_ref)p.set('ref',s.inquiry_ref);return '/pay/availability?'+p.toString();}
-    function waitInquiry(s){return '/inquiry/?'+new URLSearchParams({space:'megaspot-gundae',date:s.date,pkg:prod.pkg,people:String(s.people),wait:'1'}).toString()+'#reserve';}
+    function waitChoice(s){return s.product_id+'|'+s.date+'|'+s.inquiry_ref;}
+    function canCheckWait(s){return isPass&&/^\d{4}-\d{2}-\d{2}$/.test(s.date||'')&&s.date>=todayIso();}
+    function waitUrl(s){
+      var p=new URLSearchParams({date:s.date,space:'megaspot-gundae',product_id:s.product_id});
+      if(s.inquiry_ref)p.set('ref',s.inquiry_ref);
+      return '/pay/availability?'+p.toString();
+    }
+    function waitInquiry(s,otherDate){
+      var p=new URLSearchParams({space:'megaspot-gundae',pkg:prod.pkg,people:String(s.people)});
+      if(!otherDate){p.set('date',s.date);p.set('wait','1');}
+      return '/inquiry/?'+p.toString()+'#reserve';
+    }
+    function waitMode(j,s){
+      if(j.payment_blocked)return 'blocked';
+      if(j.slot_blocked)return s.inquiry_ref||s.retry_oid?'linked':'occupied';
+      return 'clear';
+    }
+    function waitAllowsPayment(mode){return mode==='clear'||mode==='linked';}
     function paintWait(){
       var s=state(),box=$('#od-availability'),message=$('#od-availability-message'),link=$('#od-wait-link'),retry=$('#od-availability-retry'),btn=$('#od-pay');
-      box.hidden=!isPass||waitState==='idle';box.dataset.state=waitState;retry.hidden=waitState!=='error';link.hidden=!isPass||!['blocked','error'].includes(waitState);
-      link.href=s.inquiry_ref?'https://pf.kakao.com/_LnxbmX/chat':waitInquiry(s);link.textContent=s.inquiry_ref?'기존 예약 문의 이어가기 →':'예약 대기 신청 →';
-      if(waitState==='loading')message.textContent='이 날짜의 예약 문의·대기 현황을 확인하고 있습니다.';
-      else if(waitState==='error')message.textContent='예약 대기 현황을 확인하지 못해 결제를 잠시 제한했습니다. 다시 확인하거나 예약 문의를 남겨 주세요.';
-      else if(waitState==='blocked')message.textContent=waitInfo&&waitInfo.wait?'접수하신 예약은 현재 대기 '+waitInfo.wait.no+'번입니다(총 '+waitInfo.pending_count+'건). 온라인 결제는 제한되며, 담당자가 순서대로 안내합니다.':'이 날짜에는 예약 문의 '+Number(waitInfo&&waitInfo.pending_count||0)+'건이 먼저 접수되어 온라인 결제가 제한됩니다.'+(waitInfo&&waitInfo.next_wait_no?' 새로 신청하시면 예상 대기 '+waitInfo.next_wait_no+'번입니다.':'')+' 대기는 예약 확정이 아니며, 담당자가 순서대로 안내합니다.';
-      else if(waitState==='clear')message.textContent='현재 이 날짜에 예약 대기가 없습니다. 결제 직전에 다시 확인합니다.';
-      btn.disabled=!!checkoutWarn||payBusy||(isPass&&waitState!=='clear');
-      if(!payBusy)btn.textContent=isVerification?'1,000원 결제하기':isPass&&waitState==='loading'?'예약 문의 확인 중…':isPass&&waitState==='blocked'?'예약 문의로 결제 제한':isPass&&waitState==='error'?'예약 현황 확인 필요':'결제하기 →';
+      var showActions=isPass&&['blocked','occupied','linked','error'].includes(waitState),linked=!!(s.inquiry_ref||s.retry_oid),otherDate=waitState==='occupied',copy='';
+      box.hidden=!isPass||waitState==='idle';box.dataset.state=waitState;
+      retry.hidden=!showActions;retry.disabled=payBusy||waitChecking;retry.textContent=waitChecking?'확인 중…':'다시 확인';
+      link.hidden=!showActions;link.href=linked?'https://pf.kakao.com/_LnxbmX/chat':waitInquiry(s,otherDate);
+      link.textContent=linked?'기존 예약 문의 이어가기 →':otherDate?'다른 일정 확인 →':'예약 대기 신청 →';
+      if(waitState==='loading')copy='선택한 날짜의 예약 대기와 시간대 현황을 확인하고 있습니다.';
+      else if(waitState==='error')copy='예약 현황을 확인하지 못해 결제를 잠시 제한했습니다. 다시 확인하거나 예약 문의를 남겨 주세요.';
+      else if(waitState==='blocked')copy=waitInfo&&waitInfo.wait?'접수하신 예약은 현재 대기 '+waitInfo.wait.no+'번입니다(총 '+waitInfo.pending_count+'건). 온라인 결제는 제한되며, 담당자가 순서대로 안내합니다.':'이 날짜에는 예약 문의 '+Number(waitInfo&&waitInfo.pending_count||0)+'건이 먼저 접수되어 온라인 결제가 제한됩니다.'+(waitInfo&&waitInfo.next_wait_no?' 새로 신청하시면 예상 대기 '+waitInfo.next_wait_no+'번입니다.':'')+' 대기는 예약 확정이 아니며, 담당자가 순서대로 안내합니다.';
+      else if(waitState==='occupied')copy='선택한 시간은 이미 예약되었거나 임시 확보 중입니다. 다른 일정을 선택하거나 운영팀에 문의해 주세요.';
+      else if(waitState==='linked')copy='선택한 시간은 이미 예약되었거나 임시 확보 중입니다. 기존 확정 예약과 일치하는 추가 결제만 진행할 수 있으며, 결제 전에 확인합니다.';
+      else if(waitState==='clear')copy='현재 이 날짜에 예약 대기가 없고 선택한 시간도 비어 있습니다. 결제 직전에 다시 확인합니다.';
+      if(message.textContent!==copy)message.textContent=copy;
+      btn.disabled=!!checkoutWarn||payBusy||(isPass&&!waitAllowsPayment(waitState));
+      if(!payBusy){
+        var labels={loading:'예약 현황 확인 중…',blocked:'예약 문의로 결제 제한',occupied:'예약된 시간은 결제할 수 없습니다',error:'예약 현황 확인 필요'};
+        btn.textContent=isVerification?'1,000원 결제하기':(isPass&&labels[waitState])||'결제하기 →';
+      }
     }
-    function requestWait(s){
-      clearTimeout(waitTimer);var key=waitChoice(s),seq=++waitSeq;waitKey=key;waitState='loading';waitInfo=null;paintWait();
+    function stopWaitRefresh(){clearTimeout(waitRefreshTimer);waitRefreshTimer=null;}
+    function refreshWait(){
+      var s=state();
+      if(document.hidden||payBusy||!canCheckWait(s))return;
+      if(Date.now()-waitStartedAt<300){armWaitRefresh();return;}
+      requestWait(s,true).catch(function(){});
+    }
+    function armWaitRefresh(){
+      if(waitRefreshTimer||document.hidden||payBusy||waitChecking||!canCheckWait(state()))return;
+      waitRefreshTimer=setTimeout(function(){waitRefreshTimer=null;refreshWait();},WAIT_REFRESH_MS);
+    }
+    function bindWaitRefresh(){
+      $('#od-availability-retry').addEventListener('click',function(){
+        var s=state();if(!payBusy&&!waitChecking&&canCheckWait(s))requestWait(s,true).catch(function(){});
+      });
+      document.addEventListener('visibilitychange',function(){
+        if(document.hidden){stopWaitRefresh();waitStartedAt=0;}
+        else refreshWait();
+      });
+      window.addEventListener('focus',refreshWait);
+      window.addEventListener('pageshow',function(e){if(e.persisted)refreshWait();});
+    }
+    function requestWait(s,background){
+      clearTimeout(waitTimer);stopWaitRefresh();
+      var key=waitChoice(s),seq=++waitSeq;
+      if(!background||key!==waitKey){waitState='loading';waitInfo=null;}
+      waitKey=key;waitStartedAt=Date.now();waitChecking=true;paintWait();
+      function current(){return seq===waitSeq&&key===waitChoice(state());}
       return M.api(waitUrl(s)).then(function(j){
-        if(seq!==waitSeq||key!==waitChoice(state()))return null;
-        if(!Number.isSafeInteger(j.pending_count)||j.pending_count<0||!Number.isSafeInteger(j.next_wait_no)||j.next_wait_no<1||typeof j.payment_blocked!=='boolean')throw Error('예약 현황 응답을 확인하지 못했습니다.');
-        waitInfo=j;waitAt=Date.now();waitState=j.payment_blocked?'blocked':'clear';paintWait();return j;
-      }).catch(function(e){if(seq===waitSeq){waitState='error';waitAt=0;paintWait();}throw e;});
+        if(!current())return null;
+        if(!j||!Number.isSafeInteger(j.pending_count)||j.pending_count<0||!Number.isSafeInteger(j.next_wait_no)||j.next_wait_no<1||typeof j.payment_blocked!=='boolean'||typeof j.slot_blocked!=='boolean'||j.product_id!==s.product_id||j.date!==s.date||j.space!=='megaspot-gundae')throw Error('예약 현황 응답을 확인하지 못했습니다.');
+        waitInfo=j;waitAt=Date.now();waitState=waitMode(j,s);waitChecking=false;
+        var error=$('#od-error');
+        if(error.dataset.waitError&&error.dataset.waitError!==waitState){error.dataset.waitError='';error.dataset.sticky='';if(!checkoutWarn)error.hidden=true;}
+        paintWait();return j;
+      }).catch(function(e){
+        if(current()){waitState='error';waitAt=Date.now();waitChecking=false;paintWait();}
+        throw e;
+      }).finally(function(){if(current())armWaitRefresh();});
     }
     function scheduleWait(s){
-      if(!isPass||!s.date||s.date<todayIso()){clearTimeout(waitTimer);waitSeq++;waitKey='';waitState='idle';waitInfo=null;paintWait();return;}
-      var key=waitChoice(s);if(key===waitKey&&(waitState==='loading'||(waitAt&&Date.now()-waitAt<20000))){paintWait();return;}
-      waitKey=key;waitSeq++;clearTimeout(waitTimer);waitInfo=null;waitState='loading';paintWait();waitTimer=setTimeout(function(){requestWait(s).catch(function(){});},180);
+      if(!canCheckWait(s)){clearTimeout(waitTimer);stopWaitRefresh();waitSeq++;waitKey='';waitState='idle';waitChecking=false;waitInfo=null;paintWait();return;}
+      var key=waitChoice(s);
+      if(key===waitKey&&(waitChecking||(waitAt&&Date.now()-waitAt<WAIT_REFRESH_MS))){paintWait();armWaitRefresh();return;}
+      clearTimeout(waitTimer);stopWaitRefresh();waitSeq++;waitKey=key;waitAt=0;waitInfo=null;waitState='loading';waitChecking=true;paintWait();
+      waitTimer=setTimeout(function(){requestWait(s).catch(function(){});},180);
     }
     function calc(){
       var s=state(), lines=[], warn='';
@@ -179,17 +239,29 @@
     }
     function pay(){
       if(payBusy)return;
-      if(isPass&&waitState!=='clear'){paintWait();M.toast(waitState==='blocked'?'이 날짜에 예약 문의가 있어 바로 결제할 수 없습니다. 예약 대기 안내를 확인해 주세요.':'예약 대기 현황을 확인한 뒤 결제할 수 있습니다.');return;}
-      var f=$('#od-form'), er=$('#od-error'); er.dataset.sticky=''; er.hidden=true;
+      if(isPass&&!waitAllowsPayment(waitState)){paintWait();M.toast('예약 현황 안내를 확인해 주세요.');return;}
+      var f=$('#od-form'), er=$('#od-error'); er.dataset.sticky='';er.dataset.waitError='';er.hidden=true;
       if(!M.validate(f)){ er.textContent='필수 항목과 동의 여부를 확인해 주세요.'; er.hidden=false; er.dataset.sticky='1'; return; }
       var s=state(),invalid=dateError(s)||(isPass?optionError(s):'');if(invalid){er.textContent=invalid;er.hidden=false;return;}
-      var btn=$('#od-pay');payBusy=true;btn.disabled=true;btn.textContent='결제 전 예약 문의 확인 중…';
-      var gate=isPass?requestWait(s).then(function(j){if(!j)throw Error('선택한 일정이 바뀌었습니다. 내용을 확인하고 다시 시도해 주세요.');if(j.payment_blocked){var e=Error('먼저 접수된 예약 문의가 있어 온라인 결제가 제한됩니다. 예약 대기 안내를 확인해 주세요.');e.code='RESERVATION_PENDING';e.detail=j;throw e;}}):Promise.resolve();
+      var btn=$('#od-pay');payBusy=true;btn.disabled=true;btn.textContent=isPass?'결제 전 예약 현황 확인 중…':'결제창을 여는 중…';
+      var gate=isPass?requestWait(s).then(function(j){
+        if(!j)throw Error('선택한 일정이 바뀌었습니다. 내용을 확인하고 다시 시도해 주세요.');
+        var mode=waitMode(j,s);
+        if(mode==='blocked')throw Object.assign(Error('먼저 접수된 예약 문의가 있어 온라인 결제가 제한됩니다. 예약 대기 안내를 확인해 주세요.'),{code:'RESERVATION_PENDING',detail:j});
+        if(mode==='occupied')throw Object.assign(Error('선택한 시간은 이미 예약되었거나 임시 확보 중입니다. 다른 일정을 선택해 주세요.'),{code:'DATE_TAKEN'});
+      }):Promise.resolve();
       gate.then(function(){if(JSON.stringify(state())!==JSON.stringify(s))throw Error('확인 중 주문 내용이 변경되었습니다. 현재 구성과 금액을 확인하고 다시 눌러 주세요.');btn.textContent='결제창을 여는 중…';return M.api('/pay/prepare',{method:'POST', body:s});}).then(function(r){
         var target=new URL(r.payurl);
         if(target.protocol!=='https:' || !/(^|\.)payapp\.kr$/.test(target.hostname)) throw new Error('결제창 주소를 확인하지 못했습니다.');
         location.assign(target.href);
-      }).catch(function(x){payBusy=false;if(x.code==='RESERVATION_PENDING'){waitInfo=x.detail||waitInfo;waitState='blocked';waitAt=Date.now();M.toast('예약 문의가 먼저 접수되어 결제를 제한했습니다. 대기 안내를 확인해 주세요.');}er.innerHTML=esc(x.message||'결제를 시작하지 못했습니다.')+(x.code==='DATE_TAKEN'?' <a href="'+esc(waitInquiry(s))+'" style="text-decoration:underline">예약 신청으로 문의하기</a>':''); er.hidden=false; er.dataset.sticky='1';calc(); });
+      }).catch(function(x){
+        payBusy=false;
+        if(isPass&&waitChoice(s)!==waitChoice(state())){calc();return;}
+        if(x.code==='RESERVATION_PENDING'){waitInfo=x.detail||waitInfo;waitState='blocked';waitAt=Date.now();}
+        if(x.code==='DATE_TAKEN'){waitState=waitMode({slot_blocked:true},s);waitAt=Date.now();}
+        if(x.code==='RESERVATION_PENDING'||x.code==='DATE_TAKEN'||waitState==='error')er.dataset.waitError=waitState;
+        er.textContent=x.message||'결제를 시작하지 못했습니다.';er.hidden=false;er.dataset.sticky='1';calc();
+      });
     }
 
   }

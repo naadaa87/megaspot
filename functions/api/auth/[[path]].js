@@ -12,7 +12,7 @@ import {
   json, err, hasDb, readJson, str, now, log, hashPassword, verifyPassword, randomToken, sha256, later,
   getCookie, sessionCookies, withCookies, isEmail, clientIp, sameOrigin, getMember, tooMany, hit, clearHits, SESSION_DAYS
 } from '../_lib.js';
-import {memberWaits} from '../_reservation_waitlist.js';
+import {rankedWaitsSql} from '../_reservation_waitlist.js';
 
 const PW_RULE = '비밀번호는 8자 이상, 영문과 숫자를 함께 넣어 주세요.';
 function pwOk(pw) { return typeof pw === 'string' && pw.length >= 8 && pw.length <= 100 && /[A-Za-z]/.test(pw) && /\d/.test(pw); }
@@ -139,25 +139,29 @@ export async function onRequest({ request, env, params }) {
     }
 
     if (path === 'inquiries' && method === 'GET') {
-      const { results } = await env.DB.prepare("SELECT ref, space_id, status, event_date, headcount, data, created_at, updated_at FROM inquiries WHERE json_extract(data, '$.member_id') = ? AND status <> '삭제됨' ORDER BY created_at DESC LIMIT 100").bind(me.id).all();
-      // Only bookings attached to this authenticated member's inquiries are returned. Keep original requests intact.
-      const {results:bookings}=await env.DB.prepare(`SELECT b.inquiry_ref,b.booking_code,b.space_id,b.date,b.start_h,b.end_h,b.headcount,b.status,b.amount,b.confirm_doc
-        FROM bookings b WHERE b.status IN ('confirmed','completed') AND b.inquiry_ref IN (SELECT ref FROM inquiries WHERE json_extract(data,'$.member_id')=? AND status<>'삭제됨' ORDER BY created_at DESC LIMIT 100)
-        ORDER BY b.date,b.start_h,b.id`).bind(me.id).all();
-      const byInquiry=new Map();
-      for(const b of bookings||[]){
-        let doc={};try{doc=JSON.parse(b.confirm_doc||'{}')||{};}catch{}
-        const list=byInquiry.get(b.inquiry_ref)||[];
-        list.push({code:b.booking_code,space_id:b.space_id,date:b.date,start_h:b.start_h,end_h:b.end_h,headcount:b.headcount,status:b.status,amount:doc.show_amount===false?null:b.amount});
-        byInquiry.set(b.inquiry_ref,list);
-      }
+      // Status, rank and confirmed booking must describe the same database snapshot.
+      const { results } = await env.DB.prepare(`WITH member_inquiries AS (
+        SELECT ref, space_id, status, event_date, headcount, data, created_at, updated_at
+        FROM inquiries WHERE json_extract(data, '$.member_id')=? AND status<>'삭제됨'
+        ORDER BY created_at DESC, ref DESC LIMIT 100
+      ), ranked AS (${rankedWaitsSql('i.event_date IN (SELECT event_date FROM member_inquiries)')})
+      SELECT m.*, w.no AS wait_no, w.total AS wait_total, w.date AS wait_date, w.space_id AS wait_space,
+        (SELECT json_group_array(json_object('code', b.booking_code, 'space_id', b.space_id, 'date', b.date,
+          'start_h', b.start_h, 'end_h', b.end_h, 'headcount', b.headcount, 'status', b.status,
+          'amount', CASE WHEN (CASE WHEN json_valid(b.confirm_doc) THEN json_type(b.confirm_doc, '$.show_amount') END)='false'
+            THEN NULL ELSE b.amount END))
+         FROM (SELECT booking_code, space_id, date, start_h, end_h, headcount, status, amount, confirm_doc
+           FROM bookings WHERE inquiry_ref=m.ref AND status IN ('confirmed','completed')
+           ORDER BY date,start_h,id) b) AS confirmed_bookings
+      FROM member_inquiries m LEFT JOIN ranked w ON w.ref=m.ref
+      ORDER BY m.created_at DESC,m.ref DESC`).bind(me.id).all();
       const items = (results || []).map(r => {
         let d = {}; try { d = JSON.parse(r.data || '{}'); } catch {}
         return { ref: r.ref, space_id: r.space_id, status: r.status, date: r.event_date || d.date || '', headcount: r.headcount, created_at: r.created_at, updated_at: r.updated_at,
-          inquiry_type: d.inquiry_type || 'event', reserve: !!d.reserve, purpose: d.purpose || '', slot: d.slot || '', t_start: d.t_start || '', t_end: d.t_end || '', start_h: d.start_h ?? null, end_h: d.end_h ?? null, pkg: d.pkg || '', total: d.total || null, estimate: d.estimate ? String(d.estimate).slice(0, 600) : '',confirmed_bookings:byInquiry.get(r.ref)||[] };
+          inquiry_type: d.inquiry_type || 'event', reserve: !!d.reserve, purpose: d.purpose || '', slot: d.slot || '', t_start: d.t_start || '', t_end: d.t_end || '', start_h: d.start_h ?? null, end_h: d.end_h ?? null, pkg: d.pkg || '', total: d.total || null, estimate: d.estimate ? String(d.estimate).slice(0, 600) : '',
+          confirmed_bookings:JSON.parse(r.confirmed_bookings||'[]'),
+          wait:r.wait_no?{no:r.wait_no,total:r.wait_total,date:r.wait_date,space_id:r.wait_space}:null };
       });
-      const waits=await memberWaits(env,me.id);
-      for(const item of items)item.wait=waits.get(item.ref)||null;
       return json({ ok: true, items });
     }
 

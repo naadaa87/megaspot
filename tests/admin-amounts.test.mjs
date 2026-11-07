@@ -311,21 +311,58 @@ test('확정 예약이 연결된 문의는 대기 취소로 바꾸지 않음', a
   assert.equal((await api('inquiries/MS-TEST')).item.status, '예약 확정');
   assert.equal(db.prepare('SELECT status FROM bookings').get().status, 'confirmed');
 });
-test('대기 취소 행은 회색 기록·복원 버튼만 표시하고 집계·순번에서 제외', () => {
-  const active = {kind:'pending',ref:'MS-A',date,name:'대기',status:'문의 접수'};
-  const cancelled = {kind:'pending',ref:'MS-B',date,name:'취소',status:'대기 취소',amount:500000};
+test('서버가 계산한 대기 순번을 유지하고 취소 행은 회색 기록·복원 버튼으로 표시', () => {
+  const active = {kind:'pending',ref:'MS-A',date,name:'대기',status:'문의 접수',wait:{no:3,total:4,date,space_id:'megaspot-gundae'}};
+  const cancelled = {kind:'pending',ref:'MS-B',date,name:'취소',status:'대기 취소',amount:500000,wait:null};
   const context = vm.createContext({ RS:{items:[active,cancelled]}, BST:{}, ST_CLS:{'대기 취소':'st-cancel'}, esc:String, famAsk:()=>'', PUR:{}, SRC:{}, resvTime:()=>'', resvHours:()=>'', waitDraggable:()=>true, won:String, chTag:()=>'', depositControl:()=>'',
     DEFAULT_SPACE:'megaspot-gundae', SPACE_IDS:['megaspot-gundae','megaspot-gundae-2'], spaceTag:()=>'', spKey:id=>id==='megaspot-gundae-2'?id:'megaspot-gundae' });
-  vm.runInContext(source.slice(source.indexOf('  function waitCmp('),source.indexOf('  function drawResv(')) + '\n'
+  vm.runInContext(source.slice(source.indexOf('  function dayStats('),source.indexOf('  function drawResv(')) + '\n'
     + source.slice(source.indexOf('  function resvRow('),source.indexOf("  $('#rs-ch').innerHTML")), context);
-  context.waitOrder();
-  assert.equal(active._waitN,1);
-  assert.equal(cancelled._wait,undefined);
+  assert.match(context.resvRow(active,{bk:0},false),/대기 <b>3<\/b>번/);
   assert.equal(context.dayStats([active,cancelled])[date].pend,1);
   const html=context.resvRow(cancelled,{bk:0},false);
   assert.match(html,/wait-cancelled/);
   assert.match(html,/data-waitact="restore"/);
   assert.doesNotMatch(html,/data-rsconfirm=|rs-grip|data-waitact="cancel"/);
+});
+
+test('관리자 상세 상태 저장은 열린 문의의 대기 표시만 서버 응답에 맞춰 갱신', async () => {
+  const status = Object.assign(new EventTarget(), {value:'취소·환불'});
+  const waitBox = {innerHTML:'대기 2번',hidden:false};
+  const item = {ref:'MS-TEST',status:'문의 접수'};
+  const cur = {item,wait:{no:2,total:3}};
+  let reply = {wait:null}, refreshes = 0;
+  const nodes = {'#dr-status':status,'#dr-wait':waitBox,'#adm-drawer':{hidden:false}};
+  const context = vm.createContext({it:item,cur,$:s=>nodes[s],esc:String,kd:String,spaceShort:String,
+    A:async(path,options)=>{ assert.equal(path,'/inquiries/MS-TEST'); assert.equal(options.body.status,status.value); return reply; },
+    M:{toast(){}},refreshLists(){refreshes++;},guard(){return false;}});
+  vm.runInContext(source.slice(source.indexOf('  function detailWaitMarkup('),source.indexOf('  function renderDetail('))
+    + source.slice(source.indexOf("    var drSt=$('#dr-status')"),source.indexOf("    $('#dr-amt-save').addEventListener")),context);
+  status.dispatchEvent(new Event('change')); await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(item.status,'취소·환불'); assert.equal(waitBox.hidden,true); assert.equal(waitBox.innerHTML,'');
+  status.value='문의 접수'; reply={wait:{no:1,total:2,date,space_id:'megaspot-gundae'}};
+  status.dispatchEvent(new Event('change')); await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(waitBox.hidden,false); assert.match(waitBox.innerHTML,/대기 <b>1<\/b>번/); assert.equal(refreshes,2);
+});
+
+test('관리자 확정창은 선택 날짜의 최신 순번으로 경고하고 늦게 도착한 이전 날짜를 무시', async () => {
+  const pending = new Map(), space='megaspot-gundae', first='2026-11-18', next='2026-11-19';
+  const warning = {classList:{add(){},toggle(){}},innerHTML:'',hidden:true};
+  const submit = {disabled:false};
+  const nodes={'#cf-warn':warning,'#cf-submit':submit,'#cf-start':{value:'10'},'#cf-end':{value:'17'},'#cf-reconfirm-wrap':{hidden:true},'#adm-confirm':{hidden:false}};
+  const context=vm.createContext({CF:{ref:'MS-OWN',space},$:s=>nodes[s],esc:String,spKey:s=>s,guard(){},
+    AList:path=>new Promise(resolve=>pending.set(path,resolve))});
+  vm.runInContext(source.slice(source.indexOf('  function cfUpdateSubmit('),source.indexOf('  function cfReconfirmationPreview(')),context);
+  const request=date=>pending.get('/reservations?from='+date+'&to='+date);
+  const row=(ref,no,d=next,s=space)=>({kind:'pending',ref,name:ref,date:d,space_id:s,wait:{no,total:3,date:d,space_id:s}});
+  context.cfLoadDay(first); context.cfLoadDay(next);
+  assert.equal(submit.disabled,true); assert.match(warning.innerHTML,/확인하는 중/);
+  request(next)({items:[row('MS-OWN',2),row('MS-FIRST',1),row('MS-OTHER-SPACE',1,next,'megaspot-gundae-2')]});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.match(warning.innerHTML,/대기 2번/); assert.match(warning.innerHTML,/MS-FIRST\(1번\)/);
+  assert.doesNotMatch(warning.innerHTML,/MS-OTHER-SPACE/); assert.equal(submit.disabled,false);
+  request(first)({items:[row('MS-OWN',1,first)]}); await new Promise(resolve=>setImmediate(resolve));
+  assert.match(warning.innerHTML,/대기 2번/);
 });
 
 for (const [start,end] of [[0,1],[3,8],[18,40],[23,47]]) {

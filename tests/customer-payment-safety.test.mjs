@@ -147,7 +147,9 @@ test('마이페이지 화면은 확정 조건을 먼저 보여 주고 보류 주
  const elements=new Map(),element=selector=>{if(!elements.has(selector))elements.set(selector,{innerHTML:'',textContent:'',value:'',hidden:false,addEventListener(){},setAttribute(){},parentNode:{appendChild(){}}});return elements.get(selector);};
  const inquiry={ref:'MS-TEST',space_id:'megaspot-gundae',status:'예약 확정',date:'2026-11-26',start_h:10,end_h:17,headcount:30,total:450000,reserve:true,confirmed_bookings:[{code:'BK-ACTUAL',space_id:'megaspot-gundae',date:'2026-11-09',start_h:18,end_h:31,headcount:40,amount:700000,status:'confirmed'}]};
  const M={$:selector=>['#signup-form','#login-form'].includes(selector)?null:element(selector),$$:()=>[],esc:value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),fmtKDate:s=>s,checkApi:async()=>true,api:async path=>path==='/auth/me'?{member:{name:'검증 고객',email:'member@example.invalid'}}:path==='/auth/inquiries'?{items:[inquiry]}:{items:[{oid:'ORDER-REVIEW',title:'가상 이용권',status:'paid',booking_status:'payment_review',booking_code:'BK-REVIEW',price:700000}]}};
- runInNewContext(readFileSync(new URL('../assets/js/pages/account.js',import.meta.url),'utf8'),{window:{MEGASPOT:M},document:{createElement:()=>({setAttribute(){},innerHTML:''})},location:{search:''},URLSearchParams});
+ const window=Object.assign(new EventTarget(),{MEGASPOT:M,setInterval(){}});
+ const document=Object.assign(new EventTarget(),{createElement:()=>({setAttribute(){},innerHTML:''})});
+ runInNewContext(readFileSync(new URL('../assets/js/pages/account.js',import.meta.url),'utf8'),{window,document,location:{search:''},URLSearchParams});
  await new Promise(resolve=>setImmediate(resolve));
  const inquiries=element('#my-inquiries').innerHTML,orders=element('#my-orders').innerHTML;
  assert.ok(inquiries.indexOf('2026-11-09')<inquiries.indexOf('2026-11-26'));assert.match(inquiries,/처음 신청한 조건/);assert.match(inquiries,/40명/);assert.match(inquiries,/확정 700,000원/);
