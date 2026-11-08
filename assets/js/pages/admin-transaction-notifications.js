@@ -10,6 +10,7 @@
   var time=new Date(item.occurred_at.replace(' ','T')+'Z');
   var when=isNaN(time)?item.occurred_at:new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',dateStyle:'short',timeStyle:'short'}).format(time);
   var target=(item.audience==='admin'?'관리자':'고객')+(item.receiver_last4?' · 끝번호 '+item.receiver_last4:'');
+  if(item.channel)target+=' · '+(item.channel==='alimtalk'?'알림톡':'문자');
   var inquiry=item.kind==='inquiry'||item.kind==='reservation_request';
   return '<article class="adm-row"><div class="r1"><strong>'+esc(kinds[item.kind]||item.kind)+'</strong><span>'+esc(statuses[item.status]||item.status)+'</span></div>'
    +'<div class="r2">'+esc(target)+' · '+esc(item.ref)+(item.booking_code&&item.booking_code!==item.ref?' · 예약 '+esc(item.booking_code):'')
@@ -24,7 +25,7 @@
   try{
    var r=await X.A('/transaction-notifications?status='+encodeURIComponent(filter.value)+(before?'&before='+before:''));
    if(current!==request)return;
-   info.textContent=r.enabled?'접수와 수신 성공을 구분해 표시합니다.':'고객·관리자 문자 발송 설정을 확인해 주세요.';
+   info.textContent=r.enabled?'접수와 수신 성공을 구분해 표시합니다.':'고객·관리자 알림 발송 설정을 확인해 주세요.';
    if(r.items.length)list.insertAdjacentHTML('beforeend',r.items.map(row).join(''));
    else if(!append)list.innerHTML=X.emptyMsg('해당 발송 이력이 없습니다.');
    next=r.next_before;

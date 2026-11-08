@@ -1,3 +1,4 @@
+import {customerFallback,customerFallbackResult} from './_customer_alimtalk.js';
 // Reservation guide Alimtalk. No credentials or public sending routes live in the browser.
 import { json, err, now, readJson, str, sha256, SPACES } from './_lib.js';
 import {keyReady} from './_deposit_refunds.js';
@@ -173,12 +174,15 @@ async function dispatch(env,id,s,template) {
   if (!changed(claim)){if(isPortal)await env.DB.prepare("UPDATE booking_guide_messages SET status='cancelled',error='통합 안내 링크 또는 예약이 변경되었습니다.',updated_at=? WHERE id=? AND status='queued'").bind(now(),id).run();return;}
   // Never retry a transport/JSON failure: Aligo may already have accepted this request.
   try {
-    const r = await provider(env,'alimtalk/send',providerPayload(env,s,snap,template,button),id);
+    const payload=providerPayload(env,s,snap,template,button);
+    const fallback=m.mode==='live'&&!!env.ALIGO_RELAY_URL;
+    if(fallback)Object.assign(payload,customerFallback(payload.subject_1,payload.message_1,[button].flat()));
+    const r = await provider(env,'alimtalk/send',payload,id);
     if (!r || !/^-?\d+$/.test(String(r.code))) return state(env,id,'unknown','알리고 응답 형식 확인이 필요합니다. 재발송 전에 전송내역을 확인해 주세요.');
     if (String(r.code) !== '0') return state(env,id,'failed',safeProviderError(r));
     const mid = r.info?.mid;
-    if (!mid || Number(r.info?.scnt)!==1 || Number(r.info?.fcnt || 0)>0) return state(env,id,'unknown','알리고 접수 결과 확인이 필요합니다.',mid?String(mid):null);
-    await state(env,id,'accepted','',String(mid));
+    if (!mid || Number(r.info?.scnt)!==1 || Number(r.info?.fcnt || 0)>0) return state(env,id,'unknown','알리고 접수 결과 확인이 필요합니다.',mid?(fallback?'fallback:':'')+mid:null);
+    await state(env,id,'accepted','',(fallback?'fallback:':'')+mid);
   } catch { await state(env,id,'unknown','응답을 확인하지 못했습니다. 알리고 전송내역을 확인하기 전에는 재발송하지 마세요.'); }
 }
 export function guideDelivery(detail) {
@@ -197,15 +201,19 @@ async function reconcile(env,id) {
   }
   const snap=parse(m.snapshot),s = await deliveryConfig(env,m,snap);
   if (m.config_hash !== await configHash(env,s)) return; // another account/template cannot prove this delivery
-  const r = await provider(env,'history/detail',{mid:m.provider_mid,limit:'50'});
+  const fallback=m.provider_mid.startsWith('fallback:');
+  const r = await provider(env,'history/detail',{mid:m.provider_mid.replace(/^fallback:/,''),limit:'50'});
   if (String(r.code)!=='0') throw Error(safeProviderError(r));
   const d=(r.list || []).find(x=>guidePhone(x.phone)===snap.phone && x.type==='AT' && x.tpl_code===s.template_code && x.senderKey===env.ALIGO_SENDER_KEY);
-  const status=guideDelivery(d);
+  const primary=guideDelivery(d);
+  const alternate=fallback&&primary!=='accepted'&&primary!=='delivered'
+   ?await customerFallbackResult((path,data)=>provider(env,path,data),d,phone=>guidePhone(phone)===snap.phone,m.created_at):null;
+  const status=alternate?.status||primary;
   if (status==='accepted') {
     await env.DB.prepare('UPDATE booking_guide_messages SET updated_at=? WHERE id=?').bind(now(),id).run();
     return;
   }
-  await state(env,id,status,status==='delivered'?'':str(d?.rslt_message,240),null,String(d?.rslt || ''));
+  await state(env,id,status,alternate?.note||(status==='delivered'?'':str(d?.rslt_message,240)),null,alternate?.sms?'sms_delivered':String(d?.rslt || ''));
   if (status==='delivered' && m.mode==='live') {
     await env.DB.prepare('UPDATE booking_guide_state SET needs_review=0 WHERE booking_code=? AND revision=?').bind(m.booking_code,snap.revision || 0).run();
     // Inquiry checks are an aggregate, never evidence that an unsent sibling was guided.

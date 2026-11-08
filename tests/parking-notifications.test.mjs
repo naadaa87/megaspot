@@ -1,3 +1,4 @@
+import {CUSTOMER_ALIMTALK} from '../functions/api/_customer_alimtalk_templates.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -12,11 +13,15 @@ function fixture(t){
  Object.assign(f.env,{PARKING_PAID_SMS:'false',ALIGO_LIVE_ENABLED:'true',ALIGO_RELAY_URL:'https://relay.naranhistory.com/megaspot/aligo',ALIGO_RELAY_SECRET:'test-parking-relay-secret-more-than-32',ALIGO_SENDER_KEY:'test-profile',ALIGO_SENDER:'01012345678'});
  f.db.prepare("INSERT INTO orders(oid,product_id,title,price,buyer_name,buyer_phone,data,status,created_at) VALUES(?,'parking-2h','주차 2시간',8000,'시험 고객','01012345678','{}','created',?)").run(OID,now());
  f.db.prepare("INSERT INTO parking_orders(oid,plate,visit_date,ticket,hours,token_hash,created_at,updated_at) VALUES(?,'123가4567',?,'2h',2,?,?,?)").run(OID,kstToday(),'b'.repeat(64),now(),now());
- let review='APR',result='0',sms=false,broken=false,reportDate=null,smsState='발송완료',smsReceiver=null,smsResult={result_code:1,success_cnt:1,error_cnt:0};
+ let review='APR',upgradeReview='REQ',result='0',sms=false,broken=false,reportDate=null,smsState='발송완료',smsReceiver=null,smsResult={result_code:1,success_cnt:1,error_cnt:0};
  const sent=[];
  t.mock.method(globalThis,'fetch',async(url,opts)=>{
   assert.equal(url,f.env.ALIGO_RELAY_URL);assert.equal(opts.redirect,'manual');const r=JSON.parse(opts.body);
   assert.equal(opts.headers['X-Megaspot-Signature'],await parkingSign(f.env.ALIGO_RELAY_SECRET,opts.body));
+  if(r.path==='template/list'&&/^UN_476[78]$/.test(r.data.tpl_code)){
+   const t=Object.values(CUSTOMER_ALIMTALK).find(v=>v.code===r.data.tpl_code);
+   return Response.json({code:0,list:[{templtCode:t.code,inspStatus:upgradeReview,status:'R',templtContent:t.content,buttons:t.buttons}]});
+  }
   if(r.path==='template/list'){const t=Object.values(T).find(t=>t.code===r.data.tpl_code);return Response.json({code:0,list:[{templtCode:t.code,inspStatus:review,status:'R',templtContent:t.content,buttons:B.map(b=>({name:b.name,linkType:b.linkType,linkMo:b.linkM,linkPc:b.linkP}))}]});}
   if(['parking-paid/send','parking-arrival/send'].includes(r.path)){sent.push(r);if(broken)throw Error('unknown outcome');return Response.json({...smsResult,msg_id:String(sent.length)});}
   if(r.path==='alimtalk/send'){sent.push(r);if(broken)throw Error('unknown outcome');return Response.json({code:0,info:{mid:String(sent.length),scnt:1}});}
@@ -29,7 +34,7 @@ function fixture(t){
  });
  async function api(path,body,method=body?'POST':'GET',expected=200){const r=await onRequest({env:f.env,params:{path:('admin/notifications'+path).split('/')},request:new Request('https://megaspot.test/api/parking/admin/notifications'+path,{method,headers:{origin:'https://megaspot.test','Content-Type':'application/json','x-admin-key':f.env.ADMIN_KEY},...(body===undefined?{}:{body:JSON.stringify(body)})})});const j=await r.json();assert.equal(r.status,expected,JSON.stringify(j));return j;}
  async function enable(){await api('/test',{oid:OID,phone:'01011112222',kind:'paid',confirm_test:true});await api('/refresh',{});await api('/settings',{enabled:true},'PUT');}
- return {...f,api,enable,sent,setReview:v=>review=v,setReportDate:v=>reportDate=v,setSmsState:v=>smsState=v,setSmsReceiver:v=>smsReceiver=v,setSmsResult:v=>smsResult=v,setSms:()=>{result='U';sms=true;},setBroken:()=>broken=true};
+ return {...f,api,enable,sent,setReview:v=>review=v,setUpgradeReview:v=>upgradeReview=v,setReportDate:v=>reportDate=v,setSmsState:v=>smsState=v,setSmsReceiver:v=>smsReceiver=v,setSmsResult:v=>smsResult=v,setSms:()=>{result='U';sms=true;},setBroken:()=>broken=true};
 }
 test('기본은 고객 발송 중지이며 이전 주문은 소급 적재하지 않는다',async t=>{
  const f=fixture(t);assert.equal((await f.api('')).enabled,false);f.db.prepare("UPDATE orders SET status='paid' WHERE oid=?").run(OID);assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM parking_notifications').get().n,0);
@@ -142,4 +147,18 @@ test('v2 입차 알림톡은 제출 전 초안이며 기존 승인 템플릿과 
  assert.equal(T.arrival_received.code,'UN_2586');assert.match(T.arrival_received.content,/10분/);
  const p={oid:OID,plate:'123가4567',visit_date:'2026-11-07',ticket:'2h',price:8000},text=parkingArrivalSMS(p,{occurred_at:now(),payload:'{}'},'a'.repeat(64));assert(text.length<=900);assert(text.endsWith('\n문의: https://pf.kakao.com/_LnxbmX/chat'));
  const f=fixture(t);await f.api('/test',{oid:OID,phone:'01011112222',kind:'arrival_received',confirm_test:true});assert.equal(f.sent.at(-1).path,'alimtalk/send');assert.equal(f.sent.at(-1).data.tpl_code,T.arrival_received.code);
+});
+
+test('승인된 신규 주차 결제 템플릿으로 전환하면 알림톡과 대체 문자에 차량별 링크를 넣고 발송 결과를 조회한다',async t=>{
+ const f=fixture(t);await f.enable();delete f.env.PARKING_PAID_SMS;f.setUpgradeReview('APR');
+ f.db.prepare("UPDATE orders SET status='paid',paid_at=? WHERE oid=?").run(now(),OID);
+ await parkingNoticeTick(f.env);
+ const sent=f.sent.at(-1);
+ assert.equal(sent.path,'alimtalk/send');
+ assert.equal(sent.data.tpl_code,CUSTOMER_ALIMTALK.parking_paid.code);
+ const link=JSON.parse(sent.data.button_1).button[0].linkMo;
+ assert.ok(sent.data.fmessage_1.includes(link));
+ assert.equal((await f.api('')).paid_notice_channel,'alimtalk');
+ await parkingNoticeTick(f.env);
+ assert.equal(f.db.prepare("SELECT status FROM parking_notifications WHERE mode='live'").get().status,'delivered');
 });

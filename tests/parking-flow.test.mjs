@@ -27,7 +27,8 @@ async function flow(t,{tickets=['1h','2h'],existingFree=[],balance=50000,missing
   if(url==='https://api.payapp.kr/oapi/v2'){paymentRequests.push(new URLSearchParams(opts.body));return payapp(url,opts);}
   if(url===f.env.ALIGO_RELAY_URL||url==='http://127.0.0.1:8787/v1/aligo'){
    const r=JSON.parse(opts.body);assert.equal(opts.headers['X-Megaspot-Signature'],await parkingSign(f.env.ALIGO_RELAY_SECRET,opts.body));
-   if(r.path==='template/list'){const v=Object.values(T).find(v=>v.code===r.data.tpl_code);assert.ok(v);return Response.json({code:0,list:[{templtCode:v.code,inspStatus:'APR',status:'R',templtContent:v.content,buttons:B.map(b=>({name:b.name,linkType:b.linkType,linkMo:b.linkM,linkPc:b.linkP}))}]});}
+   if(r.path==='template/list'&&/^UN_476[78]$/.test(r.data.tpl_code))return Response.json({code:0,list:[{templtCode:r.data.tpl_code,inspStatus:'REQ',status:'R'}]});
+  if(r.path==='template/list'){const v=Object.values(T).find(v=>v.code===r.data.tpl_code);assert.ok(v);return Response.json({code:0,list:[{templtCode:v.code,inspStatus:'APR',status:'R',templtContent:v.content,buttons:B.map(b=>({name:b.name,linkType:b.linkType,linkMo:b.linkM,linkPc:b.linkP}))}]});}
    if(r.path==='parking-admin/status')return Response.json({ready:true,receivers:phones});
    if(['parking-paid/send','parking-admin/send','alimtalk/send'].includes(r.path)){
     const m={...r,mid:String(++mid)};messages.push(m);

@@ -1,5 +1,6 @@
+import {approvedCustomerTemplate,customerFallback,customerFallbackResult} from './_customer_alimtalk.js';
 import {err,json,now} from './_lib.js';
-import {aligoProvider,guidePhone} from './_guide_messages.js';
+import {aligoProvider,guidePhone,guideDelivery} from './_guide_messages.js';
 
 const RELAY='https://relay.naranhistory.com/megaspot/aligo';
 const ADMIN_URL='https://megaspot.kr/admin/#transaction-notifications';
@@ -69,23 +70,50 @@ async function dispatch(env,row){
   if(entry?.kind!=='refund'||entry.state!=='active'||guidePhone(entry.phone)!==receiver)return state(env,row.id,'cancelled','환불 기록 또는 연락처가 바뀌었습니다.');
   row={...row,amount:entry.amount};
  }
+ const provider=(path,data,id)=>aligoProvider(env,path,data,id);
+ const template=row.audience==='customer'?await approvedCustomerTemplate(env,provider,row.kind):null;
  const msg=transactionMessage(row),requestId=crypto.randomUUID();
  const claim=await env.DB.prepare(`UPDATE transaction_notifications SET status='sending',request_id=?,amount=?,updated_at=?
   WHERE id=? AND status='queued'`).bind(requestId,row.amount,now(),row.id).run();
  if(!Number(claim.meta?.changes??claim.changes))return;
  try{
-  const r=await aligoProvider(env,'transaction/'+row.audience+'/send',{receiver,msg},requestId);
+  if(template){
+   const message=template.content.replace(/#\{번호\}/g,row.ref).replace(/#\{금액\}/g,Number(row.amount).toLocaleString('ko-KR'));
+   const subject=TITLES[row.kind];
+   const r=await provider('alimtalk/send',{tpl_code:template.code,receiver_1:receiver,subject_1:subject,message_1:message,
+    ...customerFallback(subject,msg)},requestId);
+   if(r?.code==null||!/^[-]?\d+$/.test(String(r.code)))return state(env,row.id,'unknown','알림톡 접수 결과 확인 필요');
+   if(Number(r.code)!==0)return state(env,row.id,'failed','알리고 접수 거절 ('+Number(r.code)+')');
+   if(!/^\d{1,30}$/.test(String(r.info?.mid||''))||Number(r.info?.scnt)!==1||Number(r.info?.fcnt||0)!==0)
+    return state(env,row.id,'unknown','알림톡 접수 결과 확인 필요');
+   return state(env,row.id,'accepted','','at:'+template.code+':'+r.info.mid);
+  }
+  const r=await provider('transaction/'+row.audience+'/send',{receiver,msg},requestId);
   if(r?.result_code==null||!/^[-]?\d+$/.test(String(r.result_code)))return state(env,row.id,'unknown','문자 접수 결과 확인 필요');
   if(Number(r.result_code)!==1)return state(env,row.id,'failed','알리고 접수 거절 ('+Number(r.result_code)+')');
   if(!/^\d{1,30}$/.test(String(r.msg_id||''))||Number(r.success_cnt)!==1||Number(r.error_cnt)!==0)return state(env,row.id,'unknown','문자 접수 결과 확인 필요');
   return state(env,row.id,'accepted','',String(r.msg_id));
  }catch(error){
   if([400,401,403].includes(error.status))return state(env,row.id,'failed','발송 서버가 요청을 거절했습니다 ('+error.status+').');
-  return state(env,row.id,'unknown','문자 응답 불명 · 알리고에서 결과를 확인해 주세요.');
+  return state(env,row.id,'unknown','발송 응답 불명 · 알리고에서 결과를 확인해 주세요.');
  }
 }
 
 async function reconcile(env,row){
+ const at=/^at:([^:]+):(\d+)$/.exec(row.provider_mid);
+ if(at){
+  const provider=(path,data)=>aligoProvider(env,path,data);
+  const result=await provider('history/detail',{mid:at[2],limit:'50'});
+  if(Number(result.code)!==0)return;
+  const match=phone=>guidePhone(phone)===guidePhone(row.receiver);
+  const detail=(result.list||[]).find(item=>item.type==='AT'&&item.tpl_code===at[1]&&
+   item.senderKey===env.ALIGO_SENDER_KEY&&match(item.phone));
+  const status=guideDelivery(detail);
+  if(status==='delivered')return state(env,row.id,'delivered');
+  if(status==='accepted')return;
+  const alternate=await customerFallbackResult(provider,detail,match,row.occurred_at);
+  return state(env,row.id,alternate.status,alternate.note);
+ }
  const r=await aligoProvider(env,'sms/detail',{mid:row.provider_mid,page_size:'50'});
  if(Number(r.result_code)!==1)return;
  const found=(r.list||[]).find(item=>guidePhone(item.receiver)===guidePhone(row.receiver));
@@ -137,6 +165,7 @@ export async function transactionNoticeAdmin(env,request){
  if(!Number.isSafeInteger(before)||before<1||!['all','pending','attention','delivered'].includes(filter))return err('조회 조건을 확인해 주세요.');
  const where={all:'1',pending:"status IN ('queued','sending','accepted')",attention:"status IN ('unknown','failed')",delivered:"status='delivered'"}[filter];
  const {results}=await env.DB.prepare(`SELECT id,kind,audience,ref,booking_code,amount,status,error,occurred_at,updated_at,
+   CASE WHEN provider_mid LIKE 'at:%' THEN 'alimtalk' WHEN provider_mid IS NOT NULL THEN 'sms' END AS channel,
    CASE WHEN LENGTH(receiver)>=4 THEN substr(receiver,-4) ELSE '' END AS receiver_last4
    FROM transaction_notifications WHERE id<? AND ${where} ORDER BY id DESC LIMIT 51`).bind(before).all();
  const items=(results||[]).slice(0,50);

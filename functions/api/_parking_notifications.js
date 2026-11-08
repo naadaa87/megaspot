@@ -1,3 +1,4 @@
+import {approvedCustomerTemplate} from './_customer_alimtalk.js';
 import {JOIN} from './_parking.js';
 import {json,err,now,sha256,readJson,str} from './_lib.js';
 import {equalSecret} from './_payapp.js';
@@ -78,8 +79,11 @@ async function dispatch(env,e){
  if(e.mode!=='test' && parkingNoticeObsolete(p,e)){await state(env,e.id,'cancelled','현재 상태 또는 안내 유효시간 변경');return;}
  if(!p){await state(env,e.id,'failed','주문 없음');return;}
  // Approval is checked before taking a sending lock. Rejected/pending templates never send.
- const actual=await template(env,e.kind);
- if(!usable(e.kind,actual))return;
+ const upgradeKind={paid:'parking_paid',arrival_received:'parking_arrival'}[e.kind];
+ const upgrade=e.mode!=='test'&&upgradeKind
+  ?await approvedCustomerTemplate(env,(path,data)=>provider(env,path,data),upgradeKind):null;
+ const actual=upgrade?null:await template(env,e.kind);
+ if(!upgrade&&!usable(e.kind,actual))return;
  const hash=await fingerprint(env),settings=await config(env);
  if(e.mode!=='test' && (env.ALIGO_LIVE_ENABLED!=='true' || !settings.enabled || settings.hash!==hash || !await tested(env,hash)))return;
  const receiver=phone(e.mode==='test'?parse(e.payload).test_phone:p.buyer_phone);
@@ -91,9 +95,7 @@ async function dispatch(env,e){
   const key=await parkingSign(env.ALIGO_RELAY_SECRET,'parking-link-v1:'+id);
   const expires=Math.max(Date.now(),Date.parse(p.visit_date+'T23:59:59+09:00'))+7*86400000;
   await env.DB.prepare('INSERT INTO parking_notification_links(notification_id,oid,token_hash,expires_at) VALUES(?,?,?,?)').bind(e.id,p.oid,await sha256(key),expires).run();
-  // Keep registered v1 text and the approval fingerprint intact. Payment and
-  // arrival transaction notices use their restricted LMS routes until v2 is approved.
-  const directSMS=e.mode!=='test'&&(e.kind==='paid'&&env.PARKING_PAID_SMS!=='false'||e.kind==='arrival_received'&&env.PARKING_ARRIVAL_SMS!=='false');
+  const directSMS=!upgrade&&e.mode!=='test'&&(e.kind==='paid'&&env.PARKING_PAID_SMS!=='false'||e.kind==='arrival_received'&&env.PARKING_ARRIVAL_SMS!=='false');
   if(directSMS){
    const arrival=e.kind==='arrival_received',label=arrival?'입차 접수':'결제 안내';
    const r=await provider(env,arrival?'parking-arrival/send':'parking-paid/send',{receiver,msg:arrival?parkingArrivalSMS(p,e,key):parkingPaidSMS(p,key)},id);
@@ -101,12 +103,12 @@ async function dispatch(env,e){
    if(!r.msg_id||Number(r.success_cnt)!==1||Number(r.error_cnt)!==0){await state(env,e.id,'unknown',label+' 문자 접수 결과 확인 필요');return;}
    await state(env,e.id,'accepted',label+' 새 알림톡 승인·전환 전 · 문자 발송',{mid:'sms:'+r.msg_id,sms:String(r.msg_id)});return;
   }
-  const vars=parkingNoticeVariables(p,e,key),message=parkingNoticeRender(actual.templtContent,vars),buttons=B.map(b=>({...b,linkMo:parkingNoticeRender(b.linkM,vars),linkPc:parkingNoticeRender(b.linkP,vars)})).map(({name,linkType,linkMo,linkPc})=>({name,linkType,linkMo,linkPc}));
-  const sms=parkingNoticeRender(T[e.kind].sms,vars);
-  const r=await provider(env,'alimtalk/send',{tpl_code:T[e.kind].code,receiver_1:receiver,subject_1:'메가스팟 주차권 안내',message_1:message,button_1:JSON.stringify({button:buttons}),fsubject_1:'메가스팟 주차권 안내',fmessage_1:sms},id);
+  const vars=parkingNoticeVariables(p,e,key),message=parkingNoticeRender(upgrade?.content||actual.templtContent,vars),buttons=B.map(b=>({...b,linkMo:parkingNoticeRender(b.linkM,vars),linkPc:parkingNoticeRender(b.linkP,vars)})).map(({name,linkType,linkMo,linkPc})=>({name,linkType,linkMo,linkPc}));
+  const sms=upgrade?(e.kind==='paid'?parkingPaidSMS(p,key):parkingArrivalSMS(p,e,key)):parkingNoticeRender(T[e.kind].sms,vars);
+  const r=await provider(env,'alimtalk/send',{tpl_code:upgrade?.code||T[e.kind].code,receiver_1:receiver,subject_1:'메가스팟 주차권 안내',message_1:message,button_1:JSON.stringify({button:buttons}),failover:'Y',fsubject_1:'메가스팟 주차권 안내',fmessage_1:sms},id);
   if(Number(r.code)!==0){await state(env,e.id,'failed','알리고 접수 거절 '+String(r.code).slice(0,20));return;}
   if(!r.info?.mid || Number(r.info.scnt)!==1){await state(env,e.id,'unknown','전송 접수 결과 확인 필요');return;}
-  await state(env,e.id,'accepted','',{mid:String(r.info.mid)});
+  await state(env,e.id,'accepted','',{mid:upgrade?'at:'+upgrade.code+':'+r.info.mid:String(r.info.mid)});
  }catch{await state(env,e.id,'unknown','응답 확인 필요 · 자동 재발송 중지');}
 }
 async function refresh(env,e){
@@ -118,10 +120,12 @@ async function refresh(env,e){
    await state(env,e.id,x.sms_state==='발송완료'?'sms_delivered':'failed',x.sms_state==='발송완료'?label+' 문자 도착':label+' 문자 전송 실패');return;
   }}return;
  }
- const r=await provider(env,'history/detail',{mid:e.provider_mid,limit:'50'});
+ const atRef=/^at:([^:]+):(\d+)$/.exec(e.provider_mid);
+ const code=atRef?.[1]||T[e.kind].code;
+ const r=await provider(env,'history/detail',{mid:atRef?.[2]||e.provider_mid,limit:'50'});
  if(Number(r.code)!==0)return;
  const rows=r.list||[];let at;
- for(const x of rows){if(x.type==='AT' && x.tpl_code===T[e.kind].code && x.senderKey===env.ALIGO_SENDER_KEY && await sha256(phone(x.phone))===e.phone_hash){at=x;break;}}
+ for(const x of rows){if(x.type==='AT' && x.tpl_code===code && x.senderKey===env.ALIGO_SENDER_KEY && await sha256(phone(x.phone))===e.phone_hash){at=x;break;}}
  const reported=x=>/^20\d{2}-\d{2}-\d{2} /.test(x?.rsltdate||'') && !String(x?.msgid||'').startsWith('Q');
  if(!reported(at))return;
  if(String(at.rslt)==='0'){await state(env,e.id,'delivered');return;}
@@ -160,7 +164,8 @@ export async function parkingNoticeAdmin(request,env,path){
  const method=request.method,hash=await fingerprint(env),s=await config(env);
  if(path==='admin/notifications' && method==='GET'){
   const {results}=await env.DB.prepare('SELECT id,oid,kind,mode,status,provider_mid,sms_mid,error,occurred_at,updated_at FROM parking_notifications ORDER BY id DESC LIMIT 100').all();
-  return json({ok:true,enabled:s.enabled,live_allowed:env.ALIGO_LIVE_ENABLED==='true',configured:configured(env),test_delivered:await tested(env,hash),items:results||[],sms_fallback:true,paid_notice_channel:env.PARKING_PAID_SMS==='false'?'alimtalk':'sms',arrival_notice_channel:env.PARKING_ARRIVAL_SMS==='false'?'alimtalk':'sms',templates:Object.entries(T).map(([kind,t])=>({kind,name:t.name,code:t.code,content:t.content,sms:t.sms}))});
+  const [paid,arrival]=await Promise.all(['parking_paid','parking_arrival'].map(kind=>approvedCustomerTemplate(env,null,kind)));
+  return json({ok:true,enabled:s.enabled,live_allowed:env.ALIGO_LIVE_ENABLED==='true',configured:configured(env),test_delivered:await tested(env,hash),items:results||[],sms_fallback:true,paid_notice_channel:paid||env.PARKING_PAID_SMS==='false'?'alimtalk':'sms',arrival_notice_channel:arrival||env.PARKING_ARRIVAL_SMS==='false'?'alimtalk':'sms',templates:Object.entries(T).map(([kind,t])=>({kind,name:t.name,code:t.code,content:t.content,sms:t.sms}))});
  }
  if(path==='admin/notifications/check' && method==='POST')return json({ok:true,items:await approvals(env)});
  if(path==='admin/notifications/settings' && method==='PUT'){

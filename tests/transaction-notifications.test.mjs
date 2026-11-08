@@ -1,3 +1,4 @@
+import {CUSTOMER_ALIMTALK} from '../functions/api/_customer_alimtalk_templates.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
@@ -86,6 +87,7 @@ test('서명된 릴레이 전송, 관리자 수신자 제한, 중복 잠금과 �
   assert.equal(url,f.env.ALIGO_RELAY_URL);
   return relayRequest(new Request('http://relay.local/v1/aligo',init),relayEnv,ledger,async (providerUrl,options)=>{
    const fields=new URLSearchParams(options.body);
+   if(providerUrl.endsWith('/template/list/'))return Response.json({code:0,list:[{templtCode:fields.get('tpl_code'),inspStatus:'REQ',status:'R'}]});
    if(providerUrl.endsWith('/send/')){
     assert.equal(fields.get('msg_type'),'LMS');
     const id=String(recipients.size+1);
@@ -109,4 +111,50 @@ test('서명된 릴레이 전송, 관리자 수신자 제한, 중복 잠금과 �
  const current=list.items.filter(x=>x.ref==='MS-VALID');
  assert.deepEqual(current.map(x=>x.status).sort(),['delivered','delivered','failed']);
  assert.ok(current.every(x=>!('receiver' in x)&&!('provider_mid' in x)&&x.receiver_last4.length===4));
+});
+
+test('승인된 고객 거래는 알림톡을 먼저 보내고 실패 시 확인된 대체 문자 결과만 기록한다',async t=>{
+ const f=payappFixture({booking:false});
+ const ledgerDb=new DatabaseSync(':memory:');
+ t.after(()=>{f.db.close();ledgerDb.close();});
+ const secret='transaction-relay-test-secret-at-least-32';
+ Object.assign(f.env,{ALIGO_RELAY_SECRET:secret,ALIGO_RELAY_URL:'https://relay.naranhistory.com/megaspot/aligo',ALIGO_LIVE_ENABLED:'true',ALIGO_SENDER_KEY:'fixture-profile'});
+ const relayEnv={ALIGO_RELAY_SECRET:secret,ALIGO_API_KEY:'fixture-key',ALIGO_USERID:'fixture-user',ALIGO_SENDER_KEY:f.env.ALIGO_SENDER_KEY,ALIGO_SENDER:'01099990000',ALIGO_PARKING_ADMIN_RECEIVERS:numbers.join(',')};
+ const ledger=relayLedger(ledgerDb),customer='01022223333',template=CUSTOMER_ALIMTALK.inquiry;
+ let sends=0,lookups=0,smsLookups=0;
+ t.mock.method(globalThis,'fetch',async (url,init)=>{
+  assert.equal(url,f.env.ALIGO_RELAY_URL);
+  return relayRequest(new Request('http://relay.local/v1/aligo',init),relayEnv,ledger,async (providerUrl,options)=>{
+   const fields=new URLSearchParams(options.body);
+   if(providerUrl.endsWith('/template/list/')){
+    lookups++;
+    return Response.json({code:0,list:[{templtCode:template.code,inspStatus:'APR',status:'R',templtContent:template.content,buttons:[]}]});
+   }
+   if(providerUrl.endsWith('/alimtalk/send/')){
+    sends++;
+    assert.equal(fields.get('receiver_1'),customer);
+    assert.equal(fields.get('failover'),'Y');
+    assert.match(fields.get('message_1'),/문의번호: MS-ALIM/);
+    assert.match(fields.get('fmessage_1'),/MS-ALIM/);
+    return Response.json({code:0,info:{mid:'100',scnt:1,fcnt:0}});
+   }
+   if(providerUrl.endsWith('/history/detail/'))return Response.json({code:0,list:[
+    {type:'AT',phone:customer,tpl_code:template.code,senderKey:f.env.ALIGO_SENDER_KEY,rsltdate:'2026-11-08 19:00:00',rslt:'U',smid:'200'}
+   ]});
+   assert.equal(providerUrl,'https://apis.aligo.in/sms_list/');
+   smsLookups++;
+   return Response.json({result_code:1,list:[{type:'LMS',receiver:customer,send_date:'2026-11-08 19:01:00',sms_state:'발송완료'}]});
+  });
+ });
+ setStaff(f.db);
+ f.db.exec("INSERT INTO inquiries(ref,space_id,status,name,phone,data,created_at) VALUES('MS-ALIM','megaspot-gundae','문의 접수','테스트','01022223333','{}',datetime('now'))");
+ f.db.exec("UPDATE transaction_notifications SET status='cancelled' WHERE ref<>'MS-ALIM' OR audience='admin'");
+ await transactionNoticeTick(f.env);
+ assert.equal(f.db.prepare("SELECT provider_mid FROM transaction_notifications WHERE ref='MS-ALIM' AND audience='customer'").get().provider_mid,'at:'+template.code+':100');
+ f.db.exec("UPDATE transaction_notifications SET updated_at=datetime('now','-1 minute') WHERE status='accepted'");
+ await transactionNoticeTick(f.env);
+ const row=f.db.prepare("SELECT status,error FROM transaction_notifications WHERE ref='MS-ALIM' AND audience='customer'").get();
+ assert.deepEqual({...row},{status:'delivered',error:'대체 문자 수신 성공'});
+ await transactionNoticeTick(f.env);
+ assert.deepEqual([sends,lookups,smsLookups],[1,1,1]);
 });

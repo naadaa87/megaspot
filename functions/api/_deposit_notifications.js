@@ -1,3 +1,4 @@
+import {customerFallback,customerFallbackResult} from './_customer_alimtalk.js';
 // Information-only notices. DB triggers create an outbox in the booking transaction.
 import {json,err,now,str,readJson,sha256,SPACES,log} from './_lib.js';
 import {aligoProvider,guidePhone,guideDelivery} from './_guide_messages.js';
@@ -74,13 +75,14 @@ async function dispatch(env,e){
  // Recheck the booking after issuing the link and taking the sending lock.
  if(e.mode==='live'){const latest=await booking(env,e.booking_code),reason=noticeObsolete(latest,e);if(reason)return state(env,e.id,'cancelled',reason);b=latest;const latestSettings=await depositMessageConfig(env);if(!latestSettings.enabled||!latestSettings.types[e.kind]||latestSettings.hash!==hash||env.ALIGO_LIVE_ENABLED!=='true')return state(env,e.id,'cancelled','고객 발송 중지·설정 변경');}
  if(e.kind==='account'&&e.mode==='live'&&e.event_key.startsWith('account-reminder:')){const other=await env.DB.prepare("SELECT id FROM deposit_notifications WHERE booking_code=? AND mode='live' AND kind='account' AND id<>? AND (status IN ('queued','sending','accepted','unknown','review') OR (status='delivered' AND updated_at>?)) LIMIT 1").bind(e.booking_code,e.id,new Date(Date.now()-3600000).toISOString().slice(0,19).replace('T',' ')).first();if(other)return state(env,e.id,'cancelled','다른 계좌 안내가 처리 중이거나 최근 수신 완료되었습니다.');}
+ const fallback=e.mode==='live';
  const vars=depositNoticeVariables(b,e,token),message=depositNoticeRender(t.templtContent,vars),buttons=T[e.kind].buttons.map(b=>({name:b.name,linkType:'WL',linkMo:depositNoticeRender(b.linkMo,vars),linkPc:depositNoticeRender(b.linkPc,vars)}));
  try{
-  const response=await aligoProvider(env,'alimtalk/send',{senderkey:env.ALIGO_SENDER_KEY,tpl_code:s.codes[e.kind],sender:env.ALIGO_SENDER,receiver_1:receiver,recvname_1:clean(b.customer_name),subject_1:'메가스팟 보증금 안내',message_1:message,...(buttons.length?{button_1:JSON.stringify({button:buttons})}:{}),failover:'N',testMode:'N'},id);
+  const response=await aligoProvider(env,'alimtalk/send',{senderkey:env.ALIGO_SENDER_KEY,tpl_code:s.codes[e.kind],sender:env.ALIGO_SENDER,receiver_1:receiver,recvname_1:clean(b.customer_name),subject_1:'메가스팟 보증금 안내',message_1:message,...(buttons.length?{button_1:JSON.stringify({button:buttons})}:{}),failover:'N',testMode:'N',...(fallback?customerFallback('메가스팟 보증금 안내',message,buttons):{})},id);
   if(!response||!/^[-]?\d+$/.test(String(response.code)))return state(env,e.id,'unknown','접수 응답 확인 필요 · 자동 재발송 중지');
   if(Number(response.code)!==0)return state(env,e.id,'failed','알리고 접수 거절 '+str(response.code,20));
   if(!response.info?.mid||Number(response.info.scnt)!==1||Number(response.info.fcnt||0)>0)return state(env,e.id,'unknown','접수 건수 확인 필요');
-  await state(env,e.id,'accepted','',String(response.info.mid));
+  await state(env,e.id,'accepted','',(fallback?'fallback:':'')+response.info.mid);
  }catch{await state(env,e.id,'unknown','접수 결과 불명 · 알리고 확인 전 재발송하지 마세요.');}
 }
 async function refresh(env,e){
@@ -88,13 +90,17 @@ async function refresh(env,e){
  const s=await depositMessageConfig(env);
  if(!e.provider_mid)return {checked:false,reason:'접수번호가 없어 자동 조회할 수 없습니다. 알리고 발송 내역을 직접 확인해 주세요.'};
  if(e.config_hash!==await depositMessageHash(env,s))return {checked:false,reason:'발송 당시 설정과 현재 설정이 달라 직접 확인이 필요합니다.'};
- const r=await aligoProvider(env,'history/detail',{mid:e.provider_mid,limit:'50'});
+ const fallback=e.provider_mid.startsWith('fallback:');
+ const r=await aligoProvider(env,'history/detail',{mid:e.provider_mid.replace(/^fallback:/,''),limit:'50'});
  if(Number(r.code)!==0)return {checked:false,reason:'알리고 결과 조회에 실패했습니다. 잠시 후 다시 조회해 주세요.'};
  let detail;for(const x of r.list||[])if(x.type==='AT'&&x.tpl_code===s.codes[e.kind]&&x.senderKey===env.ALIGO_SENDER_KEY&&await sha256(guidePhone(x.phone))===e.phone_hash){detail=x;break;}
- const status=guideDelivery(detail);
+ const primary=guideDelivery(detail);
+ const alternate=fallback&&primary!=='accepted'&&primary!=='delivered'
+  ?await customerFallbackResult((path,data)=>aligoProvider(env,path,data),detail,async phone=>await sha256(guidePhone(phone))===e.phone_hash,e.occurred_at):null;
+ const status=alternate?.status||primary;
  if(status==='accepted')return {checked:true,reason:'수신 결과가 아직 확정되지 않았습니다. 잠시 후 다시 조회해 주세요.'};
- const updated=await env.DB.prepare("UPDATE deposit_notifications SET status=?,error=?,updated_at=? WHERE id=? AND status IN ('accepted','unknown') AND provider_mid=? AND config_hash=?").bind(status,status==='delivered'?'':'알림톡 전송 실패 '+str(detail?.rslt,20),now(),e.id,e.provider_mid,e.config_hash).run();
- return {checked:true,updated:!!changes(updated),reason:status==='delivered'?'수신 성공으로 갱신했습니다.':'발송 실패로 갱신했습니다.'};
+ const updated=await env.DB.prepare("UPDATE deposit_notifications SET status=?,error=?,updated_at=? WHERE id=? AND status IN ('accepted','unknown') AND provider_mid=? AND config_hash=?").bind(status,alternate?.note||(status==='delivered'?'':'알림톡 전송 실패 '+str(detail?.rslt,20)),now(),e.id,e.provider_mid,e.config_hash).run();
+ return {checked:true,updated:!!changes(updated),reason:alternate?.note||(status==='delivered'?'수신 성공으로 갱신했습니다.':'발송 실패로 갱신했습니다.')};
 }
 export async function depositNoticeTick(env,send=true){
  if(!configured(env))return {ok:true,enabled:false};
