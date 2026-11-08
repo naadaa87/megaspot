@@ -67,11 +67,11 @@ async function state(env,id,status,error='',extra={}){
  await env.DB.prepare('UPDATE parking_notifications SET status=?,error=?,provider_mid=COALESCE(?,provider_mid),sms_mid=COALESCE(?,sms_mid),updated_at=? WHERE id=?').bind(status,error,extra.mid||null,extra.sms||null,now(),id).run();
 }
 export function parkingPaidSMS(p,key){
- return '[메가스팟 주차권 결제 완료]\n차량 끝번호: '+p.plate.slice(-4)+'\n이용일: '+p.visit_date+'\n주차권: '+({'1h':'1시간권','2h':'2시간권','3h':'3시간권',daily:'일일권'})[p.ticket]+'\n이 차량 결제금액: '+format(p.price)+'원\n주문번호: '+p.oid+'\n\n평일 야간에도 등록하며, 결제·입차 확인 후 등록까지 최대 약 5분이 소요됩니다. 당일 구매·입차 요청은 23:50까지입니다. 주말·공휴일과 전날 입차·익일 연속 주차는 별도 문의해 주세요. 등록 완료를 확인한 뒤 출차해 주세요.\n\n차량 구매 내역: https://megaspot.kr/parking/purchase/#oid='+p.oid+'&key='+key+'\n문의: https://pf.kakao.com/_LnxbmX/chat';
+ return '[메가스팟 주차권 결제 완료]\n차량 끝번호: '+p.plate.slice(-4)+'\n이용일: '+p.visit_date+'\n주차권: '+({'1h':'1시간권','2h':'2시간권','3h':'3시간권',daily:'일일권'})[p.ticket]+'\n이 차량 결제금액: '+format(p.price)+'원\n주문번호: '+p.oid+'\n\n주말에도 자동 등록하며, 결제·입차 확인 후 등록까지 최대 약 5분이 소요됩니다. 당일 구매·입차 요청은 23:50까지입니다. 공휴일과 전날 입차·익일 연속 주차는 별도 문의해 주세요. 등록 완료를 확인한 뒤 출차해 주세요.\n\n차량 구매 내역: https://megaspot.kr/parking/purchase/#oid='+p.oid+'&key='+key+'\n문의: https://pf.kakao.com/_LnxbmX/chat';
 }
 export function parkingArrivalSMS(p,e,key){
  const vars=parkingNoticeVariables(p,e,key);
- return '[메가스팟 주차 등록 요청 접수]\n\n입차 알림이 접수되었습니다.\n\n주문번호: '+p.oid+'\n차량 끝번호: '+vars.차량끝번호+'\n이용일: '+p.visit_date+'\n주차권: '+vars.주차권+'\n접수일시: '+vars.접수일시+'\n\n평일 10:00~24:00에 실제 입차 기록을 자동 확인해 차량별로 주차권을 등록합니다. 입차 확인 후 등록까지 최대 약 5분이 소요됩니다.\n현재는 등록 완료 전입니다. 구매 내역에서 ‘등록 완료’를 확인한 뒤 출차해 주세요.\n5분이 지나도 완료되지 않으면 카카오톡으로 문의해 주세요.\n\n차량 구매 내역: https://megaspot.kr/parking/purchase/#oid='+p.oid+'&key='+key+'\n문의: https://pf.kakao.com/_LnxbmX/chat';
+ return '[메가스팟 주차 등록 요청 접수]\n\n입차 알림이 접수되었습니다.\n\n주문번호: '+p.oid+'\n차량 끝번호: '+vars.차량끝번호+'\n이용일: '+p.visit_date+'\n주차권: '+vars.주차권+'\n접수일시: '+vars.접수일시+'\n\n매일 10:00~24:00(공휴일 제외)에 실제 입차 기록을 자동 확인해 차량별로 주차권을 등록합니다. 입차 확인 후 등록까지 최대 약 5분이 소요됩니다.\n현재는 등록 완료 전입니다. 구매 내역에서 ‘등록 완료’를 확인한 뒤 출차해 주세요.\n5분이 지나도 완료되지 않으면 카카오톡으로 문의해 주세요.\n\n차량 구매 내역: https://megaspot.kr/parking/purchase/#oid='+p.oid+'&key='+key+'\n문의: https://pf.kakao.com/_LnxbmX/chat';
 }
 async function dispatch(env,e){
  const p=await order(env,e.oid);

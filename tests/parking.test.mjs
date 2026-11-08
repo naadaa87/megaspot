@@ -6,7 +6,7 @@ import {fixture} from './helpers/parking-fixture.mjs';
 const ORIGIN='https://megaspot.test';
 test('차량번호 정규화·전체 재입력·정책 확인·판매 기간·일일권 미확정 검증',t=>{
  const f=fixture(t);assert.equal(plateOf(' 123 가-4567 '),'123가4567');assert.equal(plateOf('서울12가3456'),'서울12가3456');assert.equal(plateOf('4567'),null);
- for(const extra of [{plate_confirm:'123가4568'},{price:1,confirmed:false},{ticket:'daily'},{date:'2026-11-07'},{date:'2026-11-01'},{date:'2026-12-25'},{phone:'abc'},{agree_privacy:'false'},{ticket:['1h']},{ticket:'constructor'},{ticket:'__proto__'}])assert.ok(parkingInput(f.input(extra)).error,JSON.stringify(extra));
+ for(const extra of [{plate_confirm:'123가4568'},{price:1,confirmed:false},{ticket:'daily'},{date:'2026-11-01'},{date:'2026-12-25'},{phone:'abc'},{agree_privacy:'false'},{ticket:['1h']},{ticket:'constructor'},{ticket:'__proto__'}])assert.ok(parkingInput(f.input(extra)).error,JSON.stringify(extra));
  assert.equal(parkingInput(f.input({price:1})).price,8000);
  assert.equal(arrivalWindow(Date.parse('2026-11-03T09:59:00+09:00')),false);assert.equal(arrivalWindow(Date.parse('2026-11-03T17:49:00+09:00')),true);assert.equal(arrivalWindow(Date.parse('2026-11-03T17:50:00+09:00')),true);
 });

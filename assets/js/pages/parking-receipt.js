@@ -32,7 +32,7 @@
    +'<div class="pk-receipt-top"><h2>'+esc(p.plate)+'</h2><span class="pk-state pk-tone-'+s.tone+'">'+(s.key==='applied'?'<span aria-hidden="true">✓ </span>':'')+s.label+'</span></div>'
    +'<p class="pk-receipt-meta">'+esc(p.ticket_label)+' · '+won(p.price)+'</p>'
    +'<p class="pk-receipt-hint">'+esc(s.hint)+'</p>'
-   +(action?'<button class="btn btn-primary" data-action="arrive"'+(canArrive?'':' disabled')+'>입차했어요 · 등록 요청</button>'+(!canArrive?'<p class="pk-help">이용일의 평일 23:50까지 입차 요청이 가능합니다.</p>':''):'')
+   +(action?'<button class="btn btn-primary" data-action="arrive"'+(canArrive?'':' disabled')+'>입차했어요 · 등록 요청</button>'+(!canArrive?'<p class="pk-help">이용일 10:00부터 23:50 전까지 입차 요청이 가능합니다.</p>':''):'')
    +'<details class="pk-receipt-more" data-detail-key="'+oid+':detail"'+open(p.oid+':detail',options.expanded)+'><summary>차량 상세 내역</summary><dl class="pk-detail"><dt>이용일</dt><dd>'+esc(date(p.visit_date))+'</dd><dt>주문번호</dt><dd>'+oid+'</dd>'
    +(p.applied_at?'<dt>기존 등록 이력</dt><dd>'+esc(stamp(p.applied_at))+'</dd>':'')
    +(p.daily_terms?'<dt>일일권 조건</dt><dd>'+esc(p.daily_terms)+'</dd>':'')

@@ -12,7 +12,7 @@ export async function prepareParkingBatch(request,env,settings,C,d){
   if(seen.has(v.plate))return err('같은 차량번호를 두 번 입력했습니다. 차량마다 한 번씩 입력해 주세요.');
   seen.add(v.plate);
   if(v.ticket==='daily'&&str(d.daily_terms,500)!==settings.daily_terms)return err('일일권 이용 조건이 변경되었습니다. 새로고침 후 확인해 주세요.',409);
-  if(v.date===kstToday()&&!arrivalWindow())return err('당일 구매·입차 요청은 평일 23:50까지 가능합니다. 다음 이용일을 선택하거나 문의해 주세요.');
+  if(v.date===kstToday()&&!arrivalWindow())return err('당일 구매·입차 요청은 10:00부터 23:50 전까지 가능합니다. 다음 이용일을 선택하거나 문의해 주세요.');
   const duplicate=await env.DB.prepare("SELECT COUNT(*) AS n FROM parking_orders p JOIN orders o ON o.oid=COALESCE(p.payment_oid,p.oid) WHERE p.plate=? AND p.visit_date=? AND o.status='paid'").bind(v.plate,v.date).first();
   if(duplicate.n&&!d.confirm_extra)return err('입력한 차량 중 같은 이용일에 결제된 주차권이 있습니다. 추가 구매가 맞는지 확인해 주세요.',409,'EXTRA_CONFIRM');
   items.push({...v,oid:await makeOid()});
