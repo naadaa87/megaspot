@@ -120,6 +120,19 @@
       <div class="adm-card mt-3"><h2>이번 달 요약</h2><div id="dash-month" class="adm-month"></div><p class="tiny muted mt-2">금액은 문의의 현재 관리 금액을 합산합니다. 견적 저장·직접 수정·예약 확정 금액이 반영되며, 보증금과 실제 온라인 결제 내역은 별도로 관리합니다.</p></div>
     </section>
 
+    <section class="adm-view" id="view-transaction-notifications" hidden>
+      <header class="adm-head"><div><h1>거래 알림</h1><p class="small muted">문의·예약 신청, 결제 후 확정 보류, 예약 취소와 환불의 고객·관리자 문자 이력입니다.</p></div></header>
+      <div class="adm-card">
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <label>발송 상태 <select id="tn-filter" class="select"><option value="all">전체</option><option value="pending">대기·처리 중</option><option value="attention">실패·확인 필요</option><option value="delivered">수신 성공</option></select></label>
+          <button type="button" id="tn-reload" class="btn btn-light btn-sm">새로고침</button>
+        </div>
+        <p id="tn-info" class="small muted mt-2" role="status"></p>
+        <div id="tn-list" class="adm-list mt-2"></div>
+        <button type="button" id="tn-more" class="btn btn-light btn-sm mt-2" hidden>이전 이력 더 보기</button>
+      </div>
+    </section>
+
     <!-- 일자별 현장답사 -->
     <section class="adm-view" id="view-visits" hidden>
       <header class="adm-head"><div><h1>일자별 현장답사</h1><p class="small muted">고객이 공간을 보러 오는 일정을 날짜별로 모았습니다. 날짜와 시간이 정해지면 <b>예정</b>, 아직 못 정했으면 <b>조율 중</b>으로 표시됩니다. 같은 시간에 다른 답사나 행사 예약이 잡혀 있으면 경고가 붙습니다. 줄을 누르면 일정을 고칠 수 있고, 문의번호를 누르면 연결된 문의가 열립니다.</p></div>
@@ -667,7 +680,8 @@
 <script src="/assets/js/admin-save-recovery.js?v=20261104retry1"></script>
 <script src="/assets/js/pages/admin-settlement.js?v=20261105mobilepayment1"></script>
 <script src="/assets/js/pages/admin-cancellation.js?v=20261104retry1"></script>
-<script src="/assets/js/pages/admin-navigation.js?v=20261104navrelease4&readiness=20261105"></script>
+<script src="/assets/js/pages/admin-transaction-notifications.js?v=20261108"></script>
+<script src="/assets/js/pages/admin-navigation.js?v=20261108-transactions"></script>
 <script src="/assets/js/pages/admin-booking-readiness.js?v=20261105readiness1"></script>
 </body>
 </html>

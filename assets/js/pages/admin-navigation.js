@@ -6,7 +6,7 @@
   var aliases={'guide-settings':'guide-messages','deposit-settings':'deposit-notifications','parking-settings':'parking','prices-catering':'prices','prices-reception':'prices','prices-cocktail':'prices'};
   var groups=[
     {id:'consult',label:'문의·상담',open:true,items:[['inq','문의 관리'],['quote','견적 계산'],['visits','현장답사']]},
-    {id:'booking',label:'예약·일정',open:true,items:[['orders','주문·결제 확인'],['resv','예약 현황'],['booking-readiness','미안내·미발급'],['guide-messages','이용 안내']]},
+    {id:'booking',label:'예약·일정',open:true,items:[['orders','주문·결제 확인'],['resv','예약 현황'],['booking-readiness','미안내·미발급'],['transaction-notifications','거래 알림'],['guide-messages','이용 안내']]},
     {id:'event',label:'행사·부가서비스',items:[['catering','식음료 서비스'],['parking','주차권 관리']]},
     {id:'after',label:'정산·사후관리',items:[['deposit-refunds','보증금 환급'],['reviews','후기 관리']]},
     {id:'platform',label:'고객·플랫폼',items:[['members','회원'],['meetups','모임 관리'],['hosts','입점·광고 신청'],['listings','등록 공간'],['ads','배너 광고']]},

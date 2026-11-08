@@ -99,7 +99,7 @@ async function provider(env, path, data = {}, requestID = crypto.randomUUID()) {
   }else body=new URLSearchParams({apikey:env.ALIGO_API_KEY,userid:env.ALIGO_USERID,...data});
   // Workers supports manual redirects; reject 3xx below instead of following credentials elsewhere.
   const response = await fetch(target, { method:'POST', headers, body, signal:AbortSignal.timeout(10000), redirect:'manual' });
-  if (!response.ok) throw Error('알리고 응답을 확인할 수 없습니다.');
+  if (!response.ok) throw Object.assign(Error('알리고 응답을 확인할 수 없습니다.'),{status:response.status});
   return response.json();
 }
 function safeProviderError(r) { return '알리고 오류 ' + str(String(r?.code ?? ''),30) + ' — 알리고 설정·잔액과 전송내역에서 사유를 확인해 주세요.'; }

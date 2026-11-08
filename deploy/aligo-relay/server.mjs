@@ -13,6 +13,9 @@ const FIELDS={
   'parking-admin/send':['receiver','msg'],
   'parking-paid/send':['receiver','msg'],
   'parking-arrival/send':['receiver','msg'],
+  'transaction/status':[],
+  'transaction/customer/send':['receiver','msg'],
+  'transaction/admin/send':['receiver','msg'],
   'template/list':['tpl_code'],
   'history/detail':['mid','page','limit'],
   'sms/detail':['mid','page','page_size'],
@@ -46,7 +49,10 @@ export async function relayRequest(request,env,ledger,upstream=fetch){
   const socialfactoryReceivers=[...new Set((env.SOCIALFACTORY_PARKING_ADMIN_RECEIVERS||'').split(',').map(s=>s.trim()).filter(s=>adminReceivers.includes(s)))];
   if(v.path==='socialfactory-admin/status')return json({ready:!!socialfactoryReceivers.length,receiver_last4:socialfactoryReceivers.map(s=>s.slice(-4))});
   if(v.path==='parking-admin/status')return json({ready:!!adminReceivers.length,receivers:adminReceivers});
-  const socialfactorySMS=v.path==='socialfactory-admin/send',adminSMS=v.path==='parking-admin/send'||socialfactorySMS,paidSMS=v.path==='parking-paid/send',arrivalSMS=v.path==='parking-arrival/send',customerSMS=paidSMS||arrivalSMS,directSMS=adminSMS||customerSMS;
+  if(v.path==='transaction/status')return json({ready:true});
+  const transactionCustomer=v.path==='transaction/customer/send',transactionAdmin=v.path==='transaction/admin/send';
+  const transactionSMS=transactionCustomer||transactionAdmin;
+  const socialfactorySMS=v.path==='socialfactory-admin/send',adminSMS=v.path==='parking-admin/send'||socialfactorySMS,paidSMS=v.path==='parking-paid/send',arrivalSMS=v.path==='parking-arrival/send',customerSMS=paidSMS||arrivalSMS,directSMS=adminSMS||customerSMS||transactionSMS;
   const sending=directSMS||v.path==='alimtalk/send';
   const data=Object.fromEntries(FIELDS[v.path].filter(k=>v.data[k]!=null).map(k=>[k,String(v.data[k])]));
   if(['history/detail','sms/detail'].includes(v.path) && !/^\d{1,30}$/.test(data.mid || ''))return json({error:'Invalid message ID'},400);
@@ -57,6 +63,15 @@ export async function relayRequest(request,env,ledger,upstream=fetch){
   const staffMessage=socialfactorySMS?socialfactoryReceivers.includes(data.receiver)&&/^\[소셜팩토리 주차권 (?:자동 등록 오류|잔액 부족)\]\n/.test(data.msg||'')&&data.msg.endsWith('https://socialfactory.co.kr/admin#parking'):/^\[메가스팟 주차권 (?:결제 완료|관리자 알림 시험|자동 등록 오류|잔액 부족|검증 완료|검증 확인 필요)\]\n/.test(data.msg||'')&&data.msg.endsWith('https://megaspot.kr/admin/#parking');
   if(adminSMS && (!adminReceivers.includes(data.receiver)||!staffMessage||data.msg.length>600))return json({error:'Unapproved staff recipient/message'},403);
   if(customerSMS && (!/^01[016789]\d{7,8}$/.test(data.receiver||'')||!data.msg?.startsWith(arrivalSMS?'[메가스팟 주차 등록 요청 접수]\n':'[메가스팟 주차권 결제 완료]\n')||data.msg.length>900||/#\{/.test(data.msg)||!data.msg.endsWith(arrivalSMS?'\n문의: https://pf.kakao.com/_LnxbmX/chat':'https://pf.kakao.com/_LnxbmX/chat')))return json({error:arrivalSMS?'Invalid parking arrival notice':'Invalid parking payment notice'},400);
+  if(transactionSMS){
+    const validReceiver=transactionAdmin?adminReceivers.includes(data.receiver):/^01[016789]\d{7,8}$/.test(data.receiver||'');
+    const heading=transactionAdmin
+      ? /^\[메가스팟 (?:문의 접수|예약 신청 접수|결제 완료 · 예약 확정 보류)\]\n/
+      : /^\[메가스팟 (?:문의 접수|예약 신청 접수|결제 완료 · 예약 확정 보류|공간 예약 취소|이용료 환불 완료|주차권 부분 환불 완료)\]\n/;
+    const end=transactionAdmin?'\nhttps://megaspot.kr/admin/#transaction-notifications':'\n문의: https://pf.kakao.com/_LnxbmX/chat';
+    if(!validReceiver||!heading.test(data.msg||'')||!data.msg.endsWith(end)||data.msg.length>600)
+      return json({error:'Invalid transaction notice'},400);
+  }
   if(sending){
     if(!directSMS && (!/^01[016789]\d{7,8}$/.test(data.receiver_1 || '') || !data.message_1 || data.message_1.length>1000 || !data.subject_1))return json({error:'Invalid recipient/message'},400);
     if(PARKING_SMS.has(data.tpl_code) && (!data.fmessage_1 || data.fmessage_1.length>900 || /#\{/.test(data.fmessage_1)))return json({error:'Parking SMS fallback required'},400);
@@ -67,7 +82,7 @@ export async function relayRequest(request,env,ledger,upstream=fetch){
     // Parking fallback is explicitly authorized. Other templates retain their own policy.
     const parking=PARKING_SMS.has(data.tpl_code);
     if(!parking){delete data.fmessage_1;delete data.fsubject_1;}
-    Object.assign(data,directSMS?{sender:env.ALIGO_SENDER,msg_type:'LMS',title:socialfactorySMS?'소셜팩토리 주차권 관리자 알림':arrivalSMS?'메가스팟 주차 등록 요청 접수':customerSMS?'메가스팟 주차권 결제 완료':'메가스팟 주차권 관리자 알림',testmode_yn:'N'}:{sender:env.ALIGO_SENDER,failover:parking?'Y':'N',testMode:'N'});
+    Object.assign(data,directSMS?{sender:env.ALIGO_SENDER,msg_type:'LMS',title:transactionSMS?'메가스팟 거래 안내':socialfactorySMS?'소셜팩토리 주차권 관리자 알림':arrivalSMS?'메가스팟 주차 등록 요청 접수':customerSMS?'메가스팟 주차권 결제 완료':'메가스팟 주차권 관리자 알림',testmode_yn:'N'}:{sender:env.ALIGO_SENDER,failover:parking?'Y':'N',testMode:'N'});
   }
   const smsQuery=v.path==='sms/detail';
   const body=new URLSearchParams((smsQuery||directSMS)?{...data,key:env.ALIGO_API_KEY,user_id:env.ALIGO_USERID}:{...data,apikey:env.ALIGO_API_KEY,userid:env.ALIGO_USERID});

@@ -13,6 +13,7 @@ import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, log, hash
 import {readFoodPricing,adminFoodPricing,saveFoodPricing,foodPricingData} from '../_food_pricing.js';
 import {readCocktailPricing,publicCocktailPricing,adminCocktailPricing,saveCocktailPricing} from '../_cocktail_pricing.js';
 import { depositNoticeAdmin } from '../_deposit_notifications.js';
+import {transactionNoticeAdmin} from '../_transaction_notifications.js';
 import { refundAdmin } from '../_deposit_refunds.js';
 import { portalAdmin } from '../_booking_portal.js';
 import { cateringAdmin } from '../_catering.js';
@@ -183,6 +184,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
       }
       return err('지원하지 않는 요청입니다.',405);
     }
+    if(path==='transaction-notifications')return await transactionNoticeAdmin(env,request);
     if(path==='deposit-notifications'||path.startsWith('deposit-notifications/'))return await depositNoticeAdmin({env,request,url,path,method});
     if (path === 'deposit-refunds' || path.startsWith('deposit-refunds/')) {
       try { return await refundAdmin({env,request,url,path,method}); }

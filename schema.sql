@@ -770,3 +770,78 @@ BEGIN
  AND (SELECT SUM(amount) FROM payapp_refunds WHERE oid=NEW.oid)>=o.price
  AND COALESCE((SELECT json_extract(value,'$.enabled') FROM settings WHERE key='parking_alimtalk'),0)=1;
 END;
+
+-- Service messages for new customer-facing transactions. Existing rows are not replayed.
+CREATE TABLE IF NOT EXISTS transaction_notifications (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ event_key TEXT NOT NULL,
+ kind TEXT NOT NULL,
+ audience TEXT NOT NULL CHECK(audience IN ('customer','admin')),
+ ref TEXT NOT NULL,
+ booking_code TEXT,
+ receiver TEXT NOT NULL,
+ amount INTEGER,
+ status TEXT NOT NULL DEFAULT 'queued',
+ request_id TEXT UNIQUE,
+ provider_mid TEXT,
+ error TEXT NOT NULL DEFAULT '',
+ occurred_at TEXT NOT NULL,
+ updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+ UNIQUE(event_key,audience,receiver)
+);
+CREATE INDEX IF NOT EXISTS transaction_notification_queue ON transaction_notifications(status,id);
+
+CREATE TRIGGER IF NOT EXISTS transaction_notify_staff AFTER INSERT ON transaction_notifications
+WHEN NEW.audience='customer' AND NEW.kind IN ('inquiry','reservation_request','payment_review')
+BEGIN
+ INSERT OR IGNORE INTO transaction_notifications(event_key,kind,audience,ref,booking_code,receiver,amount,occurred_at)
+ SELECT NEW.event_key,NEW.kind,'admin',NEW.ref,NEW.booking_code,COALESCE(j.value,''),NEW.amount,NEW.occurred_at
+ FROM (SELECT 1) seed LEFT JOIN json_each((SELECT CASE WHEN json_valid(value) THEN value END
+   FROM settings WHERE key='parking_admin_alerts'),'$.phones') j ON 1=1;
+END;
+
+CREATE TRIGGER IF NOT EXISTS transaction_notify_inquiry AFTER INSERT ON inquiries
+WHEN NEW.status='문의 접수'
+BEGIN
+ INSERT OR IGNORE INTO transaction_notifications(event_key,kind,audience,ref,receiver,occurred_at)
+ VALUES('inquiry:'||NEW.ref,CASE WHEN json_valid(NEW.data) AND json_extract(NEW.data,'$.reserve') THEN 'reservation_request' ELSE 'inquiry' END,
+ 'customer',NEW.ref,COALESCE(NEW.phone,''),NEW.created_at);
+END;
+
+CREATE TRIGGER IF NOT EXISTS transaction_notify_payment_review AFTER UPDATE OF status ON orders
+WHEN NEW.status='paid' AND OLD.status IN ('created','pending') AND NEW.test=0
+ AND EXISTS(SELECT 1 FROM bookings WHERE booking_code=NEW.booking_code AND status='payment_review')
+BEGIN
+ INSERT OR IGNORE INTO transaction_notifications(event_key,kind,audience,ref,booking_code,receiver,amount,occurred_at)
+ VALUES('review:'||NEW.oid,'payment_review','customer',NEW.oid,NEW.booking_code,COALESCE(NEW.buyer_phone,''),NEW.price,COALESCE(NEW.paid_at,datetime('now')));
+END;
+
+CREATE TRIGGER IF NOT EXISTS transaction_notify_cancel AFTER UPDATE OF status ON bookings
+WHEN NEW.status='cancelled' AND OLD.status IN ('confirmed','completed','payment_review')
+BEGIN
+ INSERT OR IGNORE INTO transaction_notifications(event_key,kind,audience,ref,booking_code,receiver,occurred_at)
+ SELECT 'cancel:'||NEW.booking_code||':'||COALESCE(MAX(id),0),'booking_cancelled','customer',
+ NEW.booking_code,NEW.booking_code,COALESCE(NEW.phone,''),COALESCE(NEW.updated_at,datetime('now'))
+ FROM booking_reconfirmations WHERE booking_code=NEW.booking_code;
+END;
+
+CREATE TRIGGER IF NOT EXISTS transaction_notify_manual_refund AFTER INSERT ON booking_payment_entries
+WHEN NEW.kind='refund' AND NEW.amount>0
+BEGIN
+ INSERT OR IGNORE INTO transaction_notifications(event_key,kind,audience,ref,booking_code,receiver,amount,occurred_at)
+ SELECT 'manual-refund:'||NEW.id,'rental_refund','customer',b.booking_code,b.booking_code,COALESCE(b.phone,''),NEW.amount,NEW.created_at
+ FROM bookings b WHERE b.booking_code=NEW.booking_code;
+END;
+
+CREATE TRIGGER IF NOT EXISTS transaction_notify_online_refund AFTER INSERT ON payapp_refunds
+WHEN NEW.amount>0
+BEGIN
+ INSERT OR IGNORE INTO transaction_notifications(event_key,kind,audience,ref,receiver,amount,occurred_at)
+ SELECT 'online-refund:'||NEW.mul_no,
+ CASE WHEN o.product_id='parking-batch' THEN 'parking_partial_refund' ELSE 'rental_refund' END,
+ 'customer',o.oid,COALESCE(o.buyer_phone,''),NEW.amount,NEW.created_at
+ FROM orders o WHERE o.oid=NEW.oid AND o.test=0 AND (
+   o.product_id NOT LIKE 'parking-%' OR
+   (o.product_id='parking-batch' AND (SELECT SUM(amount) FROM payapp_refunds WHERE oid=NEW.oid)<o.price)
+ );
+END;
