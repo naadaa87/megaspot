@@ -528,18 +528,11 @@ window.MEGASPOT_CATERING = {
   delivery: { fee: 100000, label: '출장·세팅비', note: '메가스팟 건대까지의 출장·세팅·수거 비용 (주문 1건당)' },
   minPeople: 20,
   courses: [
-    { id: 'small', name: '소규모 스페셜', tag: '20·30인 정액', kind: 'flat', dishes: 40,
+    { id: 'small', name: '소규모 스페셜', tag: '20·30인 정액', kind: 'flat', menuCourse: 'basic',
       tiers: [{ people: 20, price: 1200000 }, { people: 30, price: 1500000 }],
-      min: 20, max: 30, live: '', drink: false,
-      summary: '인원이 적어도 프리미엄 코스와 같은 요리 40종이 그대로 나오는 정액 구성입니다.',
-      note: '음료수와 즉석 코너는 포함되지 않습니다.',
-      menu: {
-        hot: ['전통한방소갈비찜', '왕새우치즈구이', '팔보채', '훈제오리', '칠리깐쇼새우', '연어스테이크', '그린빈스베이컨말이', '소고기야채말이', '장어데리야끼', '모둠전 (호박·삼색꼬치·김치)', '한방도가니탕', '가오리찜', '허브통삼겹 BBQ', '탕수육', '옛날호박죽', '볶음밥 / 영양찰밥 (택1)', '우거지된장국 / 미역국 (택1)'],
-        cold: ['수제한방족발 & 본레스햄', '양장피', '캘리포니아롤', '토마토카프레제', '칵테일새우 & 쭈꾸미회 & 참소라숙회', '모둠회 (참치·연어·도미·문어)', '모둠초밥 (참치·새우·연어·문어)', '크로와상샌드위치'],
-        korean: ['소고기육회', '한정식잡채', '한정식김치', '견과류정과', '오색 무쌈말이', '해파리냉채', '홍어무침', '브로콜리낙지무침'],
-        salad: ['케이준샐러드', '꽃맛살샐러드', '해산물샐러드', '단호박샐러드'],
-        dessert: ['신선한 계절과일 모둠 3종', '모둠조각케익', '전통 모둠떡 3종']
-      } },
+      min: 20, max: 30, live: '',
+      summary: '베이직 코스 메뉴를 20인 또는 30인 정액으로 준비합니다.',
+      note: '즉석 코너는 포함되지 않습니다.' },
     { id: 'basic', name: '베이직', tag: '식사 위주 실속', kind: 'per', price: 40000, min: 40, dishes: 30, drink: true, liveMin: 100,
       live: '잔치국수 / 메밀국수 (택1)',
       summary: '든든한 식사 위주로 구성한 실속 코스입니다. 회는 참치·연어 모둠회로 나옵니다.',
@@ -658,6 +651,15 @@ window.MEGASPOT_CATERING = {
   groups: { buffet: '뷔페 코스', light: '다과·리셉션 · 한식 상차림' },
   menuLabels: { hot: '더운 요리', cold: '찬 요리', korean: '한식 요리', salad: '샐러드', dessert: '디저트·음료', party: '파티 요리', drinks: '다과 음료' }
 };
+
+// The small package shares the Basic menu while retaining its own flat rates.
+(function(catalog) {
+  const small = catalog.courses.find(course => course.id === 'small');
+  const basic = catalog.courses.find(course => course.id === small.menuCourse);
+  small.menu = basic.menu;
+  small.dishes = basic.dishes;
+  small.drink = basic.drink;
+})(window.MEGASPOT_CATERING);
 
 if(typeof window!=='undefined'&&window.MEGASPOT_FOOD_PRICING)window.MEGASPOT_FOOD_PRICING.apply('catering',window.MEGASPOT_CATERING,(window.MEGASPOT_FOOD_RATES||{}).catering);
 

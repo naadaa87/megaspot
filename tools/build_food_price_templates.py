@@ -92,7 +92,7 @@ def build_catering():
             key='course.'+co['id']+('.'+str(tier['people']) if tier else '');y=333-row*23;unit=str(tier['people'])+'인 정액' if tier else '1인 · '+str(co['min'])+'인부터';text(48,y,co['name']+' / '+unit,12);text(535,y,price(key)+'원',12,'#1F53D5','B');text(742,y,price(key+'.gross')+'원',12);row+=1
     text(48,65,'출장·세팅비 '+price('delivery')+'원 (부가세 별도)',11);end()
     for i,co in enumerate(CAT['courses']):
-        begin(co['name']+' · 전체 메뉴',str(co['dishes'])+'종 · '+('20·30인 정액' if co['kind']=='flat' else str(co['min'])+'인부터'))
+        begin(co['name']+' · 전체 메뉴',str(co['dishes'])+'종 · '+('20·30인 정액 · 베이직 메뉴' if co['kind']=='flat' else str(co['min'])+'인부터'))
         if co['kind']=='flat':text(48,363,'20인 '+price('course.small.20')+'원 / 30인 '+price('course.small.30')+'원',16,'#1F53D5','B')
         else:text(48,363,'1인 '+price('course.'+co['id'])+'원 (부가세 별도)',16,'#1F53D5','B')
         entries=[]

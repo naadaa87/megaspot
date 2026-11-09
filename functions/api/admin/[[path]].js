@@ -30,13 +30,15 @@ import { cateringOrdersAdmin, cateringCounts, cateringOrderFor, ORDER_OF_BOOKING
 const SETTINGS = {
   catering: {   // 출장뷔페: 발주처 연락처와 1인 수수료, 발주처 코스 이름
     defaults: { markup: 5000, vendor_name: '', vendor_manager: '', vendor_phone: '', vendor_kakao: '', vendor_email: '', order_note: '',
-      codes: { small: '소수 스페셜', basic: 'B코스', classic: 'C코스', deluxe: 'D코스', premium: 'E코스', signature: 'F코스', vip: '스페셜코스', partyA: '다과A', partyB: '다과B', galbi: '특선갈비탕' } },
+      codes: { basic: 'B코스', classic: 'C코스', deluxe: 'D코스', premium: 'E코스', signature: 'F코스', vip: '스페셜코스', partyA: '다과A', partyB: '다과B', galbi: '특선갈비탕' } },
     clean(v, def) {
       const o = { markup: Math.max(0, Math.min(100000, Math.round(num(v.markup) ?? def.markup))) };
       for (const k of ['vendor_name', 'vendor_manager', 'vendor_phone', 'vendor_kakao', 'vendor_email']) o[k] = str(v[k], 120);
       o.order_note = str(v.order_note, 1000);
       o.codes = {}; const c = (v.codes && typeof v.codes === 'object') ? v.codes : {};
       for (const k of Object.keys(def.codes)) o.codes[k] = str(c[k], 40) || def.codes[k];
+      // Small packages use the Basic supplier code for both flat-rate tiers.
+      o.codes.small = o.codes.basic;
       return o;
     } }
 };

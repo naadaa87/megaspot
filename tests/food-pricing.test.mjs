@@ -47,3 +47,46 @@ test('new buffet orders and reception saves use persisted prices; stored quotes 
  await saveQuote(f.api,{total:6000000,input:quoteInput({extras,reception_revision:JSON.parse(f.db.prepare("SELECT data FROM inquiries WHERE ref='MS-TEST'").get().data).reception_revision}),extras});
  const after=JSON.parse(f.db.prepare("SELECT data FROM inquiries WHERE ref='MS-TEST'").get().data);assert.equal(after.reception.total,2200000);assert.equal(after.catering.total,2816000);
 });
+
+test('both small tiers retain flat prices and copy the Basic menu and supplier code, including legacy settings', async t => {
+  const f = fixture();
+  t.after(() => f.db.close());
+  const defaults = await f.api('settings/catering');
+  assert.equal(defaults.value.codes.small, 'B코스');
+
+  f.db.prepare('INSERT INTO settings(key,value,updated_at) VALUES(?,?,?)').run(
+    'catering',
+    JSON.stringify({ codes: { small: '소수 스페셜', basic: '업체 베이직' } }),
+    new Date().toISOString()
+  );
+  const settings = await f.api('settings/catering');
+  assert.equal(settings.value.codes.small, '업체 베이직');
+  const saved = await f.api('settings/catering', 'PUT', { value: { codes: { small: '스페셜코스', basic: 'B코스' } } });
+  assert.equal(saved.value.codes.small, 'B코스');
+
+  const source = file => readFileSync(new URL('../' + file, import.meta.url), 'utf8');
+  const ctx = vm.createContext({ window: {}, CT: { space: 'megaspot-gundae' }, CSET: settings.value,
+    ctVendorLines: () => null, spaceName: () => '건대 1호', spaceOk: id => id, M: { CONFIG: {} } });
+  for (const file of ['assets/js/data/catering.js', 'assets/js/catering-calc.js']) vm.runInContext(source(file), ctx);
+  ctx.CC = ctx.window.MEGASPOT_CATERING_CALC;
+  ctx.CD = ctx.CC.data;
+  ctx.won = ctx.CC.won;
+  const admin = source('assets/js/pages/admin.js');
+  vm.runInContext(admin.slice(admin.indexOf('  function ctMenuText(){'), admin.indexOf('  function ctCopy(t, msg){')), ctx);
+  const basic = ctx.CC.course('basic');
+
+  for (const [people, price, gross] of [[20, 1200000, 1320000], [30, 1500000, 1650000]]) {
+    ctx.CT.people = people;
+    ctx.CR = ctx.CC.quote({ course: 'small', people, fee: 0 });
+    assert.equal(ctx.CR.billPeople, people);
+    assert.equal(ctx.CR.supply, price);
+    assert.equal(ctx.CR.total, gross);
+    assert.equal(cateringQuote({ course: 'small', people }, 0).total, ctx.CR.total);
+    assert.equal(ctx.CR.course.menu, basic.menu);
+    const menu = ctx.ctMenuText();
+    assert.match(menu, /베이직 코스 메뉴 · 30종/);
+    for (const item of Object.values(basic.menu).flat()) assert(menu.includes(item), item);
+    assert.doesNotMatch(menu, /왕새우치즈구이|40종/);
+    assert.match(ctx.ctOrderText(), new RegExp('· 코스: 업체 베이직 ' + people + '명'));
+  }
+});

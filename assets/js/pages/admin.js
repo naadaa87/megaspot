@@ -1051,7 +1051,8 @@
   }
   function ctMenuText(){
     var c=CR&&CR.course; if(!c) return '';
-    var L=['[메가스팟 출장뷔페 · '+c.name+' 코스 메뉴 · '+c.dishes+'종]'];
+    var menuCourse=CC.course(c.menuCourse);
+    var L=['[메가스팟 출장뷔페 · '+c.name+(menuCourse?' · '+menuCourse.name:'')+' 코스 메뉴 · '+c.dishes+'종]'];
     Object.keys(c.menu).forEach(function(k){ var v=c.menu[k]; if(v&&v.length) L.push('· '+CD.menuLabels[k]+' ('+v.length+'): '+v.join(', ')); });
     if(c.live) L.push('· 즉석 코너 ('+CC.liveMin(c)+'인 이상): '+c.live);
     if(c.note) L.push('※ '+c.note);
@@ -1099,7 +1100,8 @@
     var v=r.value||{};
     $('#cv-name').value=v.vendor_name||''; $('#cv-manager').value=v.vendor_manager||''; $('#cv-phone').value=v.vendor_phone||''; $('#cv-kakao').value=v.vendor_kakao||''; $('#cv-email').value=v.vendor_email||'';
     $('#cv-markup').value=v.markup!=null?v.markup:''; $('#cv-note').value=v.order_note||'';
-    $('#cv-codes').innerHTML=CD.courses.map(function(c){ return '<label class="ct-code"><span>'+esc(c.name)+'</span><input class="input" data-code="'+c.id+'" maxlength="40" value="'+esc((v.codes||{})[c.id]||'')+'"></label>'; }).join('');
+    $('#cv-codes').innerHTML=CD.courses.map(function(c){ var menuCourse=CC.course(c.menuCourse);
+      return '<label class="ct-code"><span>'+esc(c.name+(menuCourse?' · '+menuCourse.name+' 연동':''))+'</span><input class="input" '+(menuCourse?'readonly ':'')+'data-code="'+c.id+'" maxlength="40" value="'+esc((v.codes||{})[c.id]||'')+'"></label>'; }).join('');
     $('#cv-state').textContent=r.saved?'마지막 저장 '+String(r.updated_at||'').slice(0,16):'아직 저장한 적이 없습니다. 발주처 이름과 연락처를 한 번 적어 두면 발주할 때 편합니다.';
   }
   function ctFromInquiry(it, order, bookings){
