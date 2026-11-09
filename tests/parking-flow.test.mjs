@@ -1,3 +1,4 @@
+import {CUSTOMER_ALIMTALK} from '../functions/api/_customer_alimtalk_templates.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {fixture as parkingFixture} from './helpers/parking-fixture.mjs';
@@ -27,10 +28,13 @@ async function flow(t,{tickets=['1h','2h'],existingFree=[],balance=50000,missing
   if(url==='https://api.payapp.kr/oapi/v2'){paymentRequests.push(new URLSearchParams(opts.body));return payapp(url,opts);}
   if(url===f.env.ALIGO_RELAY_URL||url==='http://127.0.0.1:8787/v1/aligo'){
    const r=JSON.parse(opts.body);assert.equal(opts.headers['X-Megaspot-Signature'],await parkingSign(f.env.ALIGO_RELAY_SECRET,opts.body));
-   if(r.path==='template/list'&&/^UN_476[78]$/.test(r.data.tpl_code))return Response.json({code:0,list:[{templtCode:r.data.tpl_code,inspStatus:'REQ',status:'R'}]});
+   if(r.path==='template/list'&&/^UN_476[78]$/.test(r.data.tpl_code)){
+    const v=Object.values(CUSTOMER_ALIMTALK).find(v=>v.code===r.data.tpl_code);
+    return Response.json({code:0,list:[{templtCode:v.code,inspStatus:'APR',status:'R',senderKey:f.env.ALIGO_SENDER_KEY,templtContent:v.content,buttons:v.buttons}]});
+   }
   if(r.path==='template/list'){const v=Object.values(T).find(v=>v.code===r.data.tpl_code);assert.ok(v);return Response.json({code:0,list:[{templtCode:v.code,inspStatus:'APR',status:'R',templtContent:v.content,buttons:B.map(b=>({name:b.name,linkType:b.linkType,linkMo:b.linkM,linkPc:b.linkP}))}]});}
    if(r.path==='parking-admin/status')return Response.json({ready:true,receivers:phones});
-   if(['parking-paid/send','parking-admin/send','alimtalk/send'].includes(r.path)){
+   if(['parking-admin/send','alimtalk/send'].includes(r.path)){
     const m={...r,mid:String(++mid)};messages.push(m);
     return r.path==='alimtalk/send'?Response.json({code:0,info:{mid:m.mid,scnt:1}}):msgResponse(m);
    }
@@ -77,13 +81,13 @@ test('2대 통합 결제 → 차량별 무료 먼저 → 아마노 HTTP 등록 �
  let alerts=await f.api('admin/payment-alerts');assert.equal(alerts.count,2);
  for(const item of alerts.items)await f.api('admin/payment-alerts/'+item.oid+'/read','POST',{});
  assert.equal((await f.api('admin/payment-alerts')).count,0);
- let live=f.messages.slice(f.setupMessages);assert.equal(live.filter(m=>m.path==='parking-paid/send').length,2);assert.equal(live.filter(m=>m.path==='parking-admin/send').length,4);
+ let live=f.messages.slice(f.setupMessages);assert.equal(live.filter(m=>m.path==='alimtalk/send'&&m.data.tpl_code===CUSTOMER_ALIMTALK.parking_paid.code).length,2);assert.equal(live.filter(m=>m.path==='parking-admin/send').length,4);
  const receipt=await f.api('batches/'+f.p.oid,'GET',undefined,f.p.key);
- for(const p of receipt.items){const text=live.find(m=>m.path==='parking-paid/send'&&m.data.msg.includes(p.oid)).data.msg;assert.match(text,new RegExp(p.price.toLocaleString('ko-KR')+'원'));assert.ok(!text.includes('18:00'));const key=text.match(/&key=([a-f0-9]{64})/)[1];assert.equal(await parkingNoticeAccess(f.env,p.oid,key),true);assert.equal(await parkingNoticeAccess(f.env,receipt.items.find(x=>x.oid!==p.oid).oid,key),false);}
+ for(const p of receipt.items){const text=live.find(m=>m.path==='alimtalk/send'&&m.data.tpl_code===CUSTOMER_ALIMTALK.parking_paid.code&&m.data.fmessage_1.includes(p.oid)).data.fmessage_1;assert.match(text,new RegExp(p.price.toLocaleString('ko-KR')+'원'));assert.ok(!text.includes('18:00'));const key=text.match(/&key=([a-f0-9]{64})/)[1];assert.equal(await parkingNoticeAccess(f.env,p.oid,key),true);assert.equal(await parkingNoticeAccess(f.env,receipt.items.find(x=>x.oid!==p.oid).oid,key),false);}
  const result=await f.run();assert.equal(result.processed,2);assert.deepEqual(result.issues,[]);
  for(const p of receipt.items){const actions=f.registrations.filter(r=>r.oid===p.oid);assert.deepEqual(actions.map(r=>r.code),p.ticket==='1h'?['1']:['1','6']);const row=f.db.prepare('SELECT * FROM parking_orders WHERE oid=?').get(p.oid);assert.equal(row.status,'applied');assert.equal(row.free_hours,1);assert.equal(row.paid_hours,Number(p.ticket[0])-1);const proof=f.memory.operations[p.oid].verification;assert.equal(proof.free_first_verified,true);assert.equal(proof.cost,p.ticket==='1h'?0:3000);assert.equal(proof.site_status,'applied');}
  assert.equal(f.balance(),47000);await f.drain();
- const notices=f.db.prepare("SELECT kind,status,COUNT(*) n FROM parking_notifications WHERE mode='live' GROUP BY kind,status ORDER BY kind").all();assert.deepEqual(notices.map(x=>({...x})),[{kind:'applied',status:'delivered',n:2},{kind:'paid',status:'sms_delivered',n:2}]);
+ const notices=f.db.prepare("SELECT kind,status,COUNT(*) n FROM parking_notifications WHERE mode='live' GROUP BY kind,status ORDER BY kind").all();assert.deepEqual(notices.map(x=>({...x})),[{kind:'applied',status:'delivered',n:2},{kind:'paid',status:'delivered',n:2}]);
  const applied=f.messages.filter(m=>m.path==='alimtalk/send'&&m.data.tpl_code===T.applied.code);assert.equal(applied.length,2);assert.ok(applied.every(m=>m.data.receiver_1===buyer&&m.data.fmessage_1&&!/#\{/.test(m.data.message_1+m.data.fmessage_1)));for(const p of receipt.items)assert.ok(applied.some(m=>m.data.message_1.includes(p.oid)&&m.data.message_1.includes(p.plate.slice(-4))));
  assert.equal(f.db.prepare("SELECT COUNT(*) n FROM parking_admin_sms WHERE mode='live' AND status='delivered'").get().n,4);
  const after=await f.api('batches/'+f.p.oid,'GET',undefined,f.p.key);assert.ok(after.items.every(p=>p.status==='applied'));assert.equal(after.payment.price,12000);assert.equal(f.db.prepare('SELECT COUNT(*) n FROM orders').get().n,1);

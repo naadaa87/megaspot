@@ -9,7 +9,10 @@ export async function onRequest({request,env,params}){
   const response=await depositNoticeCron(request,env,p==='status');
   // Reuse the existing authenticated schedule. A status probe remains strictly read-only.
   if(response.ok&&p==='tick')await Promise.allSettled([guideTick(env),transactionNoticeTick(env)]);
-  if(response.ok&&p==='status'&&new URL(request.url).searchParams.get('transactions')==='1')return await transactionNoticeStatus(env);
+  if(response.ok&&p==='status'){
+   const query=new URL(request.url).searchParams;
+   if(query.get('transactions')==='1')return await transactionNoticeStatus(env,{checkCustomerTemplates:query.get('customer_templates')==='1'});
+  }
   return response;
  }catch{return err('알림 처리 결과를 확인해 주세요.',500);}
 }

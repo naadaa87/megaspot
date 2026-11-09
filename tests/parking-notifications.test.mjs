@@ -1,30 +1,28 @@
 import {CUSTOMER_ALIMTALK} from '../functions/api/_customer_alimtalk_templates.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
 import {fixture as base} from './helpers/admin-fixture.mjs';
 import {onRequest} from '../functions/api/parking/[[path]].js';
 import {PARKING_TEMPLATES as T,PARKING_BUTTONS as B} from '../functions/api/_parking_templates.js';
-import {parkingSign,parkingNoticeAccess,parkingNoticeVariables,parkingNoticeRender,parkingNoticeObsolete,parkingNoticeTick,parkingArrivalSMS} from '../functions/api/_parking_notifications.js';
-import {now,kstToday} from '../functions/api/_lib.js';
+import {parkingSign,parkingNoticeAccess,parkingNoticeVariables,parkingNoticeRender,parkingNoticeObsolete,parkingNoticeTick} from '../functions/api/_parking_notifications.js';
+import {now,kstToday,sha256} from '../functions/api/_lib.js';
 const OID='MSPARKINGTEST001';
 function fixture(t){
  const f=base();t.after(()=>f.db.close());
- Object.assign(f.env,{PARKING_PAID_SMS:'false',ALIGO_LIVE_ENABLED:'true',ALIGO_RELAY_URL:'https://relay.naranhistory.com/megaspot/aligo',ALIGO_RELAY_SECRET:'test-parking-relay-secret-more-than-32',ALIGO_SENDER_KEY:'test-profile',ALIGO_SENDER:'01012345678'});
+ Object.assign(f.env,{ALIGO_LIVE_ENABLED:'true',ALIGO_RELAY_URL:'https://relay.naranhistory.com/megaspot/aligo',ALIGO_RELAY_SECRET:'test-parking-relay-secret-more-than-32',ALIGO_SENDER_KEY:'test-profile',ALIGO_SENDER:'01012345678'});
  f.db.prepare("INSERT INTO orders(oid,product_id,title,price,buyer_name,buyer_phone,data,status,created_at) VALUES(?,'parking-2h','주차 2시간',8000,'시험 고객','01012345678','{}','created',?)").run(OID,now());
  f.db.prepare("INSERT INTO parking_orders(oid,plate,visit_date,ticket,hours,token_hash,created_at,updated_at) VALUES(?,'123가4567',?,'2h',2,?,?,?)").run(OID,kstToday(),'b'.repeat(64),now(),now());
- let review='APR',upgradeReview='REQ',result='0',sms=false,broken=false,reportDate=null,smsState='발송완료',smsReceiver=null,smsResult={result_code:1,success_cnt:1,error_cnt:0};
+ let review='APR',upgradeReview='APR',result='0',sms=false,broken=false,reportDate=null,smsState='발송완료',smsReceiver=null,sendResult=null;
  const sent=[];
  t.mock.method(globalThis,'fetch',async(url,opts)=>{
   assert.equal(url,f.env.ALIGO_RELAY_URL);assert.equal(opts.redirect,'manual');const r=JSON.parse(opts.body);
   assert.equal(opts.headers['X-Megaspot-Signature'],await parkingSign(f.env.ALIGO_RELAY_SECRET,opts.body));
   if(r.path==='template/list'&&/^UN_476[78]$/.test(r.data.tpl_code)){
    const t=Object.values(CUSTOMER_ALIMTALK).find(v=>v.code===r.data.tpl_code);
-   return Response.json({code:0,list:[{templtCode:t.code,inspStatus:upgradeReview,status:'R',templtContent:t.content,buttons:t.buttons}]});
+   return Response.json({code:0,list:[{templtCode:t.code,inspStatus:upgradeReview,status:'R',senderKey:f.env.ALIGO_SENDER_KEY,templtContent:t.content,buttons:t.buttons}]});
   }
   if(r.path==='template/list'){const t=Object.values(T).find(t=>t.code===r.data.tpl_code);return Response.json({code:0,list:[{templtCode:t.code,inspStatus:review,status:'R',templtContent:t.content,buttons:B.map(b=>({name:b.name,linkType:b.linkType,linkMo:b.linkM,linkPc:b.linkP}))}]});}
-  if(['parking-paid/send','parking-arrival/send'].includes(r.path)){sent.push(r);if(broken)throw Error('unknown outcome');return Response.json({...smsResult,msg_id:String(sent.length)});}
-  if(r.path==='alimtalk/send'){sent.push(r);if(broken)throw Error('unknown outcome');return Response.json({code:0,info:{mid:String(sent.length),scnt:1}});}
+  if(r.path==='alimtalk/send'){sent.push(r);if(broken)throw Error('unknown outcome');return Response.json(sendResult||{code:0,info:{mid:String(sent.length),scnt:1}});}
   if(r.path==='history/detail'){
    const previous=sent[Number(r.data.mid)-1].data;
    return Response.json({code:0,list:[{type:'AT',phone:previous.receiver_1,tpl_code:previous.tpl_code,senderKey:f.env.ALIGO_SENDER_KEY,rsltdate:reportDate??now(),rslt:result,smid:sms?'999':'0'}]});
@@ -34,14 +32,14 @@ function fixture(t){
  });
  async function api(path,body,method=body?'POST':'GET',expected=200){const r=await onRequest({env:f.env,params:{path:('admin/notifications'+path).split('/')},request:new Request('https://megaspot.test/api/parking/admin/notifications'+path,{method,headers:{origin:'https://megaspot.test','Content-Type':'application/json','x-admin-key':f.env.ADMIN_KEY},...(body===undefined?{}:{body:JSON.stringify(body)})})});const j=await r.json();assert.equal(r.status,expected,JSON.stringify(j));return j;}
  async function enable(){await api('/test',{oid:OID,phone:'01011112222',kind:'paid',confirm_test:true});await api('/refresh',{});await api('/settings',{enabled:true},'PUT');}
- return {...f,api,enable,sent,setReview:v=>review=v,setUpgradeReview:v=>upgradeReview=v,setReportDate:v=>reportDate=v,setSmsState:v=>smsState=v,setSmsReceiver:v=>smsReceiver=v,setSmsResult:v=>smsResult=v,setSms:()=>{result='U';sms=true;},setBroken:()=>broken=true};
+ return {...f,api,enable,sent,setReview:v=>review=v,setUpgradeReview:v=>upgradeReview=v,setReportDate:v=>reportDate=v,setSmsState:v=>smsState=v,setSmsReceiver:v=>smsReceiver=v,setSendResult:v=>sendResult=v,setSms:()=>{result='U';sms=true;},setBroken:()=>broken=true};
 }
 test('기본은 고객 발송 중지이며 이전 주문은 소급 적재하지 않는다',async t=>{
  const f=fixture(t);assert.equal((await f.api('')).enabled,false);f.db.prepare("UPDATE orders SET status='paid' WHERE oid=?").run(OID);assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM parking_notifications').get().n,0);
  await f.enable();assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM parking_notifications WHERE mode='live'").get().n,0);
 });
 test('승인 전 시험 발송·시험 수신 전 고객 활성화를 차단',async t=>{
- const f=fixture(t);f.setReview('REQ');await f.api('/test',{oid:OID,phone:'01011112222',kind:'paid',confirm_test:true},'POST',409);await f.api('/settings',{enabled:true},'PUT',409);assert.equal(f.sent.length,0);
+ const f=fixture(t);f.setUpgradeReview('REQ');await f.api('/test',{oid:OID,phone:'01011112222',kind:'paid',confirm_test:true},'POST',409);await f.api('/settings',{enabled:true},'PUT',409);assert.equal(f.sent.length,0);
 });
 test('상태 변경과 같은 DB 트랜잭션으로 이벤트 기록·중복 결제와 입차 재요청은 한 번',async t=>{
  const f=fixture(t);await f.enable();
@@ -97,60 +95,77 @@ test('관리자 결과 새로고침은 대기 중인 새 고객 메시지를 발
  const f=fixture(t);await f.enable();f.db.prepare("UPDATE orders SET status='paid',paid_at=? WHERE oid=?").run(now(),OID);await f.api('/refresh',{});assert.equal(f.sent.length,1);assert.equal(f.db.prepare("SELECT status FROM parking_notifications WHERE mode='live'").get().status,'queued');
 });
 
-test('새 결제 문자는 야간 안내·차량별 금액·보안 링크를 보내며 실제 전달을 확인한다',async t=>{const f=fixture(t);await f.enable();delete f.env.PARKING_PAID_SMS;f.db.prepare("UPDATE orders SET status='paid',paid_at=? WHERE oid=?").run(now(),OID);await parkingNoticeTick(f.env);const sent=f.sent.at(-1);assert.equal(sent.path,'parking-paid/send');assert.equal(sent.data.receiver,'01012345678');assert.match(sent.data.msg,/주말에도 자동 등록/);assert.match(sent.data.msg,/23:50/);assert.ok(!sent.data.msg.includes('18:00'));assert.match(sent.data.msg,/이 차량 결제금액: 8,000원/);const e=f.db.prepare("SELECT * FROM parking_notifications WHERE mode='live'").get();assert.equal(e.status,'accepted');assert.match(e.provider_mid,/^sms:/);await parkingNoticeTick(f.env);assert.equal(f.db.prepare('SELECT status FROM parking_notifications WHERE id=?').get(e.id).status,'sms_delivered');});
+test('전환 전에 접수된 결제 문자의 기존 전달 결과도 확인한다',async t=>{
+ const f=fixture(t);await f.enable();
+ f.db.prepare("UPDATE orders SET status='paid',paid_at=? WHERE oid=?").run(now(),OID);
+ const hash=f.db.prepare("SELECT config_hash FROM parking_notifications WHERE mode='test'").get().config_hash;
+ f.db.prepare("UPDATE parking_notifications SET status='accepted',provider_mid='sms:777',sms_mid='777',config_hash=?,phone_hash=? WHERE mode='live'")
+  .run(hash,await sha256('01012345678'));
+ f.setSmsReceiver('01012345678');await parkingNoticeTick(f.env);
+ assert.equal(f.db.prepare("SELECT status FROM parking_notifications WHERE mode='live'").get().status,'sms_delivered');
+ assert.equal(f.sent.length,1);
+});
 
 function arrival(f){
  f.db.prepare("UPDATE orders SET status='paid',paid_at=? WHERE oid=?").run(now(),OID);
  f.db.prepare("UPDATE parking_orders SET arrival_at=?,status='requested' WHERE oid=?").run(now(),OID);
 }
-test('새 입차 접수 문자는 자동 입차 확인·5분·완료 확인 후 출차와 보안 링크를 안내한다',async t=>{
+const arrivalMessages=f=>f.sent.filter(x=>x.path==='alimtalk/send'&&x.data.tpl_code===CUSTOMER_ALIMTALK.parking_arrival.code);
+
+test('입차 알림톡과 대체 문자가 차량별 링크를 안내하며 대체 문자 수신을 대조한다',async t=>{
  const f=fixture(t);await f.enable();arrival(f);
  await Promise.all([parkingNoticeTick(f.env),parkingNoticeTick(f.env)]);
- const notices=f.sent.filter(x=>x.path==='parking-arrival/send');assert.equal(notices.length,1);
- const sent=notices[0],text=sent.data.msg;assert.equal(sent.data.receiver,'01012345678');
- assert.match(text,/^\[메가스팟 주차 등록 요청 접수\]\n/);assert.match(text,/실제 입차 기록을 자동 확인/);assert.match(text,/최대 약 5분/);assert.match(text,/‘등록 완료’를 확인한 뒤 출차/);assert.match(text,/5분이 지나도 완료되지 않으면/);
- assert(!/운영자가|10분|18:00|#\{|123가/.test(text));
- const key=text.match(/&key=([a-f0-9]{64})/)[1];assert.equal(await parkingNoticeAccess(f.env,OID,key),true);
+ const notices=arrivalMessages(f);assert.equal(notices.length,1);
+ const sent=notices[0].data;assert.equal(sent.receiver_1,'01012345678');
+ assert.match(sent.message_1,/실제 입차 기록을 확인/);assert.match(sent.message_1,/등록 완료를 확인한 뒤 출차/);
+ assert(!/운영자가|10분|18:00|#\{|123가/.test(sent.message_1));
+ const link=JSON.parse(sent.button_1).button[0].linkMo,key=link.split('&key=')[1];
+ assert.ok(sent.fmessage_1.includes(link));assert.equal(await parkingNoticeAccess(f.env,OID,key),true);
  const item=()=>f.db.prepare("SELECT * FROM parking_notifications WHERE kind='arrival_received' AND mode='live'").get();
- assert.equal(item().status,'accepted');assert.match(item().provider_mid,/^sms:/);
- f.setSmsState('전송 대기');await parkingNoticeTick(f.env);assert.equal(item().status,'accepted');
+ assert.equal(item().status,'accepted');
+ f.setSms();f.setSmsState('전송 대기');await parkingNoticeTick(f.env);assert.equal(item().status,'accepted');
  f.setSmsState('발송완료');f.setSmsReceiver('01099998888');await parkingNoticeTick(f.env);assert.equal(item().status,'accepted');
  f.setSmsReceiver('01012345678');f.setReportDate('0000-00-00 00:00:00');await parkingNoticeTick(f.env);assert.equal(item().status,'accepted');
- f.setReportDate(null);await parkingNoticeTick(f.env);assert.equal(item().status,'sms_delivered');assert.equal(item().error,'입차 접수 문자 도착');
- assert.equal((await f.api('')).arrival_notice_channel,'sms');
+ f.setReportDate(null);await parkingNoticeTick(f.env);assert.equal(item().status,'sms_delivered');
+ assert.equal((await f.api('')).arrival_notice_channel,'alimtalk');
 });
-test('입차 문자도 승인·현재 설정·시험 수신 잠금을 통과해야 한다',async t=>{
- const f=fixture(t);await f.enable();arrival(f);f.setReview('REQ');await parkingNoticeTick(f.env);
- assert.equal(f.sent.filter(x=>x.path==='parking-arrival/send').length,0);assert.equal(f.db.prepare("SELECT status FROM parking_notifications WHERE kind='arrival_received'").get().status,'queued');
- f.setReview('APR');f.env.ALIGO_SENDER='01099998888';await parkingNoticeTick(f.env);assert.equal(f.sent.filter(x=>x.path==='parking-arrival/send').length,0);
+
+test('입차 알림톡 승인 또는 설정 확인이 필요하면 대기하고 직접 문자를 발송하지 않는다',async t=>{
+ const f=fixture(t);await f.enable();arrival(f);f.setUpgradeReview('REQ');await parkingNoticeTick(f.env);
+ assert.equal(f.sent.length,1);
+ assert.equal(f.db.prepare("SELECT status FROM parking_notifications WHERE kind='arrival_received'").get().status,'queued');
+ f.setUpgradeReview('APR');f.env.ALIGO_SENDER='01099998888';await parkingNoticeTick(f.env);assert.equal(f.sent.length,1);
 });
-test('실제 등록 완료가 먼저 확인되면 대기 중인 입차 접수 문자는 취소한다',async t=>{
+test('실제 등록 완료가 먼저 확인되면 대기 중인 입차 접수 알림은 취소한다',async t=>{
  const f=fixture(t);await f.enable();arrival(f);f.db.prepare("UPDATE parking_orders SET status='applied',updated_at=? WHERE oid=?").run(now(),OID);
- await parkingNoticeTick(f.env);assert.equal(f.sent.filter(x=>x.path==='parking-arrival/send').length,0);assert.equal(f.db.prepare("SELECT status FROM parking_notifications WHERE kind='arrival_received'").get().status,'cancelled');
+ await parkingNoticeTick(f.env);assert.equal(arrivalMessages(f).length,0);assert.equal(f.db.prepare("SELECT status FROM parking_notifications WHERE kind='arrival_received'").get().status,'cancelled');
 });
-test('입차 문자 통신 결과 불명은 재시도하지 않고 주문·실제 등록 상태를 보존한다',async t=>{
+test('입차 알림톡 응답 불명은 재시도하지 않고 주문·실제 등록 상태를 보존한다',async t=>{
  const f=fixture(t);await f.enable();arrival(f);f.setBroken();await parkingNoticeTick(f.env);await parkingNoticeTick(f.env);
- assert.equal(f.sent.filter(x=>x.path==='parking-arrival/send').length,1);assert.equal(f.db.prepare("SELECT status FROM parking_notifications WHERE kind='arrival_received'").get().status,'unknown');
+ assert.equal(arrivalMessages(f).length,1);assert.equal(f.db.prepare("SELECT status FROM parking_notifications WHERE kind='arrival_received'").get().status,'unknown');
  assert.equal(f.db.prepare('SELECT status FROM orders WHERE oid=?').get(OID).status,'paid');assert.equal(f.db.prepare('SELECT status FROM parking_orders WHERE oid=?').get(OID).status,'requested');
 });
-test('입차 LMS 접수 일부 성공·거절도 재발송하지 않고 실제 도착과 구분한다',async t=>{
- for(const result of [{result_code:1,success_cnt:0,error_cnt:1},{result_code:-1,success_cnt:0,error_cnt:1}]){
-  await t.test('접수 결과 '+result.result_code,async sub=>{
-   const f=fixture(sub);await f.enable();arrival(f);f.setSmsResult(result);await parkingNoticeTick(f.env);await parkingNoticeTick(f.env);
-   assert.equal(f.sent.filter(x=>x.path==='parking-arrival/send').length,1);assert.equal(f.db.prepare("SELECT status FROM parking_notifications WHERE kind='arrival_received'").get().status,result.result_code===1?'unknown':'failed');
+test('입차 알림톡 접수 일부 성공·거절도 재발송하지 않고 실제 도착과 구분한다',async t=>{
+ for(const result of [{code:0,info:{mid:'2',scnt:0,fcnt:1}},{code:-1}]){
+  await t.test('접수 결과 '+result.code,async sub=>{
+   const f=fixture(sub);await f.enable();arrival(f);f.setSendResult(result);await parkingNoticeTick(f.env);await parkingNoticeTick(f.env);
+   assert.equal(arrivalMessages(f).length,1);assert.equal(f.db.prepare("SELECT status FROM parking_notifications WHERE kind='arrival_received'").get().status,result.code===0?'unknown':'failed');
   });
  }
 });
-test('v2 입차 알림톡은 제출 전 초안이며 기존 승인 템플릿과 시험 발송은 유지한다',async t=>{
- const draft=JSON.parse(readFileSync(new URL('../config/parking-arrival-alimtalk.v2.json',import.meta.url),'utf8'));
- assert.equal(draft.code,null);assert.equal(draft.status,'draft_not_submitted');assert.match(draft.content,/실제 입차 기록을 자동 확인/);assert.match(draft.content,/최대 약 5분/);assert(!draft.content.includes('10분'));
- assert.equal(T.arrival_received.code,'UN_2586');assert.match(T.arrival_received.content,/10분/);
- const p={oid:OID,plate:'123가4567',visit_date:'2026-11-07',ticket:'2h',price:8000},text=parkingArrivalSMS(p,{occurred_at:now(),payload:'{}'},'a'.repeat(64));assert(text.length<=900);assert(text.endsWith('\n문의: https://pf.kakao.com/_LnxbmX/chat'));
- const f=fixture(t);await f.api('/test',{oid:OID,phone:'01011112222',kind:'arrival_received',confirm_test:true});assert.equal(f.sent.at(-1).path,'alimtalk/send');assert.equal(f.sent.at(-1).data.tpl_code,T.arrival_received.code);
+test('관리자 미리보기·승인 확인·운영자 시험 모두 현재 입차 템플릿을 사용한다',async t=>{
+ const f=fixture(t),expected=CUSTOMER_ALIMTALK.parking_arrival;
+ const info=await f.api('');
+ const displayed=info.templates.find(row=>row.kind==='arrival_received');
+ assert.equal(displayed.code,expected.code);assert.equal(displayed.content,expected.content);
+ const approval=await f.api('/check',{});
+ assert.equal(approval.items.find(row=>row.kind==='arrival_received').code,expected.code);
+ await f.api('/test',{oid:OID,phone:'01011112222',kind:'arrival_received',confirm_test:true});
+ assert.equal(arrivalMessages(f).length,1);
 });
 
 test('승인된 신규 주차 결제 템플릿으로 전환하면 알림톡과 대체 문자에 차량별 링크를 넣고 발송 결과를 조회한다',async t=>{
- const f=fixture(t);await f.enable();delete f.env.PARKING_PAID_SMS;f.setUpgradeReview('APR');
+ const f=fixture(t);await f.enable();
  f.db.prepare("UPDATE orders SET status='paid',paid_at=? WHERE oid=?").run(now(),OID);
  await parkingNoticeTick(f.env);
  const sent=f.sent.at(-1);

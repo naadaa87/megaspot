@@ -102,14 +102,14 @@ test('서명된 릴레이 전송, 관리자 수신자 제한, 중복 잠금과 �
  f.db.exec("INSERT INTO inquiries(ref,space_id,status,name,phone,data,created_at) VALUES('MS-VALID','megaspot-gundae','문의 접수','테스트','01022223333','{}',datetime('now'))");
  f.db.exec("UPDATE transaction_notifications SET status='cancelled' WHERE ref<>'MS-VALID'");
  await Promise.all([transactionNoticeTick(f.env),transactionNoticeTick(f.env)]);
- assert.deepEqual([...recipients.values()].sort(),[numbers[0],'01022223333'].sort());
+ assert.deepEqual([...recipients.values()],[numbers[0]]);
  f.db.exec("UPDATE transaction_notifications SET updated_at=datetime('now','-1 minute') WHERE status='accepted'");
  await transactionNoticeTick(f.env);
  const url='https://local.test/api/admin/transaction-notifications';
  assert.equal((await f.handle(new Request(url))).status,401);
  const list=await (await f.handle(new Request(url,{headers:{'x-admin-key':f.env.ADMIN_KEY}}))).json();
  const current=list.items.filter(x=>x.ref==='MS-VALID');
- assert.deepEqual(current.map(x=>x.status).sort(),['delivered','delivered','failed']);
+ assert.deepEqual(current.map(x=>x.status).sort(),['delivered','failed','queued']);
  assert.ok(current.every(x=>!('receiver' in x)&&!('provider_mid' in x)&&x.receiver_last4.length===4));
 });
 
@@ -128,7 +128,7 @@ test('승인된 고객 거래는 알림톡을 먼저 보내고 실패 시 확인
    const fields=new URLSearchParams(options.body);
    if(providerUrl.endsWith('/template/list/')){
     lookups++;
-    return Response.json({code:0,list:[{templtCode:template.code,inspStatus:'APR',status:'R',templtContent:template.content,buttons:[]}]});
+    return Response.json({code:0,list:[{templtCode:template.code,inspStatus:'APR',status:'R',senderKey:f.env.ALIGO_SENDER_KEY,templtContent:template.content,buttons:[]}]});
    }
    if(providerUrl.endsWith('/alimtalk/send/')){
     sends++;

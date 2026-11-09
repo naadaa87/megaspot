@@ -20,18 +20,40 @@ export async function approvedCustomerTemplate(env,provider,kind){
  if(saved?.value===signature)return expected;
  if(saved?.value===signature+':crlf')return {...expected,content:content.replace(/\n/g,'\r\n')};
  if(!provider)return null;
- const response=await provider('template/list',{tpl_code:code});
- if(Number(response.code)!==0)throw Error('알림톡 승인 조회 실패');
- const actual=(response.list||[]).find(item=>item.templtCode===code);
- if(actual?.inspStatus!=='APR'||!['A','R'].includes(actual.status))return null;
- const actualButtons=actual.buttons||[];
- if(normalized(actual.templtContent)!==content||actualButtons.length!==buttons.length||
-  !buttons.every((button,i)=>button.name===actualButtons[i].name&&button.linkType===actualButtons[i].linkType&&
-   button.linkMo===(actualButtons[i].linkMo||actualButtons[i].linkM)&&button.linkPc===(actualButtons[i].linkPc||actualButtons[i].linkP)))
-  throw Error('승인된 알림톡 본문이나 버튼을 확인해 주세요.');
+ const review=await reviewCustomerTemplate(env,provider,kind);
+ if(!review.ready)return null;
+ const actual=review.template;
  await env.DB.prepare(`INSERT INTO settings(key,value,updated_at) VALUES(?,?,?) ON CONFLICT(key)
   DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at`).bind(key,signature+(actual.templtContent.includes('\r\n')?':crlf':''),now()).run();
  return {...expected,content:actual.templtContent};
+}
+
+export async function reviewCustomerTemplate(env,provider,kind){
+ const expected=T[kind];
+ const response=await provider('template/list',{tpl_code:expected.code});
+ if(Number(response.code)!==0)throw Error('알림톡 승인 조회 실패');
+ const template=(response.list||[]).find(item=>item.templtCode===expected.code);
+ const buttons=template?.buttons||[];
+ const matches=!!template&&template.senderKey===env.ALIGO_SENDER_KEY&&normalized(template.templtContent)===expected.content&&
+  buttons.length===expected.buttons.length&&expected.buttons.every((button,i)=>
+   button.name===buttons[i].name&&button.linkType===buttons[i].linkType&&
+   button.linkMo===(buttons[i].linkMo||buttons[i].linkM)&&button.linkPc===(buttons[i].linkPc||buttons[i].linkP));
+ return {code:expected.code,name:expected.name,review:template?.inspStatus||'missing',matches,
+  ready:matches&&template.inspStatus==='APR'&&['A','R'].includes(template.status),template};
+}
+
+export async function customerTemplateStatus(env,provider){
+ const entries=Object.keys(T),items=[];
+ for(let index=0;index<entries.length;index+=4){
+  const chunk=entries.slice(index,index+4);
+  const results=await Promise.allSettled(chunk.map(kind=>reviewCustomerTemplate(env,provider,kind)));
+  for(const [offset,entry] of results.entries()){
+   const kind=chunk[offset];
+   const item=entry.status==='fulfilled'?entry.value:{code:T[kind].code,review:'unavailable',matches:false,ready:false};
+   items.push({kind,code:item.code,review:item.review,matches:item.matches,ready:item.ready});
+  }
+ }
+ return items;
 }
 
 export async function customerFallbackResult(provider,detail,matchPhone,occurredAt){

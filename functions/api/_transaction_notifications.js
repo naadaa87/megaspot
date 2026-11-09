@@ -1,4 +1,4 @@
-import {approvedCustomerTemplate,customerFallback,customerFallbackResult} from './_customer_alimtalk.js';
+import {approvedCustomerTemplate,customerFallback,customerFallbackResult,customerTemplateStatus} from './_customer_alimtalk.js';
 import {err,json,now} from './_lib.js';
 import {aligoProvider,guidePhone,guideDelivery} from './_guide_messages.js';
 
@@ -72,6 +72,11 @@ async function dispatch(env,row){
  }
  const provider=(path,data,id)=>aligoProvider(env,path,data,id);
  const template=row.audience==='customer'?await approvedCustomerTemplate(env,provider,row.kind):null;
+ if(row.audience==='customer'&&!template){
+  await env.DB.prepare("UPDATE transaction_notifications SET error=? WHERE id=? AND status='queued'")
+   .bind('승인된 알림톡 본문·버튼 확인 대기',row.id).run();
+  return;
+ }
  const msg=transactionMessage(row),requestId=crypto.randomUUID();
  const claim=await env.DB.prepare(`UPDATE transaction_notifications SET status='sending',request_id=?,amount=?,updated_at=?
   WHERE id=? AND status='queued'`).bind(requestId,row.amount,now(),row.id).run();
@@ -88,7 +93,7 @@ async function dispatch(env,row){
     return state(env,row.id,'unknown','알림톡 접수 결과 확인 필요');
    return state(env,row.id,'accepted','','at:'+template.code+':'+r.info.mid);
   }
-  const r=await provider('transaction/'+row.audience+'/send',{receiver,msg},requestId);
+  const r=await provider('transaction/admin/send',{receiver,msg},requestId);
   if(r?.result_code==null||!/^[-]?\d+$/.test(String(r.result_code)))return state(env,row.id,'unknown','문자 접수 결과 확인 필요');
   if(Number(r.result_code)!==1)return state(env,row.id,'failed','알리고 접수 거절 ('+Number(r.result_code)+')');
   if(!/^\d{1,30}$/.test(String(r.msg_id||''))||Number(r.success_cnt)!==1||Number(r.error_cnt)!==0)return state(env,row.id,'unknown','문자 접수 결과 확인 필요');
@@ -144,7 +149,7 @@ export async function transactionNoticeTick(env){
  await Promise.allSettled(queued.map(row=>dispatch(env,row)));
 }
 
-export async function transactionNoticeStatus(env){
+export async function transactionNoticeStatus(env,{checkCustomerTemplates=false}={}){
  const schema=await env.DB.prepare(`SELECT COUNT(*) AS n FROM sqlite_master
   WHERE name='transaction_notifications' OR (type='trigger' AND name GLOB 'transaction_notify_*')`).first();
  const staff=await env.DB.prepare(`SELECT COUNT(DISTINCT j.value) AS n FROM settings s,json_each(s.value,'$.phones') j
@@ -153,8 +158,10 @@ export async function transactionNoticeStatus(env){
  if(configured(env)){
   try{relayReady=(await aligoProvider(env,'transaction/status')).ready===true;}catch{}
  }
+ const customer=checkCustomerTemplates?{customer_channel:'alimtalk',sms_fallback:true,
+  templates:await customerTemplateStatus(env,(path,data)=>aligoProvider(env,path,data))}:{};
  return json({ok:true,schema_ready:schema?.n===7,enabled:env.ALIGO_LIVE_ENABLED==='true'&&configured(env),
-  relay_ready:relayReady,admin_recipients:staff?.n||0});
+  relay_ready:relayReady,admin_recipients:staff?.n||0,...customer});
 }
 
 export async function transactionNoticeAdmin(env,request){

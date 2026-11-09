@@ -1,9 +1,12 @@
-import {approvedCustomerTemplate} from './_customer_alimtalk.js';
+import {approvedCustomerTemplate,customerFallback,reviewCustomerTemplate} from './_customer_alimtalk.js';
+import {CUSTOMER_ALIMTALK} from './_customer_alimtalk_templates.js';
 import {JOIN} from './_parking.js';
 import {json,err,now,sha256,readJson,str} from './_lib.js';
 import {equalSecret} from './_payapp.js';
 import {PARKING_TEMPLATES as T,PARKING_BUTTONS as B} from './_parking_templates.js';
 
+const CUSTOMER_KIND={paid:'parking_paid',arrival_received:'parking_arrival'};
+const SUBJECT='메가스팟 주차권 안내';
 const RELAY='https://relay.naranhistory.com/megaspot/aligo',KEY='parking_alimtalk';
 const parse=s=>{try{return JSON.parse(s||'{}');}catch{return {};}};
 const changes=r=>Number(r?.meta?.changes??r?.changes??0);
@@ -39,7 +42,15 @@ async function template(env,kind){
 function usable(kind,t){return t?.inspStatus==='APR' && ['A','R'].includes(t.status) && parkingTemplateMatches(kind,t);}
 async function approvals(env){
  const items=[];
- for(const [kind,t] of Object.entries(T)){const actual=await template(env,kind);items.push({kind,name:t.name,code:t.code,review:actual?.inspStatus||'missing',matches:parkingTemplateMatches(kind,actual),ready:usable(kind,actual)});}
+ for(const [kind,t] of Object.entries(T)){
+  if(CUSTOMER_KIND[kind]){
+   const {code,name,review,matches,ready}=await reviewCustomerTemplate(env,(path,data)=>provider(env,path,data),CUSTOMER_KIND[kind]);
+   items.push({kind,code,name,review,matches,ready});
+   continue;
+  }
+  const actual=await template(env,kind);
+  items.push({kind,name:t.name,code:t.code,review:actual?.inspStatus||'missing',matches:parkingTemplateMatches(kind,actual),ready:usable(kind,actual)});
+ }
  return items;
 }
 async function tested(env,hash){return !!await env.DB.prepare("SELECT id FROM parking_notifications WHERE mode='test' AND kind='paid' AND config_hash=? AND status IN ('delivered','sms_delivered') LIMIT 1").bind(hash).first();}
@@ -67,23 +78,29 @@ async function order(env,oid){return env.DB.prepare(JOIN+' WHERE p.oid=?').bind(
 async function state(env,id,status,error='',extra={}){
  await env.DB.prepare('UPDATE parking_notifications SET status=?,error=?,provider_mid=COALESCE(?,provider_mid),sms_mid=COALESCE(?,sms_mid),updated_at=? WHERE id=?').bind(status,error,extra.mid||null,extra.sms||null,now(),id).run();
 }
-export function parkingPaidSMS(p,key){
- return '[메가스팟 주차권 결제 완료]\n차량 끝번호: '+p.plate.slice(-4)+'\n이용일: '+p.visit_date+'\n주차권: '+({'1h':'1시간권','2h':'2시간권','3h':'3시간권',daily:'일일권'})[p.ticket]+'\n이 차량 결제금액: '+format(p.price)+'원\n주문번호: '+p.oid+'\n\n주말에도 자동 등록하며, 결제·입차 확인 후 등록까지 최대 약 5분이 소요됩니다. 당일 구매·입차 요청은 23:50까지입니다. 공휴일과 전날 입차·익일 연속 주차는 별도 문의해 주세요. 등록 완료를 확인한 뒤 출차해 주세요.\n\n차량 구매 내역: https://megaspot.kr/parking/purchase/#oid='+p.oid+'&key='+key+'\n문의: https://pf.kakao.com/_LnxbmX/chat';
-}
-export function parkingArrivalSMS(p,e,key){
- const vars=parkingNoticeVariables(p,e,key);
- return '[메가스팟 주차 등록 요청 접수]\n\n입차 알림이 접수되었습니다.\n\n주문번호: '+p.oid+'\n차량 끝번호: '+vars.차량끝번호+'\n이용일: '+p.visit_date+'\n주차권: '+vars.주차권+'\n접수일시: '+vars.접수일시+'\n\n매일 10:00~24:00(공휴일 제외)에 실제 입차 기록을 자동 확인해 차량별로 주차권을 등록합니다. 입차 확인 후 등록까지 최대 약 5분이 소요됩니다.\n현재는 등록 완료 전입니다. 구매 내역에서 ‘등록 완료’를 확인한 뒤 출차해 주세요.\n5분이 지나도 완료되지 않으면 카카오톡으로 문의해 주세요.\n\n차량 구매 내역: https://megaspot.kr/parking/purchase/#oid='+p.oid+'&key='+key+'\n문의: https://pf.kakao.com/_LnxbmX/chat';
+async function sendingTemplate(env,kind){
+ const upgraded=CUSTOMER_KIND[kind];
+ if(upgraded){
+  const approved=await approvedCustomerTemplate(env,(path,data)=>provider(env,path,data),upgraded);
+  if(!approved)return null;
+  return {...approved,sms:customerFallback(SUBJECT,approved.content,approved.buttons).fmessage_1};
+ }
+ const actual=await template(env,kind);
+ return usable(kind,actual)?{...T[kind],content:actual.templtContent,buttons:B.map(b=>({
+  name:b.name,linkType:b.linkType,linkMo:b.linkM,linkPc:b.linkP
+ }))}:null;
 }
 async function dispatch(env,e){
  const p=await order(env,e.oid);
  if(e.mode!=='test' && parkingNoticeObsolete(p,e)){await state(env,e.id,'cancelled','현재 상태 또는 안내 유효시간 변경');return;}
  if(!p){await state(env,e.id,'failed','주문 없음');return;}
  // Approval is checked before taking a sending lock. Rejected/pending templates never send.
- const upgradeKind={paid:'parking_paid',arrival_received:'parking_arrival'}[e.kind];
- const upgrade=e.mode!=='test'&&upgradeKind
-  ?await approvedCustomerTemplate(env,(path,data)=>provider(env,path,data),upgradeKind):null;
- const actual=upgrade?null:await template(env,e.kind);
- if(!upgrade&&!usable(e.kind,actual))return;
+ const notice=await sendingTemplate(env,e.kind);
+ if(!notice){
+  await env.DB.prepare("UPDATE parking_notifications SET error=? WHERE id=? AND status='queued'")
+   .bind('승인된 알림톡 본문·버튼 확인 대기',e.id).run();
+  return;
+ }
  const hash=await fingerprint(env),settings=await config(env);
  if(e.mode!=='test' && (env.ALIGO_LIVE_ENABLED!=='true' || !settings.enabled || settings.hash!==hash || !await tested(env,hash)))return;
  const receiver=phone(e.mode==='test'?parse(e.payload).test_phone:p.buyer_phone);
@@ -95,20 +112,14 @@ async function dispatch(env,e){
   const key=await parkingSign(env.ALIGO_RELAY_SECRET,'parking-link-v1:'+id);
   const expires=Math.max(Date.now(),Date.parse(p.visit_date+'T23:59:59+09:00'))+7*86400000;
   await env.DB.prepare('INSERT INTO parking_notification_links(notification_id,oid,token_hash,expires_at) VALUES(?,?,?,?)').bind(e.id,p.oid,await sha256(key),expires).run();
-  const directSMS=!upgrade&&e.mode!=='test'&&(e.kind==='paid'&&env.PARKING_PAID_SMS!=='false'||e.kind==='arrival_received'&&env.PARKING_ARRIVAL_SMS!=='false');
-  if(directSMS){
-   const arrival=e.kind==='arrival_received',label=arrival?'입차 접수':'결제 안내';
-   const r=await provider(env,arrival?'parking-arrival/send':'parking-paid/send',{receiver,msg:arrival?parkingArrivalSMS(p,e,key):parkingPaidSMS(p,key)},id);
-   if(Number(r.result_code)!==1){await state(env,e.id,'failed',label+' 문자 접수 거절');return;}
-   if(!r.msg_id||Number(r.success_cnt)!==1||Number(r.error_cnt)!==0){await state(env,e.id,'unknown',label+' 문자 접수 결과 확인 필요');return;}
-   await state(env,e.id,'accepted',label+' 새 알림톡 승인·전환 전 · 문자 발송',{mid:'sms:'+r.msg_id,sms:String(r.msg_id)});return;
-  }
-  const vars=parkingNoticeVariables(p,e,key),message=parkingNoticeRender(upgrade?.content||actual.templtContent,vars),buttons=B.map(b=>({...b,linkMo:parkingNoticeRender(b.linkM,vars),linkPc:parkingNoticeRender(b.linkP,vars)})).map(({name,linkType,linkMo,linkPc})=>({name,linkType,linkMo,linkPc}));
-  const sms=upgrade?(e.kind==='paid'?parkingPaidSMS(p,key):parkingArrivalSMS(p,e,key)):parkingNoticeRender(T[e.kind].sms,vars);
-  const r=await provider(env,'alimtalk/send',{tpl_code:upgrade?.code||T[e.kind].code,receiver_1:receiver,subject_1:'메가스팟 주차권 안내',message_1:message,button_1:JSON.stringify({button:buttons}),failover:'Y',fsubject_1:'메가스팟 주차권 안내',fmessage_1:sms},id);
+  const vars=parkingNoticeVariables(p,e,key),message=parkingNoticeRender(notice.content,vars);
+  const buttons=notice.buttons.map(b=>({...b,linkMo:parkingNoticeRender(b.linkMo,vars),linkPc:parkingNoticeRender(b.linkPc,vars)}));
+  const sms=parkingNoticeRender(notice.sms,vars);
+  const r=await provider(env,'alimtalk/send',{tpl_code:notice.code,receiver_1:receiver,subject_1:SUBJECT,message_1:message,
+   button_1:JSON.stringify({button:buttons}),failover:'Y',fsubject_1:SUBJECT,fmessage_1:sms},id);
   if(Number(r.code)!==0){await state(env,e.id,'failed','알리고 접수 거절 '+String(r.code).slice(0,20));return;}
   if(!r.info?.mid || Number(r.info.scnt)!==1){await state(env,e.id,'unknown','전송 접수 결과 확인 필요');return;}
-  await state(env,e.id,'accepted','',{mid:upgrade?'at:'+upgrade.code+':'+r.info.mid:String(r.info.mid)});
+  await state(env,e.id,'accepted','',{mid:CUSTOMER_KIND[e.kind]?'at:'+notice.code+':'+r.info.mid:String(r.info.mid)});
  }catch{await state(env,e.id,'unknown','응답 확인 필요 · 자동 재발송 중지');}
 }
 async function refresh(env,e){
@@ -164,8 +175,14 @@ export async function parkingNoticeAdmin(request,env,path){
  const method=request.method,hash=await fingerprint(env),s=await config(env);
  if(path==='admin/notifications' && method==='GET'){
   const {results}=await env.DB.prepare('SELECT id,oid,kind,mode,status,provider_mid,sms_mid,error,occurred_at,updated_at FROM parking_notifications ORDER BY id DESC LIMIT 100').all();
-  const [paid,arrival]=await Promise.all(['parking_paid','parking_arrival'].map(kind=>approvedCustomerTemplate(env,null,kind)));
-  return json({ok:true,enabled:s.enabled,live_allowed:env.ALIGO_LIVE_ENABLED==='true',configured:configured(env),test_delivered:await tested(env,hash),items:results||[],sms_fallback:true,paid_notice_channel:paid||env.PARKING_PAID_SMS==='false'?'alimtalk':'sms',arrival_notice_channel:arrival||env.PARKING_ARRIVAL_SMS==='false'?'alimtalk':'sms',templates:Object.entries(T).map(([kind,t])=>({kind,name:t.name,code:t.code,content:t.content,sms:t.sms}))});
+  const templates=Object.entries(T).map(([kind,previous])=>{
+   const current=CUSTOMER_ALIMTALK[CUSTOMER_KIND[kind]];
+   const {name,code,content}=current||previous;
+   return {kind,name,code,content,sms:current?customerFallback(SUBJECT,content,current.buttons).fmessage_1:previous.sms};
+  });
+  return json({ok:true,enabled:s.enabled,live_allowed:env.ALIGO_LIVE_ENABLED==='true',configured:configured(env),
+   test_delivered:await tested(env,hash),items:results||[],sms_fallback:true,paid_notice_channel:'alimtalk',
+   arrival_notice_channel:'alimtalk',templates});
  }
  if(path==='admin/notifications/check' && method==='POST')return json({ok:true,items:await approvals(env)});
  if(path==='admin/notifications/settings' && method==='PUT'){
@@ -182,7 +199,7 @@ export async function parkingNoticeAdmin(request,env,path){
   const d=await readJson(request),receiver=phone(d.phone),kind=d.kind;
   if(d.confirm_test!==true||!/^01[016789]\d{7,8}$/.test(receiver)||!Object.hasOwn(T,kind))return err('운영자 시험 번호·안내 종류·유료 시험 발송 확인이 필요합니다.');
   const p=await order(env,str(d.oid,40));if(!p)return err('시험에 사용할 본인 주차 주문을 확인해 주세요.');
-  if(!usable(kind,await template(env,kind)))return err('승인된 본문·버튼이 확인된 뒤 시험 발송할 수 있습니다.',409);
+  if(!await sendingTemplate(env,kind))return err('승인된 본문·버튼이 확인된 뒤 시험 발송할 수 있습니다.',409);
   const recent=await env.DB.prepare("SELECT id FROM parking_notifications WHERE mode='test' AND occurred_at>=datetime('now','-1 minute') LIMIT 1").first();if(recent)return err('시험 발송은 1분 간격으로 가능합니다.',429);
   const key='test:'+crypto.randomUUID();
   await env.DB.prepare("INSERT INTO parking_notifications(oid,kind,event_key,occurred_at,payload,mode) VALUES(?,?,?,?,?,'test')").bind(p.oid,kind,key,now(),JSON.stringify({test_phone:receiver})).run();
