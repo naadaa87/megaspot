@@ -110,3 +110,38 @@ test('catering targets identify an admin quote with a small package before an or
     assert.equal(item.data.catering.total, total);
   }
 });
+
+test('changing a saved standalone buffet quote replaces only its buffet charge in both directions', () => {
+  const source = file => readFileSync(new URL('../' + file, import.meta.url), 'utf8');
+  const ctx = vm.createContext({ window: {}, E: {}, D: {}, spaceOk: id => id,
+    fillForm() {}, go() {}, setQuoteHistorical() {}, M: { toast() {} } });
+  for (const file of ['food-services', 'data/catering', 'catering-calc']) {
+    vm.runInContext(source('assets/js/' + file + '.js'), ctx);
+  }
+  ctx.CC = ctx.window.MEGASPOT_CATERING_CALC;
+  ctx.won = ctx.CC.won;
+  vm.runInContext('function invalidateQuote(reprice){ Q.quoteNo=""; if(reprice!==false) savedQuoteSnapshot=null; }', ctx);
+  const admin = source('assets/js/pages/admin.js');
+  vm.runInContext(admin.slice(admin.indexOf('  function ctToQuote(){'), admin.indexOf('  /* ---- 예약·문의 불러오기', admin.indexOf('  function ctToQuote(){'))), ctx);
+
+  for (const [before, after, oldTotal, newTotal] of [[20, 30, 1924500, 2254500], [30, 20, 2254500, 1924500]]) {
+    const oldBuffet = ctx.CC.quote({ course: 'small', people: before, fee: 75000 });
+    const equipment = { label: '추가 장비', amount: 22000 };
+    const extras = [{ kind: 'catering', label: '사용자가 이름을 바꾼 식사 항목', amount: oldBuffet.total }, equipment];
+    const lines = [{ label: '공간료', amount: 550000 }];
+    ctx.Q = { ref: '', quoteNo: 'Q-SAVED', space: 'megaspot-gundae', date: '2026-11-29', customer: '테스트', people: 35, extras };
+    ctx.CT = { ref: '', space: ctx.Q.space, date: ctx.Q.date, customer: ctx.Q.customer, course: 'small', people: after, fee: 75000, standaloneQuote: ctx.Q };
+    ctx.savedQuoteSnapshot = { lines, subtotal: 550000, discount: 50000, extras, total: oldTotal };
+    ctx.CR = ctx.CC.quote(ctx.CT);
+    ctx.ctToQuote();
+    assert.equal(ctx.savedQuoteSnapshot.total, newTotal);
+    assert.equal(ctx.savedQuoteSnapshot.lines, lines);
+    assert.equal(ctx.savedQuoteSnapshot.discount, 50000);
+    assert.equal(ctx.Q.people, 35);
+    assert.equal(ctx.Q.quoteNo, '');
+    assert.equal(ctx.Q.extras.length, 2);
+    assert.equal(ctx.Q.extras[0], equipment);
+    assert.equal(ctx.Q.extras[1].catering.people, after);
+    assert.equal(ctx.Q.extras[1].amount, newTotal - 522000);
+  }
+});

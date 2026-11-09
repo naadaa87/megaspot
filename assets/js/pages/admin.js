@@ -776,7 +776,7 @@
       +'<table class="q-table"><tbody>'+rows+'</tbody><tfoot>'+((R.disc||R.extras.length)?'<tr><td>'+(Q.roomAgreement?'공간 협의 금액':'요금표 기준 금액')+' <small>할인·추가 항목 반영 전</small></td><td>'+esc(won(R.sub))+'</td></tr>':'')+'<tr class="sum"><td>합계 <small>'+esc(quoteVatNote().replace('표시 금액은 ','').replace(' 기준입니다.',''))+'</small></td><td>'+esc(won(R.total))+'</td></tr><tr><td>보증금 (별도 · 이용 뒤 반환)</td><td>'+esc(won(R.deposit))+'</td></tr></tfoot></table>'
       +(warn?'<ul class="q-notes">'+warn+'</ul>':'')
       +'<div class="q-refund"><b>취소 시 환불</b>'+(R.refund.length?R.refund.map(function(x){ return '<span>'+esc(x.k)+' <b>'+Math.round(x.rate*100)+'%</b></span>'; }).join(''):'<span>이용일이 지났습니다</span>')+'</div>'
-      +'<p class="tiny muted mt-2">견적 유효기간 '+esc(R.validUntil?E.kdateY(R.validUntil):'저장 당시 기록 없음')+(R.validUntil?'까지':'')+(Q.quoteNo?' · 저장된 견적번호 <b>'+esc(Q.quoteNo)+'</b>':' · 아직 저장하지 않음')+(savedQuoteSnapshot?' · 저장 당시 금액·유효기간입니다. 항목을 수정하면 현재 요금표로 다시 계산합니다.':'')+'</p>';
+      +'<p class="tiny muted mt-2">견적 유효기간 '+esc(R.validUntil?E.kdateY(R.validUntil):'저장 당시 기록 없음')+(R.validUntil?'까지':'')+(Q.quoteNo?' · 저장된 견적번호 <b>'+esc(Q.quoteNo)+'</b>':' · 아직 저장하지 않음')+(savedQuoteSnapshot?(quoteDirty?' · 저장된 대관료·할인을 기준으로 변경 항목을 반영했습니다.':' · 저장 당시 금액·유효기간입니다. 대관 조건을 수정하면 현재 요금표로 다시 계산합니다.'):'')+'</p>';
   }
   $('#q-form').addEventListener('input', function(e){ if(e.target.id==='q-start'){ readForm(); $('#q-end').innerHTML=hourOpts(Q.start+1, ADMIN_HOURS.to, Math.max(Q.end, Q.start+1)); } invalidateQuote(['q-customer','q-phone','q-email','q-note'].indexOf(e.target.id)<0,['q-space','q-date','q-start','q-end','q-people','q-purpose','q-regular'].indexOf(e.target.id)>=0||!!(e.target.dataset.opt||e.target.dataset.mgr)); calc(); });
   $('#q-form').addEventListener('change', function(e){ if(e.target.id==='q-start'){ readForm(); $('#q-end').innerHTML=hourOpts(Q.start+1, ADMIN_HOURS.to, Math.max(Q.end, Q.start+1)); } invalidateQuote(['q-customer','q-phone','q-email','q-note'].indexOf(e.target.id)<0,['q-space','q-date','q-start','q-end','q-people','q-purpose','q-regular'].indexOf(e.target.id)>=0||!!(e.target.dataset.opt||e.target.dataset.mgr)); calc(); });
@@ -1004,6 +1004,7 @@
     var o=$('#ct-open-ref'); if(o) o.addEventListener('click', function(){ openInquiry(CT.ref); });
     var u=$('#ct-unlink'); if(u) u.addEventListener('click', function(){ CT.target=null; CT.ref=''; CT.oref=''; CT.order=null; CT.status='pending'; CT.loading=false; ctFill(); ctCalc(); ctPickCollapse(false); drawCtTargets(); });
     $('#ct-copy-menu').disabled=!!CT.loading; $('#ct-copy-order').disabled=!!CT.loading;
+    $('#ct-to-quote').textContent=CT.standaloneQuote?'이 견적에 변경 반영 →':'대관 견적에 넣기 →';
     $('#ct-include-booking').checked=!!(CT.order&&CT.order.include_in_booking);ctSaveUi();
   }
   function ctRead(){
@@ -1123,6 +1124,7 @@
     var catering=savedStandaloneCatering();
     if(!catering||!CC) return;
     CT=blankCT();
+    CT.standaloneQuote=Q;
     CT.space=spaceOk(Q.space);
     CT.customer=Q.customer;
     CT.phone=Q.phone;
@@ -1149,6 +1151,10 @@
     if(!CR||CR.empty){ M.toast('코스나 바베큐·생맥주를 먼저 골라 주세요.'); return; }
     if(CR.requiresConsultation){ M.toast(CR.warn[0]); return; }
     if(!E||!D){ M.toast('요금표를 불러오지 못했습니다.'); return; }
+    if(CT.standaloneQuote&&CT.standaloneQuote!==Q){
+      M.toast('다른 견적이 열려 있습니다. 반영할 견적에서 출장뷔페 구성을 다시 열어 주세요.');
+      return;
+    }
     if(CT.ref && Q.ref!==CT.ref){
       var ref=CT.ref, button=$('#ct-to-quote'); button.disabled=true;
       return A('/inquiries/'+encodeURIComponent(ref)).then(function(r){ if(CT.ref!==ref) return; if(quoteFromInquiry(r.item,(r.quotes||[])[0])) ctToQuote(); }).catch(function(e){ if(!guard(e)) M.toast(e.message); }).finally(function(){ button.disabled=false; });
@@ -1158,14 +1164,29 @@
     if(!CT.ref && Q.ref){ M.toast('문의가 연결된 견적에는 다른 단독 구성의 출장뷔페를 추가할 수 없습니다. 견적을 초기화하거나 같은 문의를 골라 주세요.'); return; }
     if(fresh){
       if(quoteDirty && !confirm('작성 중인 견적을 바꾸고 선택한 고객의 견적을 만들까요?')) return;
+      CT.standaloneQuote=null;
       var target=CT.target||{}, h=inqHours(target); Q=blankQ(); Q.space=spaceOk(CT.space||target.space_id); useSpace(Q.space); Q.customer=CT.customer; Q.phone=CT.phone;
       if(CT.date) Q.date=CT.date; if(CT.people) Q.people=Math.max(1,Math.min(D.people.max,CT.people));
       if(h[0]!=null && h[1]!=null){ Q.start=h[0]; Q.end=h[1]; }
     }
     if(CT.ref && !Q.ref) Q.ref=CT.ref;if(CT.ref&&CT.target&&CT.target.reception_revision!=null)Q.reception_revision=CT.target.reception_revision;
-    Q.extras=Q.extras.filter(function(x){ return String(x.label||'').indexOf('출장뷔페 ·')!==0; });
+    var preserveSnapshot=!!(CT.standaloneQuote&&savedQuoteSnapshot);
+    var extras=preserveSnapshot?savedQuoteSnapshot.extras||[]:Q.extras;
+    var previousCatering=0;
+    Q.extras=extras.filter(function(row){
+      if(!window.MEGASPOT_FOOD_SERVICES.isRow('catering',row)) return true;
+      previousCatering+=Number(row.amount)||0;
+      return false;
+    });
     setQuoteHistorical(false);Q.cateringExcluded=false;
-    Q.extras.push({ kind:'catering', label:label, amount:CR.total,catering:{course:CT.course,people:CT.people,bbq:CT.bbq,beer:CT.beer,fee:CT.fee,note:CT.note,status:CT.status||'pending',order_ref:CT.oref||'',meal_time:CT.time||'',course_name:CR.course&&CR.course.name,bill_people:CR.billPeople,bbq_name:CR.bbq&&CR.bbq.size,summary:CC.parts(CR),total:CR.total,supply:CR.supply,vat:CR.vat} }); invalidateQuote();
+    Q.extras.push({ kind:'catering', label:label, amount:CR.total,catering:{course:CT.course,people:CT.people,bbq:CT.bbq,beer:CT.beer,fee:CT.fee,note:CT.note,status:CT.status||'pending',order_ref:CT.oref||'',meal_time:CT.time||'',course_name:CR.course&&CR.course.name,bill_people:CR.billPeople,bbq_name:CR.bbq&&CR.bbq.size,summary:CC.parts(CR),total:CR.total,supply:CR.supply,vat:CR.vat} });
+    if(preserveSnapshot){
+      savedQuoteSnapshot=Object.assign({},savedQuoteSnapshot,{
+        extras:Q.extras,
+        total:Math.max(0,Number(savedQuoteSnapshot.total)-previousCatering+CR.total)
+      });
+    }
+    invalidateQuote(!preserveSnapshot);
     fillForm(); go('quote');
     M.toast('대관 견적의 추가 항목에 출장뷔페 '+won(CR.total)+'을(를) 넣었습니다.');
   }
