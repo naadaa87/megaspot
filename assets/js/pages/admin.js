@@ -749,9 +749,22 @@
   }
   var R=null;
   function quoteVatNote(){ return R && R.extras.some(function(x){ return (x.kind==='reception'&&!(x.reception&&x.reception.vat_excluded))||(x.kind==='cocktail'&&!(x.cocktail&&x.cocktail.vat_excluded)); })?'공간·뷔페 부가세 포함 · 미확정 식음료 부가세 확인 필요':R&&R.extras.some(function(x){return x.kind==='cocktail';})?'부가세 포함 (칵테일 판매가 + 부가세 10% 반영)':D.vatNote; }
+  function savedStandaloneCatering(){
+    if(!Q.quoteNo||Q.ref) return null;
+    var snapshotRows=savedQuoteSnapshot&&savedQuoteSnapshot.extras;
+    var rows=(Array.isArray(snapshotRows)?snapshotRows:[]).concat(Q.extras||[]);
+    var row=rows.find(function(row){
+      var c=row.catering;
+      return window.MEGASPOT_FOOD_SERVICES.isRow('catering',row)
+        && c && !c.removed && c.status!=='cancelled' && (c.course||c.bbq||c.beer);
+    });
+    return row?row.catering:null;
+  }
   function calc(){
     if(!E||!D){ $('#q-result').innerHTML='<div class="empty">요금표를 불러오지 못했습니다.</div>'; return; }
-    readForm(); R=compute(); if(!R) return;
+    readForm(); R=compute();
+    $('#q-catering').hidden=!R||!savedStandaloneCatering();
+    if(!R) return;
     var q=R.q;
     $$('#q-pkgs [data-pkg]').forEach(function(b){ b.classList.toggle('on', !!(q.pkg && q.pkg.id===b.dataset.pkg)); });
     var rows=R.lines.map(function(l){ return '<tr><td>'+esc(l.label)+'<small>'+esc(l.desc)+'</small></td><td>'+esc(won(l.amount))+'</td></tr>'; }).join('');
@@ -771,6 +784,7 @@
   $('#q-extra-add').addEventListener('click', function(){ readForm(); Q.extras.push({label:'',amount:0}); invalidateQuote(); renderExtras(); var l=$$('#q-extras [data-ex=label]'); if(l.length) l[l.length-1].focus(); });
   $('#q-extras').addEventListener('click', function(e){ var b=e.target.closest('[data-ex-del]'); if(!b) return; readForm(); var item=Q.extras[+b.dataset.exDel],kind=item.kind||window.MEGASPOT_FOOD_SERVICES.types.find(function(k){return window.MEGASPOT_FOOD_SERVICES.isRow(k,item);});if(['reception','catering','cocktail'].indexOf(kind)>=0)Q[kind+'Excluded']=true;Q.extras.splice(+b.dataset.exDel,1); renderExtras(); invalidateQuote(); calc(); });
   $('#q-reset').addEventListener('click', function(){ if(quoteDirty && !confirm('작성 중인 견적을 초기화할까요?')) return; savedQuoteSnapshot=null; savedQuoteCreatedAt=''; quoteDirty=false; setQuoteHistorical(false); Q=blankQ(); fillForm(); calc(); $('#q-msg').hidden=true; });
+  $('#q-catering').addEventListener('click',ctOpenStandaloneQuote);
   $('#q-reception').addEventListener('click',function(){readForm();window.MEGASPOT_ADMIN.openReception(Q.ref,{customer:Q.customer,phone:Q.phone,date:Q.date,space:Q.space,people:Q.people,reception:(Q.extras.find(function(x){return x.kind==='reception';})||{}).reception});});
 
   function quoteFromInquiry(it, lastQuote){
@@ -1104,6 +1118,22 @@
     $('#cv-codes').innerHTML=CD.courses.map(function(c){ var menuCourse=CC.course(c.menuCourse);
       return '<label class="ct-code"><span>'+esc(c.name+(menuCourse?' · '+menuCourse.name+' 연동':''))+'</span><input class="input" '+(menuCourse?'readonly ':'')+'data-code="'+c.id+'" maxlength="40" value="'+esc((v.codes||{})[c.id]||'')+'"></label>'; }).join('');
     $('#cv-state').textContent=r.saved?'마지막 저장 '+String(r.updated_at||'').slice(0,16):'아직 저장한 적이 없습니다. 발주처 이름과 연락처를 한 번 적어 두면 발주할 때 편합니다.';
+  }
+  function ctOpenStandaloneQuote(){
+    var catering=savedStandaloneCatering();
+    if(!catering||!CC) return;
+    CT=blankCT();
+    CT.space=spaceOk(Q.space);
+    CT.customer=Q.customer;
+    CT.phone=Q.phone;
+    CT.date=Q.date;
+    CT.rent=timeText({start_h:Q.start,end_h:Q.end},'–');
+    CT.people=catering.people||catering.bill_people||Q.people;
+    CT.course='';
+    ctApplyConfig(catering);
+    if(catering.fee!=null) CT.fee=catering.fee;
+    CT.time=catering.meal_time||'';
+    go('catering');
   }
   function ctFromInquiry(it, order, bookings){
     var d=it.data||{}, c=d.catering||{}, bk=(bookings||[]).filter(function(b){ return b.status!=='cancelled'; })[0];
