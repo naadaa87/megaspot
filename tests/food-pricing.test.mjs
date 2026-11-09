@@ -145,3 +145,39 @@ test('changing a saved standalone buffet quote replaces only its buffet charge i
     assert.equal(ctx.Q.extras[1].amount, newTotal - 522000);
   }
 });
+
+test('quote print and customer copy identify stored buffet headcount even with a custom line label', () => {
+  const source = file => readFileSync(new URL('../' + file, import.meta.url), 'utf8');
+  const print = { innerHTML: '' };
+  const ctx = vm.createContext({
+    window: {}, PUR: {}, M: { CONFIG: {} }, D: { deposit: { label: '보증금' }, included: [] },
+    E: { kdateY: value => value, kdate: value => value }, quoteHistorical: false, quoteSettlement: null,
+    savedQuoteCreatedAt: '2026-11-09', spaceName: () => '메가스팟 건대 1호', esc: String,
+    won: value => Number(value).toLocaleString('ko-KR') + '원',
+    quoteVatNote: () => '부가세 포함', quoteSettlementHtml: () => '', $: () => print
+  });
+  vm.runInContext(source('assets/js/food-services.js'), ctx);
+  const admin = source('assets/js/pages/admin.js');
+  vm.runInContext(admin.slice(admin.indexOf('  function custParts('), admin.indexOf("  $('#q-copy').addEventListener"))
+    + admin.slice(admin.indexOf('  function renderSheet(){'), admin.indexOf('  function loadRecentQuotes(){')), ctx);
+
+  for (const [number, people, buffet, total] of [['Q-OLD', 30, 1732500, 2254500], ['Q-NEW', 20, 1402500, 1924500]]) {
+    const catering = cateringQuote({ course: 'small', people }, 75000);
+    ctx.Q = { quoteNo: number, space: 'megaspot-gundae', customer: '검증 고객', purpose: '', note: '' };
+    ctx.R = {
+      q: { date: '2026-11-29', day: {}, colLabel: '일', range: '10:00–17:00', people: 35 },
+      lines: [{ label: '공간료', desc: '', amount: 550000 }], disc: 50000, discLabel: '할인',
+      extras: [{ kind: 'catering', label: '행사 식사', amount: buffet, catering }, { label: '추가 장비', amount: 22000 }],
+      total, deposit: 150000, refund: [], validUntil: '2026-11-29'
+    };
+    ctx.renderSheet();
+    const guide = ctx.kakaoText();
+    for (const output of [guide, print.innerHTML]) {
+      assert(output.includes(number));
+      assert(output.includes('대관 인원'));
+      assert(output.includes('소규모 스페셜 · ' + people + '명'));
+      assert(output.includes(ctx.won(buffet)));
+      assert(output.includes(ctx.won(total)));
+    }
+  }
+});

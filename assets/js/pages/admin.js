@@ -874,6 +874,10 @@
     var i=s.search(/\s*[·•\/,|]\s*/); if(i<0) return [s,''];
     return [s.slice(0,i).trim(), s.slice(i).replace(/^\s*[·•\/,|]\s*/,'').trim()];
   }
+  function quoteBuffet(row){
+    if(!row.catering||!window.MEGASPOT_FOOD_SERVICES.isRow('catering',row)) return null;
+    return Object.assign({},row.catering,{kind:'catering',amount:row.amount,included:true});
+  }
   function kakaoText(){
     var q=R.q, L=[], cp=custParts(Q.customer);
     L.push('['+spaceName(Q.space)+' 견적 안내]'+(Q.quoteNo?' 견적번호 '+Q.quoteNo:''));
@@ -883,12 +887,20 @@
     if(cp[0]) L.push('· 고객: '+cp[0]+(cp[1]?' ('+cp[1]+')':''));
     L.push('· 이용일: '+E.kdateY(q.date)+(q.day.holiday?' ('+q.day.holiday+')':''));
     L.push('· 시간: '+q.range);
-    L.push('· 인원: '+q.people+'명'+(PUR[Q.purpose]?' · '+PUR[Q.purpose]:''));
+    L.push('· 대관 인원: '+q.people+'명'+(PUR[Q.purpose]?' · '+PUR[Q.purpose]:''));
     if(quoteSettlement?.cancellation)L.push('예약 취소·환불 정산입니다. 아래 이용 조건은 원래 견적의 참고 내역입니다.');
     L.push('--------------------');
     R.lines.forEach(function(l){ if(l.amount||Q.roomAgreement) L.push(l.label+(l.desc?' ('+l.desc+')':'')+' '+won(l.amount)); });
     if(R.disc) L.push(R.discLabel+(Q.discWhy?'('+Q.discWhy+')':'')+' -'+won(R.disc));
-    R.extras.forEach(function(x){ L.push(x.label+' '+(x.amount<0?'-'+won(-x.amount):won(x.amount))); });
+    R.extras.forEach(function(x){
+      var amount=x.amount<0?'-'+won(-x.amount):won(x.amount);
+      var buffet=quoteBuffet(x);
+      if(!buffet){ L.push(x.label+' '+amount); return; }
+      L.push('출장뷔페 '+amount+' (부가세 포함)');
+      window.MEGASPOT_FOOD_SERVICES.rows(buffet,false).forEach(function(row){
+        if(row[0]==='코스 · 식사 인원'||row[0]==='추가 구성') L.push('  · '+row[0]+': '+row[1]);
+      });
+    });
     L.push('--------------------');
     L.push('합계 '+won(R.total)+' ('+quoteVatNote().replace('표시 금액은 ','').replace(' 기준입니다.','')+')');
     if(quoteSettlement)window.MEGASPOT_SETTLEMENT.rows(quoteSettlement.cancellation?quoteSettlement:Object.assign({},quoteSettlement,{amount:R.total})).forEach(function(r){L.push(r[0]+' '+r[1]);});
@@ -916,7 +928,7 @@
     var rows=R.lines.map(function(l){ return '<tr><td>'+esc(l.label)+'</td><td>'+esc(l.desc)+'</td><td>'+esc(won(l.amount))+'</td></tr>'; }).join('');
     if(R.disc) rows+='<tr><td>'+esc(R.discLabel)+'</td><td>'+esc(Q.discWhy||'')+'</td><td>−'+esc(won(R.disc))+'</td></tr>';
     R.extras.forEach(function(x){
-      var service=(x.kind==='catering'||x.kind==='cocktail')&&x[x.kind]?{...x[x.kind],kind:x.kind,amount:x.amount,included:true}:null;
+      var service=quoteBuffet(x)||(x.kind==='cocktail'&&x.cocktail?{...x.cocktail,kind:'cocktail',amount:x.amount,included:true}:null);
       var rec=x.kind==='reception'&&window.MEGASPOT_RECEPTION_CALC.forDocument(x.reception,x.amount),detail='';
       if(rec){detail=(rec.provider==='cafefriends'?'케이터링 ':'식사 ')+(rec.people?rec.people+'명':'인원 상담')+' · '+rec.formatName;if(rec.unitPrice!=null)detail+='\n1인 '+won(rec.unitPrice)+' × '+rec.people+'명 = '+won(rec.food);if(rec.fee!=null)detail+='\n'+rec.feeName+' '+won(rec.fee);if(rec.price_basis==='budget')detail+='\n예산 기준 예상 금액 · 메뉴·제공량 상담 후 확정';if(rec.menuNames&&rec.menuNames.length)detail+='\n희망 메뉴: '+rec.menuNames.join(', ');detail+=rec.vat_excluded===true?(rec.supply!=null&&rec.vat!=null?'\n공급가액 '+won(rec.supply)+' + 부가세 10% '+won(rec.vat)+' · 부가세 포함':'\n부가세 포함'):'\n이전 저장 금액 · 부가세 조건 확인 필요';}
       if(service)detail=window.MEGASPOT_FOOD_SERVICES.rows(service,true).map(function(r){return r[0]+': '+r[1];}).join('\n');
@@ -930,7 +942,7 @@
       +'<h1 class="qp-title">'+esc(Q.customer?Q.customer+' 귀하':spaceName(Q.space)+' 이용 견적')+'</h1>'
       +'<table class="qp-cond"><tbody>'
       +'<tr><th>이용일</th><td>'+esc(E.kdateY(q.date))+(q.day.holiday?' · '+esc(q.day.holiday):'')+' <span class="qp-tag">'+esc(q.colLabel)+' 요금</span></td><th>이용 시간</th><td>'+esc(q.range)+'</td></tr>'
-      +'<tr><th>인원</th><td>'+q.people+'명</td><th>모임 유형</th><td>'+esc(PUR[Q.purpose]||'—')+'</td></tr>'
+      +'<tr><th>대관 인원</th><td>'+q.people+'명</td><th>모임 유형</th><td>'+esc(PUR[Q.purpose]||'—')+'</td></tr>'
       +((Q.phone||Q.email)?'<tr><th>연락처</th><td colspan="3">'+esc([Q.phone,Q.email].filter(Boolean).join(' · '))+'</td></tr>':'')
       +'</tbody></table>'
       +'<table class="qp-lines"><thead><tr><th>항목</th><th>내용</th><th>금액</th></tr></thead><tbody>'+rows+'</tbody>'

@@ -11,5 +11,6 @@
   #quote-print .qp-cond th,#quote-print .qp-cond td{padding:5px 7px}
   #quote-print .qp-grid{margin-top:12px;padding-top:10px}
   #quote-print .qp-foot{margin-top:10px;padding-top:7px}
+  #quote-print .qp-contact img{width:88px;height:88px;object-fit:contain}
   .qp-lines tr,.qp-grid,.qp-foot{break-inside:avoid}
 }
