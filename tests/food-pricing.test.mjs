@@ -90,3 +90,23 @@ test('both small tiers retain flat prices and copy the Basic menu and supplier c
     assert.match(ctx.ctOrderText(), new RegExp('· 코스: 업체 베이직 ' + people + '명'));
   }
 });
+
+test('catering targets identify an admin quote with a small package before an order exists', async t => {
+  for (const [people, total] of [[20, 1430000], [30, 1760000]]) {
+    const f = fixture();
+    t.after(() => f.db.close());
+    const catering = cateringQuote({ course: 'small', people });
+    const extras = [{ kind: 'catering', label: '출장뷔페', amount: total, catering }];
+    await saveQuote(f.api, { total: 700000 + total, input: quoteInput({ people: people + 5, extras }), extras });
+
+    const { items } = await f.api('catering/targets');
+    const target = items.find(item => item.ref === 'MS-TEST');
+    assert.equal(target.order, null);
+    assert.equal(target.request, '');
+    assert.match(target.saved_catering, new RegExp('소규모 스페셜 ' + people + '명'));
+    const { item } = await f.api('inquiries/MS-TEST');
+    assert.equal(item.data.catering.course, 'small');
+    assert.equal(item.data.catering.people, people);
+    assert.equal(item.data.catering.total, total);
+  }
+});

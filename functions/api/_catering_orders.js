@@ -104,12 +104,19 @@ export async function cateringOrdersAdmin(request, env, path, method, url) {
         json_extract(i.data, '$.t_start') AS t_start, json_extract(i.data, '$.t_end') AS t_end, json_extract(i.data, '$.reserve') AS reserve, json_extract(i.data, '$.org') AS org, json_extract(i.data, '$.catering') AS cat,json_extract(i.data, '$.reception_revision') AS food_revision, ${ORDER_OF_INQUIRY} AS ord
       FROM inquiries i WHERE i.status IN ('${ACTIVE_INQ.join("','")}') AND NOT EXISTS (SELECT 1 FROM bookings b2 WHERE b2.inquiry_ref = i.ref AND b2.status <> 'cancelled') AND ${dateI} ${qI}
       ORDER BY CASE WHEN i.event_date IS NULL OR i.event_date = '' THEN 1 ELSE 0 END, i.event_date ${scope === 'past' && !q ? 'DESC' : 'ASC'}, i.created_at DESC LIMIT 300`).bind(...dbind, ...qbI).all();
-    const req = (s) => { const c = safe(s); return c && Object.keys(c).length && c.by !== 'admin' ? (c.summary || '출장뷔페 상담 희망') : ''; };
+    const cateringSelection = raw => {
+      const selection = safe(raw);
+      if (!Object.keys(selection).length) return {};
+      if (selection.by !== 'admin') return { request: selection.summary || '출장뷔페 상담 희망' };
+      if (selection.removed || selection.status === 'cancelled') return {};
+      if (!selection.course && !selection.bbq && !selection.beer) return {};
+      return { saved_catering: selection.summary || '저장된 출장뷔페 구성' };
+    };
     const items = [];
     for (const b of bks || []) items.push({ reception_revision:b.food_revision||0,kind: 'booking', key: 'B:' + b.booking_code, code: b.booking_code, ref: b.inquiry_ref || '', name: b.customer_name, org: b.org || '', phone: b.phone, date: b.date, space_id: b.space_id,
-      start_h: b.start_h ?? b.i_start ?? null, end_h: b.end_h ?? b.i_end ?? null, headcount: b.headcount, status: b.status, request: req(b.cat), order: orderBrief(b.ord) });
+      start_h: b.start_h ?? b.i_start ?? null, end_h: b.end_h ?? b.i_end ?? null, headcount: b.headcount, status: b.status, request: '', ...cateringSelection(b.cat), order: orderBrief(b.ord) });
     for (const i of inqs || []) items.push({ reception_revision:i.food_revision||0,kind: 'inquiry', key: 'I:' + i.ref, code: '', ref: i.ref, name: i.name, org: i.org || '', phone: i.phone, date: i.event_date || '', space_id: i.space_id || '',
-      start_h: i.start_h ?? null, end_h: i.end_h ?? null, t_start: i.t_start || '', t_end: i.t_end || '', headcount: i.headcount, status: i.status, reserve: !!i.reserve, request: req(i.cat), order: orderBrief(i.ord) });
+      start_h: i.start_h ?? null, end_h: i.end_h ?? null, t_start: i.t_start || '', t_end: i.t_end || '', headcount: i.headcount, status: i.status, reserve: !!i.reserve, request: '', ...cateringSelection(i.cat), order: orderBrief(i.ord) });
     if (scope !== 'past' || q) items.sort((a, b) => (a.date || '9999') < (b.date || '9999') ? -1 : (a.date || '9999') > (b.date || '9999') ? 1 : ((a.start_h ?? 99) - (b.start_h ?? 99)));
     return json({ ok: true, today, scope, items });
   }
