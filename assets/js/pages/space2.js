@@ -54,7 +54,7 @@
     host.innerHTML=S.layouts.map(function(l,i){
       var p=photoById[l.photo]||{};
       return '<div class="card pad-s layout-card"><button type="button" class="layout-ph" data-li="'+i+'" aria-label="'+esc(l.label)+' 배치 이미지 크게 보기"><img src="'+M.imgSrc(l.photo,'m')+'" alt="'+esc(l.label)+' 배치 — '+esc(p.title||'')+CG+'" loading="lazy"><span class="ph-note">완공 예상 이미지</span></button>'
-        + '<div class="row between mt-2"><div><div class="eyebrow">'+esc(l.en)+'</div><h3 style="font-size:17px;margin-top:4px">'+esc(l.label)+'</h3></div><span class="badge badge-soft">'+esc(l.capacityNote)+'</span></div>'
+        + '<div class="layout-card-head mt-2"><div><div class="eyebrow">'+esc(l.en)+'</div><h3 style="font-size:17px;margin-top:4px">'+esc(l.label)+'</h3></div><span class="badge badge-soft">'+esc(l.capacityNote)+'</span></div>'
         + '<p class="small muted mt-1">'+esc(l.desc)+'</p>'
         + '<p class="tiny mt-2"><b>적합</b> '+esc(l.fit)+'<br><b>확인</b> '+esc(l.check)+'</p></div>';
     }).join('');
@@ -85,6 +85,8 @@
     var op=S.opening ? (function(){ var p=S.opening.split('-'); return new Date(+p[0],+p[1]-1,+p[2]); })() : today;
     var first=op>today?op:today;
     var cur=new Date(first.getFullYear(), first.getMonth(), 1), selected=null, cache={};
+    var dayLabels={open:'가능',partial:'일부',hold:'확보',full:'마감'};
+    var dayDescriptions={open:'사전 예약 가능',partial:'일부 시간 예약, 다른 시간 문의 가능',hold:'임시 확보 중',full:'마감'};
     function load(y,m){
       var key=y+'-'+M.pad2(m+1); if(cache[key]) return Promise.resolve(cache[key]);
       var from=key+'-01', to=y+'-'+M.pad2(m+1)+'-'+M.pad2(new Date(y,m+1,0).getDate());
@@ -98,13 +100,17 @@
         ['일','월','화','수','목','금','토'].forEach(function(d){ h+='<div class="dow">'+d+'</div>'; });
         for(var i=0;i<fd;i++) h+='<div class="cal-day pad"></div>';
         for(var d=1; d<=n; d++){
-          var iso=y+'-'+M.pad2(m+1)+'-'+M.pad2(d); var dt=new Date(y,m,d); var info=days[iso]||{}; var cls='cal-day ';
-          var before = dt<today || dt<op;
-          if(before) cls+='past'; else if(info.state==='full') cls+='full'; else if(info.state==='hold') cls+='hold'; else if(info.state==='partial') cls+='partial'; else cls+='open';
-          if(selected===iso) cls+=' sel';
-          h+='<div class="'+cls+'" data-d="'+iso+'" role="button" tabindex="'+(before||info.state==='full'?'-1':'0')+'" aria-label="'+M.fmtKDate(iso)+(before?' 오픈 전':info.state==='full'?' 마감':info.state==='hold'?' 임시 확보':info.state==='partial'?' 일부 시간 예약 있음, 다른 시간 문의 가능':' 사전 예약 가능')+'">'+d+(info.state&&!before?'<span class="dot"></span>':'')+'</div>';
+          var iso=y+'-'+M.pad2(m+1)+'-'+M.pad2(d), dt=new Date(y,m,d), info=days[iso]||{};
+          var state=dt<today ? 'past' : dt<op ? 'preopen' : (Object.hasOwn(dayLabels,info.state) ? info.state : 'open');
+          var canPick=state!=='past' && state!=='preopen' && state!=='full';
+          var isSelected=canPick && selected===iso;
+          var description=state==='past' ? '지난 날짜' : state==='preopen' ? '오픈 전' : dayDescriptions[state];
+          var classes='cal-day '+(state==='preopen' ? 'past' : state)+(isSelected?' sel':'');
+          var control=canPick ? 'tabindex="0" aria-pressed="'+isSelected+'"' : 'tabindex="-1" aria-disabled="true"';
+          var status=dayLabels[state] ? '<span class="cal-day-status" aria-hidden="true">'+dayLabels[state]+'</span>' : '';
+          h+='<div class="'+classes+'" data-d="'+iso+'" role="button" '+control+' aria-label="'+M.fmtKDate(iso)+' '+description+'">'+d+status+'</div>';
         }
-        h+='</div><div class="cal-legend"><span><i style="background:var(--concrete-3);border:1px solid var(--concrete)"></i>사전 예약 가능 (확인 뒤 확정)</span><span><i style="background:var(--cobalt-soft);border:1px solid #BFD0F5"></i>일부 시간 예약 (다른 시간 가능)</span><span><i style="background:var(--warn-soft)"></i>임시 확보 중</span><span><i style="background:var(--concrete-2)"></i>마감 · 오픈 전</span><span><i style="background:var(--cobalt)"></i>선택한 날짜</span></div>';
+        h+='</div><div class="cal-legend"><span><i class="open"></i>사전 예약 가능 (확인 뒤 확정)</span><span><i class="partial"></i>일부 시간 예약 (다른 시간 가능)</span><span><i class="hold"></i>임시 확보 중</span><span><i class="full"></i>마감</span><span><i class="sel"></i>선택한 날짜</span></div>';
         h+='<p class="tiny muted mt-2">'+(op>today?'2026년 11월 13일 오픈 전 날짜는 고를 수 없습니다. ':'')+(M.demo.on||!Object.keys(days).length?'달력은 안내용이며 실시간 재고가 아닙니다. 희망일을 고르면 사전 예약 화면에 들어가고, 확정 여부는 상담 때 안내합니다.':'표시 상태는 운영자가 갱신한 일정 기준이며 최종 확정은 금액 확인과 결제 뒤에 이뤄집니다.')+'</p>';
         cal.innerHTML=h;
         $('#cal-prev').addEventListener('click', function(){ cur=new Date(y,m-1,1); render(); });

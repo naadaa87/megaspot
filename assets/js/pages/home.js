@@ -21,26 +21,28 @@
   /* ---------- 히어로 슬라이드 ---------- */
   (function(){
     var box=$('#hero-slides'); if(!box) return;
-    var slides=$$('.slide',box), dots=$('.hero-dots',box), cap=$('#hero-cap'), i=0, timer=null;
-    var reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var slides=$$('.slide',box), dots=$('.hero-dots',box), cap=$('#hero-cap'), i=0, request=0;
     function title(sl){ var sc=M.visual(sl.dataset.scene); return sc?sc.title:''; }
-    dots.innerHTML=slides.map(function(sl,k){ return '<button type="button" aria-label="'+esc(title(sl))+' 장면 보기"'+(k===0?' class="on" aria-current="true"':'')+'></button>'; }).join('');
+    dots.innerHTML=slides.map(function(sl,k){
+      return sl.dataset.label ? '<button type="button" data-slide="'+k+'"'+(k===0?' class="on" aria-current="true"':'')+'>'+esc(sl.dataset.label)+'</button>' : '';
+    }).join('');
     var dbtn=$$('button',dots);
     function go(k){
-      i=(k+slides.length)%slides.length;
-      var img=$('img',slides[i]); if(img && !img.getAttribute('src') && img.dataset.src) img.src=img.dataset.src;
-      slides.forEach(function(sl,n){ sl.classList.toggle('on',n===i); });
-      dbtn.forEach(function(b,n){ b.classList.toggle('on',n===i); if(n===i) b.setAttribute('aria-current','true'); else b.removeAttribute('aria-current'); });
-      if(cap) cap.textContent=title(slides[i]);
-      var tg=$('.ph-tag',box), sid=slides[i].dataset.scene; if(tg){ tg.textContent=M.imgTag(sid); tg.classList.toggle('staged', M.isStaged(sid)); tg.classList.toggle('cg', M.isCG(sid)); }
+      var selected=++request, img=$('img',slides[k]);
+      if(!img.getAttribute('src')) img.src=img.dataset.src;
+      img.decode().then(function(){
+        if(selected!==request) return;
+        i=k;
+        slides.forEach(function(sl,n){ sl.classList.toggle('on',n===i); });
+        dbtn.forEach(function(b){
+          var on=+b.dataset.slide===i;
+          b.classList.toggle('on',on);
+          if(on) b.setAttribute('aria-current','true'); else b.removeAttribute('aria-current');
+        });
+        if(cap) cap.textContent=title(slides[i]);
+      }).catch(function(){});
     }
-    function start(){ if(reduce||timer) return; timer=setInterval(function(){ go(i+1); }, 5200); }
-    function stop(){ clearInterval(timer); timer=null; }
-    dbtn.forEach(function(b,n){ b.addEventListener('click', function(){ stop(); go(n); start(); }); });
-    box.addEventListener('mouseenter', stop); box.addEventListener('mouseleave', start);
-    box.addEventListener('focusin', stop); box.addEventListener('focusout', start);
-    // 첫 장면이 그려진 뒤 나머지 이미지를 불러옵니다
-    window.addEventListener('load', function(){ slides.forEach(function(sl){ var img=$('img',sl); if(img && !img.getAttribute('src') && img.dataset.src) img.src=img.dataset.src; }); start(); });
+    dbtn.forEach(function(b){ b.addEventListener('click', function(){ go(+b.dataset.slide); }); });
     box.addEventListener('click', function(e){ if(e.target.closest('.hero-dots')) return; var items=slides.map(function(sl){ var sc=M.visual(sl.dataset.scene)||{id:sl.dataset.scene}; return {src:M.imgSrc(sc.id), title:sc.title, cap:sc.cap, tag:M.imgTag(sc.id)}; }); M.openLightbox(items, i); });
     box.style.cursor='zoom-in';
   })();

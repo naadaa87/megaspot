@@ -16,7 +16,7 @@ window.MEGASPOT_PURPOSES = [
   { id:'culture',    label:'공연·상영회',        en:'CULTURE',     cover:'s07', desc:'어쿠스틱 공연과 영화 상영, 토크 콘서트. 화면·음향과 객석 시야, 종료 시각을 먼저 맞춥니다.' },
   { id:'party',      label:'단체 파티·기념행사', en:'CELEBRATION', cover:'s22', desc:'장식·음식·프로그램을 함께 하는 모임. 반입·주류·소음·정리 조건을 먼저 확인합니다.' },
   { id:'popup',      label:'팝업·마켓·전시',     en:'POP-UP',      cover:'s16', desc:'판매 부스와 전시를 함께 꾸리는 행사. 반입 동선·전력·설치·철수 조건을 견적에 담습니다.' },
-  { id:'shooting',   label:'촬영·콘텐츠',        en:'SHOOTING',    cover:'p05', desc:'통제 가능한 촬영 환경. 자연광·소음·전력과 초상권 관리를 확인합니다.' }
+  { id:'shooting',   label:'촬영·콘텐츠',        en:'SHOOTING',    cover:'v02', desc:'통제 가능한 촬영 환경. 자연광·소음·전력과 초상권 관리를 확인합니다.' }
 ];
 
 window.MEGASPOT_REGIONS = [
@@ -90,40 +90,22 @@ window.MEGASPOT_SPACES = [
       { k:'주차 최대 140대', v:'건물 주차장 · 엘리베이터', d:'차로 오는 참석자가 많아도 넉넉합니다. 주차권은 1시간 4,000원, 일일권 30,000원' }
     ],
     photos: [
-      { id:'p14', title:'메인 홀 전경',               cap:'스크린 앞으로 긴 테이블을 길게 놓은 메인 홀. 창을 따라 바 테이블이 이어집니다.', zone:'hall' },
-      { id:'p01', title:'스크린 옆에서 본 메인 홀',    cap:'200인치 스크린 옆에서 좌석과 창가 방향을 바라본 모습입니다.', zone:'screen' },
-      { id:'p13', title:'스크린과 행사 좌석',          cap:'스크린 앞 긴 테이블 배치. 사진의 현수막은 촬영 당시 행사물입니다.', zone:'screen' },
-      { id:'p10', title:'샹들리에와 공간 중심',        cap:'로프 장식 샹들리에와 콘크리트 기둥, 낮은 벽돌 벽이 홀의 중심을 잡습니다.', zone:'hall' },
-      { id:'p12', title:'연속창을 따라 이어지는 홀',    cap:'검정 창틀의 큰 창이 홀 한쪽 면을 따라 이어집니다.', zone:'windows' },
-      { id:'p02', title:'메인 홀과 전신거울',          cap:'홀 안쪽 통로와 전신거울, 천장의 프로젝터가 보입니다.', zone:'hall' },
-      { id:'p07', title:'진행부스 방향',               cap:'메인 홀에서 진행부스 쪽을 바라본 모습입니다.', zone:'booth' },
-      { id:'p05', title:'창가 좌석과 메인 홀',          cap:'창가 바 테이블 좌석에서 홀 안쪽을 바라본 모습입니다.', zone:'windows' },
-      { id:'p04', title:'창가 좌석',                   cap:'거리 풍경이 들어오는 창가 좌석 구역입니다.', zone:'windows' },
-      { id:'p03', title:'창가 테이블',                 cap:'창을 따라 놓인 테이블과 의자. 교류형 행사에서 대화 자리로 씁니다.', zone:'windows' },
-      { id:'p08', title:'긴 테이블과 좌석',             cap:'목재 상판의 긴 테이블과 검정 좌석 배치입니다.', zone:'hall' },
-      { id:'p09', title:'조명과 테이블',               cap:'펜던트 조명 아래 테이블 배치. 조명 조작 범위는 현장에서 안내합니다.', zone:'hall' },
-      { id:'p06', title:'행거와 메인 홀',               cap:'외투 보관용 행거가 있는 홀 가장자리입니다.', zone:'hall' },
-      { id:'p11', title:'행사 소품과 보조 테이블',       cap:'룰렛과 접이식 보조 테이블. 소품의 고객 제공 여부는 견적에서 확인합니다.', zone:'hall' },
-      { id:'p15', title:'벽돌 벽면의 라운지',           cap:'벽돌 벽과 간접조명, 벤치 좌석이 있는 라운지 구역입니다.', zone:'lounge' },
-      { id:'p16', title:'라운지 다른 각도',             cap:'소형 테이블과 벤치가 있어 소규모 대화 자리로 쓰기 좋습니다.', zone:'lounge' },
-      { id:'p17', title:'공간을 잇는 통로',             cap:'메인 홀과 안쪽 공간을 연결하는 통로와 보조 테이블입니다.', zone:'entrance' },
       { id:'p22', title:'200인치 스크린 (측면)',         cap:'레이저 프로젝터로 투사한 200인치 화면을 측면에서 본 모습입니다.', zone:'screen' },
       { id:'p23', title:'200인치 스크린 (정면)',         cap:'정면에서 본 투사 화면. 발표 자료와 영상 상영에 씁니다.', zone:'screen' },
       { id:'p21', title:'진행부스와 장비',               cap:'노트북·마우스와 행사 소품이 놓인 진행 카운터입니다.', zone:'booth' },
       { id:'p18', title:'싱크대와 준비 공간',            cap:'싱크·수전 2곳과 스테인리스 작업대가 있는 준비 공간입니다.', zone:'service' },
-      { id:'p19', title:'냉장고 구역',                  cap:'냉장고 2대와 안내판 스탠드. 고객 사용 가능 공간은 예약 시 안내합니다.', zone:'service' },
       { id:'p20', title:'잔·컵 비품 선반',              cap:'와인잔·유리잔·컵류를 보관하는 비품 선반입니다. 제공 수량은 견적에서 확인합니다.', zone:'service' }
     ],
     // 3D 뷰어와 같은 좌표계(m). 평면도 SVG와 주요 지점 안내에 사용
     zones: [
-      { id:'hall',     n:'01', label:'메인 홀',        en:'MAIN HALL',   desc:'기둥 4개 사이로 긴 테이블을 길게 놓는 개방형 홀. 발표·식사·교류를 한 자리에서 진행합니다.', photo:'p14' },
+      { id:'hall',     n:'01', label:'메인 홀',        en:'MAIN HALL',   desc:'기둥 4개 사이로 긴 테이블을 길게 놓는 개방형 홀. 발표·식사·교류를 한 자리에서 진행합니다.', photo:'v10' },
       { id:'screen',   n:'02', label:'200인치 스크린', en:'SCREEN',      desc:'메인 홀을 향한 대형 화면. 레이저 프로젝터로 투사하며 연결 방법은 현장에서 안내합니다.', photo:'p23' },
       { id:'booth',    n:'03', label:'진행부스',       en:'OPERATION',   desc:'행사 진행자와 장비가 자리하는 카운터. 노트북·음향 조작 위치입니다.', photo:'p21' },
       { id:'service',  n:'04', label:'싱크·냉장고',    en:'SERVICE',     desc:'스크린 뒤편 준비 공간. 싱크 2곳, 냉장고 2대, 전자레인지 2대와 비품 선반이 있습니다.', photo:'p18' },
-      { id:'storage',  n:'05', label:'창고',           en:'STORAGE',     desc:'도면상 창고. 고객 보관·출입 가능 여부는 예약 시 확인합니다.', photo:'p19' },
-      { id:'entrance', n:'06', label:'주출입구',       en:'ENTRANCE',    desc:'엘리베이터에서 홀로 이어지는 진입 동선. 반입 경로와 문 규격은 현장 확인 후 안내합니다.', photo:'p17' },
-      { id:'windows',  n:'07', label:'창가 좌석',      en:'WINDOW SIDE', desc:'검정 프레임 연속창을 따라 놓인 바 테이블 좌석. 거리 풍경이 들어옵니다.', photo:'p04' },
-      { id:'lounge',   n:'08', label:'라운지',         en:'LOUNGE',      desc:'벽돌 벽과 벤치 좌석의 라운지 구역. 접수·휴식·대화 자리로 분리해 쓸 수 있습니다.', photo:'p15' }
+      { id:'storage',  n:'05', label:'창고',           en:'STORAGE',     desc:'도면상 창고. 고객 보관·출입 가능 여부는 예약 시 확인합니다.' },
+      { id:'entrance', n:'06', label:'주출입구',       en:'ENTRANCE',    desc:'엘리베이터에서 홀로 이어지는 진입 동선. 반입 경로와 문 규격은 현장 확인 후 안내합니다.' },
+      { id:'windows',  n:'07', label:'창가 좌석',      en:'WINDOW SIDE', desc:'검정 프레임 연속창을 따라 놓인 바 테이블 좌석. 거리 풍경이 들어옵니다.', photo:'v02' },
+      { id:'lounge',   n:'08', label:'라운지',         en:'LOUNGE',      desc:'벽돌 벽과 벤치 좌석의 라운지 구역. 접수·휴식·대화 자리로 분리해 쓸 수 있습니다.', photo:'v09' }
     ],
     layouts: [
       { id:'lecture',  label:'강연형',   en:'THEATER',  scene:'s01', fit:'강연·세미나·발표회', desc:'스크린을 향해 좌석을 열로 배치합니다. 무대 폭과 통로를 확보하면 가장 많은 인원이 앉습니다.', check:'좌석 수·시야·마이크 수량·준비 시간', capacityNote:'행사 조건 확인 후 확정' },

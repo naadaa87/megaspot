@@ -73,15 +73,15 @@ export const PRODUCTS = (function(){ const window = {};
         summary: '일요일 18시부터 다음 날 07시까지 13시간, 기준 20명.', cover: 's15' },
       // 옵션
       { id: 'addon-cleaning',   kind: 'addon', opt: 'cleaning',   name: '뒷정리·청소 지원',  price: 200000, unit: '1회',
-        summary: '행사가 끝난 뒤 정리와 청소를 맡기고 바로 퇴실할 수 있습니다. 기본 정리(쓰레기 분리·집기 제자리)는 보증금 반환 기준에서 제외됩니다.', cover: 'p08' },
+        summary: '행사가 끝난 뒤 정리와 청소를 맡기고 바로 퇴실할 수 있습니다. 기본 정리(쓰레기 분리·집기 제자리)는 보증금 반환 기준에서 제외됩니다.', cover: 'v10' },
       { id: 'addon-banner',     kind: 'addon', opt: 'banner',     name: '현수막 제작',       price: 120000, unit: '1장',
-        summary: '행사명·일자·로고를 넣은 현수막 1장을 디자인부터 제작·설치까지 맡아 드립니다. 이용일 5일 전까지 결제해 주세요.', cover: 'p13' },
+        summary: '행사명·일자·로고를 넣은 현수막 1장을 디자인부터 제작·설치까지 맡아 드립니다. 이용일 5일 전까지 결제해 주세요.', cover: 'v03' },
       { id: 'addon-xbanner',    kind: 'addon', opt: 'xbanner',    name: 'X배너 제작',        price: 70000,  unit: '1개',
-        summary: '입구 안내용 X배너 1개를 디자인 포함으로 제작합니다. 이용일 5일 전까지 결제해 주세요.', cover: 'p05' },
+        summary: '입구 안내용 X배너 1개를 디자인 포함으로 제작합니다. 이용일 5일 전까지 결제해 주세요.', cover: 'v02' },
       { id: 'addon-disposable', kind: 'addon', opt: 'disposable', name: '1회용 세트 (20인분)', price: 100000, unit: '20인분', per20: true,
-        summary: '수저·젓가락·그릇·컵 일체 20인분입니다. 1인당 5,000원이며 20인분 단위로 구매할 수 있습니다.', cover: 'p16' },
+        summary: '수저·젓가락·그릇·컵 일체 20인분입니다. 1인당 5,000원이며 20인분 단위로 구매할 수 있습니다.', cover: 'v09' },
       { id: 'addon-manager',    kind: 'addon', opt: 'manager',    name: '현장 매니저 (1인 · 4시간)', price: 100000, unit: '1인 · 4시간',
-        summary: '안내, 행사 보조, 정리 보조를 맡는 현장 매니저 1명, 4시간입니다. 1인 1시간 25,000원 기준이며 시간 연장은 문의해 주세요.', cover: 'p10' }
+        summary: '안내, 행사 보조, 정리 보조를 맡는 현장 매니저 1명, 4시간입니다. 1인 1시간 25,000원 기준이며 시간 연장은 문의해 주세요.', cover: 'p21' }
     ]
   };
   P.get = function(id){ for (var i = 0; i < P.items.length; i++) if (P.items[i].id === id) return P.items[i]; return null; };

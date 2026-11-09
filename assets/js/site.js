@@ -286,7 +286,12 @@
     return copyText(url).then(function(ok){ toast(ok?'주소를 복사했습니다. 카카오톡·문자에 붙여 넣어 보내세요.':'주소를 복사하지 못했습니다. 주소창의 주소를 직접 복사해 주세요.'); });
   }
   // 모임·등록 공간 대표 이미지: 미리 준비된 사진 id(s01, r01 …) 또는 https 주소
-  function coverSrc(c, size){ c=String(c||''); return /^https:\/\//.test(c) ? c : (/^\//.test(c) ? c : imgSrc(c||'p14', size||'m')); }
+  function coverSrc(c, size){
+    c=String(c||'');
+    var oldHallPhoto=/^(?:https:\/\/megaspot\.kr)?\/assets\/img\/gundae\/(?:[mt]\/)?p14\.jpg(?:[?#].*)?$/;
+    if(c==='p14' || oldHallPhoto.test(c)) c='v10';
+    return /^https:\/\//.test(c) || /^\//.test(c) ? c : imgSrc(c||'v10', size||'m');
+  }
 
   /* ---------- 배너 광고 ----------
      [data-ad-slot] 자리에 관리자 화면 '광고 관리'에서 게재 중인 배너를 넣습니다. 게재 중인 광고가 없거나 서버가 연결되지 않으면

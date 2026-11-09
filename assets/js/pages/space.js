@@ -3,7 +3,6 @@
   var M=window.MEGASPOT, $=M.$, $$=M.$$, esc=M.esc;
   var S=window.MEGASPOT_GET_SPACE('megaspot-gundae'); if(!S) return;
   var P=window.MEGASPOT_GUNDAE_PLAN, F=window.MEGASPOT_FACILITIES;
-  var photoById={}; S.photos.forEach(function(p){ photoById[p.id]=p; });
   /* ---------- 갤러리: 공간 전경 · 공간 사진 · 조감도 ---------- */
   (function(){
     var g=$('#gallery'); if(!g) return;
@@ -11,7 +10,7 @@
     var SCN=' 행사 장면은 아래 <a href="#scenes" style="text-decoration:underline;color:var(--cobalt);font-weight:600">활용 장면</a>에서 볼 수 있습니다.';
     var sets={
       views:  { label:'공간 전경', list:V, note:esc(N.views||'')+SCN },
-      photos: { label:'공간 사진', list:S.photos, note:'메인 홀과 라운지, 준비 공간, 설비를 담은 사진 '+S.photos.length+'장입니다.'+SCN },
+      photos: { label:'공간 사진', list:S.photos, note:'스크린·진행부스·준비 공간과 비품 사진 '+S.photos.length+'장입니다.'+SCN },
       aerial: { label:'조감도', list:A, note:esc(N.aerial||'')+' <a href="#aerial" style="text-decoration:underline;color:var(--cobalt);font-weight:600">각도별로 보기</a>' }
     };
     var order=['views','photos','aerial'].filter(function(k){ return sets[k].list.length; }), cur=order[0];
@@ -63,10 +62,22 @@
     container.addEventListener('click', function(e){ var b=e.target.closest('button'); if(!b) return; $$('button',container).forEach(function(x){x.classList.toggle('on',x===b);}); onPick(b.dataset.zone); });
   }
   function zone(id){ return S.zones.find(function(z){return z.id===id;}); }
+  function showZonePhoto(img, z){
+    var photo=z.photo && M.visual(z.photo);
+    img.parentElement.hidden=!photo;
+    if(!photo){ img.removeAttribute('src'); img.alt=''; return; }
+    img.src=M.imgSrc(photo.id,'m');
+    img.alt=photo.title;
+    return photo;
+  }
   (function(){
     var box=$('#intro-zones'); if(!box) return;
-    var img=$('#intro-zone-photo'), cap=$('#intro-zone-cap');
-    zoneButtons(box, function(id){ var z=zone(id); var p=photoById[z.photo]; img.src=M.imgSrc(z.photo,'m'); img.alt=p?p.title:z.label; cap.textContent=z.label+' · '+z.desc; });
+    var img=$('#intro-zone-photo'), cap=$('#intro-zone-cap'), text=$('#intro-zone-text');
+    zoneButtons(box, function(id){
+      var z=zone(id), photo=showZonePhoto(img,z);
+      text.hidden=!!photo;
+      (photo ? cap : text).textContent=z.label+' · '+z.desc;
+    });
     box.querySelector('button').classList.add('on');
   })();
 
@@ -147,7 +158,7 @@
   function selectZone(id, fromPlan){
     planState.zone=id; var z=zone(id); if(!z) return;
     $('#plan-info').innerHTML='<b>'+z.n+' · '+esc(z.label)+' <span class="tiny muted" style="font-weight:400">'+esc(z.en)+'</span></b>'+esc(z.desc);
-    var img=$('#plan-zone-photo'), p=photoById[z.photo]; img.src=M.imgSrc(z.photo,'m'); img.alt=p?p.title:z.label; $('#plan-zone-cap').textContent=(p?p.title:z.label);
+    var photo=showZonePhoto($('#plan-zone-photo'),z); $('#plan-zone-cap').textContent=photo ? photo.title : '';
     $$('#plan-zones button').forEach(function(b){ b.classList.toggle('on', b.dataset.zone===id); });
     drawPlan();
   }
@@ -298,7 +309,7 @@
     function selectView(id, fromUser){
       state.view=id; var v=view(id), list=scenesOf(id);
       $$('.view-btn',viewList).forEach(function(b){ var on=b.dataset.view===id; b.classList.toggle('on',on); b.setAttribute('aria-pressed',String(on)); });
-      before.src=M.imgSrc(v.real,'m'); before.alt='메가스팟 건대 1호 — '+v.label+'에서 본 빈 홀';
+      before.src=M.imgSrc(v.real,'m'); before.alt='메가스팟 건대 1호 — '+v.label+' 전경';
       chips.innerHTML=list.map(function(s){ return '<button type="button" class="chip" data-scene="'+s.id+'">'+esc(s.title)+'</button>'; }).join('');
       selectScene(list[0].id);
       if(fromUser) setPos(50);
@@ -317,7 +328,7 @@
         + '<div class="row mt-2"><button type="button" class="btn btn-primary btn-sm" id="scene-ask">이 모임으로 예약 신청</button><button type="button" class="btn btn-light btn-sm" id="scene-zoom">크게 보기</button></div>'
         + '<p class="view-desc"><b style="color:var(--graphite)">'+esc(v.label)+'</b> — '+esc(v.desc)+'</p>';
       $('#scene-ask').addEventListener('click', function(){ askWith(s); });
-      $('#scene-zoom').addEventListener('click', function(){ var list=scenesOf(s.view); var items=[{src:M.imgSrc(v.real), title:v.label+' · 빈 홀', cap:'비어 있는 홀입니다. 이어지는 장면들과 같은 자리입니다.', tag:''}].concat(M.sceneItems(list)); M.openLightbox(items, list.indexOf(s)+1); });
+      $('#scene-zoom').addEventListener('click', function(){ var list=scenesOf(s.view); var items=[{src:M.imgSrc(v.real), title:v.label+' · 공간 전경', cap:'메가스팟 건대 1호의 공간 전경입니다.', tag:''}].concat(M.sceneItems(list)); M.openLightbox(items, list.indexOf(s)+1); });
     }
 
     // 비교 슬라이더 — 포인터로 끌기 + 키보드(range)
@@ -343,9 +354,10 @@
     if(note) note.textContent=window.MEGASPOT_SCENE_NOTE||'';
 
     // 다른 페이지에서 ?scene=s04 로 들어오면 그 장면부터 보여 줍니다
-    var q=new URLSearchParams(location.search).get('scene');
-    selectView(VIEWS[0].id); renderGrid(''); setPos(50);
-    if(q && window.MEGASPOT_SCENE(q)) selectScene(q);
+    var query=new URLSearchParams(location.search), scene=query.get('scene');
+    var initialView=view(query.get('view')) || VIEWS[0];
+    selectView(initialView.id); renderGrid(''); setPos(50);
+    if(scene && window.MEGASPOT_SCENE(scene)) selectScene(scene);
   })();
 
   /* 장면 → 예약 신청 연결 */
@@ -402,6 +414,8 @@
     var cal=$('#calendar'); if(!cal) return;
     var today=new Date(); today.setHours(0,0,0,0);
     var cur=new Date(today.getFullYear(), today.getMonth(), 1), selected=null, cache={};
+    var dayLabels={open:'가능',partial:'일부',hold:'확보',full:'마감'};
+    var dayDescriptions={open:'신청 가능',partial:'일부 시간 예약, 다른 시간 문의 가능',hold:'임시 확보 중',full:'마감'};
     function load(y,m){
       var key=y+'-'+M.pad2(m+1); if(cache[key]) return Promise.resolve(cache[key]);
       var from=key+'-01', to=y+'-'+M.pad2(m+1)+'-'+M.pad2(new Date(y,m+1,0).getDate());
@@ -415,12 +429,17 @@
         ['일','월','화','수','목','금','토'].forEach(function(d){ h+='<div class="dow">'+d+'</div>'; });
         for(var i=0;i<first;i++) h+='<div class="cal-day pad"></div>';
         for(var d=1; d<=n; d++){
-          var iso=y+'-'+M.pad2(m+1)+'-'+M.pad2(d); var dt=new Date(y,m,d); var info=days[iso]||{}; var cls='cal-day ';
-          if(dt<today) cls+='past'; else if(info.state==='full') cls+='full'; else if(info.state==='hold') cls+='hold'; else if(info.state==='partial') cls+='partial'; else cls+='open';
-          if(selected===iso) cls+=' sel';
-          h+='<div class="'+cls+'" data-d="'+iso+'" role="button" tabindex="'+(dt<today||info.state==='full'?'-1':'0')+'" aria-label="'+M.fmtKDate(iso)+(info.state==='full'?' 마감':info.state==='hold'?' 임시 확보':info.state==='partial'?' 일부 시간 예약 있음, 다른 시간 문의 가능':' 문의 가능')+'">'+d+(info.state?'<span class="dot"></span>':'')+'</div>';
+          var iso=y+'-'+M.pad2(m+1)+'-'+M.pad2(d), dt=new Date(y,m,d), info=days[iso]||{};
+          var state=dt<today ? 'past' : (Object.hasOwn(dayLabels,info.state) ? info.state : 'open');
+          var canPick=state!=='past' && state!=='preopen' && state!=='full';
+          var isSelected=canPick && selected===iso;
+          var description=state==='past' ? '지난 날짜' : state==='preopen' ? '오픈 전' : dayDescriptions[state];
+          var classes='cal-day '+(state==='preopen' ? 'past' : state)+(isSelected?' sel':'');
+          var control=canPick ? 'tabindex="0" aria-pressed="'+isSelected+'"' : 'tabindex="-1" aria-disabled="true"';
+          var status=dayLabels[state] ? '<span class="cal-day-status" aria-hidden="true">'+dayLabels[state]+'</span>' : '';
+          h+='<div class="'+classes+'" data-d="'+iso+'" role="button" '+control+' aria-label="'+M.fmtKDate(iso)+' '+description+'">'+d+status+'</div>';
         }
-        h+='</div><div class="cal-legend"><span><i style="background:var(--concrete-3);border:1px solid var(--concrete)"></i>신청 가능 (확인 뒤 확정)</span><span><i style="background:var(--cobalt-soft);border:1px solid #BFD0F5"></i>일부 시간 예약 (다른 시간 가능)</span><span><i style="background:var(--warn-soft)"></i>임시 확보 중</span><span><i style="background:var(--concrete-2)"></i>마감</span><span><i style="background:var(--cobalt)"></i>선택한 날짜</span></div>';
+        h+='</div><div class="cal-legend"><span><i class="open"></i>신청 가능 (확인 뒤 확정)</span><span><i class="partial"></i>일부 시간 예약 (다른 시간 가능)</span><span><i class="hold"></i>임시 확보 중</span><span><i class="full"></i>마감</span><span><i class="sel"></i>선택한 날짜</span></div>';
         h+='<p class="tiny muted mt-2">'+(M.demo.on||!Object.keys(days).length?'달력은 안내용이며 실시간 재고가 아닙니다. 희망일을 고르면 예약 신청 화면에 들어가고, 확정 여부는 상담 때 안내합니다.':'표시 상태는 운영자가 갱신한 일정 기준이며 최종 확정은 금액 확인과 결제 뒤에 이뤄집니다.')+'</p>';
         cal.innerHTML=h;
         $('#cal-prev').addEventListener('click', function(){ cur=new Date(y,m-1,1); render(); });

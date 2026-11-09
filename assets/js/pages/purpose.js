@@ -11,7 +11,7 @@
     culture:{ want:'객석 어디서든 무대와 화면이 잘 보이고 잘 들리는 공연·상영', quote:['객석 배치와 무대 위치','음향 장비 연결과 사용 가능한 음량','상영 작품·음원의 공연권 확인','조명 조절과 종료 시각'], note:'메가스팟 건대 1호: 천장고 4.3m의 트인 홀이라 스크린 앞을 작은 무대로 쓰기 좋습니다. 공연 음량과 종료 시각은 행사 성격에 따라 미리 합의합니다.' },
     party:{ want:'장식·음식·프로그램을 함께 하는 모임', quote:['음식·주류 반입 범위와 케이터링','장식·설치물과 철수 시간','소음 허용 범위와 종료 시각','청소·파손·보증금 기준'], note:'메가스팟 건대 1호: 샹들리에와 벽돌 벽, 라운지가 있어 분위기를 살리기 좋고, 엘리베이터가 있어 어르신이 함께하는 가족 행사도 부담이 적습니다.' },
     popup:{ want:'판매와 전시, 관람 동선이 한 공간에서 정리되는 행사', quote:['반입 동선·엘리베이터 규격','부스 수와 전력 사용','설치·운영·철수 일정','외부 노출과 안내물 위치'], note:'메가스팟 건대 1호: 창가와 벽면을 따라 부스를 두고 가운데를 관람 동선으로 비우는 배치가 가능합니다. 전력과 반입 조건을 확인한 뒤 별도 견적으로 진행합니다.' },
-    shooting:{ want:'통제 가능한 촬영 환경', quote:['자연광 방향과 창 가림 가능 여부','소음·외부 간섭 차단','전력·장비 반입과 세팅 시간','초상권·공간 노출 범위'], note:'메가스팟 건대 1호: 연속창으로 들어오는 자연광과 벽돌 라운지, 노출 천장 같은 인더스트리얼 배경을 쓸 수 있습니다. 촬영은 사전 답사를 권합니다.', photos:['p05','p12','p15','p16'] }
+    shooting:{ want:'통제 가능한 촬영 환경', quote:['자연광 방향과 창 가림 가능 여부','소음·외부 간섭 차단','전력·장비 반입과 세팅 시간','초상권·공간 노출 범위'], note:'메가스팟 건대 1호: 연속창으로 들어오는 자연광과 벽돌 라운지, 노출 천장 같은 인더스트리얼 배경을 쓸 수 있습니다. 촬영은 사전 답사를 권합니다.', photos:['v02','v06','v09','v10'] }
   };
 
   // 목적별 메가스팟 건대 1호 요금 예시 — 요금 데이터(pricing-gundae.js)로 계산하므로 요금을 바꾸면 함께 바뀝니다
@@ -28,8 +28,7 @@
   function photosOf(p){
     var list=SC.filter(function(s){ return s.purpose===p.id; }).map(function(s){ return { id:s.id, title:s.title, cap:s.cap }; });
     if(!list.length){
-      var sp=window.MEGASPOT_GET_SPACE('megaspot-gundae'), byId={}; (sp?sp.photos:[]).forEach(function(ph){ byId[ph.id]=ph; });
-      list=((detail[p.id]||{}).photos||[p.cover]).filter(Boolean).map(function(id){ var ph=byId[id]||{}; return { id:id, title:ph.title||'메가스팟 건대 1호', cap:ph.cap||'' }; });
+      list=((detail[p.id]||{}).photos||[p.cover]).filter(Boolean).map(function(id){ var ph=M.visual(id)||{}; return { id:id, title:ph.title||'메가스팟 건대 1호', cap:ph.cap||'' }; });
     }
     // 대표 사진(cover)을 맨 앞으로
     list.sort(function(a,b){ return (b.id===p.cover)-(a.id===p.cover); });
@@ -53,7 +52,7 @@
       + '<div class="mt-3"><div class="kicker">견적에 적어야 할 조건</div><ul class="tags mt-1">'+(d.quote||[]).map(function(q){return '<li class="tag">'+esc(q)+'</li>';}).join('')+'</ul></div>'
       + '<div class="notice mt-3"><div>'+esc(d.note||'')+'</div></div>'
       + priceHint(p.id)
-      + '<div class="row mt-3"><a class="btn btn-primary btn-sm" href="/inquiry/?purpose='+p.id+(d.ask?'&type='+d.ask:'')+'">'+(d.ask==='regular'?'정기 모임 상담':'이 목적으로 예약 신청')+'</a><a class="btn btn-light btn-sm" href="/spaces/?purpose='+p.id+'">공간 찾기</a>'+(SC.some(function(s){return s.purpose===p.id;})?'<a class="btn btn-light btn-sm" href="/spaces/megaspot-gundae/?scene='+list[0].id+'#scenes">빈 홀과 비교</a>':'')+'</div></div>'
+      + '<div class="row mt-3"><a class="btn btn-primary btn-sm" href="/inquiry/?purpose='+p.id+(d.ask?'&type='+d.ask:'')+'">'+(d.ask==='regular'?'정기 모임 상담':'이 목적으로 예약 신청')+'</a><a class="btn btn-light btn-sm" href="/spaces/?purpose='+p.id+'">공간 찾기</a>'+(SC.some(function(s){return s.purpose===p.id;})?'<a class="btn btn-light btn-sm" href="/spaces/megaspot-gundae/?scene='+list[0].id+'#scenes">공간 전경과 비교</a>':'')+'</div></div>'
       + '<div><button type="button" class="photo-btn" data-p="'+p.id+'" data-i="0" aria-label="'+esc(main.title)+' 크게 보기"><img src="'+M.imgSrc(main.id,'m')+'" alt="'+esc(p.label)+' — '+esc(main.title)+'" loading="lazy">'+M.tagHtml(main.id)+'<span class="cap"><b style="display:block;font-size:15px">'+esc(main.title)+'</b>메가스팟 건대 1호</span></button>'+thumbs+'</div>'
       + '</div></article>';
   }).join('');

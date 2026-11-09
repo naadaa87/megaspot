@@ -1,4 +1,11 @@
 /* Start with the choices needed to plan an event. */
+.home-mobile-hall{display:none}
+.page-home .hero-dots button{width:auto;height:auto;min-height:40px;padding:6px 10px;border-radius:4px;background:#202629eb;color:white;font-size:13px;font-weight:700}
+.page-home .hero-dots button::before{content:none}
+.page-home .hero-dots button.on{background:white;color:var(--ink)}
+.page-home .hero-dots button:focus-visible{outline:3px solid #fff;outline-offset:2px}
+.page-home .hero-slides .slide{transition-duration:.28s}
+@media(prefers-reduced-motion:reduce){.page-home .hero-slides .slide{transition:none}}
 .page-home .home-section-nav{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
 .home-section-nav a{padding:7px 12px;border:1px solid var(--concrete-2);border-radius:4px;font-size:13px;font-weight:700;background:white}
 .home-venue-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
@@ -40,6 +47,14 @@
 .page-home a:focus-visible,.home-gallery-more>summary:focus-visible{outline:3px solid var(--cobalt);outline-offset:4px}
 @media(max-width:900px){.home-help-grid{gap:24px}.home-more-links{grid-template-columns:repeat(2,minmax(0,1fr))}.home-venue-content{padding:22px}.home-venue-content>.row{flex-direction:column;align-items:stretch}.home-venue-content>.row .btn{flex:auto}}
 @media(max-width:599px){
+ body.page-home .hero .container{padding-top:28px}
+ body.page-home .hero-copy{padding-bottom:24px}
+ body.page-home .hero-copy .h-xl{margin:14px 0 12px}
+ body.page-home .hero-copy .lead{line-height:1.6}
+ .page-home .hero-visual{display:none}
+ .home-mobile-hall{display:block;margin:14px 0 0}
+ .home-mobile-hall img{display:block;width:100%;height:auto;border-radius:var(--radius-lg)}
+ .home-mobile-hall figcaption{margin-top:6px;color:var(--ink-2);font-size:13px}
  .page-home #how .journey{gap:8px}
  .page-home #how .journey li a{padding:16px}
  .home-venue-grid,.home-help-grid{grid-template-columns:1fr;gap:20px}

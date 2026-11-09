@@ -331,20 +331,24 @@ table{border-collapse:collapse;width:100%}
 .cal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
 .cal-head b{font-size:17px}
 .cal-head button{width:36px;height:36px;border:1px solid var(--concrete);border-radius:var(--radius);display:grid;place-items:center;font-size:18px}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
 .cal-grid .dow{text-align:center;font-size:12px;color:var(--ink-3);padding:6px 0;font-weight:700}
 .cal-grid .dow:first-child{color:var(--rust)}
-.cal-day{aspect-ratio:1/1;border-radius:var(--radius);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:14px;font-weight:600;position:relative;border:1px solid transparent}
+.cal-day{aspect-ratio:1/1;border-radius:var(--radius);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:14px;font-weight:700;line-height:1.1;border:1px solid transparent}
 .cal-day.pad{visibility:hidden}
 .cal-day.past{color:var(--concrete);cursor:default}
-.cal-day.open{background:var(--concrete-3);color:var(--graphite);cursor:pointer}
-.cal-day.open:hover{border-color:var(--cobalt)}
-.cal-day.hold{background:var(--warn-soft);color:var(--warn);cursor:pointer}
-.cal-day.full{background:var(--concrete-2);color:var(--ink-3);text-decoration:line-through;cursor:not-allowed}
-.cal-day.sel{background:var(--cobalt);color:#fff;border-color:var(--cobalt)}
-.cal-day .dot{width:5px;height:5px;border-radius:50%;margin-top:3px;background:currentColor;opacity:.7}
+.cal-day.open,.cal-legend .open{background:#d6f0e3;color:#17563c;border-color:#8cbea5}
+.cal-day.partial,.cal-legend .partial{background:var(--cobalt-soft);color:var(--cobalt-2);border-color:#bfd0f5}
+.cal-day.hold,.cal-legend .hold{background:var(--warn-soft);color:#794b00;border-color:#e5c990}
+.cal-day.full,.cal-legend .full{background:#efefef;color:#555d65;border-color:#e1e1e1}
+.cal-day:is(.open,.partial,.hold){cursor:pointer}
+.cal-day:is(.open,.partial,.hold):not(.sel):hover{border-color:currentColor}
+.cal-day.full{cursor:not-allowed}
+.cal-day.sel,.cal-legend .sel{background:var(--cobalt);color:#fff;border-color:var(--cobalt)}
+.cal-day:focus-visible{outline:2px solid var(--cobalt-2);outline-offset:1px;z-index:1}
+.cal-day-status{font-size:10px;font-weight:600}
 .cal-legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;font-size:12.5px;color:var(--ink-2)}
-.cal-legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.cal-legend i{display:inline-block;width:12px;height:12px;border:1px solid transparent;border-radius:3px;margin-right:6px;vertical-align:-1px}
 
 /* ---------- misc ---------- */
 .toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,20px);background:var(--graphite);color:var(--chalk);padding:12px 18px;border-radius:var(--radius);font-size:14px;opacity:0;pointer-events:none;transition:.25s;z-index:120;max-width:calc(100vw - 32px)}
@@ -449,6 +453,8 @@ table{border-collapse:collapse;width:100%}
 @media (min-width:640px){.grid-layouts{grid-template-columns:repeat(2,1fr)}}
 @media (min-width:1100px){.grid-layouts{grid-template-columns:repeat(4,1fr)}}
 .grid-layouts .badge{white-space:normal;height:auto;padding:4px 10px;line-height:1.3;text-align:right}
+.layout-card-head{display:grid;grid-template-columns:max-content minmax(0,1fr);align-items:center;gap:8px}
+.layout-card-head .badge{justify-self:end;max-width:100%;word-break:keep-all}
 
 /* min-width guards (모바일에서 select·iframe 고유 너비가 그리드를 밀어내지 않도록) */
 .grid > *,.grid-2 > *,.grid-3 > *,.grid-4 > *,.grid-layouts > *,.field-row > *,.steps > *,.footer-grid > *,.f,.card,.form{min-width:0}
@@ -1907,9 +1913,6 @@ body:has(.subnav) section[id]{scroll-margin-top:calc(var(--header-h) + 22px)}
 .dr-deleted{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 14px;margin-bottom:12px;padding:12px 14px;background:#F4F4F5;border:1px solid #D5D8DB;border-left:4px solid #6B7178;border-radius:6px;font-size:13.5px;color:var(--ink-2)}
 .dr-deleted b{color:var(--ink)}
 .dr-deleted small{display:block;font-size:12px;color:var(--ink-3);margin-top:2px}
-.cal-day.partial{background:var(--cobalt-soft);color:var(--cobalt-2);border-color:#BFD0F5;cursor:pointer}
-.cal-day.partial:hover{border-color:var(--cobalt)}
-.cal-day.partial.sel{background:var(--cobalt);color:#fff}
 .cf-warn.info{background:var(--cobalt-soft);border-color:#BFD0F5;color:var(--ink)}
 
 /* 예약 대기 순번 (2026-10-17) */
@@ -1926,8 +1929,19 @@ body.rs-dragging,body.rs-dragging *{user-select:none;-webkit-user-select:none;cu
 @media (max-width:899px){.rs-row.pending .rs-grip{width:30px;height:30px;margin-right:8px}.rs-hint{margin-left:0;white-space:normal}}
 
 /* ---------- 출장뷔페 (2026-10-20) ---------- */
-.cat-hero-grid{display:grid;gap:28px;align-items:center}
-@media (min-width:1000px){.cat-hero-grid{grid-template-columns:1.02fr 1fr;gap:48px}}
+.cat-hero-grid{display:grid;gap:16px;align-items:center}
+@media (max-width:999px){
+  body.page-catering .page-hero.cat-hero{padding-block:24px 36px}
+  body.page-catering .page-hero.cat-hero .h-xl{margin:8px 0 0}
+  .cat-hero-detail>.row{margin-top:24px}
+  .cat-hero-ph img{display:block}
+}
+@media (min-width:1000px){
+  .cat-hero-grid{grid-template-columns:1.02fr 1fr;column-gap:48px;row-gap:0}
+  .cat-hero-title{align-self:end}
+  .cat-hero-ph{grid-column:2;grid-row:1 / span 2}
+  .cat-hero-detail{grid-column:1;grid-row:2;align-self:start}
+}
 .cat-hero-ph{margin:0;position:relative}
 .cat-hero-ph img{width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:var(--radius-lg);box-shadow:var(--shadow)}
 .cat-hero-ph figcaption{font-size:12.5px;color:var(--ink-3);margin-top:8px}

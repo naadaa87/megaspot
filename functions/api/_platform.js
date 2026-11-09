@@ -10,8 +10,8 @@ export const MEETUP_CATS = {
 // 모임 장소 — 메가스팟 직영 공간, 메가스팟 공간으로 협의 중, 다른 장소
 export const MEETUP_VENUES = { ...SPACES, tbd: '메가스팟 공간 협의 중', other: '다른 장소' };
 // 대표 이미지로 고를 수 있는 사진 (assets/img 아래 활용 장면·1호 사진·2호 완공 예상 이미지)
-export const MEETUP_COVERS = ['s01', 's09', 's20', 's05', 's04', 's14', 's06', 's13', 's23', 's12', 's11', 's10', 's07', 's08', 's19', 's22', 's16', 'p14', 'r01', 'r07', 'r09'];
-export const CAT_COVER = { seminar: 's01', networking: 's04', community: 's13', class: 's11', culture: 's07', party: 's06', popup: 's16', etc: 'p14' };
+export const MEETUP_COVERS = ['s01', 's09', 's20', 's05', 's04', 's14', 's06', 's13', 's23', 's12', 's11', 's10', 's07', 's08', 's19', 's22', 's16', 'v10', 'r01', 'r07', 'r09'];
+export const CAT_COVER = { seminar: 's01', networking: 's04', community: 's13', class: 's11', culture: 's07', party: 's06', popup: 's16', etc: 'v10' };
 // pending 검토 중 → open 모집 중 ↔ closed 모집 마감 · cancelled 주최자 취소 · rejected 반려 · hidden 숨김 (이용일이 지나면 화면에는 '종료')
 export const MEETUP_STATUS = { pending: '검토 중', open: '모집 중', closed: '모집 마감', cancelled: '모임 취소', rejected: '반려', hidden: '숨김', done: '종료' };
 export const PUBLIC_STATUS = ['open', 'closed', 'cancelled'];
@@ -27,7 +27,7 @@ export function timeOk(v) { const s = str(v, 5); return /^([01]\d|2[0-3]):[0-5]\
 // 바깥 주소는 https 만 받습니다. 홈페이지 안 주소는 /로 시작하는 경로만 받습니다.
 export function httpsUrl(v, max = 500) { const s = str(v, max); if (!s) return ''; try { const u = new URL(s); return u.protocol === 'https:' && !u.username && !u.password ? u.href : ''; } catch { return ''; } }
 export function linkOk(v) { const s = str(v, 500); if (/^\/(?!\/)[^\s<>"']*$/.test(s)) return s; return httpsUrl(s); }
-export function coverOk(v, cat) { const s = str(v, 500); if (MEETUP_COVERS.includes(s)) return s; return httpsUrl(s) || CAT_COVER[cat] || 'p14'; }
+export function coverOk(v, cat) { const s = str(v, 500); if (s === 'p14') return 'v10'; if (MEETUP_COVERS.includes(s)) return s; return httpsUrl(s) || CAT_COVER[cat] || 'v10'; }
 export function bounded(v, lo, hi) { const n = num(v); return n === null ? null : Math.max(lo, Math.min(hi, n)); }
 export function tags(v) { const a = Array.isArray(v) ? v : String(v || '').split(/[,#\n]/); return a.map(x => str(x, 20).replace(/^#/, '')).filter(Boolean).filter((x, i, l) => l.indexOf(x) === i).slice(0, 5); }
 export function safeJson(s) { try { return JSON.parse(s || '{}') || {}; } catch { return {}; } }
@@ -81,7 +81,7 @@ export function publicMeetup(row, counts, { full = true, today = kstToday() } = 
     venue: row.venue, venue_label: MEETUP_VENUES[row.venue] || '', venue_text: d.venue_text || '',
     capacity: row.capacity, min_people: d.min_people || 0, max_per: d.max_per || 1, mode: d.mode || 'auto', waitlist: d.waitlist !== false,
     deadline: d.deadline || '', fee_type: d.fee_type || 'free', fee: d.fee || 0, fee_note: d.fee_note || '',
-    cover: d.cover || CAT_COVER[row.category] || 'p14', tags: d.tags || [], host_name: d.host_name || '',
+    cover: d.cover === 'p14' ? 'v10' : (d.cover || CAT_COVER[row.category] || 'v10'), tags: d.tags || [], host_name: d.host_name || '',
     verified: !!row.verified, featured: !!row.featured,
     seats: c.seats || 0, waiting: c.waiting || 0, created_at: String(row.created_at || '').slice(0, 10)
   };
