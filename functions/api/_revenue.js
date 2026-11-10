@@ -2,6 +2,7 @@ import {PRODUCTS} from './_catalog.js';
 import {DEFAULT_SPACE,err,isDate,json,kstToday,SPACES} from './_lib.js';
 import {refundAmountSql} from './_payapp_refund_history.js';
 import {legacyPaymentSourceSql} from './_settlement.js';
+import {bookingAmountSql} from './_amounts.js';
 
 const verificationIds = PRODUCTS.items.filter(p => p.kind === 'verification').map(p => p.id);
 const spaces = [...Object.keys(SPACES), 'unassigned'];
@@ -43,7 +44,7 @@ export async function revenueAdmin({env,url,method,operationalBookingSql,archive
         COALESCE(b.date,o.event_date,i.event_date) AS event_date,
         CASE WHEN o.product_id LIKE 'parking-%' THEN NULL
           ELSE COALESCE(b.space_id,i.space_id,CASE WHEN o.product_id LIKE 'pass-%' THEN '${DEFAULT_SPACE}' END)
-        END AS space_id, b.booking_code
+        END AS space_id, b.booking_code, o.inquiry_ref
       FROM orders o
       LEFT JOIN bookings b ON b.booking_code=o.booking_code
       LEFT JOIN inquiries i ON i.ref=COALESCE(b.inquiry_ref,o.inquiry_ref)
@@ -88,6 +89,26 @@ export async function revenueAdmin({env,url,method,operationalBookingSql,archive
     details AS (
       SELECT * FROM filtered ${day ? 'WHERE day=?' : ''}
       ORDER BY day DESC,occurred_at DESC,id DESC LIMIT ? OFFSET ?
+    ),
+    upcoming AS (
+      SELECT b.booking_code,b.date,b.space_id,b.customer_name,${bookingAmountSql()} AS amount
+      FROM bookings b
+      WHERE b.status='confirmed' AND b.date BETWEEN ? AND ? AND b.space_id IN (?,?)
+        ${space ? 'AND b.space_id=?' : ''}
+        AND NOT EXISTS (
+          SELECT 1 FROM manual m WHERE m.booking_code=b.booking_code AND m.kind='receipt' AND m.amount>0
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM online o WHERE o.booking_code=b.booking_code OR (
+            o.booking_code IS NULL AND o.inquiry_ref=b.inquiry_ref AND o.space_id=b.space_id
+            AND (o.event_date=b.date OR (
+              o.event_date IS NULL AND NOT EXISTS (
+                SELECT 1 FROM bookings other WHERE other.inquiry_ref=b.inquiry_ref
+                  AND other.booking_code<>b.booking_code AND other.status<>'cancelled'
+              )
+            ))
+          )
+        )
     )
     SELECT 'daily' AS section,day,branch,COUNT(*) AS count,
       SUM(CASE WHEN kind='receipt' THEN amount ELSE 0 END) AS received,
@@ -97,15 +118,24 @@ export async function revenueAdmin({env,url,method,operationalBookingSql,archive
     FROM filtered GROUP BY day,branch
     UNION ALL
     SELECT 'detail',day,branch,NULL,NULL,NULL,occurred_at,recorded_day,event_date,ref,booking_code,title,source,kind,amount,estimated,id
-    FROM details ORDER BY section,day DESC,occurred_at DESC,id DESC`;
+    FROM details
+    UNION ALL
+    SELECT 'upcoming',date,space_id,NULL,NULL,NULL,NULL,NULL,NULL,NULL,booking_code,customer_name,NULL,NULL,amount,NULL,booking_code
+    FROM upcoming WHERE amount IS NULL OR amount>0
+    ORDER BY section,day DESC,occurred_at DESC,id DESC`;
   const args = [...verificationIds,archivedStatus,...Object.keys(SPACES),from,to];
   if (space) args.push(space);
   if (day) args.push(day);
-  args.push(pageSize,(page-1)*pageSize);
+  args.push(pageSize,(page-1)*pageSize,from>today?from:today,to,...Object.keys(SPACES));
+  if (space) args.push(space);
   const {results} = await env.DB.prepare(sql).bind(...args).all();
   const total = totals(), daily = new Map(), branches = Object.fromEntries(spaces.map(id => [id,totals()]));
-  const items = [];
+  const items = [], upcoming = [];
   for (const row of results || []) {
+    if (row.section === 'upcoming') {
+      upcoming.push({day:row.day,branch:row.branch,booking_code:row.booking_code,customer_name:row.title,amount:row.amount});
+      continue;
+    }
     if (row.section === 'detail') {
       const {section,count,received,refunded,id,...item} = row;
       items.push(item);
@@ -119,5 +149,5 @@ export async function revenueAdmin({env,url,method,operationalBookingSql,archive
     add(total,row);
   }
   const detailCount = day ? daily.get(day)?.count || 0 : total.count;
-  return json({ok:true,total,branches,daily:[...daily.values()],items,detailCount,page,pageSize},200,{'cache-control':'no-store'});
+  return json({ok:true,total,branches,daily:[...daily.values()],items,detailCount,page,pageSize,upcoming:upcoming.reverse()},200,{'cache-control':'no-store'});
 }

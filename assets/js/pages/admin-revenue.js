@@ -30,6 +30,20 @@
   function table(headers, rows, firstMoneyColumn) {
     return '<table><thead><tr>'+headers.map((name,index)=>'<th scope="col"'+(index>=firstMoneyColumn?' class="revenue-num"':'')+'>'+name+'</th>').join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table>';
   }
+  function renderUpcoming(items, space) {
+    const branches = space ? [space] : columns.filter(key=>key!=='unassigned');
+    $('revenue-upcoming-items').innerHTML = branches.map(key=>{
+      const rows = items.filter(item=>item.branch===key);
+      if(key==='unassigned') return '<p class="small muted mt-2">공통·지점 미지정에는 지점별 예정 예약이 없습니다.</p>';
+      const content = rows.length ? table(['이용일','예약자·단체','수납 기록','예약 금액'],rows.map(row=>
+        '<tr><td class="revenue-date">'+esc(row.day)+'</td><td>'+esc(row.customer_name)+'</td>'
+        +'<td><button type="button" class="btn btn-light btn-sm" data-settlement-code="'+esc(row.booking_code)
+        +'" aria-label="예약 '+esc(row.booking_code)+' 수납 기록">'+esc(row.booking_code)+'</button></td>'
+        +(row.amount==null?'<td class="revenue-num muted">금액 미정</td>':money(row.amount))+'</tr>'),3)
+        : '<p class="small muted">해당 기간에 입금 확인 전인 예정 예약이 없습니다.</p>';
+      return '<div class="mt-3"><h3>'+labels[key]+' · '+rows.length+'건</h3><div class="revenue-table-wrap">'+content+'</div></div>';
+    }).join('');
+  }
   function render(r) {
     const filtered = filters.get('space');
     const shownBranches = filtered ? [] : columns;
@@ -38,6 +52,7 @@
     $('revenue-totals').innerHTML = cards.map(([name,t])=>'<div class="adm-card revenue-total"><h2>'+name+'</h2><dl>'
       +'<dt>수납액</dt><dd>'+won(t.received)+'</dd><dt>환불액</dt><dd>'+won(t.refunded)+'</dd>'
       +'<dt>순매출</dt><dd class="'+(t.net<0?'revenue-refund':'')+'">'+won(t.net)+'</dd></dl></div>').join('');
+    renderUpcoming(r.upcoming || [],filtered);
     dayList.innerHTML = r.daily.length ? table(['날짜','수납액','환불액','순매출',...shownBranches.map(key=>labels[key])],
       r.daily.map(d=>'<tr><td class="revenue-date"><button type="button" class="btn btn-light btn-sm" data-revenue-day="'+esc(d.day)+'" aria-pressed="'+(selectedDay===d.day)+'">'+esc(d.day)+'</button></td>'
         +money(d.received)+money(d.refunded)+money(d.net)+shownBranches.map(key=>money(d.branches[key]?.net||0)).join('')+'</tr>'),1)

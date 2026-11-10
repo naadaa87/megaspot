@@ -114,3 +114,38 @@ test('페이지를 넘겨도 합계가 고정되고 관리자 인증과 조회 �
   const authenticated = await handle(new Request(url,{headers:{'x-admin-key':env.ADMIN_KEY}}));
   assert.equal(authenticated.headers.get('cache-control'),'no-store');
 });
+
+test('입금 확인 전 예정 예약은 지점별로 표시하고 수납을 기록하면 이용월에만 집계한다', async t => {
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-31T14:00:00Z')});
+  const {db,api} = setup(t);
+  addBooking(db,'BK-SECOND',second);
+  addBooking(db,'BK-PAST',first);
+  addBooking(db,'BK-CANCELLED',first,'cancelled');
+  addBooking(db,'BK-FREE',first);
+  addBooking(db,'BK-ONLINE',first);
+  addBooking(db,'BK-LEGACY',first);
+  db.prepare("UPDATE bookings SET date='2026-10-30',amount=100000 WHERE booking_code='BK-PAST'").run();
+  db.prepare("UPDATE bookings SET amount=0 WHERE booking_code='BK-FREE'").run();
+  db.prepare("UPDATE bookings SET confirm_doc=json_object('paid',10000,'updated_at',?) WHERE booking_code='BK-LEGACY'").run(stamp);
+  order(db,'CHECKOUT-WAIT',{booking:'BK-TEST',status:'pending'});
+  order(db,'ONLINE',{booking:'BK-ONLINE'});
+
+  const before = await api(range);
+  assert.deepEqual(before.upcoming.map(r=>[r.booking_code,r.branch,r.amount]),[
+    ['BK-SECOND',second,null],['BK-TEST',first,500000]
+  ]);
+  assert.deepEqual(before.total,amounts(110000,0,2));
+  assert.deepEqual((await api(range+'&space='+second)).upcoming.map(r=>r.booking_code),['BK-SECOND']);
+  assert.equal((await api('revenue?from=2026-10-01&to=2026-10-31')).upcoming.length,0);
+
+  const {settlement} = await api('bookings/BK-TEST/settlement');
+  await api('bookings/BK-TEST/settlement','POST',{
+    kind:'receipt',amount:200000,expected_revision:settlement.revision,request_id:crypto.randomUUID()
+  });
+  const after = await api(range);
+  assert.deepEqual(after.upcoming.map(r=>r.booking_code),['BK-SECOND']);
+  assert.deepEqual(after.total,amounts(310000,0,3));
+  const receipt = after.items.find(r=>r.booking_code==='BK-TEST');
+  assert.deepEqual([receipt.day,receipt.recorded_day,receipt.amount],[event,'2026-10-31',200000]);
+  assert.deepEqual((await api('revenue?from=2026-10-01&to=2026-10-31')).total,amounts(0,0,0));
+});
