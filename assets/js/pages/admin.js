@@ -1937,11 +1937,9 @@
     var by={}; function add(d,html){ (by[d]=by[d]||[]).push(html); }
     var room=function(x){ return x.space_id==='megaspot-gundae-2'?'2호':'1호'; };
     var label=function(x){ return room(x)+' · '; };
-    var fullDays=new Set();
     blocks.forEach(function(b){
       var full=b.state==='full',memo=b.memo&&b.memo.indexOf('예약 ')!==0?' · '+b.memo:'';
       if(full){
-        fullDays.add(b.space_id+'|'+b.date);
         add(b.date,'<i class="ev full cal-booked" title="'+esc(label(b)+'종일 마감'+memo)+'"><span class="cal-booked-label">'+room(b)+' 마감</span><span>'+esc('종일'+memo)+'</span></i>');
       }else add(b.date,'<i class="ev hold">'+label(b)+'확보'+esc(memo)+'</i>');
     });
@@ -1950,16 +1948,14 @@
       if(b.status==='cancelled') return;
       var person=(b.customer_name||'')+(b.headcount?' '+b.headcount+'명':'');
       var ref=b.inquiry_ref?' data-ref="'+esc(b.inquiry_ref)+'"':'';
-      if(b.status==='confirmed'&&!fullDays.has(b.space_id+'|'+b.date)){
+      if(b.status==='confirmed'){
         var known=Number.isInteger(b.start_h)&&Number.isInteger(b.end_h)&&b.start_h>=0&&b.end_h<=48&&b.start_h<b.end_h;
-        if(known){
-          var time=hour(b.start_h)+'–'+hour(b.end_h);
-          add(b.date,'<i class="ev full cal-booked"'+ref+' title="'+esc(label(b)+time+' 마감 · '+person)+'"><span class="cal-booked-label">'+room(b)+' 마감</span><span>'+esc(time)+'</span><span>'+esc(person)+'</span></i>');
-          return;
-        }
-        person='확정 · 시간 확인 · '+person;
+        var time=known?hour(b.start_h)+'–'+hour(b.end_h):'시간 확인 필요';
+        add(b.date,'<i class="ev bk cal-booked"'+ref+' title="'+esc(label(b)+'예약 확정 · '+time+' · '+person)+'"><span class="cal-booked-label">'+room(b)+' 확정</span><span>'+esc(time)+'</span><span>'+esc(person)+'</span></i>');
+        return;
       }
-      add(b.date,'<i class="ev bk"'+ref+'>'+label(b)+esc(person)+'</i>');
+      var status=b.status==='payment_review'?'결제 확인':'이용 완료';
+      add(b.date,'<i class="ev '+(b.status==='payment_review'?'hold':'inq')+'"'+ref+'>'+label(b)+status+' · '+esc(person)+'</i>');
     });
     inqs.forEach(function(i){ var d=(i.data&&i.data.date)||i.event_date; if(d) add(d,'<i class="ev inq" data-ref="'+esc(i.ref)+'">'+label(i)+esc(i.name||'')+' · '+esc(i.status)+'</i>'); });
     var h='<div class="dw">일</div><div class="dw">월</div><div class="dw">화</div><div class="dw">수</div><div class="dw">목</div><div class="dw">금</div><div class="dw">토</div>';

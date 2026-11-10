@@ -54,4 +54,23 @@
 .rv-availability-summary{margin-bottom:20px;padding:14px 16px;border-radius:8px;background:#fff7ef;color:#823b21;font-size:13px;line-height:1.8}.rv-availability-summary button{display:block;margin-top:10px}
 @media(max-width:719px){.rv-availability{padding:14px 12px}.rv-availability-choices{display:grid;grid-template-columns:1fr}.rv-availability-choices button{width:100%}}
 
-/* Waiting requests remain distinct from confirmed occupancy. */
+/* One time scale and status palette for both venues. */
+.reservation-calendar{--rc-confirmed:#21664e;--rc-free:#dceafa;--rc-unknown:#e6e4df}
+.rc-slot-legend{display:flex;flex-wrap:wrap;gap:5px 12px;margin-bottom:12px;font-size:11px}
+.rc-slot-legend span{display:inline-flex;gap:5px;align-items:center}
+.rc-slot-legend span::before{content:"";width:11px;height:11px;border-radius:3px;background:var(--slot-color)}
+.rc-slot-confirmed{--slot-color:var(--rc-confirmed)}
+.rc-slot-free{--slot-color:var(--rc-free)}
+.rc-slot-unknown{--slot-color:var(--rc-unknown)}
+.rc-time-axis{display:block;position:relative;height:16px}
+.rc-time-axis span{position:absolute;transform:translateX(-50%);white-space:nowrap}
+.rc-time-axis span:first-child{transform:none}
+.rc-time-axis span:last-child{transform:translateX(-100%)}
+.rc-timeline,.rc-two .rc-timeline{background:#eee}
+.reservation-calendar .rc-timeline span{background:var(--slot-color)}
+.rc-timeline .rc-slot-unknown{--slot-color:repeating-linear-gradient(135deg,#e6e4df 0 4px,#d5d2cb 4px 8px)}
+.rc-times .rc-slot-info{display:flex;align-items:baseline;gap:4px 9px;flex-wrap:wrap}
+.rc-times small.rc-slot-confirmed{background:#e4f2eb;color:var(--rc-confirmed)}
+.rc-times small.rc-slot-free{background:#edf4ff;color:#20487d}
+.rc-slot-pick{flex:none;padding:7px 12px;min-height:40px;border:1px solid #c7dbf7;border-radius:7px;background:#f3f7ff;color:#20487d;font:inherit;cursor:pointer}
+@media(max-width:719px){.rc-slot-pick{min-height:44px}.rc-times li{gap:5px 10px}}

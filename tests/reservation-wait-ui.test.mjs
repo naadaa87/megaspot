@@ -35,6 +35,22 @@ test('confirmed conflicts still disable calendar selection and malformed occupan
  assert.equal(f.node('[data-rc=apply]').disabled,true);assert.match(f.node('.rc-selection-status').textContent,/확정 예약/);f.panel.destroy();
  const missing=calendar({malformed:true});await flush();assert.equal(missing.node('[data-rc=apply]').disabled,true);assert.match(missing.node('.rc-error').textContent,/예약 현황을 확인할 수 없습니다/);missing.panel.destroy();
 });
+test('an overnight booking leaves the daytime range selectable and covers early hours the next morning',async()=>{
+ const next='2026-11-25';
+ const f=calendar({intervals:[{space:ONE,start:date+'T18:00:00+09:00',end:next+'T07:00:00+09:00'}]});await flush();
+ const detail=f.node('.rc-day-detail');
+ assert.match(detail.innerHTML,/18:00–다음 날 07:00<\/span><small class="rc-slot-confirmed">예약 확정/);
+ assert.match(detail.innerHTML,/data-use-room="megaspot-gundae" data-start="5" data-end="18"/);
+ f.click({useRoom:ONE,start:'5',end:'18'});
+ assert.match(f.node('.rc-selected-date').textContent,/05:00–18:00/);
+ f.click({rc:'apply'});await flush();assert.equal(f.selected[0]?.end,18);
+ assert.equal((await f.M.reservations.checkRange({space:ONE,date,start:10,end:17})).conflict,false);
+ assert.equal((await f.M.reservations.checkRange({space:ONE,date,start:18,end:31})).conflict,true);
+ f.click({day:next});
+ assert.match(detail.innerHTML,/05:00–07:00<\/span><small class="rc-slot-confirmed">예약 확정/);
+ assert.match(detail.innerHTML,/data-use-room="megaspot-gundae" data-start="7" data-end="31"/);
+ f.panel.destroy();
+});
 function pricingFunctions(names,ctx){const code=read('assets/js/pricing-ui.js');vm.createContext(ctx);for(const name of names){const start=code.indexOf('    function '+name+'('),end=code.indexOf('\n    function ',start+1);assert(start>=0,name);vm.runInContext(code.slice(start,end),ctx);}return ctx;}
 function receipt({wait={no:1,total:1,date,space_id:ONE},unknown=false,live=true}={}){
  const nodes={result:element(),mini:element()},r={date,range:'10:00–17:00',people:30,total:400000,deposit:150000,pkg:{label:'낮 패키지'},...(unknown?{plan:{unknownDate:true,html:'일정 상담'}}:{})};
