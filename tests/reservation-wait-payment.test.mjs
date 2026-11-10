@@ -145,10 +145,10 @@ test('문의 제출 응답은 방금 접수한 본인 정확 순번을 반환하
  const undecided=await submit({});assert.equal(undecided.wait,null);
 });
 
-test('공개 예약 달력은 날짜·호점별 대기 건수만 제공한다',async t=>{
+test('공개 예약 달력은 문의나 대기 건수를 제공하지 않는다',async t=>{
  const f=setup(t);f.pending();f.pending({space:'request'});f.pending({space:'megaspot-gundae-2'});f.pending({status:'대기 취소'});f.pending({date:OTHER});
  const response=await calendar({env:f.env,request:new Request('https://local.test/api/reservation-calendar?from='+DAY+'&to='+DAY)}),body=await response.json();assert.equal(response.status,200);
- assert.deepEqual(body.pendingDates,[{space:SPACE,date:DAY,count:2,next_wait_no:3},{space:'megaspot-gundae-2',date:DAY,count:1,next_wait_no:2}]);for(const secret of ['PRIVATE','01099998888','private@example.invalid','MS-WAIT'])assert.ok(!JSON.stringify(body).includes(secret));
+ assert.equal('pendingDates' in body,false);assert.deepEqual(body.intervals,[]);assert.deepEqual(body.unknownDates,[]);for(const secret of ['PRIVATE','01099998888','private@example.invalid','MS-WAIT'])assert.ok(!JSON.stringify(body).includes(secret));
 });
 
 test('대기 조회 API는 알림·가이드·주차 발송 작업을 예약하지 않는다',async t=>{

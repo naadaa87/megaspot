@@ -116,7 +116,7 @@ test('대기 취소·복원·확정 후 관리자와 고객 순번이 일치하�
   assert.equal((await f.availability('allnight')).body.slot_blocked,false);
   assert.equal(f.payappCalls(),0);
   const schedule=await f.getCalendar();
-  assert.deepEqual(schedule.pendingDates,[{space:SPACE_TWO,date:f.date,count:1,next_wait_no:2}]);
+  assert.equal('pendingDates' in schedule,false);
   assert.equal(schedule.intervals[0].start,f.date+'T10:00:00+09:00');
 });
 
