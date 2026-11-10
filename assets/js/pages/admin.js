@@ -270,7 +270,7 @@
           +'<span><b>'+esc(d.name||it.name||'')+'</b>'+spaceTag(it.space_id)+(d.reserve?' <span class="tag-rv">예약 신청</span>':'')+'<small>'+esc(d.phone||it.phone||'')+'</small><small>'+chTag(d.channel||'web', d.channel_note)+(d.came_from&&d.came_from.label&&(d.channel||'web')==='web'?'<span class="came">'+esc(d.came_from.label)+' 유입</span>':'')+(famAsk(d)?'<span class="came fam">+ '+esc(famAsk(d))+'</span>':'')+(d.cocktail?'<span class="came cat">'+(d.cocktail.status==='cancelled'?'칵테일 취소':'출장 칵테일 '+esc(d.cocktail.cups)+'잔'+(d.cocktail.status==='confirmed'?' · 확정':''))+'</span>':'')+(d.catering?'<span class="came cat'+(d.catering.status?' s-'+esc(d.catering.status):'')+'">'+(d.catering.status&&CST[d.catering.status]?'출장뷔페 '+CST[d.catering.status][0]:'+ 출장뷔페')+'</span>':'')+'</small><small>'+esc(TYPE[d.inquiry_type]||'행사 대관')+(d.member_id?' · 회원':'')+'</small></span>'
           +'<span>'+(d.inquiry_type==='partner'?esc(d.org||'제휴 제안'):esc(kd(d.date||it.event_date)))+'<small>'+esc([time, (d.headcount||it.headcount)?(d.headcount||it.headcount)+'명':'', PUR[d.purpose]||''].filter(Boolean).join(' · '))+'</small></span>'
           +'<span>'+stBadge(it.status)+(it.status===DELETED&&d.deleted_at?'<small>삭제 '+esc(String(d.deleted_at).slice(5,16))+'</small>':'')+'</span>'
-          +'<span>'+(currentAmount(it)!=null?'<b>'+esc(man(currentAmount(it)))+'</b><small>'+(d.amount_override?'운영자 수정 금액':'금액')+'</small>':'<small>미정</small>')+'</span>'
+          +'<span>'+inquiryListAmount(it,d)+'</span>'
           +'<span class="inq-memo"><small class="inq-memo-label">운영 메모</small><span class="adm-operation-memo">'+esc(it.memo||'–')+'</span></span></div>';
       }).join('');
       selSync();
@@ -475,19 +475,38 @@
     if(!overview)return '';
     return overview.render(inquiryOverviewModel(it,d));
   }
+  function inquiryRoomAmount(it,d,lastQuote){
+    var amount=currentAmount(it,lastQuote);
+    if(amount==null)return null;
+    var included=Number(d.included_catering_amount)||0;
+    var quoteTotal=lastQuote?lastQuote.total:it.quote_total;
+    // Older quotes can include catering without recording its included amount on the inquiry.
+    if(d.included_catering_amount==null&&amount===quoteTotal){
+      included=lastQuote?((lastQuote.data||{}).extras||[]).filter(function(x){return x.kind==='catering'||/^출장뷔페 ·/.test(x.label||'');}).reduce(function(sum,x){return sum+Math.max(0,+x.amount||0);},0):Number(it.legacy_quote_catering_amount)||0;
+    }
+    return Math.max(0,amount-included-(Number(d.included_reception_amount)||0)-(Number(d.included_cocktail_amount)||0));
+  }
+  function inquiryListAmount(it,d){
+    var amount=currentAmount(it),overview=window.MEGASPOT_INQUIRY_OVERVIEW;
+    if(d.catering&&overview){
+      var model=overview.build(it,{roomAmount:inquiryRoomAmount(it,d)});
+      var buffet=model.rows[1];
+      if(model.hasAmount){
+        var total='<b>'+esc(won(model.total))+'</b><small>'+(model.incomplete?'계산 가능한 소계':'공간·식음료 예상 합계')+'</small>';
+        if(!buffet.cancelled&&buffet.amount!=null)total+='<small>출장뷔페 '+esc(won(buffet.amount))+'</small>';
+        if(amount!=null&&amount!==model.total)total+='<small>현재 견적 금액 '+esc(won(amount))+'</small>';
+        return total;
+      }
+    }
+    return amount!=null?'<b>'+esc(man(amount))+'</b><small>'+(d.amount_override?'운영자 수정 금액':'금액')+'</small>':'<small>미정</small>';
+  }
   function inquiryOverviewModel(it,d){
-    var overview=window.MEGASPOT_INQUIRY_OVERVIEW,amount=currentAmount(it,(cur.quotes||[])[0]),names=window.MEGASPOT_COCKTAIL_CALC;
-    var included=Number(d.included_catering_amount)||0, last=(cur.quotes||[])[0];
-    // Older saved combined quotes have no marker; match the exact saved total before inferring it.
-    if(d.included_catering_amount==null && last && amount===last.total){ included=((last.data||{}).extras||[]).filter(function(x){ return x.kind==='catering'||/^출장뷔페 ·/.test(x.label||''); }).reduce(function(sum,x){ return sum+Math.max(0,+x.amount||0); },0); }
-    if(amount!=null) amount=Math.max(0,amount-included-(Number(d.included_reception_amount)||0)-(Number(d.included_cocktail_amount)||0));
-    return overview.build(it,{roomAmount:amount,spaceName:d.listing&&d.listing.name?d.listing.name:spaceName(it.space_id||d.space_id||DEFAULT_SPACE),conditions:[d.date?kd(d.date):'행사일 미정',timeText(d,' – '),d.headcount?d.headcount+'명':'',optText(d.options)].filter(Boolean).join(' · '),roomNote:d.amount_override||d.amount_mode==='manual'?'운영자 수정 금액 · 식음료 별도':'현재 공간 금액 기준 · 식음료 별도',cocktailNames:names?names.names:{}});
+    var overview=window.MEGASPOT_INQUIRY_OVERVIEW,names=window.MEGASPOT_COCKTAIL_CALC;
+    return overview.build(it,{roomAmount:inquiryRoomAmount(it,d,(cur.quotes||[])[0]),spaceName:d.listing&&d.listing.name?d.listing.name:spaceName(it.space_id||d.space_id||DEFAULT_SPACE),conditions:[d.date?kd(d.date):'행사일 미정',timeText(d,' – '),d.headcount?d.headcount+'명':'',optText(d.options)].filter(Boolean).join(' · '),roomNote:d.amount_override||d.amount_mode==='manual'?'운영자 수정 금액 · 식음료 별도':'현재 공간 금액 기준 · 식음료 별도',cocktailNames:names?names.names:{}});
   }
   function amountSection(it, d){
     var lastQ=(cur.quotes||[])[0], amount=currentAmount(it,lastQ), src='';
-    var included=Number(d.included_catering_amount)||0;
-    if(d.included_catering_amount==null && lastQ && amount===lastQ.total){ included=((lastQ.data||{}).extras||[]).filter(function(x){ return x.kind==='catering'||/^출장뷔페 ·/.test(x.label||''); }).reduce(function(sum,x){ return sum+Math.max(0,+x.amount||0); },0); }
-    var roomAmount=amount==null?null:Math.max(0,amount-included-(Number(d.included_reception_amount)||0)-(Number(d.included_cocktail_amount)||0));
+    var roomAmount=inquiryRoomAmount(it,d,lastQ);
     if(amount!=null) src=d.amount_override?'운영자 설정 금액':(amount!==d.total?'예약·견적 금액':(d.source==='admin'?(d.amount_mode==='auto'?'요금표 계산':'직접 입력'):(d.amount_mode==='manual'?'운영자 수정':(d.amount_mode==='auto'?'요금표 계산 (운영자)':'고객이 확인한 예상 금액'))));
     return '<div class="dr-sec dr-amount"><h3>현재 견적 금액 관리</h3>'
       +'<div class="dr-amt-now">'+(amount!=null?'<b>'+esc(won(amount))+'</b><span class="small muted">'+esc(src)+(d.amount_note?' · '+esc(d.amount_note):'')+'</span>':'<span class="muted">아직 정하지 않았습니다.</span>')+'</div>'

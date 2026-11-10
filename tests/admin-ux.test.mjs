@@ -70,7 +70,7 @@ test('뷔페를 포함한 견적은 문의 요약·고객 안내문에서 한 �
   await saveQuote(api, { total: 800000, extras: [{ kind: 'catering', label: '출장뷔페 · 구성', amount: 300000 }] });
   const it = (await api('inquiries/MS-TEST')).item;
   const ctx = vm.createContext({ window: { MEGASPOT_INQUIRY_OVERVIEW: overview.module.exports }, cur: { quotes: [] }, currentAmount: x => x.effective_amount, spaceName: () => '', DEFAULT_SPACE: 'megaspot-gundae', kd: x => x, timeText: () => '', optText: () => '' });
-  vm.runInContext(source.slice(source.indexOf('  function inquiryOverviewModel('), source.indexOf('  function amountSection(')), ctx);
+  vm.runInContext(source.slice(source.indexOf('  function inquiryRoomAmount('), source.indexOf('  function amountSection(')), ctx);
   const model = ctx.inquiryOverviewModel(it, it.data); assert.equal(model.rows[0].amount, 500000); assert.equal(model.total, 800000); assert.ok(overview.module.exports.customerText(model).includes('800,000원'));
 });
 test('뷔페 구성 수정·취소는 포함된 관리 금액에서도 반영됨', async t => {

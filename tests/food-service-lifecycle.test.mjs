@@ -56,3 +56,32 @@ test('기존 발급본은 재발급 필요로 안내하고 식음료 스냅샷�
 });
 
 test('기존 문의의 칵테일도 메뉴명을 보완하고 접수 당시 저장 가격을 유지',async t=>{const f=setup(t),old={cups:100,price:750000,menus:['mojito','gin_tonic'],nonalcohol:true};f.db.prepare("UPDATE inquiries SET data=json_set(data,'$.cocktail',json(?),'$.included_cocktail_amount',750000,'$.cocktail_in_quote',json('true'))").run(JSON.stringify(old));const doc=await f.api('bookings/BK-TEST/confirm-doc');assert.equal(doc.food_services[0].amount,750000);assert.deepEqual(doc.food_services[0].menu_names,['모히토','진토닉']);});
+
+test('문의 목록은 별도로 저장한 출장뷔페의 최신 예상 합계를 보여 주고 확정 금액은 그대로 둔다',async t=>{
+ const f=setup(t);
+ const {readFileSync}=await import('node:fs');
+ const vm=await import('node:vm');
+ const source=readFileSync(new URL('../assets/js/pages/admin.js',import.meta.url),'utf8');
+ const context=vm.createContext({window:{MEGASPOT_INQUIRY_OVERVIEW:O},won:value=>value.toLocaleString('ko-KR')+'원',esc:String});
+ for(const name of ['currentAmount','inquiryRoomAmount','inquiryListAmount']){
+  const start=source.indexOf('  function '+name+'(');
+  vm.runInContext(source.slice(start,source.indexOf('\n  function ',start+1)),context);
+ }
+ const before=(await item(f)).effective_amount;
+ for(const people of [60,80]){
+  const saved=await f.api('catering/orders','POST',{inquiry_ref:'MS-TEST',config:{course:'classic',people},status:'confirmed'});
+  const row=(await f.api('inquiries?q=MS-TEST')).items[0];
+  const html=context.inquiryListAmount(row,row.data);
+  assert.ok(html.includes(context.won(before+saved.item.total)));
+  assert.ok(html.includes('출장뷔페 '+context.won(saved.item.total)));
+  assert.equal(row.effective_amount,before);
+ }
+ const latest=(await item(f)).data.catering.total;
+ const combined=before+latest;
+ f.db.prepare('UPDATE bookings SET amount=? WHERE booking_code=?').run(combined,'BK-TEST');
+ await saveQuote(f.api,{total:combined,extras:[{label:'출장뷔페 · 이전 견적',amount:latest}]});
+ f.db.exec("UPDATE inquiries SET data=json_remove(data,'$.included_catering_amount') WHERE ref='MS-TEST'");
+ const legacy=(await f.api('inquiries?q=MS-TEST')).items[0];
+ assert.equal(legacy.legacy_quote_catering_amount,latest);
+ assert.ok(context.inquiryListAmount(legacy,legacy.data).includes('<b>'+context.won(combined)+'</b>'));
+});

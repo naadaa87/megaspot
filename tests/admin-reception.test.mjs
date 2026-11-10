@@ -23,7 +23,7 @@ test('견적에 넣고 저장해도 식음료를 두 번 더하지 않음',async
   const {api}=state(t);await saveQuote(api,{total:2645000,extras:[extra()]});const it=(await api('inquiries/MS-TEST')).item;
   assert.equal(it.effective_amount,2645000);assert.equal(it.data.included_reception_amount,2145000);assert.equal(it.data.reception.fee,200000);
   const ctx=vm.createContext({window:{MEGASPOT_INQUIRY_OVERVIEW:overview},cur:{quotes:[]},currentAmount:x=>x.effective_amount,spaceName:()=>'',DEFAULT_SPACE:'megaspot-gundae',kd:x=>x,timeText:()=>'',optText:()=>''});
-  vm.runInContext(source.slice(source.indexOf('  function inquiryOverviewModel('),source.indexOf('  function amountSection(')),ctx);
+  vm.runInContext(source.slice(source.indexOf('  function inquiryRoomAmount('),source.indexOf('  function amountSection(')),ctx);
   const model=ctx.inquiryOverviewModel(it,it.data);assert.equal(model.rows[0].amount,500000);assert.equal(model.total,2645000);
 });
 test('저장 후 인원 변경·취소·복원은 연결 예약 금액에도 한 번씩 반영됨',async t=>{

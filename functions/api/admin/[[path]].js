@@ -425,7 +425,12 @@ export async function onRequest({ request, env, params, waitUntil }) {
     // ---- 문의 ----
     if (path === 'inquiries' && method === 'GET') {
       const st = str(url.searchParams.get('status'), 20), q = str(url.searchParams.get('q'), 60), ty = str(url.searchParams.get('type'), 20), ch = str(url.searchParams.get('ch'), 20);
-      let sql = `SELECT ref, space_id, status, name, phone, email, event_date, headcount, data, memo, created_at, updated_at, (SELECT q.total FROM quotes q WHERE q.inquiry_ref = i.ref ORDER BY q.id DESC LIMIT 1) AS quote_total, ${inquiryAmountSql()} AS effective_amount FROM inquiries i WHERE 1=1`; const b = [];
+      let sql = `SELECT ref, space_id, status, name, phone, email, event_date, headcount, data, memo, created_at, updated_at, (SELECT q.total FROM quotes q WHERE q.inquiry_ref = i.ref ORDER BY q.id DESC LIMIT 1) AS quote_total, ${inquiryAmountSql()} AS effective_amount,
+        CASE WHEN json_type(i.data,'$.catering')='object' AND json_extract(i.data,'$.included_catering_amount') IS NULL THEN (
+          SELECT COALESCE(SUM(MAX(0, CAST(json_extract(x.value,'$.amount') AS REAL))),0)
+          FROM json_each((SELECT CASE WHEN json_valid(q.data) THEN json_extract(q.data,'$.extras') END FROM quotes q WHERE q.inquiry_ref=i.ref ORDER BY q.id DESC LIMIT 1)) x
+          WHERE x.type='object' AND (json_extract(x.value,'$.kind')='catering' OR json_extract(x.value,'$.label') LIKE '출장뷔페 ·%')
+        ) END AS legacy_quote_catering_amount FROM inquiries i WHERE 1=1`; const b = [];
       if (st === 'open') { sql += " AND status IN ('문의 접수', '조건 확인', '견적 발송', '결제 대기')"; } else if (st === 'deleted' || st === DELETED) { sql += ' AND status = ?'; b.push(DELETED); } else if (st) { sql += ' AND status = ?'; b.push(st); } else { sql += ' AND status <> ?'; b.push(DELETED); }
       if (['event', 'regular', 'partner'].includes(ty)) { sql += " AND COALESCE(json_extract(data, '$.inquiry_type'), 'event') = ?"; b.push(ty); }
       if (CHANNELS.includes(ch)) { sql += " AND COALESCE(json_extract(data, '$.channel'), 'web') = ?"; b.push(ch); }
