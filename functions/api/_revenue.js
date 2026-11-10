@@ -20,11 +20,13 @@ export async function revenueAdmin({env,url,method,operationalBookingSql,archive
   const month = today.slice(0,7), [year,monthNumber] = month.split('-').map(Number);
   const from = q.get('from') ?? month+'-01';
   const to = q.get('to') ?? new Date(Date.UTC(year,monthNumber,0)).toISOString().slice(0,10);
-  const basis = q.get('basis') ?? 'payment', space = q.get('space') ?? '', day = q.get('day') ?? '';
+  const basis = q.get('basis'), space = q.get('space') ?? '', day = q.get('day') ?? '';
   const page = Number(q.get('page') ?? 1);
   if (!isDate(from) || !isDate(to) || from > to || Date.parse(to)-Date.parse(from) > 365*864e5)
     return err('조회 기간을 확인해 주세요. 최대 366일까지 조회할 수 있습니다.');
-  if (!['payment','event'].includes(basis) || (space && !spaces.includes(space)) ||
+  if (basis !== null && basis !== 'event')
+    return err('매출은 이용일 기준으로 조회합니다. 화면을 새로고침해 주세요.');
+  if ((space && !spaces.includes(space)) ||
       (day && (!isDate(day) || day < from || day > to)) || !Number.isSafeInteger(page) || page < 1 || page > 100000)
     return err('조회 조건을 확인해 주세요.');
 
@@ -77,7 +79,7 @@ export async function revenueAdmin({env,url,method,operationalBookingSql,archive
       FROM online o
     ),
     dated AS (
-      SELECT *,${basis==='event' ? 'event_date' : "date(occurred_at,'+9 hours')"} AS day,
+      SELECT *,event_date AS day,
         date(occurred_at,'+9 hours') AS recorded_day,
         CASE WHEN space_id IN (?,?) THEN space_id ELSE 'unassigned' END AS branch
       FROM movements WHERE amount>0

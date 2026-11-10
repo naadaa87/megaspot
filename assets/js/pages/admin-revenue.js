@@ -44,13 +44,14 @@
       : '<p class="small muted">선택한 조건에 해당하는 매출 기록이 없습니다.</p>';
     $('revenue-clear-day').hidden = !selectedDay;
     $('revenue-detail-label').textContent = (selectedDay ? selectedDay+' · ' : '조회 기간 전체 · ')+r.detailCount.toLocaleString('ko-KR')+'건';
-    $('revenue-items').innerHTML = r.items.length ? table(['기록일 (KST)','이용일','지점','거래·참조번호','구분','금액'],
+    $('revenue-items').innerHTML = r.items.length ? table(['이용일','수납·환불 기록일','지점','거래·참조번호','구분','금액'],
       r.items.map(row=>{
         const refund = row.kind==='refund', manual = row.source==='manual';
         const kind = (manual?'수기 ':'온라인 ')+(refund?'환불':manual?'수납':'결제');
         const booking = row.booking_code ? '<button type="button" class="btn btn-light btn-sm" data-settlement-code="'+esc(row.booking_code)+'" aria-label="예약 '+esc(row.booking_code)+' 수납·환불 내역">'+esc(row.booking_code)+'</button>' : '';
-        return '<tr><td class="revenue-date">'+esc(row.recorded_day||'날짜 미상')+(row.estimated?' <span class="tiny muted">추정</span>':'')+'</td>'
-          +'<td class="revenue-date">'+esc(row.event_date||'—')+'</td><td>'+labels[row.branch]+'</td><td>'+esc(row.title)
+        return '<tr><td class="revenue-date">'+esc(row.event_date)+'</td>'
+          +'<td class="revenue-date">'+esc(row.recorded_day||'날짜 미상')+(row.estimated?' <span class="tiny muted">추정</span>':'')+'</td>'
+          +'<td>'+labels[row.branch]+'</td><td>'+esc(row.title)
           +'<span class="tiny muted revenue-ref">'+(manual?'':esc(row.ref)+' ')+booking+'</span></td><td>'+kind+'</td>'
           +money(refund ? -row.amount : row.amount)+'</tr>';
       }),5) : '<p class="small muted">표시할 거래가 없습니다.</p>';
@@ -75,8 +76,7 @@
       if(page>lastPage) { page = lastPage; return load({detailOnly,focus}); }
       render(r);
       report.hidden = false;
-      status.textContent = filters.get('from')+' ~ '+filters.get('to')+' · '
-        +(filters.get('basis')==='event'?'이용일':'수납·환불일')+' 기준 · 보증금 제외';
+      status.textContent = filters.get('from')+' ~ '+filters.get('to')+' · 이용일 기준 · 보증금 제외';
       if(focus && !$('view-revenue').hidden) {
         const target = detail.querySelector(focus);
         if(target && !target.hidden && !target.disabled) target.focus();

@@ -22,7 +22,7 @@ function addBooking(db, code, space, status='confirmed') {
 }
 function amounts(received, refunded, count) { return {count,received,refunded,net:received-refunded}; }
 
-test('매출은 합산 입금 중 이용료만 집계하고 지점·수납일·이용일 기준을 맞춘다', async t => {
+test('매출은 합산 입금 중 이용료만 해당 지점의 이용일에 집계한다', async t => {
   t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-11-03T15:30:00Z')});
   const {db,api} = setup(t);
   const {settlement,deposit} = await api('bookings/BK-TEST/settlement');
@@ -42,19 +42,18 @@ test('매출은 합산 입금 중 이용료만 집계하고 지점·수납일·�
   order(db,'UNPAID',{status:'pending'});
 
   const report = await api(range);
-  assert.deepEqual(report.total,amounts(790000,0,5));
+  assert.deepEqual(report.total,amounts(750000,0,4));
   assert.deepEqual(report.branches[first],amounts(530000,0,2));
   assert.deepEqual(report.branches[second],amounts(200000,0,1));
-  assert.deepEqual(report.branches.unassigned,amounts(60000,0,2));
-  assert.deepEqual(report.daily.map(d=>d.day),['2026-11-04']);
-  assert.ok(report.items.every(r=>r.recorded_day==='2026-11-04'&&!('buyer_phone' in r)));
+  assert.deepEqual(report.branches.unassigned,amounts(20000,0,1));
+  assert.deepEqual(report.daily.map(d=>d.day),[event]);
+  assert.ok(report.items.every(r=>r.day===event && r.recorded_day==='2026-11-04' && !('buyer_phone' in r)));
   assert.deepEqual((await api(range+'&space='+second)).items.map(r=>r.ref),['SECOND']);
-  const byEvent = await api(range+'&basis=event&day='+event);
-  assert.deepEqual(byEvent.total,amounts(750000,0,4));
-  assert.ok(byEvent.items.every(r=>r.day===event && r.recorded_day==='2026-11-04'));
+  assert.equal((await api(range+'&day='+event)).detailCount,4);
+  assert.deepEqual((await api('revenue?from=2026-11-04&to=2026-11-04')).total,amounts(0,0,0));
 });
 
-test('환불은 발생일에 집계하고 정정·무효 및 보관 처리된 취소 내역을 반영한다', async t => {
+test('환불은 원래 이용일에 집계하고 정정·무효 및 보관 처리된 취소 내역을 반영한다', async t => {
   const {db,api} = setup(t);
   db.prepare("UPDATE bookings SET status='cancelled' WHERE booking_code='BK-TEST'").run();
   db.prepare("UPDATE inquiries SET status='삭제됨'").run();
@@ -74,15 +73,16 @@ test('환불은 발생일에 집계하고 정정·무효 및 보관 처리된 �
   revision.run(voided,'void','void',40000);
   db.prepare("INSERT INTO booking_payment_entries(booking_code,request_id,kind,amount,created_at) VALUES('BK-REAL','manual-refund','refund',10000,?)")
     .run('2026-11-09 16:00:00');
-  const report = await api(range+'&day=2026-11-06');
+  const report = await api(range+'&day='+event);
   assert.deepEqual(report.total,amounts(190000,170000,7));
   assert.deepEqual(report.branches[second],amounts(130000,110000,5));
-  assert.equal(report.detailCount,1);
-  assert.deepEqual(report.items.map(r=>[r.ref,r.kind,r.amount]),[['REAL','refund',20000]]);
-  assert.deepEqual(report.daily.map(d=>[d.day,d.net]),[
-    ['2026-11-10',-10000],['2026-11-09',-80000],['2026-11-08',-60000],['2026-11-06',-20000],['2026-11-04',190000]
+  assert.equal(report.detailCount,7);
+  assert.deepEqual(report.daily.map(d=>[d.day,d.net]),[[event,20000]]);
+  assert.deepEqual(report.items.filter(r=>r.kind==='refund').map(r=>[r.recorded_day,r.amount]),[
+    ['2026-11-10',10000],['2026-11-09',80000],['2026-11-08',60000],['2026-11-06',20000]
   ]);
-  assert.ok((await api(range+'&day=2026-11-08')).items[0].estimated);
+  assert.ok(report.items.find(r=>r.ref==='LEGACY' && r.kind==='refund').estimated);
+  assert.equal((await api(range+'&day=2026-11-06')).detailCount,0);
 });
 
 test('이전 확정서 수납을 읽기 전용으로 집계하며 실제 이관 전후에 중복되지 않는다', async t => {
@@ -105,7 +105,7 @@ test('페이지를 넘겨도 합계가 고정되고 관리자 인증과 조회 �
   assert.equal(new Set([...p1.items,...p2.items].map(r=>r.ref)).size,52);
   assert.deepEqual(p1.total,p2.total);
   assert.equal(p2.detailCount,52);
-  for (const query of [{day:'2026-12-01'},{space:'other'},{basis:'other'},{page:'-1'},{from:'2026-02-30'},{from:'2025-11-28'}]) {
+  for (const query of [{day:'2026-12-01'},{space:'other'},{basis:'payment'},{basis:'other'},{page:'-1'},{from:'2026-02-30'},{from:'2025-11-28'}]) {
     await api('revenue?'+new URLSearchParams({from:'2026-11-01',to:'2026-11-30',...query}),'GET',undefined,400);
   }
   await api(range,'POST',undefined,405);
