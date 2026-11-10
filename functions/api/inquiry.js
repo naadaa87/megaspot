@@ -7,7 +7,6 @@ import { receptionCustomer } from './_reception.js';
 import {readCocktailPricing,publicCocktailPricing} from './_cocktail_pricing.js';
 import { cocktailFrom } from './_cocktail.js';
 import { createVisit, timeOk } from './_visits.js';
-import {waitSummary} from './_reservation_waitlist.js';
 const TYPES = ['event', 'regular', 'partner'];
 // '함께 알아보기'로 받을 수 있는 패밀리 공간 (assets/js/site.js의 FAMILY_ASK와 같은 id)
 export const FAMILY_ASK = ['socialfactory', 'playtion'];
@@ -102,7 +101,6 @@ export async function onRequestPost({ request, env }) {
         if (vr.item) visit = vr.item.ref;
       } catch (e) { console.error('visit', e && e.message); }
     }
-    const waiting=data.date?await waitSummary(env,data.date,space_id,ref):null;
-    return json({ ok: true, ref, member: !!data.member_id, visit,wait:waiting?.wait||null });
+    return json({ ok: true, ref, member: !!data.member_id, visit });
   } catch (e) { console.error('inquiry', e && e.message); return err('저장 중 오류가 발생했습니다. 잠시 후 다시 시도하거나 카카오톡으로 알려 주세요.', 500, 'DB_ERROR'); }
 }

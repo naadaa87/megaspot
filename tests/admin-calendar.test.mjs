@@ -67,3 +67,23 @@ test('이전 요청 실패는 최신 로딩을 중단하지 않고, 최신 실�
   assert.match(nodes['#cal-grid'].innerHTML, /cal-error/);
   assert.match(nodes['#cal-grid'].innerHTML, /data-cal-retry/);
 });
+
+test('확정 시간과 종일 마감을 호점별로 구분하고 취소·검토 예약은 마감으로 표시하지 않음', () => {
+  const { context, nodes } = calendar();
+  const one = 'megaspot-gundae', two = 'megaspot-gundae-2';
+  context.calMonth = '2026-12';
+  context.drawCalendar([{ date: '2026-12-11', space_id: two, state: 'full' }], [
+    { date: '2026-12-11', space_id: one, status: 'confirmed', start_h: 10, end_h: 18, inquiry_ref: 'MS-ONE', customer_name: '확정 고객' },
+    { date: '2026-12-12', space_id: one, status: 'confirmed', start_h: 8, end_h: 24, customer_name: '확정 고객' },
+    { date: '2026-12-12', space_id: two, status: 'cancelled', start_h: 10, end_h: 18 },
+    { date: '2026-12-12', space_id: two, status: 'payment_review', start_h: 10, end_h: 18 },
+    { date: '2026-12-13', space_id: one, status: 'confirmed', start_h: null, end_h: null },
+  ], []);
+  const html = nodes['#cal-grid'].innerHTML;
+  const day = date => html.match(new RegExp('data-day="' + date + '">([^]*?)</div>'))?.[1];
+  assert.match(day('2026-12-11'), /ev full cal-booked" title="2호 · 종일 마감"/);
+  assert.match(day('2026-12-11'), /ev full cal-booked" data-ref="MS-ONE" title="1호 · 10:00–18:00 마감/);
+  assert.match(day('2026-12-12'), /1호 · 08:00–다음 날 00:00 마감/);
+  assert.doesNotMatch(day('2026-12-12'), /2호[^<]*마감/);
+  assert.match(day('2026-12-13'), /확정 · 시간 확인/);
+});

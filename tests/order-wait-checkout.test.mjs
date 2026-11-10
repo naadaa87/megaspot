@@ -7,8 +7,8 @@ const source=readFileSync(new URL('../assets/js/pages/order.js',import.meta.url)
 const waiting=source.slice(source.indexOf('    function waitChoice('),source.indexOf('    function calc(){'));
 const payStart=source.indexOf('    function pay(){');
 const paying=source.slice(payStart,source.indexOf('\n\n  }\n',payStart));
-const clear={pending_count:0,next_wait_no:1,payment_blocked:false,slot_blocked:false};
-const blocked={pending_count:2,next_wait_no:3,payment_blocked:true,slot_blocked:false};
+const clear={payment_blocked:false,slot_blocked:false};
+const blocked={payment_blocked:true,slot_blocked:false};
 const occupied={...clear,slot_blocked:true};
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 function deferred(){let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no;});return {promise,resolve,reject};}
@@ -20,7 +20,7 @@ function fixture(kind='pass'){
  function node(selector){if(!nodes.has(selector))nodes.set(selector,{...eventTarget(),hidden:false,disabled:false,textContent:'',innerHTML:'',href:'',dataset:{}});return nodes.get(selector);}
  const ctx=vm.createContext({
   isPass:kind==='pass',isVerification:kind==='verification',prod:{id:kind==='pass'?'pass-day-wdfri':kind==='verification'?'payapp-check-1000':'addon-cleaning',pkg:'day'},
-  WAIT_REFRESH_MS:20000,waitState:'idle',waitKey:'',waitAt:0,waitSeq:0,waitTimer:null,waitRefreshTimer:null,waitStartedAt:0,waitChecking:false,waitInfo:null,checkoutWarn:'',payBusy:false,
+  WAIT_REFRESH_MS:20000,waitState:'idle',waitKey:'',waitAt:0,waitSeq:0,waitTimer:null,waitRefreshTimer:null,waitStartedAt:0,waitChecking:false,checkoutWarn:'',payBusy:false,
   selection:{product_id:kind==='pass'?'pass-day-wdfri':kind==='verification'?'payapp-check-1000':'addon-cleaning',date:'2026-11-16',people:20,qty:1,addons:{},inquiry_ref:'',buyer:{name:'모의 고객',phone:'01012345678'},agree_terms:true,agree_privacy:true,agree_refund:true},
   $:node,esc:String,URL,URLSearchParams,todayIso:()=> '2026-11-07',dateError:()=>'',optionError:()=>'',
   location:{assign:url=>redirects.push(url)},document:{...eventTarget(),hidden:false},window:eventTarget(),Date:{now:()=>now},
@@ -46,20 +46,20 @@ function fixture(kind='pass'){
   change:value=>{Object.assign(ctx.selection,value);ctx.scheduleWait(ctx.state());},flush:async()=>{await tick();await tick();}};
 }
 
-test('로딩 동안 결제를 제한하고 먼저 접수된 건수·예상 대기 순번·문의 링크를 표시한다',async()=>{
+test('로딩 동안 결제를 제한하고 일정 확인이 필요하면 상담 링크를 표시한다',async()=>{
  const f=fixture();f.queue(blocked);f.schedule();
  assert.equal(f.ctx.waitState,'loading');assert.equal(f.node('#od-pay').disabled,true);assert.match(f.node('#od-availability-message').textContent,/확인하고 있습니다/);assert.equal(f.calls.length,0);
  await f.advance(180);assert.equal(f.ctx.waitState,'blocked');assert.equal(f.node('#od-pay').disabled,true);
- assert.match(f.node('#od-availability-message').textContent,/예약 문의 2건/);assert.match(f.node('#od-availability-message').textContent,/예상 대기 3번/);
- const link=new URL(f.node('#od-wait-link').href,'https://megaspot.test');assert.equal(link.pathname,'/inquiry/');assert.equal(link.searchParams.get('date'),'2026-11-16');assert.equal(link.searchParams.get('people'),'20');assert.equal(link.searchParams.get('wait'),'1');assert.equal(link.hash,'#reserve');assert.equal(f.node('#od-wait-link').hidden,false);
+ assert.match(f.node('#od-availability-message').textContent,/담당자 확인이 필요합니다/);assert.doesNotMatch(f.node('#od-availability-message').textContent,/대기|순번|건/);
+ const link=new URL(f.node('#od-wait-link').href,'https://megaspot.test');assert.equal(link.pathname,'/inquiry/');assert.equal(link.searchParams.get('date'),'2026-11-16');assert.equal(link.searchParams.get('people'),'20');assert.equal(link.searchParams.has('wait'),false);assert.equal(link.hash,'#reserve');assert.equal(f.node('#od-wait-link').hidden,false);
  assert.equal(f.node('#od-availability-retry').hidden,false);
 });
 
-test('본인 대기 순번은 서버 응답만 사용하며 기존 문의는 카카오톡으로 이어간다',async()=>{
+test('기존 문의는 순번 표시 없이 카카오톡으로 이어간다',async()=>{
  const f=fixture();f.ctx.selection.inquiry_ref='MS-TEST';f.queue({...blocked,pending_count:4,next_wait_no:5,wait:{no:2}});await f.request();
- assert.match(f.node('#od-availability-message').textContent,/현재 대기 2번입니다\(총 4건\)/);assert.equal(f.node('#od-pay').disabled,true);
+ assert.doesNotMatch(f.node('#od-availability-message').textContent,/대기|순번|4건/);assert.equal(f.node('#od-pay').disabled,true);
  assert.equal(f.node('#od-wait-link').href,'https://pf.kakao.com/_LnxbmX/chat');assert.match(f.node('#od-wait-link').textContent,/기존 예약 문의/);
- assert.equal(new URL(f.calls[0].path,'https://megaspot.test').searchParams.get('ref'),'MS-TEST');
+ assert.equal(new URL(f.calls[0].path,'https://megaspot.test').searchParams.has('ref'),false);
 });
 
 test('대기가 없는 경우에만 활성화하고 기존 입력 오류·결제 진행 잠금은 유지한다',async()=>{
@@ -70,7 +70,7 @@ test('대기가 없는 경우에만 활성화하고 기존 입력 오류·결제
 });
 
 test('조회 실패·잘못된 응답은 결제를 제한하고 재조회·문의 방법을 제공한다',async()=>{
- for(const value of [Error('Network unavailable'),{...clear,pending_count:'0'},{...clear,next_wait_no:0},{...clear,payment_blocked:undefined},{...clear,slot_blocked:undefined},{...clear,product_id:'pass-allday-wdfri'}]){
+ for(const value of [Error('Network unavailable'),{...clear,payment_blocked:undefined},{...clear,slot_blocked:undefined},{...clear,product_id:'pass-allday-wdfri'}]){
   const f=fixture();f.queue(value);await assert.rejects(f.request());assert.equal(f.ctx.waitState,'error');assert.equal(f.node('#od-pay').disabled,true);assert.equal(f.node('#od-availability-retry').hidden,false);assert.equal(f.node('#od-wait-link').hidden,false);assert.match(f.node('#od-availability-message').textContent,/결제를 잠시 제한/);
  }
 });
@@ -79,14 +79,14 @@ test('다른 날짜로 바꾼 뒤 늦게 온 이전 응답·오류는 최신 대
  for(const failure of [false,true]){
   const f=fixture(),old=deferred();f.queue(old.promise);const first=f.request();await tick();f.ctx.selection.date='2026-11-17';f.queue(clear);await f.request();
   if(failure){old.reject(Error('Old date failed'));await assert.rejects(first);}else{old.resolve(blocked);assert.equal(await first,null);}
-  assert.equal(f.ctx.waitState,'clear');assert.equal(f.node('#od-pay').disabled,false);assert.match(f.node('#od-availability-message').textContent,/대기가 없고 선택한 시간도 비어 있습니다/);
+  assert.equal(f.ctx.waitState,'clear');assert.equal(f.node('#od-pay').disabled,false);assert.match(f.node('#od-availability-message').textContent,/선택한 일정으로 결제할 수 있습니다/);
  }
 });
 
 test('결제 직전 재조회에서 새 대기가 생기면 결제 생성 POST를 호출하지 않는다',async()=>{
  const f=fixture();await f.request();f.queue(blocked);f.pay();f.pay();await f.flush();
  assert.equal(f.calls.filter(x=>x.path==='/pay/prepare').length,0);assert.equal(f.calls.filter(x=>x.path.startsWith('/pay/availability?')).length,2);
- assert.equal(f.ctx.waitState,'blocked');assert.equal(f.node('#od-pay').disabled,true);assert.equal(f.redirects.length,0);assert.match(f.node('#od-error').textContent,/먼저 접수된 예약 문의/);
+ assert.equal(f.ctx.waitState,'blocked');assert.equal(f.node('#od-pay').disabled,true);assert.equal(f.redirects.length,0);assert.match(f.node('#od-error').textContent,/담당자 확인이 필요합니다/);
 });
 
 test('결제 직전 조회에 실패해도 결제 생성 POST와 외부 이동을 하지 않는다',async()=>{
@@ -141,7 +141,7 @@ test('예약 연결과 실패 주문 재결제는 개인정보를 공개 조회�
   f.queue(occupied);f.pay();await f.flush();const order=f.calls.find(x=>x.path==='/pay/prepare');assert.ok(order);
   for(const [key,value] of Object.entries(selection))assert.equal(order.options.body[key],value);
   const query=new URL(f.calls[0].path,'https://megaspot.test').searchParams;
-  assert.equal(query.get('product_id'),'pass-day-wdfri');assert.equal(query.get('ref'),selection.inquiry_ref||null);
+  assert.equal(query.get('product_id'),'pass-day-wdfri');assert.equal(query.has('ref'),false);
   for(const key of ['phone','retry_oid','oid'])assert.equal(query.has(key),false);
  }
 });

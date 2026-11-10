@@ -93,19 +93,15 @@
     return L.join('\n');
   }
 
-  function donePanel(ref, d, live, wait){
+  function donePanel(ref, d, live){
     var text=summary(d), t=d.inquiry_type||'event', kakao=M.CONFIG.kakaoChannel;
-    var ownWait=live&&wait&&wait.date===d.date&&wait.space_id===d.space_id&&Number.isSafeInteger(wait.no)&&wait.no>=1&&Number.isSafeInteger(wait.total)&&wait.total>=wait.no;
-    if(ownWait)text+='\n접수 시점 예약대기 '+wait.no+'번 · 총 '+wait.total+'건 (예약 확정 전 · 담당자 결제 안내)';
     var next = t==='partner' ? '제안 내용을 확인한 담당자가 직접 연락드립니다. 협력 범위와 조건은 요금표와 별도로 협의합니다.'
       : t==='regular' ? '반복 주기와 기간을 확인해 회차별 일정과 정기 이용 조건을 안내드립니다.'
-      : '영업시간에 들어온 문의는 보통 2시간 안에 첫 답을 드립니다. 날짜가 정해져 있다면 \'예약 신청 · 금액 확인\'에서 금액을 보고 바로 신청할 수도 있습니다.';
-    if(ownWait)next='같은 호점·이용일 기준의 예약대기입니다. 1번도 예약 확정은 아니며, 대기 중에는 온라인 결제가 제한됩니다. 담당자가 순번과 이용 가능 여부를 확인한 뒤 결제 방법을 안내합니다.';
+      : '담당자가 문의 내용을 확인하고 영업시간 기준 2시간 안에 연락드립니다.';
     return '<div class="card" style="border-color:var(--cobalt)">'
       + '<div class="row between"><div class="eyebrow">'+(live?'Received':'Draft')+'</div><span class="badge '+(live?'badge-ok':'badge-warn')+'">'+(live?'문의 접수':'체험 모드 · 전송 대기')+'</span></div>'
       + '<h3 class="h-m mt-1">'+(live?'문의가 접수되었습니다':'문의 내용이 준비되었습니다')+'</h3>'
       + '<div class="oc-code mt-2"><small>접수번호</small><b>'+esc(ref)+'</b></div>'
-      + (ownWait?'<div class="notice reservation-wait mt-3" role="status"><div><b>접수 시점 내 예약대기 <strong>'+wait.no+'번</strong> · 총 '+wait.total+'건</b><p>'+esc((wait.space_id==='megaspot-gundae-2'?'건대 2호':'건대 1호')+' · '+wait.date)+' 기준입니다.</p></div></div>':'')
       + (d.visit_wish && M.visitLabel ? '<div class="visit-done mt-2"><b>현장답사 희망도 함께 받았습니다</b><span>'+esc(M.visitLabel(d.visit_wish))+' — 담당자가 연락드려 답사 시간을 확정합니다.</span></div>' : '')
       + (live ? '<p class="small muted mt-2">'+esc(next)+'</p>'
               : '<p class="small muted mt-2">지금은 서버가 연결되지 않아 자동 저장되지 않았습니다. 아래 내용을 카카오톡으로 보내 주시면 같은 순서로 안내드립니다.</p>')
@@ -171,7 +167,7 @@
       if(M.receptionSelection)d.reception=Object.assign({},M.receptionSelection,{people:M.receptionSelection.people||d.headcount});
       M.api('/inquiry',{method:'POST', body:d}).then(function(r){
         if(M.reservations&&M.reservations.invalidate)M.reservations.invalidate();
-        form.hidden=true; done.hidden=false; done.innerHTML=(r.member?'<div class="member-line on mb-3"><span><b>회원 문의로 저장했습니다.</b> 진행 상태는 마이페이지에서 확인할 수 있습니다.</span><a class="btn btn-light btn-sm" href="/mypage/">마이페이지 →</a></div>':'')+donePanel(r.ref, d, true, r.wait); bind(); done.scrollIntoView({behavior:'smooth',block:'start'});
+        form.hidden=true; done.hidden=false; done.innerHTML=(r.member?'<div class="member-line on mb-3"><span><b>회원 문의로 저장했습니다.</b> 진행 상태는 마이페이지에서 확인할 수 있습니다.</span><a class="btn btn-light btn-sm" href="/mypage/">마이페이지 →</a></div>':'')+donePanel(r.ref, d, true); bind(); done.scrollIntoView({behavior:'smooth',block:'start'});
       }).catch(function(ex){
         if(ex.code==='NO_API'){ var ref=M.localRef('MS'); form.hidden=true; done.hidden=false; done.innerHTML=donePanel(ref, d, false); bind(); done.scrollIntoView({behavior:'smooth',block:'start'}); }
         else { err.textContent=ex.message||'전송에 실패했습니다. 잠시 후 다시 시도해 주세요.'; err.hidden=false; }

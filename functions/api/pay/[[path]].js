@@ -7,7 +7,7 @@ import { PRODUCTS, HOLIDAYS, PRICING } from '../_catalog.js';
 import { payappConfig, requestPayment, validFeedback, equalSecret } from '../_payapp.js';
 import { confirmedGuide } from '../_guide_messages.js';
 import { bookingAvailableSql } from '../_booking_availability.js';
-import {noPendingWaitSql,rankedWaitsSql,waitSpaceSql,waitSummary} from '../_reservation_waitlist.js';
+import {noPendingWaitSql} from '../_reservation_waitlist.js';
 const PKG_SLOT = { day: 'pkg-day', allday: 'pkg-allday', allnight: 'pkg-allnight' };
 const PKG_LABEL = { day: '낮 패키지 10–17시', allday: '올데이 패키지 10–24시', allnight: '올나잇 패키지 18시–다음 날 07시' };
 const PKG_HOURS = { 'pkg-day': [10, 17], 'pkg-allday': [10, 24], 'pkg-allnight': [18, 31] };
@@ -26,18 +26,18 @@ async function passSlotAvailable(env, date, slot, exclude = '') {
     .bind(date,hours[0],hours[1],exclude).first();
   return !!occupancy?.available;
 }
-async function passAvailabilitySummary(env, date, product, ownRef) {
+async function passAvailabilitySummary(env, date, product) {
   const [start,end] = PKG_HOURS[PKG_SLOT[product.pkg]];
-  // Read the queue and slot together so a concurrent confirmation cannot disappear from both.
-  const queue = rankedWaitsSql(`i.event_date=(SELECT date FROM span) AND ${waitSpaceSql('i')}='megaspot-gundae'`);
-  const row = await env.DB.prepare(`WITH span(date,start_h,end_h,exclude_code,own_ref) AS (VALUES(?,?,?,'',?)),
-    queue AS (${queue})
-    SELECT ${PASS_AVAILABLE_SQL} AS available, (SELECT COUNT(*) FROM queue) AS pending_count,
-      (SELECT no FROM queue WHERE ref=span.own_ref) AS wait_no FROM span`).bind(date,start,end,ownRef).first();
-  const {pending_count:count,wait_no:no} = row;
-  return {pending_count:count,next_wait_no:count+1,payment_blocked:count>0,
-    wait:no?{no,total:count,date,space_id:'megaspot-gundae'}:null,
-    product_id:product.id,slot_blocked:!row.available};
+  // Read the payment guard and slot together, including during confirmation.
+  const noPending = noPendingWaitSql({date:'span.date',space:"'megaspot-gundae'"});
+  const row = await env.DB.prepare(`SELECT ${PASS_AVAILABLE_SQL} AS available, NOT ${noPending} AS payment_blocked
+    FROM (SELECT ? AS date, ? AS start_h, ? AS end_h, '' AS exclude_code) span`).bind(date,start,end).first();
+  return {payment_blocked:!!row.payment_blocked,product_id:product.id,slot_blocked:!row.available};
+}
+async function paymentBlocked(env,date,space){
+  const noPending=noPendingWaitSql({date:'?',space:'?'});
+  const row=await env.DB.prepare(`SELECT NOT ${noPending} AS blocked`).bind(date,space).first();
+  return !!row.blocked;
 }
 function retrySelection(row, data) {
   if (row.status !== 'failed' || !PRODUCTS.get(row.product_id)) return null;
@@ -149,13 +149,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
         product=PRODUCTS.get(q.get('product_id'));
         if(space!=='megaspot-gundae'||product?.kind!=='pass'||!Object.hasOwn(PKG_SLOT,product.pkg))return err('확인할 공간 이용권을 선택해 주세요.',400,'INVALID_PRODUCT');
       }
-      let ownRef='';const ref=str(q.get('ref'),20).toUpperCase();
-      if(ref){
-        const member=await getMember(request,env);
-        const inquiry=member?await env.DB.prepare('SELECT data FROM inquiries WHERE ref=?').bind(ref).first():null;
-        if(inquiry&&Number(safe(inquiry.data).member_id)===member.id)ownRef=ref;
-      }
-      const summary=product?await passAvailabilitySummary(env,date,product,ownRef):await waitSummary(env,date,space,ownRef);
+      const summary=product?await passAvailabilitySummary(env,date,product):{payment_blocked:await paymentBlocked(env,date,space)};
       return json({ok:true,date,space,...summary,code:summary.payment_blocked?'RESERVATION_PENDING':null},200,{'cache-control':'no-store'});
     }
     if (path === 'diagnostics' && method === 'GET') {
@@ -212,8 +206,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
       }
       let linkedBooking = null;
       if (o.product.kind === 'pass') {
-        const waiting=await waitSummary(env,o.event_date,'megaspot-gundae');
-        if(waiting.payment_blocked)return json({ok:false,error:'이 날짜에는 먼저 접수된 예약 문의가 있어 온라인 결제가 제한됩니다. 예약 문의·대기 신청을 남겨 주시면 순서대로 안내합니다.',code:'RESERVATION_PENDING',date:o.event_date,space:'megaspot-gundae',pending_count:waiting.pending_count,next_wait_no:waiting.next_wait_no},409);
+        if(await paymentBlocked(env,o.event_date,'megaspot-gundae'))return err('선택한 일정은 담당자 확인이 필요합니다. 예약 상담을 남겨 주시면 이용 가능 여부와 결제 방법을 안내드립니다.',409,'RESERVATION_PENDING');
         const candidate = inquiryRef ? await existingBooking(env,{inquiry_ref:inquiryRef,event_date:o.event_date}) : null;
         if (candidate && !matchesPass(candidate,{event_date:o.event_date,people:o.people,buyer_phone:phone},o.slot))
           return err('기존 예약과 공간·시간·인원이 다릅니다. 예약을 변경하려면 운영팀에 문의해 주세요.',409,'BOOKING_MISMATCH');

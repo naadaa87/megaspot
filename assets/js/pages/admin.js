@@ -1935,9 +1935,32 @@
     var y=+calMonth.slice(0,4), m=+calMonth.slice(5,7), first=new Date(y,m-1,1), days=new Date(y,m,0).getDate(), pad=first.getDay(), t=todayIso();
     $('#cal-title').textContent=y+'년 '+m+'월';
     var by={}; function add(d,html){ (by[d]=by[d]||[]).push(html); }
-    var label=function(x){ return (x.space_id==='megaspot-gundae-2'?'2호':'1호')+' · '; };
-    blocks.forEach(function(b){ add(b.date,'<i class="ev '+(b.state==='full'?'full':'hold')+'">'+label(b)+(b.state==='full'?'마감':'확보')+(b.memo&&b.memo.indexOf('예약 ')!==0?' · '+esc(b.memo):'')+'</i>'); });
-    bookings.forEach(function(b){ if(b.status==='cancelled') return; add(b.date,'<i class="ev bk"'+(b.inquiry_ref?' data-ref="'+esc(b.inquiry_ref)+'"':'')+'>'+label(b)+esc(b.customer_name)+(b.headcount?' '+b.headcount+'명':'')+'</i>'); });
+    var room=function(x){ return x.space_id==='megaspot-gundae-2'?'2호':'1호'; };
+    var label=function(x){ return room(x)+' · '; };
+    var fullDays=new Set();
+    blocks.forEach(function(b){
+      var full=b.state==='full',memo=b.memo&&b.memo.indexOf('예약 ')!==0?' · '+b.memo:'';
+      if(full){
+        fullDays.add(b.space_id+'|'+b.date);
+        add(b.date,'<i class="ev full cal-booked" title="'+esc(label(b)+'종일 마감'+memo)+'"><span class="cal-booked-label">'+room(b)+' 마감</span><span>'+esc('종일'+memo)+'</span></i>');
+      }else add(b.date,'<i class="ev hold">'+label(b)+'확보'+esc(memo)+'</i>');
+    });
+    var hour=function(h){ return (h>=24?'다음 날 ':'')+M.pad2(h%24)+':00'; };
+    bookings.forEach(function(b){
+      if(b.status==='cancelled') return;
+      var person=(b.customer_name||'')+(b.headcount?' '+b.headcount+'명':'');
+      var ref=b.inquiry_ref?' data-ref="'+esc(b.inquiry_ref)+'"':'';
+      if(b.status==='confirmed'&&!fullDays.has(b.space_id+'|'+b.date)){
+        var known=Number.isInteger(b.start_h)&&Number.isInteger(b.end_h)&&b.start_h>=0&&b.end_h<=48&&b.start_h<b.end_h;
+        if(known){
+          var time=hour(b.start_h)+'–'+hour(b.end_h);
+          add(b.date,'<i class="ev full cal-booked"'+ref+' title="'+esc(label(b)+time+' 마감 · '+person)+'"><span class="cal-booked-label">'+room(b)+' 마감</span><span>'+esc(time)+'</span><span>'+esc(person)+'</span></i>');
+          return;
+        }
+        person='확정 · 시간 확인 · '+person;
+      }
+      add(b.date,'<i class="ev bk"'+ref+'>'+label(b)+esc(person)+'</i>');
+    });
     inqs.forEach(function(i){ var d=(i.data&&i.data.date)||i.event_date; if(d) add(d,'<i class="ev inq" data-ref="'+esc(i.ref)+'">'+label(i)+esc(i.name||'')+' · '+esc(i.status)+'</i>'); });
     var h='<div class="dw">일</div><div class="dw">월</div><div class="dw">화</div><div class="dw">수</div><div class="dw">목</div><div class="dw">금</div><div class="dw">토</div>';
     for(var cell=0; cell<42; cell++){

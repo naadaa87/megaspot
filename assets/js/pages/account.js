@@ -76,7 +76,7 @@
       $('#mp-email').value=m.email; $('#mp-name').value=m.name; $('#mp-phone').value=m.phone; $('#mp-org').value=m.org; $('#mp-mkt').checked=!!m.agree_marketing;
     }
     function steps(st){
-      if(st==='취소·환불'||st==='대기 취소') return '<div class="my-steps"><span class="cancel">'+esc(st)+'</span></div>';
+      if(st==='취소·환불'||st==='문의 종료'||st==='대기 취소') return '<div class="my-steps"><span class="cancel">'+esc(st==='대기 취소'?'문의 종료':st)+'</span></div>';
       var at=STEPS.indexOf(st);
       return '<ol class="my-steps">'+STEPS.map(function(s,i){ return '<li class="'+(i<at?'done':i===at?'now':'')+'">'+s+'</li>'; }).join('')+'</ol>';
     }
@@ -104,7 +104,6 @@
           var actual=confirmed.map(function(b){var info=[b.date?M.fmtKDate(b.date):'',b.start_h!=null&&b.end_h!=null?hl(+b.start_h)+'–'+hl(+b.end_h):'시간 확인 중',b.headcount?b.headcount+'명':'',b.amount!=null?'확정 '+Number(b.amount).toLocaleString('ko-KR')+'원':''].filter(Boolean).join(' · ');return '<div class="small mt-2"><b>'+esc(b.status==='completed'?'이용 완료':'확정된 예약')+' · '+esc(SPACE[b.space_id]||b.space_id)+'</b><p>'+esc(info)+'</p><p class="tiny muted">예약번호 '+esc(b.code)+'</p></div>';}).join('');
           return '<div class="card pad-s my-inq"><div class="row between"><div class="row" style="gap:8px"><b class="ref">'+esc(it.ref)+'</b><span class="badge badge-soft">'+esc(it.reserve?'예약 신청':(TYPE[it.inquiry_type]||'문의'))+'</span>'+(it.purpose&&PUR[it.purpose]?'<span class="badge badge-cobalt">'+esc(PUR[it.purpose])+'</span>':'')+'</div><span class="small muted">'+esc(String(it.created_at||'').slice(0,10))+' 접수</span></div>'
             + (confirmed.length?actual+'<details class="mt-2" data-inquiry-detail="'+esc(it.ref)+'-request"><summary class="small">처음 신청한 조건</summary><div class="small mt-1">'+request+'</div></details>':'<div class="small mt-1">'+request+'</div>')
-            + (it.wait?'<p class="notice small mt-2"><span><b>예약 대기 '+esc(it.wait.no)+'번</b> · '+esc(SPACE[it.wait.space_id]||'같은 호점')+'에서 같은 날 '+esc(it.wait.total)+'건 가운데 현재 '+esc(it.wait.no)+'번째입니다. 운영팀에서 순서대로 예약 가능 여부와 결제 방법을 안내합니다.</span></p>':'')
             + steps(it.status)
             + (it.estimate?'<details class="mt-2" data-inquiry-detail="'+esc(it.ref)+'-estimate"><summary class="small" style="cursor:pointer;color:var(--cobalt);font-weight:700">함께 보낸 예상 금액</summary><pre class="my-est">'+esc(it.estimate)+'</pre></details>':'')
             + '</div>';

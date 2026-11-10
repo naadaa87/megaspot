@@ -77,7 +77,7 @@ async function fixture(t){
   return {...f,date,insert,customer,availability,prepare,adminRows,confirm,getCalendar,payappCalls:()=>payappCalls};
 }
 
-test('대기 취소·복원·확정 후 관리자와 고객 순번이 일치하고 확정 시간은 결제할 수 없다',async t=>{
+test('대기 취소·복원·확정은 관리자 순번과 결제 가능 여부에 반영된다',async t=>{
   const f=await fixture(t);
   f.insert('MS-FIRST');
   f.insert('MS-THIRD',{id:2,created:'2026-01-01 11:00:00'});
@@ -88,29 +88,29 @@ test('대기 취소·복원·확정 후 관리자와 고객 순번이 일치하�
     const wait={no,total,date:f.date,space_id:SPACE};
     assert.deepEqual(rows.find(item=>item.kind==='pending'&&item.ref===ref).wait,wait);
     assert.deepEqual(detail.wait,wait);
-    assert.deepEqual(member.wait,wait);
+    assert.equal('wait' in member,false);
   }
   await assertRank(1,'MS-TEST',2,3);
   await assertRank(2,'MS-THIRD',3,3);
   await f.api('inquiries/MS-FIRST/wait-cancel','POST');
   await assertRank(1,'MS-TEST',1,2);
   assert.equal((await f.adminRows()).find(item=>item.ref==='MS-FIRST').wait,null);
-  assert.equal((await f.availability()).body.pending_count,2);
+  assert.equal((await f.availability()).body.payment_blocked,true);
   await f.api('inquiries/MS-FIRST/wait-restore','POST');
   assert.equal((await f.api('inquiries/MS-FIRST')).wait.no,3);
   const confirmed=await f.confirm('MS-TEST');
   const member=await f.customer(1,'MS-TEST');
   assert.equal(member.status,'예약 확정');
-  assert.equal(member.wait,null);
+  assert.equal('wait' in member,false);
   assert.equal(member.confirmed_bookings[0].code,confirmed.booking_code);
   assert.equal((await f.adminRows()).find(item=>item.ref==='MS-TEST').kind,'booking');
   await assertRank(2,'MS-THIRD',1,2);
   await f.api('inquiries/MS-FIRST/wait-cancel','POST');
   assert.equal((await f.prepare()).body.code,'RESERVATION_PENDING');
   await f.api('inquiries/MS-THIRD/wait-cancel','POST');
-  assert.equal((await f.customer(2,'MS-THIRD')).wait,null);
+  assert.equal((await f.customer(2,'MS-THIRD')).status,'문의 종료');
   const occupied=(await f.availability()).body;
-  assert.equal(occupied.pending_count,0);
+  assert.equal(occupied.payment_blocked,false);
   assert.equal(occupied.slot_blocked,true);
   assert.equal((await f.prepare()).body.code,'DATE_TAKEN');
   assert.equal((await f.availability('allnight')).body.slot_blocked,false);
@@ -125,16 +125,16 @@ test('확정 예약 없이 마지막 대기가 취소되면 결제를 열고 대
   assert.equal((await f.availability()).body.payment_blocked,true);
   await f.api('inquiries/MS-TEST/wait-cancel','POST');
   const customer=await f.customer(1,'MS-TEST');
-  assert.equal(customer.status,'대기 취소');
-  assert.equal(customer.wait,null);
+  assert.equal(customer.status,'문의 종료');
+  assert.equal('wait' in customer,false);
   const available=(await f.availability()).body;
-  assert.equal(available.pending_count,0);
+  assert.equal(available.payment_blocked,false);
   assert.equal(available.payment_blocked,false);
   assert.equal(available.slot_blocked,false);
   assert.equal((await f.prepare()).status,200);
   assert.equal(f.payappCalls(),1);
   await f.api('inquiries/MS-TEST/wait-restore','POST');
-  assert.equal((await f.customer(1,'MS-TEST')).wait.no,1);
+  assert.equal((await f.api('inquiries/MS-TEST')).wait.no,1);
   assert.equal((await f.prepare()).body.code,'RESERVATION_PENDING');
   assert.equal(f.payappCalls(),1);
 });
@@ -150,7 +150,7 @@ test('고객 문의 현황 새로고침은 자동 발송을 실행하지 않는�
   assert.equal(f.payappCalls(),0);
 });
 
-test('확정이 조회와 동시에 일어나도 마이페이지의 예약 상태와 순번은 한 시점의 값이다',async t=>{
+test('확정이 조회와 동시에 일어나도 마이페이지의 문의 상태와 확정 예약은 한 시점의 값이다',async t=>{
   const f=await fixture(t);
   const prepare=f.env.DB.prepare;
   let confirmed=false;
@@ -170,10 +170,10 @@ test('확정이 조회와 동시에 일어나도 마이페이지의 예약 상�
   };
   const before=await f.customer(1,'MS-TEST');
   assert.equal(before.status,'문의 접수');
-  assert.equal(before.wait.no,1);
+  assert.equal('wait' in before,false);
   assert.deepEqual(before.confirmed_bookings,[]);
   const after=await f.customer(1,'MS-TEST');
   assert.equal(after.status,'예약 확정');
-  assert.equal(after.wait,null);
+  assert.equal('wait' in after,false);
   assert.equal(after.confirmed_bookings.length,1);
 });

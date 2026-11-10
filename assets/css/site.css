@@ -1427,6 +1427,8 @@ body:has(.subnav) section[id]{scroll-margin-top:calc(var(--header-h) + 22px)}
 .adm-cal .ev{flex-shrink:0;font-style:normal;font-size:11px;line-height:1.35;border-radius:3px;padding:2px 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ev.bk,.lg.bk::before{background:var(--ok-soft);color:var(--ok)}
 .ev.full,.lg.full::before{background:var(--graphite);color:#fff}
+.adm-cal .cal-booked span{display:block;overflow:hidden;text-overflow:ellipsis}
+.adm-cal .cal-booked .cal-booked-label{white-space:normal;font-weight:700}
 .ev.hold,.lg.hold::before{background:var(--warn-soft);color:var(--warn)}
 .ev.inq,.lg.inq::before{background:var(--cobalt-soft);color:var(--cobalt-2)}
 .ev[data-ref]{cursor:pointer}

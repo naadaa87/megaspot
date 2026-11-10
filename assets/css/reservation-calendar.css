@@ -55,4 +55,3 @@
 @media(max-width:719px){.rv-availability{padding:14px 12px}.rv-availability-choices{display:grid;grid-template-columns:1fr}.rv-availability-choices button{width:100%}}
 
 /* Waiting requests remain distinct from confirmed occupancy. */
-.reservation-wait b{display:block}.reservation-wait p{margin:6px 0 0}.reservation-wait strong{color:var(--cobalt,#1f53d5)}

@@ -467,7 +467,6 @@
       var L = [r.plan&&r.plan.unknownDate?NAME+' · 행사 일정 상담 후 결정':E.summaryText(r, purLabel(r.purpose))];
       if(r.plan) L.push(r.plan.text);
       if (who) L.unshift('[' + NAME + ' 예약 신청] ' + who.name + ' / ' + who.phone + (who.email ? ' / ' + who.email : '') + (who.message ? '\n요청사항: ' + who.message : '') + (who.family && who.family.length && M.familyLabel ? '\n함께 알아보기: ' + M.familyLabel(who.family) : '') + (who.catering ? '\n출장뷔페: ' + who.catering.summary : '') + (who.cocktail ? '\n출장 칵테일: ' + who.cocktail.summary : '') + (who.visit && M.visitLabel ? '\n현장답사 희망: ' + M.visitLabel(who.visit) : ''));
-      if(done&&done.live&&done.r===r&&done.who===who&&done.wait&&!(r.plan&&r.plan.unknownDate)&&done.wait.space_id===SPACE_ID&&done.wait.date===r.date&&Number.isSafeInteger(done.wait.no)&&done.wait.no>=1&&Number.isSafeInteger(done.wait.total)&&done.wait.total>=done.wait.no)L.unshift('접수 시점 예약대기 '+done.wait.no+'번 · 총 '+done.wait.total+'건 (예약 확정 전 · 담당자 결제 안내)');
       return L.join('\n');
     }
     function submit(){
@@ -494,7 +493,7 @@
         if(!el.isConnected||!form.isConnected||signature!==JSON.stringify(PLAN?PLAN.capture(el):M.formData(form)))throw Error('입력한 내용이 바뀌었습니다. 선택한 구성을 확인하고 다시 신청해 주세요.');
         if(status&&(status.closed||status.invalid||status.conflict||status.unknown)){checkAvailability(true);throw Error(status.conflict?'선택한 시간과 겹치는 확정 예약이 있습니다. 1·2호 예약 현황에서 다른 시간이나 공간을 골라 주세요.':'선택한 일정은 시간 확인이 필요합니다. 날짜를 다시 고르거나 카카오톡으로 문의해 주세요.');}
         return M.api('/inquiry', { method: 'POST', body: body });
-      }).then(function(res){ submitting = false;availabilitySeq++;clearTimeout(availabilityTimer);availabilityAt=0;availabilityKey='';if(M.reservations&&M.reservations.invalidate)M.reservations.invalidate(); done = { ref: res.ref, live: true, who: who, r: r, purpose: purpose, member: !!res.member, wait:res.wait||null }; phase = 'done'; if(PLAN) PLAN.clear(); paintDone(); })
+      }).then(function(res){ submitting = false;availabilitySeq++;clearTimeout(availabilityTimer);availabilityAt=0;availabilityKey='';if(M.reservations&&M.reservations.invalidate)M.reservations.invalidate(); done = { ref: res.ref, live: true, who: who, r: r, purpose: purpose, member: !!res.member }; phase = 'done'; if(PLAN) PLAN.clear(); paintDone(); })
       .catch(function(ex){
         submitting = false;
         if (ex.code === 'NO_API'){ done = { ref: M.localRef('MS'), live: false, who: who, r: r, purpose: purpose }; phase = 'done'; if(PLAN) PLAN.clear(); paintDone(); return; }
@@ -504,17 +503,15 @@
     function paintDone(){
       var r = done.r, text = reserveText(r, done.who);
       var hasFood = !!(r.plan && r.plan.hasFood) || !!(done.who.catering || done.who.cocktail || done.who.reception);
-      var w=done.wait,queued=!!(done.live&&!(r.plan&&r.plan.unknownDate)),knownWait=queued&&w&&w.space_id===SPACE_ID&&w.date===r.date&&Number.isSafeInteger(w.no)&&w.no>=1&&Number.isSafeInteger(w.total)&&w.total>=w.no;
       out('result').innerHTML = '<div class="est-card rv-card rv-done">'
-        + '<div class="row between"><div class="eyebrow">' + (done.live ? 'Received' : 'Draft') + '</div><span class="badge ' + (done.live ? 'badge-ok' : 'badge-warn') + '">' + (done.live ? (queued?'예약대기 접수':'상담 신청 접수') : '체험 모드 · 전송 대기') + '</span></div>'
-        + '<h3 class="est-title">' + (done.live ? (queued?'예약 대기 신청이 접수되었습니다':'상담 신청이 접수되었습니다') : '예약 신청 내용이 준비되었습니다') + '</h3>'
+        + '<div class="row between"><div class="eyebrow">' + (done.live ? 'Received' : 'Draft') + '</div><span class="badge ' + (done.live ? 'badge-ok' : 'badge-warn') + '">' + (done.live ? '상담 신청 접수' : '체험 모드 · 전송 대기') + '</span></div>'
+        + '<h3 class="est-title">' + (done.live ? '상담 신청이 접수되었습니다' : '예약 신청 내용이 준비되었습니다') + '</h3>'
         + '<div class="oc-code mt-2"><small>접수번호</small><b>' + esc(done.ref) + '</b></div>'
-        + (queued?'<div class="notice reservation-wait mt-3" role="status"><div><b>'+(knownWait?'접수 시점 내 예약대기 <strong>'+w.no+'번</strong> · 총 '+w.total+'건':'예약대기 순번은 담당자가 확인해 안내합니다')+'</b><p>'+esc(NAME+' · '+E.kdateY(r.date))+' 기준입니다. 예약대기 1번도 예약 확정은 아니며, 대기가 있는 동안 온라인 결제는 제한됩니다. 담당자가 순번과 이용 가능 여부를 확인한 뒤 결제 방법을 안내합니다.</p></div></div>':'')
         + (done.who && done.who.visit && M.visitLabel ? '<div class="visit-done mt-2"><b>현장답사 희망도 함께 받았습니다</b><span>' + esc(M.visitLabel(done.who.visit)) + ' — 담당자가 연락드려 답사 시간을 확정합니다.</span></div>' : '')
         + '<dl class="def mt-3"><div><dt>이용일</dt><dd>' + esc(r.plan&&r.plan.unknownDate?'상담 후 결정':E.kdateY(r.date)) + '</dd></div><div><dt>시간</dt><dd>' + esc(r.plan&&r.plan.unknownDate?'상담 후 결정':r.range) + (r.pkg&&!(r.plan&&r.plan.unknownDate) ? ' · ' + esc(r.pkg.label) : '') + '</dd></div><div><dt>인원</dt><dd>' + r.people + '명</dd></div><div><dt>공간 대관료</dt><dd><b>' + esc(r.plan&&r.plan.unknownDate?'상담 후 안내':won(r.total)) + '</b> <span class="muted">(' + esc(D.deposit.label) + ' ' + esc(won(r.deposit)) + ' 별도)</span></dd></div>' + (done.who.catering ? '<div><dt>출장뷔페</dt><dd>' + esc(done.who.catering.summary) + ' <span class="muted">(대관료와 별도)</span></dd></div>' : '') + (done.who.cocktail ? '<div><dt>출장 칵테일</dt><dd>' + esc(done.who.cocktail.summary) + ' <span class="muted">(대관료와 별도 · 조건 확인 전)</span></dd></div>' : '') + '<div><dt>예약자</dt><dd>' + esc(done.who.name) + ' · ' + esc(done.who.phone) + '</dd></div></dl>'
         + (r.plan?'<section class="plan-summary">'+r.plan.html+'</section>':'')
         + (done.live
-          ? '<ol class="steps-mini mt-3"><li><b>대기 순번·일정 확인</b><span>담당자가 대기 순번과 신청하신 날짜·시간의 이용 가능 여부를 확인하고 영업시간 기준 2시간 안에 카카오톡·문자로 연락드립니다.</span></li><li><b>금액 확인·결제 안내</b><span>확정 금액과 결제 방법(카드·계좌이체)을 안내드립니다.</span></li><li><b>예약 확정</b><span>결제가 끝나면 예약번호가 발급되고 현장 안내를 보내 드립니다.</span></li></ol>'
+          ? '<ol class="steps-mini mt-3"><li><b>일정 확인</b><span>담당자가 신청하신 날짜·시간의 이용 가능 여부를 확인하고 영업시간 기준 2시간 안에 카카오톡·문자로 연락드립니다.</span></li><li><b>금액 확인·결제 안내</b><span>확정 금액과 결제 방법(카드·계좌이체)을 안내드립니다.</span></li><li><b>예약 확정</b><span>결제가 끝나면 예약번호가 발급되고 현장 안내를 보내 드립니다.</span></li></ol>'
           : '<p class="small muted mt-2">지금은 서버가 연결되지 않아 자동 저장되지 않았습니다. 아래 내용을 카카오톡으로 보내 주시면 같은 순서로 안내해 드립니다.</p>')
         + (hasFood && done.live ? '<div class="notice mt-3"><div><b>공간과 식음료를 함께 확인한 뒤 결제를 안내합니다.</b><br>담당자가 선택하신 전체 구성의 일정·제공 가능 여부와 최종 금액을 확인해 연락드립니다.</div></div>' : '')
         + '<div class="rv-sub mt-3">' + (KAKAO ? '<a class="btn btn-kakao btn-sm" data-act="kakao" href="' + esc(KAKAO) + '" target="_blank" rel="noopener">카카오톡으로 보내기</a>' : '') + '<button type="button" class="btn btn-light btn-sm" data-act="copy">내용 복사</button><button type="button" class="btn btn-light btn-sm" data-act="pdf">견적서 PDF</button><button type="button" class="btn btn-light btn-sm" data-act="ics">내 캘린더에 저장</button>' + (done.member ? '<a class="btn btn-light btn-sm" href="/mypage/">마이페이지</a>' : '') + '<button type="button" class="btn btn-ghost btn-sm" data-act="again">새로 계산</button></div>'
@@ -527,7 +524,7 @@
       var r = done.r, C = M.CONFIG || {};
       function dt(iso, h){ var d = E.parse(iso); d.setHours(0, 0, 0, 0); d.setHours(h); var p = function(n){ return ('0' + n).slice(-2); }; return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + 'T' + p(d.getHours()) + p(d.getMinutes()) + '00'; }
       var now = new Date(), stamp = now.toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';
-      var desc = ('접수번호 ' + done.ref + '\\n' + E.summaryText(r, purLabel(done.purpose)).replace(/\n/g, '\\n') + '\\n예약대기 신청 상태입니다. 담당자가 순번과 이용 가능 여부를 확인한 뒤 결제를 안내합니다.');
+      var desc = ('접수번호 ' + done.ref + '\\n' + E.summaryText(r, purLabel(done.purpose)).replace(/\n/g, '\\n') + '\\n담당자가 신청하신 일정의 이용 가능 여부를 확인한 뒤 결제를 안내합니다.');
       var lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//MEGASPOT//reserve//KO', 'CALSCALE:GREGORIAN', 'BEGIN:VEVENT', 'UID:' + done.ref + '@megaspot.kr', 'DTSTAMP:' + stamp,
         'DTSTART;TZID=Asia/Seoul:' + dt(r.date, r.start), 'DTEND;TZID=Asia/Seoul:' + dt(r.date, r.end), 'SUMMARY:' + NAME + ' 예약 신청 (' + r.people + '명)',
         'LOCATION:' + (D.address ? NAME + ' · ' + D.address : (C.venueAddress || '서울특별시 광진구 화양동 10-1 한아름건물 2층')), 'DESCRIPTION:' + desc, 'STATUS:TENTATIVE', 'END:VEVENT', 'END:VCALENDAR'];

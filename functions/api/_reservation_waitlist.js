@@ -1,6 +1,6 @@
 import {spaceOk} from './_lib.js';
 
-// One definition for the administrator's queue, public counts and payment guards.
+// One definition for the administrator's queue and payment guards.
 export const PENDING_STATUSES_SQL="('문의 접수', '조건 확인', '견적 발송', '결제 대기')";
 export const WAIT_ORDER_SQL="CASE WHEN json_extract(i.data, '$.wait_rank') IS NULL THEN 1 ELSE 0 END, CAST(json_extract(i.data, '$.wait_rank') AS INTEGER), COALESCE(json_extract(i.data, '$.wait_restored_at'), i.created_at), i.ref";
 export const waitSpaceSql=alias=>`CASE WHEN ${alias}.space_id='megaspot-gundae-2' THEN 'megaspot-gundae-2' ELSE 'megaspot-gundae' END`;
