@@ -5,3 +5,5 @@
 /partner           /inquiry/?type=partner     302
 /reserve           /inquiry/                  302
 /estimate          /inquiry/                  302
+/assets/img/events/20261102-folder/photo-02.jpg /assets/img/events/20261102-folder/photo-02-redacted.jpg 302
+/assets/img/events/20261102-folder/thumb-02.jpg /assets/img/events/20261102-folder/thumb-02-redacted.jpg 302

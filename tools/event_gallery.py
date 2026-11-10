@@ -52,7 +52,8 @@ def event_gallery_section():
     ordered = [by_key[key] for key in featured] + [photo for photo in PHOTOS if photo[:2] not in featured]
     cards=[]
     for directory,i,title,alt in ordered:
-        cards.append(f'''<figure class="event-photo"><a href="{directory}/photo-{i:02}.jpg" data-event-photo data-title="{title}" aria-label="{title} 사진 크게 보기"><img src="{directory}/thumb-{i:02}.jpg" alt="{alt} · 참석자 얼굴 가림 처리" width="720" height="540" loading="lazy" decoding="async"></a><figcaption>{title}</figcaption></figure>''')
+        version = '-redacted' if (directory, i) == (FOLDER_ASSET_DIR, 2) else ''
+        cards.append(f'''<figure class="event-photo"><a href="{directory}/photo-{i:02}{version}.jpg" data-event-photo data-title="{title}" aria-label="{title} 사진 크게 보기"><img src="{directory}/thumb-{i:02}{version}.jpg" alt="{alt} · 참석자 얼굴 가림 처리" width="720" height="540" loading="lazy" decoding="async"></a><figcaption>{title}</figcaption></figure>''')
     preview=''.join(cards[:len(featured)])
     rest=''.join(cards[len(featured):])
     more=f'<details class="home-gallery-more"><summary>현장 사진 {len(cards)-len(featured)}장 더 보기</summary><div class="event-photo-grid">{rest}</div></details>' if rest else ''
