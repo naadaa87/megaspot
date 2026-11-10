@@ -8,7 +8,7 @@
     {id:'consult',label:'문의·상담',open:true,items:[['inq','문의 관리'],['quote','견적 계산'],['visits','현장답사']]},
     {id:'booking',label:'예약·일정',open:true,items:[['orders','주문·결제 확인'],['resv','예약 현황'],['booking-readiness','미안내·미발급'],['transaction-notifications','거래 알림'],['guide-messages','이용 안내']]},
     {id:'event',label:'행사·부가서비스',items:[['catering','식음료 서비스'],['parking','주차권 관리']]},
-    {id:'after',label:'정산·사후관리',items:[['deposit-refunds','보증금 환급'],['reviews','후기 관리']]},
+    {id:'after',label:'정산·사후관리',items:[['revenue','매출 현황'],['deposit-refunds','보증금 환급'],['reviews','후기 관리']]},
     {id:'platform',label:'고객·플랫폼',items:[['members','회원'],['meetups','모임 관리'],['hosts','입점·광고 신청'],['listings','등록 공간'],['ads','배너 광고']]},
     {id:'settings',label:'운영 설정',items:[['prices-catering','공급가·판매가'],['guide-settings','알림톡·자동 발송'],['parking-settings','주차 판매·연결 설정']]}
   ];
@@ -76,6 +76,7 @@
   ['resv','bookings','calendar'].forEach(function(id){var b=action(id,'booking-new','+ 예약 등록');b.className='btn btn-primary btn-sm adm-context-action';});
   action('booking-new','bookings','예약 목록으로');
   action('orders','resv','예약 현황 보기');
+  action('orders','revenue','매출 현황 보기');
   action('guide-messages','guide-settings','알림톡·자동 발송 설정').classList.add('adm-work-block');
   action('deposit-notifications','deposit-settings','보증금 알림 설정').classList.add('adm-work-block');
   action('parking','parking-settings','주차 판매·연결 설정').classList.add('adm-work-block');

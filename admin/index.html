@@ -53,6 +53,7 @@
 <link rel="stylesheet" href="/assets/css/admin-parking.css?v=20261106mobile-status">
 <link rel="stylesheet" href="/assets/css/admin-navigation.css?v=20261104navrelease3">
 <link rel="stylesheet" href="/assets/css/admin-booking-readiness.css?v=20261105readiness1">
+<link rel="stylesheet" href="/assets/css/admin-revenue.css?v=20261110revenue1">
 <link rel="stylesheet" href="/assets/css/admin-reservation-search.css?v=20261105inquirysearch1">
 <link rel="stylesheet" href="/assets/css/admin-reception.css?v=20261105cfbudget1">
 </head>
@@ -86,6 +87,7 @@
       <button type="button" data-view="reception">테이블·박스 케이터링</button>
       <button type="button" data-view="cocktail">출장 칵테일</button>
       <button type="button" data-view="orders">주문·결제<em data-count="orders" hidden></em></button>
+      <button type="button" data-view="revenue">매출 현황</button>
       <button type="button" data-view="bookings">예약 관리</button>
       <button type="button" data-view="booking-readiness">미안내·미발급</button>
       <button type="button" data-view="calendar">일정 달력</button>
@@ -379,6 +381,47 @@
       </div>
       <p class="tiny muted mb-2">환불·취소는 <b>페이앱 판매자 관리자(seller.payapp.kr)</b>에서 처리하세요. 페이앱 주문은 취소 통보를 받으면 자동 반영됩니다. 전체 취소는 연결된 예약도 취소하고, 부분 취소는 환불 금액을 기록하며 예약을 유지합니다.</p>
       <div id="ord-list" class="adm-list"></div>
+    </section>
+
+    <section class="adm-view" id="view-revenue" hidden>
+      <header class="adm-head"><div><h1>매출 현황</h1><p class="small muted">실제로 기록된 수납과 완료된 환불을 지점별·날짜별로 확인합니다.</p></div></header>
+      <form class="adm-card revenue-filters" id="revenue-form">
+        <label for="revenue-basis">날짜 기준<select class="select" id="revenue-basis" name="basis"><option value="payment">수납·환불일</option><option value="event">이용일</option></select></label>
+        <label for="revenue-space">지점<select class="select" id="revenue-space" name="space"><option value="">전체</option><option value="megaspot-gundae">건대 1호점</option><option value="megaspot-gundae-2">건대 2호점</option><option value="unassigned">공통·지점 미지정</option></select></label>
+        <label for="revenue-from">시작일<input class="input" type="date" id="revenue-from" name="from" required></label>
+        <label for="revenue-to">종료일<input class="input" type="date" id="revenue-to" name="to" required></label>
+        <button type="submit" class="btn btn-primary btn-sm">조회</button>
+        <button type="button" class="btn btn-light btn-sm" id="revenue-month">이번 달</button>
+      </form>
+      <p class="small muted" id="revenue-status" role="status"></p>
+      <div id="revenue-report" hidden>
+        <div class="revenue-totals" id="revenue-totals" aria-label="기간 합계"></div>
+        <section class="adm-card mt-3">
+          <h2>날짜별 매출</h2>
+          <p class="tiny muted">날짜를 선택하면 아래 거래 내역에서 해당 날짜만 볼 수 있습니다. 지점별 열에는 순매출을 표시합니다.</p>
+          <div class="revenue-table-wrap" id="revenue-daily"></div>
+        </section>
+        <section class="adm-card mt-3" id="revenue-detail">
+          <div class="revenue-detail-head"><h2>거래 내역</h2><button class="btn btn-light btn-sm" type="button" id="revenue-clear-day" hidden>날짜 필터 해제</button></div>
+          <p class="tiny muted" id="revenue-detail-label" aria-live="polite"></p>
+          <div class="revenue-table-wrap" id="revenue-items"></div>
+          <div class="revenue-pagination" id="revenue-pagination" hidden>
+            <button type="button" class="btn btn-light btn-sm" id="revenue-prev">이전</button>
+            <span id="revenue-page" class="small"></span>
+            <button type="button" class="btn btn-light btn-sm" id="revenue-next">다음</button>
+          </div>
+        </section>
+      </div>
+      <details class="adm-card mt-3 revenue-rules">
+        <summary>집계 기준</summary>
+        <ul class="small muted">
+          <li>순매출은 수납액에서 완료된 환불액을 뺀 금액입니다. 반환 보증금의 입금과 환급은 제외합니다. 합산 입금은 이용료 부분만 집계합니다.</li>
+          <li>온라인 주문과 관리자 수납·환불 기록을 집계합니다. 견적, 미수금, 테스트 결제, 보관함으로 옮긴 취소 건은 제외합니다.</li>
+          <li>수납·환불일은 한국시간으로 표시합니다. 수기 거래는 기록일을 사용합니다. 이용일 기준에서는 이용일이 기록된 거래만 집계합니다.</li>
+          <li>기존 확정서에서 이관된 수납이나 처리일을 확인할 수 없는 이전 거래는 상세 내역에 ‘추정’으로 표시합니다.</li>
+          <li>공용 주차권과 지점 정보가 없는 주문은 ‘공통·지점 미지정’으로 집계합니다.</li>
+        </ul>
+      </details>
     </section>
 
     <section class="adm-view" id="view-booking-readiness" hidden></section>
@@ -682,7 +725,8 @@
 <script src="/assets/js/pages/admin-settlement.js?v=20261105mobilepayment1"></script>
 <script src="/assets/js/pages/admin-cancellation.js?v=20261104retry1"></script>
 <script src="/assets/js/pages/admin-transaction-notifications.js?v=20261108-alimtalk"></script>
-<script src="/assets/js/pages/admin-navigation.js?v=20261108-transactions"></script>
+<script src="/assets/js/pages/admin-revenue.js?v=20261110revenue1"></script>
+<script src="/assets/js/pages/admin-navigation.js?v=20261110revenue1"></script>
 <script src="/assets/js/pages/admin-booking-readiness.js?v=20261105readiness1"></script>
 </body>
 </html>
