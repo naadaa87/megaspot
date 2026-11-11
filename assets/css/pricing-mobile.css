@@ -1,0 +1,29 @@
+@media (max-width:560px){
+  .page-pricing .page-hero .badge{
+    max-width:100%;
+    height:auto;
+    padding-top:4px;
+    padding-bottom:4px;
+    white-space:normal;
+    line-height:1.5;
+  }
+  .page-pricing .ask-band > *{min-width:0}
+  .page-pricing .ask-four{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:374px){
+  .page-pricing .facts.facts-4{grid-template-columns:minmax(0,1fr)}
+  .page-pricing .facts.facts-4 > div{border-right:0}
+  .page-pricing .ask-cta .btn{
+    min-width:0;
+    height:auto;
+    padding:12px 14px;
+    flex-wrap:wrap;
+    gap:6px 10px;
+    white-space:normal;
+  }
+  .page-pricing .ask-cta .btn small{
+    flex-basis:100%;
+    margin-left:0;
+    overflow-wrap:anywhere;
+  }
+}
