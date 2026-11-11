@@ -530,8 +530,8 @@ window.MEGASPOT_CATERING = {
   courses: [
     { id: 'small', name: '소규모 스페셜', tag: '20·30인 정액', kind: 'flat', menuCourse: 'basic',
       tiers: [{ people: 20, price: 1200000 }, { people: 30, price: 1500000 }],
-      min: 20, max: 30, live: '',
-      summary: '베이직 코스 메뉴를 20인 또는 30인 정액으로 준비합니다.',
+      min: 20, max: 39, live: '',
+      summary: '베이직 코스 메뉴를 20인 또는 30인 정액으로 준비합니다. 31~39인은 30인 코스의 1인 단가로 계산합니다.',
       note: '즉석 코너는 포함되지 않습니다.' },
     { id: 'basic', name: '베이직', tag: '식사 위주 실속', kind: 'per', price: 40000, min: 40, dishes: 30, drink: true, liveMin: 100,
       live: '잔치국수 / 메밀국수 (택1)',

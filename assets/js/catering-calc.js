@@ -25,8 +25,12 @@
       if (c.kind === 'flat') {
         var tier = people > 20 ? c.tiers[1] : c.tiers[0];
         if (people && people < 20) warn.push('출장뷔페는 20인부터 주문할 수 있어 20인 기준으로 계산했습니다.');
-        billPeople = tier.people;
-        lines.push({ key: 'course', label: c.name + ' ' + tier.people + '인 정액', amount: tier.price, people: tier.people });
+        billPeople = Math.max(tier.people, people);
+        var extended = billPeople > tier.people;
+        var amount = Math.round(tier.price * billPeople / tier.people);
+        var label = extended ? c.name + ' 1인 ' + won(tier.price / tier.people) + ' × ' + billPeople + '명'
+                             : c.name + ' ' + tier.people + '인 정액';
+        lines.push({ key: 'course', label: label, amount: amount, people: billPeople });
       } else {
         var p = Math.max(people || c.min, c.min);
         if (people && people < c.min) warn.push(c.name + ' 코스는 ' + c.min + '인부터라 ' + c.min + '인 기준으로 계산했습니다.' + (c.min === 40 && people >= 20 ? ' 20·30인 행사는 소규모 스페셜(정액)을 확인해 보세요.' : ''));
@@ -75,7 +79,7 @@
   /* ---------- 신청서 칸 ---------- */
   function courseOptions(sel, first){
     return '<option value="">' + esc(first || '코스는 상담 후 결정') + '</option>' + D.courses.map(function(c){
-      var p = c.kind === 'flat' ? c.tiers[0].people + '·' + c.tiers[1].people + '인 정액' : '1인 ' + won(c.price) + (c.min > 40 ? ' · ' + c.min + '인~' : '');
+      var p = c.kind === 'flat' ? c.tiers[0].people + '·' + c.tiers[1].people + '인 정액 · 31~39인 단가 계산' : '1인 ' + won(c.price) + (c.min > 40 ? ' · ' + c.min + '인~' : '');
       return '<option value="' + c.id + '"' + (c.id === sel ? ' selected' : '') + '>' + esc(c.name + ' · ' + p) + '</option>';
     }).join('');
   }

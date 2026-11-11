@@ -75,7 +75,7 @@ test('both small tiers retain flat prices and copy the Basic menu and supplier c
   vm.runInContext(admin.slice(admin.indexOf('  function ctMenuText(){'), admin.indexOf('  function ctCopy(t, msg){')), ctx);
   const basic = ctx.CC.course('basic');
 
-  for (const [people, price, gross] of [[20, 1200000, 1320000], [30, 1500000, 1650000]]) {
+  for (const [people, price, gross] of [[20, 1200000, 1320000], [30, 1500000, 1650000], [34, 1700000, 1870000]]) {
     ctx.CT.people = people;
     ctx.CR = ctx.CC.quote({ course: 'small', people, fee: 0 });
     assert.equal(ctx.CR.billPeople, people);
@@ -89,6 +89,13 @@ test('both small tiers retain flat prices and copy the Basic menu and supplier c
     assert.doesNotMatch(menu, /왕새우치즈구이|40종/);
     assert.match(ctx.ctOrderText(), new RegExp('· 코스: 업체 베이직 ' + people + '명'));
   }
+  ctx.window.MEGASPOT_FOOD_ADMIN_PRICES = { catering: (await readFoodPricing(f.env, 'catering')).rows };
+  vm.runInContext(admin.slice(admin.indexOf('  function ctVendorLines(){'), admin.indexOf('  function ctInternal(){')), ctx);
+  ctx.CT.people = 34;
+  ctx.CR = ctx.CC.quote({ course: 'small', people: 34 });
+  assert.equal(ctx.ctVendorLines().unknown, true);
+  assert.equal(ctx.ctVendorLines().lines.find(row => row.key === 'course').vendor, null);
+  assert.match(ctx.ctOrderText(), /업체 베이직 34명 \(공급가 확인 필요\)/);
 });
 
 test('catering targets identify an admin quote with a small package before an order exists', async t => {
@@ -124,7 +131,7 @@ test('changing a saved standalone buffet quote replaces only its buffet charge i
   const admin = source('assets/js/pages/admin.js');
   vm.runInContext(admin.slice(admin.indexOf('  function ctToQuote(){'), admin.indexOf('  /* ---- 예약·문의 불러오기', admin.indexOf('  function ctToQuote(){'))), ctx);
 
-  for (const [before, after, oldTotal, newTotal] of [[20, 30, 1924500, 2254500], [30, 20, 2254500, 1924500]]) {
+  for (const [before, after, oldTotal, newTotal] of [[20, 30, 1924500, 2254500], [30, 20, 2254500, 1924500], [30, 34, 2254500, 2474500], [34, 30, 2474500, 2254500]]) {
     const oldBuffet = ctx.CC.quote({ course: 'small', people: before, fee: 75000 });
     const equipment = { label: '추가 장비', amount: 22000 };
     const extras = [{ kind: 'catering', label: '사용자가 이름을 바꾼 식사 항목', amount: oldBuffet.total }, equipment];
@@ -161,7 +168,7 @@ test('quote print and customer copy identify stored buffet headcount even with a
   vm.runInContext(admin.slice(admin.indexOf('  function custParts('), admin.indexOf("  $('#q-copy').addEventListener"))
     + admin.slice(admin.indexOf('  function renderSheet(){'), admin.indexOf('  function loadRecentQuotes(){')), ctx);
 
-  for (const [number, people, buffet, total] of [['Q-OLD', 30, 1732500, 2254500], ['Q-NEW', 20, 1402500, 1924500]]) {
+  for (const [number, people, buffet, total] of [['Q-OLD', 30, 1732500, 2254500], ['Q-NEW', 20, 1402500, 1924500], ['Q-34', 34, 1952500, 2474500]]) {
     const catering = cateringQuote({ course: 'small', people }, 75000);
     ctx.Q = { quoteNo: number, space: 'megaspot-gundae', customer: '검증 고객', purpose: '', note: '' };
     ctx.R = {

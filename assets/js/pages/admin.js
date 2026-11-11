@@ -988,7 +988,7 @@
   var CT=blankCT();
   var CT_CHECK=[
     ['행사 날짜·대관 시간','세팅·수거도 대관 시간 안에서 합니다. 식사 시작 전에 세팅할 시간이 있는지 확인'],
-    ['식사 인원','20·30인은 소규모 스페셜(정액), 베이직~시그니처는 40인부터, VIP 스페셜은 50인부터'],
+    ['식사 인원','소규모 스페셜은 20·30인 정액, 31~39인은 30인 코스 단가로 계산. 베이직~시그니처는 40인부터, VIP 스페셜은 50인부터'],
     ['예산·행사 성격 → 코스 추천','식사 위주면 베이직·클래식, 손님 대접이면 프리미엄 이상'],
     ['밥·국 선택 (택1 메뉴)','볶음밥/영양찰밥, 국 종류 등 코스 메뉴의 택1 항목'],
     ['바베큐·생맥주','뒤풀이·파티면 함께 권하기. 생맥주는 1통 약 40잔'],
@@ -1003,8 +1003,8 @@
     var lo=Math.min.apply(null, per.map(function(x){ return x.price; })), hi=Math.max.apply(null, per.map(function(x){ return x.price; }));
     var fee=won(CD.delivery.fee);
     return [
-      ['가격이 얼마인가요?', '출장뷔페는 1인 '+won(lo)+'(베이직)부터 '+won(hi)+'(VIP 스페셜)까지 있습니다. 20·30인 행사는 소규모 스페셜 정액('+flat.tiers[0].people+'인 '+won(flat.tiers[0].price)+', '+flat.tiers[1].people+'인 '+won(flat.tiers[1].price)+')으로 진행합니다. 금액은 부가세 별도이고, 주문 1건마다 출장·세팅비 '+fee+'이 더해집니다. 코스별 메뉴와 예상 금액은 megaspot.kr/catering/ 에서 바로 확인하실 수 있습니다.'],
-      ['몇 명부터 되나요?', '출장뷔페는 20인부터 주문할 수 있습니다. 20·30인은 소규모 스페셜(정액), 40인부터는 베이직~시그니처 코스, 50인부터는 VIP 스페셜까지 고르실 수 있습니다. 20인보다 적은 모임은 외부 음식이나 배달 음식을 가져오셔도 괜찮습니다.'],
+      ['가격이 얼마인가요?', '출장뷔페는 1인 '+won(lo)+'(베이직)부터 '+won(hi)+'(VIP 스페셜)까지 있습니다. 20·30인 행사는 소규모 스페셜 정액('+flat.tiers[0].people+'인 '+won(flat.tiers[0].price)+', '+flat.tiers[1].people+'인 '+won(flat.tiers[1].price)+')으로 진행합니다. 31~39인은 30인 코스의 1인 단가 '+won(flat.tiers[1].price/flat.tiers[1].people)+'으로 계산합니다. 금액은 부가세 별도이고, 주문 1건마다 출장·세팅비 '+fee+'이 더해집니다. 코스별 메뉴와 예상 금액은 megaspot.kr/catering/ 에서 바로 확인하실 수 있습니다.'],
+      ['몇 명부터 되나요?', '출장뷔페는 20인부터 주문할 수 있습니다. 소규모 스페셜은 20·30인 정액이며 31~39인은 30인 코스의 1인 단가로 계산합니다. 40인부터는 베이직~시그니처 코스, 50인부터는 VIP 스페셜까지 고르실 수 있습니다. 20인보다 적은 모임은 외부 음식이나 배달 음식을 가져오셔도 괜찮습니다.'],
       ['세팅은 언제 하나요?', '세팅과 수거도 대관 시간 안에서 진행합니다. 식사 시작 전에 뷔페를 차릴 시간이 필요해서, 대관 시작 시간을 식사 시간보다 앞으로 잡아 주시면 좋습니다. 코스와 인원에 맞춰 필요한 시간을 함께 안내드릴게요.'],
       ['메뉴를 바꿀 수 있나요?', '코스 안의 택1 메뉴(밥·국 등)는 고르실 수 있고, 계절과 식재료 수급에 따라 일부 메뉴는 같은 급의 다른 요리로 바뀔 수 있습니다. 알레르기나 피해야 할 재료가 있으면 미리 알려 주세요. 최대한 맞춰 준비하겠습니다.'],
       ['남은 음식 포장되나요?', '위생 문제로 남은 음식은 포장해 드리지 않는 것이 원칙입니다. 음식물 쓰레기와 그릇·집기는 수거할 때 함께 정리합니다.'],
@@ -1027,7 +1027,7 @@
     $('#ct-people').value=CT.people||''; $('#ct-fee').value=CT.fee; $('#ct-note').value=CT.note;
     $('#ct-time').placeholder=CT.rent?'대관 '+CT.rent+' · 예: 18:30':'예: 18:30';
     $('#ct-courses').innerHTML=CD.courses.map(function(c){
-      var p=c.kind==='flat'?c.tiers[0].people+'인 '+man(c.tiers[0].price)+' · '+c.tiers[1].people+'인 '+man(c.tiers[1].price):'1인 '+won(c.price)+' · '+c.min+'인~';
+      var p=c.kind==='flat'?c.tiers[0].people+'인 '+man(c.tiers[0].price)+' · '+c.tiers[1].people+'인 '+man(c.tiers[1].price)+' · 31~39인 1인 '+won(c.tiers[1].price/c.tiers[1].people):'1인 '+won(c.price)+' · '+c.min+'인~';
       return '<label class="ct-c'+(CT.course===c.id?' on':'')+'"><input type="radio" name="ct-course" value="'+c.id+'"'+(CT.course===c.id?' checked':'')+'><b>'+esc(c.name)+'</b><small>'+esc(p)+'</small></label>';
     }).join('')+'<label class="ct-c none'+(!CT.course?' on':'')+'"><input type="radio" name="ct-course" value=""'+(!CT.course?' checked':'')+'><b>뷔페 없음</b><small>바베큐·생맥주만</small></label>';
     $('#ct-bbq').innerHTML=CC.bbqOptions(CT.bbq); $('#ct-beer').innerHTML=CC.beerOptions(CT.beer);
@@ -1080,7 +1080,7 @@
     if(cp[0]) L.push('· 고객: '+cp[0]+(cp[1]?' ('+cp[1]+')':''));
     if(CT.date) L.push('· 행사일: '+E.kdateY(CT.date)+(CT.time?' · '+CT.time+' 식사':''));
     else if(CT.time) L.push('· 식사 시간: '+CT.time);
-    if(c) L.push('· 코스: '+c.name+(c.kind==='flat'?' (정액 · 요리 '+c.dishes+'종)':' (1인 '+won(c.price)+' · 요리 '+c.dishes+'종)'));
+    if(c) L.push('· 코스: '+c.name+(c.kind==='flat'?' ('+(r.billPeople>c.tiers[1].people?'30인 코스 단가 기준':'정액')+' · 요리 '+c.dishes+'종)':' (1인 '+won(c.price)+' · 요리 '+c.dishes+'종)'));
     if(c) L.push('· 인원: '+(CT.people||r.billPeople)+'명'+(r.billPeople!==CT.people&&CT.people?' (계산 기준 '+r.billPeople+'명)':''));
     if(r.bbq) L.push('· 바베큐: '+r.bbq.size+' ('+r.bbq.people+')');
     if(r.beer) L.push('· 생맥주: '+r.beer+'통 ('+CD.beer.unit+', 약 '+(r.beer*CD.beer.cups)+'잔)');
@@ -1115,7 +1115,7 @@
     if(CT.rent) L.push('· 대관 시간: '+CT.rent+' (세팅·수거도 이 안에서)');
     if(c){
       var courseLine=v&&v.lines.find(function(x){return x.key==='course';}),tierPrice=courseLine?courseLine.vendor:null,unit=tierPrice===null?null:tierPrice/r.billPeople;
-      L.push('· 코스: '+(codes[c.id]||c.name)+' '+r.billPeople+'명'+(c.kind==='flat'?' (정액 '+(tierPrice===null?'공급가 미입력':won(tierPrice))+')':' (1인 '+(unit===null?'공급가 미입력':won(unit))+')'));
+      L.push('· 코스: '+(codes[c.id]||c.name)+' '+r.billPeople+'명'+(c.kind==='flat'?' ('+(r.billPeople>c.tiers[1].people?'공급가 확인 필요':'정액 '+(tierPrice===null?'공급가 미입력':won(tierPrice)))+')':' (1인 '+(unit===null?'공급가 미입력':won(unit))+')'));
       if(CT.people && CT.people!==r.billPeople) L.push('  (실제 인원 '+CT.people+'명)');
     }
     if(r.bbq) L.push('· 바베큐: '+r.bbq.size+' (실내형 완제품)');

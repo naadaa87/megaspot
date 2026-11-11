@@ -7,9 +7,9 @@ import vm from 'node:vm';
 import {cateringQuote,cateringFrom,cateringAdmin} from '../functions/api/_catering.js';
 import {foodExtras,syncFoodInput} from '../functions/api/_food_services.js';
 import {foodHtml} from '../functions/api/_food_html.js';
-import {readFoodPricing,publicFoodPricing} from '../functions/api/_food_pricing.js';
+import {readFoodPricing,publicFoodPricing,foodPricingData,saveFoodPricing} from '../functions/api/_food_pricing.js';
 import {onRequestPost as inquire} from '../functions/api/inquiry.js';
-import {fixture,DAY} from './helpers/admin-fixture.mjs';
+import {fixture,DAY,saveQuote,quoteInput} from './helpers/admin-fixture.mjs';
 
 const source=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 function browser(){
@@ -18,9 +18,59 @@ function browser(){
  for(const path of ['data/catering.js','catering-calc.js','event-plan.js'])vm.runInContext(source('assets/js/'+path),ctx);
  return {calc:ctx.window.MEGASPOT_CATERING_CALC,plan:ctx.window.MEGASPOT.eventPlan};
 }
-test('small buffet over 30 guests keeps preferences but never prices 30 meals for a larger event',()=>{
+test('31–39 meal prices use the live 30-person tier, with one setup fee and VAT on the full supply', async t => {
  const {calc}=browser();
- for(const people of [31,60,200]){
+ for (const [people,meal] of [[20,1200000],[21,1500000],[29,1500000],[30,1500000],[31,1550000],[34,1700000],[39,1950000]]) {
+  for (const fee of [0,75000,100000]) {
+   const expected=Math.round((meal+fee)*1.1),input={course:'small',people,fee};
+   const client=calc.quote(input),server=cateringAdmin(input);
+   assert.equal(client.total,expected);
+   assert.equal(server.total,expected);
+   assert.equal(client.billPeople,server.bill_people);
+   if (people>30) {
+    assert.equal(client.billPeople,people);
+    assert.match(client.lines[0].label,new RegExp('50,000원 × '+people+'명'));
+    assert.match(server.summary,new RegExp(people+'명'));
+    assert.equal(foodExtras([{kind:'catering',amount:expected,catering:server}],{}).amount,expected);
+   }
+  }
+ }
+ const f=fixture();t.after(()=>f.db.close());
+ const config=await readFoodPricing(f.env,'catering');
+ await saveFoodPricing(f.env,'catering',{...config,rows:config.rows.map(row=>row.id==='course.small.30'?{...row,sale_price:1800000}:row)});
+ const live=foodPricingData('catering',await readFoodPricing(f.env,'catering'));
+ calc.course('small').tiers[1].price=1800000;
+ assert.equal(calc.quote({course:'small',people:34}).total,2354000);
+ assert.equal(cateringQuote({course:'small',people:34},undefined,live).total,2354000);
+});
+
+test('extended small buffet survives quote save, booking changes and confirmation without rewriting an older quote', async t => {
+ const f=fixture({booking:true});t.after(()=>f.db.close());
+ const original=cateringQuote({course:'small',people:30});
+ const extra={kind:'catering',label:'출장뷔페',amount:original.total,catering:original};
+ await saveQuote(f.api,{total:700000+original.total,input:quoteInput({extras:[extra]}),extras:[extra]});
+ const oldQuote=(await f.api('inquiries/MS-TEST')).quotes[0];
+ for (const [people,amount] of [[34,1980000],[39,2255000],[30,1760000]]) {
+  const saved=await f.api('catering/orders','POST',{inquiry_ref:'MS-TEST',config:{course:'small',people},status:'confirmed'});
+  assert.equal(saved.item.total,amount);
+  assert.equal(saved.item.bill_people,people);
+  const detail=await f.api('inquiries/MS-TEST');
+  assert.equal(detail.item.data.catering.total,amount);
+  assert.equal(detail.item.effective_amount,700000+amount);
+  assert.equal((await f.api('bookings')).items[0].amount,700000+amount);
+  const confirmation=await f.api('bookings/BK-TEST/confirm-doc','PUT',{doc:{amount:700000+amount}});
+  const buffet=confirmation.doc.food_services.find(row=>row.kind==='catering');
+  assert.equal(buffet.people,people);
+  assert.equal(buffet.total,amount);
+  const old=detail.quotes.find(row=>row.quote_no===oldQuote.quote_no);
+  assert.equal(old.total,oldQuote.total);
+  assert.equal(old.data.extras[0].catering.people,30);
+ }
+});
+
+test('small buffet from 40 guests keeps preferences and requires a different course',()=>{
+ const {calc}=browser();
+ for(const people of [40,60,200]){
   const input={on:true,course:'small',people,bbq:'kg40',beer:2,total:1};
   const publicQuote=calc.quote(input),server=cateringFrom(input);
   assert.equal(publicQuote.requiresConsultation,true);assert.equal(server.requires_consultation,true);
@@ -59,7 +109,7 @@ test('admin calculator, customer prose, order prose and quote actions cannot tur
  for(const name of ['ctCalc','ctCustText','ctOrderText','ctToQuote','ctSave'])vm.runInContext(actual(name),ctx);
  ctx.ctCalc();assert.match(boxes['#ct-result'].innerHTML,/상담 후 견적 · 합계 미포함/);assert.doesNotMatch(boxes['#ct-result'].innerHTML,/0원|null명/);
  assert.match(ctx.ctCustText(),/상담 후 견적/);assert.equal(ctx.ctOrderText(),'');ctx.ctToQuote();ctx.ctSave();
- assert.equal(writes,0);assert.equal(Q.extras.length,0);assert.equal(messages.length,2);assert(messages.every(message=>message.includes('30인까지')));
+ assert.equal(writes,0);assert.equal(Q.extras.length,0);assert.equal(messages.length,2);assert(messages.every(message=>message.includes('39인까지')));
 });
 test('catalog IDs keep classic, galbi, other foods and bottle drinks independent across HTML, metadata and structured FAQs',async()=>{
  const catering=publicFoodPricing(await readFoodPricing(null,'catering')),reception=publicFoodPricing(await readFoodPricing(null,'reception'));

@@ -41,7 +41,7 @@
   function query(){ return '?catering=' + encodeURIComponent(st.course || '1') + '&cpeople=' + st.people + (st.bbq ? '&bbq=' + st.bbq : '') + (st.beer ? '&beer=' + st.beer : '') + (st.people >= 1 && st.people <= 350 ? '&people=' + st.people : ''); }
   function text(r){
     var L = ['[메가스팟 출장뷔페 문의]'];
-    if (r.course) L.push('· 코스: ' + r.course.name + (r.course.kind === 'flat' ? ' (정액)' : ' (1인 ' + won(r.course.price) + ')'));
+    if (r.course) L.push('· 코스: ' + r.course.name + (r.course.kind === 'flat' ? (r.billPeople > r.course.tiers[1].people ? ' (30인 코스 단가 기준)' : ' (정액)') : ' (1인 ' + won(r.course.price) + ')'));
     L.push('· 식사 인원: ' + (st.people || r.billPeople) + '명' + (r.billPeople && r.billPeople !== st.people ? ' (계산 기준 ' + r.billPeople + '명)' : ''));
     if (r.bbq) L.push('· 바베큐: ' + r.bbq.size + ' (' + r.bbq.people + ')');
     if (r.beer) L.push('· 생맥주: ' + r.beer + '통');
@@ -96,7 +96,7 @@
     var c = C.course(b.dataset.pick); if (!c) return;
     var r = box.querySelector('[name=cc_course][value="' + c.id + '"]'); if (r) r.checked = true;
     var pi = box.querySelector('[name=cc_people]');
-    if (c.kind === 'flat' && +pi.value > 30) pi.value = 30;
+    if (c.kind === 'flat' && +pi.value > c.max) pi.value = c.max;
     if (c.kind === 'per' && +pi.value < c.min) pi.value = c.min;
     paintSelection();
     document.getElementById('calc').scrollIntoView({ behavior: 'smooth', block: 'start' });

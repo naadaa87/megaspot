@@ -16,7 +16,11 @@ export function cateringQuote(o, fee, data=CATERING) {   // fee: 관리자가 �
   };
   let bill = 0, supply = 0;
   if (course) {
-    if (course.kind === 'flat') { const t = people > 20 ? course.tiers[1] : course.tiers[0]; bill = t.people; supply += t.price; }
+    if (course.kind === 'flat') {
+      const tier = people > 20 ? course.tiers[1] : course.tiers[0];
+      bill = Math.max(tier.people, people);
+      supply += Math.round(tier.price * bill / tier.people);
+    }
     else { bill = Math.max(people || course.min, course.min); supply += course.price * bill; }
   }
   if (bbq) supply += bbq.price;
