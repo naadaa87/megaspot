@@ -43,7 +43,7 @@
     var minRate = Math.min.apply(null, D.cols.map(function(c){ return Math.min.apply(null, D.bands.map(function(b){ return D.hourly[c.id][b.id]; })); }));
     var minPkg = Math.min.apply(null, D.cols.map(function(c){ return D.packages[0].price[c.id]; }));
     el.innerHTML = [
-      [BASE_SUR ? '<small>1시간 공간료</small>' + esc(man(minRate + BASE_SUR)) + '<small>부터</small>' : '<small>시간당</small>' + esc(man(minRate)) + '<small>부터</small>', '평소 월–목 아침 기준 · ' + (BASE_SUR ? '시간당 ' + won(minRate) + ' + 1건당 기본 인원 가산액 ' + won(BASE_SUR) : '요일·시간대별로 다릅니다')],
+      ['<small>시간당</small>' + esc(man(minRate)) + '<small>부터</small>', '평소 월–목 아침 기준 · 기준 인원 ' + D.people.base + '명' + (BASE_SUR ? ' · 1건당 기본 인원 가산액 ' + won(BASE_SUR) + ' 별도 · 1시간 총 ' + won(minRate + BASE_SUR) + '부터' : ' · 요일·시간대별로 다릅니다')],
       ['<small>낮 7시간</small>' + esc(man(minPkg)), '낮 패키지(10–17시) 월–금 · 시간 요금보다 ' + Math.floor(Math.min.apply(null, D.cols.map(function(c){ return pct(D.packages[0], c.id); }))) + '% 이상 저렴'],
       ['<small>기준</small>' + D.people.base + '명<small>포함</small>', (D.people.base + 1) + '명째부터 1명당 ' + esc(man(D.people.extra)) + ' · 최대 ' + D.people.max + '명' + (peakBig() ? ' · 성수기 주말·특정일은 50명 포함' : (BASE_SUR ? ' · 시간제는 1건당 가산액 ' + esc(man(BASE_SUR)) : ''))],
       ['<small>보증금</small>' + esc(man(D.deposit.amount)), '이용료와 따로 받고, 이용 뒤 확인 후 돌려 드립니다']

@@ -15,19 +15,22 @@ function publicUi(){
  return {M,window:ctx.window,print};
 }
 
-test('2호 대표 가격은 실제 1시간 공간료와 일치하고 필수 가산액을 함께 표시한다',()=>{
+test('호점별 대표 가격은 시간당 요금이며 기준 인원과 2호 필수 가산액·총액을 함께 표시한다',()=>{
  const {M,window}=publicUi(),space=window.MEGASPOT_SPACES.find(s=>s.id==='megaspot-gundae-2'),ui=M.pricing.forSpace(space.id);
  const quote=ui.E.quote({date:'2026-11-16',start:7,end:8,people:50});
  assert.equal(quote.total,289000);
  assert.equal(space.price.minTotal,quote.total);
  assert.equal(space.price.minTotal,space.price.from+space.price.surcharge);
  const card=M.spaceCard(space);
- assert.match(card,/1시간 <b>28\.9<\/b>만 원부터/);
+ assert.match(card,/시간당 <b>3\.4<\/b>만 원부터/);
+ assert.match(card,/기준 인원 <b>50<\/b>명 포함/);
+ assert.match(card,/1시간 총 289,000원부터/);
  assert.match(card,/시간당 34,000원 \+ 1건당 기본 인원 가산액 255,000원/);
  const facts={classList:{add(){}},innerHTML:''};ui.R.facts(facts);
- assert.match(facts.innerHTML,/1시간 공간료/);assert.match(facts.innerHTML,/28\.9만 원/);assert.match(facts.innerHTML,/255,000원/);
+ assert.match(facts.innerHTML,/<small>시간당<\/small>3\.4만 원/);assert.match(facts.innerHTML,/기준 인원 50명/);assert.match(facts.innerHTML,/255,000원 별도/);assert.match(facts.innerHTML,/1시간 총 289,000원부터/);
  const one=M.spaceCard(window.MEGASPOT_SPACES.find(s=>s.id==='megaspot-gundae'));
  assert.match(one,/시간당 <b>4<\/b>만 원부터/);
+ assert.match(one,/기준 인원 <b>20<\/b>명 포함/);
  for(const page of ['spaces/megaspot-gundae-2/index.html','spaces/megaspot-gundae-2/pricing/index.html']){
   const html=read(page),graphs=[...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(m=>JSON.parse(m[1]));
   const venue=graphs.flatMap(x=>x['@graph']||[x]).find(x=>x['@id']==='https://megaspot.kr/spaces/megaspot-gundae-2/#venue');
@@ -36,7 +39,9 @@ test('2호 대표 가격은 실제 1시간 공간료와 일치하고 필수 가�
   assert(!html.includes('기준 50명 포함 시간당 3만 4천 원부터'),page);
  }
  const home=read('index.html').match(/<article class="home-venue-card" id="gundae2">[\s\S]*?<\/article>/)[0];
- assert.match(home,/28\.9만원/);assert.match(home,/289,000원/);assert.match(home,/255,000원/);
+ assert.match(home,/<strong>시간당 3만 4천 원부터<\/strong>/);assert.match(home,/기준 인원 50명/);assert.match(home,/1시간 총 289,000원부터/);assert.match(home,/255,000원/);
+ const homeOne=read('index.html').match(/<article class="home-venue-card" id="gundae">[\s\S]*?<\/article>/)[0];
+ assert.match(homeOne,/<strong>시간당 4만 원부터<\/strong>/);assert.match(homeOne,/기준 인원 20명/);
 });
 
 test('2호 주차는 무료 시설 목록과 견적서에서 분리되어 유료로 안내된다',()=>{

@@ -16,7 +16,8 @@
 .home-venue-photo>span{position:absolute;left:16px;bottom:16px;background:var(--ink);color:white;padding:5px 10px;font-size:12px;border-radius:3px}
 .home-venue-content{padding:28px;display:flex;flex-direction:column;flex:1}
 .home-venue-content h3{font-size:28px;line-height:1.35;letter-spacing:-.025em;margin:8px 0 16px}
-.home-venue-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:0;margin:0 0 18px;list-style:none}
+.home-venue-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:0;margin:0 0 18px;list-style:none}
+.home-venue-facts .home-venue-rate{grid-column:1/-1}
 .home-venue-facts li{font-size:12px;line-height:1.6;color:var(--ink-2)}
 .home-venue-facts strong{display:block;color:var(--ink);font-size:21px;line-height:1.4}
 .home-venue-content>p{font-size:14px;line-height:1.75;color:var(--ink-2);margin:0 0 16px}
