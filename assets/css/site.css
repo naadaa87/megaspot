@@ -2954,3 +2954,24 @@ body.page-inquiry #estimator{margin-top:18px}
 
 @media(max-width:999px){body.top-over-action .to-top{visibility:hidden;pointer-events:none}}
 @media(max-width:999px){.to-top{transition:opacity .2s,transform .2s}}
+
+/* Keep shared content readable on narrow phones without clipping it. */
+.rc-month-head button{display:grid;place-items:center;line-height:1;padding:0;flex:none}
+@media(max-width:560px){
+  body:not(.page-admin) .ask-band > *{min-width:0}
+  body:not(.page-admin) .ask-four{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .pcal .pc-cell{padding:5px 2px}
+  .pcal .pc-cell b{max-width:100%;font-size:12px;white-space:normal}
+  .pcal .pc-cell .pc-unit{display:block;font-size:10px}
+  .pcal .pc-cell small{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+}
+@media(max-width:374px){
+  body:not(.page-admin) :is(.facts,.facts.facts-4,.facts.six){grid-template-columns:minmax(0,1fr)}
+  body:not(.page-admin) .facts > div{min-width:0;border-right:0}
+  body:not(.page-admin) .ask-cta .btn{
+    min-width:0;height:auto;padding:12px 14px;flex-wrap:wrap;gap:6px 10px;white-space:normal;
+  }
+  body:not(.page-admin) .ask-cta .btn small{flex-basis:100%;margin-left:0;overflow-wrap:anywhere}
+  .pcal .pc-cell{padding:5px 1px}
+  .pcal .pc-cell b{font-size:10px}
+}

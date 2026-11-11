@@ -163,7 +163,7 @@
       days.forEach(function(x){
         var di = x.day, past = x.iso < today, t = tier(di);
         var tag = di.peak ? (di.peak.people > D.people.base ? '<small>' + di.peak.people + '명 포함</small>' : '<small>성수기</small>') : (di.holiday ? '<small>' + esc(di.holiday.replace(/\(.*\)/, '')) + '</small>' : '');
-        cells += '<button type="button" class="pc-cell t-' + t + (past ? ' past' : '') + (x.iso === today ? ' today' : '') + '" data-d="' + x.iso + '"' + (past ? ' disabled' : '') + ' aria-label="' + esc(E.kdateY(x.iso)) + ' ' + esc(pkg.label) + ' ' + esc(won(x.price)) + '"><i>' + (+x.iso.slice(8)) + '</i><b>' + (x.price != null ? esc(man(x.price)).replace(' 원', '').replace('만 원', '만') : '–') + '</b>' + tag + '</button>';
+        cells += '<button type="button" class="pc-cell t-' + t + (past ? ' past' : '') + (x.iso === today ? ' today' : '') + '" data-d="' + x.iso + '"' + (past ? ' disabled' : '') + ' aria-label="' + esc(E.kdateY(x.iso)) + ' ' + esc(pkg.label) + ' ' + esc(won(x.price)) + '"><i>' + (+x.iso.slice(8)) + '</i><b>' + (x.price != null ? esc(man(x.price)).replace(' 원', '').replace('만 원', '만').replace(/만$/, '<span class="pc-unit">만</span>') : '–') + '</b>' + tag + '</button>';
       });
       var p = ym.split('-');
       el.querySelector('[data-out="pc-title"]').textContent = p[0] + '년 ' + (+p[1]) + '월';
