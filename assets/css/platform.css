@@ -548,3 +548,5 @@ body.hc-lock{overflow:hidden}
 .ap-gate .sub{max-width:62ch}
 .ap-gate-btns{display:flex;flex-wrap:wrap;gap:10px}
 @media (max-width:520px){.ap-gate{padding:20px}.ap-gate-btns,.ap-gate-btns .btn{width:100%}}
+/* 입점 안내 이용료 제목 아래 이벤트 줄 */
+.hl-event{display:inline-block;margin-top:6px;font-size:.62em;color:var(--rust);letter-spacing:-.01em}
