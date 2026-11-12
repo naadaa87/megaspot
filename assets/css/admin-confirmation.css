@@ -1,0 +1,5 @@
+/* Keep confirmation actions inside narrow drawer widths. */
+.cdoc-form,.cdoc-side{min-width:0}
+.cdoc-actions{grid-template-columns:repeat(3,minmax(0,1fr))}
+.cdoc-actions .btn{min-width:0;white-space:normal;overflow-wrap:anywhere;padding-inline:10px}
+@media(max-width:560px){.cdoc-actions{grid-template-columns:repeat(2,minmax(0,1fr))}}
