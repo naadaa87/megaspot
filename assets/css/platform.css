@@ -542,3 +542,9 @@ body.hc-lock{overflow:hidden}
 .ap-acc{padding:14px 16px;border-radius:var(--radius-lg);background:var(--cobalt-soft);display:grid;gap:4px;font-size:15px}
 .ap-acc b{color:var(--cobalt-2)}
 .ap-guide li{text-align:left}
+/* 호스트 등록: 로그인 전 안내 */
+.ap-gate{display:grid;gap:14px;justify-items:start;padding:28px}
+.ap-gate h2{font-size:21px}
+.ap-gate .sub{max-width:62ch}
+.ap-gate-btns{display:flex;flex-wrap:wrap;gap:10px}
+@media (max-width:520px){.ap-gate{padding:20px}.ap-gate-btns,.ap-gate-btns .btn{width:100%}}

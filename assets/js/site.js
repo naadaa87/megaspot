@@ -88,6 +88,9 @@
   function initAccount(){
     var on=account.loggedIn();
     $$('[data-account]').forEach(function(a){ a.href = on ? '/mypage/' : '/login/'; a.textContent = on ? '마이페이지' : (a.getAttribute('data-account')==='full'?'로그인 · 회원가입':'로그인'); });
+    // 머리말 '호스트센터': 로그인 전에는 입점 안내(/host/), 회원·호스트로 로그인해 있으면 호스트센터로 바로
+    var hostIn=/(?:^|;\s*)ms_host_in=1/.test(document.cookie);
+    $$('[data-host-link]').forEach(function(a){ a.href = (on||hostIn) ? '/host/center/' : '/host/'; });
   }
 
   /* ---------- header / nav ---------- */
