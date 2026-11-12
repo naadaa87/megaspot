@@ -160,12 +160,12 @@
   var SPACE_DIR={ 'megaspot-gundae':'gundae', 'megaspot-gundae-2':'gundae2' };
   function photoSrc(spaceId, pid, thumb){ return '/assets/img/'+ (SPACE_DIR[spaceId]||spaceId) +'/'+(thumb?'t/':'')+pid+'.jpg'; }
   // 이미지 id 첫 글자로 종류를 구분합니다. size: '' | 'm' | 't'
-  //  p: 1호 공간 사진 · s: 활용 장면 · v: 1호 공간 전경 · a: 1호 조감도 · r: 2호 완공 예상 이미지 (화면에는 이미지 종류 표시를 붙이지 않습니다)
+  //  p: 1호 공간 사진 · s: 활용 장면 · v: 1호 공간 전경 · a: 1호 조감도 · r: 2호 공간 전경·배치 예시 (화면에는 이미지 종류 표시를 붙이지 않습니다)
   var IMG_DIR={ p:'gundae', s:'scenes', v:'views', a:'aerial', r:'gundae2' };
   function kind(id){ var c=String(id).charAt(0); return IMG_DIR[c] ? c : 'p'; }
   function imgSrc(id, size){ var sub=size?size+'/':''; return '/assets/img/'+IMG_DIR[kind(id)]+'/'+sub+id+'.jpg'; }
   function isStaged(id){ if(kind(id)!=='s') return false; var sc=window.MEGASPOT_SCENE && window.MEGASPOT_SCENE(id); return !sc || sc.staged!==false; }
-  function isCG(id){ var k=kind(id); return k==='v' || k==='a' || k==='r'; }
+  function isCG(id){ var k=kind(id); return k==='v' || k==='a' || (k==='r' && /^r(?:0[1-9]|1[0-2])$/.test(String(id))); }
   function imgTag(id){ return ''; }
   function tagClass(id){ return isStaged(id) ? 'staged' : isCG(id) ? 'cg' : ''; }
   function tagHtml(id, extra){ return ''; }
@@ -298,17 +298,17 @@
      아래 메가스팟 안내 배너(건대 1호·2호·모임 모집·공간 등록)를 대신 보여 줍니다. 유료 광고에는 항상 '광고' 표시를 붙입니다. */
   var HOUSE_ADS={
     'home-mid':[
-      { title:'400평 메가스팟 건대 2호, 11월 13일 문을 엽니다', sub:'최대 350명 · 200인치 레이저 빔프로젝터 · 기준 50명 포함. 오픈일 이후 날짜는 지금 사전 예약을 받습니다.', cta:'2호 사전 예약', href:'/spaces/megaspot-gundae-2/', image:'/assets/img/gundae2/m/r07.jpg', theme:'graphite' },
+      { title:'400평 메가스팟 건대 2호, 11월 13일 문을 엽니다', sub:'최대 350명 · 200인치 레이저 빔프로젝터 · 기준 50명 포함. 오픈일 이후 날짜는 지금 사전 예약을 받습니다.', cta:'2호 사전 예약', href:'/spaces/megaspot-gundae-2/', image:'/assets/img/gundae2/m/r21.jpg', theme:'graphite' },
       { title:'대관을 정했다면, 참가자 모집도 메가스팟에서', sub:'모임 소개와 참가 신청·대기 신청을 받는 페이지를 무료로 만들 수 있습니다. 신청자 명단은 주최자 관리 화면에서 봅니다.', cta:'모임 등록하기', href:'/meetups/new/', image:'/assets/img/scenes/m/s04.jpg', theme:'cobalt' }],
     'list-top':[
       { title:'바로 쓸 수 있는 190평, 메가스팟 건대 1호', sub:'최대 200명 · 시간당 4만 원부터 · 200인치 빔프로젝터와 음향 무료', cta:'1호 보기', href:'/spaces/megaspot-gundae/', theme:'light' },
       { title:'100명이 넘는 행사라면 400평 건대 2호', sub:'11월 13일 오픈 · 최대 350명 · 지금 사전 예약 중', cta:'2호 보기', href:'/spaces/megaspot-gundae-2/', theme:'light' }],
     'list-card':[
-      { title:'우리 공간도 여기에 올리고 싶다면', sub:'50명 이상 모일 수 있거나 50평 이상인 공간이면 입점할 수 있습니다. 결제 수수료는 없습니다.', cta:'입점 안내 보기', href:'/host/', image:'/assets/img/gundae2/m/r02.jpg', theme:'rust' },
+      { title:'우리 공간도 여기에 올리고 싶다면', sub:'50명 이상 모일 수 있거나 50평 이상인 공간이면 입점할 수 있습니다. 결제 수수료는 없습니다.', cta:'입점 안내 보기', href:'/host/', image:'/assets/img/gundae2/m/r24.jpg', theme:'rust' },
       { title:'함께할 사람을 모으는 중인가요', sub:'세미나·네트워킹·동호회 모임을 올리고 참가 신청을 받아 보세요.', cta:'모임 등록하기', href:'/meetups/new/', image:'/assets/img/scenes/m/s13.jpg', theme:'cobalt' }],
     'content-bottom':[
       { title:'건대입구 190평 · 400평, 메가스팟 건대 1호·2호', sub:'20명 소모임부터 350명 행사까지. 날짜·시간·인원을 넣으면 요금표 그대로 금액이 나옵니다.', cta:'금액 확인하기', href:'/inquiry/', image:'/assets/img/views/m/v01.jpg', theme:'graphite' },
-      { title:'메가스팟 건대 2호 사전 예약', sub:'11월 13일 오픈 · 400평 · 최대 350명 · 송년회·시상식·대규모 세미나', cta:'2호 보기', href:'/spaces/megaspot-gundae-2/', image:'/assets/img/gundae2/m/r05.jpg', theme:'cobalt' }]
+      { title:'메가스팟 건대 2호 사전 예약', sub:'11월 13일 오픈 · 400평 · 최대 350명 · 송년회·시상식·대규모 세미나', cta:'2호 보기', href:'/spaces/megaspot-gundae-2/', image:'/assets/img/gundae2/m/r21.jpg', theme:'cobalt' }]
   };
   var adsReq=null, adSeen={}, adQueue=[], adTimer=null, adIO=null;
   function adsLoad(slots){

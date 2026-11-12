@@ -1,11 +1,11 @@
-/* 메가스팟 건대 2호 · 상세 페이지 (오픈 전 · 완공 예상 이미지 기준)
+/* 메가스팟 건대 2호 · 상세 페이지 (공간 전경·연회 배치 예시)
    - 데이터는 data/spaces.js 의 'megaspot-gundae-2', 요금은 data/pricing-gundae2.js (요금 화면은 pricing-ui.js 가 <body data-space> 로 2호를 고릅니다)
    - 1호 상세(space.js)와 같은 자리 이름(#gallery, #facts, #intro-zones, #layouts, #flow, #rules, #access-list, #calendar)을 씁니다. 도면·3D·시설 목록·후기는 오픈 뒤 추가 */
 (function(){
   var M=window.MEGASPOT, $=M.$, $$=M.$$, esc=M.esc;
   var S=window.MEGASPOT_GET_SPACE('megaspot-gundae-2'); if(!S) return;
   var photoById={}; S.photos.forEach(function(p){ photoById[p.id]=p; });
-  var CG=' (완공 예상 이미지)';
+  function photoTag(p){ return p&&p.tag||'공간 이미지'; }
 
   /* ---------- 오픈 D-day ---------- */
   (function(){
@@ -16,16 +16,16 @@
     if(d<=0){ var band=$('#opening'); if(band){ var h=band.querySelector('h2'); if(h) h.innerHTML='2026년 11월 13일 문을 열었습니다.<br>지금 바로 예약할 수 있습니다'; } }
   })();
 
-  /* ---------- 갤러리: 완공 예상 이미지 ---------- */
+  /* ---------- 갤러리: 공간 전경·배치 예시 ---------- */
   (function(){
     var g=$('#gallery'); if(!g) return;
     var list=S.photos, tabs=$('#media-tabs');
-    if(tabs) tabs.innerHTML='<button type="button" role="tab" class="on" aria-selected="true" data-set="photos">완공 예상 이미지<span class="n">'+list.length+'</span></button>';
-    var items=list.map(function(p){ return { src:M.imgSrc(p.id,'m'), title:p.title, cap:p.cap+' '+S.photoNote, tag:'완공 예상 이미지' }; });
+    if(tabs) tabs.innerHTML='<button type="button" role="tab" class="on" aria-selected="true" data-set="photos">공간 전경·배치 예시<span class="n">'+list.length+'</span></button>';
+    var items=list.map(function(p){ return { src:M.imgSrc(p.id,'m'), title:p.title, cap:p.cap+' '+S.photoNote, tag:photoTag(p) }; });
     var show=list.slice(0,7);
     g.innerHTML=show.map(function(p,i){
       var more = i===6 && list.length>7 ? '<span class="more">+'+(list.length-7)+'장 더 보기</span>' : '';
-      return '<button type="button" class="'+(i===0?'big':'')+'" data-i="'+i+'" aria-label="'+esc(p.title)+' 크게 보기"><img src="'+M.imgSrc(p.id, i===0?'m':'t')+'" alt="메가스팟 건대 2호 — '+esc(p.title)+CG+'" '+(i===0?'':'loading="lazy"')+'>'+(i===0?'<span class="ph-note">완공 예상 이미지</span>':'')+more+'</button>';
+      return '<button type="button" class="'+(i===0?'big':'')+'" data-i="'+i+'" aria-label="'+esc(p.title)+' 크게 보기"><img src="'+M.imgSrc(p.id, i===0?'m':'t')+'" alt="메가스팟 건대 2호 — '+esc(p.title)+' ('+esc(photoTag(p))+')" '+(i===0?'':'loading="lazy"')+'>'+(i===0?'<span class="ph-note">'+esc(photoTag(p))+'</span>':'')+more+'</button>';
     }).join('');
     g.addEventListener('click', function(e){ var b=e.target.closest('button'); if(b) M.openLightbox(items, +b.dataset.i); });
     var all=$('#open-all-photos'); if(all) all.addEventListener('click', function(){ M.openLightbox(items,0); });
@@ -42,23 +42,23 @@
     var box=$('#intro-zones'); if(!box) return;
     var img=$('#intro-zone-photo'), cap=$('#intro-zone-cap');
     box.innerHTML=S.zones.map(function(z){ return '<button type="button" data-zone="'+z.id+'"><span class="zn">'+z.n+'</span>'+esc(z.label)+'</button>'; }).join('');
-    box.addEventListener('click', function(e){ var b=e.target.closest('button'); if(!b) return; $$('button',box).forEach(function(x){x.classList.toggle('on',x===b);}); var z=S.zones.find(function(x){return x.id===b.dataset.zone;}); var p=photoById[z.photo]; img.src=M.imgSrc(z.photo,'m'); img.alt='메가스팟 건대 2호 '+(p?p.title:z.label)+CG; cap.textContent=z.label+' · '+z.desc; });
+    box.addEventListener('click', function(e){ var b=e.target.closest('button'); if(!b) return; $$('button',box).forEach(function(x){x.classList.toggle('on',x===b);}); var z=S.zones.find(function(x){return x.id===b.dataset.zone;}); var p=photoById[z.photo]; img.src=M.imgSrc(z.photo,'m'); img.alt='메가스팟 건대 2호 '+(p?p.title:z.label)+' ('+photoTag(p)+')'; cap.textContent=z.label+' · '+z.desc; });
     box.querySelector('button').classList.add('on');
     var note=$('#photo-note'); if(note) note.textContent=S.photoNote||'';
   })();
 
-  /* ---------- 배치 예시 (완공 예상 이미지 + 설명) ---------- */
+  /* ---------- 배치 상담 (공간 전경·연회 배치 예시 + 설명) ---------- */
   (function(){
     var host=$('#layouts'); if(!host) return;
-    var lb=S.layouts.map(function(l){ var p=photoById[l.photo]||{}; return { src:M.imgSrc(l.photo,'m'), title:l.label+' 배치 · '+(p.title||''), cap:(p.cap||'')+' '+S.photoNote, tag:'완공 예상 이미지' }; });
+    var lb=S.layouts.map(function(l){ var p=photoById[l.photo]||{}; return { src:M.imgSrc(l.photo,'m'), title:l.label+' · '+(l.photoLabel||p.title||''), cap:(p.cap||'')+' '+S.photoNote, tag:l.photoLabel||photoTag(p) }; });
     host.innerHTML=S.layouts.map(function(l,i){
       var p=photoById[l.photo]||{};
-      return '<div class="card pad-s layout-card"><button type="button" class="layout-ph" data-li="'+i+'" aria-label="'+esc(l.label)+' 배치 이미지 크게 보기"><img src="'+M.imgSrc(l.photo,'m')+'" alt="'+esc(l.label)+' 배치 — '+esc(p.title||'')+CG+'" loading="lazy"><span class="ph-note">완공 예상 이미지</span></button>'
+      return '<div class="card pad-s layout-card"><button type="button" class="layout-ph" data-li="'+i+'" aria-label="'+esc(l.label)+' 배치 상담 이미지 크게 보기"><img src="'+M.imgSrc(l.photo,'m')+'" alt="'+esc(l.label)+' — '+esc(l.photoLabel||photoTag(p))+'" loading="lazy"><span class="ph-note">'+esc(l.photoLabel||photoTag(p))+'</span></button>'
         + '<div class="layout-card-head mt-2"><div><div class="eyebrow">'+esc(l.en)+'</div><h3 style="font-size:17px;margin-top:4px">'+esc(l.label)+'</h3></div><span class="badge badge-soft">'+esc(l.capacityNote)+'</span></div>'
         + '<p class="small muted mt-1">'+esc(l.desc)+'</p>'
         + '<p class="tiny mt-2"><b>적합</b> '+esc(l.fit)+'<br><b>확인</b> '+esc(l.check)+'</p></div>';
     }).join('');
-    host.insertAdjacentHTML('afterend', '<p class="tiny muted mt-2 layout-foot">배치 이미지는 완공 예상 이미지입니다. 실제 인원은 무대·장비·통로·운영 인력과 행사 조건을 확인한 뒤 확정하며, 실측 도면과 배치 평면 예시는 공사가 끝난 뒤 올립니다.</p>');
+    host.insertAdjacentHTML('afterend', '<p class="tiny muted mt-2 layout-foot">공간 전경과 연회 배치 예시입니다. 가구·장식 구성과 실제 착석 인원은 무대·장비·통로 등 행사 조건을 확인한 뒤 확정하며, 실측 도면과 배치 평면 예시는 별도로 안내합니다.</p>');
     host.addEventListener('click', function(e){ var b=e.target.closest('.layout-ph'); if(b) M.openLightbox(lb, +b.dataset.li); });
   })();
 

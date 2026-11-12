@@ -9,8 +9,8 @@ export const MEETUP_CATS = {
 };
 // 모임 장소 — 메가스팟 직영 공간, 메가스팟 공간으로 협의 중, 다른 장소
 export const MEETUP_VENUES = { ...SPACES, tbd: '메가스팟 공간 협의 중', other: '다른 장소' };
-// 대표 이미지로 고를 수 있는 사진 (assets/img 아래 활용 장면·1호 사진·2호 완공 예상 이미지)
-export const MEETUP_COVERS = ['s01', 's09', 's20', 's05', 's04', 's14', 's06', 's13', 's23', 's12', 's11', 's10', 's07', 's08', 's19', 's22', 's16', 'v10', 'r01', 'r07', 'r09'];
+// 대표 이미지로 고를 수 있는 사진 (assets/img 아래 활용 장면·1호 사진·2호 공간 전경·배치 예시)
+export const MEETUP_COVERS = ['s01', 's09', 's20', 's05', 's04', 's14', 's06', 's13', 's23', 's12', 's11', 's10', 's07', 's08', 's19', 's22', 's16', 'v10', 'r01', 'r07', 'r09', 'r21', 'r24', 'r27'];
 export const CAT_COVER = { seminar: 's01', networking: 's04', community: 's13', class: 's11', culture: 's07', party: 's06', popup: 's16', etc: 'v10' };
 // pending 검토 중 → open 모집 중 ↔ closed 모집 마감 · cancelled 주최자 취소 · rejected 반려 · hidden 숨김 (이용일이 지나면 화면에는 '종료')
 export const MEETUP_STATUS = { pending: '검토 중', open: '모집 중', closed: '모집 마감', cancelled: '모임 취소', rejected: '반려', hidden: '숨김', done: '종료' };

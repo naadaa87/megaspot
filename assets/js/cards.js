@@ -18,9 +18,10 @@
     var plim = opt.wide?5:3, pall=(s.purposes||[]);
     var purs = pall.slice(0, plim).map(function(p){ return esc(PUR[p]||p); }).join(' · ') + (pall.length>plim ? ' 외 '+(pall.length-plim)+'가지' : '');
     var status = s.status==='open' ? '<span class="badge badge-ok">'+esc(s.statusLabel||'문의 가능')+'</span>' : s.status==='opening' ? '<span class="badge badge-cobalt">'+esc(s.statusLabel||'오픈 예정 · 사전 예약')+'</span>' : '<span class="badge badge-soft">준비 중</span>';
-    var cgNote = s.renders ? '<span class="ph-note">완공 예상 이미지</span>' : '';
+    var photoNote = s.coverNote || (s.renders ? '완공 예상 이미지' : '');
+    var cgNote = photoNote ? '<span class="ph-note">'+esc(photoNote)+'</span>' : '';
     return '<a class="space-card'+(opt.wide?' wide':'')+'" href="'+url+'">'
-      + '<div class="ph"><img src="'+cover+'" alt="'+esc(s.name)+' 대표 이미지'+(s.renders?' (완공 예상 이미지)':'')+'" loading="lazy">'+typeBadge(s)+cgNote+M.tagHtml(s.cover)+'</div>'
+      + '<div class="ph"><img src="'+cover+'" alt="'+esc(s.name)+' 대표 이미지'+(photoNote?' ('+esc(photoNote)+')':'')+'" loading="lazy">'+typeBadge(s)+cgNote+M.tagHtml(s.cover)+'</div>'
       + '<div class="bd">'
       + '<div class="row between"><h3>'+esc(s.name)+'</h3>'+status+'</div>'
       + '<div class="loc">'+esc(s.addressShort||s.address)+'</div>'
