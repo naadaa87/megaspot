@@ -1,0 +1,4 @@
+.contacts-dialog{width:min(520px,calc(100vw - 24px));max-height:calc(100dvh - 32px);box-sizing:border-box;border:1px solid #ddd;border-radius:16px;padding:24px;overflow:auto}
+.contacts-dialog::backdrop{background:rgba(0,0,0,.45)}
+.contacts-dialog .form,.contacts-dialog .f{min-width:0}.contacts-dialog input{width:100%;box-sizing:border-box}.contacts-dialog .btn{max-width:100%;height:auto;min-height:44px;white-space:normal}.contacts-dialog [data-contact-state]{overflow-wrap:anywhere}
+@media(max-width:374px){.contacts-dialog{padding:16px}.contacts-dialog h2{font-size:18px}}

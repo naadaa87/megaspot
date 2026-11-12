@@ -96,3 +96,17 @@ test('변경 검토 중 입금·계좌 등록이 완료되면 불필요한 보�
  const row=(await f.api()).items.find(x=>x.booking_code==='BK-PAID');f.db.prepare('INSERT INTO booking_deposit_checks VALUES(?,?,?)').run('BK-PAID',1,now());
  await f.api('/'+row.id+'/retry','POST',{confirm_retry:true,reason:'변경 안내 확인',review_hash:row.review.hash},409);assert.equal(f.sent.length,3);
 });
+
+test('보증금 안내는 두 번호의 접수·도착 결과를 따로 기록하고 반복 tick은 재발송하지 않는다',async t=>{
+ const f=setup(t);await f.enable();f.booking('BK-TWO-CONTACTS');await f.api('','GET');
+ f.db.prepare("INSERT INTO booking_contacts VALUES('BK-TWO-CONTACTS','01033334444',datetime('now'))").run();
+ await f.tick();await f.tick();await f.tick();
+ const rows=f.db.prepare("SELECT status,phone_hash FROM deposit_notifications WHERE booking_code='BK-TWO-CONTACTS' ORDER BY id").all();assert.equal(rows.length,2);assert.ok(rows.every(x=>x.status==='delivered'));assert.notEqual(rows[0].phone_hash,rows[1].phone_hash);
+ assert.deepEqual(f.sent.slice(3).map(x=>x.receiver_1).sort(),['01033334444','01099998888']);
+ const history=(await f.api()).items.filter(x=>x.booking_code==='BK-TWO-CONTACTS');assert.deepEqual(history.map(x=>x.receiver).sort(),['01033334444','01099998888']);
+});
+test('보증금 추가 번호가 발송 전에 삭제되면 대기 중인 추가 안내는 전송하지 않는다',async t=>{
+ const f=setup(t);await f.enable();f.booking('BK-REMOVE');f.db.prepare("INSERT INTO booking_contacts VALUES('BK-REMOVE','01033334444',datetime('now'))").run();await f.tick();
+ f.db.prepare("UPDATE booking_contacts SET phone2='' WHERE booking_code='BK-REMOVE'").run();await f.tick();
+ assert.equal(f.sent.filter(x=>x.receiver_1==='01033334444').length,0);assert.equal(f.db.prepare("SELECT status FROM deposit_notifications WHERE booking_code='BK-REMOVE' AND event_key LIKE '%:to:%'").get().status,'cancelled');
+});

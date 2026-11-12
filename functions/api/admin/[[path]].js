@@ -1,3 +1,4 @@
+import {cleanPhone2,bookingPhone2Sql,saveBookingPhone2,contactsAdmin} from '../_contacts.js';
 import {rankedWaitsSql,waitList,waitSummary} from '../_reservation_waitlist.js';
 import {bookingHourSql,confirmedOccupancyFreeSql} from '../_booking_availability.js';
 import Calculation from '../../../assets/js/quote-calculation.js';
@@ -271,6 +272,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
       const d = await readJson(request);
       const name = str(d.name, 80), phone = str(d.phone, 30).replace(/[^0-9-+]/g, ''), email = str(d.email, 120);
       if (!name) return err('고객 이름을 적어 주세요.');
+      let phone2;try{phone2=cleanPhone2(d.phone2===undefined?'':d.phone2,phone);}catch(e){return err(e.message);}
       const date = str(d.date, 10); if (date && !isDate(date)) return err('날짜를 확인해 주세요.');
       const channel = CHANNELS.includes(d.channel) ? d.channel : 'other';
       const channel_note = str(d.channel_note, 40);
@@ -282,7 +284,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
       const data = { inquiry_type: ['event', 'regular', 'partner'].includes(d.inquiry_type) ? d.inquiry_type : 'event', space_id, channel, channel_note,
         purpose: str(d.purpose, 40), date, start_h, end_h,
         t_start: start_h !== null ? hl(start_h).replace('다음 날 ', '') : str(d.t_start, 5), t_end: end_h !== null ? hl(end_h).replace('다음 날 ', '') : str(d.t_end, 5),
-        slot: start_h !== null ? 'custom' : '', headcount: num(d.headcount), name, phone, email, regular: !!d.regular, options: cleanOptions(d.options), price_adjustment: d.price_adjustment || null,
+        slot: start_h !== null ? 'custom' : '', headcount: num(d.headcount), name, phone, phone2, email, regular: !!d.regular, options: cleanOptions(d.options), price_adjustment: d.price_adjustment || null,
         pkg: str(d.pkg, 20), total, amount_mode: total !== null ? (amount_mode || 'manual') : '', amount_note: str(d.amount_note, 200), estimate: str(d.estimate, 3000),
         org: str(d.org, 120), message: str(d.message, 2000), source: 'admin', summary: '' };
       data.summary = adminSummary(data);
@@ -507,16 +509,17 @@ export async function onRequest({ request, env, params, waitUntil }) {
         }
         const name = str(d.name, 80), phone = str(d.phone === undefined ? row.phone : d.phone, 30).replace(/[^0-9-+]/g, ''), email = str(d.email === undefined ? row.email : d.email, 120);
         if (!name) return err('고객 이름을 적어 주세요.');
+        let phone2;try{phone2=cleanPhone2(d.phone2===undefined?data.phone2:d.phone2,phone);}catch(e){return err(e.message);}
         const date = str(d.date, 10); if (date && !isDate(date)) return err('날짜를 확인해 주세요.');
         let start_h = hourOk(d.start_h), end_h = hourOk(d.end_h);
         if (start_h !== null && (end_h === null || end_h <= start_h)) end_h = null;
         if (start_h === null) end_h = null;
         const headcount = d.headcount === undefined ? row.headcount : num(d.headcount);
         if (headcount !== null && (headcount < 1 || headcount > 1000)) return err('인원을 확인해 주세요.');
-        const pick = o => ({ 공간: SPACES[o.space_id] || o.space_id || '', 경로: chText(o.channel || 'web', o.channel_note), 이름: o.name || '', 연락처: o.phone || '', 이메일: o.email || '', 이용일: o.date || '', 시간: o.start_h != null ? hl(o.start_h) + '–' + (o.end_h != null ? hl(o.end_h) : '') : (o.t_start ? o.t_start + '–' + (o.t_end || '') : ''), 인원: o.headcount || '', 목적: o.purpose || '', 금액: o.total != null ? o.total : '', 옵션: JSON.stringify(o.options || {}), 내용: o.message || '' });
+        const pick = o => ({ 공간: SPACES[o.space_id] || o.space_id || '', 경로: chText(o.channel || 'web', o.channel_note), 이름: o.name || '', 연락처: o.phone || '', 추가연락처: o.phone2 || '', 이메일: o.email || '', 이용일: o.date || '', 시간: o.start_h != null ? hl(o.start_h) + '–' + (o.end_h != null ? hl(o.end_h) : '') : (o.t_start ? o.t_start + '–' + (o.t_end || '') : ''), 인원: o.headcount || '', 목적: o.purpose || '', 금액: o.total != null ? o.total : '', 옵션: JSON.stringify(o.options || {}), 내용: o.message || '' });
         const before = pick({ ...data, space_id: row.space_id, name: data.name || row.name, phone: data.phone || row.phone, email: data.email || row.email, date: data.date || row.event_date, headcount: data.headcount || row.headcount });
         if ((date || '') !== (row.event_date || '') || spaceOk(newSpace) !== spaceOk(row.space_id)) rejoinWaitQueue(data);
-        Object.assign(data, { name, phone, email, date, headcount, purpose: str(d.purpose, 40), options: cleanOptions(d.options), regular: !!d.regular, message: str(d.message, 2000) });
+        Object.assign(data, { name, phone, phone2, email, date, headcount, purpose: str(d.purpose, 40), options: cleanOptions(d.options), regular: !!d.regular, message: str(d.message, 2000) });
         if (newSpace !== row.space_id) data.space_id = newSpace;
         else if (SPACES[row.space_id]) data.space_id = row.space_id;
         if (['event', 'regular', 'partner'].includes(d.inquiry_type)) data.inquiry_type = d.inquiry_type;
@@ -542,7 +545,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
         const after = pick(data);
         const changed = Object.keys(after).filter(k => String(after[k]) !== String(before[k]));
         const memo = d.memo !== undefined ? str(d.memo, 2000) : row.memo;
-        const sync = await linkedBookingChanges(env, ref, { space_id: newSpace, name, phone, date, start_h: data.start_h ?? null, end_h: data.end_h ?? null, headcount, memo, document_changed: changed.some(key => key==='목적'||key==='옵션'),
+        const sync = await linkedBookingChanges(env, ref, { space_id: newSpace, name, phone, phone2, date, start_h: data.start_h ?? null, end_h: data.end_h ?? null, headcount, memo, document_changed: changed.some(key => key==='목적'||key==='옵션'),
           ...(mode === 'keep' ? {} : { amount: data.total }) });
         if (sync.error) return sync.error;
         await batch(env, [env.DB.prepare('UPDATE inquiries SET space_id = ?, name = ?, phone = ?, email = ?, event_date = ?, headcount = ?, data = ?, memo = ?, updated_at = ? WHERE ref = ?')
@@ -682,6 +685,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
       if (!isDate(date)) return err('이용일을 정해 주세요.');
       const phone = str(row.phone || data.phone, 30), digits = phone.replace(/\D/g, '');
       if (digits.length < 9) return err('연락처가 없어 예약을 확정할 수 없습니다. 문의 내용 수정에서 연락처를 넣어 주세요.', 400, 'NO_PHONE');
+      let phone2;try{phone2=cleanPhone2(d.phone2===undefined?data.phone2:d.phone2,phone);}catch(e){return err(e.message);}
       let bs = hourOk(d.start_h), be = hourOk(d.end_h); if (bs === null || be === null || be <= bs) { bs = null; be = null; }
       const headcount = d.headcount !== undefined && d.headcount !== '' ? num(d.headcount) : (row.headcount ?? data.headcount ?? null);
       const amount = d.amount === '' || d.amount == null ? null : amountOk(d.amount);
@@ -711,9 +715,9 @@ export async function onRequest({ request, env, params, waitUntil }) {
             AND NOT EXISTS(SELECT 1 FROM bookings b WHERE b.inquiry_ref=i.ref AND b.status<>'cancelled')
             AND (${force?'1':occupancy})`)
           .bind(code, str(row.name || data.name, 80) || '(이름 없음)', phone, digits.slice(-4), slot, headcount, memo, amount, now(), space_id, date, bs, be, ref, row.status, row.space_id, row.event_date),
-        env.DB.prepare(`UPDATE inquiries SET status='예약 확정',event_date=?,headcount=?,data=json_set(data,'$.date',?,'$.headcount',?,'$.start_h',?,'$.end_h',?,'$.t_start',?,'$.t_end',?,'$.total',?,'$.amount_override',json('true')),updated_at=?
+        env.DB.prepare(`UPDATE inquiries SET status='예약 확정',event_date=?,headcount=?,data=json_set(data,'$.phone2',?,'$.date',?,'$.headcount',?,'$.start_h',?,'$.end_h',?,'$.t_start',?,'$.t_end',?,'$.total',?,'$.amount_override',json('true')),updated_at=?
           WHERE ref=? AND EXISTS(SELECT 1 FROM bookings WHERE booking_code=?)`)
-          .bind(date, headcount, date, headcount, bs, be, bs === null ? '' : hl(bs).replace('다음 날 ', ''), be === null ? '' : hl(be).replace('다음 날 ', ''), amount, now(), ref, code)
+          .bind(date, headcount, phone2, date, headcount, bs, be, bs === null ? '' : hl(bs).replace('다음 날 ', ''), be === null ? '' : hl(be).replace('다음 날 ', ''), amount, now(), ref, code)
       ];
       if (d.block_calendar === true) stmts.push(env.DB.prepare(`INSERT INTO calendar_blocks (space_id,date,state,memo)
         SELECT ?,?,?,? WHERE EXISTS(SELECT 1 FROM bookings WHERE booking_code=?)
@@ -736,7 +740,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
         const value = str(url.searchParams.get(param), 60); if (value) { where.push('b.' + column + ' ' + op + ' ?'); args.push(value); }
       }
       const page = Math.max(0, Math.min(100000, num(url.searchParams.get('page')) || 0)); args.push(page * 300);
-      const { results } = await env.DB.prepare(`SELECT booking_code, space_id, inquiry_ref, customer_name, phone, date, slot, headcount, memo, status, ${bookingAmountSql()} AS amount, start_h, end_h, created_at, json_extract(confirm_doc, '$.issued_at') AS confirm_issued,
+      const { results } = await env.DB.prepare(`SELECT booking_code, space_id, inquiry_ref, customer_name, phone, ${bookingPhone2Sql()} AS phone2, date, slot, headcount, memo, status, ${bookingAmountSql()} AS amount, start_h, end_h, created_at, json_extract(confirm_doc, '$.issued_at') AS confirm_issued,
         CASE WHEN b.inquiry_ref IS NOT NULL THEN (SELECT CASE WHEN json_extract(ic.checks, '$.guarantee_paid') IS NULL THEN NULL WHEN json_extract(ic.checks, '$.guarantee_paid') = 0 THEN 0 ELSE 1 END FROM inquiry_checks ic WHERE ic.ref = b.inquiry_ref)
              ELSE (SELECT dc.paid FROM booking_deposit_checks dc WHERE dc.booking_code = b.booking_code) END AS deposit_paid
         FROM bookings b ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY date DESC, created_at DESC, id DESC LIMIT 301 OFFSET ?`).bind(...args).all();
@@ -748,12 +752,13 @@ export async function onRequest({ request, env, params, waitUntil }) {
       const linkedRef = str(d.inquiry_ref, 20).toUpperCase();
       if (linkedRef) {
         const confirmRequest = new Request(url.origin + '/api/admin/inquiries/' + linkedRef + '/confirm', { method: 'POST', headers: request.headers,
-          body: JSON.stringify({ date: d.date, start_h: d.start_h, end_h: d.end_h, headcount: d.headcount, amount: d.amount, memo: d.memo, block_calendar: d.block_calendar, force: d.force,reconfirm_booking_code:d.reconfirm_booking_code,expected_revision:d.expected_revision,request_id:d.request_id }) });
+          body: JSON.stringify({ date: d.date, start_h: d.start_h, end_h: d.end_h, headcount: d.headcount, amount: d.amount, memo: d.memo, phone2:d.phone2, block_calendar: d.block_calendar, force: d.force,reconfirm_booking_code:d.reconfirm_booking_code,expected_revision:d.expected_revision,request_id:d.request_id }) });
         return onRequest({ request: confirmRequest, env, params: { path: ['inquiries', linkedRef, 'confirm'] }, waitUntil });
       }
       const space_id = spaceOk(d.space_id), name = str(d.customer_name, 80), phone = str(d.phone, 30), date = str(d.date, 10);
       if (!name || !phone || !isDate(date)) return err('예약자·연락처·이용일을 확인해 주세요.');
       const digits = phone.replace(/\D/g, ''); if (digits.length < 9) return err('연락처 형식을 확인해 주세요.');
+      let phone2;try{phone2=cleanPhone2(d.phone2,phone);}catch(e){return err(e.message);}
       const code = await uniqueRef(env, 'bookings', 'booking_code', 'MS');
       let bs = hourOk(d.start_h), be = hourOk(d.end_h); if (bs === null || be === null || be <= bs) { bs = null; be = null; }
       const clashes = await bookingClashes(env, space_id, date, bs, be);
@@ -761,6 +766,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
       if (d.amount !== '' && d.amount != null && amountOk(d.amount) === null) return err('금액을 확인해 주세요.');
       const statements = [env.DB.prepare('INSERT INTO bookings (booking_code, space_id, inquiry_ref, customer_name, phone, phone_last4, date, slot, headcount, memo, status, amount, start_h, end_h, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
         .bind(code, space_id, null, name, phone, digits.slice(-4), date, str(d.slot, 20) || 'custom', num(d.headcount), str(d.memo, 2000), 'confirmed', amountOk(d.amount), bs, be, now())];
+      statements.push(saveBookingPhone2(env,code,phone2));
       if (d.block_calendar) statements.push(env.DB.prepare('INSERT INTO calendar_blocks (space_id, date, state, memo) VALUES (?,?,?,?) ON CONFLICT(space_id, date) DO UPDATE SET state = excluded.state, memo = excluded.memo').bind(space_id, date, 'full', '예약 ' + code));
       await batch(env, statements);
       await log(env, 'booking.created', code, 'admin', { space_id, date });
@@ -789,7 +795,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
       const f = from || '0000-01-01', t = to || '9999-12-31';
       const page = Math.max(0, Math.min(100000, num(url.searchParams.get('page')) || 0)), offset = page * 1000;
       const latestQ = "(SELECT q.total FROM quotes q WHERE q.inquiry_ref = b.inquiry_ref ORDER BY q.id DESC LIMIT 1)";
-      const { results: bks } = await env.DB.prepare(`SELECT b.booking_code, b.space_id, b.inquiry_ref, b.customer_name, b.phone, b.date, b.slot, b.headcount, CASE WHEN i.ref IS NOT NULL THEN COALESCE(i.memo, '') ELSE COALESCE(b.memo, '') END AS operation_memo, b.status, b.amount, b.start_h, b.end_h, b.created_at, json_extract(b.confirm_doc, '$.issued_at') AS confirm_issued,
+      const { results: bks } = await env.DB.prepare(`SELECT b.booking_code, b.space_id, b.inquiry_ref, b.customer_name, b.phone, ${bookingPhone2Sql()} AS phone2, b.date, b.slot, b.headcount, CASE WHEN i.ref IS NOT NULL THEN COALESCE(i.memo, '') ELSE COALESCE(b.memo, '') END AS operation_memo, b.status, b.amount, b.start_h, b.end_h, b.created_at, json_extract(b.confirm_doc, '$.issued_at') AS confirm_issued,
           CASE WHEN b.inquiry_ref IS NOT NULL THEN (SELECT CASE WHEN json_extract(ic.checks, '$.guarantee_paid') IS NULL THEN NULL WHEN json_extract(ic.checks, '$.guarantee_paid') = 0 THEN 0 ELSE 1 END FROM inquiry_checks ic WHERE ic.ref = b.inquiry_ref)
                ELSE (SELECT dc.paid FROM booking_deposit_checks dc WHERE dc.booking_code = b.booking_code) END AS deposit_paid,
           o.oid AS order_oid, o.price AS order_price, o.status AS order_status, ${latestQ} AS quote_total,
@@ -812,7 +818,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
         ORDER BY i.event_date ASC, i.id ASC LIMIT 1001 OFFSET ?`).bind(f, t, f, t, offset).all();
       const items = [];
       const jarr = v => { try { const a = JSON.parse(v || '[]'); return Array.isArray(a) ? a.slice(0, 4) : []; } catch { return []; } };
-      for (const b of (bks || []).slice(0, 1000)) items.push({ family: jarr(b.family), kind: 'booking', code: b.booking_code, space_id: b.space_id || '', ref: b.inquiry_ref, name: b.customer_name, phone: b.phone, date: b.date, slot: b.slot,
+      for (const b of (bks || []).slice(0, 1000)) items.push({ family: jarr(b.family), kind: 'booking', code: b.booking_code, space_id: b.space_id || '', ref: b.inquiry_ref, name: b.customer_name, phone: b.phone, phone2:b.phone2||'', date: b.date, slot: b.slot,
         start_h: b.start_h ?? b.inq_start ?? null, end_h: b.end_h ?? b.inq_end ?? null, headcount: b.headcount, memo: b.operation_memo, status: b.status, purpose: b.purpose || '', channel: b.order_oid ? 'online' : (b.channel || (b.inquiry_ref ? 'web' : '')), channel_note: b.channel_note || '',
         amount: b.effective_amount, deposit_paid: b.deposit_paid,
         confirm_issued: b.confirm_issued || '', amount_src: b.amount_override ? 'adjusted' : (b.amount != null ? 'booking' : (b.order_price != null && b.order_status !== 'failed' ? 'order' : (b.quote_total != null ? 'quote' : (b.inq_total != null ? 'estimate' : '')))), order: b.order_oid || '', catering: orderBrief(b.cat_ord), catering_req: b.cat_req || '' });
@@ -849,7 +855,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
     const mCd = path.match(/^bookings\/([A-Z0-9-]+)\/confirm-doc$/);
     if (mCd) {
       const code = mCd[1];
-      const row = await env.DB.prepare(`SELECT b.booking_code, b.space_id, b.inquiry_ref, b.customer_name, b.phone, b.date, b.slot, b.headcount, b.status, b.amount, b.start_h, b.end_h, b.confirm_doc, b.created_at,
+      const row = await env.DB.prepare(`SELECT b.booking_code, b.space_id, b.inquiry_ref, b.customer_name, b.phone, ${bookingPhone2Sql()} AS phone2, b.date, b.slot, b.headcount, b.status, b.amount, b.start_h, b.end_h, b.confirm_doc, b.created_at,
           ${bookingAmountSql()} AS effective_amount, i.data AS idata, (SELECT o.status FROM orders o WHERE o.booking_code = b.booking_code ORDER BY o.id DESC LIMIT 1) AS order_status, (SELECT COALESCE(SUM(MAX(0,o.price-COALESCE((SELECT SUM(r.amount) FROM payapp_refunds r WHERE r.oid=o.oid),0))),0) FROM orders o WHERE o.booking_code=b.booking_code AND o.status='paid') AS paid_amount
         FROM bookings b LEFT JOIN inquiries i ON i.ref = b.inquiry_ref WHERE b.booking_code = ?`).bind(code).first();
       if (!row) return err('예약을 찾을 수 없습니다.', 404, 'NOT_FOUND');
@@ -890,6 +896,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
       }
       return err('지원하지 않는 요청입니다.', 405, 'METHOD');
     }
+    const contactResult=await contactsAdmin({env,request,path,method});if(contactResult)return contactResult;
     const mBk = path.match(/^bookings\/([A-Z0-9-]+)$/);
     if (mBk && method === 'PATCH') {
       const d = await readJson(request); const code = mBk[1];

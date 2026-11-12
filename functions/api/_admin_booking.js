@@ -1,3 +1,4 @@
+import {saveBookingPhone2} from './_contacts.js';
 import { err, json, now, isDate } from './_lib.js';
 import { bookingAvailableSql } from './_booking_availability.js';
 
@@ -36,6 +37,7 @@ export async function linkedBookingChanges(env, ref, next) {
   }
   let invalidated = false;
   for (const b of bookings) {
+    if(next.phone2!==undefined)statements.push(saveBookingPhone2(env,b.booking_code,next.phone2));
     const changed = !!next.document_changed || b.customer_name !== next.name || b.phone !== next.phone || b.date !== next.date || b.start_h !== next.start_h || b.end_h !== next.end_h || b.headcount !== next.headcount || ('amount' in next && b.amount !== next.amount);
     invalidated = invalidated || !!(changed && b.confirm_doc);
     statements.push(env.DB.prepare('UPDATE bookings SET customer_name = ?, phone = ?, phone_last4 = ?, date = ?, start_h = ?, end_h = ?, slot = ?, headcount = ?, amount = ?, memo = ?, confirm_doc = ?, updated_at = ? WHERE booking_code = ?')

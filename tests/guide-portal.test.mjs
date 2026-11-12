@@ -84,3 +84,13 @@ test('새 준비 경로는 기존 백그라운드 고객 발송을 깨우지 않
 test('새 미리보기 이후에도 기존 자동 확정 경로는 기존 승인 템플릿과 고정 버튼을 그대로 사용한다',async t=>{
  const f=setup(t);await f.draft(true);f.allow();f.setTemplate({templtCode:'LEGACY-TEST',templtContent:GUIDE_TEMPLATE,buttons:[GUIDE_BUTTON]});const b=await f.api('bookings','POST',{space_id:'megaspot-gundae',customer_name:'가상 기존 방식',phone:'01022223333',date:NEXT,start_h:10,end_h:11,amount:0});assert.equal(f.sent.length,1);assert.equal(f.sent[0].tpl_code,'LEGACY-TEST');assert.equal(JSON.parse(f.sent[0].button_1).button[0].linkMo,GUIDE_URL);assert.equal(f.db.prepare('SELECT COUNT(*) n FROM booking_portal_links WHERE booking_code=?').get(b.booking_code).n,0);const s=await f.api('guide-messages/settings');assert.equal(s.variant,'legacy');assert.equal(s.automatic,true);assert.equal(s.test_delivered,true);
 });
+
+test('통합 예약 안내는 등록한 두 번호에 각각 보내며 각 번호의 버튼은 같은 예약만 연다',async t=>{
+ const f=setup(t);await f.enable();await f.api('bookings/BK-TEST/contacts','PUT',{phone:'010-1234-5678',phone2:'01033334444'});
+ const p=await f.preview();assert.deepEqual(p.items.map(x=>x.phone),['01012345678','01033334444']);
+ for(const item of p.items){const v=await f.view(item.button.linkMo);assert.equal(v.status,200);assert.equal(v.json.booking.code,'BK-TEST');}
+ const sent=await f.send(p);assert.equal(sent.items.length,2);assert.ok(sent.items.every(x=>x.status==='accepted'));
+ assert.deepEqual(f.sent.slice(1).map(x=>x.receiver_1),['01012345678','01033334444']);
+ for(const d of f.sent.slice(1)){const button=JSON.parse(d.button_1).button[0];assert.equal((await f.view(button.linkMo)).json.booking.code,'BK-TEST');}
+ const raw=JSON.stringify(f.db.prepare("SELECT snapshot FROM booking_guide_messages WHERE mode='live'").all());assert.ok(!raw.includes(new URL(p.items[0].button.linkMo).hash.slice('#booking='.length)));
+});

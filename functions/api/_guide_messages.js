@@ -1,3 +1,4 @@
+import {mobilePhone,contactPhones,bookingPhone2Sql} from './_contacts.js';
 import {customerFallback,customerFallbackResult} from './_customer_alimtalk.js';
 // Reservation guide Alimtalk. No credentials or public sending routes live in the browser.
 import { json, err, now, readJson, str, sha256, SPACES } from './_lib.js';
@@ -45,14 +46,16 @@ const ACTIVE = "('queued','sending','accepted','unknown','delivered')";
 const FAMILY = "(purpose='reservation-guide-v1' OR purpose GLOB 'reservation-guide-v1:r[0-9]*')";
 const REVISION = 'COALESCE(gs.revision,0)';
 const PURPOSE = "'reservation-guide-v1'||CASE WHEN COALESCE(gs.revision,0)=0 THEN '' ELSE ':r'||gs.revision END";
+const SECONDARY_PURPOSE="'reservation-guide-v1:r'||COALESCE(gs.revision,0)||':to:'||"+bookingPhone2Sql();
 const MANUAL = 'CASE WHEN gs.manual_revision=gs.revision THEN gs.manual_sent ELSE NULL END';
 const BOOKING_JOIN = 'FROM bookings b LEFT JOIN booking_guide_state gs ON gs.booking_code=b.booking_code';
-function purpose(b) { return GUIDE_VERSION + (b.revision ? ':r' + b.revision : ''); }
+function purpose(b) { return b.delivery_phone&&b.delivery_phone!==guidePhone(b.phone)?GUIDE_VERSION+':r'+(b.revision||0)+':to:'+b.delivery_phone:GUIDE_VERSION+(b.revision?':r'+b.revision:''); }
+function forRecipient(b,phone){return b&&contactPhones(b).includes(phone)?{...b,delivery_phone:phone}:null;}
 const secrets = ['ALIGO_USERID','ALIGO_API_KEY','ALIGO_SENDER_KEY','ALIGO_SENDER'];
 const parse = (raw, fallback = {}) => { try { return JSON.parse(raw) || fallback; } catch { return fallback; } };
 const changed = r => Number(r?.meta?.changes ?? r?.changes ?? 0);
 const normalize = s => String(s || '').replace(/\r\n/g, '\n');
-export function guidePhone(p) { let s = String(p || '').replace(/\D/g, ''); if (s.startsWith('82')) s = '0' + s.slice(2); return /^01[016789]\d{7,8}$/.test(s) ? s : ''; }
+export const guidePhone=mobilePhone;
 function hours(b) { return b.start_h != null && b.end_h != null ? [Number(b.start_h), Number(b.end_h)] : NORMAL_SLOTS[b.slot] || []; }
 function hour(h) { return (h >= 24 ? '다음날 ' : '') + String(Math.floor(h % 24)).padStart(2,'0') + ':' + String(Math.round((h % 1) * 60)).padStart(2,'0'); }
 export function guideMessage(b,template=GUIDE_TEMPLATE) {
@@ -67,10 +70,10 @@ export function guideEligibility(b, settings, at = Date.now(), includeManual = f
   if (!Number.isFinite(s) || !Number.isFinite(e) || s < 0 || e <= s || e > 47) return '이용 시작·종료 시간을 먼저 확정해 주세요.';
   const end = Date.parse(b.date + 'T00:00:00+09:00') + e * 36e5;
   if (!Number.isFinite(end) || end <= at) return '이용이 종료된 예약입니다.';
-  if (!guidePhone(b.phone)) return '알림톡을 받을 수 있는 휴대폰 번호를 확인해 주세요. (050 안심번호 제외)';
+  if (!(b.delivery_phone?contactPhones(b).includes(b.delivery_phone):contactPhones(b).length)) return '알림톡을 받을 수 있는 휴대폰 번호를 확인해 주세요. (050 안심번호 제외)';
   if (!String(b.customer_name || '').trim()) return '예약자 이름을 확인해 주세요.';
   if (!settings.spaces.includes(b.space_id)) return '이 호점의 시설 안내 확인이 필요합니다.';
-  if (b.guide_sent && !includeManual) return '기존 현장 안내 발송 체크가 있습니다.';
+  if (b.guide_sent && !includeManual && (contactPhones(b).length<2 || b.delivery_phone===guidePhone(b.phone))) return '기존 현장 안내 발송 체크가 있습니다.';
   return '';
 }
 async function config(env) {
@@ -123,20 +126,20 @@ async function ready(env,s) {
   return '';
 }
 async function booking(env,code) {
-  return env.DB.prepare(`SELECT b.*,${REVISION} AS revision,COALESCE(gs.needs_review,0) AS needs_review,${MANUAL} AS guide_sent ${BOOKING_JOIN} WHERE b.booking_code=?`).bind(code).first();
+  return env.DB.prepare(`SELECT b.*,${bookingPhone2Sql()} AS phone2,${REVISION} AS revision,COALESCE(gs.needs_review,0) AS needs_review,${MANUAL} AS guide_sent ${BOOKING_JOIN} WHERE b.booking_code=?`).bind(code).first();
 }
 export async function guideInquiryChecks(env,ref,checks) {
   const any=await env.DB.prepare("SELECT 1 FROM bookings WHERE inquiry_ref=? AND status<>'cancelled' LIMIT 1").bind(ref).first();
   if(!any)return checks;
-  const outstanding=await env.DB.prepare(`SELECT 1 ${BOOKING_JOIN} WHERE b.inquiry_ref=? AND b.status<>'cancelled' AND COALESCE(${MANUAL},0)=0 AND NOT EXISTS(SELECT 1 FROM booking_guide_messages gm WHERE gm.booking_code=b.booking_code AND gm.mode='live' AND gm.purpose=${PURPOSE} AND gm.status='delivered') LIMIT 1`).bind(ref).first();
+  const outstanding=await env.DB.prepare(`SELECT 1 ${BOOKING_JOIN} WHERE b.inquiry_ref=? AND b.status<>'cancelled' AND (COALESCE(${MANUAL},0)=0 OR ((${bookingPhone2Sql()})<>'' AND NOT EXISTS(SELECT 1 FROM booking_guide_messages gm WHERE gm.booking_code=b.booking_code AND gm.mode='live' AND gm.purpose=(${SECONDARY_PURPOSE}) AND gm.status='delivered'))) AND (NOT EXISTS(SELECT 1 FROM booking_guide_messages gm WHERE gm.booking_code=b.booking_code AND gm.mode='live' AND gm.purpose=${PURPOSE} AND gm.status='delivered') OR ((${bookingPhone2Sql()})<>'' AND NOT EXISTS(SELECT 1 FROM booking_guide_messages gm WHERE gm.booking_code=b.booking_code AND gm.mode='live' AND gm.purpose=(${SECONDARY_PURPOSE}) AND gm.status='delivered'))) LIMIT 1`).bind(ref).first();
   return {...checks,guide_sent:outstanding?false:(checks.guide_sent || true)};
 }
 async function active(env,b) {
   if(!b)return null;
   // Old in-flight/ambiguous requests block all revisions until their outcome is known.
-  return env.DB.prepare(`SELECT id,status FROM booking_guide_messages WHERE booking_code=? AND mode='live' AND ${FAMILY} AND ((purpose=? AND status IN ${ACTIVE}) OR status IN ('sending','accepted','unknown')) ORDER BY created_at DESC,rowid DESC LIMIT 1`).bind(b.booking_code,purpose(b)).first();
+  return env.DB.prepare(`SELECT id,status FROM booking_guide_messages WHERE booking_code=? AND mode='live' AND (json_extract(snapshot,'$.phone')=? OR (json_type(snapshot,'$.phone') IS NULL AND ?=1)) AND ${FAMILY} AND ((purpose=? AND status IN ${ACTIVE}) OR status IN ('sending','accepted','unknown')) ORDER BY created_at DESC,rowid DESC LIMIT 1`).bind(b.booking_code,guidePhone(b.delivery_phone||b.phone),!b.delivery_phone||b.delivery_phone===guidePhone(b.phone)?1:0,purpose(b)).first();
 }
-function snapshot(b) { return { booking_code:b.booking_code, revision:b.revision || 0, inquiry_ref:b.inquiry_ref || '', customer_name:b.customer_name, phone:guidePhone(b.phone), space_id:b.space_id, date:b.date, time:hours(b), message:guideMessage(b), guide_sent:b.guide_sent || false }; }
+function snapshot(b) { return { booking_code:b.booking_code, revision:b.revision || 0, inquiry_ref:b.inquiry_ref || '', customer_name:b.customer_name, phone:guidePhone(b.delivery_phone||b.phone), ...(b.delivery_phone&&b.delivery_phone!==guidePhone(b.phone)?{primary_phone:guidePhone(b.phone)}:{}), space_id:b.space_id, date:b.date, time:hours(b), message:guideMessage(b), guide_sent:b.guide_sent || false }; }
 async function messageSnapshot(env,b,s,issue=false){const snap=snapshot(b);if(s.variant===PORTAL_GUIDE_VARIANT)return portalGuideSnapshot(env,b,snap,issue);snap.message=guideMessage(b,profile(s).template);return snap;}
 async function presentSnapshot(env,snap,s={}){if(snap.delivery_variant!==PORTAL_GUIDE_VARIANT){const p=profile(s);return {...snap,button:p.button,buttons:p.buttons||[p.button],guide_url:GUIDE_URL};}const button=await portalGuideButton(env,snap);return {...snap,button,buttons:[button],guide_url:button.linkMo};}
 function providerPayload(env,s,snap,template,button){return {senderkey:env.ALIGO_SENDER_KEY,tpl_code:s.template_code,sender:env.ALIGO_SENDER,receiver_1:snap.phone,recvname_1:snap.customer_name,subject_1:profile(s).subject,message_1:snap.message.replace(/\n/g,template?.templtContent?.includes('\r\n')?'\r\n':'\n'),button_1:JSON.stringify({button:Array.isArray(button)?button:[button]}),failover:'N',testMode:'N'};}
@@ -163,14 +166,15 @@ async function dispatch(env,id,s,template) {
   if (m.config_hash !== await configHash(env,s)) return state(env,id,'cancelled','발송 설정이 변경되었습니다. 다시 미리보기해 주세요.');
   const isPortal=snap.delivery_variant===PORTAL_GUIDE_VARIANT;let currentBooking,button=profile(s).buttons||profile(s).button;
   if (m.mode === 'live'||isPortal) {
-    const b=currentBooking=await booking(env,m.booking_code||snap.booking_code), reason = guideEligibility(b,s,Date.now(),true);
+    const rawBooking=await booking(env,m.booking_code||snap.booking_code), b=currentBooking=m.mode==='live'?forRecipient(rawBooking,snap.phone):rawBooking, reason = guideEligibility(b,s,Date.now(),true);
     let fresh;try{if(!reason)fresh=await messageSnapshot(env,b,s);}catch{return state(env,id,'cancelled','통합 안내 링크가 만료되었거나 변경되었습니다. 새로 미리보기해 주세요.');}
     if (reason || !sameSnapshot(snap,fresh)) return state(env,id,'cancelled',reason || '예약 내용 또는 통합 링크가 변경되었습니다. 다시 미리보기해 주세요.');
     if (m.mode==='live'&&await ready(env,s)) return; // safely retain an unsent queue when switched off
   }
   if(isPortal)try{button=await portalGuideButton(env,snap);}catch{return state(env,id,'cancelled','통합 안내 링크가 변경되었습니다. 새로 미리보기해 주세요.');}
   const ref=snap.portal_reference,guard=isPortal?" AND EXISTS(SELECT 1 FROM booking_portal_links pl JOIN bookings pb ON pb.booking_code=pl.booking_code WHERE pl.booking_code=? AND pl.token_hash=? AND pl.version=? AND pl.recipient_hash=? AND pl.expires_at>? AND pb.status='confirmed' AND pb.phone IS ? AND pb.customer_name IS ?)":'';
-  const claim = await env.DB.prepare("UPDATE booking_guide_messages SET status='sending',updated_at=? WHERE id=? AND status='queued'"+guard).bind(now(),id,...(isPortal?[snap.booking_code,ref.token_hash,ref.version,ref.recipient_hash,Date.now(),currentBooking.phone,currentBooking.customer_name]:[])).run();
+  const recipientGuard=m.mode==='live'?` AND EXISTS(SELECT 1 FROM bookings cb WHERE cb.booking_code=? AND cb.status='confirmed' AND cb.phone IS ? AND (?=0 OR (${bookingPhone2Sql('cb')})=?))`:'';
+  const claim = await env.DB.prepare("UPDATE booking_guide_messages SET status='sending',updated_at=? WHERE id=? AND status='queued'"+recipientGuard+guard).bind(now(),id,...(m.mode==='live'?[snap.booking_code,currentBooking.phone,snap.primary_phone!==undefined?1:0,snap.phone]:[]),...(isPortal?[snap.booking_code,ref.token_hash,ref.version,ref.recipient_hash,Date.now(),currentBooking.phone,currentBooking.customer_name]:[])).run();
   if (!changed(claim)){if(isPortal)await env.DB.prepare("UPDATE booking_guide_messages SET status='cancelled',error='통합 안내 링크 또는 예약이 변경되었습니다.',updated_at=? WHERE id=? AND status='queued'").bind(now(),id).run();return;}
   // Never retry a transport/JSON failure: Aligo may already have accepted this request.
   try {
@@ -215,18 +219,18 @@ async function reconcile(env,id) {
   }
   await state(env,id,status,alternate?.note||(status==='delivered'?'':str(d?.rslt_message,240)),null,alternate?.sms?'sms_delivered':String(d?.rslt || ''));
   if (status==='delivered' && m.mode==='live') {
-    await env.DB.prepare('UPDATE booking_guide_state SET needs_review=0 WHERE booking_code=? AND revision=?').bind(m.booking_code,snap.revision || 0).run();
+    await env.DB.prepare(`UPDATE booking_guide_state SET needs_review=0 WHERE booking_code=? AND revision=? AND NOT EXISTS(SELECT 1 ${BOOKING_JOIN} WHERE b.booking_code=booking_guide_state.booking_code AND ((COALESCE(${MANUAL},0)=0 AND NOT EXISTS(SELECT 1 FROM booking_guide_messages gm WHERE gm.booking_code=b.booking_code AND gm.mode='live' AND gm.purpose=${PURPOSE} AND gm.status='delivered')) OR ((${bookingPhone2Sql()})<>'' AND NOT EXISTS(SELECT 1 FROM booking_guide_messages gm WHERE gm.booking_code=b.booking_code AND gm.mode='live' AND gm.purpose=(${SECONDARY_PURPOSE}) AND gm.status='delivered'))))` ).bind(m.booking_code,snap.revision || 0).run();
     // Inquiry checks are an aggregate, never evidence that an unsent sibling was guided.
     if(snap.inquiry_ref){
       // The aggregate check and write are one statement, so a concurrent sibling insert cannot inherit it.
-      await env.DB.prepare(`INSERT INTO inquiry_checks(ref,checks,updated_at) SELECT ?,json_object('guide_sent',?),? WHERE NOT EXISTS(SELECT 1 ${BOOKING_JOIN} WHERE b.inquiry_ref=? AND b.status<>'cancelled' AND COALESCE(${MANUAL},0)=0 AND NOT EXISTS(SELECT 1 FROM booking_guide_messages gm WHERE gm.booking_code=b.booking_code AND gm.mode='live' AND gm.purpose=${PURPOSE} AND gm.status='delivered')) ON CONFLICT(ref) DO UPDATE SET checks=json_set(inquiry_checks.checks,'$.guide_sent',?),updated_at=excluded.updated_at`).bind(snap.inquiry_ref,now(),now(),snap.inquiry_ref,now()).run();
+      await env.DB.prepare(`INSERT INTO inquiry_checks(ref,checks,updated_at) SELECT ?,json_object('guide_sent',?),? WHERE NOT EXISTS(SELECT 1 ${BOOKING_JOIN} WHERE b.inquiry_ref=? AND b.status<>'cancelled' AND (COALESCE(${MANUAL},0)=0 OR ((${bookingPhone2Sql()})<>'' AND NOT EXISTS(SELECT 1 FROM booking_guide_messages gm WHERE gm.booking_code=b.booking_code AND gm.mode='live' AND gm.purpose=(${SECONDARY_PURPOSE}) AND gm.status='delivered'))) AND (NOT EXISTS(SELECT 1 FROM booking_guide_messages gm WHERE gm.booking_code=b.booking_code AND gm.mode='live' AND gm.purpose=${PURPOSE} AND gm.status='delivered') OR ((${bookingPhone2Sql()})<>'' AND NOT EXISTS(SELECT 1 FROM booking_guide_messages gm WHERE gm.booking_code=b.booking_code AND gm.mode='live' AND gm.purpose=(${SECONDARY_PURPOSE}) AND gm.status='delivered')))) ON CONFLICT(ref) DO UPDATE SET checks=json_set(inquiry_checks.checks,'$.guide_sent',?),updated_at=excluded.updated_at`).bind(snap.inquiry_ref,now(),now(),snap.inquiry_ref,now()).run();
     }
   }
 }
 export async function automaticGuide(env,code) {
   // Every creation path writes the same transactional event. Never scan/backfill old bookings.
   try {
-    const b=await booking(env,code);if(!b)return;
+    const source=await booking(env,code),b=source&&!guidePhone(source.phone)?forRecipient(source,contactPhones(source)[0]):source;if(!b)return;
     const event=await env.DB.prepare("SELECT * FROM booking_guide_events WHERE booking_code=? AND revision=? AND status IN ('pending','handled')").bind(code,b.revision).first();
     if(!event)return;
     const s=await config(env);
@@ -248,6 +252,7 @@ export async function automaticGuide(env,code) {
       if(!id)return;
     }
     const m=await env.DB.prepare('SELECT status FROM booking_guide_messages WHERE id=?').bind(id).first();if(m?.status!=='queued')return;
+    for(const phone of contactPhones(b).filter(p=>p!==guidePhone(b.delivery_phone||b.phone))){const recipient=forRecipient(b,phone);if(!await active(env,recipient))await insertMessage(env,recipient,s,'live','automatic');}
     let template;try { template=await approved(env,s); } catch(e) { await state(env,id,'failed',e.message); return; }
     await dispatch(env,id,s,template);
   } catch { /* Durable events survive: a messaging failure must not roll back a booking/payment. */ }
@@ -270,15 +275,22 @@ export async function guideTick(env,send=true) {
     if(!send)return;
     const {results}=await env.DB.prepare("SELECT e.booking_code FROM booking_guide_events e LEFT JOIN booking_guide_messages m ON m.id=e.message_id WHERE e.status='pending' OR (e.status='handled' AND m.status='queued' AND m.actor='automatic') ORDER BY e.created_at,e.booking_code LIMIT 5").all();
     for(const e of results || [])await automaticGuide(env,e.booking_code);
+    const {results:extra}=await env.DB.prepare("SELECT id FROM booking_guide_messages WHERE mode='live' AND actor='automatic' AND status='queued' AND purpose LIKE '%:to:%' ORDER BY created_at,rowid LIMIT 5").all();
+    if(s.automatic&&s.enabled&&!await ready(env,s)){const template=await approved(env,s);for(const m of extra||[])await dispatch(env,m.id,s,template);}else if(!s.automatic)for(const m of extra||[])await state(env,m.id,'cancelled','자동 발송 중지');
   }finally{await env.DB.prepare("UPDATE booking_guide_lease SET until_at=? WHERE name='tick' AND until_at=?").bind(Date.now()+60000,until).run();}
 }
 async function guideLatest(env,codes) {
   if(!codes.length)return {};
-  const out={};
+  const out={},groups={};
   for(let i=0;i<codes.length;i+=80){
-    const chunk=codes.slice(i,i+80),{results}=await env.DB.prepare(`SELECT m.booking_code,m.status,m.error,m.provider_result,EXISTS(SELECT 1 FROM booking_guide_messages a WHERE a.booking_code=m.booking_code AND a.mode='live' AND (a.purpose=${PURPOSE} OR ((a.purpose='reservation-guide-v1' OR a.purpose GLOB 'reservation-guide-v1:r[0-9]*') AND a.status IN ('sending','accepted','unknown'))) AND a.status IN ${ACTIVE}) AS has_active FROM booking_guide_messages m LEFT JOIN booking_guide_state gs ON gs.booking_code=m.booking_code WHERE m.mode='live' AND (m.purpose=${PURPOSE} OR ((m.purpose='reservation-guide-v1' OR m.purpose GLOB 'reservation-guide-v1:r[0-9]*') AND m.status IN ('sending','accepted','unknown'))) AND m.booking_code IN (${chunk.map(()=>'?').join(',')}) ORDER BY m.created_at,m.rowid`).bind(...chunk).all();
-    for(const x of results || [])out[x.booking_code]=x;
+    const chunk=codes.slice(i,i+80),{results}=await env.DB.prepare(`SELECT m.*,b.phone AS primary_phone,${bookingPhone2Sql()} AS phone2,COALESCE(gs.revision,0) AS current_revision,${MANUAL} AS primary_guided
+      FROM booking_guide_messages m JOIN bookings b ON b.booking_code=m.booking_code LEFT JOIN booking_guide_state gs ON gs.booking_code=b.booking_code
+      WHERE m.mode='live' AND (m.purpose=${PURPOSE} OR m.purpose=(${SECONDARY_PURPOSE}) OR (m.status IN ('sending','accepted','unknown') AND (m.purpose='reservation-guide-v1' OR m.purpose GLOB 'reservation-guide-v1:r[0-9]*')))
+      AND m.booking_code IN (${chunk.map(()=>'?').join(',')}) ORDER BY m.created_at,m.rowid`).bind(...chunk).all();
+    for(const m of results||[]){const phone=parse(m.snapshot).phone||guidePhone(m.primary_phone);if(!groups[m.booking_code])groups[m.booking_code]={b:{phone:m.primary_phone,phone2:m.phone2,manual:m.primary_guided},phones:{},active:new Set()};groups[m.booking_code].phones[phone]=m;if(['queued','sending','accepted','unknown','delivered'].includes(m.status))groups[m.booking_code].active.add(phone);}
   }
+  const priority={unknown:0,sending:1,queued:2,accepted:3,failed:4,cancelled:5,partial:6,delivered:7};
+  for(const [code,g] of Object.entries(groups)){if(g.b.manual)g.active.add(guidePhone(g.b.phone));const rows=contactPhones(g.b).map(phone=>g.phones[phone]||(phone===guidePhone(g.b.phone)&&g.b.manual?{status:'delivered'}:{status:'partial'}));if(!rows.length)continue;const worst=rows.slice().sort((a,b)=>priority[a.status]-priority[b.status])[0];out[code]={...worst,has_active:contactPhones(g.b).every(phone=>g.active.has(phone))};}
   return out;
 }
 export async function guideSummary(env,codes) {
@@ -376,20 +388,20 @@ export async function guideAdmin({env,request,url,path,method}) {
     const conditions=review?['1=1']:["b.status='confirmed'","b.date>=date('now','+9 hours','-1 day')"], args=[];
     if(from){conditions.push('b.date>=?');args.push(from);} if(to){conditions.push('b.date<=?');args.push(to);} if(space){conditions.push('b.space_id=?');args.push(space);}
     if(url.searchParams.get('status')==='unsent'){
-      conditions.push(`COALESCE(${MANUAL},0)=0`);
-      conditions.push(`NOT EXISTS (SELECT 1 FROM booking_guide_messages gm WHERE gm.booking_code=b.booking_code AND gm.mode='live' AND ((gm.purpose=${PURPOSE} AND gm.status IN ${ACTIVE}) OR ((gm.purpose='reservation-guide-v1' OR gm.purpose GLOB 'reservation-guide-v1:r[0-9]*') AND gm.status IN ('sending','accepted','unknown'))))`);
+      conditions.push(`(COALESCE(${MANUAL},0)=0 OR ((${bookingPhone2Sql()})<>'' AND NOT EXISTS(SELECT 1 FROM booking_guide_messages gm WHERE gm.booking_code=b.booking_code AND gm.mode='live' AND gm.purpose=(${SECONDARY_PURPOSE}) AND gm.status IN ${ACTIVE})))`);
+      conditions.push(`(NOT EXISTS(SELECT 1 FROM booking_guide_messages gm WHERE gm.booking_code=b.booking_code AND gm.mode='live'  AND ((gm.purpose=${PURPOSE} AND gm.status IN ${ACTIVE}) OR (gm.status IN ('sending','accepted','unknown') AND ${FAMILY}))) OR ((${bookingPhone2Sql()})<>'' AND NOT EXISTS(SELECT 1 FROM booking_guide_messages gm WHERE gm.booking_code=b.booking_code AND gm.mode='live' AND gm.purpose=(${SECONDARY_PURPOSE}) AND gm.status IN ${ACTIVE})))`);
     }
     if(statusFilter==='changed')conditions.push('gs.needs_review=1');
     if(review){
-      const latest=`(SELECT gm.status FROM booking_guide_messages gm WHERE gm.booking_code=b.booking_code AND gm.mode='live' AND (gm.purpose=${PURPOSE} OR ((gm.purpose='reservation-guide-v1' OR gm.purpose GLOB 'reservation-guide-v1:r[0-9]*') AND gm.status IN ('sending','accepted','unknown'))) ORDER BY gm.created_at DESC,gm.rowid DESC LIMIT 1)`;
+      const latest=`(SELECT gm.status FROM booking_guide_messages gm WHERE gm.booking_code=b.booking_code AND gm.mode='live' AND (gm.purpose=${PURPOSE} OR gm.purpose=(${SECONDARY_PURPOSE}) OR ((gm.purpose='reservation-guide-v1' OR gm.purpose GLOB 'reservation-guide-v1:r[0-9]*') AND gm.status IN ('sending','accepted','unknown'))) ORDER BY gm.created_at DESC,gm.rowid DESC LIMIT 1)`;
       conditions.push(latest+(statusFilter==='failed'?"='failed'":" IN ('queued','sending','accepted','unknown')"));
     }
-    const {results}=await env.DB.prepare(`SELECT b.*,${REVISION} AS revision,COALESCE(gs.needs_review,0) AS needs_review,${MANUAL} AS guide_sent ${BOOKING_JOIN} WHERE ${conditions.join(' AND ')} ORDER BY b.date,b.start_h,b.id LIMIT 101 OFFSET ?`).bind(...args,page*100).all();
-    const rows=(results || []).slice(0,100), latest=await guideLatest(env,rows.map(x=>x.booking_code)),items=rows.map(b=>{
-      const m=latest[b.booking_code],failed=m?.status==='failed',exclusion=guideEligibility(b,s);
-      return {booking_code:b.booking_code,name:b.customer_name,phone:b.phone,date:b.date,space_id:b.space_id,time:hours(b).map(hour).join('~'),guide_sent:!!b.guide_sent,message_status:m?.status || '',exclusion:exclusion || (m?.has_active?'이미 발송됐거나 처리 중인 안내가 있습니다.':''),revision:b.revision,needs_review:!!b.needs_review,change_note:b.needs_review?'예약 변경 · 최신 내용으로 재안내가 필요합니다.':'',
+    const {results}=await env.DB.prepare(`SELECT b.*,${bookingPhone2Sql()} AS phone2,${REVISION} AS revision,COALESCE(gs.needs_review,0) AS needs_review,${MANUAL} AS guide_sent ${BOOKING_JOIN} WHERE ${conditions.join(' AND ')} ORDER BY b.date,b.start_h,b.id LIMIT 101 OFFSET ?`).bind(...args,page*100).all();
+    const rows=(results || []).slice(0,100), latest=await guideLatest(env,rows.map(x=>x.booking_code)),items=await Promise.all(rows.map(async b=>{
+      const m=latest[b.booking_code],failed=m?.status==='failed',exclusion=guideEligibility(b,s),unsent=(await Promise.all(contactPhones(b).map(async p=>!await active(env,forRecipient(b,p))))).some(Boolean);
+      return {booking_code:b.booking_code,name:b.customer_name,phone:b.phone,phone2:b.phone2||'',date:b.date,space_id:b.space_id,time:hours(b).map(hour).join('~'),guide_sent:!!b.guide_sent,message_status:m?.status || '',exclusion:exclusion || (m?.has_active&&!unsent?'이미 발송됐거나 처리 중인 안내가 있습니다.':''),revision:b.revision,needs_review:!!b.needs_review,change_note:b.needs_review?'예약 변경 · 최신 내용으로 재안내가 필요합니다.':'',
         failure_reason:failed?str(m.error,300):'',failure_code:failed?str(m.provider_result,30):'',retry_allowed:failed&&!exclusion&&!m.has_active};
-    });
+    }));
     return json({ok:true,items,has_more:(results || []).length>100});
   }
   if(path==='guide-messages/preview' && method==='POST') {
@@ -397,7 +409,14 @@ export async function guideAdmin({env,request,url,path,method}) {
     if(!codes.length || codes.length>20 || codes.some(x=>typeof x!=='string' || !/^[A-Z0-9-]{1,40}$/.test(x))) return err('예약을 1~20건 선택해 주세요.');
     const include=d.include_manual===true,reason=str(d.reason,300); if(include && !reason) return err('기존 안내 고객에게 다시 안내할 사유를 입력해 주세요.');
     const items=[],excluded=[];
-    for(const code of codes){const b=await booking(env,code),why=guideEligibility(b,s,Date.now(),include),previous=await active(env,b); if(why || previous){excluded.push({booking_code:code,reason:why || '이미 발송됐거나 처리 중인 안내가 있습니다.'});continue;} try{items.push({...await messageSnapshot(env,b,s,true),needs_review:!!b.needs_review});}catch(e){excluded.push({booking_code:code,reason:e.message});}}
+    for(const code of codes){
+      const source=await booking(env,code),why=guideEligibility(source,s,Date.now(),include);
+      if(why){excluded.push({booking_code:code,reason:why});continue;}
+      for(const phone of contactPhones(source)){const b=forRecipient(source,phone),previous=await active(env,b),exclusion=guideEligibility(b,s,Date.now(),include);
+        if(exclusion||previous){excluded.push({booking_code:code,phone,reason:exclusion||'이 번호는 이미 발송됐거나 처리 중인 안내가 있습니다.'});continue;}
+        try{items.push({...await messageSnapshot(env,b,s,true),needs_review:!!b.needs_review});}catch(e){excluded.push({booking_code:code,phone,reason:e.message});}
+      }
+    }
     const id=crypto.randomUUID(),expires=Date.now()+10*60000;
     await env.DB.prepare('DELETE FROM booking_guide_previews WHERE expires_at<?').bind(Date.now()).run();
     await env.DB.prepare('INSERT INTO booking_guide_previews(id,payload,expires_at) VALUES(?,?,?)').bind(id,JSON.stringify({items,config_hash:hash,include_manual:include,reason}),expires).run();
@@ -413,11 +432,11 @@ export async function guideAdmin({env,request,url,path,method}) {
     const items=[];let halted=false;
     for(const snap of payload.items || []) {
       if(halted){items.push({booking_code:snap.booking_code,skipped:true,reason:'앞선 발송 결과 확인 또는 발송 재개가 필요하여 보류했습니다.'});continue;}
-      const b=await booking(env,snap.booking_code),why=guideEligibility(b,s,Date.now(),payload.include_manual);
+      const b=forRecipient(await booking(env,snap.booking_code),snap.phone),why=guideEligibility(b,s,Date.now(),payload.include_manual);
       const {needs_review,...immutable}=snap;
       let fresh;try{if(!why)fresh=await messageSnapshot(env,b,s);}catch{items.push({booking_code:snap.booking_code,skipped:true,reason:'통합 안내 링크가 변경되었습니다. 다시 미리보기해 주세요.'});continue;}
       if(why || !sameSnapshot(immutable,fresh) || await active(env,b)){items.push({booking_code:snap.booking_code,skipped:true,reason:why || '예약 내용 또는 발송 이력이 바뀌었습니다.'});continue;}
-      try{const id=await insertMessage(env,b,s,'live','admin',payload.reason,null,immutable);await dispatch(env,id,s,template);const row=await env.DB.prepare('SELECT status,error FROM booking_guide_messages WHERE id=?').bind(id).first();items.push({booking_code:b.booking_code,id,...row});halted=['unknown','sending','queued'].includes(row.status);}catch{items.push({booking_code:b.booking_code,skipped:true,reason:'처리 중이거나 저장할 수 없습니다. 이력을 확인해 주세요.'});halted=true;}
+      try{const id=await insertMessage(env,b,s,'live','admin',payload.reason,null,immutable);await dispatch(env,id,s,template);const row=await env.DB.prepare('SELECT status,error FROM booking_guide_messages WHERE id=?').bind(id).first();items.push({booking_code:b.booking_code,phone:snap.phone,id,...row});halted=['unknown','sending','queued'].includes(row.status);}catch{items.push({booking_code:b.booking_code,skipped:true,reason:'처리 중이거나 저장할 수 없습니다. 이력을 확인해 주세요.'});halted=true;}
     }
     return json({ok:true,items});
   }

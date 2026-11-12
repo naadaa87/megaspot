@@ -1,3 +1,4 @@
+import {contactPhones,bookingContacts} from './_contacts.js';
 import {approvedCustomerTemplate,customerFallback,customerFallbackResult,customerTemplateStatus} from './_customer_alimtalk.js';
 import {err,json,now} from './_lib.js';
 import {aligoProvider,guidePhone,guideDelivery} from './_guide_messages.js';
@@ -50,6 +51,16 @@ function state(env,id,status,error='',mid=null){
 }
 
 async function dispatch(env,row){
+ if(row.audience==='customer'){
+  let contacts=null;
+  if(row.booking_code)contacts=await bookingContacts(env,row.booking_code);
+  if(!contacts&&['inquiry','reservation_request'].includes(row.kind))contacts=await env.DB.prepare("SELECT phone,json_extract(data,'$.phone2') AS phone2 FROM inquiries WHERE ref=?").bind(row.ref).first();
+  if(!contacts){const order=await env.DB.prepare('SELECT booking_code,buyer_phone FROM orders WHERE oid=?').bind(row.ref).first();if(order)contacts=order.booking_code?await bookingContacts(env,order.booking_code):{phone:order.buyer_phone};}
+  if(contacts){
+   if(guidePhone(row.receiver)===guidePhone(contacts.phone))for(const phone of contactPhones(contacts).filter(p=>p!==guidePhone(contacts.phone)))await env.DB.prepare(`INSERT OR IGNORE INTO transaction_notifications(event_key,kind,audience,ref,booking_code,receiver,amount,occurred_at) VALUES(?,?,?,?,?,?,?,?)`).bind(row.event_key,row.kind,'customer',row.ref,row.booking_code,phone,row.amount,row.occurred_at).run();
+   if(!contactPhones(contacts).includes(guidePhone(row.receiver)))return state(env,row.id,'cancelled','수신 연락처가 변경되었습니다.');
+  }
+ }
  const receiver=guidePhone(row.receiver);
  if(!receiver)return state(env,row.id,'failed',row.audience==='admin'?'관리자 문자 수신 번호를 확인해 주세요.':'문자 수신 가능한 휴대폰 번호를 확인해 주세요.');
  if(row.kind==='payment_review'){
@@ -61,13 +72,13 @@ async function dispatch(env,row){
   const booking=await env.DB.prepare(`SELECT status,phone,'cancel:'||booking_code||':'||COALESCE(
    (SELECT MAX(id) FROM booking_reconfirmations WHERE booking_code=b.booking_code),0) AS event_key
    FROM bookings b WHERE booking_code=?`).bind(row.booking_code).first();
-  if(booking?.status!=='cancelled'||booking.event_key!==row.event_key||guidePhone(booking.phone)!==receiver)
+  if(booking?.status!=='cancelled'||booking.event_key!==row.event_key||!contactPhones(await bookingContacts(env,row.booking_code)).includes(receiver))
    return state(env,row.id,'cancelled','예약 상태 또는 연락처가 바뀌었습니다.');
  }
  if(row.event_key.startsWith('manual-refund:')){
   const entry=await env.DB.prepare(`SELECT e.kind,e.amount,e.state,b.phone FROM booking_payment_current e
    JOIN bookings b ON b.booking_code=e.booking_code WHERE e.id=?`).bind(Number(row.event_key.slice('manual-refund:'.length))).first();
-  if(entry?.kind!=='refund'||entry.state!=='active'||guidePhone(entry.phone)!==receiver)return state(env,row.id,'cancelled','환불 기록 또는 연락처가 바뀌었습니다.');
+  if(entry?.kind!=='refund'||entry.state!=='active'||!contactPhones(await bookingContacts(env,row.booking_code)).includes(receiver))return state(env,row.id,'cancelled','환불 기록 또는 연락처가 바뀌었습니다.');
   row={...row,amount:entry.amount};
  }
  const provider=(path,data,id)=>aligoProvider(env,path,data,id);

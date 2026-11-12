@@ -158,3 +158,21 @@ test('승인된 고객 거래는 알림톡을 먼저 보내고 실패 시 확인
  await transactionNoticeTick(f.env);
  assert.deepEqual([sends,lookups,smsLookups],[1,1,1]);
 });
+
+test('문의 접수의 두 번호는 번호별 거래 알림을 한 번씩 보내고 반복 tick은 중복하지 않는다',async t=>{
+ const {fixture:base}=await import('./helpers/admin-fixture.mjs');const f=base();t.after(()=>f.db.close());
+ Object.assign(f.env,{ALIGO_RELAY_SECRET:'two-recipient-test-relay-secret-more-than-32',ALIGO_RELAY_URL:'https://relay.naranhistory.com/megaspot/aligo',ALIGO_LIVE_ENABLED:'true',ALIGO_SENDER_KEY:'fixture-profile'});
+ const sent=[];t.mock.method(globalThis,'fetch',async(url,init)=>{
+  const {path,data}=JSON.parse(init.body);if(path==='transaction/status')return Response.json({ready:true});
+  if(path==='template/list'){const template=Object.values(CUSTOMER_ALIMTALK).find(t=>t.code===data.tpl_code);return Response.json({code:0,list:[{templtCode:template.code,inspStatus:'APR',status:'R',senderKey:f.env.ALIGO_SENDER_KEY,templtContent:template.content,buttons:template.buttons}]});}
+  if(path==='alimtalk/send'){sent.push(data);return Response.json({code:0,info:{mid:String(sent.length),scnt:1,fcnt:0}});}throw Error('unexpected '+path);
+ });
+ f.db.prepare("UPDATE inquiries SET phone='010-1111-2222',data=json_set(data,'$.phone2','01033334444') WHERE ref='MS-TEST'").run();
+ f.db.exec("UPDATE transaction_notifications SET receiver='010-1111-2222' WHERE audience='customer'; UPDATE transaction_notifications SET status='cancelled' WHERE audience='admin'");
+ await transactionNoticeTick(f.env);await transactionNoticeTick(f.env);await transactionNoticeTick(f.env);
+ assert.deepEqual(sent.map(x=>x.receiver_1).sort(),['01011112222','01033334444']);
+ assert.equal(f.db.prepare("SELECT COUNT(*) n FROM transaction_notifications WHERE audience='customer'").get().n,2);
+ f.db.exec(`INSERT INTO inquiries(ref,space_id,status,name,phone,data,created_at) VALUES('MS-REMOVED','megaspot-gundae','문의 접수','추가 번호 삭제','01055556666','{"phone2":"01077778888"}',datetime('now'))`);
+ await transactionNoticeTick(f.env);f.db.exec("UPDATE inquiries SET data=json_set(data,'$.phone2','') WHERE ref='MS-REMOVED'");await transactionNoticeTick(f.env);
+ assert.equal(sent.filter(x=>x.receiver_1==='01077778888').length,0);assert.equal(f.db.prepare("SELECT status FROM transaction_notifications WHERE ref='MS-REMOVED' AND receiver='01077778888'").get().status,'cancelled');
+});

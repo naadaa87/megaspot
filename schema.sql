@@ -957,3 +957,10 @@ CREATE TABLE IF NOT EXISTS host_billing (   -- 입점 이용료 신청·납부
   created_at TEXT NOT NULL, paid_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_host_billing_space ON host_billing(space_ref, status);
+
+-- Optional second Alimtalk recipient, managed only in admin; no public identity changes.
+CREATE TABLE IF NOT EXISTS booking_contacts (
+ booking_code TEXT PRIMARY KEY REFERENCES bookings(booking_code),
+ phone2 TEXT NOT NULL DEFAULT '',
+ updated_at TEXT NOT NULL
+);

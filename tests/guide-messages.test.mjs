@@ -424,3 +424,46 @@ test('운영 진단은 스키마·설정·예약 버전을 읽기만 하며 개�
  assert.equal(f.db.prepare("SELECT value FROM settings WHERE key='reservation_guide'").get().value,before);
  f.db.exec('DROP TRIGGER guide_booking_created');const broken=await f.api('guide-messages/diagnostics');assert.equal(broken.schema_ok,false);assert.deepEqual(broken.missing,['guide_booking_created']);assert.equal(f.sent.length,1);
 });
+
+test('두 연락처는 각각 미리보기·발송·결과 조회하고 같은 번호는 중복 발송하지 않는다',async t=>{
+ const f=setup(t);await f.enable();await f.api('bookings/BK-TEST/contacts','PUT',{phone:'01012345678',phone2:'01033334444'});
+ const p=await f.preview();assert.deepEqual(p.items.map(x=>x.phone),['01012345678','01033334444']);
+ const r=await f.send(p);assert.equal(r.items.length,2);assert.ok(r.items.every(x=>x.status==='accepted'));
+ for(const x of r.items)await f.api('guide-messages/'+x.id+'/refresh','POST',{});
+ assert.equal((await f.preview()).items.length,0);
+ const rows=f.db.prepare("SELECT snapshot,status FROM booking_guide_messages WHERE mode='live'").all();assert.equal(rows.length,2);assert.ok(rows.every(x=>x.status==='delivered'));
+ assert.deepEqual(f.sent.slice(1).map(x=>x.receiver_1),['01012345678','01033334444']);
+});
+test('첫 번호 발송 후 추가한 두 번째 번호만 안내하고 이미 성공한 첫 번호는 다시 보내지 않는다',async t=>{
+ const f=setup(t);await f.enable();const first=await f.send(await f.preview());await f.api('guide-messages/'+first.items[0].id+'/refresh','POST',{});
+ await f.api('bookings/BK-TEST/contacts','PUT',{phone:'01012345678',phone2:'01033334444'});
+ const p=await f.preview();assert.deepEqual(p.items.map(x=>x.phone),['01033334444']);await f.send(p);
+ assert.equal(f.sent.filter(x=>x.receiver_1==='01012345678').length,1);assert.equal(f.sent.filter(x=>x.receiver_1==='01033334444').length,1);
+});
+test('미리보기 후 추가 번호를 바꾸면 옛 번호로 안내나 전용 링크를 보내지 않는다',async t=>{
+ const f=setup(t);await f.enable();await f.api('bookings/BK-TEST/contacts','PUT',{phone:'01012345678',phone2:'01033334444'});const p=await f.preview();
+ await f.api('bookings/BK-TEST/contacts','PUT',{phone:'01012345678',phone2:'01055556666'});const r=await f.send(p);
+ assert.equal(f.sent.filter(x=>x.receiver_1==='01033334444').length,0);assert.ok(r.items.some(x=>x.skipped));
+});
+test('새 예약 자동 안내도 두 번호에 독립적인 발송 이력을 만들며 동시 tick은 중복하지 않는다',async t=>{
+ const f=setup(t,{booking:false});await f.enable(true);f.db.prepare("UPDATE inquiries SET data=json_set(data,'$.phone2','01033334444') WHERE ref='MS-TEST'").run();
+ const b=await f.api('inquiries/MS-TEST/confirm','POST',{date:DAY,start_h:10,end_h:17,amount:500000});
+ const {guideTick}=await import('../functions/api/_guide_messages.js');f.db.exec('DELETE FROM booking_guide_lease');await guideTick(f.env);
+ assert.deepEqual(f.sent.slice(1).map(x=>x.receiver_1).sort(),['01012345678','01033334444']);
+ await automaticGuide(f.env,b.booking_code);assert.equal(f.sent.length,3);
+});
+
+
+test('추가 번호만 실패하면 그 번호만 재발송 가능하며 첫 번호의 성공 기록은 유지한다',async t=>{
+ const f=setup(t);await f.enable();await f.api('bookings/BK-TEST/contacts','PUT',{phone:'010-1234-5678',phone2:'01033334444'});
+ const result=await f.send(await f.preview());await f.api('guide-messages/'+result.items[0].id+'/refresh','POST',{});f.setResult('500');await f.api('guide-messages/'+result.items[1].id+'/refresh','POST',{});
+ const candidates=await f.api('guide-messages/candidates?status=failed');assert.equal(candidates.items.length,1);assert.equal(candidates.items[0].retry_allowed,true);
+ const p=await f.preview();assert.deepEqual(p.items.map(x=>x.phone),['01033334444']);await f.send(p);assert.equal(f.sent.filter(x=>x.receiver_1==='01012345678').length,1);
+});
+
+test('기존 수동 안내 체크는 보존하고 새 담당자만 안내하며 첫 번호로 재발송하지 않는다',async t=>{
+ const f=setup(t);await f.enable();f.db.prepare("INSERT INTO inquiry_checks VALUES('MS-TEST','{\"guide_sent\":true}',datetime('now'))").run();
+ await f.api('bookings/BK-TEST/contacts','PUT',{phone:'010-1234-5678',phone2:'01033334444'});assert.equal(f.db.prepare("SELECT manual_sent FROM booking_guide_state WHERE booking_code='BK-TEST'").get().manual_sent,'1');
+ const p=await f.preview();assert.deepEqual(p.items.map(x=>x.phone),['01033334444']);const result=await f.send(p);await f.api('guide-messages/'+result.items[0].id+'/refresh','POST',{});
+ assert.equal(f.sent.filter(x=>x.receiver_1==='01012345678').length,0);assert.ok((await f.api('inquiries/MS-TEST')).checks.guide_sent);
+});
