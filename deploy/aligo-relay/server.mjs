@@ -23,7 +23,7 @@ const FIELDS={
   'alimtalk/send':['tpl_code','receiver_1','recvname_1','subject_1','message_1','button_1','fsubject_1','fmessage_1']
 };
 const PARKING_SMS = new Set(['UN_2583','UN_2586','UN_2587','UN_2588','UN_2589','UN_2591','UN_2592','UN_3966']);
-const NEW_CUSTOMER_CODES=new Set(['UN_4761','UN_4762','UN_4763','UN_4764','UN_4765','UN_4766','UN_4767','UN_4768']);
+const NEW_CUSTOMER_CODES=new Set(['UN_4761','UN_4762','UN_4763','UN_4764','UN_4765','UN_4766','UN_4767','UN_4768','UN_6619','UN_6620','UN_6621','UN_2935']);
 const CUSTOMER_FALLBACK_CODES=new Set(['UN_2584','UN_3085','UN_3115','UN_2935','UN_2759','UN_2760','UN_2761',...NEW_CUSTOMER_CODES]);
 export function relayLedger(db){
   db.exec('CREATE TABLE IF NOT EXISTS relay_requests(id TEXT PRIMARY KEY,hash TEXT NOT NULL,response TEXT,created_at INTEGER NOT NULL)');

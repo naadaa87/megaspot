@@ -55,3 +55,6 @@
  .bp-footer{margin:0 16px;gap:10px 16px;line-height:1.6}
  .bp-footer>a{margin-left:0}
 }
+
+.bp-overview{grid-template-columns:repeat(5,minmax(0,1fr))}
+@media(max-width:720px){.bp-overview{grid-template-columns:repeat(2,minmax(0,1fr))}.bp-step:last-child{grid-column:1/-1}.bp-step:nth-child(-n+4){border-bottom:1px solid var(--bp-line)}}

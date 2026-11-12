@@ -1,4 +1,7 @@
 import {contactPhones,bookingContacts} from './_contacts.js';
+import {settlementRevisionSql} from './_settlement.js';
+import {bookingPhone2Sql} from './_contacts.js';
+import {journeyKind,journeyContext} from './_booking_journey.js';
 import {approvedCustomerTemplate,customerFallback,customerFallbackResult,customerTemplateStatus} from './_customer_alimtalk.js';
 import {err,json,now} from './_lib.js';
 import {aligoProvider,guidePhone,guideDelivery} from './_guide_messages.js';
@@ -7,6 +10,7 @@ const RELAY='https://relay.naranhistory.com/megaspot/aligo';
 const ADMIN_URL='https://megaspot.kr/admin/#transaction-notifications';
 const HELP_URL='https://pf.kakao.com/_LnxbmX/chat';
 const TITLES={
+ booking_confirmed:'예약 확정 안내',balance_reminder:'이용료 잔금 안내',rental_paid:'이용료 납부 완료',booking_arrival:'방문 전 안내',
  inquiry:'문의 접수',reservation_request:'예약 신청 접수',payment_review:'결제 완료 · 예약 확정 보류',
  booking_cancelled:'공간 예약 취소',rental_refund:'이용료 환불 완료',parking_partial_refund:'주차권 부분 환불 완료'
 };
@@ -81,23 +85,31 @@ async function dispatch(env,row){
   if(entry?.kind!=='refund'||entry.state!=='active'||!contactPhones(await bookingContacts(env,row.booking_code)).includes(receiver))return state(env,row.id,'cancelled','환불 기록 또는 연락처가 바뀌었습니다.');
   row={...row,amount:entry.amount};
  }
+ let journey=null;
+ if(journeyKind(row.kind)){
+  journey=await journeyContext(env,row);
+  if(journey.cancel)return state(env,row.id,'cancelled',journey.cancel);
+  if(journey.hold){await env.DB.prepare("UPDATE transaction_notifications SET error=?,updated_at=datetime('now') WHERE id=? AND status='queued'").bind(journey.hold,row.id).run();return;}
+  if(row.kind!=='booking_confirmed'){const h=new Date(Date.now()+9*3600000).getUTCHours();if(h<9||h>=21)return;}
+ }
  const provider=(path,data,id)=>aligoProvider(env,path,data,id);
  const template=row.audience==='customer'?await approvedCustomerTemplate(env,provider,row.kind):null;
  if(row.audience==='customer'&&!template){
-  await env.DB.prepare("UPDATE transaction_notifications SET error=? WHERE id=? AND status='queued'")
+  await env.DB.prepare("UPDATE transaction_notifications SET error=?,updated_at=datetime('now') WHERE id=? AND status='queued'")
    .bind('승인된 알림톡 본문·버튼 확인 대기',row.id).run();
   return;
  }
- const msg=transactionMessage(row),requestId=crypto.randomUUID();
+ const msg=journey?'':transactionMessage(row),requestId=crypto.randomUUID();
  const claim=await env.DB.prepare(`UPDATE transaction_notifications SET status='sending',request_id=?,amount=?,updated_at=?
-  WHERE id=? AND status='queued'`).bind(requestId,row.amount,now(),row.id).run();
+  WHERE id=? AND status='queued'${journey?` AND EXISTS(SELECT 1 FROM bookings b JOIN booking_portal_links pl ON pl.booking_code=b.booking_code WHERE b.booking_code=? AND b.status='confirmed' AND b.phone IS ? AND (${bookingPhone2Sql()})=? AND ${settlementRevisionSql()}=? AND pl.token_hash=? AND pl.version=? AND pl.recipient_hash=? AND pl.expires_at>?)`:''}`).bind(requestId,row.amount,now(),row.id,...(journey?[row.booking_code,journey.b.phone,journey.b.phone2,journey.s.revision,journey.link.reference.token_hash,journey.link.reference.version,journey.link.reference.recipient_hash,Date.now()]:[])).run();
  if(!Number(claim.meta?.changes??claim.changes))return;
  try{
   if(template){
-   const message=template.content.replace(/#\{번호\}/g,row.ref).replace(/#\{금액\}/g,Number(row.amount).toLocaleString('ko-KR'));
+   const message=journey?journey.render(template):template.content.replace(/#\{번호\}/g,row.ref).replace(/#\{금액\}/g,Number(row.amount).toLocaleString('ko-KR'));
    const subject=TITLES[row.kind];
    const r=await provider('alimtalk/send',{tpl_code:template.code,receiver_1:receiver,subject_1:subject,message_1:message,
-    ...customerFallback(subject,msg)},requestId);
+    ...(journey?{button_1:JSON.stringify({button:journey.buttons})}:{}),
+    ...customerFallback(subject,journey?message:msg,journey?.buttons||[])},requestId);
    if(r?.code==null||!/^[-]?\d+$/.test(String(r.code)))return state(env,row.id,'unknown','알림톡 접수 결과 확인 필요');
    if(Number(r.code)!==0)return state(env,row.id,'failed','알리고 접수 거절 ('+Number(r.code)+')');
    if(!/^\d{1,30}$/.test(String(r.info?.mid||''))||Number(r.info?.scnt)!==1||Number(r.info?.fcnt||0)!==0)
@@ -152,8 +164,9 @@ export async function transactionNoticeTick(env){
  }));
  if(env.ALIGO_LIVE_ENABLED!=='true')return;
  await env.DB.prepare(`UPDATE transaction_notifications SET status='cancelled',error='알림 유효기간 경과',updated_at=datetime('now')
-  WHERE status='queued' AND occurred_at<datetime('now','-1 day')`).run();
- const {results:queued}=await env.DB.prepare("SELECT * FROM transaction_notifications WHERE status='queued' ORDER BY id LIMIT 12").all();
+  WHERE status='queued' AND occurred_at<datetime('now','-1 day') AND kind NOT IN ('booking_confirmed','rental_paid')`).run();
+ const scheduleHour=new Date(Date.now()+9*3600000).getUTCHours();
+ const {results:queued}=await env.DB.prepare("SELECT * FROM transaction_notifications WHERE status='queued' AND (kind NOT IN ('balance_reminder','rental_paid','booking_arrival') OR ?=1) ORDER BY CASE WHEN error LIKE '승인된 알림톡%' THEN 1 ELSE 0 END,updated_at,id LIMIT 12").bind(scheduleHour>=9&&scheduleHour<21?1:0).all();
  if(!queued?.length)return;
  const ready=await aligoProvider(env,'transaction/status');
  if(!ready?.ready)return;
@@ -171,7 +184,8 @@ export async function transactionNoticeStatus(env,{checkCustomerTemplates=false}
  }
  const customer=checkCustomerTemplates?{customer_channel:'alimtalk',sms_fallback:true,
   templates:await customerTemplateStatus(env,(path,data)=>aligoProvider(env,path,data))}:{};
- return json({ok:true,schema_ready:schema?.n===7,enabled:env.ALIGO_LIVE_ENABLED==='true'&&configured(env),
+ const journey=await env.DB.prepare("SELECT json_extract(value,'$.enabled') AS enabled FROM settings WHERE key='booking_journey'").first();
+ return json({ok:true,booking_journey_enabled:journey?.enabled===1,schema_ready:schema?.n===7,enabled:env.ALIGO_LIVE_ENABLED==='true'&&configured(env),
   relay_ready:relayReady,admin_recipients:staff?.n||0,...customer});
 }
 

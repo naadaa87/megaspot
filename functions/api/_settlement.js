@@ -1,3 +1,4 @@
+import {paymentSchedule} from './_booking_payment_schedule.js';
 import {onlinePaymentsFor} from './_payapp_refund_history.js';
 import S from '../../assets/js/settlement.js';
 import {json,err,now,str,readJson,log} from './_lib.js';
@@ -105,7 +106,7 @@ export async function settlementAdmin({env,request,path,method}){
   const {results}=await env.DB.prepare('SELECT * FROM booking_payment_current WHERE booking_code=? AND id<? ORDER BY id DESC LIMIT 91').bind(code,before).all();
   const entries=(results||[]).slice(0,90),ids=entries.map(e=>e.id);
   const history=ids.length?(await env.DB.prepare('SELECT id,entry_id,request_id,previous_version,action,kind,amount,note,reason,created_at FROM booking_payment_revisions WHERE booking_code=? AND entry_id IN ('+ids.map(()=>'?').join(',')+') ORDER BY id DESC LIMIT 1001').bind(code,...ids).all()).results||[]:[];
-  return json({ok:true,settlement,deposit:await combinedContext(env,code),entries,has_more:(results||[]).length>90,next_before:entries.at(-1)?.id||null,history:history.slice(0,1000),history_truncated:history.length>1000,online:await onlinePaymentsFor(env,code)});
+  return json({ok:true,settlement,schedule:await paymentSchedule(env,await env.DB.prepare('SELECT * FROM bookings WHERE booking_code=?').bind(code).first()),deposit:await combinedContext(env,code),entries,has_more:(results||[]).length>90,next_before:entries.at(-1)?.id||null,history:history.slice(0,1000),history_truncated:history.length>1000,online:await onlinePaymentsFor(env,code)});
  }
  const d=await readJson(request);if(d.combined===true)return combinedReceipt(env,code,d,settlement);
  const id=str(d.request_id,80),amount=Number(d.amount),kind=d.kind;

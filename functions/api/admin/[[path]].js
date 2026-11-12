@@ -18,6 +18,7 @@ import {readCocktailPricing,publicCocktailPricing,adminCocktailPricing,saveCockt
 import { depositNoticeAdmin } from '../_deposit_notifications.js';
 import {transactionNoticeAdmin} from '../_transaction_notifications.js';
 import { refundAdmin } from '../_deposit_refunds.js';
+import {paymentScheduleAdmin} from '../_booking_payment_schedule.js';
 import { portalAdmin } from '../_booking_portal.js';
 import { cateringAdmin } from '../_catering.js';
 import { cleanDoc, parseDoc, publicDoc, confirmToken, confirmationConditions } from '../_confirm.js';
@@ -174,6 +175,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
     if(method!=='GET'&&/^(quotes$|inquiries\/|bookings(?:\/|$)|catering\/orders)/.test(path))await preserveLegacyPayments(env);
     if(/^bookings\/[A-Z0-9-]+\/reconfirm$/.test(path))return await reconfirmationAdmin({env,request,path,method,waitUntil});
     if(/^bookings\/[A-Z0-9-]+\/cancellation(?:\/document)?$/.test(path))return await cancellationAdmin({env,request,path,method,url});
+    if(/^bookings\/[A-Z0-9-]+\/payment-schedule$/.test(path))return await paymentScheduleAdmin({env,request,path,method});
     if(/^bookings\/[A-Z0-9-]+\/settlement(?:\/entries\/\d+)?$/.test(path))return await settlementAdmin({env,request,path,method});
     if (/^(catering|reception)\/pricing$/.test(path)) {
       const service=path.split('/')[0];

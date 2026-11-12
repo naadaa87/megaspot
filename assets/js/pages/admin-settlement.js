@@ -5,6 +5,7 @@
  var dialog=document.createElement('dialog');dialog.className='rf-modal';dialog.id='payment-dialog';
  dialog.innerHTML=`<div class="rf-modal-head"><h2 id="payment-title">이용료 수납·정산</h2><button class="btn btn-light btn-sm" type="button" id="payment-close">닫기</button></div>
  <div class="rf-modal-body"><div id="payment-overview" class="payment-overview"></div>
+ <section class="payment-details"><h3>이용료 잔금 기한</h3><div class="field-row"><div class="f"><label for="payment-due">잔금 납부일</label><input class="input" type="date" id="payment-due"></div><button class="btn btn-light" id="payment-due-save" type="button">기한 저장</button></div><p class="small muted">기본은 이용 3일 전이며 임박 예약은 확정일입니다. 보증금과 별도입니다. 잔금이 남아 있으면 기한 전날 안내하며, 입금 내역을 기록하면 잔금이 갱신됩니다.</p><p id="payment-due-status" role="status"></p></section>
  <section id="payment-result" class="payment-result" tabindex="-1" aria-label="합산 입금 처리 결과" hidden>
   <h3>합산 입금 처리 완료</h3><p id="payment-result-summary" aria-live="polite"></p>
   <div class="payment-result-stage"><b>예약확정서</b><span id="payment-document-state"></span><button class="btn btn-light" type="button" id="payment-document">최신 확정서 보기</button></div>
@@ -71,7 +72,7 @@
  }
  function paint(r,append){
   if(append&&state.data){r.entries=state.data.entries.concat(r.entries);var history=state.data.history.concat(r.history),seen={};r.history=history.filter(function(h){if(seen[h.id])return false;seen[h.id]=true;return true;});}
-  state.data=r;paintOnline(r.online);paintChannels(r.settlement);
+  state.data=r;$('#payment-due').value=r.schedule?.due_date||'';$('#payment-due-status').textContent=r.schedule?.custom?'예약별 지정 기한':'기본 기한';paintOnline(r.online);paintChannels(r.settlement);
   $('#payment-summary').innerHTML='<dl>'+S.rows(r.settlement).map(function(row){return '<div><dt>'+M.esc(row[0])+'</dt><dd><b>'+M.esc(row[1])+'</b></dd></div>';}).join('')+'</dl>';
   $('#payment-history').innerHTML=(r.entries||[]).map(function(e){
    var history=(r.history||[]).filter(function(h){return h.entry_id===e.id;}).sort(function(a,b){return a.id-b.id;});
@@ -90,6 +91,7 @@
   X.A('/bookings/'+encodeURIComponent(code)+'/settlement').then(function(r){if(n===state.request)paint(r);}).catch(error).finally(function(){if(n===state.request)busy(false);});
  }
  function close(){if(state.busy)return;if(state.dirty&&!confirm('입력한 내용을 버리고 닫을까요?'))return;dialog.close();state.dirty=false;}
+ $('#payment-due-save').onclick=async function(){if(state.busy||!state.data)return;busy(true);try{var schedule=await X.A('/bookings/'+encodeURIComponent(state.code)+'/payment-schedule',{method:'PUT',body:{due_date:$('#payment-due').value||null,version:state.data.schedule.version}});state.data.schedule=schedule;$('#payment-due').value=schedule.due_date;$('#payment-due-status').textContent='잔금 기한을 저장했습니다.';}catch(e){error(e);}finally{busy(false);}};
  $('#payment-cancellation').onclick=function(){var code=state.code;close();if(!dialog.open)window.dispatchEvent(new CustomEvent('admin-cancellation-open',{detail:{codes:[code]}}));};
  $('#payment-refresh').onclick=function(){load(state.code);};
  $('#payment-close').onclick=close;dialog.addEventListener('cancel',function(e){e.preventDefault();close();});

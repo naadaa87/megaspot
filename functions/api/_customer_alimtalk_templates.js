@@ -1,3 +1,4 @@
+import {JOURNEY_TEMPLATES} from './_booking_journey_templates.js';
 // Text and buttons are compared against the exact approved templates before use.
 const parkingButtons=[
  {name:'주차권 내역 확인',linkType:'WL',linkMo:'https://megaspot.kr/parking/purchase/#oid=#{주문번호}&key=#{구매내역키}',linkPc:'https://megaspot.kr/parking/purchase/#oid=#{주문번호}&key=#{구매내역키}'},
@@ -5,6 +6,7 @@ const parkingButtons=[
 ];
 
 export const CUSTOMER_ALIMTALK={
+ ...JOURNEY_TEMPLATES,
  inquiry:{code:'UN_4761',name:'메가스팟_문의접수_v1',buttons:[],content:`[메가스팟 문의 접수]
 문의번호: #{번호}
 

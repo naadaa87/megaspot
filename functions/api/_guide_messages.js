@@ -228,6 +228,7 @@ async function reconcile(env,id) {
   }
 }
 export async function automaticGuide(env,code) {
+  if((await env.DB.prepare("SELECT json_extract(value,'$.enabled') AS enabled FROM settings WHERE key='booking_journey'").first())?.enabled===1)return;
   // Every creation path writes the same transactional event. Never scan/backfill old bookings.
   try {
     const source=await booking(env,code),b=source&&!guidePhone(source.phone)?forRecipient(source,contactPhones(source)[0]):source;if(!b)return;

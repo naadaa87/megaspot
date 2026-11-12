@@ -4,7 +4,7 @@
  if(!X||!view)return;
  var list=view.querySelector('#tn-list'),info=view.querySelector('#tn-info'),more=view.querySelector('#tn-more'),filter=view.querySelector('#tn-filter');
  var esc=X.esc,next=null,request=0;
- var kinds={inquiry:'문의 접수',reservation_request:'예약 신청 접수',payment_review:'결제 완료 · 예약 확정 보류',booking_cancelled:'공간 예약 취소',rental_refund:'이용료 환불 완료',parking_partial_refund:'주차권 부분 환불 완료'};
+ var kinds={booking_confirmed:'예약 확정 · 통합 링크',balance_reminder:'이용료 잔금 안내',rental_paid:'이용료 전액 납부',booking_arrival:'방문 전날 안내',inquiry:'문의 접수',reservation_request:'예약 신청 접수',payment_review:'결제 완료 · 예약 확정 보류',booking_cancelled:'공간 예약 취소',rental_refund:'이용료 환불 완료',parking_partial_refund:'주차권 부분 환불 완료'};
  var statuses={queued:'발송 대기',sending:'발송 처리 중',accepted:'알리고 접수 · 수신 확인 중',delivered:'수신 성공',failed:'실패',unknown:'결과 확인 필요',cancelled:'발송 취소'};
  function row(item){
   var time=new Date(item.occurred_at.replace(' ','T')+'Z');

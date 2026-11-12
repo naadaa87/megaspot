@@ -13,7 +13,7 @@
 <script src="/assets/js/settlement.js?v=20261103portal1" defer></script>
 <script src="/assets/js/confirm-doc.js?v=20261105cfbudget1" defer></script>
 <script src="/assets/js/pages/deposit-account.js?v=20261103portal1" defer></script>
-<script src="/assets/js/pages/booking-portal.js?v=20261103portal1" defer></script>
+<script src="/assets/js/pages/booking-portal.js?v=20261112journey1" defer></script>
 <link rel="stylesheet" href="/assets/css/mobile-viewport.css?v=20261104landscape2">
 <script src="/assets/js/mobile-viewport.js?v=20261104landscape2" defer></script>
 </head>
@@ -26,10 +26,11 @@
   <section class="bp-hero"><div><p class="bp-eyebrow">MEGASPOT · MY RESERVATION</p><h1 id="bp-greeting">모임 준비를<br>한곳에서 확인하세요.</h1><p class="bp-hero-description">예약확정서부터 입실 안내까지.<br>필요한 정보와 준비할 일을 모았습니다.</p></div><div class="bp-hero-side"><span id="bp-status" class="bp-badge"></span><p id="bp-code" class="bp-code"></p><button id="bp-refresh" class="bp-text-button" type="button">최신 정보 새로고침 ↻</button><button id="bp-forget" class="bp-text-button" type="button">이 기기에서 안내 닫기</button></div></section>
   <div id="bp-error" class="bp-notice bp-notice-error" role="alert" hidden></div>
   <div id="bp-overview" class="bp-overview" aria-label="예약 준비 현황"></div>
-  <nav class="bp-tabs" aria-label="예약 안내 목차"><a href="#reservation">예약확정서</a><a href="#deposit">보증금 안내</a><a href="#refund">환급 계좌</a><a href="#arrival">입실 안내</a></nav>
+  <nav class="bp-tabs" aria-label="예약 안내 목차"><a href="#reservation">예약확정서</a><a href="#payment">이용료·잔금</a><a href="#deposit">반환 보증금</a><a href="#refund">환급 계좌</a><a href="#arrival">입실 안내</a></nav>
   <div class="bp-layout"><div class="bp-sections">
    <section id="reservation" class="bp-card"><div class="bp-section-head"><div><p class="bp-eyebrow">01 · RESERVATION</p><h2>예약 정보·확정서</h2></div><span id="bp-doc-badge" class="bp-badge"></span></div><div id="bp-booking-summary"></div><div id="bp-document"></div></section>
-   <section id="deposit" class="bp-card"><div class="bp-section-head"><div><p class="bp-eyebrow">02 · DEPOSIT</p><h2>이용 보증금</h2></div><span id="bp-deposit-badge" class="bp-badge"></span></div><div id="bp-deposit"></div></section>
+   <section id="payment" class="bp-card"><div class="bp-section-head"><div><p class="bp-eyebrow">PAYMENT</p><h2>이용료·예약금·잔금</h2></div><span id="bp-payment-badge" class="bp-badge"></span></div><div id="bp-payment"></div></section>
+   <section id="deposit" class="bp-card"><div class="bp-section-head"><div><p class="bp-eyebrow">02 · DEPOSIT</p><h2>반환 보증금 · 이용료와 별도</h2></div><span id="bp-deposit-badge" class="bp-badge"></span></div><div id="bp-deposit"></div></section>
    <section id="refund" class="bp-card"><div class="bp-section-head"><div><p class="bp-eyebrow">03 · RETURN ACCOUNT</p><h2>환급 계좌·처리 상태</h2></div></div><div id="bp-refund-note"></div><section data-deposit-account data-portal-account aria-label="환급 계좌 등록"></section></section>
    <section id="arrival" class="bp-card"><div class="bp-section-head"><div><p class="bp-eyebrow">04 · CHECK IN</p><h2>입실·시설 안내</h2></div><span id="bp-arrival-badge" class="bp-badge"></span></div><div id="bp-arrival"></div></section>
   </div><aside class="bp-aside"><section class="bp-next" aria-labelledby="bp-next-title"><span class="bp-eyebrow">YOUR NEXT STEP</span><h2 id="bp-next-title"></h2><p id="bp-next-description"></p><a id="bp-next-link" class="bp-button" href="#deposit"></a></section><section class="bp-help"><span class="bp-help-mark">M.</span><h2>준비 중 궁금한 점이 있나요?</h2><p>예약 조건 변경이나 이용 문의는<br>메가스팟 운영팀으로 연락해 주세요.</p><a href="https://pf.kakao.com/_LnxbmX/chat" target="_blank" rel="noopener noreferrer">카카오톡으로 문의 ↗</a></section><p class="bp-private-note">예약 담당자 전용 페이지입니다.<br>링크와 계좌 정보를 다른 분께 공유하지 마세요.</p></aside></div>

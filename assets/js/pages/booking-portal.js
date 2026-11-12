@@ -9,11 +9,12 @@
  function badge(id,text,type){var el=$(id);el.textContent=text;el.className='bp-badge'+(type?' is-'+type:'');}
  function notice(text){clearTimeout(toastTimer);$('#bp-toast').textContent=text;$('#bp-toast').hidden=false;toastTimer=setTimeout(function(){$('#bp-toast').hidden=true;},2600);}
  function api(){return fetch('/api/booking-portal/view',{credentials:'omit',cache:'no-store',referrerPolicy:'no-referrer',headers:{Authorization:'Bearer '+key}}).then(function(r){return r.json().then(function(j){if(!r.ok){var e=Error(j.error||'예약 정보를 확인하지 못했습니다.');e.status=r.status;throw e;}return j;});});}
- function clear(){if(controller)controller.destroy();controller=null;data=null;docJob=null;$('#bp-content').hidden=true;['#bp-greeting','#bp-code','#bp-booking-summary','#bp-document','#bp-deposit','#bp-arrival','#bp-overview','#bp-refund-note','#bp-next-title','#bp-next-description'].forEach(function(id){$(id).textContent='';});}
+ function clear(){if(controller)controller.destroy();controller=null;data=null;docJob=null;$('#bp-content').hidden=true;['#bp-greeting','#bp-code','#bp-booking-summary','#bp-document','#bp-payment','#bp-deposit','#bp-arrival','#bp-overview','#bp-refund-note','#bp-next-title','#bp-next-description'].forEach(function(id){$(id).textContent='';});}
  function forget(){requestId++;key='';try{sessionStorage.removeItem(sessionKey);}catch{}clear();$('#bp-gate').hidden=false;$('#bp-gate-message').textContent='예약자에게 전달된 전용 통합 안내 링크로 다시 접속해 주세요.';$('#bp-retry').hidden=true;}
  function step(label,value,done){return '<div class="bp-step"><span class="bp-step-icon'+(done?' is-done':'')+'" aria-hidden="true">'+(done?'✓':'·')+'</span><div><small>'+esc(label)+'</small><strong>'+esc(value)+'</strong></div></div>';}
  function next(r){var d=r.deposit,b=r.booking,a=d.account,title,description,href,button;
   if(d.returned){title='이용해 주셔서 감사합니다.';description='보증금 환급 처리가 완료되었습니다. 정산 내용이 궁금하시면 운영팀으로 문의해 주세요.';href='#refund';button='환급 상태 보기';}
+  else if(r.payment&&r.payment.amount_visible&&r.payment.balance>0){title='이용료 잔금을 확인해 주세요.';description='남은 이용료 '+won(r.payment.balance)+' · 납부 기한 '+date(r.payment.due_date)+'입니다. 반환 보증금은 별도입니다.';href='#payment';button='이용료 납부 내역 보기';}
   else if(d.amount_visible&&d.amount>0&&!d.paid){title='보증금 입금 정보를 확인해 주세요.';description='입금 기한은 '+date(d.due_date)+'입니다. 이미 입금하셨다면 운영팀 확인 후 상태가 반영됩니다.';href='#deposit';button='입금 안내 보기';}
   else if(a.available&&!a.registered){title='환급 계좌를 등록해 주세요.';description='이용 후 보증금을 돌려받으실 은행·계좌번호·예금주를 미리 등록해 주세요.';href='#refund';button='계좌 등록하기';}
   else if(b.ended){title='환급 진행을 확인해 주세요.';description='시설 확인과 정산 후 '+date(d.refund_date)+'에 환급할 예정입니다.';href='#refund';button='환급 상태 보기';}
@@ -28,6 +29,16 @@
   function rendered(){if(!docJob)docJob=window.MEGASPOT_CONFIRM.render(doc,$('#bp-doc-canvas'));return docJob;}
   $('#bp-doc-detail').addEventListener('toggle',function(){if(this.open)rendered().catch(function(){$('#bp-doc-error').textContent='확정서 미리보기를 불러오지 못했습니다. 다시 확인해 주세요.';$('#bp-doc-error').hidden=false;});});
   ['pdf','png'].forEach(function(type){$('#bp-doc-'+type).onclick=function(){var button=this;button.disabled=true;var X=window.MEGASPOT_CONFIRM;rendered().then(function(){return type==='pdf'?X.pdfBlob($('#bp-doc-canvas'),'메가스팟 예약확정서 '+doc.code):X.pngBlob($('#bp-doc-canvas'));}).then(function(blob){X.download(blob,X.fileName(doc,type));notice('확정서를 저장했습니다.');}).catch(function(){notice('확정서를 저장하지 못했습니다. 다시 시도해 주세요.');}).finally(function(){button.disabled=false;});};});
+ }
+ function drawPayment(r){var p=r.payment;
+  if(!p){$('#bp-payment').textContent='수납 정보를 다시 불러와 주세요.';return;}
+  badge('#bp-payment-badge',!p.amount_visible?'금액 비공개':p.total==null?'이용료 확인 중':p.complete?'전액 납부 완료':p.paid>0?'예약금·일부 납부 확인':'입금 확인 전',p.complete?'good':'wait');
+  if(!p.amount_visible){$('#bp-payment').innerHTML='<p class="bp-notice">이 예약은 금액 비공개로 안내됩니다. 납부 조건은 운영팀에 확인해 주세요.</p>';return;}
+  var html='<dl class="bp-details">'+[['총 이용료',p.total],['누적 입금 확인',p.received],['이용료 환불 완료',p.refunded],['현재 납부한 이용료',p.paid],['남은 이용료 잔금',p.balance]].map(function(row){return '<div><dt>'+row[0]+'</dt><dd>'+esc(row[1]==null?'운영팀 확인 중':won(row[1]))+'</dd></div>';}).join('')+'</dl><p class="bp-notice">예약은 확정되어 있습니다. 예약금은 이용료에 포함되며, 이용 후 반환하는 보증금은 아래에서 별도로 확인해 주세요.</p>';
+  if(p.balance>0)html+='<p class="bp-due">잔금 납부 기한 · '+esc(date(p.due_date))+'</p>';
+  if(p.bank)html+='<div class="bp-bank"><small>이용료 입금 계좌 · '+esc(p.bank.name)+'</small><strong>'+esc(p.bank.account)+'</strong><p>예금주 · '+esc(p.bank.holder)+'</p></div><p class="bp-small">이미 입금하셨다면 추가 입금하지 마세요. 운영팀 확인 후 반영됩니다.</p>';
+  if(p.refund_due>0)html+='<p class="bp-notice">이용료 초과 납부 '+esc(won(p.refund_due))+' · 운영팀에서 환불 내역을 확인합니다.</p>';
+  $('#bp-payment').innerHTML=html;
  }
  function drawDeposit(r){var d=r.deposit,amount=d.amount;
   badge('#bp-deposit-badge',d.returned?'환급 완료':amount===0?'보증금 없음':d.paid?'입금 확인 완료':'입금 확인 전',d.returned||d.paid||amount===0?'good':'wait');
@@ -50,9 +61,9 @@
  }
  function draw(r,refreshAccount){var b=r.booking,d=r.deposit;data=r;$('#bp-gate').hidden=true;$('#bp-content').hidden=false;$('#bp-error').hidden=true;
   $('#bp-greeting').textContent=b.name+'님,\n모임 준비를 함께 확인해요.';$('#bp-greeting').style.whiteSpace='pre-line';$('#bp-code').textContent=b.code;badge('#bp-status',b.status==='completed'?'이용 완료':'예약 확정','good');
-  $('#bp-overview').innerHTML=step('예약','예약 확정',true)+step('보증금',d.returned?'환급 완료':d.amount_visible&&d.amount===0?'해당 없음':d.paid?'입금 확인 완료':'입금 확인 전',d.returned||d.paid||d.amount_visible&&d.amount===0)+step('환급 계좌',d.returned?'처리 완료':d.account.registered?'등록 완료':d.amount_visible&&d.amount===0?'해당 없음':'등록 확인',d.returned||d.account.registered||d.amount_visible&&d.amount===0)+step('입실 안내',r.arrival.ready?'확인 가능':'준비 중',false);
+  $('#bp-overview').innerHTML=step('예약','예약 확정',true)+step('이용료',r.payment&&r.payment.complete?'전액 납부':r.payment&&r.payment.amount_visible&&r.payment.balance!=null?'잔금 '+won(r.payment.balance):'금액 확인',!!r.payment&&r.payment.complete)+step('보증금',d.returned?'환급 완료':d.amount_visible&&d.amount===0?'해당 없음':d.paid?'입금 확인 완료':'입금 확인 전',d.returned||d.paid||d.amount_visible&&d.amount===0)+step('환급 계좌',d.returned?'처리 완료':d.account.registered?'등록 완료':d.amount_visible&&d.amount===0?'해당 없음':'등록 확인',d.returned||d.account.registered||d.amount_visible&&d.amount===0)+step('입실 안내',r.arrival.ready?'확인 가능':'준비 중',false);
   $('#bp-booking-summary').innerHTML='<p class="bp-booking-date">'+esc(date(b.date))+'</p><p class="bp-booking-hours">'+esc(time(b))+'</p><dl class="bp-details"><div><dt>예약 공간</dt><dd>'+esc(b.space.name)+'</dd></div><div><dt>예약자</dt><dd>'+esc(b.name)+'</dd></div><div><dt>이용 인원</dt><dd>'+esc(b.headcount?b.headcount+'명':'운영팀 확인 중')+'</dd></div><div><dt>담당자 연락처</dt><dd>'+esc(b.phone)+'</dd></div></dl>';
-  drawDocument(r);drawDeposit(r);drawAccount(r,refreshAccount);drawArrival(r);next(r);
+  drawDocument(r);drawPayment(r);drawDeposit(r);drawAccount(r,refreshAccount);drawArrival(r);next(r);
  }
  function load(refreshAccount){if(!key)return;var id=++requestId;busy=true;$('#bp-refresh').disabled=true;$('#bp-retry').disabled=true;
   return api().then(function(r){if(id===requestId)draw(r,refreshAccount!==false);}).catch(function(e){if(id!==requestId)return;if(e.status===403||e.status===410){forget();$('#bp-gate-message').textContent=e.message;return;}if(data){$('#bp-error').textContent=e.message;$('#bp-error').hidden=false;}else{clear();$('#bp-gate').hidden=false;$('#bp-gate-message').textContent=e.message;$('#bp-retry').hidden=false;}}).finally(function(){if(id===requestId){busy=false;$('#bp-refresh').disabled=false;$('#bp-retry').disabled=false;}});

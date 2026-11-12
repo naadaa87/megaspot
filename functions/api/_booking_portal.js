@@ -1,4 +1,6 @@
 // Separate capability for a reservation's unified page. Never accept a confirm/last4 token here.
+import {settlementFor} from './_settlement.js';
+import {paymentSchedule} from './_booking_payment_schedule.js';
 import {json,err,now,str,sha256,randomToken,readJson,log} from './_lib.js';
 import {parseDoc,publicDoc,maskPhone,SPACES} from './_confirm.js';
 import {keyReady,seal,unseal,eventTime,refundDate,refundBooking,refundAdmin,refundCustomer} from './_deposit_refunds.js';
@@ -95,11 +97,15 @@ export async function portalCustomer({env,request,path}){
  const auth=await authorize(env,request);if(auth.error)return auth.error;
  const {b,hash,link}=auth,amount=depositAmount(b),account=accountState(b,amount);
  if(path==='view'&&request.method==='GET'){
-  const doc=parseDoc(b.confirm_doc),issued=!!doc?.issued_at,showAmount=doc?.show_amount!==false,end=eventTime(b);
+  const visibility=await env.DB.prepare('SELECT amount_visible FROM booking_journey_state WHERE booking_code=?').bind(b.booking_code).first();
+  const doc=parseDoc(b.confirm_doc),issued=!!doc?.issued_at,showAmount=doc?.show_amount!==false&&visibility?.amount_visible!==0,end=eventTime(b);
   const deposit={amount:showAmount?amount:null,amount_visible:showAmount,paid:!!b.deposit_paid,returned:account.state==='completed',due_date:null,refund_date:b.settled_refund_date||refundDate(b),account};
   if(end){const due=new Date(b.date+'T00:00:00Z');due.setUTCDate(due.getUTCDate()-3);const raw=String(b.created_at||'').replace(' ','T'),created=Date.parse(raw+(raw.includes('T')?'Z':'T00:00:00Z'));deposit.due_date=due.toISOString().slice(0,10);if(Number.isFinite(created)){const confirmedDay=new Date(created+9*36e5).toISOString().slice(0,10);if(confirmedDay>deposit.due_date)deposit.due_date=confirmedDay;}}
   if(showAmount&&amount>0&&!deposit.paid&&!deposit.returned)deposit.bank={name:'하나은행',account:'298-910064-39104',holder:'주식회사 블랭크'};
-  return json({ok:true,booking:{code:b.booking_code,name:b.customer_name,phone:maskPhone(b.phone),space:SPACES[b.space_id],date:b.date,start_h:end?.hours[0]??null,end_h:end?.hours[1]??null,headcount:b.headcount,status:b.status,ended:!!end&&end.end<=Date.now(),updated_at:b.updated_at||b.created_at},confirmation:issued?publicDoc(b,doc):null,deposit,arrival:arrival(b)});
+  const settlement=showAmount?await settlementFor(env,b.booking_code):null,schedule=await paymentSchedule(env,b);
+  const payment={amount_visible:showAmount,total:settlement?.amount??null,received:settlement?.received??null,refunded:settlement?.refunded??null,paid:settlement?.net??null,balance:settlement?.balance??null,refund_due:settlement?.refund_due??null,due_date:schedule.due_date,complete:!!settlement&&settlement.amount!=null&&settlement.balance===0&&!settlement.over_refunded};
+  if(showAmount&&payment.balance>0)payment.bank={name:'하나은행',account:'298-910064-39104',holder:'주식회사 블랭크'};
+  return json({ok:true,payment,booking:{code:b.booking_code,name:b.customer_name,phone:maskPhone(b.phone),space:SPACES[b.space_id],date:b.date,start_h:end?.hours[0]??null,end_h:end?.hours[1]??null,headcount:b.headcount,status:b.status,ended:!!end&&end.end<=Date.now(),updated_at:b.updated_at||b.created_at},confirmation:issued?publicDoc(b,doc):null,deposit,arrival:arrival(b)});
  }
  if(path==='account'&&['GET','POST'].includes(request.method)){
   if(!account.available)return err(account.purged?'계좌 보유기간이 종료되었습니다. 운영팀에 문의해 주세요.':'현재 환급 계좌를 등록할 수 없습니다. 운영팀에 문의해 주세요.',409,'ACCOUNT_UNAVAILABLE');
