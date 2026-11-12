@@ -18,6 +18,8 @@ export async function onRequest({request,env,params}){
    if(!keyReady(env)||!await approvedCustomerTemplate(env,(path,data)=>aligoProvider(env,path,data),'booking_confirmed'))return err('통합 링크 암호화·예약 확정 템플릿 승인을 확인해 주세요.',409);
    await env.DB.prepare("INSERT INTO settings(key,value,updated_at) VALUES('booking_journey','{\"enabled\":true}',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at").bind(now()).run();
    await env.DB.prepare("UPDATE booking_guide_messages SET status='cancelled',error='예약 확정은 통합 링크로 안내합니다.',updated_at=? WHERE mode='live' AND actor='automatic' AND status='queued'").bind(now()).run();
+   await env.DB.prepare("UPDATE settings SET value=json_set(value,'$.automatic',json('false')),updated_at=? WHERE key='reservation_guide'").bind(now()).run();
+   await env.DB.prepare("UPDATE booking_guide_events SET status='cancelled' WHERE status='pending'").run();
    return json({ok:true,enabled:true});
   }
   // Reuse the existing authenticated schedule. A status probe remains strictly read-only.
