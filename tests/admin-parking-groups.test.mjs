@@ -28,3 +28,22 @@ test('관리자 요약은 여러 차량의 결제 총액을 중복 합산하지 
  const unsafe=view.render([{...base,name:'<img onerror=alert(1)>',plate:'<script>x</script>'}],()=> '');assert.ok(!unsafe.includes('<img'));assert.ok(!unsafe.includes('<script>'));assert.ok(unsafe.includes('&lt;img'));
 });
 test('검색된 차량만으로 합계를 추정하지 않고 부모 총액이 없으면 확인 필요로 표시한다',()=>{const g=view.groups([{oid:'MSCHILD',payment_oid:'MSPARENT',price:4000}])[0];assert.equal(g.total,null);});
+
+test('적용 완료는 구매·입차·취소 문의 순서가 아니라 최근 적용 시각부터 조회한다',async t=>{
+ const f=fixture(t),orders=[];
+ for(const plate of ['123가4567','234나5678','345다6789']){const p=await f.buy({plate,plate_confirm:plate});await f.feedback(p);orders.push(p);}
+ const update=f.db.prepare("UPDATE parking_orders SET status='applied',applied_at=?,updated_at=?,created_at=?,refund_requested_at=? WHERE oid=?");
+ update.run('2026-11-03 15:00:00','2026-11-05 15:00:00','2026-11-01 09:00:00',null,orders[0].oid);
+ update.run('2026-11-03T14:00:00Z','2026-11-06 12:00:00','2026-11-03 13:00:00','2026-11-03 16:00:00',orders[1].oid);
+ update.run(null,'2026-11-04 11:00:00','2026-11-02 09:00:00',null,orders[2].oid);
+ const r=await list(f,'filter=applied');assert.equal(r.sort,'applied_desc');assert.deepEqual(r.items.map(p=>p.oid),[orders[2].oid,orders[0].oid,orders[1].oid]);
+ const queue=await list(f,'filter=queue');assert.deepEqual(queue.items.map(p=>p.oid),[orders[1].oid]);
+});
+test('통합 결제는 가장 최근 적용 차량 기준으로 정렬하고 묶음 안에서도 완료 차량의 최신순을 유지한다',async t=>{
+ const f=fixture(t),batch=await buy(f),single=await f.buy({plate:'345다6789',plate_confirm:'345다6789'});await f.feedback(single);
+ f.db.prepare("UPDATE parking_orders SET status='applied',applied_at='2026-11-03 10:00:00',refund_requested_at='2026-11-03 16:00:00' WHERE plate='123가4567'").run();
+ f.db.prepare("UPDATE parking_orders SET status='applied',applied_at='2026-11-03 15:00:00' WHERE plate='234나5678'").run();
+ f.db.prepare("UPDATE parking_orders SET status='applied',applied_at='2026-11-03 12:00:00' WHERE oid=?").run(single.oid);
+ const r=await list(f,'filter=applied'),g=view.groups(r.items,{sort:r.sort});assert.equal(g[0].oid,batch.oid);assert.equal(g[1].oid,single.oid);assert.deepEqual(g[0].items.map(p=>p.plate),['234나5678','123가4567']);
+ const html=view.render(r.items,()=>'',{sort:r.sort});assert.ok(html.indexOf('234나5678')<html.indexOf('123가4567'));assert.ok(html.indexOf(batch.oid)<html.indexOf(single.oid));
+});

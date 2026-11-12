@@ -83,14 +83,16 @@ export async function parkingAdmin(request,env,path){
   if(filter==='applied')sql+=" AND p.status='applied'";
   if(needle){sql+=' AND (p.plate LIKE ? OR o.buyer_name LIKE ? OR p.oid LIKE ? OR o.oid LIKE ?)';args.push('%'+needle+'%','%'+needle+'%','%'+needle+'%','%'+needle+'%');}
   if(date&&isDate(date)){sql+=' AND p.visit_date=?';args.push(date);}
-  const {results:matches}=await env.DB.prepare(sql+' ORDER BY CASE WHEN p.refund_requested_at IS NOT NULL AND p.refund_reviewed_at IS NULL THEN 0 WHEN p.status=\'processing\' THEN 1 WHEN p.arrival_at IS NOT NULL THEN 2 ELSE 3 END,p.created_at LIMIT 200').bind(...args).all();
+  const appliedOrder="datetime(COALESCE(NULLIF(p.applied_at,''),NULLIF(p.updated_at,''),p.created_at)) DESC,datetime(p.created_at) DESC,p.oid DESC";
+  const order=filter==='applied'?appliedOrder:"CASE WHEN p.refund_requested_at IS NOT NULL AND p.refund_reviewed_at IS NULL THEN 0 WHEN p.status='processing' THEN 1 WHEN p.arrival_at IS NOT NULL THEN 2 ELSE 3 END,p.created_at";
+  const {results:matches}=await env.DB.prepare(sql+' ORDER BY '+order+' LIMIT 200').bind(...args).all();
   const matched=new Set((matches||[]).map(p=>p.oid)),payments=[...new Set((matches||[]).map(p=>p.payment_id))];
   // A filter selects payments by matching vehicle, then includes every sibling
   // so a completed vehicle cannot disappear from a partly fulfilled checkout.
-  const {results}=payments.length?await env.DB.prepare(JOIN+' WHERE COALESCE(p.payment_oid,p.oid) IN ('+payments.map(()=>'?').join(',')+') ORDER BY p.created_at,p.oid').bind(...payments).all():{results:[]};
+  const {results}=payments.length?await env.DB.prepare(JOIN+' WHERE COALESCE(p.payment_oid,p.oid) IN ('+payments.map(()=>'?').join(',')+') ORDER BY '+(filter==='applied'?appliedOrder:'p.created_at,p.oid')).bind(...payments).all():{results:[]};
   const position=new Map(payments.map((id,i)=>[id,i]));results.sort((a,b)=>position.get(a.payment_id)-position.get(b.payment_id));
   const count=await env.DB.prepare("SELECT COUNT(*) AS n FROM ("+JOIN+") p WHERE p.payment_status='paid' AND (p.status<>'applied' OR (p.refund_requested_at IS NOT NULL AND p.refund_reviewed_at IS NULL))").first();
-  return json({ok:true,items:(results||[]).map(p=>({...publicParking(p),payment_total:p.payment_total,paid_at:p.paid_at,matched:matched.has(p.oid),name:p.buyer_name,phone:p.buyer_phone,entry_id:p.entry_id,entry_at:p.entry_at,free_hours:p.free_hours,paid_hours:p.paid_hours,cost:p.cost,memo:p.memo,refund_reason:p.refund_reason,session_id:p.session_id,free_external:p.free_external})),matched_count:matched.size,payment_count:payments.length,count:count?.n||0});
+  return json({ok:true,sort:filter==='applied'?'applied_desc':'queue',items:(results||[]).map(p=>({...publicParking(p),payment_total:p.payment_total,paid_at:p.paid_at,matched:matched.has(p.oid),name:p.buyer_name,phone:p.buyer_phone,entry_id:p.entry_id,entry_at:p.entry_at,free_hours:p.free_hours,paid_hours:p.paid_hours,cost:p.cost,memo:p.memo,refund_reason:p.refund_reason,session_id:p.session_id,free_external:p.free_external})),matched_count:matched.size,payment_count:payments.length,count:count?.n||0});
  }
  const m=path.match(/^admin\/orders\/([A-Z0-9]+)\/(claim|complete|issue|reset|refund-reviewed)$/);
  if(!m||method!=='POST')return err('경로를 찾을 수 없습니다.',404);
