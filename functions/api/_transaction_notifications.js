@@ -106,10 +106,10 @@ async function dispatch(env,row){
  try{
   if(template){
    const message=journey?journey.render(template):template.content.replace(/#\{번호\}/g,row.ref).replace(/#\{금액\}/g,Number(row.amount).toLocaleString('ko-KR'));
-   const subject=TITLES[row.kind];
+   const subject=TITLES[row.kind],buttons=journey?journey.buttonsFor(template):[];
    const r=await provider('alimtalk/send',{tpl_code:template.code,receiver_1:receiver,subject_1:subject,message_1:message,
-    ...(journey?{button_1:JSON.stringify({button:journey.buttons})}:{}),
-    ...customerFallback(subject,journey?message:msg,journey?.buttons||[])},requestId);
+    ...(journey?{button_1:JSON.stringify({button:buttons})}:{}),
+    ...customerFallback(subject,journey?message:msg,buttons)},requestId);
    if(r?.code==null||!/^[-]?\d+$/.test(String(r.code)))return state(env,row.id,'unknown','알림톡 접수 결과 확인 필요');
    if(Number(r.code)!==0)return state(env,row.id,'failed','알리고 접수 거절 ('+Number(r.code)+')');
    if(!/^\d{1,30}$/.test(String(r.info?.mid||''))||Number(r.info?.scnt)!==1||Number(r.info?.fcnt||0)!==0)

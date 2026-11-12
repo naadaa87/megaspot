@@ -6,7 +6,7 @@ import {settlementsFor,settlementFor} from './_settlement.js';
 import {portalMessageLink} from './_booking_portal.js';
 import {portalGuideMessage} from './_guide_portal.js';
 import {paymentSchedule,dayAt,shiftDay} from './_booking_payment_schedule.js';
-import {JOURNEY_TEMPLATES} from './_booking_journey_templates.js';
+import {JOURNEY_TEMPLATES,journeyButtons} from './_booking_journey_templates.js';
 export const journeyKind=kind=>Object.hasOwn(JOURNEY_TEMPLATES,kind);
 export async function journeyEnabled(env){return (await env.DB.prepare("SELECT json_extract(value,'$.enabled') AS enabled FROM settings WHERE key='booking_journey'").first())?.enabled===1;}
 const hour=h=>(h>=24?'다음날 ':'')+String(Math.floor(h%24)).padStart(2,'0')+':'+String(Math.round((h%1)*60)).padStart(2,'0');
@@ -33,8 +33,8 @@ export async function journeyContext(env,row){
  }
  const vars={고객명:String(b.customer_name||'').replace(/[\r\n]/g,' '),공간명:SPACES[b.space_id],예약번호:b.booking_code,이용일:b.date,이용시간:[b.start_h,b.end_h].map(hour).join('~'),잔금:Number(s.balance).toLocaleString('ko-KR'),수납액:Number(s.net).toLocaleString('ko-KR'),납부기한:schedule.due_date};
  const render=template=>row.kind==='booking_confirmed'?portalGuideMessage(b,[b.start_h,b.end_h]):template.content.replace(/#\{([^}]+)\}/g,(_,key)=>vars[key]);
- const buttons=JOURNEY_TEMPLATES[row.kind].buttons.map(button=>({...button,linkMo:link.url,linkPc:link.url}));
- return {b,s,render,buttons,link};
+ const buttonsFor=template=>journeyButtons(template,link.url),buttons=buttonsFor(JOURNEY_TEMPLATES[row.kind]);
+ return {b,s,render,buttons,buttonsFor,link};
 }
 export async function bookingJourneyTick(env){
  if(!env.DB||!await journeyEnabled(env))return;

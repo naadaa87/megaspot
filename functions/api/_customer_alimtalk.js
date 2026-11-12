@@ -10,8 +10,13 @@ export function customerFallback(subject,message,buttons=[]){
 }
 
 export async function approvedCustomerTemplate(env,provider,kind){
- const expected=T[kind];
- if(!expected)return null;
+ const expected=T[kind];if(!expected)return null;
+ for(const candidate of [expected,expected.fallback].filter(Boolean)){
+  try{const approved=await approvedCandidate(env,provider,kind,candidate);if(approved)return approved;}catch(error){if(!expected.fallback)throw error;}
+ }
+ return null;
+}
+async function approvedCandidate(env,provider,kind,expected){
  const {code,content,buttons}=expected;
  const key='customer_alimtalk_ready:'+code;
  const signature=await sha256(JSON.stringify([env.ALIGO_SENDER_KEY,content,buttons]));
@@ -20,7 +25,7 @@ export async function approvedCustomerTemplate(env,provider,kind){
  if(saved?.value===signature)return expected;
  if(saved?.value===signature+':crlf')return {...expected,content:content.replace(/\n/g,'\r\n')};
  if(!provider)return null;
- const review=await reviewCustomerTemplate(env,provider,kind);
+ const review=await reviewCustomerTemplate(env,provider,kind,expected);
  if(!review.ready)return null;
  const actual=review.template;
  await env.DB.prepare(`INSERT INTO settings(key,value,updated_at) VALUES(?,?,?) ON CONFLICT(key)
@@ -28,8 +33,7 @@ export async function approvedCustomerTemplate(env,provider,kind){
  return {...expected,content:actual.templtContent};
 }
 
-export async function reviewCustomerTemplate(env,provider,kind){
- const expected=T[kind];
+export async function reviewCustomerTemplate(env,provider,kind,expected=T[kind]){
  const response=await provider('template/list',{tpl_code:expected.code});
  if(Number(response.code)!==0)throw Error('알림톡 승인 조회 실패');
  const template=(response.list||[]).find(item=>item.templtCode===expected.code);

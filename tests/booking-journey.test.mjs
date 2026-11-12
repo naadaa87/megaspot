@@ -17,7 +17,7 @@ function setup(t,{existing=false}={}){
  t.mock.method(globalThis,'fetch',async(url,init)=>{
   assert.equal(url,f.env.ALIGO_RELAY_URL);const req=JSON.parse(init.body),d=req.data;
   if(req.path==='transaction/status')return Response.json({ready:true});
-  if(req.path==='template/list'){const t=Object.values(JOURNEY_TEMPLATES).find(t=>t.code===d.tpl_code);assert.ok(t);return Response.json({code:0,list:[{templtCode:t.code,senderKey:f.env.ALIGO_SENDER_KEY,inspStatus:pending?'REQ':'APR',status:'R',templtContent:t.content,buttons:t.buttons}]});}
+  if(req.path==='template/list'){const t=Object.values(JOURNEY_TEMPLATES).flatMap(t=>[t,t.fallback].filter(Boolean)).find(t=>t.code===d.tpl_code);assert.ok(t);return Response.json({code:0,list:[{templtCode:t.code,senderKey:f.env.ALIGO_SENDER_KEY,inspStatus:pending?'REQ':'APR',status:'R',templtContent:t.content,buttons:t.buttons}]});}
   if(req.path==='alimtalk/send'){sends.push(d);return Response.json({code:0,info:{mid:String(sends.length),scnt:1,fcnt:0}});}
   throw Error('Unexpected '+req.path);
  });
@@ -31,7 +31,7 @@ function setup(t,{existing=false}={}){
 test('예약금만 받은 확정은 통합 링크를 1회 발송하며 기존 시설 자동 안내는 보내지 않는다',async t=>{
  const f=setup(t);f.create();f.receipt('BK-NEW',100000,'first');await f.tick();
  await automaticGuide(f.env,'BK-NEW');await Promise.all([transactionNoticeTick(f.env),transactionNoticeTick(f.env)]);
- assert.equal(f.sends.length,1);const d=f.sends[0];assert.equal(d.tpl_code,'UN_2935');assert.equal(d.failover,'Y');assert.match(d.message_1,/예약이 확정/);
+ assert.equal(f.sends.length,1);const d=f.sends[0];assert.equal(d.tpl_code,JOURNEY_TEMPLATES.booking_confirmed.code);assert.equal(d.failover,'Y');assert.match(d.message_1,/예약이 확정/);
  const button=JSON.parse(d.button_1).button[0];assert.match(button.linkMo,/\/booking\/#booking=[\w-]{43}$/);assert.ok(d.fmessage_1.includes(button.linkMo));
  assert.equal(f.db.prepare('SELECT COUNT(*) n FROM booking_guide_messages').get().n,0);
  const token=button.linkMo.split('#booking=')[1];const response=await portal({env:f.env,params:{path:['view']},request:new Request('https://local.test/api/booking-portal/view',{headers:{Authorization:'Bearer '+token}})});const view=await response.json();assert.ok(view.confirmation?.issued_at);assert.equal(view.payment.total,500000);assert.equal(view.payment.paid,100000);assert.equal(view.payment.balance,400000);assert.equal(view.deposit.paid,false);assert.equal(view.deposit.amount,150000);
@@ -92,4 +92,24 @@ test('운영자 실제 발송 시험은 별도 전용 링크와 이력만 만들
  assert.ok(!JSON.stringify(f.db.prepare('SELECT * FROM booking_journey_trials').all()).includes(j.url.split('#booking=')[1]));
  const denied=await bookingJourneyTrial(f.env,{...d,test_id:crypto.randomUUID(),receiver:'01099998888'});assert.equal(denied.status,403);assert.equal(f.sends.length,1);
  f.db.exec('UPDATE booking_journey_trials SET expires_at=0');assert.equal((await portal({env:f.env,params:{path:['view']},request:new Request('https://local.test/api/booking-portal/view',{headers:{Authorization:'Bearer '+j.url.split('#booking=')[1]}})})).status,403);
+});
+
+test('확정 안내의 두 버튼은 전용 예약 링크와 식음료 링크를 구분하고 대체 문자에도 둘 다 남긴다',async t=>{
+ const f=setup(t);f.create();f.receipt('BK-NEW',100000,'partial-buttons');await f.tick();await transactionNoticeTick(f.env);
+ const payload=f.sends[0],buttons=JSON.parse(payload.button_1).button;
+ assert.deepEqual(buttons.map(b=>b.name),['예약 안내 확인','뷔페·케이터링·칵테일 안내']);assert.match(buttons[0].linkMo,/\/booking\/#booking=/);assert.equal(buttons[1].linkMo,'https://megaspot.kr/catering/#food-compare');assert.ok(payload.fmessage_1.includes(buttons[0].linkMo));assert.ok(payload.fmessage_1.includes(buttons[1].linkMo));
+});
+test('입실 전 안내는 입실·이용 안내와 주차권 구매만 보내고 식음료·전용 예약 버튼을 섞지 않는다',async t=>{
+ const f=setup(t);f.create(shiftDay(dayAt(Date.now()),1));await f.tick();await transactionNoticeTick(f.env);await transactionNoticeTick(f.env);
+ const payload=f.sends.find(d=>d.tpl_code===JOURNEY_TEMPLATES.booking_arrival.code),buttons=JSON.parse(payload.button_1).button;
+ assert.deepEqual(buttons.map(b=>b.name),['입실 및 이용 안내','주차권 구매']);assert.equal(buttons[0].linkMo,'https://megaspot-guide.pages.dev/');assert.equal(buttons[1].linkMo,'https://megaspot.kr/parking/purchase/');assert.ok(!payload.fmessage_1.includes('/catering/'));assert.ok(payload.fmessage_1.includes('/parking/purchase/'));assert.ok(!/#\{/.test(payload.message_1));
+});
+test('새 확정 템플릿 검수 중에는 승인된 기존 알림톡을 유지하고 승인 후 두 버튼으로 자동 전환한다',async t=>{
+ const f=setup(t);f.create();
+ const {approvedCustomerTemplate}=await import('../functions/api/_customer_alimtalk.js');const expected=JOURNEY_TEMPLATES.booking_confirmed;
+ let approved=false;const provider=async(path,data)=>{assert.equal(path,'template/list');const t=data.tpl_code===expected.code?expected:expected.fallback;return {code:0,list:[{templtCode:t.code,senderKey:f.env.ALIGO_SENDER_KEY,inspStatus:t===expected&&!approved?'REQ':'APR',status:'R',templtContent:t.content,buttons:t.buttons}]};};
+ const old=await approvedCustomerTemplate(f.env,provider,'booking_confirmed');assert.equal(old.code,'UN_2935');assert.equal(old.buttons.length,1);
+ const context=await journeyContext(f.env,f.row());assert.equal(context.buttonsFor(old).length,1);
+ approved=true;const updated=await approvedCustomerTemplate(f.env,provider,'booking_confirmed');assert.equal(updated.code,expected.code);assert.equal(context.buttonsFor(updated).length,2);assert.equal(context.buttonsFor(updated)[1].linkMo,'https://megaspot.kr/catering/#food-compare');
+ const outage=await approvedCustomerTemplate(f.env,async()=>{throw Error('temporary provider outage');},'booking_confirmed');assert.equal(outage.code,expected.code);
 });

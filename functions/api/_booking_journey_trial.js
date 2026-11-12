@@ -1,3 +1,4 @@
+import {journeyButtons} from './_booking_journey_templates.js';
 // Isolated operator fixture: no bookings, orders, receipts, calendar blocks or bank transfers.
 import {err,json,now,sha256,randomToken,SPACES,kstToday} from './_lib.js';
 import {seal,unseal,keyReady} from './_deposit_refunds.js';
@@ -47,7 +48,7 @@ export async function bookingJourneyTrial(env,d){
  const notification=await env.DB.prepare('SELECT notification_id FROM booking_journey_trials WHERE id=?').bind(id).first();
  let status='unknown',mid=null,error='접수 결과 확인 필요 · 같은 요청을 다시 보내도 중복 발송하지 않습니다.';
  try{
-  const buttons=template.buttons.map(button=>({...button,linkMo:url,linkPc:url})),message=portalGuideMessage(b,[10,17]);
+  const buttons=journeyButtons(template,url),message=portalGuideMessage(b,[10,17]);
   const result=await provider('alimtalk/send',{tpl_code:template.code,receiver_1:receiver,subject_1:'메가스팟 예약 확정 시험',message_1:message.replace(/\n/g,template.content.includes('\r\n')?'\r\n':'\n'),button_1:JSON.stringify({button:buttons}),...customerFallback('메가스팟 예약 확정 시험',message,buttons)},id);
   if(result?.code!=null&&/^-?\d+$/.test(String(result.code))){
    if(Number(result.code)!==0){status='failed';error='알림톡 접수 거절 ('+Number(result.code)+')';}
