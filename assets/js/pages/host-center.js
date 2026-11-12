@@ -29,7 +29,9 @@
     var n=0; ST.spaces.forEach(function(s){ if(!ST.cur||s.ref===ST.cur) n+=(s.counts&&s.counts.new)||0; }); var em=$('#hc-n-new'); em.textContent=n; em.hidden=!n;
   }
   $('#hc-space').addEventListener('change', function(){ if(this.value==='+'){ this.value=ST.cur; location.hash='#add'; return; } ST.cur=this.value; try{ sessionStorage.setItem('hc_space', ST.cur); }catch(e){} fillSpaces(); show(ST.tab); });
-  $('#hc-logout').addEventListener('click', function(){ M.api('/hosts/logout',{method:'POST'}).catch(function(){}).then(function(){ location.href='/host/login/'; }); });
+  // 로그아웃: 회원 계정으로 들어온 경우 회원 로그인도 함께 끝냅니다
+  $('#hc-logout').addEventListener('click', function(){ var member=ST.host&&ST.host.member;
+    M.api('/hosts/logout',{method:'POST'}).catch(function(){}).then(function(){ return member?M.account.logout():null; }).then(function(){ location.href=member?'/':'/host/login/'; }); });
   function reload(){ return api('/me').then(function(r){ ST.host=r.host; ST.spaces=r.spaces||[]; ST.today=r.today||S.today(); if(ST.cur && !space(ST.cur)) ST.cur=''; if(!ST.cur && ST.spaces.length===1) ST.cur=ST.spaces[0].ref; fillSpaces(); return r; }); }
   var VIEWS={};
   function show(tab){
@@ -59,8 +61,9 @@
     else if(s.status==='paused'){ kind='warn'; title='예약 받기를 잠시 멈췄습니다'; body='<p>검색과 상세 화면에 보이지 않습니다. 다시 받을 준비가 되면 켜 주세요.</p>'; btn='<button class="btn btn-primary btn-sm" type="button" data-resume="'+esc(s.ref)+'">다시 공개하기</button>'; }
     else if(s.status==='live' && !s.visible){ kind='bad'; title='등록 기간이 끝나 검색에서 내려갔습니다'; body='<p>'+esc(S.kdate(until))+'에 끝났습니다. 등록 기간을 고르면 다시 공개됩니다. 수수료는 없고 월 정액 이용료만 냅니다.</p>'; btn='<a class="btn btn-primary btn-sm" href="#billing">등록 기간 고르기 →</a>'; }
     else { kind=left!=null&&left<=14?'warn':'live'; var free=s.free_until && s.free_until>=(s.paid_until||''); title='공개 중'+(left!=null?' · '+(free?'무료 등록 ':'등록 ')+'D-'+Math.max(0,left):'');
-      body='<p>'+(free?'무료 등록 기간':'등록 기간')+'은 <b>'+esc(S.kdate(until))+'</b>까지입니다.'+(left!=null&&left<=14?' 끝나기 전에 등록 기간을 골라 주세요.':'')+'</p>';
-      btn='<a class="btn btn-light btn-sm" href="/spaces/view/?id='+encodeURIComponent(s.ref)+'" target="_blank" rel="noopener">내 공간 페이지 ↗</a>'+(left!=null&&left<=30?'<a class="btn btn-primary btn-sm" href="#billing">등록 기간 고르기 →</a>':''); }
+      body=free?'<p>무료 등록 기간은 <b>'+esc(S.kdate(until))+'</b>까지입니다. 이 기간 안에 등록 기간을 결제해 두면 무료 기간이 끝난 다음 날부터 끊기지 않고 이어집니다. 끝나기 30일 전과 7일 전에는 알림톡으로도 알려 드립니다.</p>'
+        :'<p>등록 기간은 <b>'+esc(S.kdate(until))+'</b>까지입니다.'+(left!=null&&left<=14?' 끝나기 전에 등록 기간을 골라 주세요.':'')+'</p>';
+      btn='<a class="btn btn-light btn-sm" href="/spaces/view/?id='+encodeURIComponent(s.ref)+'" target="_blank" rel="noopener">내 공간 페이지 ↗</a>'+(free||(left!=null&&left<=30)?'<a class="btn '+(left!=null&&left<=30?'btn-primary':'btn-ghost')+' btn-sm" href="#billing">'+(free?'등록 기간 미리 결제하기':'등록 기간 고르기')+' →</a>':''); }
     return '<div class="hc-banner '+kind+'"><h2>'+S.tierBadge(s.tier)+esc(s.name)+' <span class="pf-st '+esc(s.status)+'">'+esc(s.status_label)+'</span></h2><div><b>'+esc(title)+'</b></div>'+body+(btn?'<div class="hc-acts">'+btn+'</div>':'')+'</div>';
   }
   function bookingRow(b){
@@ -441,7 +444,9 @@
         } else if(act.some(function(b){ return b.cancel&&b.cancel.status==='requested'; })){
           h+='<p class="small muted mt-1">해지 신청을 처리하는 동안에는 새 등록 기간을 고를 수 없습니다. 계속 이용하려면 해지 신청을 철회해 주세요.</p>';
         } else if(can){
-          h+=(act.length?'<p class="hc-sub">등록 기간 더 이어 가기</p>':'')+'<div class="hc-plan mt-2">'+r.plans.map(function(p, i){ return '<label class="ap-mode"><input type="radio" name="plan-'+esc(s.ref)+'" value="'+p.id+'"'+(i===0?' checked':'')+'><b>'+p.months+'개월 등록</b><small><span class="nowrap">하루 '+p.daily.toLocaleString('ko-KR')+'원</span> · <span class="nowrap">월 '+esc(S.man(p.monthly))+'</span><br>'+esc(won(p.supply))+' <span class="nowrap">(부가세 별도)</span></small></label>'; }).join('')+'</div>'
+          var freeNow=s.free_until && s.free_until>=ST.today && s.free_until>=(s.paid_until||'');
+          h+=(freeNow?'<p class="hc-note">지금은 무료 등록 기간입니다. 무료 기간 안에 결제해 두면 '+esc(S.kdate(s.free_until))+' 다음 날부터 끊기지 않고 이어집니다. 무료 기간이 끝나기 30일 전과 7일 전에 알림톡으로도 알려 드립니다.</p>':'')
+            +(act.length?'<p class="hc-sub">등록 기간 더 이어 가기</p>':'')+'<div class="hc-plan mt-2">'+r.plans.map(function(p, i){ return '<label class="ap-mode"><input type="radio" name="plan-'+esc(s.ref)+'" value="'+p.id+'"'+(i===0?' checked':'')+'><b>'+p.months+'개월 등록</b><small><span class="nowrap">하루 '+p.daily.toLocaleString('ko-KR')+'원</span> · <span class="nowrap">월 '+esc(S.man(p.monthly))+'</span><br>'+esc(won(p.supply))+' <span class="nowrap">(부가세 별도)</span></small></label>'; }).join('')+'</div>'
             +'<p class="hc-sum mt-1" data-sum="'+esc(s.ref)+'" aria-live="polite"></p>'
             +'<div class="row mt-1" role="radiogroup" aria-label="결제 방법">'+(r.online?'<label class="chk"><input type="radio" name="how-'+esc(s.ref)+'" value="online" checked><span>카드·간편결제 <span class="small muted">· 바로 적용</span></span></label>':'')
             +'<label class="chk"><input type="radio" name="how-'+esc(s.ref)+'" value="bank"'+(r.online?'':' checked')+'><span>계좌이체 <span class="small muted">· 입금 확인 뒤 적용</span></span></label><label class="chk"><input type="checkbox" data-tax="'+esc(s.ref)+'"><span>세금계산서 발행 요청</span></label></div>'
@@ -500,12 +505,13 @@
       +'<div class="field-row two"><div class="f"><label>담당자 이름 <span class="pf-req">*</span></label><input class="input" name="name" required maxlength="40" value="'+esc(h.name)+'"></div><div class="f"><label>휴대폰 <span class="pf-req">*</span></label><input class="input" name="phone" type="tel" required value="'+esc(h.phone)+'"></div></div>'
       +'<div class="field-row two"><div class="f"><label>상호</label><input class="input" name="company" maxlength="60" value="'+esc(h.company)+'"></div><div class="f"><label>사업자등록번호</label><input class="input" name="biz_no" maxlength="20" value="'+esc(h.biz_no)+'"></div></div>'
       +'<h2 style="margin-top:6px">알림 받을 연락처</h2><div class="field-row two"><div class="f"><label>알림 받을 휴대폰</label><input class="input" name="notify_phone" type="tel" value="'+esc(st.notify_phone||h.phone)+'"></div><div class="f"><label>알림 받을 이메일</label><input class="input" name="notify_email" type="email" value="'+esc(st.notify_email||h.email)+'"></div></div>'
-      +'<label class="chk"><input type="checkbox" name="notify_on"'+(st.notify_on===false?'':' checked')+'><span>새 문의·견적 수락·입금 알림·취소·심사 결과·이용료 안내를 문자로 받기</span></label>'
-      +'<p class="pf-help">알림은 위 휴대폰 번호로 문자(카카오 알림톡으로 바뀔 수 있습니다)가 갑니다. 문자에는 고객 이름과 연락처를 넣지 않으니, 내용은 호스트센터에서 확인해 주세요. 끄더라도 호스트센터 홈과 문의·예약 메뉴에는 그대로 표시됩니다.</p><div><button class="btn btn-primary" type="submit">저장</button></div></form>'
-      +'<form class="hc-card hc-form" id="pw-form" novalidate><h2>비밀번호 바꾸기</h2><div class="f"><label>지금 비밀번호</label><input class="input" name="current" type="password" required autocomplete="current-password"></div><div class="f"><label>새 비밀번호 (8자 이상)</label><input class="input" name="next" type="password" required minlength="8" autocomplete="new-password"></div><p class="pf-msg" id="pw-msg" hidden></p><div><button class="btn btn-light" type="submit">비밀번호 바꾸기</button></div></form></div>';
+      +'<label class="chk"><input type="checkbox" name="notify_on"'+(st.notify_on===false?'':' checked')+'><span>새 문의·견적 수락·입금 알림·취소·심사 결과·이용료·무료 기간 종료 안내 받기</span></label>'
+      +'<p class="pf-help">알림은 위 휴대폰 번호로 카카오 알림톡이나 문자로 갑니다. 알림에는 고객 이름과 연락처를 넣지 않으니, 내용은 호스트센터에서 확인해 주세요. 끄더라도 호스트센터 홈과 문의·예약 메뉴에는 그대로 표시됩니다.</p><div><button class="btn btn-primary" type="submit">저장</button></div></form>'
+      +(h.member?'<div class="hc-card hc-form"><h2>로그인 계정</h2><p>메가스팟 회원 계정 <b>'+esc(h.member_email||h.email)+'</b>으로 로그인합니다. 고객 화면(마이페이지)과 호스트센터를 같은 계정으로 오갈 수 있습니다.</p><p class="pf-help">비밀번호와 회원 정보는 마이페이지에서 바꿉니다.</p><div><a class="btn btn-light" href="/mypage/">마이페이지로 가기</a></div></div></div>'
+      :'<form class="hc-card hc-form" id="pw-form" novalidate><h2>비밀번호 바꾸기</h2><div class="f"><label>지금 비밀번호</label><input class="input" name="current" type="password" required autocomplete="current-password"></div><div class="f"><label>새 비밀번호 (8자 이상)</label><input class="input" name="next" type="password" required minlength="8" autocomplete="new-password"></div><p class="pf-msg" id="pw-msg" hidden></p><div><button class="btn btn-light" type="submit">비밀번호 바꾸기</button></div></form></div>');
     var f=$('#ac-form'); telFmt(f.elements.phone); telFmt(f.elements.notify_phone);
     f.addEventListener('submit', function(e){ e.preventDefault(); if(!M.validate(f)) return; api('/me', { method:'PUT', body:{ name:v(f,'name'), phone:v(f,'phone'), company:v(f,'company'), biz_no:v(f,'biz_no'), settings:{ notify_phone:v(f,'notify_phone'), notify_email:v(f,'notify_email'), notify_on:f.elements.notify_on.checked } } }).then(function(){ M.toast('저장했습니다.'); return reload(); }).then(function(){ $('#hc-who').textContent=ST.host.name+' 님'; }).catch(oops); });
-    var pf=$('#pw-form'); pf.addEventListener('submit', function(e){ e.preventDefault(); if(!M.validate(pf)) return; var m=$('#pw-msg'); m.hidden=true;
+    var pf=$('#pw-form'); if(pf) pf.addEventListener('submit', function(e){ e.preventDefault(); if(!M.validate(pf)) return; var m=$('#pw-msg'); m.hidden=true;
       api('/password', { method:'POST', body:{ current:pf.elements.current.value, next:pf.elements.next.value } }).then(function(){ pf.reset(); M.toast('비밀번호를 바꿨습니다.'); }).catch(function(x){ m.textContent=x.message; m.hidden=false; }); });
   };
 
@@ -524,10 +530,11 @@
   try{ ST.cur=sessionStorage.getItem('hc_space')||''; }catch(e){}
   reload().then(function(){
     $('#hc-loading').hidden=true; $('#hc-app').hidden=false; $('#hc-who').textContent=ST.host.name+' 님';
+    var cv=$('#hc-customer'); if(cv){ cv.href=ST.host.member?'/mypage/':'/'; cv.hidden=false; }
     if(!ST.spaces.length){ main.innerHTML=empty('등록한 공간이 없습니다. 위 공간 선택에서 ‘+ 공간 추가’를 눌러 주세요.'); return addSpace(); }
     // 결제창에서 돌아왔다면 이용료 화면에서 결제 확인을 기다립니다
     var back=/^BL-\d{4}-[A-Z0-9]{4}$/.exec(new URLSearchParams(location.search).get('pay')||'');
     if(back){ PAYWAIT.ref=back[0]; PAYWAIT.tries=0; history.replaceState(null,'',location.pathname+'#billing'); setTimeout(waitPay, 1200); }
     route();
-  }).catch(function(e){ if(e && e.code==='HOST_LOGIN') return; $('#hc-loading').textContent=e&&e.code==='NO_API'?'서버에 연결하지 못했습니다. 잠시 후 다시 열어 주세요.':'호스트센터를 열지 못했습니다. 다시 로그인해 주세요.'; });
+  }).catch(function(e){ if(e && e.code==='HOST_LOGIN') return; $('#hc-loading').textContent=e&&e.code==='NO_API'?'서버에 연결하지 못했습니다. 잠시 후 다시 열어 주세요.':e&&e.code==='BLOCKED'?e.message:'호스트센터를 열지 못했습니다. 다시 로그인해 주세요.'; });
 })();

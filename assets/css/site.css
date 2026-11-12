@@ -2975,3 +2975,18 @@ body.page-inquiry #estimator{margin-top:18px}
   .pcal .pc-cell{padding:5px 1px}
   .pcal .pc-cell b{font-size:10px}
 }
+/* ---------- 머리말 '호스트센터' 바로가기 (2026-11-12) — 모바일에서도 머리말에 보입니다 ---------- */
+.hdr-host{display:inline-flex;align-items:center;height:34px;padding:0 12px;border:1px solid var(--cobalt);border-radius:17px;font-size:13.5px;font-weight:800;color:var(--cobalt-2);background:#fff;white-space:nowrap;flex:none}
+.hdr-host:hover{background:var(--cobalt-soft)}
+@media (max-width:899px){
+  .site-header .header-cta{display:flex;margin-left:auto;margin-right:6px}
+  .site-header .header-cta>:not(.hdr-host){display:none}
+  .hdr-host{height:32px;padding:0 11px;font-size:13px}
+}
+@media (max-width:359px){.hdr-host{padding:0 10px;font-size:0}.hdr-host::before{content:'호스트';content:'호스트' / '';font-size:12.5px}}
+/* 1024~1099px: 바로가기가 들어갈 자리를 위해 카톡문의 버튼은 메뉴 안으로 (메뉴·플로팅 버튼에 그대로 있음) */
+@media (min-width:1024px) and (max-width:1099px){.header-cta .hdr-kakao{display:none}}
+.mobile-nav a.mnav-host{display:flex;align-items:baseline;gap:8px;color:var(--cobalt-2)}
+.mobile-nav a.mnav-host small{font-size:12.5px;font-weight:600;color:var(--ink-3)}
+.my-host:not([hidden]){display:grid;gap:10px}
+.my-host .btn{margin-top:2px}

@@ -74,3 +74,9 @@ Cloudflare Pages 운영 환경: `ALIGO_RELAY_URL=https://relay.naranhistory.com/
 - 적용 순서: 서버의 기존 `server.mjs`를 백업 → 이 저장소의 `server.mjs`로 교체 → `node --test tests/aligo-relay.test.mjs` 통과 확인 → 서비스 재시작 → 운영자 본인 호스트 계정으로 시험 문의 1건을 넣어 수신 확인. 환경 변수는 새로 필요하지 않습니다.
 - 카카오 알림톡으로 바꿀 때는 `config/host-alimtalk.templates.json`의 문안을 알리고에 등록해 승인받은 뒤, 발급 코드를 서버 허용 목록과 사이트 코드에 연결해야 합니다(아직 하지 않음).
 
+### 호스트 알림톡 코드 허용 · 2026-11-12 (서버 미적용)
+
+- `server.mjs`가 환경 변수 `ALIGO_HOST_TEMPLATE_CODES`(쉼표 구분)에 넣은 템플릿 코드만 `template/list`·`alimtalk/send`로 허용하고, 대체 문자 본문이 있으면 실패 시 문자로 대신 보내게(failover) 했습니다.
+- 적용 순서: 알리고에서 `config/host-alimtalk.templates.json`의 13종 승인 → 서버 `/etc/megaspot-aligo.env`에 `ALIGO_HOST_TEMPLATE_CODES=UN_…,UN_…` 추가 → 위 `host/send`와 함께 `server.mjs` 교체·재시작 → 메가스팟 관리자 → 입점 플랫폼 → 호스트 알림에서 코드 저장 → 승인 확인.
+- 무료 등록 종료 안내(30일 전·7일 전)는 사이트가 스스로 보내므로 서버에 정기 처리(timer)를 따로 둘 필요가 없습니다.
+

@@ -28,8 +28,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Black+Han+Sans&display=swap">
-<link rel="stylesheet" href="/assets/css/site.css?v=1f18930e1614">
-<link rel="stylesheet" href="/assets/css/platform.css?v=20261112platform2">
+<link rel="stylesheet" href="/assets/css/site.css?v=2a9e9a18210a">
+<link rel="stylesheet" href="/assets/css/platform.css?v=20261112host1">
 </head>
 <body class="page-host pf-noquick">
 <a class="skip-link" href="#main">본문으로 바로가기</a>
@@ -86,6 +86,7 @@
       </div>
     </nav>
     <div class="header-cta">
+      <a class="hdr-host" href="/host/center/" data-host-link>호스트센터</a>
       <a class="hdr-account" href="/login/" data-account>로그인</a>
       <a class="btn btn-ghost btn-sm" href="tel:01023849580" data-phone>010-2384-9580</a>
       <a class="btn btn-kakao btn-sm hdr-kakao" href="https://pf.kakao.com/_LnxbmX/chat" target="_blank" rel="noopener" data-kakao><svg class="ico-talk" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3.2C6.6 3.2 2.3 6.6 2.3 10.9c0 2.7 1.8 5.1 4.5 6.5l-.9 3.4c-.1.3.3.6.6.4l4-2.6c.5.1 1 .1 1.5.1 5.4 0 9.7-3.4 9.7-7.8S17.4 3.2 12 3.2z"/></svg>카톡문의</a>
@@ -118,6 +119,7 @@
     <div class="mnav-grid"><a href="/host/">입점 안내 · 이용료</a><a href="/host/register/">입점 신청</a><a href="/host/center/">호스트센터</a></div>
   </div>
   <a class="mnav-account" href="/login/" data-account="full">로그인 · 회원가입</a>
+  <a class="mnav-account mnav-host" href="/host/center/" data-host-link>호스트센터 <small>공간 등록 · 예약 관리</small></a>
   <a href="/reservation-calendar/">1·2호 예약 현황</a>
   <a class="btn btn-primary btn-lg" href="/inquiry/">예약신청·금액확인</a>
   <a class="btn btn-ghost" href="tel:01023849580" data-phone>전화 상담</a>
@@ -126,15 +128,21 @@
 <main id="main">
 <section class="page-hero">
   <div class="container">
-    <div class="eyebrow">Host · 입점 신청</div>
-    <h1 class="h-l mt-1">입점 신청</h1>
-    <p class="lead mt-1">공간 기본 정보와 계정만 만들면 신청이 끝납니다. 요금·사진·소개는 호스트센터에서 이어서 채우면 됩니다.</p>
-    <div class="row mt-2"><span class="pf-pill">입점·등록 비용 0원</span><span class="pf-pill">결제 수수료 0원</span><span class="pf-pill rust">지금 입점하면 2개월 무료</span></div>
+    <div class="eyebrow">Host · 호스트 등록</div>
+    <h1 class="h-l mt-1" id="ap-title">호스트 등록</h1>
+    <p class="lead mt-1" id="ap-lead">공간 기본 정보만 적으면 등록이 끝나고 바로 호스트센터가 열립니다. 요금·사진·소개는 호스트센터에서 이어서 채우면 됩니다.</p>
+    <div class="row mt-2"><span class="pf-pill">입점·등록 비용 0원</span><span class="pf-pill">결제 수수료 0원</span><span class="pf-pill rust">공개 후 2개월 무료</span></div>
+    <ol class="ap-guide mt-3" aria-label="등록부터 공개까지">
+      <li><b>공간 등록</b><span>지금 이 화면에서 공간 이름·지역·인원·면적·유형을 적습니다.</span></li>
+      <li><b>호스트센터에서 채우기</b><span>요금, 사진 3장 이상, 소개 글을 채우고 심사를 요청합니다.</span></li>
+      <li><b>공개 · 2개월 무료</b><span>운영팀 확인이 끝나면 검색에 공개되고, 그날부터 2개월은 이용료가 없습니다.</span></li>
+      <li><b>무료 기간 안에 결제</b><span>무료 기간 안에 등록 기간을 결제하면 끊기지 않고 이어집니다. 종료 30일 전·7일 전에 알림톡으로 알려 드립니다.</span></li>
+    </ol>
   </div>
 </section>
 <section class="section" style="padding-top:32px">
   <div class="container ap-wrap">
-    <ol class="ap-steps" id="ap-steps" aria-label="신청 단계"><li class="on"><span>1. 공간 기본 정보</span></li><li><span>2. 계정 만들기</span></li><li><span>3. 신청 완료</span></li></ol>
+    <ol class="ap-steps" id="ap-steps" aria-label="등록 단계"><li class="on"><span>1. 공간 기본 정보</span></li><li><span>2. 계정 확인</span></li><li><span>3. 등록 완료</span></li></ol>
     <form class="card form" id="ap-form" novalidate>
       <!-- 1단계 -->
       <div class="ap-panel" data-step="1">
@@ -152,35 +160,41 @@
         <div class="ap-tier" id="ap-tier" aria-live="polite">최대 인원이나 면적을 적어 주세요. 50명 이상이거나 50평 이상이면 입점할 수 있습니다.</div>
         <div class="f"><span class="lbl">공간 유형 <span class="pf-req">*</span> <span class="pf-help" style="font-weight:400">— 최대 5가지</span></span><div id="ap-types"></div></div>
         <p class="pf-msg" id="ap-msg1" hidden></p>
-        <div class="ap-nav"><a class="btn btn-light" href="/host/">입점 안내 보기</a><button class="btn btn-primary" type="button" id="ap-next">다음 · 계정 만들기 <span class="arrow">→</span></button></div>
+        <div class="ap-nav"><a class="btn btn-light" href="/host/">입점 안내 보기</a><button class="btn btn-primary" type="button" id="ap-next">다음 · 계정 확인 <span class="arrow">→</span></button></div>
       </div>
       <!-- 2단계 -->
       <div class="ap-panel" data-step="2" hidden>
-        <h2>호스트 계정 만들기</h2>
-        <p class="sub">이 계정으로 호스트센터에 로그인해 문의·예약·정산을 관리합니다.</p>
-        <div class="field-row two">
-          <div class="f"><label for="ap-host">담당자 이름 <span class="pf-req">*</span></label><input class="input" id="ap-host" name="host_name" maxlength="40" required autocomplete="name"></div>
-          <div class="f"><label for="ap-phone">휴대폰 번호 <span class="pf-req">*</span></label><input class="input" id="ap-phone" name="phone" type="tel" inputmode="tel" required autocomplete="tel" placeholder="010-0000-0000"></div>
+        <h2 id="ap-h2">계정 확인</h2>
+        <div class="ap-acc" id="ap-member" hidden>
+          <p><b id="ap-mem-email"></b> 메가스팟 회원 계정으로 호스트 등록을 합니다.</p>
+          <p class="pf-help">같은 계정으로 고객 화면(마이페이지)과 호스트센터를 오갈 수 있습니다. 다른 계정으로 등록하려면 <a class="pf-link" href="#" id="ap-switch-acc">로그아웃</a> 후 다시 시작해 주세요.</p>
+        </div>
+        <div id="ap-guest" hidden>
+          <p class="sub">메가스팟 회원 계정을 만들면서 호스트로 등록합니다. 이미 회원이라면 <a class="pf-link" id="ap-login-link" href="/login/?next=/host/register/">로그인</a>한 뒤 이어서 등록하세요. 지금까지 적은 공간 정보는 그대로 남아 있습니다.</p>
+          <div class="field-row two">
+            <div class="f"><label for="ap-email">이메일 (로그인 아이디) <span class="pf-req">*</span></label><input class="input" id="ap-email" name="email" type="email" autocomplete="email"></div>
+            <div class="f"><label for="ap-pw">비밀번호 <span class="pf-req">*</span></label><input class="input" id="ap-pw" name="password" type="password" minlength="8" autocomplete="new-password" placeholder="8자 이상, 영문과 숫자를 함께"></div>
+          </div>
         </div>
         <div class="field-row two">
-          <div class="f"><label for="ap-email">이메일 (로그인 아이디) <span class="pf-req">*</span></label><input class="input" id="ap-email" name="email" type="email" required autocomplete="email"></div>
-          <div class="f"><label for="ap-pw">비밀번호 <span class="pf-req">*</span></label><input class="input" id="ap-pw" name="password" type="password" required minlength="8" autocomplete="new-password" placeholder="8자 이상"></div>
+          <div class="f"><label for="ap-host">담당자 이름 <span class="pf-req">*</span></label><input class="input" id="ap-host" name="host_name" maxlength="40" required autocomplete="name"></div>
+          <div class="f"><label for="ap-phone">휴대폰 번호 <span class="pf-req">*</span></label><input class="input" id="ap-phone" name="phone" type="tel" inputmode="tel" required autocomplete="tel" placeholder="010-0000-0000"><p class="pf-help">새 문의·결제·심사 결과·무료 기간 종료 안내를 이 번호로 보내 드립니다.</p></div>
         </div>
         <div class="f"><label for="ap-company">상호 <span class="pf-help" style="font-weight:400">(선택 · 사업자등록증의 상호)</span></label><input class="input" id="ap-company" name="company" maxlength="60"></div>
         <input type="text" name="website" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px" aria-hidden="true">
         <div class="checks" style="flex-direction:column;align-items:stretch">
-          <label class="chk"><input type="checkbox" name="agree_terms" required><span><b>(필수)</b> <a class="pf-link" href="/terms/#host" target="_blank" rel="noopener">호스트 이용약관</a>(이용료·환불 기준 포함)에 동의하고, 입력한 공간 정보가 사실과 같음을 확인합니다.</span></label>
-          <label class="chk"><input type="checkbox" name="agree_privacy" required><span><b>(필수)</b> <a class="pf-link" href="/privacy/" target="_blank" rel="noopener">개인정보 수집·이용</a>에 동의합니다. (담당자 이름·연락처·이메일 — 입점 심사, 호스트센터 운영, 새 문의·결제·심사 결과 알림 문자)</span></label>
+          <label class="chk"><input type="checkbox" name="agree_terms" required><span><b>(필수)</b> <a class="pf-link" href="/terms/#host" target="_blank" rel="noopener">이용약관</a>(호스트 조항과 이용료·환불 기준 포함)에 동의하고, 입력한 공간 정보가 사실과 같음을 확인합니다.</span></label>
+          <label class="chk"><input type="checkbox" name="agree_privacy" required><span><b>(필수)</b> <a class="pf-link" href="/privacy/" target="_blank" rel="noopener">개인정보 수집·이용</a>에 동의합니다. (이름·연락처·이메일 — 회원 관리, 입점 심사, 호스트센터 운영, 새 문의·결제·심사 결과·무료 기간 종료 알림)</span></label>
+          <label class="chk" id="ap-age-row" hidden><input type="checkbox" name="agree_age"><span><b>(필수)</b> 만 14세 이상입니다.</span></label>
           <label class="chk"><input type="checkbox" name="agree_marketing"><span>(선택) 입점 혜택·기능 소식을 문자·이메일로 받습니다.</span></label>
         </div>
         <p class="pf-msg" id="ap-msg2" hidden></p>
-        <div class="ap-nav"><button class="btn btn-light" type="button" id="ap-prev">← 이전</button><button class="btn btn-primary" type="submit" id="ap-submit">입점 신청하기</button></div>
-        <p class="pf-help">이미 호스트 계정이 있나요? <a class="pf-link" href="/host/login/">호스트센터 로그인</a> 후 공간을 추가할 수 있습니다.</p>
+        <div class="ap-nav"><button class="btn btn-light" type="button" id="ap-prev">← 이전</button><button class="btn btn-primary" type="submit" id="ap-submit">호스트 등록하기</button></div>
       </div>
       <!-- 완료 -->
       <div class="ap-panel ap-done" data-step="3" hidden>
         <div class="big" aria-hidden="true">✓</div>
-        <h2 id="ap-done-title">입점 신청이 접수되었습니다</h2>
+        <h2 id="ap-done-title">호스트 등록을 마쳤습니다</h2>
         <p class="lead" id="ap-done-text"></p>
         <div class="ap-box" style="text-align:left;max-width:520px"><b>이제 호스트센터에서 세 가지만 채우면 심사가 시작됩니다</b><ol style="list-style:decimal;padding-left:20px;display:grid;gap:4px;font-size:15px"><li>요금 방식과 금액 (금액을 정하기 어렵다면 ‘견적 문의’)</li><li>사진 3장 이상</li><li>공간 소개 글</li></ol></div>
         <a class="btn btn-primary btn-lg" id="ap-go" href="/host/center/#space">호스트센터에서 이어서 작성 <span class="arrow">→</span></a>
@@ -271,7 +285,7 @@
 </footer>
 <script src="/assets/js/site.js?v=20261112gundae2photos1"></script>
 <script src="/assets/js/data/platform.js?v=20261112platform2"></script>
-<script src="/assets/js/platform-ui.js?v=20261112platform1"></script>
-<script src="/assets/js/pages/host-apply.js?v=20261112platform1"></script>
+<script src="/assets/js/platform-ui.js?v=20261112host1"></script>
+<script src="/assets/js/pages/host-apply.js?v=20261112host1"></script>
 </body>
 </html>

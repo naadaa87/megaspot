@@ -6,14 +6,15 @@
 //   GET  /api/hq/addons[?status=&service=]   PATCH /api/hq/addons/AO-…           (본사 부가서비스: 출장뷔페·케이터링·칵테일·사회자/강연자·현장 매니저·디자인)
 //   GET  /api/hq/planning[?status=]          PATCH /api/hq/planning/PL-…         (행사 지원 요청)
 //   GET  /api/hq/billing[?status=]           PATCH /api/hq/billing/BL-…          (입점 이용료: 계좌이체 입금 확인 · 중도 해지 환불 처리)
-//   GET  /api/hq/notices[?status=]                                               (호스트 문자 알림 발송 기록)
+//   GET  /api/hq/notices[?status=]           PUT notices/templates · POST notices/templates/check · POST notices/renewal-run  (호스트 알림 기록 · 알림톡 템플릿 · 무료 종료 안내)
 import { json, err, hasDb, readJson, str, num, isDate, now, kstToday, log, requireAdmin, sameOrigin } from '../_lib.js';
 import { safeJson, httpsUrl } from '../_platform.js';
 import { PLATFORM, PLAN, SPACE_STATUS, BOOKING_STATUS, ADDON_STATUS, ADDON_LABEL, PLANNING_STATUS, BILLING_STATUS, TYPE_LABEL, REGION_LABEL, SPACE_REF, BOOKING_CODE, listedUntil, photoUrl, safeArr, addMonths, addDays, bookingToken, planningToken } from '../_hostplat.js';
 import { viewBooking, addonsFor } from '../_hostbook.js';
 import { PLANNING_NEEDS, PLANNING_REF, publicPlanning } from '../_planning.js';
 import { BILL_REF, CANCEL_STATUS, billView, ensurePay, markPaid, finalizeRefund, refundCalc, onlinePay } from '../_hostbilling.js';
-import { notifyHost, hostNoticeList, hostNoticeLive } from '../_hostnotify.js';
+import { notifyHost, hostNoticeList, hostNoticeLive, hostAlimtalkStatus, saveHostAlimtalkCodes, checkHostAlimtalk } from '../_hostnotify.js';
+import { hostRenewalDue, hostRenewalTick } from '../_hostrenewal.js';
 
 const d10 = s => String(s || '').slice(0, 10);
 function spaceRow(r) {
@@ -73,7 +74,7 @@ export async function onRequest({ request, env, params }) {
         await log(env, 'hostspace.' + a, row.ref, 'admin', { status: set.status || row.status });
         // 심사 결과는 호스트에게 문자로도 알립니다
         const result = { approve: 'live', fix: 'fix', reject: 'rejected' }[a];
-        if (result) await notifyHost(env, row.host_id, 'review', { result, ref: row.ref, space: row.name, free_until: result === 'live' ? (set.free_until || row.free_until || '') : '' }, result + ':' + t);
+        if (result) await notifyHost(env, row.host_id, 'review', { result, ref: row.ref, space: row.name, until: [set.free_until ?? row.free_until ?? '', set.paid_until ?? row.paid_until ?? ''].sort().pop() }, result + ':' + t);
       } else if (method !== 'GET') return err('지원하지 않는 요청입니다.', 405, 'METHOD');
       const fresh = await env.DB.prepare(`${SPACE_SQL} WHERE s.ref = ?`).bind(row.ref).first();
       const { results: photos } = await env.DB.prepare('SELECT pid FROM host_photos WHERE space_ref = ? ORDER BY sort, id').bind(row.ref).all();
@@ -202,8 +203,20 @@ export async function onRequest({ request, env, params }) {
     }
     // ---------- 호스트 문자 알림 발송 기록 ----------
     if (path === 'notices' && method === 'GET') {
-      const status = str(q.get('status'), 12);
-      return json({ ok: true, live: hostNoticeLive(env), items: await hostNoticeList(env, { status }) });
+      const status = str(q.get('status'), 12), tpl = await hostAlimtalkStatus(env);
+      return json({ ok: true, live: hostNoticeLive(env), items: await hostNoticeList(env, { status }), templates: tpl.items, buttons: tpl.buttons, renewal_due: await hostRenewalDue(env) });
+    }
+    // 알림톡 템플릿 코드 저장 · 승인 확인 (승인이 확인된 종류만 알림톡으로, 나머지는 문자로 보냅니다)
+    if (path === 'notices/templates' && method === 'PUT') {
+      const d = await readJson(request), r = await saveHostAlimtalkCodes(env, d.codes || {}); if (r.error) return err(r.error);
+      await log(env, 'hostnotice.templates', '', 'admin', r.codes);
+      return json({ ok: true, items: (await hostAlimtalkStatus(env)).items });
+    }
+    if (path === 'notices/templates/check' && method === 'POST') return json({ ok: true, live: hostNoticeLive(env), items: await checkHostAlimtalk(env) });
+    // 무료 등록 종료 안내를 지금 확인해 보내기 (평소에는 10~20시에 15분마다 자동으로 확인합니다)
+    if (path === 'notices/renewal-run' && method === 'POST') {
+      const r = await hostRenewalTick(env, { force: true }); await log(env, 'hostnotice.renewal_run', '', 'admin', r);
+      return json({ ok: true, ...r });
     }
     return err('지원하지 않는 요청입니다.', 404, 'NOT_FOUND');
   } catch (e) {

@@ -61,7 +61,9 @@ export async function relayRequest(request,env,ledger,upstream=fetch){
   if(['history/detail','sms/detail'].includes(v.path) && !/^\d{1,30}$/.test(data.mid || ''))return json({error:'Invalid message ID'},400);
   if(v.path==='history/detail' && !ledger.ownsMid(data.mid))return json({error:'Message not owned by this relay'},403);
   if(v.path==='sms/detail' && !ledger.ownsSmsMid(data.mid))return json({error:'SMS not owned by this relay'},403);
-  if(['template/list','alimtalk/send'].includes(v.path) && !NEW_CUSTOMER_CODES.has(data.tpl_code) && !(env.ALIGO_TEMPLATE_CODES || 'UN_2584').split(',').map(s=>s.trim()).includes(data.tpl_code))return json({error:'Template not allowed'},403);
+  // 입점 호스트 알림톡 템플릿 코드는 서버 환경 변수 ALIGO_HOST_TEMPLATE_CODES(쉼표 구분)에 넣은 것만 허용합니다
+  const hostCodes=new Set((env.ALIGO_HOST_TEMPLATE_CODES||'').split(',').map(s=>s.trim()).filter(s=>/^[A-Za-z0-9_-]{2,30}$/.test(s)));
+  if(['template/list','alimtalk/send'].includes(v.path) && !NEW_CUSTOMER_CODES.has(data.tpl_code) && !hostCodes.has(data.tpl_code) && !(env.ALIGO_TEMPLATE_CODES || 'UN_2584').split(',').map(s=>s.trim()).includes(data.tpl_code))return json({error:'Template not allowed'},403);
   const hash=createHash('sha256').update(JSON.stringify([v.path,data,env.ALIGO_USERID,env.ALIGO_SENDER_KEY])).digest('hex');
   const staffMessage=socialfactorySMS?socialfactoryReceivers.includes(data.receiver)&&/^\[소셜팩토리 주차권 (?:자동 등록 오류|잔액 부족)\]\n/.test(data.msg||'')&&data.msg.endsWith('https://socialfactory.co.kr/admin#parking'):/^\[메가스팟 주차권 (?:결제 완료|관리자 알림 시험|자동 등록 오류|잔액 부족|검증 완료|검증 확인 필요)\]\n/.test(data.msg||'')&&data.msg.endsWith('https://megaspot.kr/admin/#parking');
   if(adminSMS && (!adminReceivers.includes(data.receiver)||!staffMessage||data.msg.length>600))return json({error:'Unapproved staff recipient/message'},403);
@@ -77,7 +79,7 @@ export async function relayRequest(request,env,ledger,upstream=fetch){
   }
   // 입점 호스트 알림(새 문의·견적 수락·입금 알림·취소·심사 결과·이용료): 정해진 머리말로 시작하고 호스트센터 주소로 끝나는 문자만 보냅니다.
   if(hostSMS && (!/^01[016789]\d{7,8}$/.test(data.receiver||'')||!(data.msg||'').startsWith('[메가스팟 호스트 알림]\n')||!/\nhttps:\/\/megaspot\.kr\/host\/center\/(?:#[A-Za-z0-9=-]{1,40})?$/.test(data.msg)||data.msg.length>600||/#\{/.test(data.msg)))return json({error:'Invalid host notice'},400);
-  const fallback=PARKING_SMS.has(data.tpl_code)||CUSTOMER_FALLBACK_CODES.has(data.tpl_code)&&!!data.fmessage_1;
+  const fallback=PARKING_SMS.has(data.tpl_code)||(CUSTOMER_FALLBACK_CODES.has(data.tpl_code)||hostCodes.has(data.tpl_code))&&!!data.fmessage_1;
   if(sending){
     if(!directSMS && (!/^01[016789]\d{7,8}$/.test(data.receiver_1 || '') || !data.message_1 || data.message_1.length>1000 || !data.subject_1))return json({error:'Invalid recipient/message'},400);
     if(fallback && (!data.fmessage_1 || data.fmessage_1.length>900 || /#\{/.test(data.fmessage_1)))return json({error:'Parking SMS fallback required'},400);

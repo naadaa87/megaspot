@@ -246,6 +246,9 @@ export async function getHost(request, env) {
   const row = await env.DB.prepare('SELECT h.* FROM host_sessions s JOIN hosts h ON h.id = s.host_id WHERE s.token_hash = ? AND s.expires_at > ?').bind(await sha256(token), now()).first();
   return row && row.status === 'active' ? row : null;
 }
+// 메가스팟 회원 계정 ↔ 호스트 계정 연결 (member_hosts)
+export function hostOfMember(env, memberId) { return env.DB.prepare('SELECT h.* FROM member_hosts l JOIN hosts h ON h.id = l.host_id WHERE l.member_id = ?').bind(memberId).first(); }
+export function memberOfHost(env, hostId) { return env.DB.prepare('SELECT m.id, m.email, m.name, m.status FROM member_hosts l JOIN members m ON m.id = l.member_id WHERE l.host_id = ?').bind(hostId).first(); }
 export function publicHost(h) { return { code: h.code, email: h.email, name: h.name, phone: h.phone, company: h.company || '', biz_no: h.biz_no || '', settings: safeJson(h.settings), created_at: h.created_at }; }
 
 // ---------- 고객 예약 조회 링크 ----------

@@ -1002,3 +1002,8 @@ CREATE TABLE IF NOT EXISTS host_notifications (   -- 호스트 문자 알림 (�
   created_at TEXT NOT NULL, updated_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_host_notifications_host ON host_notifications(host_id, created_at);
+CREATE TABLE IF NOT EXISTS member_hosts (   -- 메가스팟 회원 계정 ↔ 호스트 계정 연결 (회원 로그인 → 호스트 전환)
+  member_id INTEGER PRIMARY KEY,            -- members.id
+  host_id INTEGER NOT NULL UNIQUE,          -- hosts.id
+  created_at TEXT NOT NULL
+);

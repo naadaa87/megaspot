@@ -34,3 +34,18 @@
 .hp-msg{margin:10px 0 0;padding:10px 12px;border-radius:var(--radius);background:var(--concrete-3);font:inherit;font-size:13.5px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}
 .hp-note{padding:10px 12px;border-radius:var(--radius);background:#FFF6E0;color:#7A4E00;font-size:13.5px;font-weight:600;margin-bottom:12px}
 .hp-sec .hp-note{margin-bottom:0}
+.hp-card{margin-bottom:14px}
+.hp-card h2{font-size:15.5px}
+.hp-card>summary{cursor:pointer;list-style:none;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.hp-card>summary::-webkit-details-marker{display:none}
+.hp-card>summary::after{content:'펼치기';margin-left:auto;font-size:12.5px;color:var(--cobalt)}
+.hp-card[open]>summary::after{content:'접기'}
+.hp-tp{display:grid;gap:10px}
+.hp-tp-row{display:grid;gap:8px;grid-template-columns:minmax(0,1fr) 180px;align-items:start;padding:10px 0;border-top:1px solid var(--concrete-2)}
+.hp-tp-row label{display:grid;gap:4px}
+@media (max-width:700px){.hp-tp-row{grid-template-columns:minmax(0,1fr)}}
+.hp-rn .hp-lines{margin:0}
+.hp-card p b,.hp-card p strong{font-size:inherit}
+.hp-card>summary>b{font-size:15.5px}
+.hp-tp-row b{font-size:14.5px}
+.hp-tp-row .hp-msg{margin-top:6px}

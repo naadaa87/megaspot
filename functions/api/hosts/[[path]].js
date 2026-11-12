@@ -2,11 +2,12 @@
 //   /api/hosts/signup · login · logout · me · password
 //   /api/hosts/spaces[/:ref[/submit|pause|resume|photos|blocks|calendar]]
 //   /api/hosts/bookings[/:code] · stats · settlement · billing · billing/BL-…/(pay|withdraw|cancel|cancel-withdraw)
+//   /api/hosts/status · switch — 메가스팟 회원 계정과 연결된 호스트로 전환 (2026-11-12)
 // 로그인 쿠키 ms_host (HttpOnly). 모든 조회·변경은 로그인한 호스트의 공간·예약에만 닿습니다.
-import { json, err, hasDb, readJson, str, num, isDate, isEmail, now, later, kstToday, uniqueRef, log, clientIp, tooMany, hit, clearHits, hashPassword, verifyPassword, randomToken, sha256, getCookie, sameOrigin, withCookies } from '../_lib.js';
+import { json, err, hasDb, readJson, str, num, isDate, isEmail, now, later, kstToday, uniqueRef, log, clientIp, tooMany, hit, clearHits, hashPassword, verifyPassword, randomToken, sha256, getCookie, sameOrigin, withCookies, getMember } from '../_lib.js';
 import { safeJson, phoneOk } from '../_platform.js';
 import { PLATFORM, PLAN, SPACE_STATUS, BOOKING_STATUS, BILLING_STATUS, SPACE_REF, BOOKING_CODE, PHOTO_ID, MAX_PHOTOS, HOST_SESSION_DAYS, cleanSpace, tierOf, listedUntil, photoUrl, safeArr, hostCookies, getHost, publicHost,
-  bookingToken, addMonths, addDays, STAT_FIELDS, TYPE_LABEL, REGION_LABEL } from '../_hostplat.js';
+  bookingToken, addMonths, addDays, STAT_FIELDS, TYPE_LABEL, REGION_LABEL, hostOfMember, memberOfHost } from '../_hostplat.js';
 import { createBooking, viewBooking, hostAction, addonsFor } from '../_hostbook.js';
 import { feeOf, periodFor, billView, payRequest, onlinePay, requestCancel, withdrawCancel } from '../_hostbilling.js';
 
@@ -25,6 +26,19 @@ async function session(env, hostId) {
   const token = randomToken();
   await env.DB.prepare('INSERT INTO host_sessions (token_hash, host_id, expires_at, created_at) VALUES (?,?,?,?)').bind(await sha256(token), hostId, later(HOST_SESSION_DAYS), now()).run();
   return token;
+}
+const MEMBER_PW = 'member';   // 회원 계정으로 로그인하는 호스트 (호스트 비밀번호로는 로그인할 수 없음)
+async function createHost(env, h, sp) {
+  const code = await uniqueRef(env, 'hosts', 'code', 'H'), t = now();
+  await env.DB.prepare('INSERT INTO hosts (code, email, pw_hash, name, phone, company, biz_no, status, settings, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+    .bind(code, h.email, h.pw_hash, h.name, h.phone, h.company, h.biz_no, 'active', JSON.stringify({ notify_phone: h.phone, notify_email: h.email, notify_on: true, agree_marketing: h.agree_marketing, agreed_at: t }), t, t).run();
+  const host = await env.DB.prepare('SELECT * FROM hosts WHERE code = ?').bind(code).first();
+  const ref = await uniqueRef(env, 'host_spaces', 'ref', 'SP');
+  // 연락 채널 기본값: 담당자 번호를 넣어 두되 공개 여부는 호스트가 정합니다
+  sp.data.contact = { ...sp.data.contact, phone: sp.data.contact.phone || h.phone };
+  await env.DB.prepare('INSERT INTO host_spaces (ref, host_id, status, name, region, address, capacity, area, tier, types, price_from, data, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+    .bind(ref, host.id, 'draft', sp.name, sp.region, sp.address, sp.capacity, sp.area, sp.tier, JSON.stringify(sp.types), sp.price_from, JSON.stringify(sp.data), t, t).run();
+  return { host, ref };
 }
 async function spaceOf(env, host, ref) {
   if (!SPACE_REF.test(ref || '')) return null;
@@ -65,6 +79,24 @@ export async function onRequest({ request, env, params }) {
       if (d.website) return json({ ok: true });   // 허니팟
       const ipKey = 'hostsignup:' + clientIp(request);
       if (await tooMany(env, ipKey, 5, 30)) return err('짧은 시간에 너무 많은 신청이 들어왔습니다. 잠시 후 다시 시도해 주세요.', 429, 'TOO_MANY');
+      // 메가스팟 회원 계정으로 호스트 등록 (2026-11-12~ 기본 방식) — 회원 로그인 상태에서 공간 정보만 받습니다
+      if (d.member) {
+        const me = await getMember(request, env); if (!me) return err('메가스팟 회원으로 로그인한 뒤 호스트로 등록할 수 있습니다.', 401, 'LOGIN_REQUIRED');
+        if (await hostOfMember(env, me.id)) return err('이미 호스트로 등록한 회원입니다. 호스트센터로 이동해 주세요.', 409, 'ALREADY_HOST');
+        const name = str(d.name, 40) || me.name, phone = phoneOk(d.phone) || phoneOk(me.phone), email = String(me.email).toLowerCase();
+        if (!name) return err('담당자 이름을 적어 주세요.');
+        if (!phone) return err('휴대폰 번호를 확인해 주세요.');
+        if (!d.agree_terms || !d.agree_privacy) return err('호스트 이용약관과 개인정보 수집·이용에 동의해 주세요.');
+        const sp = cleanSpace(d.space || {}); if (sp.error) return err(sp.error, 400, sp.code || 'ERR');
+        if (await env.DB.prepare('SELECT 1 AS x FROM hosts WHERE email = ?').bind(email).first())
+          return err('이 이메일로 만든 호스트 계정이 이미 있습니다. 호스트센터 로그인에서 그 계정의 비밀번호로 한 번 로그인하면 회원 계정과 연결됩니다.', 409, 'HOST_EMAIL_TAKEN');
+        await hit(env, ipKey, 30);
+        // 비밀번호는 회원 계정의 것을 씁니다 (호스트 표에는 로그인에 쓸 수 없는 표시만 둡니다)
+        const made = await createHost(env, { email, pw_hash: MEMBER_PW, name, phone, company: str(d.company, 60), biz_no: str(d.biz_no, 20).replace(/[^0-9-]/g, ''), agree_marketing: !!d.agree_marketing }, sp);
+        await env.DB.prepare('INSERT INTO member_hosts (member_id, host_id, created_at) VALUES (?,?,?)').bind(me.id, made.host.id, now()).run();
+        await log(env, 'host.signup', made.host.code, 'member:' + me.id, { space: made.ref, tier: sp.tier });
+        return withCookies(json({ ok: true, host: { ...publicHost(made.host), member: true }, space: made.ref, tier: sp.tier }), hostCookies(await session(env, made.host.id)));
+      }
       const email = str(d.email, 120).toLowerCase(), pw = String(d.password || ''), name = str(d.name, 40), phone = phoneOk(d.phone);
       if (!isEmail(email)) return err('이메일 주소를 확인해 주세요.');
       if (pw.length < 8 || pw.length > 72) return err('비밀번호는 8자 이상으로 정해 주세요.');
@@ -74,17 +106,24 @@ export async function onRequest({ request, env, params }) {
       const sp = cleanSpace(d.space || {}); if (sp.error) return err(sp.error, 400, sp.code || 'ERR');
       if (await env.DB.prepare('SELECT 1 AS x FROM hosts WHERE email = ?').bind(email).first()) return err('이미 가입한 이메일입니다. 호스트 로그인 후 공간을 추가해 주세요.', 409, 'EXISTS');
       await hit(env, ipKey, 30);
-      const code = await uniqueRef(env, 'hosts', 'code', 'H'), t = now();
-      await env.DB.prepare('INSERT INTO hosts (code, email, pw_hash, name, phone, company, biz_no, status, settings, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
-        .bind(code, email, await hashPassword(pw), name, phone, str(d.company, 60), str(d.biz_no, 20).replace(/[^0-9-]/g, ''), 'active', JSON.stringify({ notify_phone: phone, notify_email: email, agree_marketing: !!d.agree_marketing, agreed_at: t }), t, t).run();
-      const host = await env.DB.prepare('SELECT * FROM hosts WHERE code = ?').bind(code).first();
-      const ref = await uniqueRef(env, 'host_spaces', 'ref', 'SP');
-      // 연락 채널 기본값: 담당자 번호를 넣어 두되 공개 여부는 호스트가 정합니다
-      sp.data.contact = { ...sp.data.contact, phone: sp.data.contact.phone || phone };
-      await env.DB.prepare('INSERT INTO host_spaces (ref, host_id, status, name, region, address, capacity, area, tier, types, price_from, data, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-        .bind(ref, host.id, 'draft', sp.name, sp.region, sp.address, sp.capacity, sp.area, sp.tier, JSON.stringify(sp.types), sp.price_from, JSON.stringify(sp.data), t, t).run();
-      await log(env, 'host.signup', code, 'host', { space: ref, tier: sp.tier });
+      const { host, ref } = await createHost(env, { email, pw_hash: await hashPassword(pw), name, phone, company: str(d.company, 60), biz_no: str(d.biz_no, 20).replace(/[^0-9-]/g, ''), agree_marketing: !!d.agree_marketing }, sp);
+      await log(env, 'host.signup', host.code, 'host', { space: ref, tier: sp.tier });
       return withCookies(json({ ok: true, host: publicHost(host), space: ref, tier: sp.tier }), hostCookies(await session(env, host.id)));
+    }
+    // ---------- 회원 ↔ 호스트 전환 ----------
+    // 지금 상태 (화면에서 버튼 이름을 정할 때 씁니다 · 바꾸는 것 없음)
+    if (path === 'status' && method === 'GET') {
+      const me = await getMember(request, env), linked = me ? await hostOfMember(env, me.id) : null, cur = await getHost(request, env);
+      return json({ ok: true, member: !!me, member_name: me ? me.name : '', host: !!linked, host_active: !!(linked && linked.status === 'active'), host_in: !!cur });
+    }
+    // 회원 로그인 상태에서 호스트센터로 들어가기 — 연결된 호스트 계정이 있으면 호스트 로그인 상태를 만들어 줍니다
+    if (path === 'switch' && method === 'POST') {
+      const me = await getMember(request, env); if (!me) return err('메가스팟 회원으로 로그인해 주세요.', 401, 'LOGIN_REQUIRED');
+      const h = await hostOfMember(env, me.id);
+      if (!h) return json({ ok: false, code: 'NOT_HOST', error: '아직 호스트로 등록하지 않았습니다.', member: { name: me.name, email: me.email, phone: me.phone || '' } }, 404);
+      if (h.status !== 'active') return err('이용이 중지된 호스트 계정입니다. 메가스팟 운영팀에 문의해 주세요.', 403, 'BLOCKED');
+      await env.DB.prepare('UPDATE hosts SET last_login_at = ? WHERE id = ?').bind(now(), h.id).run();
+      return withCookies(json({ ok: true, host: { ...publicHost(h), member: true } }), hostCookies(await session(env, h.id)));
     }
     if (path === 'login' && method === 'POST') {
       const d = await readJson(request), email = str(d.email, 120).toLowerCase(), key = 'hostlogin:' + email + ':' + clientIp(request);
@@ -93,7 +132,13 @@ export async function onRequest({ request, env, params }) {
       if (!h || !(await verifyPassword(String(d.password || ''), h.pw_hash))) { await hit(env, key, 15); return err('이메일 또는 비밀번호가 맞지 않습니다.', 401, 'BAD_LOGIN'); }
       if (h.status !== 'active') return err('이용이 중지된 계정입니다. 메가스팟 운영팀에 문의해 주세요.', 403, 'BLOCKED');
       await clearHits(env, key); await env.DB.prepare('UPDATE hosts SET last_login_at = ? WHERE id = ?').bind(now(), h.id).run();
-      return withCookies(json({ ok: true, host: publicHost(h) }), hostCookies(await session(env, h.id)));
+      // 회원으로 로그인한 상태에서 예전 호스트 계정으로 로그인하면 두 계정을 연결합니다 (비밀번호로 본인임을 확인한 경우에만)
+      const me = await getMember(request, env); let linked = !!(await memberOfHost(env, h.id));
+      if (me && !linked && !(await hostOfMember(env, me.id))) {
+        await env.DB.prepare('INSERT OR IGNORE INTO member_hosts (member_id, host_id, created_at) VALUES (?,?,?)').bind(me.id, h.id, now()).run();
+        linked = !!(await memberOfHost(env, h.id)); if (linked) await log(env, 'host.linked', h.code, 'member:' + me.id, {});
+      }
+      return withCookies(json({ ok: true, host: { ...publicHost(h), member: linked } }), hostCookies(await session(env, h.id)));
     }
     if (path === 'logout' && method === 'POST') {
       const tok = getCookie(request, 'ms_host'); if (tok) await env.DB.prepare('DELETE FROM host_sessions WHERE token_hash = ?').bind(await sha256(tok)).run();
@@ -108,7 +153,8 @@ export async function onRequest({ request, env, params }) {
       const { results: covers } = await env.DB.prepare('SELECT space_ref, pid FROM host_photos WHERE host_id = ? AND sort = (SELECT MIN(sort) FROM host_photos p2 WHERE p2.space_ref = host_photos.space_ref) GROUP BY space_ref').bind(host.id).all();
       const cover = Object.fromEntries((covers || []).map(c => [c.space_ref, photoUrl(c.pid, true)]));
       const spaces = (results || []).map(r => { const c = {}; for (const x of cnt || []) if (x.space_ref === r.ref) c[x.status] = x.n; return { ...spaceView(r), cover: cover[r.ref] || '', counts: c }; });
-      return json({ ok: true, host: publicHost(host), spaces, today: kstToday() });
+      const mem = await memberOfHost(env, host.id);
+      return json({ ok: true, host: { ...publicHost(host), member: !!mem, member_email: mem ? mem.email : '' }, spaces, today: kstToday() });
     }
     if (path === 'me' && method === 'PUT') {
       const d = await readJson(request), name = str(d.name, 40), phone = phoneOk(d.phone); if (!name || !phone) return err('담당자 이름과 연락처를 확인해 주세요.');
@@ -118,6 +164,7 @@ export async function onRequest({ request, env, params }) {
       return json({ ok: true });
     }
     if (path === 'password' && method === 'POST') {
+      if (await memberOfHost(env, host.id)) return err('메가스팟 회원 계정으로 로그인하는 호스트입니다. 비밀번호는 마이페이지에서 바꿔 주세요.', 400, 'MEMBER_ACCOUNT');
       const d = await readJson(request), next = String(d.next || '');
       if (!(await verifyPassword(String(d.current || ''), host.pw_hash))) return err('지금 비밀번호가 맞지 않습니다.', 401, 'BAD_LOGIN');
       if (next.length < 8 || next.length > 72) return err('새 비밀번호는 8자 이상으로 정해 주세요.');

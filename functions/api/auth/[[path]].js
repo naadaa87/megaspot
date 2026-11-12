@@ -80,7 +80,10 @@ export async function onRequest({ request, env, params }) {
     if (path === 'logout' && method === 'POST') {
       const token = getCookie(request, 'ms_session');
       if (token) await env.DB.prepare('DELETE FROM sessions WHERE token_hash = ?').bind(await sha256(token)).run();
-      return withCookies(json({ ok: true }), sessionCookies('', 0));
+      // 회원 계정으로 들어간 호스트센터도 함께 로그아웃합니다 (쿠키 모양은 _hostplat.js 의 hostCookies 와 같음)
+      const hostToken = getCookie(request, 'ms_host');
+      if (hostToken) await env.DB.prepare('DELETE FROM host_sessions WHERE token_hash = ?').bind(await sha256(hostToken)).run();
+      return withCookies(json({ ok: true }), [...sessionCookies('', 0), ...(hostToken ? ['ms_host=; Path=/api/; Max-Age=0; HttpOnly; Secure; SameSite=Lax', 'ms_host_in=; Path=/; Max-Age=0; Secure; SameSite=Lax'] : [])]);
     }
 
     // 아래는 로그인한 회원만
@@ -120,6 +123,9 @@ export async function onRequest({ request, env, params }) {
       const d = await readJson(request);
       const row = await env.DB.prepare('SELECT pw_hash FROM members WHERE id = ?').bind(me.id).first();
       if (!(await verifyPassword(String(d.password || ''), row.pw_hash))) return err('비밀번호가 맞지 않습니다.', 401, 'BAD_PASSWORD');
+      // 호스트로 등록한 회원은 공간·예약·이용료 정리가 필요해 바로 탈퇴하지 않습니다
+      if (await env.DB.prepare('SELECT 1 AS x FROM member_hosts WHERE member_id = ?').bind(me.id).first())
+        return err('호스트센터에 등록한 공간이 있어 바로 탈퇴할 수 없습니다. 진행 중인 예약과 이용료를 정리해야 하니 운영팀에 문의해 주세요.', 409, 'HOST_LINKED');
       await env.DB.prepare('DELETE FROM sessions WHERE member_id = ?').bind(me.id).run();
       await env.DB.prepare('DELETE FROM members WHERE id = ?').bind(me.id).run();
       await log(env, 'member.withdrawn', String(me.id), 'member', '');

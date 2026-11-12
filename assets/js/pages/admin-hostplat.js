@@ -41,8 +41,14 @@
     '<div class="pf-filter" id="hp-pl-filter" role="group" aria-label="상태"></div><div id="hp-pl-list" class="adm-list"></div>');
   view('hp-billing', '입점 이용료', '공간 한 곳 기준 월 정액(부가세 별도)입니다. 온라인 결제는 결제가 확인되면 등록 기간이 자동으로 적용되고, 계좌이체 신청과 중도 해지 환불은 여기서 처리합니다.',
     '<div class="pf-filter" id="hp-bl-filter" role="group" aria-label="상태"></div><div id="hp-bl-list" class="adm-list"></div>');
-  view('hp-notices', '호스트 알림 기록', '새 문의·견적 수락·입금 알림·취소·심사 결과·이용료 안내를 호스트에게 문자로 보낸 기록입니다. 받는 번호는 뒤 4자리만 보여 줍니다.',
-    '<p class="hp-note" id="hp-nt-state" hidden></p><div class="pf-filter" id="hp-nt-filter" role="group" aria-label="상태"></div><div id="hp-nt-list" class="adm-list"></div>');
+  view('hp-notices', '호스트 알림', '새 문의·견적 수락·입금 알림·취소·심사 결과·이용료·무료 기간 종료 안내를 호스트에게 보낸 기록입니다. 받는 번호는 뒤 4자리만 보여 줍니다.',
+    '<p class="hp-note" id="hp-nt-state" hidden></p>'
+    +'<div class="adm-card hp-card"><div class="row between" style="gap:8px;margin-bottom:8px"><h2>무료 기간 종료 안내</h2><button class="btn btn-light btn-sm" type="button" id="hp-rn-run">지금 확인해 보내기</button></div>'
+    +'<p class="small muted">공개된 공간의 무료 등록 기간이 끝나기 30일 전과 7일 전에 등록 연장 안내를 한 번씩 보냅니다. 10시~20시 사이에 15분마다 자동으로 확인하고, 이미 등록 기간을 결제한 공간은 빼고 보냅니다.</p><div id="hp-rn-list" class="hp-rn"></div></div>'
+    +'<details class="adm-card hp-card" id="hp-tp"><summary><b>알림톡 템플릿 코드</b> <span class="small muted" id="hp-tp-sum"></span></summary>'
+    +'<p class="small muted" style="margin:8px 0">알리고에 아래 본문 그대로 템플릿을 등록하고 승인받은 뒤, 발급된 코드를 넣고 <b>승인 확인</b>을 누르세요. 승인이 확인된 종류만 알림톡으로 보내고(받지 못하면 문자로 대신), 나머지는 문자로 보냅니다. 버튼은 모두 ‘호스트센터 열기’ 하나(웹링크 https://megaspot.kr/host/center/)입니다. 알리고 연결 서버의 ALIGO_HOST_TEMPLATE_CODES 에도 같은 코드를 넣어야 합니다.</p>'
+    +'<form id="hp-tp-form"><div id="hp-tp-list" class="hp-tp"></div><div class="row" style="gap:6px;margin-top:10px"><button class="btn btn-primary btn-sm" type="submit">코드 저장</button><button class="btn btn-light btn-sm" type="button" id="hp-tp-check">승인 확인</button></div></form></details>'
+    +'<div class="pf-filter" id="hp-nt-filter" role="group" aria-label="상태"></div><div id="hp-nt-list" class="adm-list"></div>');
   var dr=document.createElement('div'); dr.className='adm-drawer'; dr.id='hp-drawer'; dr.hidden=true;
   dr.innerHTML='<div class="adm-drawer-bg" data-close></div><div class="adm-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="hp-d-title"><div class="adm-drawer-head"><h2 id="hp-d-title"></h2><button class="btn btn-light btn-sm" type="button" data-close>닫기 ✕</button></div><div class="adm-drawer-body" id="hp-d-body"></div></div>';
   document.body.appendChild(dr);
@@ -272,14 +278,34 @@
   function loadNotices(){
     var box=$('#hp-nt-list');
     H('/notices'+(NT.f==='all'?'':'?status='+encodeURIComponent(NT.f))).then(function(r){
-      NT.items=r.items||[]; var note=$('#hp-nt-state'); note.hidden=!!r.live; note.textContent=r.live?'':'지금은 문자 발송 설정이 꺼져 있어 기록만 남습니다. 알리고 연결 서버에 호스트 알림 경로(host/send)를 적용하고 발송을 켜면 문자가 나갑니다.';
+      NT.items=r.items||[]; var note=$('#hp-nt-state'); note.hidden=!!r.live; note.textContent=r.live?'':'지금은 문자·알림톡 발송 설정이 꺼져 있어 기록만 남습니다. 알리고 연결 서버에 호스트 알림 경로(host/send)를 적용하고 발송을 켜면 나갑니다.';
+      drawRenewal(r.renewal_due||[]); drawTemplates(r.templates||[]);
       chips($('#hp-nt-filter'), [['all','전체',0],['sent','발송',0],['attention','확인 필요',0]], NT.f);
       box.innerHTML=NT.items.length?NT.items.map(function(n){
-        return '<details class="adm-row hp-notice"><summary><span class="r1">'+st(n.status, n.status_label)+'<b>'+esc(n.kind_label)+'</b><span class="small">'+esc(n.host_name)+' · 번호 끝 '+esc(n.receiver_last4)+'</span></span><span class="r3"><span>'+esc(n.ref)+'</span><span>'+esc(kst(n.created_at))+'</span></span></summary>'
+        return '<details class="adm-row hp-notice"><summary><span class="r1">'+st(n.status, n.status_label)+'<b>'+esc(n.kind_label)+'</b>'+(n.channel?'<span class="hp-flag">'+esc(n.channel)+'</span>':'')+'<span class="small">'+esc(n.host_name)+' · 번호 끝 '+esc(n.receiver_last4)+'</span></span><span class="r3"><span>'+esc(n.ref)+'</span><span>'+esc(kst(n.created_at))+'</span></span></summary>'
           +'<pre class="hp-msg">'+esc(n.msg)+'</pre>'+(n.error?'<p class="small" style="color:var(--rust)">'+esc(n.error)+'</p>':'')+'</details>'; }).join(''):X.emptyMsg('보낸 알림이 없습니다.');
     }).catch(X.fail(box));
   }
   bindChips($('#hp-nt-filter'), function(f){ NT.f=f; loadNotices(); });
+  function drawRenewal(list){
+    $('#hp-rn-list').innerHTML=list.length?'<table class="hp-lines"><tbody>'+list.map(function(x){ return '<tr><td>'+esc(x.name)+'<small>'+esc(x.ref)+' · 무료 등록 '+esc(x.free_until)+'까지</small></td><td>D-'+x.left+' · '+(x.stage==='d7'?'7일 전 안내':'30일 전 안내')+'</td></tr>'; }).join('')+'</tbody></table>'
+      :'<p class="small muted">앞으로 30일 안에 무료 기간이 끝나는 공간이 없습니다.</p>';
+  }
+  function drawTemplates(list){
+    var ready=list.filter(function(t){ return t.ready; }).length, coded=list.filter(function(t){ return t.code; }).length;
+    $('#hp-tp-sum').textContent='· 승인 확인 '+ready+'종 / 코드 '+coded+'종 / 전체 '+list.length+'종';
+    $('#hp-tp-list').innerHTML=list.map(function(t){
+      return '<div class="hp-tp-row"><div><b>'+esc(t.name)+'</b>'+(t.ready?' <span class="st st-ok">승인 확인</span>':t.code?' <span class="st st-pay">확인 필요</span>':'')+'<pre class="hp-msg">'+esc(t.content)+'</pre></div>'
+        +'<label><span class="small muted">템플릿 코드</span><input class="input" name="'+esc(t.key)+'" value="'+esc(t.code)+'" placeholder="예: UN_1234" maxlength="30" autocomplete="off"></label></div>'; }).join('');
+  }
+  $('#hp-tp-form').addEventListener('submit', function(e){ e.preventDefault(); var codes={};
+    $$('#hp-tp-list input').forEach(function(i){ codes[i.name]=i.value.trim(); });
+    H('/notices/templates', { method:'PUT', body:{ codes:codes } }).then(function(r){ drawTemplates(r.items); M.toast('코드를 저장했습니다. 승인 확인을 눌러 주세요.'); }).catch(oops); });
+  $('#hp-tp-check').addEventListener('click', function(){ var b=this; b.disabled=true;
+    H('/notices/templates/check', { method:'POST', body:{} }).then(function(r){ var ok=r.items.filter(function(x){ return x.ready; }).length, bad=r.items.filter(function(x){ return x.code && !x.ready; });
+      M.toast('승인 확인 '+ok+'종'+(bad.length?' · 확인 필요 '+bad.length+'종 (본문·버튼이 다르거나 아직 승인 전이거나, 연결 서버에 코드가 없습니다)':'')); loadNotices(); }).catch(oops).finally(function(){ b.disabled=false; }); });
+  $('#hp-rn-run').addEventListener('click', function(){ var b=this; if(!confirm('무료 기간 종료 안내 대상을 지금 확인해 보낼까요? 이미 보낸 단계는 다시 보내지 않습니다.')) return; b.disabled=true;
+    H('/notices/renewal-run', { method:'POST', body:{} }).then(function(r){ M.toast('안내 '+(r.sent||0)+'건을 보냈습니다.'+(r.retried?' 막혀 있던 알림 '+r.retried+'건도 다시 보냈습니다.':'')); loadNotices(); }).catch(oops).finally(function(){ b.disabled=false; }); });
 
   X.register('hp-spaces', loadSpaces); X.register('hp-bookings', loadBookings); X.register('hp-addons', loadAddons); X.register('hp-planning', loadPlanning); X.register('hp-billing', loadBilling); X.register('hp-notices', loadNotices);
   X.register('dash', summary);

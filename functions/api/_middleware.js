@@ -2,6 +2,7 @@
 import {depositNoticeTick} from './_deposit_notifications.js';
 import {parkingAdminSMSTick} from './_parking_admin_alerts.js';
 import {guideTick} from './_guide_messages.js';
+import {hostRenewalTick} from './_hostrenewal.js';
 import { ensureSchema } from './_lib.js';
 export async function onRequest(context) {
   try { await ensureSchema(context.env); } catch {}
@@ -14,6 +15,7 @@ export async function onRequest(context) {
     context.waitUntil(depositNoticeTick(context.env).catch(()=>{}));
     context.waitUntil(guideTick(context.env).catch(()=>{}));
     context.waitUntil(parkingAdminSMSTick(context.env).catch(()=>{}));
+    context.waitUntil(hostRenewalTick(context.env).catch(()=>{}));   // 입점 공간 무료 등록 종료 30일·7일 전 안내 (15분에 한 번 확인)
   }
   return response;
 }

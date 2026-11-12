@@ -39,11 +39,23 @@
       +'<div class="tags mt-2">'+types+'</div>'
       +'<div class="foot"><span class="muted">결제 수수료 없이 호스트와 직접 예약</span><span style="font-weight:700;color:var(--cobalt)">자세히 보기 →</span></div></div></a>';
   }
-  // 호스트 API — 로그인이 풀렸으면 로그인 화면으로 보냅니다
+  // 메가스팟 회원으로 로그인해 있으면 연결된 호스트 계정으로 전환합니다.
+  //  → 'ok' 전환됨 · 'not_host' 회원이지만 아직 호스트 등록 전 · 'login' 회원 로그인 필요
+  var switching=null;
+  function hostSwitch(){
+    if(!switching) switching=M.api('/hosts/switch', { method:'POST', body:{} }).then(function(){ return 'ok'; }).catch(function(e){
+      return e && e.code==='NOT_HOST'?'not_host':e && e.code==='BLOCKED'?'blocked':'login'; }).then(function(r){ switching=null; return r; });
+    return switching;
+  }
+  function hostGate(r){   // 전환 결과에 따라 갈 곳
+    if(r==='not_host') location.href='/host/register/';
+    else if(r==='login') location.href='/host/login/?next='+encodeURIComponent(location.pathname+location.search+location.hash);
+  }
+  // 호스트 API — 호스트 로그인이 풀렸으면 회원 계정으로 다시 전환해 보고, 안 되면 로그인·등록 화면으로 보냅니다
   function hostApi(path, opts){
     return M.api('/hosts'+path, opts||{}).catch(function(e){
-      if(e && e.code==='HOST_LOGIN' && !/\/host\/(login|register)\//.test(location.pathname)){ location.href='/host/login/?next='+encodeURIComponent(location.pathname+location.search+location.hash); }
-      throw e;
+      if(!(e && e.code==='HOST_LOGIN') || /\/host\/(login|register)\//.test(location.pathname)) throw e;
+      return hostSwitch().then(function(r){ if(r==='ok') return M.api('/hosts'+path, opts||{}); hostGate(r); throw e; });
     });
   }
   function hostIn(){ return /(?:^|;\s*)ms_host_in=1/.test(document.cookie); }
@@ -84,5 +96,5 @@
   function csv(name, rows){ download(name, '﻿'+rows.map(function(r){ return r.map(function(x){ x=String(x==null?'':x); return /[",\n]/.test(x)?'"'+x.replace(/"/g,'""')+'"':x; }).join(','); }).join('\r\n'), 'text/csv;charset=utf-8'); }
 
   window.MSP={ P:P, TYPE:TYPE, REG:REG, FAC:FAC, PUR:PUR, MODE:MODE, PAY:PAY, ADD:ADD, PLAN:PLAN, won:won, man:man, tierOf:tierOf, tierLabel:tierLabel, tierBadge:tierBadge, st:st, today:today, kdate:kdate, ddays:ddays, timeRange:timeRange, qs:qs,
-    priceLine:priceLine, venueCard:venueCard, hostApi:hostApi, hostIn:hostIn, shrink:shrink, opts:opts, checks:checks, typePicker:typePicker, bindTypes:bindTypes, readTypes:readTypes, refundText:refundText, download:download, csv:csv };
+    priceLine:priceLine, venueCard:venueCard, hostApi:hostApi, hostSwitch:hostSwitch, hostGate:hostGate, hostIn:hostIn, shrink:shrink, opts:opts, checks:checks, typePicker:typePicker, bindTypes:bindTypes, readTypes:readTypes, refundText:refundText, download:download, csv:csv };
 })();
