@@ -1,5 +1,6 @@
 /* 관리자 · 입점 플랫폼 화면 (assets/js/pages/admin-hostplat.js) */
 .hp-row{cursor:pointer}
+.hp-row:hover,.hp-row:focus-visible{border-color:var(--cobalt);outline:none}
 .hp-tier{display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:3px;font-size:11.5px;font-weight:800;background:var(--graphite);color:#fff}
 .hp-tier.mega{background:var(--cobalt)}
 .hp-flag{display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:10px;font-size:11.5px;font-weight:800;background:#FFF1E4;color:var(--rust);border:1px solid #F1D2B6}
@@ -23,3 +24,13 @@
 .hp-dash{margin-bottom:14px}
 .hp-dash h2{font-size:16px}
 #hp-d-body .form{display:grid;gap:12px}
+.hp-notice{cursor:default}
+.hp-notice summary{cursor:pointer;display:grid;gap:4px;list-style:none}
+.hp-notice summary::-webkit-details-marker{display:none}
+.hp-notice .r1,.hp-notice .r3{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+.hp-notice .r1{justify-content:flex-start}
+.hp-notice .r1 .small{margin-left:auto}
+.hp-notice .r3{font-size:12.5px;color:var(--ink-3)}
+.hp-msg{margin:10px 0 0;padding:10px 12px;border-radius:var(--radius);background:var(--concrete-3);font:inherit;font-size:13.5px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}
+.hp-note{padding:10px 12px;border-radius:var(--radius);background:#FFF6E0;color:#7A4E00;font-size:13.5px;font-weight:600;margin-bottom:12px}
+.hp-sec .hp-note{margin-bottom:0}

@@ -53,7 +53,7 @@ test('화면용 기준값(platform.js)과 서버 기준값이 같고, 서버 표
   const a = new DatabaseSync(':memory:'), b = new DatabaseSync(':memory:'); a.exec(readFileSync(new URL('../schema.sql', import.meta.url), 'utf8')); for (const s of SCHEMA) b.exec(s);
   const names = d => d.prepare("SELECT type || ':' || name AS n FROM sqlite_master ORDER BY 1").all().map(r => r.n).join('\n');
   assert.equal(names(a), names(b));
-  // 이용료: 12개월 월 10만 · 6개월 월 15만 · 3개월 월 20만 · 1개월 월 25만, 2개월 무료
+  // 이용료(부가세 별도 · 공간 한 곳 기준): 12개월 월 10만 · 6개월 월 15만 · 3개월 월 20만 · 1개월 월 25만, 2개월 무료
   assert.deepEqual(PLATFORM.plans.map(p => [p.months, p.monthly, p.daily]), [[12, 100000, 3300], [6, 150000, 5000], [3, 200000, 6600], [1, 250000, 8300]]); assert.equal(PLATFORM.freeMonths, 2);
   assert.equal(PLATFORM.typeGroups.flatMap(g => g.types).length, 22); assert.deepEqual(PLATFORM.regions.map(r => r[1]), ['서울', '인천', '경기', '그 외 지역']);
 });
@@ -139,10 +139,10 @@ test('입점 신청 → 정보·사진 채우기 → 심사 요청 → 본사 �
   await h('spaces/' + ref + '/pause', 'POST'); assert.equal((await f.venues('search')).json.items.length, 0); await h('spaces/' + ref + '/resume', 'POST'); assert.equal((await f.venues('search')).json.items.length, 1);
   await f.hq('spaces/' + ref, 'PATCH', { action: 'update', free_until: day(-1) });
   assert.equal((await f.venues('search')).json.items.length, 0, '무료 기간이 끝나면 목록에서 내려감'); assert.equal((await h('me')).json.spaces[0].visible, false);
-  // 이용료 신청(6개월) → 본사 입금 확인 → 다시 공개
-  r = await h('billing', 'POST', { space: ref, plan: 'm6', tax_invoice: true }); assert.equal(r.status, 200, JSON.stringify(r.json)); assert.equal(r.json.amount, 900000);
-  assert.equal((await h('billing', 'POST', { space: ref, plan: 'm1' })).status, 409, '처리 전에는 한 건만');
-  const bl = (await f.hq('billing?status=requested')).json.items[0]; assert.equal(bl.amount, 900000); assert.equal(bl.data.tax_invoice, true);
+  // 이용료 신청(6개월 · 계좌이체 · 부가세 별도 90만 + 9만) → 본사 입금 확인 → 다시 공개  (온라인 결제·해지 환불은 tests/hostbilling.test.mjs)
+  r = await h('billing', 'POST', { space: ref, plan: 'm6', method: 'bank', tax_invoice: true }); assert.equal(r.status, 200, JSON.stringify(r.json)); assert.equal(r.json.supply, 900000); assert.equal(r.json.amount, 990000);
+  assert.equal((await h('billing', 'POST', { space: ref, plan: 'm1', method: 'bank' })).status, 409, '처리 전에는 한 건만');
+  const bl = (await f.hq('billing?status=requested')).json.items[0]; assert.equal(bl.amount, 990000); assert.equal(bl.data.tax_invoice, true);
   await f.hq('billing/' + bl.ref, 'PATCH', { action: 'paid' });
   r = await h('billing'); assert.equal(r.json.items[0].status, 'paid'); assert.equal(r.json.spaces[0].plan, 'm6'); assert.ok(r.json.spaces[0].paid_until >= day(175)); assert.equal(r.json.spaces[0].visible, true);
   assert.equal((await f.venues('search')).json.items.length, 1);

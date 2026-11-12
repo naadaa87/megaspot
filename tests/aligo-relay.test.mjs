@@ -98,3 +98,16 @@ test('운영 중인 소셜팩토리 관리자 경로와 수신자 교집합·전
 });
 
 test('실주문 검증 결과 두 종류는 기존 승인 관리자·고정 링크·지속 중복 방지를 유지한다',async t=>{const f=fixture(t);f.env.ALIGO_PARKING_ADMIN_RECEIVERS='01011112222';for(const kind of ['검증 완료','검증 확인 필요']){const v=f.input({path:'parking-admin/send',data:{receiver:'01011112222',msg:'[메가스팟 주차권 '+kind+']\n실제 주문 확인 결과\nhttps://megaspot.kr/admin/#parking'}});assert.equal((await f.send(v)).status,200);assert.equal((await f.send(v)).status,200);v.request_id=randomUUID();v.data.receiver='01099998888';assert.equal((await f.send(v)).status,403);}assert.equal(f.calls.length,2);});
+
+test('입점 호스트 알림은 정해진 머리말·호스트센터 주소로 끝나는 문자만 휴대폰 번호로 보낸다',async t=>{
+ const f=fixture(t),msg='[메가스팟 호스트 알림]\n‘성수 그랜드홀’ 공간에 새 문의가 들어왔습니다.\n이용일 12월 5일(토) · 80명\n예약번호 HB-2611-ABCD\nhttps://megaspot.kr/host/center/#b=HB-2611-ABCD';
+ const send=(data)=>f.send(f.input({path:'host/send',data}));
+ for(const invalid of [msg.replace('호스트 알림','공지'),msg.replace('megaspot.kr/host/center/','evil.test/'),msg+'\n추가 문구',msg.replace('#b=HB-2611-ABCD','?next=https://evil.test'),msg.replace('새 문의','#{변수}'),msg.replace('이용일','가'.repeat(600))])assert.equal((await send({receiver:'01011112222',msg:invalid})).status,400);
+ for(const receiver of ['0212345678','010111','+821011112222'])assert.equal((await send({receiver,msg})).status,400);
+ assert.equal(f.calls.length,0);
+ const valid=f.input({path:'host/send',data:{receiver:'01011112222',msg,sender:'other',title:'다른 제목',receiver_2:'01099998888'}});
+ assert.equal((await f.send(valid)).status,200);const b=f.calls[0].body;assert.equal(f.calls[0].url,'https://apis.aligo.in/send/');
+ assert.equal(b.get('title'),'메가스팟 호스트 알림');assert.equal(b.get('msg_type'),'LMS');assert.equal(b.get('sender'),'01012345678');assert.equal(b.get('receiver'),'01011112222');assert.equal(b.get('receiver_2'),null);assert.equal(b.get('key'),'server-only-key');
+ await f.send(valid);assert.equal(f.calls.length,1,'같은 요청 ID는 다시 보내지 않음');
+ assert.equal((await send({receiver:'01011112222',msg:msg.replace('#b=HB-2611-ABCD','')})).status,200,'주소 뒤 위치 표시는 없어도 됨');
+});

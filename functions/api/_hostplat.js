@@ -37,7 +37,10 @@ export const PLATFORM = {
     { id: 'design', label: '디자인·제작물', desc: '현수막·X배너·리플렛 등 행사 제작물을 만듭니다.', link: '' }
   ],
   // 입점 이용료 (등록 기간에 따른 월 정액 · 결제 수수료 없음)
+  //  · 공간 한 곳 기준(한 호스트가 여러 공간을 등록하면 공간마다 따로) · 표시 금액은 부가세 별도
+  //  · 중도 해지: 유료 기간 시작 전에는 전액, 시작한 뒤에는 남은 기간 금액의 50% 환불 (약관 제7조의6)
   freeMonths: 2,
+  fee: { per: 'space', vat: 'excluded', vatRate: 10, refundRate: 50 },
   plans: [
     { id: 'm12', months: 12, monthly: 100000, daily: 3300 },
     { id: 'm6', months: 6, monthly: 150000, daily: 5000 },
@@ -66,7 +69,7 @@ export const BOOKING_STATUS = { new: '새 문의', quoted: '견적 안내', pend
 export const BOOKING_OPEN = ['new', 'quoted', 'pending', 'confirmed'];
 export const ADDON_STATUS = { new: '접수', talking: '안내 중', confirmed: '확정', done: '완료', cancelled: '취소' };
 export const PLANNING_STATUS = { new: '접수', planning: '기획 중', proposed: '제안 발송', won: '진행 확정', done: '완료', closed: '종료' };
-export const BILLING_STATUS = { requested: '신청', paid: '입금 확인', cancelled: '취소' };
+export const BILLING_STATUS = { requested: '결제 대기', paid: '결제 완료', refunded: '해지·환불', cancelled: '취소' };
 export const SPACE_REF = /^SP-\d{4}-[A-Z0-9]{4}$/;
 export const BOOKING_CODE = /^HB-\d{4}-[A-Z0-9]{4}$/;
 export const PHOTO_ID = /^[A-Za-z0-9_-]{16,40}$/;

@@ -317,6 +317,12 @@ window.MEGASPOT_PLATFORM = {
     }
   ],
   "freeMonths": 2,
+  "fee": {
+    "per": "space",
+    "vat": "excluded",
+    "vatRate": 10,
+    "refundRate": 50
+  },
   "plans": [
     {
       "id": "m12",

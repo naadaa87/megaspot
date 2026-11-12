@@ -5,12 +5,15 @@
 //   GET  /api/hq/bookings[?status=&space=&q=] GET /api/hq/bookings/HB-…          (호스트 공간의 문의·예약·결제 기록 확인)
 //   GET  /api/hq/addons[?status=&service=]   PATCH /api/hq/addons/AO-…           (본사 부가서비스: 출장뷔페·케이터링·칵테일·사회자/강연자·현장 매니저·디자인)
 //   GET  /api/hq/planning[?status=]          PATCH /api/hq/planning/PL-…         (행사 지원 요청)
-//   GET  /api/hq/billing[?status=]           PATCH /api/hq/billing/BL-…          (입점 이용료 입금 확인)
+//   GET  /api/hq/billing[?status=]           PATCH /api/hq/billing/BL-…          (입점 이용료: 계좌이체 입금 확인 · 중도 해지 환불 처리)
+//   GET  /api/hq/notices[?status=]                                               (호스트 문자 알림 발송 기록)
 import { json, err, hasDb, readJson, str, num, isDate, now, kstToday, log, requireAdmin, sameOrigin } from '../_lib.js';
 import { safeJson, httpsUrl } from '../_platform.js';
 import { PLATFORM, PLAN, SPACE_STATUS, BOOKING_STATUS, ADDON_STATUS, ADDON_LABEL, PLANNING_STATUS, BILLING_STATUS, TYPE_LABEL, REGION_LABEL, SPACE_REF, BOOKING_CODE, listedUntil, photoUrl, safeArr, addMonths, addDays, bookingToken, planningToken } from '../_hostplat.js';
 import { viewBooking, addonsFor } from '../_hostbook.js';
 import { PLANNING_NEEDS, PLANNING_REF, publicPlanning } from '../_planning.js';
+import { BILL_REF, CANCEL_STATUS, billView, ensurePay, markPaid, finalizeRefund, refundCalc, onlinePay } from '../_hostbilling.js';
+import { notifyHost, hostNoticeList, hostNoticeLive } from '../_hostnotify.js';
 
 const d10 = s => String(s || '').slice(0, 10);
 function spaceRow(r) {
@@ -35,7 +38,8 @@ export async function onRequest({ request, env, params }) {
       return json({ ok: true, review: await one("SELECT COUNT(*) AS n FROM host_spaces WHERE status = 'review'"), live: await one("SELECT COUNT(*) AS n FROM host_spaces WHERE status = 'live' AND (COALESCE(free_until,'') >= ? OR COALESCE(paid_until,'') >= ?)", t, t),
         hosts: await one("SELECT COUNT(*) AS n FROM hosts WHERE status = 'active'"), bookings_new: await one("SELECT COUNT(*) AS n FROM host_bookings WHERE status = 'new'"), bookings_open: await one("SELECT COUNT(*) AS n FROM host_bookings WHERE status IN ('new','quoted','pending','confirmed')"),
         addons_new: await one("SELECT COUNT(*) AS n FROM hq_addons WHERE status = 'new'"), addons_open: await one("SELECT COUNT(*) AS n FROM hq_addons WHERE status IN ('new','talking','confirmed')"), planning_new: await one("SELECT COUNT(*) AS n FROM planning_requests WHERE status = 'new'"),
-        billing_requested: await one("SELECT COUNT(*) AS n FROM host_billing WHERE status = 'requested'"),
+        // 운영팀이 처리할 이용료 일: 계좌이체 입금 확인 + 중도 해지 환불 + 확인이 필요한 결제
+        billing_requested: await one("SELECT COUNT(*) AS n FROM host_billing b LEFT JOIN host_billing_pay p ON p.ref = b.ref WHERE (b.status = 'requested' AND COALESCE(p.method, 'bank') = 'bank') OR (b.status = 'paid' AND p.cancel_status = 'requested') OR COALESCE(p.alert, '') <> ''"),
         expiring: await one("SELECT COUNT(*) AS n FROM host_spaces WHERE status = 'live' AND MAX(COALESCE(free_until,''), COALESCE(paid_until,'')) BETWEEN ? AND ?", t, addDays(t, 14)) });
     }
     // ---------- 입점 공간 · 심사 ----------
@@ -67,6 +71,9 @@ export async function onRequest({ request, env, params }) {
         const keys = Object.keys(set); if (!keys.length) return err('바꿀 내용이 없습니다.');
         await env.DB.prepare(`UPDATE host_spaces SET ${keys.map(k => k + ' = ?').join(', ')}, updated_at = ? WHERE ref = ?`).bind(...keys.map(k => set[k]), t, row.ref).run();
         await log(env, 'hostspace.' + a, row.ref, 'admin', { status: set.status || row.status });
+        // 심사 결과는 호스트에게 문자로도 알립니다
+        const result = { approve: 'live', fix: 'fix', reject: 'rejected' }[a];
+        if (result) await notifyHost(env, row.host_id, 'review', { result, ref: row.ref, space: row.name, free_until: result === 'live' ? (set.free_until || row.free_until || '') : '' }, result + ':' + t);
       } else if (method !== 'GET') return err('지원하지 않는 요청입니다.', 405, 'METHOD');
       const fresh = await env.DB.prepare(`${SPACE_SQL} WHERE s.ref = ?`).bind(row.ref).first();
       const { results: photos } = await env.DB.prepare('SELECT pid FROM host_photos WHERE space_ref = ? ORDER BY sort, id').bind(row.ref).all();
@@ -155,25 +162,48 @@ export async function onRequest({ request, env, params }) {
     // ---------- 입점 이용료 ----------
     if (path === 'billing' && method === 'GET') {
       const status = str(q.get('status'), 12), where = [], bind = [];
-      if (status) { if (!BILLING_STATUS[status]) return err('상태를 확인해 주세요.'); where.push('b.status = ?'); bind.push(status); }
-      const { results } = await env.DB.prepare(`SELECT b.*, s.name AS space_name, s.free_until, s.paid_until, h.name AS host_name, h.phone AS host_phone, h.email AS host_email, h.company AS host_company, h.biz_no AS host_biz_no FROM host_billing b JOIN host_spaces s ON s.ref = b.space_ref JOIN hosts h ON h.id = b.host_id
-        ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY CASE b.status WHEN 'requested' THEN 0 ELSE 1 END, b.id DESC LIMIT 500`).bind(...bind).all();
-      return json({ ok: true, statuses: BILLING_STATUS, plans: PLATFORM.plans, items: (results || []).map(b => ({ ref: b.ref, space: b.space_ref, space_name: b.space_name, plan: b.plan, months: b.months, amount: b.amount, status: b.status, status_label: BILLING_STATUS[b.status] || b.status,
-        period_from: b.period_from || '', period_to: b.period_to || '', free_until: b.free_until || '', paid_until: b.paid_until || '', host_name: b.host_name, host_phone: b.host_phone, host_email: b.host_email, host_company: b.host_company || '', host_biz_no: b.host_biz_no || '',
-        data: safeJson(b.data), created_at: b.created_at, paid_at: d10(b.paid_at) })) });
+      if (status === 'cancel') where.push("b.status = 'paid' AND p.cancel_status = 'requested'");
+      else if (status === 'todo') where.push("((b.status = 'requested' AND COALESCE(p.method, 'bank') = 'bank') OR (b.status = 'paid' AND p.cancel_status = 'requested') OR COALESCE(p.alert, '') <> '')");
+      else if (status) { if (!BILLING_STATUS[status]) return err('상태를 확인해 주세요.'); where.push('b.status = ?'); bind.push(status); }
+      const { results } = await env.DB.prepare(`SELECT b.*, s.name AS space_name, s.free_until, s.paid_until, h.name AS host_name, h.phone AS host_phone, h.email AS host_email, h.company AS host_company, h.biz_no AS host_biz_no,
+        p.method AS p_method, p.supply AS p_supply, p.vat AS p_vat, p.mul_no AS p_mul_no, p.pay_type AS p_pay_type, p.pg_state AS p_pg_state, p.pg_refunded AS p_pg_refunded, p.cancel_status AS p_cancel_status, p.cancel_base AS p_cancel_base,
+        p.cancel_calc AS p_cancel_calc, p.cancel_reason AS p_cancel_reason, p.cancel_requested_at AS p_cancel_requested_at, p.refund_amount AS p_refund_amount, p.refunded_at AS p_refunded_at, p.refund_memo AS p_refund_memo, p.alert AS p_alert
+        FROM host_billing b JOIN host_spaces s ON s.ref = b.space_ref JOIN hosts h ON h.id = b.host_id LEFT JOIN host_billing_pay p ON p.ref = b.ref
+        ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY CASE WHEN b.status = 'paid' AND p.cancel_status = 'requested' THEN 0 WHEN b.status = 'requested' THEN 1 ELSE 2 END, b.id DESC LIMIT 500`).bind(...bind).all();
+      return json({ ok: true, statuses: BILLING_STATUS, cancel_statuses: CANCEL_STATUS, plans: PLATFORM.plans, fee: PLATFORM.fee, online: onlinePay(env), items: (results || []).map(b => {
+        const p = Object.fromEntries(Object.entries(b).filter(([k]) => k.startsWith('p_')).map(([k, v]) => [k.slice(2), v]));
+        return { ...billView(b, b.p_method ? p : null), space_name: b.space_name, free_until: b.free_until || '', paid_until: b.paid_until || '', host_name: b.host_name, host_phone: b.host_phone, host_email: b.host_email, host_company: b.host_company || '', host_biz_no: b.host_biz_no || '',
+          data: safeJson(b.data), paid_at: d10(b.paid_at), pay_no: b.p_mul_no ? String(b.p_mul_no).slice(-8) : '', pg_refunded: b.p_pg_refunded || 0, refund_memo: b.p_refund_memo || '', alert: b.p_alert || '' }; }) });
     }
     m = path.match(/^billing\/(BL-[A-Z0-9-]+)$/);
     if (m && method === 'PATCH') {
+      if (!BILL_REF.test(m[1])) return err('신청을 찾을 수 없습니다.', 404, 'NOT_FOUND');
       const d = await readJson(request), b = await env.DB.prepare('SELECT * FROM host_billing WHERE ref = ?').bind(m[1]).first(); if (!b) return err('신청을 찾을 수 없습니다.', 404, 'NOT_FOUND');
-      if (d.action === 'paid') {   // 입금 확인 → 공간의 이용 기간을 늘립니다
+      if (d.action === 'paid') {   // 계좌이체 입금 확인 → 공간의 등록 기간을 늘립니다 (온라인 결제는 페이앱 통보로 자동 처리)
         if (b.status !== 'requested') return err('이미 처리한 신청입니다.');
-        const from = isDate(str(d.period_from, 10)) ? str(d.period_from, 10) : b.period_from, plan = PLAN[b.plan], to = isDate(str(d.period_to, 10)) ? str(d.period_to, 10) : addDays(addMonths(from, plan ? plan.months : b.months), -1);
-        await env.DB.prepare("UPDATE host_billing SET status = 'paid', period_from = ?, period_to = ?, paid_at = ? WHERE ref = ?").bind(from, to, now(), b.ref).run();
-        await env.DB.prepare('UPDATE host_spaces SET paid_until = ?, plan = ?, updated_at = ? WHERE ref = ?').bind(to, b.plan, now(), b.space_ref).run();
-      } else if (d.action === 'cancel') { if (b.status !== 'requested') return err('이미 처리한 신청입니다.'); await env.DB.prepare("UPDATE host_billing SET status = 'cancelled' WHERE ref = ?").bind(b.ref).run(); }
-      else return err('처리할 수 없는 요청입니다.');
-      await log(env, 'hostbilling.' + d.action, b.ref, 'admin', { space: b.space_ref });
+        const from = str(d.period_from, 10), to = str(d.period_to, 10); if ((from && !isDate(from)) || (to && !isDate(to)) || (from && to && to < from)) return err('적용 기간을 확인해 주세요.');
+        const plan = PLAN[b.plan], months = plan ? plan.months : b.months, start = from || b.period_from;
+        const r = await markPaid(env, b, { payType: 'bank', period: from || to ? { from: start, to: to || addDays(addMonths(start, months), -1) } : null });
+        if (!r.ok) return err(r.error || '이미 처리한 신청입니다.');
+      } else if (d.action === 'cancel') {   // 결제 전 신청 취소
+        if (b.status !== 'requested') return err('이미 처리한 신청입니다.');
+        await env.DB.prepare("UPDATE host_billing SET status = 'cancelled' WHERE ref = ? AND status = 'requested'").bind(b.ref).run();
+        await log(env, 'hostbilling.cancel', b.ref, 'admin', { space: b.space_ref });
+      } else if (d.action === 'refund_done') {   // 중도 해지 환불을 끝냈을 때 (페이앱에서 취소했거나 계좌로 보낸 뒤)
+        if (b.status !== 'paid') return err('결제가 끝난 신청만 환불 처리할 수 있습니다.');
+        const pay = await ensurePay(env, b), calc = pay.cancel_status === 'requested' ? safeJson(pay.cancel_calc) : refundCalc(b);
+        const amount = d.amount === undefined || d.amount === '' || d.amount === null ? calc.refund : num(d.amount);
+        if (amount === null || amount < 0 || amount > b.amount) return err('환불 금액을 확인해 주세요. 결제 금액보다 클 수 없습니다.');
+        const r = await finalizeRefund(env, b, amount, { by: 'admin', memo: str(d.memo, 300) }); if (!r.ok) return err('이미 처리한 신청입니다.');
+      } else if (d.action === 'alert_clear') {   // '확인 필요' 표시 지우기
+        await env.DB.prepare('UPDATE host_billing_pay SET alert = NULL, updated_at = ? WHERE ref = ?').bind(now(), b.ref).run();
+      } else return err('처리할 수 없는 요청입니다.');
       return json({ ok: true });
+    }
+    // ---------- 호스트 문자 알림 발송 기록 ----------
+    if (path === 'notices' && method === 'GET') {
+      const status = str(q.get('status'), 12);
+      return json({ ok: true, live: hostNoticeLive(env), items: await hostNoticeList(env, { status }) });
     }
     return err('지원하지 않는 요청입니다.', 404, 'NOT_FOUND');
   } catch (e) {

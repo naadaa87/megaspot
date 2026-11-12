@@ -398,39 +398,113 @@
     }).catch(oops);
   };
 
-  /* ---------- 이용료 ---------- */
+  /* ---------- 이용료 (공간 한 곳 기준 · 부가세 별도 · 온라인 결제 또는 계좌이체 · 중도 해지) ---------- */
+  function dAdd(iso, n){ var d=new Date(iso+'T00:00:00Z'); d.setUTCDate(d.getUTCDate()+n); return d.toISOString().slice(0,10); }
+  function mAdd(iso, n){ var p=iso.split('-').map(Number), dt=new Date(Date.UTC(p[0], p[1]-1+n, 1)), last=new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth()+1, 0)).getUTCDate(); dt.setUTCDate(Math.min(p[2], last)); return dt.toISOString().slice(0,10); }
+  function period(s, months){ var from=s.listed_until && s.listed_until>=ST.today?dAdd(s.listed_until,1):ST.today; return { from:from, to:dAdd(mAdd(from, months), -1) }; }
+  // 결제창은 페이앱 주소일 때만 엽니다
+  function goPay(url){ try{ var u=new URL(url); if(u.protocol==='https:' && (u.hostname==='payapp.kr' || /\.payapp\.kr$/.test(u.hostname))){ location.href=u.href; return true; } }catch(e){} M.toast('결제창을 열지 못했습니다. 잠시 후 다시 시도해 주세요.'); return false; }
+  function feeLine(b){ return esc(won(b.supply))+' + 부가세 '+esc(won(b.vat))+' = <b>'+esc(won(b.amount))+'</b>'; }
+  var PAYWAIT={ ref:'', tries:0, note:'' };
+  function waitPay(){   // 결제창에서 돌아온 뒤: 결제 확인 통보가 반영될 때까지 잠깐 기다립니다
+    if(!PAYWAIT.ref) return;
+    api('/billing').then(function(r){
+      var b=r.items.filter(function(x){ return x.ref===PAYWAIT.ref; })[0];
+      if(b && b.status==='paid'){ PAYWAIT.ref=''; PAYWAIT.note=''; M.toast('결제가 확인되었습니다. 등록 기간이 적용되었습니다.'); reload().then(function(){ if(ST.tab==='billing') VIEWS.billing(); }); return; }
+      if(!b || b.status!=='requested' || ++PAYWAIT.tries>=8){ PAYWAIT.ref=''; PAYWAIT.note=b && b.status==='requested'?(b.pg_pending?'입금을 기다리고 있습니다. 입금이 확인되면 등록 기간이 자동으로 적용됩니다.':'아직 결제 확인이 오지 않았습니다. 결제를 마쳤다면 잠시 뒤 이 화면을 다시 열어 주세요. 결제하지 않았다면 아래에서 다시 결제할 수 있습니다.'):''; if(ST.tab==='billing') VIEWS.billing(); return; }
+      setTimeout(waitPay, 2500);
+    }).catch(function(){ PAYWAIT.ref=''; });
+  }
   VIEWS.billing=function(){
     api('/billing').then(function(r){
-      var list=ST.cur?r.spaces.filter(function(s){ return s.ref===ST.cur; }):r.spaces;
-      main.innerHTML=head('이용료', '메가스팟은 결제 수수료 없이 등록 기간에 따른 월 정액만 받습니다. 입점·등록 비용은 없고, 등록이 끝난 날부터 '+r.free_months+'개월은 무료입니다.')
-        +list.map(function(s){
-          var pend=r.items.filter(function(b){ return b.space===s.ref && b.status==='requested'; })[0], can=s.status==='live'||s.status==='paused';
-          return '<div class="hc-card"><h2><span>'+S.tierBadge(s.tier)+' '+esc(s.name)+' <span class="pf-st '+esc(s.status)+'">'+esc(s.status_label)+'</span></span><small>'+(s.listed_until?(s.visible?'공개 중 · ':'')+esc(S.kdate(s.listed_until))+'까지'+(s.days_left!=null&&s.days_left>=0?' (D-'+s.days_left+')':' · 기간 종료'):'등록 완료 후 시작')+'</small></h2>'
-            +'<dl class="hc-kv"><dt>무료 등록</dt><dd>'+(s.free_until?esc(S.kdate(s.free_until))+'까지':'공개되는 날부터 '+r.free_months+'개월')+'</dd><dt>유료 등록</dt><dd>'+(s.paid_until?esc(S.kdate(s.paid_until))+'까지'+(s.plan&&S.PLAN[s.plan]?' · '+S.PLAN[s.plan].months+'개월 등록':''):'아직 없음')+'</dd></dl>'
-            +(pend?'<p class="pf-msg ok mt-1">'+pend.months+'개월 등록('+esc(won(pend.amount))+')을 신청했습니다. 운영팀이 결제 방법을 안내하고, 입금이 확인되면 '+esc(S.kdate(pend.period_from))+' ~ '+esc(S.kdate(pend.period_to))+' 기간이 적용됩니다.</p>'
-              :can?'<div class="hc-plan mt-2">'+r.plans.map(function(p, i){ return '<label class="ap-mode"><input type="radio" name="plan-'+esc(s.ref)+'" value="'+p.id+'"'+(i===0?' checked':'')+'><b>'+p.months+'개월 등록</b><small>하루 '+p.daily.toLocaleString('ko-KR')+'원 · 월 '+esc(S.man(p.monthly))+'<br>합계 '+esc(won(p.monthly*p.months))+'</small></label>'; }).join('')+'</div>'
-                +'<div class="row mt-2"><label class="chk"><input type="checkbox" data-tax="'+esc(s.ref)+'"><span>세금계산서 발행 요청</span></label><button class="btn btn-primary btn-sm" type="button" data-bill="'+esc(s.ref)+'">이 기간으로 등록 신청</button></div><p class="pf-help mt-1">신청하면 운영팀이 결제 방법을 안내합니다. 자동으로 결제되지 않으며, 지금 기간이 끝난 다음 날부터 이어집니다.</p>'
-              :'<p class="small muted mt-1">등록(공개)이 끝난 뒤에 등록 기간을 고를 수 있습니다.</p>')+'</div>'; }).join('')
-        +'<div class="hc-card"><h2>신청·납부 내역</h2>'+(r.items.length?'<div class="hc-scroll"><table class="hc-table"><thead><tr><th>신청일</th><th>공간</th><th>등록 기간</th><th>적용 기간</th><th class="r">금액</th><th>상태</th></tr></thead><tbody>'+r.items.map(function(b){ var s=space(b.space);
-            return '<tr><td>'+esc(String(b.created_at).slice(0,10))+'</td><td>'+esc(s?s.name:b.space)+'</td><td>'+b.months+'개월</td><td>'+esc(b.period_from)+' ~ '+esc(b.period_to)+'</td><td class="r">'+esc(won(b.amount))+'</td><td>'+S.st(b.status, b.status_label)+'</td></tr>'; }).join('')+'</tbody></table></div>':'<p class="small muted">아직 내역이 없습니다.</p>')+'</div>';
-      main.querySelectorAll('[data-bill]').forEach(function(btn){ btn.addEventListener('click', function(){ var ref=btn.getAttribute('data-bill'), plan=(main.querySelector('input[name="plan-'+ref+'"]:checked')||{}).value, p=S.PLAN[plan]; if(!p) return;
-        if(!confirm(p.months+'개월 등록('+won(p.monthly*p.months)+')을 신청할까요?')) return;
-        api('/billing', { method:'POST', body:{ space:ref, plan:plan, tax_invoice:main.querySelector('[data-tax="'+ref+'"]').checked, tax_email:ST.host.email } }).then(function(){ M.toast('등록 기간을 신청했습니다. 운영팀이 결제 방법을 안내합니다.'); show('billing'); }).catch(oops); }); });
+      var list=ST.cur?r.spaces.filter(function(s){ return s.ref===ST.cur; }):r.spaces, PL={}; r.plans.forEach(function(p){ PL[p.id]=p; });
+      // 결제창에서 돌아왔을 때 이미 결제가 반영돼 있으면 바로 알립니다
+      if(PAYWAIT.ref && r.items.some(function(x){ return x.ref===PAYWAIT.ref && x.status==='paid'; })){ PAYWAIT.ref=''; PAYWAIT.note=''; M.toast('결제가 확인되었습니다. 등록 기간이 적용되었습니다.'); reload().catch(function(){}); }
+      var html=head('이용료', '결제 수수료 없이 등록 기간에 따른 월 정액만 냅니다. 금액은 공간 한 곳 기준이고 부가세는 별도입니다. 공간이 공개된 날부터 '+r.free_months+'개월은 무료입니다.')
+        +(PAYWAIT.ref?'<p class="pf-msg ok" role="status">결제 결과를 확인하고 있습니다. 잠시만 기다려 주세요.</p>':PAYWAIT.note?'<p class="pf-msg warn" role="status">'+esc(PAYWAIT.note)+'</p>':'');
+      html+=list.map(function(s){
+        var mine=r.items.filter(function(b){ return b.space===s.ref; }), pend=mine.filter(function(b){ return b.status==='requested'; })[0], act=mine.filter(function(b){ return b.active; }), can=s.status==='live'||s.status==='paused';
+        var h='<div class="hc-card"><h2><span>'+S.tierBadge(s.tier)+' '+esc(s.name)+' <span class="pf-st '+esc(s.status)+'">'+esc(s.status_label)+'</span></span><small>'+(s.listed_until?(s.visible?'공개 중 · ':'')+esc(S.kdate(s.listed_until))+'까지'+(s.days_left!=null&&s.days_left>=0?' (D-'+s.days_left+')':' · 기간 종료'):'등록 완료 후 시작')+'</small></h2>'
+          +'<dl class="hc-kv"><dt>무료 등록</dt><dd>'+(s.free_until?esc(S.kdate(s.free_until))+'까지':'공개되는 날부터 '+r.free_months+'개월')+'</dd><dt>유료 등록</dt><dd>'+(s.paid_until?esc(S.kdate(s.paid_until))+'까지'+(s.plan&&PL[s.plan]?' · '+PL[s.plan].months+'개월 등록':''):'아직 없음')+'</dd></dl>';
+        // 결제를 마친 등록 기간 — 중도 해지
+        h+=act.map(function(b){
+          var c=b.cancel&&b.cancel.status==='requested'?b.cancel:null;
+          return '<div class="hc-bill'+(c?' warn':'')+'"><div><b>'+b.months+'개월 등록</b> · '+esc(b.period_from)+' ~ '+esc(b.period_to)+' · '+esc(won(b.amount))+' <span class="small muted">('+esc(b.method_label)+')</span></div>'
+            +(c?'<p>'+esc(S.kdate(c.base))+'에 중도 해지를 신청했습니다. 환불 예정 금액은 <b>'+esc(won(c.calc.refund))+'</b>이고, 운영팀이 영업일 기준 7일 안에 처리합니다. 처리가 끝나면 유료 등록이 '+esc(S.kdate(c.base))+'까지로 줄어듭니다.</p><div class="row"><button class="btn btn-light btn-sm" type="button" data-uncancel="'+esc(b.ref)+'">해지 신청 철회</button></div>'
+              :'<div class="row"><button class="btn btn-ghost btn-sm" type="button" data-cancel="'+esc(b.ref)+'">중도 해지 신청</button></div>')+'</div>'; }).join('');
+        if(pend){
+          h+='<div class="hc-bill pay"><div><b>'+pend.months+'개월 등록</b> · '+feeLine(pend)+'</div>'
+            +(pend.method==='online'
+              ?'<p>'+(pend.pg_pending?'입금을 기다리고 있습니다. 입금이 확인되면 등록 기간이 자동으로 적용됩니다.':'결제를 마치면 '+esc(S.kdate(pend.period_from))+'부터 '+pend.months+'개월이 바로 적용됩니다.')+'</p><div class="row"><button class="btn btn-primary btn-sm" type="button" data-pay="'+esc(pend.ref)+'">'+(pend.pg_pending?'결제창 다시 열기':'결제하기')+'</button><button class="btn btn-light btn-sm" type="button" data-withdraw="'+esc(pend.ref)+'">신청 취소</button></div>'
+              :'<p>계좌이체로 신청했습니다. 운영팀이 입금 계좌를 안내해 드리고, 입금이 확인되면 '+esc(S.kdate(pend.period_from))+'부터 '+pend.months+'개월이 적용됩니다.'+(pend.tax_invoice?' 세금계산서도 함께 발행해 드립니다.':'')+'</p><div class="row">'+(r.online?'<button class="btn btn-primary btn-sm" type="button" data-pay="'+esc(pend.ref)+'">카드·간편결제로 바로 결제</button>':'')+'<button class="btn btn-light btn-sm" type="button" data-withdraw="'+esc(pend.ref)+'">신청 취소</button></div>')
+            +'</div>';
+        } else if(act.some(function(b){ return b.cancel&&b.cancel.status==='requested'; })){
+          h+='<p class="small muted mt-1">해지 신청을 처리하는 동안에는 새 등록 기간을 고를 수 없습니다. 계속 이용하려면 해지 신청을 철회해 주세요.</p>';
+        } else if(can){
+          h+=(act.length?'<p class="hc-sub">등록 기간 더 이어 가기</p>':'')+'<div class="hc-plan mt-2">'+r.plans.map(function(p, i){ return '<label class="ap-mode"><input type="radio" name="plan-'+esc(s.ref)+'" value="'+p.id+'"'+(i===0?' checked':'')+'><b>'+p.months+'개월 등록</b><small><span class="nowrap">하루 '+p.daily.toLocaleString('ko-KR')+'원</span> · <span class="nowrap">월 '+esc(S.man(p.monthly))+'</span><br>'+esc(won(p.supply))+' <span class="nowrap">(부가세 별도)</span></small></label>'; }).join('')+'</div>'
+            +'<p class="hc-sum mt-1" data-sum="'+esc(s.ref)+'" aria-live="polite"></p>'
+            +'<div class="row mt-1" role="radiogroup" aria-label="결제 방법">'+(r.online?'<label class="chk"><input type="radio" name="how-'+esc(s.ref)+'" value="online" checked><span>카드·간편결제 <span class="small muted">· 바로 적용</span></span></label>':'')
+            +'<label class="chk"><input type="radio" name="how-'+esc(s.ref)+'" value="bank"'+(r.online?'':' checked')+'><span>계좌이체 <span class="small muted">· 입금 확인 뒤 적용</span></span></label><label class="chk"><input type="checkbox" data-tax="'+esc(s.ref)+'"><span>세금계산서 발행 요청</span></label></div>'
+            +'<div class="row mt-1"><button class="btn btn-primary btn-sm" type="button" data-bill="'+esc(s.ref)+'">'+(r.online?'결제하기':'계좌이체로 신청')+'</button></div>'
+            +'<p class="pf-help mt-1">'+(r.online?'':'온라인 결제는 준비하고 있습니다. 지금은 계좌이체로 신청할 수 있습니다. ')+'등록 기간은 지금 기간이 끝난 다음 날부터 이어지고, 자동으로 연장되거나 다시 결제되지 않습니다.</p>';
+        } else h+='<p class="small muted mt-1">등록(공개)이 끝난 뒤에 등록 기간을 고를 수 있습니다.</p>';
+        return h+'</div>'; }).join('');
+      html+='<div class="hc-card"><h2>결제 내역</h2>'+(r.items.length?'<div class="hc-scroll"><table class="hc-table"><thead><tr><th>신청일</th><th>공간</th><th>등록 기간</th><th>적용 기간</th><th class="r">결제 금액</th><th>결제 방법</th><th>상태</th></tr></thead><tbody>'+r.items.map(function(b){ var s=space(b.space);
+          return '<tr><td>'+esc(String(b.created_at).slice(0,10))+'</td><td>'+esc(s?s.name:b.space)+'</td><td>'+b.months+'개월</td><td>'+esc(b.period_from)+' ~ '+esc(b.period_to)+'</td><td class="r">'+esc(won(b.amount))+'<small class="muted" style="display:block">부가세 '+esc(won(b.vat))+' 포함</small></td><td>'+esc(b.method_label)+'</td><td>'+S.st(b.status, b.status_label)+(b.refund_amount!=null?'<small class="muted" style="display:block">환불 '+esc(won(b.refund_amount))+'</small>':'')+'</td></tr>'; }).join('')+'</tbody></table></div>':'<p class="small muted">아직 내역이 없습니다.</p>')+'</div>'
+        +'<div class="hc-card"><h2>중도 해지와 환불</h2><ul class="hc-rule"><li>유료 등록 기간이 시작되기 전에 해지하면 결제한 금액을 모두 돌려드립니다.</li><li>유료 등록 기간이 시작된 뒤에 해지하면 남은 기간에 해당하는 금액(일할 계산)의 '+r.fee.refundRate+'%를 환불합니다.</li><li>해지를 신청한 날까지는 이용한 것으로 계산하고, 환불은 영업일 기준 7일 안에 결제한 수단으로 처리합니다.</li></ul><p class="pf-help">자세한 기준은 <a href="/terms/#host-fee" target="_blank" rel="noopener">이용약관 제7조의6</a>에 있습니다.</p></div>';
+      main.innerHTML=html;
+      // 고른 기간의 결제 금액과 적용 기간
+      list.forEach(function(s){ var out=main.querySelector('[data-sum="'+s.ref+'"]'); if(!out) return;
+        function sum(){ var p=PL[(main.querySelector('input[name="plan-'+s.ref+'"]:checked')||{}).value]; if(!p) return; var per=period(s, p.months);
+          out.innerHTML='결제 금액 <b>'+esc(won(p.total))+'</b> <span class="small muted">공급가액 '+esc(won(p.supply))+' + 부가세 '+esc(won(p.vat))+'</span> · 적용 기간 '+esc(per.from)+' ~ '+esc(per.to); }
+        main.querySelectorAll('input[name="plan-'+s.ref+'"]').forEach(function(el){ el.addEventListener('change', sum); }); sum();
+        main.querySelectorAll('input[name="how-'+s.ref+'"]').forEach(function(el){ el.addEventListener('change', function(){ var b=main.querySelector('[data-bill="'+s.ref+'"]'); if(b) b.textContent=el.value==='online'?'결제하기':'계좌이체로 신청'; }); }); });
+      main.querySelectorAll('[data-bill]').forEach(function(btn){ btn.addEventListener('click', function(){
+        var ref=btn.getAttribute('data-bill'), p=PL[(main.querySelector('input[name="plan-'+ref+'"]:checked')||{}).value], how=(main.querySelector('input[name="how-'+ref+'"]:checked')||{}).value||'bank'; if(!p) return;
+        if(how==='bank' && !confirm(p.months+'개월 등록('+won(p.total)+', 부가세 포함)을 계좌이체로 신청할까요?')) return;
+        btn.disabled=true;
+        api('/billing', { method:'POST', body:{ space:ref, plan:p.id, method:how, tax_invoice:main.querySelector('[data-tax="'+ref+'"]').checked, tax_email:ST.host.email } }).then(function(x){
+          if(how==='online'){ if(x.payurl && goPay(x.payurl)) return; M.toast(x.pay_error||'결제창을 열지 못했습니다. 아래 ‘결제하기’를 다시 눌러 주세요.'); }
+          else M.toast('계좌이체로 신청했습니다. 운영팀이 입금 계좌를 안내해 드립니다.');
+          show('billing'); }).catch(function(e){ btn.disabled=false; oops(e); }); }); });
+      main.querySelectorAll('[data-pay]').forEach(function(btn){ btn.addEventListener('click', function(){ btn.disabled=true;
+        api('/billing/'+encodeURIComponent(btn.getAttribute('data-pay'))+'/pay', { method:'POST' }).then(function(x){ if(!goPay(x.payurl)) btn.disabled=false; }).catch(function(e){ btn.disabled=false; oops(e); }); }); });
+      main.querySelectorAll('[data-withdraw]').forEach(function(btn){ btn.addEventListener('click', function(){ if(!confirm('이 신청을 취소할까요? 등록 기간을 다시 고를 수 있습니다.')) return;
+        api('/billing/'+encodeURIComponent(btn.getAttribute('data-withdraw'))+'/withdraw', { method:'POST' }).then(function(){ M.toast('신청을 취소했습니다.'); show('billing'); }).catch(oops); }); });
+      main.querySelectorAll('[data-uncancel]').forEach(function(btn){ btn.addEventListener('click', function(){ if(!confirm('중도 해지 신청을 철회할까요? 등록 기간이 그대로 유지됩니다.')) return;
+        api('/billing/'+encodeURIComponent(btn.getAttribute('data-uncancel'))+'/cancel-withdraw', { method:'POST' }).then(function(){ M.toast('해지 신청을 철회했습니다.'); show('billing'); }).catch(oops); }); });
+      main.querySelectorAll('[data-cancel]').forEach(function(btn){ btn.addEventListener('click', function(){ var b=r.items.filter(function(x){ return x.ref===btn.getAttribute('data-cancel'); })[0]; if(b) cancelBilling(b, r.fee); }); });
     }).catch(oops);
   };
+  // 중도 해지 신청 — 환불 금액을 먼저 보여 주고 동의를 받습니다
+  function cancelBilling(b, fee){
+    var c=b.refund_preview, s=space(b.space); if(!c) return;
+    var rows=c.started
+      ?'<tr><td>결제 금액<small>부가세 포함</small></td><td>'+esc(won(c.total))+'</td></tr><tr><td>등록 기간<small>'+esc(b.period_from)+' ~ '+esc(b.period_to)+'</small></td><td>'+c.days+'일</td></tr><tr><td>이용한 날<small>오늘 '+esc(S.kdate(c.base))+'까지</small></td><td>'+c.used+'일</td></tr><tr><td>남은 날</td><td>'+c.left+'일</td></tr><tr><td>잔여금액<small>결제 금액 × 남은 날 ÷ 등록 기간</small></td><td>'+esc(won(c.remain))+'</td></tr><tr class="sum"><td>환불 금액<small>잔여금액의 '+c.rate+'% · 10원 미만 버림</small></td><td>'+esc(won(c.refund))+'</td></tr>'
+      :'<tr><td>결제 금액<small>부가세 포함</small></td><td>'+esc(won(c.total))+'</td></tr><tr><td>등록 기간<small>'+esc(b.period_from)+' ~ '+esc(b.period_to)+' · 아직 시작 전</small></td><td>'+c.days+'일</td></tr><tr class="sum"><td>환불 금액<small>유료 기간 시작 전이라 전액</small></td><td>'+esc(won(c.refund))+'</td></tr>';
+    var body=drawer('등록 중도 해지 · '+esc(s?s.name:b.space), '<form class="hc-form" id="bc-form" novalidate><div class="hc-sec"><h3>환불 금액</h3><table class="hc-lines"><tbody>'+rows+'</tbody></table></div>'
+      +'<div class="hc-sec"><h3>확인해 주세요</h3><ul class="hc-rule"><li>해지를 신청하면 운영팀이 영업일 기준 7일 안에 환불을 처리합니다. 온라인 결제는 결제한 수단으로 취소되고, 계좌이체는 계좌를 확인한 뒤 보내 드립니다.</li><li>환불 처리가 끝나면 유료 등록이 오늘까지로 줄어듭니다. 무료 등록 기간이 남아 있지 않으면 공간이 검색에서 내려갑니다.</li><li>그 전에 확정한 예약은 그대로 진행해 주세요.</li></ul>'
+      +'<div class="f"><label for="bc-reason">해지 사유 (선택)</label><textarea class="textarea" id="bc-reason" rows="2" maxlength="300" placeholder="예: 공간 운영 종료, 리모델링"></textarea></div>'
+      +'<label class="chk"><input type="checkbox" id="bc-agree"><span>환불 기준을 확인했고, 위 금액으로 해지하는 데 동의합니다.</span></label><p class="pf-msg" id="bc-msg" hidden></p>'
+      +'<div class="row"><button class="btn btn-primary" type="submit">중도 해지 신청</button><button class="btn btn-light" type="button" data-close>닫기</button></div></div></form>');
+    body.querySelector('#bc-form').addEventListener('submit', function(e){ e.preventDefault(); var m=$('#bc-msg'); m.hidden=true;
+      if(!$('#bc-agree').checked){ m.textContent='환불 기준을 확인하고 동의해 주세요.'; m.hidden=false; return; }
+      api('/billing/'+encodeURIComponent(b.ref)+'/cancel', { method:'POST', body:{ agree:true, reason:$('#bc-reason').value } }).then(function(){ closeDrawer(); M.toast('중도 해지를 신청했습니다. 운영팀이 환불을 처리해 드립니다.'); show('billing'); }).catch(function(x){ m.textContent=(x&&x.message)||'신청하지 못했습니다.'; m.hidden=false; }); });
+  }
 
   /* ---------- 계정 ---------- */
   VIEWS.account=function(){
     var h=ST.host, st=h.settings||{};
-    main.innerHTML=head('계정', '담당자 정보와 새 문의 알림을 받을 연락처, 비밀번호를 관리합니다.')
+    main.innerHTML=head('계정', '담당자 정보와 알림을 받을 연락처, 비밀번호를 관리합니다.')
       +'<div class="hc-grid c2"><form class="hc-card hc-form" id="ac-form" novalidate><h2>담당자 정보</h2><div class="f"><label>로그인 이메일</label><input class="input" value="'+esc(h.email)+'" disabled></div>'
       +'<div class="field-row two"><div class="f"><label>담당자 이름 <span class="pf-req">*</span></label><input class="input" name="name" required maxlength="40" value="'+esc(h.name)+'"></div><div class="f"><label>휴대폰 <span class="pf-req">*</span></label><input class="input" name="phone" type="tel" required value="'+esc(h.phone)+'"></div></div>'
       +'<div class="field-row two"><div class="f"><label>상호</label><input class="input" name="company" maxlength="60" value="'+esc(h.company)+'"></div><div class="f"><label>사업자등록번호</label><input class="input" name="biz_no" maxlength="20" value="'+esc(h.biz_no)+'"></div></div>'
-      +'<h2 style="margin-top:6px">새 문의 알림 연락처</h2><div class="field-row two"><div class="f"><label>알림 받을 휴대폰</label><input class="input" name="notify_phone" type="tel" value="'+esc(st.notify_phone||h.phone)+'"></div><div class="f"><label>알림 받을 이메일</label><input class="input" name="notify_email" type="email" value="'+esc(st.notify_email||h.email)+'"></div></div>'
-      +'<p class="pf-help">새 문의와 입금 알림은 호스트센터 홈과 문의·예약 메뉴에 표시됩니다. 문자·이메일 자동 알림은 준비되는 대로 이 연락처로 보내 드립니다.</p><div><button class="btn btn-primary" type="submit">저장</button></div></form>'
+      +'<h2 style="margin-top:6px">알림 받을 연락처</h2><div class="field-row two"><div class="f"><label>알림 받을 휴대폰</label><input class="input" name="notify_phone" type="tel" value="'+esc(st.notify_phone||h.phone)+'"></div><div class="f"><label>알림 받을 이메일</label><input class="input" name="notify_email" type="email" value="'+esc(st.notify_email||h.email)+'"></div></div>'
+      +'<label class="chk"><input type="checkbox" name="notify_on"'+(st.notify_on===false?'':' checked')+'><span>새 문의·견적 수락·입금 알림·취소·심사 결과·이용료 안내를 문자로 받기</span></label>'
+      +'<p class="pf-help">알림은 위 휴대폰 번호로 문자(카카오 알림톡으로 바뀔 수 있습니다)가 갑니다. 문자에는 고객 이름과 연락처를 넣지 않으니, 내용은 호스트센터에서 확인해 주세요. 끄더라도 호스트센터 홈과 문의·예약 메뉴에는 그대로 표시됩니다.</p><div><button class="btn btn-primary" type="submit">저장</button></div></form>'
       +'<form class="hc-card hc-form" id="pw-form" novalidate><h2>비밀번호 바꾸기</h2><div class="f"><label>지금 비밀번호</label><input class="input" name="current" type="password" required autocomplete="current-password"></div><div class="f"><label>새 비밀번호 (8자 이상)</label><input class="input" name="next" type="password" required minlength="8" autocomplete="new-password"></div><p class="pf-msg" id="pw-msg" hidden></p><div><button class="btn btn-light" type="submit">비밀번호 바꾸기</button></div></form></div>';
     var f=$('#ac-form'); telFmt(f.elements.phone); telFmt(f.elements.notify_phone);
-    f.addEventListener('submit', function(e){ e.preventDefault(); if(!M.validate(f)) return; api('/me', { method:'PUT', body:{ name:v(f,'name'), phone:v(f,'phone'), company:v(f,'company'), biz_no:v(f,'biz_no'), settings:{ notify_phone:v(f,'notify_phone'), notify_email:v(f,'notify_email') } } }).then(function(){ M.toast('저장했습니다.'); return reload(); }).then(function(){ $('#hc-who').textContent=ST.host.name+' 님'; }).catch(oops); });
+    f.addEventListener('submit', function(e){ e.preventDefault(); if(!M.validate(f)) return; api('/me', { method:'PUT', body:{ name:v(f,'name'), phone:v(f,'phone'), company:v(f,'company'), biz_no:v(f,'biz_no'), settings:{ notify_phone:v(f,'notify_phone'), notify_email:v(f,'notify_email'), notify_on:f.elements.notify_on.checked } } }).then(function(){ M.toast('저장했습니다.'); return reload(); }).then(function(){ $('#hc-who').textContent=ST.host.name+' 님'; }).catch(oops); });
     var pf=$('#pw-form'); pf.addEventListener('submit', function(e){ e.preventDefault(); if(!M.validate(pf)) return; var m=$('#pw-msg'); m.hidden=true;
       api('/password', { method:'POST', body:{ current:pf.elements.current.value, next:pf.elements.next.value } }).then(function(){ pf.reset(); M.toast('비밀번호를 바꿨습니다.'); }).catch(function(x){ m.textContent=x.message; m.hidden=false; }); });
   };
@@ -451,6 +525,9 @@
   reload().then(function(){
     $('#hc-loading').hidden=true; $('#hc-app').hidden=false; $('#hc-who').textContent=ST.host.name+' 님';
     if(!ST.spaces.length){ main.innerHTML=empty('등록한 공간이 없습니다. 위 공간 선택에서 ‘+ 공간 추가’를 눌러 주세요.'); return addSpace(); }
+    // 결제창에서 돌아왔다면 이용료 화면에서 결제 확인을 기다립니다
+    var back=/^BL-\d{4}-[A-Z0-9]{4}$/.exec(new URLSearchParams(location.search).get('pay')||'');
+    if(back){ PAYWAIT.ref=back[0]; PAYWAIT.tries=0; history.replaceState(null,'',location.pathname+'#billing'); setTimeout(waitPay, 1200); }
     route();
   }).catch(function(e){ if(e && e.code==='HOST_LOGIN') return; $('#hc-loading').textContent=e&&e.code==='NO_API'?'서버에 연결하지 못했습니다. 잠시 후 다시 열어 주세요.':'호스트센터를 열지 못했습니다. 다시 로그인해 주세요.'; });
 })();

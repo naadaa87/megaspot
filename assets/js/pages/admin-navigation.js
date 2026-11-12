@@ -10,7 +10,7 @@
     {id:'event',label:'행사·부가서비스',items:[['catering','식음료 서비스'],['parking','주차권 관리']]},
     {id:'after',label:'정산·사후관리',items:[['revenue','매출 현황'],['deposit-refunds','보증금 환급'],['reviews','후기 관리']]},
     {id:'platform',label:'고객·플랫폼',items:[['members','회원'],['meetups','모임 관리'],['hosts','입점·광고 신청'],['listings','등록 공간'],['ads','배너 광고']]},
-    {id:'hostplat',label:'입점 플랫폼',items:[['hp-spaces','입점 심사·공간'],['hp-bookings','호스트 예약·문의'],['hp-addons','본사 부가서비스'],['hp-planning','행사 준비 요청'],['hp-billing','입점 이용료']]},
+    {id:'hostplat',label:'입점 플랫폼',items:[['hp-spaces','입점 심사·공간'],['hp-bookings','호스트 예약·문의'],['hp-addons','본사 부가서비스'],['hp-planning','행사 준비 요청'],['hp-billing','입점 이용료'],['hp-notices','호스트 알림 기록']]},
     {id:'settings',label:'운영 설정',items:[['prices-catering','공급가·판매가'],['guide-settings','알림톡·자동 발송'],['parking-settings','주차 판매·연결 설정']]}
   ];
   var owners={bookings:'resv',calendar:'resv','booking-new':'resv',reception:'catering',cocktail:'catering','deposit-notifications':'deposit-refunds','prices-reception':'prices-catering','prices-cocktail':'prices-catering','deposit-settings':'guide-settings'};

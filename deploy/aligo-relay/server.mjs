@@ -16,6 +16,7 @@ const FIELDS={
   'transaction/status':[],
   'transaction/customer/send':['receiver','msg'],
   'transaction/admin/send':['receiver','msg'],
+  'host/send':['receiver','msg'],
   'template/list':['tpl_code'],
   'history/detail':['mid','page','limit'],
   'sms/detail':['mid','page','page_size'],
@@ -54,7 +55,7 @@ export async function relayRequest(request,env,ledger,upstream=fetch){
   if(v.path==='transaction/status')return json({ready:true});
   const transactionCustomer=v.path==='transaction/customer/send',transactionAdmin=v.path==='transaction/admin/send';
   const transactionSMS=transactionCustomer||transactionAdmin;
-  const socialfactorySMS=v.path==='socialfactory-admin/send',adminSMS=v.path==='parking-admin/send'||socialfactorySMS,paidSMS=v.path==='parking-paid/send',arrivalSMS=v.path==='parking-arrival/send',customerSMS=paidSMS||arrivalSMS,directSMS=adminSMS||customerSMS||transactionSMS;
+  const socialfactorySMS=v.path==='socialfactory-admin/send',adminSMS=v.path==='parking-admin/send'||socialfactorySMS,paidSMS=v.path==='parking-paid/send',arrivalSMS=v.path==='parking-arrival/send',customerSMS=paidSMS||arrivalSMS,hostSMS=v.path==='host/send',directSMS=adminSMS||customerSMS||transactionSMS||hostSMS;
   const sending=directSMS||v.path==='alimtalk/send';
   const data=Object.fromEntries(FIELDS[v.path].filter(k=>v.data[k]!=null).map(k=>[k,String(v.data[k])]));
   if(['history/detail','sms/detail'].includes(v.path) && !/^\d{1,30}$/.test(data.mid || ''))return json({error:'Invalid message ID'},400);
@@ -74,6 +75,8 @@ export async function relayRequest(request,env,ledger,upstream=fetch){
     if(!validReceiver||!heading.test(data.msg||'')||!data.msg.endsWith(end)||data.msg.length>600)
       return json({error:'Invalid transaction notice'},400);
   }
+  // 입점 호스트 알림(새 문의·견적 수락·입금 알림·취소·심사 결과·이용료): 정해진 머리말로 시작하고 호스트센터 주소로 끝나는 문자만 보냅니다.
+  if(hostSMS && (!/^01[016789]\d{7,8}$/.test(data.receiver||'')||!(data.msg||'').startsWith('[메가스팟 호스트 알림]\n')||!/\nhttps:\/\/megaspot\.kr\/host\/center\/(?:#[A-Za-z0-9=-]{1,40})?$/.test(data.msg)||data.msg.length>600||/#\{/.test(data.msg)))return json({error:'Invalid host notice'},400);
   const fallback=PARKING_SMS.has(data.tpl_code)||CUSTOMER_FALLBACK_CODES.has(data.tpl_code)&&!!data.fmessage_1;
   if(sending){
     if(!directSMS && (!/^01[016789]\d{7,8}$/.test(data.receiver_1 || '') || !data.message_1 || data.message_1.length>1000 || !data.subject_1))return json({error:'Invalid recipient/message'},400);
@@ -83,7 +86,7 @@ export async function relayRequest(request,env,ledger,upstream=fetch){
     // Durable reservation survives process restarts and uncertain HTTP outcomes.
     if(!ledger.claim(v.request_id,hash))return json({error:'Delivery outcome requires review'},409);
     if(!fallback){delete data.fmessage_1;delete data.fsubject_1;}
-    Object.assign(data,directSMS?{sender:env.ALIGO_SENDER,msg_type:'LMS',title:transactionSMS?'메가스팟 거래 안내':socialfactorySMS?'소셜팩토리 주차권 관리자 알림':arrivalSMS?'메가스팟 주차 등록 요청 접수':customerSMS?'메가스팟 주차권 결제 완료':'메가스팟 주차권 관리자 알림',testmode_yn:'N'}:{sender:env.ALIGO_SENDER,failover:fallback?'Y':'N',testMode:'N'});
+    Object.assign(data,directSMS?{sender:env.ALIGO_SENDER,msg_type:'LMS',title:hostSMS?'메가스팟 호스트 알림':transactionSMS?'메가스팟 거래 안내':socialfactorySMS?'소셜팩토리 주차권 관리자 알림':arrivalSMS?'메가스팟 주차 등록 요청 접수':customerSMS?'메가스팟 주차권 결제 완료':'메가스팟 주차권 관리자 알림',testmode_yn:'N'}:{sender:env.ALIGO_SENDER,failover:fallback?'Y':'N',testMode:'N'});
   }
   const smsQuery=v.path==='sms/detail';
   const body=new URLSearchParams((smsQuery||directSMS)?{...data,key:env.ALIGO_API_KEY,user_id:env.ALIGO_USERID}:{...data,apikey:env.ALIGO_API_KEY,userid:env.ALIGO_USERID});

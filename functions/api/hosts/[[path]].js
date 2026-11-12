@@ -1,13 +1,14 @@
 // 호스트 API — 입점 신청(가입) · 로그인 · 호스트 센터(공간 정보·사진·일정·문의/예약·결제 기록·정산·통계·이용료)
 //   /api/hosts/signup · login · logout · me · password
 //   /api/hosts/spaces[/:ref[/submit|pause|resume|photos|blocks|calendar]]
-//   /api/hosts/bookings[/:code] · stats · settlement · billing
+//   /api/hosts/bookings[/:code] · stats · settlement · billing · billing/BL-…/(pay|withdraw|cancel|cancel-withdraw)
 // 로그인 쿠키 ms_host (HttpOnly). 모든 조회·변경은 로그인한 호스트의 공간·예약에만 닿습니다.
 import { json, err, hasDb, readJson, str, num, isDate, isEmail, now, later, kstToday, uniqueRef, log, clientIp, tooMany, hit, clearHits, hashPassword, verifyPassword, randomToken, sha256, getCookie, sameOrigin, withCookies } from '../_lib.js';
 import { safeJson, phoneOk } from '../_platform.js';
 import { PLATFORM, PLAN, SPACE_STATUS, BOOKING_STATUS, BILLING_STATUS, SPACE_REF, BOOKING_CODE, PHOTO_ID, MAX_PHOTOS, HOST_SESSION_DAYS, cleanSpace, tierOf, listedUntil, photoUrl, safeArr, hostCookies, getHost, publicHost,
   bookingToken, addMonths, addDays, STAT_FIELDS, TYPE_LABEL, REGION_LABEL } from '../_hostplat.js';
 import { createBooking, viewBooking, hostAction, addonsFor } from '../_hostbook.js';
+import { feeOf, periodFor, billView, payRequest, onlinePay, requestCancel, withdrawCancel } from '../_hostbilling.js';
 
 const NO_DB = () => err('데이터베이스가 연결되어 있지 않습니다.', 503, 'NO_DB');
 const LOGIN = () => err('호스트 로그인이 필요합니다.', 401, 'HOST_LOGIN');
@@ -258,24 +259,50 @@ export async function onRequest({ request, env, params }) {
       // 수수료 10% 플랫폼이었다면 냈을 금액 (비교용 · 메가스팟은 0원)
       return json({ ok: true, month, months: (months || []).map(x => x.m), rows, total: { count: rows.length, amount, paid: sum('paid'), due: sum('due'), fee: 0, fee_if_10pct: Math.round(amount / 10) }, by_method: byMethod });
     }
-    // ---------- 입점 이용료 ----------
+    // ---------- 입점 이용료 (공간 한 곳 기준 · 부가세 별도 · 온라인 결제 또는 계좌이체) ----------
     if (path === 'billing' && method === 'GET') {
       const { results: spaces } = await env.DB.prepare('SELECT * FROM host_spaces WHERE host_id = ? ORDER BY id').bind(host.id).all();
       const { results: bills } = await env.DB.prepare('SELECT * FROM host_billing WHERE host_id = ? ORDER BY id DESC LIMIT 100').bind(host.id).all();
-      return json({ ok: true, plans: PLATFORM.plans, free_months: PLATFORM.freeMonths, spaces: (spaces || []).map(r => spaceView(r)),
-        items: (bills || []).map(b => ({ ref: b.ref, space: b.space_ref, plan: b.plan, months: b.months, amount: b.amount, status: b.status, status_label: BILLING_STATUS[b.status] || b.status, period_from: b.period_from || '', period_to: b.period_to || '', created_at: b.created_at, paid_at: b.paid_at || '' })) });
+      const { results: pays } = await env.DB.prepare('SELECT p.* FROM host_billing_pay p JOIN host_billing b ON b.ref = p.ref WHERE b.host_id = ?').bind(host.id).all();
+      const pay = Object.fromEntries((pays || []).map(p => [p.ref, p]));
+      return json({ ok: true, plans: PLATFORM.plans.map(p => ({ ...p, ...feeOf(p) })), fee: PLATFORM.fee, free_months: PLATFORM.freeMonths, online: onlinePay(env), spaces: (spaces || []).map(r => spaceView(r)),
+        items: (bills || []).map(b => billView(b, pay[b.ref])) });
     }
     if (path === 'billing' && method === 'POST') {
-      const d = await readJson(request), row = await spaceOf(env, host, str(d.space, 20)), plan = PLAN[d.plan];
+      const d = await readJson(request), row = await spaceOf(env, host, str(d.space, 20)), plan = PLAN[d.plan], how = d.method === 'bank' ? 'bank' : 'online';
       if (!row) return err('공간을 골라 주세요.'); if (!plan) return err('등록 기간을 골라 주세요.');
-      if (!['live', 'paused'].includes(row.status)) return err('등록이 끝난(공개 중인) 공간만 이용료를 신청할 수 있습니다.');
-      if (await env.DB.prepare("SELECT 1 AS x FROM host_billing WHERE space_ref = ? AND status = 'requested'").bind(row.ref).first()) return err('이미 신청한 건이 있습니다. 운영팀 확인을 기다려 주세요.', 409, 'EXISTS');
-      const until = listedUntil(row), from = until && until >= kstToday() ? addDays(until, 1) : kstToday(), to = addDays(addMonths(from, plan.months), -1);
-      const ref = await uniqueRef(env, 'host_billing', 'ref', 'BL');
+      if (!['live', 'paused'].includes(row.status)) return err('등록이 끝난(공개 중인) 공간만 이용료를 결제할 수 있습니다.');
+      if (how === 'online' && !onlinePay(env)) return err('온라인 결제를 준비하고 있습니다. 계좌이체로 신청하거나 운영팀에 문의해 주세요.', 503, 'PAYMENT_UNAVAILABLE');
+      if (await env.DB.prepare("SELECT 1 AS x FROM host_billing WHERE space_ref = ? AND status = 'requested'").bind(row.ref).first()) return err('결제를 기다리는 신청이 이미 있습니다. 그 신청을 결제하거나 취소한 뒤 다시 골라 주세요.', 409, 'EXISTS');
+      if (await env.DB.prepare("SELECT 1 AS x FROM host_billing b JOIN host_billing_pay p ON p.ref = b.ref WHERE b.space_ref = ? AND b.status = 'paid' AND p.cancel_status = 'requested'").bind(row.ref).first())
+        return err('중도 해지 신청을 처리하고 있습니다. 계속 이용하려면 해지 신청을 철회한 뒤 등록 기간을 골라 주세요.', 409, 'CANCEL_PENDING');
+      const fee = feeOf(plan), per = periodFor(row, plan.months), ref = await uniqueRef(env, 'host_billing', 'ref', 'BL'), t = now();
       await env.DB.prepare('INSERT INTO host_billing (ref, host_id, space_ref, plan, months, amount, status, period_from, period_to, data, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
-        .bind(ref, host.id, row.ref, plan.id, plan.months, plan.monthly * plan.months, 'requested', from, to, JSON.stringify({ tax_invoice: !!d.tax_invoice, tax_email: isEmail(str(d.tax_email, 120)) ? str(d.tax_email, 120) : '', note: str(d.note, 300) }), now()).run();
-      await log(env, 'hostbilling.requested', ref, 'host', { space: row.ref, plan: plan.id });
-      return json({ ok: true, ref, amount: plan.monthly * plan.months, period_from: from, period_to: to });
+        .bind(ref, host.id, row.ref, plan.id, plan.months, fee.total, 'requested', per.from, per.to, JSON.stringify({ supply: fee.supply, vat: fee.vat, tax_invoice: !!d.tax_invoice, tax_email: isEmail(str(d.tax_email, 120)) ? str(d.tax_email, 120) : '', note: str(d.note, 300) }), t).run();
+      await env.DB.prepare('INSERT INTO host_billing_pay (ref, method, supply, vat, updated_at) VALUES (?,?,?,?,?)').bind(ref, how, fee.supply, fee.vat, t).run();
+      await log(env, 'hostbilling.requested', ref, 'host', { space: row.ref, plan: plan.id, method: how });
+      let payurl = '', pay_error = '';
+      if (how === 'online') { const bill = await env.DB.prepare('SELECT * FROM host_billing WHERE ref = ?').bind(ref).first(), r = await payRequest(env, url.origin, host, bill, row); if (r.ok) payurl = r.payurl; else pay_error = r.error; }
+      return json({ ok: true, ref, supply: fee.supply, vat: fee.vat, amount: fee.total, method: how, period_from: per.from, period_to: per.to, payurl, pay_error });
+    }
+    m = path.match(/^billing\/(BL-\d{4}-[A-Z0-9]{4})\/(pay|withdraw|cancel|cancel-withdraw)$/);
+    if (m && method === 'POST') {
+      const bill = await env.DB.prepare('SELECT * FROM host_billing WHERE ref = ? AND host_id = ?').bind(m[1], host.id).first(); if (!bill) return err('신청을 찾을 수 없습니다.', 404, 'NOT_FOUND');
+      if (m[2] === 'pay') {          // 결제창 열기 (다시 열기 포함)
+        const row = await spaceOf(env, host, bill.space_ref); if (!row) return err('공간을 찾을 수 없습니다.', 404, 'NOT_FOUND');
+        const r = await payRequest(env, url.origin, host, bill, row); if (!r.ok) return err(r.error, r.status || 400, r.code || 'ERR');
+        return json({ ok: true, payurl: r.payurl });
+      }
+      if (m[2] === 'withdraw') {     // 결제 전 신청 취소
+        const r = await env.DB.prepare("UPDATE host_billing SET status = 'cancelled' WHERE ref = ? AND status = 'requested'").bind(bill.ref).run();
+        if (!Number(r?.meta?.changes ?? r?.changes ?? 0)) return err('이미 처리한 신청입니다.', 409, 'DONE');
+        await env.DB.prepare('UPDATE host_billing_pay SET payurl = NULL, updated_at = ? WHERE ref = ?').bind(now(), bill.ref).run();
+        await log(env, 'hostbilling.withdrawn', bill.ref, 'host', {});
+        return json({ ok: true });
+      }
+      const r = m[2] === 'cancel' ? await requestCancel(env, bill, await readJson(request)) : await withdrawCancel(env, bill);   // 중도 해지 신청 · 철회
+      if (r.error) return err(r.error, r.code === 'EXISTS' ? 409 : 400, r.code || 'ERR');
+      return json(r);
     }
     return err('지원하지 않는 요청입니다.', 404, 'NOT_FOUND');
   } catch (e) {

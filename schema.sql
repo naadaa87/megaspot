@@ -951,7 +951,7 @@ CREATE TABLE IF NOT EXISTS host_billing (   -- 입점 이용료 신청·납부
   ref TEXT NOT NULL UNIQUE,                 -- BL-YYMM-XXXX
   host_id INTEGER NOT NULL, space_ref TEXT NOT NULL,
   plan TEXT NOT NULL, months INTEGER NOT NULL, amount INTEGER NOT NULL,
-  status TEXT NOT NULL DEFAULT 'requested', -- requested 신청 | paid 입금 확인 | cancelled 취소
+  status TEXT NOT NULL DEFAULT 'requested', -- requested 결제 대기 | paid 결제 완료 | refunded 해지·환불 | cancelled 취소 (amount = 부가세 포함 합계)
   period_from TEXT, period_to TEXT,
   data TEXT,                                -- 세금계산서 요청 등 JSON
   created_at TEXT NOT NULL, paid_at TEXT
@@ -979,3 +979,26 @@ BEGIN
  INSERT OR IGNORE INTO reservation_payment_checks(target_type,target_ref,status,version,updated_at)
  SELECT 'booking',NEW.booking_code,status,1,updated_at FROM reservation_payment_checks WHERE target_type='inquiry' AND target_ref=NEW.inquiry_ref;
 END;
+CREATE TABLE IF NOT EXISTS host_billing_pay (   -- 입점 이용료 결제(페이앱·계좌이체)와 중도 해지 환불 기록 — host_billing 한 줄에 한 줄
+  ref TEXT PRIMARY KEY,                     -- host_billing.ref
+  method TEXT NOT NULL DEFAULT 'online',    -- online 온라인 결제(페이앱) | bank 계좌이체
+  supply INTEGER, vat INTEGER,              -- 공급가액 · 부가세 (host_billing.amount = 합계)
+  nonce TEXT, reqs TEXT, payurl TEXT, requested_at TEXT,   -- 결제 요청 확인값 · 요청해 받은 거래번호 목록(JSON) · 결제창 주소 · 요청 시각
+  mul_no TEXT, pay_type TEXT, pg_state TEXT,               -- 결제된 거래번호 · 결제수단 · pending(입금 대기) | paid
+  pg_refunded INTEGER NOT NULL DEFAULT 0, refund_nos TEXT, -- 페이앱이 통보한 취소 합계 · 반영한 부분 취소 번호(JSON)
+  cancel_status TEXT,                       -- requested 해지 신청 | done 환불 완료 | withdrawn 신청 철회
+  cancel_base TEXT, cancel_calc TEXT, cancel_reason TEXT, cancel_requested_at TEXT,   -- 해지 기준일 · 환불 계산 내역(JSON)
+  refund_amount INTEGER, refunded_at TEXT, refund_memo TEXT,
+  alert TEXT,                               -- 운영팀 확인이 필요한 일 (중복 결제 등)
+  updated_at TEXT
+);
+CREATE TABLE IF NOT EXISTS host_notifications (   -- 호스트 문자 알림 (새 문의·견적 수락·입금 알림·취소·고객 메시지·심사 결과·이용료)
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  host_id INTEGER NOT NULL, kind TEXT NOT NULL, ref TEXT NOT NULL,
+  event_key TEXT NOT NULL UNIQUE,           -- 같은 일은 한 번만 보냅니다
+  receiver TEXT NOT NULL, msg TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'queued',    -- queued | sending | accepted 발송 | failed | unknown 확인 필요 | held 발송 꺼짐 | skipped 한도 초과
+  error TEXT, request_id TEXT, provider_mid TEXT,
+  created_at TEXT NOT NULL, updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_host_notifications_host ON host_notifications(host_id, created_at);

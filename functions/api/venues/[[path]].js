@@ -4,10 +4,11 @@
 //   POST /api/venues/estimate         POST /api/venues/request        POST /api/venues/track
 //   GET  /api/venues/booking?code=&k= (또는 &p=휴대폰 뒷 4자리)     POST /api/venues/booking
 import { json, err, hasDb, readJson, str, num, isDate, kstToday, clientIp, tooMany, hit, sameOrigin } from '../_lib.js';
-import { safeJson } from '../_platform.js';
+import { safeJson, timeOk } from '../_platform.js';
 import { tokenEq } from '../_confirm.js';
 import { PLATFORM, SPACE_REF, BOOKING_CODE, PHOTO_ID, TYPE_LABEL, REGION_LABEL, visibleSql, cardSpace, publicSpace, estimate, bump, bookingToken, bookingKeyOk, addDays } from '../_hostplat.js';
 import { createBooking, viewBooking, customerAction, addonsFor } from '../_hostbook.js';
+import { notifyHost } from '../_hostnotify.js';
 
 const NO_DB = () => err('데이터베이스가 연결되어 있지 않습니다.', 503, 'NO_DB');
 const COVER = '(SELECT p.pid FROM host_photos p WHERE p.space_ref = s.ref ORDER BY p.sort, p.id LIMIT 1) AS cover';
@@ -86,6 +87,8 @@ export async function onRequest(context) {
       if (date && (await env.DB.prepare('SELECT 1 AS x FROM host_blocks WHERE space_ref = ? AND day = ?').bind(row.ref, date).first())) return err('호스트가 예약을 받지 않는 날짜입니다. 다른 날짜를 골라 주세요.', 409, 'CLOSED');
       const r = await createBooking(env, row, d, { source: 'web' }); if (r.error) return err(r.error);
       await hit(env, key, 10);
+      // 호스트에게 문자로 알립니다 (실패해도 접수에는 영향이 없습니다)
+      await later(notifyHost(env, row.host_id, 'inquiry', { space: row.name, code: r.code, date, start: timeOk(d.start), end: timeOk(d.end), people: num(d.people) > 0 ? num(d.people) : null }));
       return json({ ok: true, code: r.code, k: await bookingToken(env, r.code), addons: r.addons });
     }
     // ---------- 조회·연락·SNS·찜 집계 ----------
@@ -102,6 +105,14 @@ export async function onRequest(context) {
       if (method === 'POST') { const r = await customerAction(env, c.row, d); if (r.error) return err(r.error); }
       const row = await env.DB.prepare('SELECT * FROM host_bookings WHERE code = ?').bind(c.row.code).first();
       const space = await env.DB.prepare(`SELECT s.*, ${COVER} FROM host_spaces s WHERE s.ref = ?`).bind(row.space_ref).first();
+      if (method === 'POST') {   // 고객이 한 일을 호스트에게 문자로 알립니다
+        const a = str(d.action, 20), v = { space: space.name, code: row.code, date: row.event_date, start: row.start_time, end: row.end_time, people: row.people };
+        const quoteNo = (safeJson(row.data).quote || {}).no || 1;
+        if (a === 'accept') await later(notifyHost(env, row.host_id, 'accepted', v, 'q' + quoteNo));
+        else if (a === 'paid_notice') await later(notifyHost(env, row.host_id, 'paid_notice', v, kstToday()));
+        else if (a === 'cancel') await later(notifyHost(env, row.host_id, 'cancel', { ...v, requested: c.row.status === 'confirmed' }, c.row.status === 'confirmed' ? 'request' : ''));
+        else if (a === 'message') await later(notifyHost(env, row.host_id, 'message', v));
+      }
       const sd = safeJson(space.data), contact = sd.contact || {};
       return json({ ok: true, booking: viewBooking(row, 'customer', space), k: await bookingToken(env, row.code),
         space: { ...cardSpace(space, space.cover), address_full: [space.address, sd.address_detail].filter(Boolean).join(' '), hours: sd.hours || '', refund: sd.refund || {}, rules: sd.rules || {}, parking: sd.parking || {}, facilities: sd.facilities || [],
