@@ -1,0 +1,22 @@
+#rs-payment-filter{min-width:0;flex:0 1 190px}
+#view-resv .rs-payment-status{width:100%;min-width:0;min-height:38px;height:auto;padding:7px 22px 7px 8px;font-size:12.5px;font-weight:700;line-height:1.4;box-sizing:border-box;border-radius:6px}
+#view-resv .rs-payment-status[data-payment-status="unpaid"]{background-color:#fff4e5;border-color:#e5c59b;color:#80450d}
+#view-resv .rs-payment-status[data-payment-status="reservation_paid"]{background-color:#eef2ff;border-color:#bfcbeb;color:#2442a3}
+#view-resv .rs-payment-status:is([data-payment-status="balance_paid"],[data-payment-status="fully_paid"]){background-color:#eaf6ee;border-color:#b9dcc5;color:#1d6541}
+#view-resv .rs-payment-status:disabled{opacity:.65}
+@media(min-width:1101px){
+ #view-resv .rs-table th:nth-child(1){width:5%}#view-resv .rs-table th:nth-child(2){width:9%}#view-resv .rs-table th:nth-child(3){width:12%}#view-resv .rs-table th:nth-child(4){width:6%}#view-resv .rs-table th:nth-child(5){width:5%}#view-resv .rs-table th:nth-child(6){width:9%}#view-resv .rs-table th:nth-child(7){width:16%}#view-resv .rs-table th:nth-child(8){width:8%}#view-resv .rs-table th:nth-child(9){width:8%}#view-resv .rs-table th:nth-child(10){width:14%}#view-resv .rs-table th:nth-child(11){width:8%}
+}
+@media(max-width:1100px){
+ #view-resv .rs-table thead{display:none}
+ #view-resv .rs-table,#view-resv .rs-table tbody,#view-resv .rs-table tr,#view-resv .rs-table td{display:block;width:100%;box-sizing:border-box}
+ #view-resv .rs-row{padding:14px;border-bottom:1px solid var(--concrete-2)}
+ #view-resv .rs-row td{border:0;padding:2px 0;background:none!important;text-align:left}
+ #view-resv .rs-row td[data-th]::before{content:attr(data-th);display:inline-block;width:52px;font-size:11.5px;color:var(--ink-3);font-weight:700}
+ #view-resv .rs-row td.rs-payment-cell{display:flex;gap:8px;align-items:center;margin:6px 0}
+ #view-resv .rs-row td.rs-payment-cell::before{flex:0 0 52px}
+ #view-resv .rs-payment-status{min-height:44px;flex:1;font-size:14px}
+ #view-resv .rs-operation-memo{display:flex!important;gap:8px}#view-resv .rs-operation-memo::before{flex:0 0 52px}
+}
+@media(max-width:600px){#rs-payment-filter{flex-basis:100%;width:100%}}
+@media print{.rs-payment-help{display:none}.rs-payment-status{appearance:none;border:0!important;background:none!important;padding:0!important;color:inherit!important}}

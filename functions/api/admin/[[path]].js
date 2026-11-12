@@ -1,3 +1,4 @@
+import {reservationPaymentAdmin,paymentChecksFor} from '../_reservation_payment_checks.js';
 import {cleanPhone2,bookingPhone2Sql,saveBookingPhone2,contactsAdmin} from '../_contacts.js';
 import {rankedWaitsSql,waitList,waitSummary} from '../_reservation_waitlist.js';
 import {bookingHourSql,confirmedOccupancyFreeSql} from '../_booking_availability.js';
@@ -828,6 +829,8 @@ export async function onRequest({ request, env, params, waitUntil }) {
         amount: p.effective_amount, deposit_paid: p.deposit_paid, amount_src: p.amount_override ? 'adjusted' : (p.quote_total != null ? 'quote' : (p.inq_total != null ? 'estimate' : '')), catering: orderBrief(p.cat_ord), catering_req: p.cat_req || '' });
       const guides=await guideSummary(env,items.filter(x=>x.kind==='booking').map(x=>x.code));
       for(const item of items) if(item.kind==='booking') item.guide_status=guides[item.code] || '';
+      const paymentChecks=await paymentChecksFor(env,items,await settlementsFor(env,items.filter(x=>x.kind==='booking').map(x=>x.code)));
+      for(const item of items)Object.assign(item,paymentChecks[(item.kind==='booking'?'booking:'+item.code:'inquiry:'+item.ref)]);
       items.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : ((a.start_h ?? 99) - (b.start_h ?? 99)));
       const und = await env.DB.prepare("SELECT COUNT(*) AS n FROM inquiries WHERE status IN ('문의 접수', '조건 확인', '견적 발송', '결제 대기') AND (event_date IS NULL OR event_date = '')").first();
       // 같은 기간의 현장답사 (날짜 머리에 '현장답사 n건'으로 표시)
@@ -896,6 +899,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
       }
       return err('지원하지 않는 요청입니다.', 405, 'METHOD');
     }
+    const paymentCheckResult=await reservationPaymentAdmin({env,request,path,method});if(paymentCheckResult)return paymentCheckResult;
     const contactResult=await contactsAdmin({env,request,path,method});if(contactResult)return contactResult;
     const mBk = path.match(/^bookings\/([A-Z0-9-]+)$/);
     if (mBk && method === 'PATCH') {
