@@ -38,8 +38,7 @@ export const JOURNEY_TEMPLATES={
 
 아래 '입실 및 이용 안내'에서 오시는 길·출입 방법·장비 사용법과 퇴실 체크리스트를 확인해 주세요.
 주차권은 '주차권 구매'에서 확인해 주세요.
-준비와 정리 시간도 예약하신 이용 시간에 포함됩니다.
-`}
+준비와 정리 시간도 예약하신 이용 시간에 포함됩니다.`}
 };
 
 // Only the private reservation button is personalized; public service links stay intact.
