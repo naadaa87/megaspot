@@ -44,7 +44,7 @@ test('receipt reductions require explicit correction or completed refund, and hi
 });
 test('concurrent payment changes stop receipt entry until latest amount is reviewed',async t=>{
  const f=await setup(t);f.paid(200000);const before=(await f.settlement()).settlement;await f.api('bookings/BK-TEST/settlement','POST',{kind:'receipt',amount:100000,note:'다른 관리자 입금 기록',request_id:crypto.randomUUID(),expected_revision:before.revision});
- await assert.rejects(f.c.cdSave(true),/최신 내용을 반영/);assert.equal(f.c.cdSettings().paid,100000);assert.equal((await f.settlement()).entries.length,1);assert.equal((await f.api('bookings/BK-TEST/confirm-doc')).doc,null);
+ await assert.rejects(f.c.cdSave(true),/최신 내용을 반영/);assert.equal(f.c.cdSettings().paid,100000);assert.equal((await f.settlement()).entries.length,1);assert.equal((await f.api('bookings/BK-TEST/confirm-doc')).doc.paid,100000);
 });
 test('pending schedule review blocks receipt changes before confirmation issuance',async t=>{
  const f=await setup(t);f.db.prepare("UPDATE bookings SET status='payment_review' WHERE booking_code='BK-TEST'").run();f.c.CDS=await f.api('bookings/BK-TEST/confirm-doc');f.paid(200000);await assert.rejects(f.c.cdSave(true),/일정 검토 후/);assert.equal((await f.settlement()).entries.length,0);

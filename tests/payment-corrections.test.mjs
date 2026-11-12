@@ -12,7 +12,7 @@ async function latest(f,id){return(await read(f)).entries.find(e=>e.id===id);}
 async function issue(f){const r=await f.api('bookings/BK-TEST/confirm-doc');return f.api('bookings/BK-TEST/confirm-doc','PUT',{doc:{amount:r.booking.amount},settlement_revision:r.settlement.revision,reception_revision:r.inquiry.reception_revision});}
 
 test('입금 금액·메모 정정은 원본 보존, 잔금·환불 필요액·문의·예약·문서에 반영',async t=>{
- const f=setup(t),e=await add(f,'receipt',800000);await issue(f);const r=await edit(f,e,{amount:200000,note:'실제 입금은 20만원'});assert.equal(r.settlement.net,200000);assert.equal(r.settlement.balance,300000);assert.equal(r.settlement.refund_due,0);assert.equal((await f.api('bookings/BK-TEST/confirm-doc')).doc,null);
+ const f=setup(t),e=await add(f,'receipt',800000);await issue(f);const r=await edit(f,e,{amount:200000,note:'실제 입금은 20만원'});assert.equal(r.settlement.net,200000);assert.equal(r.settlement.balance,300000);assert.equal(r.settlement.refund_due,0);assert.equal((await f.api('bookings/BK-TEST/confirm-doc')).doc.paid,(await read(f)).settlement.net);
  const it=(await f.api('inquiries/MS-TEST')).bookings[0];assert.equal(it.settlement.net,200000);assert.equal((await f.api('bookings')).items[0].settlement.balance,300000);
  const original=f.db.prepare('SELECT * FROM booking_payment_entries WHERE id=?').get(e.id);assert.equal(original.amount,800000);assert.equal(original.note,'원본');const current=await latest(f,e.id);assert.equal(current.amount,200000);assert.equal(current.original_amount,800000);assert.equal(current.note,'실제 입금은 20만원');assert.equal((await read(f)).history[0].reason,'금액 오입력 정정');const doc=(await issue(f)).doc;assert.equal(doc.paid,200000);assert.equal(doc.settlement.balance,300000);
 });
@@ -28,8 +28,8 @@ test('입금과 환불을 잘못 선택한 기록도 종류를 정정할 수 있
 test('정정 후 환불액이 수납보다 많으면 음수 실수납을 표시하고 정산 확인 대상으로 처리',async t=>{
  const f=setup(t),receipt=await add(f,'receipt',800000);await add(f,'refund',600000);await edit(f,receipt,{amount:500000});const s=(await read(f)).settlement;assert.equal(s.net,-100000);assert.equal(s.over_refunded,100000);assert.equal(s.status,'payment_review');assert.equal(s.balance,null);assert.equal(s.refund_due,null);assert(S.rows(s).some(r=>r[0]==='정산 확인'));const doc=(await issue(f)).doc;assert.equal(doc.pay_status,'payment_review');assert.equal(doc.settlement.net,-100000);
 });
-test('금액이 같은 메모 정정도 발급본 무효화·오래 열린 화면의 저장 차단',async t=>{
- const f=setup(t),e=await add(f,'receipt',200000),before=await f.api('bookings/BK-TEST/confirm-doc');await issue(f);await edit(f,e,{note:'입금자 이름 정정'});assert.equal((await read(f)).settlement.net,200000);assert.notEqual((await read(f)).settlement.revision,before.settlement.revision);await f.api('bookings/BK-TEST/confirm-doc','PUT',{doc:{amount:500000},settlement_revision:before.settlement.revision},409);assert.equal((await f.api('bookings/BK-TEST/confirm-doc')).doc,null);await edit(f,e,{amount:300000},409);
+test('금액이 같은 메모 정정도 확정서를 갱신하고 오래 열린 화면의 저장을 차단',async t=>{
+ const f=setup(t),e=await add(f,'receipt',200000),before=await f.api('bookings/BK-TEST/confirm-doc');await issue(f);await edit(f,e,{note:'입금자 이름 정정'});assert.equal((await read(f)).settlement.net,200000);assert.notEqual((await read(f)).settlement.revision,before.settlement.revision);await f.api('bookings/BK-TEST/confirm-doc','PUT',{doc:{amount:500000},settlement_revision:before.settlement.revision},409);assert.equal((await f.api('bookings/BK-TEST/confirm-doc')).doc.paid,(await read(f)).settlement.net);await edit(f,e,{amount:300000},409);
 });
 test('금액을 바꿨다가 원래 값으로 되돌려도 이전 정산 버전을 다시 사용할 수 없음',async t=>{
  const f=setup(t),e=await add(f,'receipt',200000),before=(await read(f)).settlement;await edit(f,e,{amount:300000});await edit(f,await latest(f,e.id),{amount:200000});const s=(await read(f)).settlement;assert.equal(s.net,before.net);assert.notEqual(s.revision,before.revision);await edit(f,await latest(f,e.id),{expected_revision:before.revision,amount:400000},409);
