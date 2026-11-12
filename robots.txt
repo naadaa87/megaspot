@@ -7,23 +7,41 @@ Disallow: /api/
 Disallow: /mypage/
 Disallow: /order/
 Disallow: /meetups/manage/
+Disallow: /host/center/
+Disallow: /spaces/booking/
+Disallow: /planning/status/
+Disallow: /docs/
+Allow: /api/venues/photo/
 
 User-agent: Yeti
 Allow: /
 Disallow: /admin/
 Disallow: /deposit/
 Disallow: /booking/
+Disallow: /host/center/
+Disallow: /spaces/booking/
+Disallow: /planning/status/
+Disallow: /docs/
 
 User-agent: Googlebot
 Allow: /
 Disallow: /admin/
 Disallow: /deposit/
 Disallow: /booking/
+Disallow: /host/center/
+Disallow: /spaces/booking/
+Disallow: /planning/status/
+Disallow: /docs/
 
 User-agent: Daum
 Allow: /
 Disallow: /admin/
 Disallow: /deposit/
 Disallow: /booking/
+Disallow: /host/center/
+Disallow: /spaces/booking/
+Disallow: /planning/status/
+Disallow: /docs/
 
 Sitemap: https://megaspot.kr/sitemap.xml
+Sitemap: https://megaspot.kr/spaces/sitemap.xml

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>호스트센터 | 메가스팟</title>
+<meta name="description" content="메가스팟 호스트센터 — 문의·예약·결제 기록·정산·통계·공간 정보 관리.">
+<meta name="author" content="메가스팟 MEGASPOT">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#F1EFEB">
+<link rel="canonical" href="https://megaspot.kr/host/center/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="메가스팟 MEGASPOT">
+<meta property="og:locale" content="ko_KR">
+<meta property="og:title" content="호스트센터 | 메가스팟">
+<meta property="og:description" content="메가스팟 호스트센터 — 문의·예약·결제 기록·정산·통계·공간 정보 관리.">
+<meta property="og:url" content="https://megaspot.kr/host/center/">
+<meta property="og:image" content="https://megaspot.kr/assets/img/brand/og-megaspot.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="호스트센터 | 메가스팟">
+<meta name="twitter:description" content="메가스팟 호스트센터 — 문의·예약·결제 기록·정산·통계·공간 정보 관리.">
+<link rel="icon" href="/assets/img/brand/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/assets/img/brand/apple-touch-icon.png">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Black+Han+Sans&display=swap">
+<link rel="stylesheet" href="/assets/css/site.css?v=1f18930e1614">
+<link rel="stylesheet" href="/assets/css/platform.css?v=20261112platform1">
+</head>
+<body class="page-hostcenter pf-noquick">
+<a class="skip-link" href="#hc-main">본문으로 바로가기</a>
+<div class="hc-app" id="hc-app" hidden>
+  <header class="hc-top">
+    <a class="logo" href="/host/center/" aria-label="호스트센터 홈"><span class="en">MEGA<b>SPOT</b></span><span class="hc-badge">호스트센터</span></a>
+    <div class="hc-top-mid"><label class="sr-only" for="hc-space">공간 선택</label><select class="select" id="hc-space"></select></div>
+    <div class="hc-top-end"><a class="btn btn-light btn-sm" id="hc-public" href="/spaces/" target="_blank" rel="noopener" hidden>내 공간 페이지 ↗</a><span class="hc-who" id="hc-who"></span><button class="btn btn-ghost btn-sm" type="button" id="hc-logout">로그아웃</button></div>
+  </header>
+  <nav class="hc-nav" id="hc-nav" aria-label="호스트센터 메뉴">
+    <a href="#home" data-tab="home">홈</a>
+    <a href="#bookings" data-tab="bookings">문의·예약<em id="hc-n-new" hidden></em></a>
+    <a href="#calendar" data-tab="calendar">일정</a>
+    <a href="#space" data-tab="space">공간 정보</a>
+    <a href="#stats" data-tab="stats">통계</a>
+    <a href="#settlement" data-tab="settlement">정산</a>
+    <a href="#billing" data-tab="billing">이용료</a>
+    <a href="#account" data-tab="account">계정</a>
+  </nav>
+  <main class="hc-main" id="hc-main" tabindex="-1"></main>
+  <footer class="hc-foot"><span>메가스팟 호스트센터 · 문의 <a href="tel:01023849580" data-phone>010-2384-9580</a> · <a href="https://pf.kakao.com/_LnxbmX/chat" target="_blank" rel="noopener" data-kakao>카카오톡</a></span><span><a href="/host/">입점 안내·이용료</a> · <a href="/terms/#host">호스트 이용약관</a> · <a href="/">메가스팟 홈</a></span></footer>
+</div>
+<div class="hc-loading" id="hc-loading">호스트센터를 여는 중…</div>
+<div class="hc-drawer" id="hc-drawer" hidden>
+  <div class="hc-drawer-bg" data-close></div>
+  <div class="hc-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="hc-d-title">
+    <div class="hc-drawer-head"><h2 id="hc-d-title"></h2><button class="btn btn-light btn-sm" type="button" data-close>닫기 ✕</button></div>
+    <div class="hc-drawer-body" id="hc-d-body"></div>
+  </div>
+</div>
+<script src="/assets/js/site.js?v=20261112platform1"></script>
+<script src="/assets/js/data/platform.js?v=20261112platform1"></script>
+<script src="/assets/js/platform-ui.js?v=20261112platform1"></script>
+<script src="/assets/js/pages/host-center.js?v=20261112platform1"></script>
+</body>
+</html>

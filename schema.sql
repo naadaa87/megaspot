@@ -845,3 +845,115 @@ BEGIN
    (o.product_id='parking-batch' AND (SELECT SUM(amount) FROM payapp_refunds WHERE oid=NEW.oid)<o.price)
  );
 END;
+
+-- ===== 입점 호스트 플랫폼 (2026-11-12) — 호스트 계정 · 입점 공간 · 사진 · 예약 · 본사 부가서비스 · 행사 지원 · 통계 · 이용료 =====
+CREATE TABLE IF NOT EXISTS hosts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  code TEXT NOT NULL UNIQUE,                -- 호스트 번호 H-YYMM-XXXX
+  email TEXT NOT NULL UNIQUE,               -- 로그인 이메일 (소문자)
+  pw_hash TEXT NOT NULL,                    -- PBKDF2 (원문 저장 안 함)
+  name TEXT NOT NULL,                       -- 담당자 이름
+  phone TEXT NOT NULL,
+  company TEXT, biz_no TEXT,                -- 상호 · 사업자등록번호 (선택)
+  status TEXT NOT NULL DEFAULT 'active',    -- active | blocked | left
+  settings TEXT NOT NULL DEFAULT '{}',      -- 알림 받을 연락처 등 JSON
+  memo TEXT,                                -- 본사 메모
+  created_at TEXT NOT NULL, updated_at TEXT, last_login_at TEXT
+);
+CREATE TABLE IF NOT EXISTS host_sessions (
+  token_hash TEXT PRIMARY KEY, host_id INTEGER NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_host_sessions_host ON host_sessions(host_id);
+CREATE TABLE IF NOT EXISTS host_spaces (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ref TEXT NOT NULL UNIQUE,                 -- 공간 번호 SP-YYMM-XXXX
+  host_id INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'draft',     -- draft 작성 중 | review 심사 대기 | fix 보완 요청 | live 공개 중 | paused 일시 중지(호스트) | hidden 숨김(본사) | rejected 반려
+  name TEXT NOT NULL,
+  region TEXT NOT NULL,                     -- seoul | incheon | gyeonggi | etc
+  address TEXT,
+  capacity INTEGER, area INTEGER,           -- 최대 인원 · 면적(평)
+  tier TEXT,                                -- mega 초대형(100명·100평 이상) | large 대형(50명·50평 이상)
+  types TEXT,                               -- 공간 유형 JSON 배열 (최대 5)
+  price_from INTEGER,                       -- 목록에 보여 줄 최저 금액 (없으면 견적 문의)
+  data TEXT NOT NULL,                       -- 소개·요금·옵션·시설·규정·연락 채널·결제 방법·사업자 정보 JSON
+  free_until TEXT, paid_until TEXT,         -- 무료 등록 종료일 · 이용료 납부 종료일 (둘 중 늦은 날까지 공개)
+  plan TEXT,                                -- 마지막으로 적용한 이용료 플랜
+  boost INTEGER NOT NULL DEFAULT 0,         -- 목록 순서 가중치 (본사 설정)
+  review_note TEXT, memo TEXT,              -- 호스트에게 보이는 심사 메모 · 본사 내부 메모
+  submitted_at TEXT, approved_at TEXT, created_at TEXT NOT NULL, updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_host_spaces_host ON host_spaces(host_id);
+CREATE INDEX IF NOT EXISTS idx_host_spaces_live ON host_spaces(status, region);
+CREATE TABLE IF NOT EXISTS host_photos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  pid TEXT NOT NULL UNIQUE,                 -- 사진 주소에 쓰는 무작위 값
+  space_ref TEXT NOT NULL, host_id INTEGER NOT NULL,
+  sort INTEGER NOT NULL DEFAULT 0,
+  mime TEXT NOT NULL, bytes INTEGER, w INTEGER, h INTEGER,
+  body TEXT NOT NULL,                       -- 본문 (base64 · 브라우저에서 줄여서 올림)
+  thumb TEXT,                               -- 목록용 작은 사진 (base64)
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_host_photos_space ON host_photos(space_ref, sort);
+CREATE TABLE IF NOT EXISTS host_blocks (    -- 호스트가 닫아 둔 날짜
+  space_ref TEXT NOT NULL, day TEXT NOT NULL, note TEXT, created_at TEXT NOT NULL,
+  PRIMARY KEY (space_ref, day)
+);
+CREATE TABLE IF NOT EXISTS host_bookings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  code TEXT NOT NULL UNIQUE,                -- 예약번호 HB-YYMM-XXXX
+  space_ref TEXT NOT NULL, host_id INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'new',       -- new 새 문의 | quoted 견적 안내 | pending 예약 대기 | confirmed 예약 확정 | done 이용 완료 | cancelled 취소 | declined 진행 불가
+  source TEXT NOT NULL DEFAULT 'web',       -- web 홈페이지 | host 호스트가 직접 등록 (전화·카톡·현장 예약)
+  name TEXT NOT NULL, phone TEXT NOT NULL, phone_last4 TEXT, email TEXT,
+  event_date TEXT, start_time TEXT, end_time TEXT, people INTEGER,
+  amount INTEGER,                           -- 견적·확정 금액
+  paid INTEGER NOT NULL DEFAULT 0,          -- 호스트가 기록한 받은 금액 합계
+  data TEXT NOT NULL,                       -- 요청 내용·예상 금액·견적·결제 기록·주고받은 메시지 JSON
+  created_at TEXT NOT NULL, updated_at TEXT, confirmed_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_host_bookings_host ON host_bookings(host_id, status);
+CREATE INDEX IF NOT EXISTS idx_host_bookings_space ON host_bookings(space_ref, event_date);
+CREATE TABLE IF NOT EXISTS hq_addons (      -- 본사 부가서비스 요청 (입점 공간 예약·행사 지원에서 들어옴)
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ref TEXT NOT NULL UNIQUE,                 -- AO-YYMM-XXXX
+  booking_code TEXT, planning_ref TEXT, space_ref TEXT,
+  service TEXT NOT NULL,                    -- buffet | catering | cocktail | mc | manager | design
+  status TEXT NOT NULL DEFAULT 'new',       -- new 접수 | talking 안내 중 | confirmed 확정 | done 완료 | cancelled 취소
+  amount INTEGER,
+  data TEXT NOT NULL,                       -- 고객·일정·요청 메모 JSON
+  memo TEXT,
+  created_at TEXT NOT NULL, updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_hq_addons_status ON hq_addons(status, created_at);
+CREATE INDEX IF NOT EXISTS idx_hq_addons_booking ON hq_addons(booking_code);
+CREATE TABLE IF NOT EXISTS planning_requests (  -- 행사 지원 요청 (메가스팟에 맡겨 주세요)
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ref TEXT NOT NULL UNIQUE,                 -- PL-YYMM-XXXX
+  status TEXT NOT NULL DEFAULT 'new',       -- new 접수 | planning 기획 중 | proposed 제안 발송 | won 진행 확정 | done 완료 | closed 종료
+  name TEXT NOT NULL, phone TEXT NOT NULL, phone_last4 TEXT, email TEXT,
+  event_date TEXT, people INTEGER, budget_pp INTEGER, region TEXT,
+  data TEXT NOT NULL,                       -- 행사 종류·필요한 항목·요청 내용 JSON
+  proposal TEXT,                            -- 본사 제안 요약 JSON (고객 조회 화면에 표시)
+  memo TEXT,
+  created_at TEXT NOT NULL, updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_planning_status ON planning_requests(status, created_at);
+CREATE TABLE IF NOT EXISTS host_stats (     -- 공간별·날짜별 노출·조회·연락·문의 수
+  space_ref TEXT NOT NULL, day TEXT NOT NULL,
+  imp INTEGER NOT NULL DEFAULT 0, view INTEGER NOT NULL DEFAULT 0, contact INTEGER NOT NULL DEFAULT 0,
+  sns INTEGER NOT NULL DEFAULT 0, fav INTEGER NOT NULL DEFAULT 0, inquiry INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (space_ref, day)
+);
+CREATE TABLE IF NOT EXISTS host_billing (   -- 입점 이용료 신청·납부
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ref TEXT NOT NULL UNIQUE,                 -- BL-YYMM-XXXX
+  host_id INTEGER NOT NULL, space_ref TEXT NOT NULL,
+  plan TEXT NOT NULL, months INTEGER NOT NULL, amount INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'requested', -- requested 신청 | paid 입금 확인 | cancelled 취소
+  period_from TEXT, period_to TEXT,
+  data TEXT,                                -- 세금계산서 요청 등 JSON
+  created_at TEXT NOT NULL, paid_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_host_billing_space ON host_billing(space_ref, status);

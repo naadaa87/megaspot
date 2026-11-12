@@ -304,7 +304,7 @@
       { title:'바로 쓸 수 있는 190평, 메가스팟 건대 1호', sub:'최대 200명 · 시간당 4만 원부터 · 200인치 빔프로젝터와 음향 무료', cta:'1호 보기', href:'/spaces/megaspot-gundae/', theme:'light' },
       { title:'100명이 넘는 행사라면 400평 건대 2호', sub:'11월 13일 오픈 · 최대 350명 · 지금 사전 예약 중', cta:'2호 보기', href:'/spaces/megaspot-gundae-2/', theme:'light' }],
     'list-card':[
-      { title:'우리 공간도 여기에 올리고 싶다면', sub:'100평 이상이거나 100명 이상 모일 수 있는 공간이면 등록을 검토합니다.', cta:'공간 등록 신청', href:'/host/register/', image:'/assets/img/gundae2/m/r02.jpg', theme:'rust' },
+      { title:'우리 공간도 여기에 올리고 싶다면', sub:'50명 이상 모일 수 있거나 50평 이상인 공간이면 입점할 수 있습니다. 결제 수수료는 없습니다.', cta:'입점 안내 보기', href:'/host/', image:'/assets/img/gundae2/m/r02.jpg', theme:'rust' },
       { title:'함께할 사람을 모으는 중인가요', sub:'세미나·네트워킹·동호회 모임을 올리고 참가 신청을 받아 보세요.', cta:'모임 등록하기', href:'/meetups/new/', image:'/assets/img/scenes/m/s13.jpg', theme:'cobalt' }],
     'content-bottom':[
       { title:'건대입구 190평 · 400평, 메가스팟 건대 1호·2호', sub:'20명 소모임부터 350명 행사까지. 날짜·시간·인원을 넣으면 요금표 그대로 금액이 나옵니다.', cta:'금액 확인하기', href:'/inquiry/', image:'/assets/img/views/m/v01.jpg', theme:'graphite' },

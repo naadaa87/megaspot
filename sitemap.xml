@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
-  <url><loc>https://megaspot.kr/</loc><lastmod>2026-10-27</lastmod><changefreq>weekly</changefreq><priority>1.0</priority>
+  <url><loc>https://megaspot.kr/</loc><lastmod>2026-11-12</lastmod><changefreq>weekly</changefreq><priority>1.0</priority>
     <image:image><image:loc>https://megaspot.kr/assets/img/views/m/v01.jpg</image:loc><image:title>메가스팟 건대 1호 메인 홀 — 연속창으로 낮빛이 드는 190평 홀과 긴 테이블</image:title></image:image>
     <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s14.jpg</image:loc><image:title>메가스팟 건대 1호 저녁 리셉션 — 연속창 앞에서 서서 대화하는 참석자들</image:title></image:image>
     <image:image><image:loc>https://megaspot.kr/assets/img/views/m/v08.jpg</image:loc><image:title>메가스팟 건대 1호 — 샹들리에가 켜진 저녁의 홀</image:title></image:image>
@@ -13,7 +13,7 @@
     <image:image><image:loc>https://megaspot.kr/assets/img/gundae2/m/r01.jpg</image:loc><image:title>메가스팟 건대 2호 메인 홀 완공 예상 이미지 — 낮빛이 들어오는 400평 홀</image:title></image:image>
     <image:image><image:loc>https://megaspot.kr/assets/img/catering/m/c10.jpg</image:loc><image:title>메가스팟 출장뷔페 — 긴 뷔페 테이블 세팅</image:title></image:image>
   </url>
-  <url><loc>https://megaspot.kr/spaces/</loc><lastmod>2026-10-27</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
+  <url><loc>https://megaspot.kr/spaces/</loc><lastmod>2026-11-12</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
   </url>
   <url><loc>https://megaspot.kr/spaces/megaspot-gundae/</loc><lastmod>2026-10-27</lastmod><changefreq>weekly</changefreq><priority>1.0</priority>
     <image:image><image:loc>https://megaspot.kr/assets/img/aerial/m/a01.jpg</image:loc><image:title>메가스팟 건대 1호 조감도 — 위에서 본 평면</image:title></image:image>
@@ -60,9 +60,10 @@
   <url><loc>https://megaspot.kr/parking/</loc><lastmod>2026-10-27</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>
     <image:image><image:loc>https://megaspot.kr/assets/img/views/m/v10.jpg</image:loc><image:title>메가스팟 건대 1호 행사장 전경</image:title></image:image>
   </url>
-  <url><loc>https://megaspot.kr/host/</loc><lastmod>2026-10-27</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
+  <url><loc>https://megaspot.kr/planning/</loc><lastmod>2026-11-12</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://megaspot.kr/host/</loc><lastmod>2026-11-12</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
   </url>
-  <url><loc>https://megaspot.kr/host/register/</loc><lastmod>2026-10-27</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
+  <url><loc>https://megaspot.kr/host/register/</loc><lastmod>2026-11-12</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
   </url>
   <url><loc>https://megaspot.kr/advertise/</loc><lastmod>2026-10-27</lastmod><changefreq>monthly</changefreq><priority>0.5</priority>
   </url>
