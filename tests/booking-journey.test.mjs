@@ -74,3 +74,22 @@ test('금액 비공개는 수납 변경으로 확정서가 무효화돼도 유�
 test('연락처 2도 같은 통합 링크로 개별 안내하고 변경된 번호에는 발송하지 않는다',async t=>{
  const f=setup(t);f.create();await f.api('bookings/BK-NEW/contacts','PUT',{phone:'01012345678',phone2:'01087654321'});await f.tick();await transactionNoticeTick(f.env);await transactionNoticeTick(f.env);assert.deepEqual(f.sends.map(d=>d.receiver_1).sort(),['01012345678','01087654321'],JSON.stringify(f.db.prepare('SELECT status,error,receiver FROM transaction_notifications').all()));assert.equal(f.sends[0].button_1,f.sends[1].button_1);await f.api('bookings/BK-NEW/contacts','PUT',{phone:'01012345678',phone2:''});const old=f.db.prepare("SELECT * FROM transaction_notifications WHERE booking_code='BK-NEW' AND receiver='01087654321'").get();assert.ok((await journeyContext(f.env,old)).cancel);
 });
+
+test('확정 안내가 도착한 뒤 첫 전액 입금이 반영돼도 별도 완납 안내를 보내지 않는다',async t=>{
+ const f=setup(t);f.create();await f.tick();await transactionNoticeTick(f.env);f.db.exec("UPDATE transaction_notifications SET status='delivered'");
+ f.receipt('BK-NEW',500000,'delayed-upfront-full');await f.tick();assert.equal(f.row('rental_paid'),undefined);assert.equal(f.row('balance_reminder'),undefined);
+});
+
+test('운영자 실제 발송 시험은 별도 전용 링크와 이력만 만들며 예약·수납·일정에 영향을 주지 않는다',async t=>{
+ const f=setup(t);f.db.prepare("INSERT INTO settings VALUES('parking_admin_alerts',?,datetime('now'))").run(JSON.stringify({phones:['01012345678']}));
+ const {bookingJourneyTrial}=await import('../functions/api/_booking_journey_trial.js');
+ const before=['bookings','orders','booking_payment_entries','calendar_blocks'].map(table=>f.db.prepare('SELECT COUNT(*) n FROM '+table).get().n);
+ const d={action:'send_booking_deposit_test',test_id:crypto.randomUUID(),receiver:'01012345678',confirm_test:true};
+ const r=await bookingJourneyTrial(f.env,d),j=await r.json();assert.equal(r.status,200);assert.equal(j.status,'accepted');assert.equal(f.sends.length,1);assert.equal(f.sends[0].failover,'Y');assert.ok(f.sends[0].fmessage_1.includes(j.url));
+ const repeat=await (await bookingJourneyTrial(f.env,d)).json();assert.equal(repeat.duplicate,true);assert.equal(repeat.url,j.url);assert.equal(f.sends.length,1);
+ const response=await portal({env:f.env,params:{path:['view']},request:new Request('https://local.test/api/booking-portal/view',{headers:{Authorization:'Bearer '+j.url.split('#booking=')[1]}})});const view=await response.json();assert.equal(view.booking.test,true);assert.ok(view.confirmation.issued_at);assert.equal(view.confirmation.pay_status,'deposit');assert.equal(view.payment.balance,400000);assert.equal(view.deposit.amount,150000);assert.equal(view.deposit.account.available,false);
+ assert.deepEqual(['bookings','orders','booking_payment_entries','calendar_blocks'].map(table=>f.db.prepare('SELECT COUNT(*) n FROM '+table).get().n),before);
+ assert.ok(!JSON.stringify(f.db.prepare('SELECT * FROM booking_journey_trials').all()).includes(j.url.split('#booking=')[1]));
+ const denied=await bookingJourneyTrial(f.env,{...d,test_id:crypto.randomUUID(),receiver:'01099998888'});assert.equal(denied.status,403);assert.equal(f.sends.length,1);
+ f.db.exec('UPDATE booking_journey_trials SET expires_at=0');assert.equal((await portal({env:f.env,params:{path:['view']},request:new Request('https://local.test/api/booking-portal/view',{headers:{Authorization:'Bearer '+j.url.split('#booking=')[1]}})})).status,403);
+});

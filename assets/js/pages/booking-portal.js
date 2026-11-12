@@ -59,7 +59,7 @@
   else html+='<p class="bp-notice" style="margin-top:18px">'+esc(a.message)+'</p>';
   $('#bp-arrival').innerHTML=html;
  }
- function draw(r,refreshAccount){var b=r.booking,d=r.deposit;data=r;$('#bp-gate').hidden=true;$('#bp-content').hidden=false;$('#bp-error').hidden=true;
+ function draw(r,refreshAccount){var b=r.booking,d=r.deposit;$('#bp-test-notice').hidden=!b.test;data=r;$('#bp-gate').hidden=true;$('#bp-content').hidden=false;$('#bp-error').hidden=true;
   $('#bp-greeting').textContent=b.name+'님,\n모임 준비를 함께 확인해요.';$('#bp-greeting').style.whiteSpace='pre-line';$('#bp-code').textContent=b.code;badge('#bp-status',b.status==='completed'?'이용 완료':'예약 확정','good');
   $('#bp-overview').innerHTML=step('예약','예약 확정',true)+step('이용료',r.payment&&r.payment.complete?'전액 납부':r.payment&&r.payment.amount_visible&&r.payment.balance!=null?'잔금 '+won(r.payment.balance):'금액 확인',!!r.payment&&r.payment.complete)+step('보증금',d.returned?'환급 완료':d.amount_visible&&d.amount===0?'해당 없음':d.paid?'입금 확인 완료':'입금 확인 전',d.returned||d.paid||d.amount_visible&&d.amount===0)+step('환급 계좌',d.returned?'처리 완료':d.account.registered?'등록 완료':d.amount_visible&&d.amount===0?'해당 없음':'등록 확인',d.returned||d.account.registered||d.amount_visible&&d.amount===0)+step('입실 안내',r.arrival.ready?'확인 가능':'준비 중',false);
   $('#bp-booking-summary').innerHTML='<p class="bp-booking-date">'+esc(date(b.date))+'</p><p class="bp-booking-hours">'+esc(time(b))+'</p><dl class="bp-details"><div><dt>예약 공간</dt><dd>'+esc(b.space.name)+'</dd></div><div><dt>예약자</dt><dd>'+esc(b.name)+'</dd></div><div><dt>이용 인원</dt><dd>'+esc(b.headcount?b.headcount+'명':'운영팀 확인 중')+'</dd></div><div><dt>담당자 연락처</dt><dd>'+esc(b.phone)+'</dd></div></dl>';

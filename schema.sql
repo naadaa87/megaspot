@@ -1045,3 +1045,14 @@ CREATE TRIGGER IF NOT EXISTS journey_amount_visibility AFTER UPDATE OF confirm_d
 WHEN json_valid(NEW.confirm_doc) OR json_valid(OLD.confirm_doc) BEGIN
  UPDATE booking_journey_state SET amount_visible=CASE WHEN json_valid(NEW.confirm_doc) THEN COALESCE(json_extract(NEW.confirm_doc,'$.show_amount'),1) ELSE COALESCE(json_extract(OLD.confirm_doc,'$.show_amount'),1) END WHERE booking_code=NEW.booking_code;
 END;
+
+-- Operator delivery proof is isolated from real bookings, calendars, revenue and refunds.
+CREATE TABLE IF NOT EXISTS booking_journey_trials (
+ id TEXT PRIMARY KEY,
+ token_hash TEXT NOT NULL UNIQUE,
+ link_cipher TEXT NOT NULL,
+ payload TEXT NOT NULL,
+ notification_id INTEGER NOT NULL,
+ expires_at INTEGER NOT NULL,
+ created_at TEXT NOT NULL
+);

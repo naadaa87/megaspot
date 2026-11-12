@@ -1,3 +1,4 @@
+import {bookingJourneyTrial} from '../_booking_journey_trial.js';
 import {err,hasDb} from '../_lib.js';
 import {depositNoticeCron} from '../_deposit_notifications.js';
 import {approvedCustomerTemplate} from '../_customer_alimtalk.js';
@@ -9,10 +10,11 @@ import {guideTick} from '../_guide_messages.js';
 import {transactionNoticeStatus,transactionNoticeTick} from '../_transaction_notifications.js';
 export async function onRequest({request,env,params}){
  if(!hasDb(env))return err('준비 중입니다.',503);
- const p=(params.path||[]).join('/');if(!['tick','status','journey-setup'].includes(p))return err('경로를 찾을 수 없습니다.',404);
+ const p=(params.path||[]).join('/');if(!['tick','status','journey-setup','journey-trial'].includes(p))return err('경로를 찾을 수 없습니다.',404);
  try{
-  const setup=p==='journey-setup'?await request.clone().json().catch(()=>null):null;
+  const setup=['journey-setup','journey-trial'].includes(p)?await request.clone().json().catch(()=>null):null;
   const response=await depositNoticeCron(request,env,p!=='tick');
+  if(response.ok&&p==='journey-trial')return await bookingJourneyTrial(env,setup);
   if(response.ok&&p==='journey-setup'){
    if(setup?.action!=='enable_booking_journey')return err('서명된 설정 작업을 확인해 주세요.',400);
    if(!keyReady(env)||!await approvedCustomerTemplate(env,(path,data)=>aligoProvider(env,path,data),'booking_confirmed'))return err('통합 링크 암호화·예약 확정 템플릿 승인을 확인해 주세요.',409);

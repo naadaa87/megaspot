@@ -44,15 +44,19 @@ export async function bookingJourneyTick(env){
  try{
  await env.DB.prepare(`INSERT OR IGNORE INTO transaction_notifications(event_key,kind,audience,ref,booking_code,receiver,amount,occurred_at) SELECT n.event_key,n.kind,'customer',n.ref,n.booking_code,${bookingPhone2Sql()},n.amount,n.occurred_at FROM transaction_notifications n JOIN bookings b ON b.booking_code=n.booking_code WHERE n.kind IN ('booking_confirmed','balance_reminder','rental_paid','booking_arrival') AND n.status='queued' AND b.status='confirmed' AND (${bookingPhone2Sql()})<>''`).run();
  const today=dayAt(Date.now()),hourKST=new Date(Date.now()+9*3600000).getUTCHours();
- const {results:rows}=await env.DB.prepare(`SELECT b.*,j.paid_state,j.paid_cycle,j.confirmed_at,j.confirm_version FROM bookings b JOIN booking_journey_state j ON j.booking_code=b.booking_code WHERE b.status='confirmed' AND b.date>=? ORDER BY j.checked_at,b.booking_code LIMIT 40`).bind(today).all();
+ const {results:rows}=await env.DB.prepare(`SELECT b.*,j.paid_state,j.paid_cycle,j.confirmed_at,j.confirm_version,(SELECT COUNT(*) FROM booking_payment_current e WHERE e.booking_code=b.booking_code AND e.state='active' AND e.kind='receipt')+(SELECT COUNT(*) FROM orders o WHERE o.booking_code=b.booking_code AND o.test=0 AND o.status IN ('paid','refunded')) AS receipt_count FROM bookings b JOIN booking_journey_state j ON j.booking_code=b.booking_code WHERE b.status='confirmed' AND b.date>=? ORDER BY j.checked_at,b.booking_code LIMIT 40`).bind(today).all();
  const settlements=await settlementsFor(env,(rows||[]).map(b=>b.booking_code));
  for(const b of rows||[]){
  const s=settlements[b.booking_code],full=s?.amount!=null&&s.balance===0&&s.net>0&&!s.over_refunded;
  const pendingConfirm=await env.DB.prepare("SELECT 1 FROM transaction_notifications WHERE booking_code=? AND kind='booking_confirmed' AND event_key=? AND status IN ('queued','sending','accepted')").bind(b.booking_code,'journey-confirm:'+b.booking_code+':'+b.confirm_version).first();
+ // -1: partial payment observed; 0: no rental receipt; 1: fully paid.
+ const partial=s?.amount!=null&&s.net>0&&s.balance>0;
+ const wasPartial=b.paid_state===-1||b.receipt_count>1;
+ const becameFull=full&&b.paid_state!==1;
  const updated=now();
- const update=env.DB.prepare('UPDATE booking_journey_state SET paid_state=?,paid_cycle=paid_cycle+?,checked_at=? WHERE booking_code=? AND paid_state=? AND paid_cycle=?').bind(full?1:0,full&&!b.paid_state?1:0,updated,b.booking_code,b.paid_state,b.paid_cycle);
+ const update=env.DB.prepare('UPDATE booking_journey_state SET paid_state=?,paid_cycle=paid_cycle+?,checked_at=? WHERE booking_code=? AND paid_state=? AND paid_cycle=?').bind(full?1:partial?-1:0,becameFull?1:0,updated,b.booking_code,b.paid_state,b.paid_cycle);
  const statements=[update];
- if(full&&!b.paid_state&&!pendingConfirm)statements.push(env.DB.prepare(`INSERT OR IGNORE INTO transaction_notifications(event_key,kind,audience,ref,booking_code,receiver,occurred_at) SELECT ?,'rental_paid','customer',?,?,?,? WHERE changes()>0`).bind('journey-paid:'+b.booking_code+':'+(b.paid_cycle+1),b.booking_code,b.booking_code,b.phone||'',updated));
+ if(becameFull&&wasPartial&&!pendingConfirm)statements.push(env.DB.prepare(`INSERT OR IGNORE INTO transaction_notifications(event_key,kind,audience,ref,booking_code,receiver,occurred_at) SELECT ?,'rental_paid','customer',?,?,?,? WHERE changes()>0`).bind('journey-paid:'+b.booking_code+':'+(b.paid_cycle+1),b.booking_code,b.booking_code,b.phone||'',updated));
  const changed=(await env.DB.batch(statements))[0];
  if(!Number(changed.meta?.changes??changed.changes))continue;
  const enqueue=async(kind,key)=>env.DB.prepare(`INSERT OR IGNORE INTO transaction_notifications(event_key,kind,audience,ref,booking_code,receiver,occurred_at) VALUES(?,?,'customer',?,?,?,?)`).bind(key,kind,b.booking_code,b.booking_code,b.phone||'',updated).run();

@@ -13,3 +13,9 @@
 - 설정 booking_journey.enabled=false로 새 자동 발송을 중지할 수 있습니다. 기존 전송 요청 결과의 조회는 계속됩니다.
 
 검증: booking-journey.test.mjs의 가상 예약·수납·승인/미승인·개별 수신자·예약 변경·정보 비공개 테스트. 실제 고객에게 시험 메시지는 보내지 않았습니다.
+
+## 운영자 실제 수신 시험
+
+서명된 POST /api/deposit-notifications/journey-trial 에 action=send_booking_deposit_test, test_id(UUID), receiver(등록 운영자 번호), confirm_test=true를 보냅니다. 최초 1건만 실제 발송하고 같은 test_id는 중복 발송 없이 상태를 반환합니다. 시험 예약은 booking_journey_trials에 별도 저장하며, 실제 bookings/orders/수납 장부/달력은 변경하지 않습니다. 링크는 24시간 후 만료되며 계좌 등록·실제 입금 기능을 제공하지 않습니다. 관리자 거래 알림 이력에서 TEST 번호로 실제 알림톡 수신 결과를 확인합니다.
+
+전액 첫 입금은 예약 확정 알림의 수신 이후 반영돼도 완납 알림을 추가하지 않습니다. 부분 납부를 확인했거나 분할 수납 내역이 있는 경우에만 잔금 완납 안내를 생성합니다.

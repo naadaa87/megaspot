@@ -1,3 +1,4 @@
+import {trialPortalResponse} from './_booking_journey_trial.js';
 // Separate capability for a reservation's unified page. Never accept a confirm/last4 token here.
 import {settlementFor} from './_settlement.js';
 import {paymentSchedule} from './_booking_payment_schedule.js';
@@ -94,6 +95,7 @@ async function authorize(env,request){
  return {b,hash,link};
 }
 export async function portalCustomer({env,request,path}){
+ const trial=await trialPortalResponse(env,request,path);if(trial)return trial;
  const auth=await authorize(env,request);if(auth.error)return auth.error;
  const {b,hash,link}=auth,amount=depositAmount(b),account=accountState(b,amount);
  if(path==='view'&&request.method==='GET'){
