@@ -2,3 +2,56 @@
 @media(max-width:900px){.bp-layout{grid-template-columns:minmax(0,1fr) 260px;gap:18px}.bp-card{padding:25px}.bp-next{padding:24px}.bp-step{padding:18px 14px;gap:10px}.bp-footer{margin:0 24px}}
 @media(max-width:720px){.bp-header{padding:20px;gap:14px}.bp-header-label{padding-left:14px;font-size:10px}.bp-logo{font-size:22px}.bp-contact{font-size:11px}.bp-shell{padding:0 16px 40px}.bp-hero{padding:34px 4px 25px;gap:18px}.bp-hero h1{font-size:30px;letter-spacing:-1.2px}.bp-hero .bp-eyebrow{font-size:8px;letter-spacing:1.4px}.bp-hero-description{font-size:12px}.bp-hero-side{min-width:105px;padding-top:3px}.bp-hero-side .bp-badge{font-size:10px;padding:4px 7px}.bp-code{font-size:9px;margin:10px 0 17px}.bp-text-button{font-size:10px!important}.bp-overview{grid-template-columns:repeat(2,1fr)}.bp-step{padding:15px 16px;gap:10px}.bp-step:nth-child(2){border-right:0}.bp-step:nth-child(-n+2){border-bottom:1px solid var(--bp-line)}.bp-step strong{font-size:12px}.bp-tabs{gap:23px;padding:20px 4px 16px;margin-bottom:16px}.bp-tabs a{font-size:12px}.bp-layout{display:flex;flex-direction:column;gap:18px}.bp-aside{position:static;width:100%;order:-1;display:block}.bp-next{padding:21px 22px;display:grid;grid-template-columns:minmax(0,1fr) 112px;column-gap:15px;align-items:center;border-radius:8px}.bp-next .bp-eyebrow{grid-column:1;margin-bottom:6px;font-size:8px}.bp-next h2{grid-column:1;font-size:18px;margin:0;line-height:1.5}.bp-next p{grid-column:1;font-size:11px;line-height:1.7;margin:6px 0 0}.bp-next .bp-button{grid-column:2;grid-row:1/4;font-size:12px;padding:10px}.bp-help,.bp-private-note{display:none}.bp-sections{width:100%;gap:16px}.bp-card{padding:23px 21px;scroll-margin-top:16px}.bp-section-head{margin-bottom:22px}.bp-section-head h2{font-size:19px}.bp-booking-date{font-size:27px}.bp-booking-hours{font-size:17px;margin-bottom:20px}.bp-details{gap:16px}.bp-details dd{font-size:13px}.bp-amount{font-size:33px}.bp-bank strong{font-size:19px}.bp-refund-date{align-items:flex-start;font-size:11px}.bp-refund-date strong{font-size:12px}.bp-footer{margin:0 20px;padding:24px 0;gap:10px;flex-wrap:wrap}.bp-footer p{font-size:10px}.bp-footer a{font-size:10px}.bp-gate{margin:70px auto;padding:35px 24px}.bp-notice{font-size:12px}.bp-page [data-portal-account] input,.bp-page [data-portal-account] select{font-size:16px}.bp-section-head .bp-eyebrow{font-size:8px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+/* This private portal has its own shell; contain long reservation details. */
+.bp-page{word-break:keep-all;overflow-wrap:anywhere}
+.bp-header>*,.bp-hero>*,.bp-step>div,.bp-details>div,.bp-section-head>div{min-width:0}
+.bp-hero>div:first-child{flex:1 1 0}
+.bp-hero-side{flex:0 0 175px}
+.bp-overview{grid-template-columns:repeat(4,minmax(0,1fr))}
+.bp-step{min-width:0}
+.bp-section-head{flex-wrap:wrap}
+.bp-details,.bp-arrival-times{grid-template-columns:repeat(2,minmax(0,1fr))}
+.bp-actions>*{max-width:100%;min-width:0;white-space:normal}
+.bp-doc canvas{display:block;max-width:100%}
+.bp-card [data-portal-account]{padding:0;border:0;border-radius:0;background:transparent}
+.bp-page .drf-primary,.bp-page .drf-secondary{max-width:100%;margin-right:0;white-space:normal;overflow-wrap:anywhere}
+.bp-toast{text-align:center;max-width:calc(100vw - 32px)}
+@media(max-width:720px){
+ .bp-overview{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .bp-contact{display:inline-flex;align-items:center;min-height:44px}
+ .bp-text-button{min-height:44px}
+ .bp-tabs a{display:inline-flex;align-items:center;min-height:44px}
+ .bp-card{padding:24px 18px}
+ .bp-actions>*{flex:1 1 160px;text-align:center}
+}
+@media(max-width:480px){
+ .bp-header{padding:12px 16px;gap:12px;flex-wrap:wrap}
+ .bp-header-label{display:none}
+ .bp-contact{font-size:12px}
+ .bp-hero{flex-direction:column;gap:20px;padding:28px 0 24px}
+ .bp-hero>div:first-child,.bp-hero-side{flex:none}
+ .bp-hero h1{font-size:28px;line-height:1.4;letter-spacing:-1px;margin-bottom:12px}
+ .bp-hero-description{font-size:13px}
+ .bp-hero-side{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;min-width:0;padding:0;text-align:left}
+ .bp-hero-side .bp-code{flex:1 1 120px;margin:0;font-size:11px}
+ .bp-hero-side .bp-text-button{margin:0;font-size:12px!important;text-align:left}
+ .bp-step{padding:16px 12px;gap:8px}
+ .bp-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:16px 0;overflow:visible;white-space:normal}
+ .bp-tabs a{justify-content:center;padding:8px;border:1px solid #d7d7d2;border-radius:5px;background:#fff;font-size:12px;text-align:center}
+ .bp-next{display:block;padding:22px}
+ .bp-next h2{font-size:20px;line-height:1.5}
+ .bp-next p{font-size:12px;margin:8px 0 16px}
+ .bp-next .bp-button{width:100%;min-height:46px;font-size:13px}
+ .bp-section-head{gap:10px;margin-bottom:20px}
+ .bp-section-head h2{font-size:19px;line-height:1.4}
+ .bp-booking-date{font-size:25px}
+ .bp-booking-hours{font-size:16px}
+ .bp-bank{padding:16px}
+ .bp-bank .bp-secondary{width:100%;padding-inline:10px}
+ .bp-refund-date{flex-wrap:wrap;gap:4px 12px}
+ .bp-arrival-times{padding:16px;gap:12px}
+ #bp-arrival>.bp-details{grid-template-columns:minmax(0,1fr)}
+ .bp-footer{margin:0 16px;gap:10px 16px;line-height:1.6}
+ .bp-footer>a{margin-left:0}
+}
