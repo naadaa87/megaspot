@@ -13,4 +13,13 @@
   #quote-print .qp-foot{margin-top:10px;padding-top:7px}
   #quote-print .qp-contact img{width:88px;height:88px;object-fit:contain}
   .qp-lines tr,.qp-grid,.qp-foot{break-inside:avoid}
+  /* The full checkout policy starts on its own page after the quote totals. */
+  #quote-print .qp-cleanup{break-before:page;page-break-before:always;font-size:13px;line-height:1.65}
+  .qp-cleanup .qp-title{font-size:22px;margin:24px 0 16px;word-break:keep-all}
+  .qp-cleanup .qp-cleanup-intro{margin-bottom:24px;color:#555}
+  .qp-cleanup-group{margin:0 0 22px;break-inside:avoid}
+  .qp-cleanup-group h3{font-size:14px;margin-bottom:8px;break-after:avoid}
+  .qp-cleanup-group ul{margin:0;padding-left:18px;list-style:disc}
+  .qp-cleanup-group li{margin:0 0 6px;word-break:keep-all;overflow-wrap:break-word}
+  .qp-cleanup .qp-cleanup-note{margin:24px 0 0;padding:14px 16px;background:#F3F4F7;border:1px solid #E2E4E9;border-radius:6px;font-size:12.5px;word-break:keep-all;break-inside:avoid;print-color-adjust:exact;-webkit-print-color-adjust:exact}
 }

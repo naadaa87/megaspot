@@ -163,6 +163,7 @@ test('quote print and customer copy identify stored buffet headcount even with a
     won: value => Number(value).toLocaleString('ko-KR') + '원',
     quoteVatNote: () => '부가세 포함', quoteSettlementHtml: () => '', $: () => print
   });
+  vm.runInContext(source('assets/js/quote-policy.js'), ctx);
   vm.runInContext(source('assets/js/food-services.js'), ctx);
   const admin = source('assets/js/pages/admin.js');
   vm.runInContext(admin.slice(admin.indexOf('  function custParts('), admin.indexOf("  $('#q-copy').addEventListener"))

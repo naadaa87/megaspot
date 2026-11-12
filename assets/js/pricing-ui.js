@@ -596,7 +596,7 @@
     return s;
   }
   function renderQuoteSheet(r, pl){
-    if(r.plan&&r.plan.unknownDate){sheet().innerHTML='<div class="qp qp-public"><h2>'+esc(NAME)+' 행사 상담 내역</h2><p>행사 날짜·시간은 상담 후 결정합니다.</p><section class="qp-plan">'+r.plan.html+'</section><p>이 문서는 예상 비용 안내이며 예약 확정이나 결제 내역이 아닙니다.</p></div>';return;}
+    if(r.plan&&r.plan.unknownDate){sheet().innerHTML='<div class="qp qp-public"><h2>'+esc(NAME)+' 행사 상담 내역</h2><p>행사 날짜·시간은 상담 후 결정합니다.</p><section class="qp-plan">'+r.plan.html+'</section><p>이 문서는 예상 비용 안내이며 예약 확정이나 결제 내역이 아닙니다.</p></div>'+window.MEGASPOT_QUOTE_POLICY.html(NAME);return;}
     var C = M.CONFIG || {};
     var now = new Date(), stamp = now.getFullYear() + '.' + (now.getMonth() + 1) + '.' + now.getDate() + ' ' + ('0' + now.getHours()).slice(-2) + ':' + ('0' + now.getMinutes()).slice(-2);
     var no = 'MS-' + String(now.getFullYear()).slice(2) + ('0' + (now.getMonth() + 1)).slice(-2) + ('0' + now.getDate()).slice(-2) + '-' + ('0' + now.getHours()).slice(-2) + ('0' + now.getMinutes()).slice(-2);
@@ -627,7 +627,7 @@
       + '<div class="qp-contact"><h3>문의</h3><p>전화 ' + esc(C.phone || '') + '<br>이메일 ' + esc(C.email || '') + '<br>카카오톡 ' + esc(String(KAKAO).replace(/^https?:\/\//, '')) + '<br>홈페이지 megaspot.kr</p>' + (KAKAO ? '<img src="/assets/img/brand/kakao-qr.svg" alt="카카오톡 문의 채널 QR코드" width="88" height="88">' : '') + '<p class="qp-small">' + esc(C.kakaoNote || '') + '</p></div>'
       + '</div>'
       + '<footer class="qp-foot">이 문서는 공개 요금표로 계산한 예상 금액이며 정식 견적서가 아닙니다. 날짜·시간·인원·모임 유형을 알려 주시면 가능 여부와 확정 금액을 빠르게 안내드립니다. 성수기(' + esc(peakRangeText()) + ')는 성수기 요금표로 계산했습니다. 조찬 모임·정기 모임·제휴 모임과 팝업·전시·행사·촬영은 따로 연락 주시면 추가 협찬과 할인을 안내해 드립니다.</footer>'
-      + '</div>';
+      + '</div>' + window.MEGASPOT_QUOTE_POLICY.html(NAME);
   }
   function printQuote(r){
     renderQuoteSheet(r, purLabel(r.purpose));

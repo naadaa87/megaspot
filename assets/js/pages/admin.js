@@ -970,7 +970,8 @@
       +(Q.note?'<ul class="qp-notes"><li>'+esc(Q.note).replace(/\n/g,'<br>')+'</li></ul>':'')
       +'<div class="qp-grid"><div><h3>기본 제공 (무료)</h3><p>'+D.included.map(function(i){ return esc(i.label); }).join(' · ')+'</p><h3>취소 시 환불 기준 (이용일 '+esc(E.kdate(q.date))+' 기준)</h3><p class="qp-refund">'+(refund||'—')+'</p><p class="qp-small">'+esc(D.refundNote)+' '+esc(D.corporate)+'</p></div>'
       +'<div class="qp-contact"><h3>문의</h3><p>전화 '+esc(C.phone||'')+'<br>이메일 '+esc(C.email||'')+'<br>카카오톡 '+esc(String(C.kakaoChannel||'').replace(/^https?:\/\//,''))+'<br>홈페이지 megaspot.kr</p><img src="/assets/img/brand/kakao-qr.svg" alt="카카오톡 문의 채널 QR코드" width="88" height="88"></div></div>'
-      +'<footer class="qp-foot">이 견적은 유효기간까지 같은 조건으로 적용합니다. 예약금 결제가 끝나면 예약이 확정되며, 날짜·시간·인원이 바뀌면 금액을 다시 안내드립니다. '+esc(D.version)+'</footer></div>';
+      +'<footer class="qp-foot">이 견적은 유효기간까지 같은 조건으로 적용합니다. 예약금 결제가 끝나면 예약이 확정되며, 날짜·시간·인원이 바뀌면 금액을 다시 안내드립니다. '+esc(D.version)+'</footer></div>'
+      +window.MEGASPOT_QUOTE_POLICY.html(spaceName(Q.space));
   }
   function loadRecentQuotes(){
     A('/quotes').then(function(r){ var l=(r.items||[]).slice(0,12);
