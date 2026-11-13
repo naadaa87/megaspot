@@ -52,7 +52,7 @@
 <link rel="stylesheet" href="/assets/css/admin-settlement.css?v=20261105mobilepayment1">
 <link rel="stylesheet" href="/assets/css/admin-parking-alerts.css?v=20261104adminsms1">
 <link rel="stylesheet" href="/assets/css/admin-parking.css?v=20261106mobile-status">
-<link rel="stylesheet" href="/assets/css/admin-navigation.css?v=2b1de95433a5">
+<link rel="stylesheet" href="/assets/css/admin-navigation.css?v=a12054def55d">
 <link rel="stylesheet" href="/assets/css/admin-booking-readiness.css?v=20261105readiness1">
 <link rel="stylesheet" href="/assets/css/admin-revenue.css?v=20261110revenue1">
 <link rel="stylesheet" href="/assets/css/admin-reservation-search.css?v=20261105inquirysearch1">
@@ -177,6 +177,7 @@
         <select class="select" id="rs-ch" aria-label="문의 경로"><option value="">모든 경로</option></select>
         <select class="select" id="rs-status" aria-label="상태"><option value="">전체 · 취소 기록 포함</option><option value="active">취소 제외</option><option value="confirmed">예약 확정</option><option value="completed">이용 완료</option><option value="cancelled">취소만</option></select>
         <select class="select" id="rs-payment-filter" aria-label="결제 상태 필터"><option value="">결제 전체</option><option value="outstanding">잔금·입금 확인 필요</option><option value="unpaid">입금 전</option><option value="reservation_paid">예약금 입금 완료</option><option value="balance_paid">잔금 입금 완료</option><option value="fully_paid">전액 입금 완료</option></select>
+        <select class="select" id="rs-service-filter" aria-label="식음료 이용 확정 필터"><option value="">식음료 전체</option><option value="confirmed">식음료 이용 확정 전체</option><option value="catering">출장뷔페 이용 확정</option><option value="reception">케이터링 이용 확정</option><option value="cocktail">칵테일 이용 확정</option></select>
         <div class="rs-search" id="rs-search">
           <input class="input" id="rs-q" placeholder="이름·연락처·예약번호·문의번호" aria-label="검색" aria-describedby="rs-search-status">
           <button class="btn btn-light btn-sm" type="button" id="rs-search-clear" disabled>검색 초기화</button>
@@ -454,7 +455,7 @@
           <button class="btn btn-primary" type="submit">예약 등록</button>
           <div class="form-note" id="bk-msg" hidden></div>
         </form>
-        <div class="adm-card"><div class="row between"><h2>예약 목록</h2><select class="select" id="bk-filter" style="width:auto;min-height:36px"><option value="upcoming">예정</option><option value="completed">이용 완료</option><option value="cancelled">취소</option><option value="">전체</option></select></div><div id="bk-list" class="adm-list mt-2"></div></div>
+        <div class="adm-card"><div class="adm-booking-list-head"><h2>예약 목록</h2><div class="adm-booking-filters"><label>예약 상태<select class="select" id="bk-filter"><option value="upcoming">예정</option><option value="completed">이용 완료</option><option value="cancelled">취소</option><option value="">전체</option></select></label><label>식음료<select class="select" id="bk-service-filter"><option value="">식음료 전체</option><option value="confirmed">식음료 이용 확정 전체</option><option value="catering">출장뷔페 이용 확정</option><option value="reception">케이터링 이용 확정</option><option value="cocktail">칵테일 이용 확정</option></select></label></div></div><p id="bk-service-summary" class="small muted" role="status" aria-live="polite" hidden></p><div id="bk-list" class="adm-list mt-2"></div></div>
       </div>
     </section>
 
@@ -719,7 +720,7 @@
 <script src="/assets/js/inquiry-overview.js?v=20261105cfbudget1"></script>
 <script src="/assets/js/quote-calculation.js?v=20261105cflifecycle1"></script>
 <script src="/assets/js/quote-policy.js?v=292941d5ba14"></script>
-<script src="/assets/js/pages/admin.js?v=c5d518270db1"></script>
+<script src="/assets/js/pages/admin.js?v=5bd22b608c05"></script>
 <script src="/assets/js/pages/admin-platform.js?v=20261102adminux1"></script>
 <script src="/assets/js/pages/admin-cocktail.js?v=20261104foodprices3"></script>
 <script src="/assets/js/pages/admin-food-pricing.js?v=20261105cfbudget1"></script>
