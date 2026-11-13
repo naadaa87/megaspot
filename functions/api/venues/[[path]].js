@@ -6,7 +6,7 @@
 import { json, err, hasDb, readJson, str, num, isDate, kstToday, clientIp, tooMany, hit, sameOrigin } from '../_lib.js';
 import { safeJson, timeOk } from '../_platform.js';
 import { tokenEq } from '../_confirm.js';
-import { PLATFORM, SPACE_REF, BOOKING_CODE, PHOTO_ID, TYPE_LABEL, REGION_LABEL, visibleSql, cardSpace, publicSpace, estimate, bump, bookingToken, bookingKeyOk, addDays } from '../_hostplat.js';
+import { PLATFORM, SPACE_REF, BOOKING_CODE, PHOTO_ID, TYPE_LABEL, REGION_LABEL, visibleSql, cardSpace, publicSpace, estimate, bump, bookingToken, bookingKeyOk, addDays, getHost } from '../_hostplat.js';
 import { createBooking, viewBooking, customerAction, addonsFor } from '../_hostbook.js';
 import { notifyHost } from '../_hostnotify.js';
 
@@ -15,6 +15,11 @@ const COVER = '(SELECT p.pid FROM host_photos p WHERE p.space_ref = s.ref ORDER 
 async function liveSpace(env, ref) {
   if (!SPACE_REF.test(ref || '')) return null; const t = kstToday();
   return env.DB.prepare(`SELECT s.* FROM host_spaces s WHERE s.ref = ? AND ${visibleSql()}`).bind(ref, t, t).first();
+}
+// 공개 전(작성 중·심사 중 등) 공간은 그 공간의 호스트에게만 미리보기로 보여 줍니다 — 검색·예약 요청·집계에는 쓰지 않습니다
+async function previewSpace(env, request, ref) {
+  if (!SPACE_REF.test(ref || '')) return null; const host = await getHost(request, env); if (!host) return null;
+  return env.DB.prepare('SELECT * FROM host_spaces WHERE ref = ? AND host_id = ?').bind(ref, host.id).first();
 }
 function bytesOf(b64) { const s = atob(b64), a = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) a[i] = s.charCodeAt(i); return a; }
 // 고객 본인 확인: 조회 링크의 k, 또는 휴대폰 뒷 4자리
@@ -56,12 +61,16 @@ export async function onRequest(context) {
     // ---------- 상세 ----------
     let m = path.match(/^item\/(SP-[A-Z0-9-]+)$/);
     if (m && method === 'GET') {
-      const row = await liveSpace(env, m[1]); if (!row) return err('공개 중인 공간이 아닙니다.', 404, 'NOT_FOUND');
+      let row = await liveSpace(env, m[1]), preview = false;
+      if (!row) { row = await previewSpace(env, request, m[1]); preview = !!row; }
+      if (!row) return err('공개 중인 공간이 아닙니다.', 404, 'NOT_FOUND');
       const { results: photos } = await env.DB.prepare('SELECT pid, w, h FROM host_photos WHERE space_ref = ? ORDER BY sort, id').bind(row.ref).all();
       const host = await env.DB.prepare('SELECT company, biz_no FROM hosts WHERE id = ?').bind(row.host_id).first();
       const today = kstToday(), { results: blocks } = await env.DB.prepare('SELECT day FROM host_blocks WHERE space_ref = ? AND day BETWEEN ? AND ? ORDER BY day').bind(row.ref, today, addDays(today, 180)).all();
       const { results: busy } = await env.DB.prepare("SELECT event_date AS day, start_time, end_time FROM host_bookings WHERE space_ref = ? AND status = 'confirmed' AND event_date BETWEEN ? AND ? ORDER BY event_date").bind(row.ref, today, addDays(today, 180)).all();
-      return json({ ok: true, space: publicSpace(row, photos || [], host), closed: (blocks || []).map(b => b.day), booked: (busy || []).map(b => ({ day: b.day, start: b.start_time || '', end: b.end_time || '' })), addons: PLATFORM.addons, today });
+      const out = json({ ok: true, space: publicSpace(row, photos || [], host), closed: (blocks || []).map(b => b.day), booked: (busy || []).map(b => ({ day: b.day, start: b.start_time || '', end: b.end_time || '' })), addons: PLATFORM.addons, today, preview });
+      if (preview) out.headers.set('cache-control', 'no-store');
+      return out;
     }
     // ---------- 사진 ----------
     m = path.match(/^photo\/([A-Za-z0-9_-]+)$/);
@@ -73,7 +82,7 @@ export async function onRequest(context) {
     }
     // ---------- 예상 금액 (화면과 접수가 같은 계산을 씁니다) ----------
     if (path === 'estimate' && method === 'POST') {
-      const d = await readJson(request), row = await liveSpace(env, str(d.ref, 20)); if (!row) return err('공개 중인 공간이 아닙니다.', 404, 'NOT_FOUND');
+      const d = await readJson(request), row = (await liveSpace(env, str(d.ref, 20))) || (await previewSpace(env, request, str(d.ref, 20))); if (!row) return err('공개 중인 공간이 아닙니다.', 404, 'NOT_FOUND');
       const sel = d.select || {};
       return json({ ok: true, estimate: estimate(safeJson(row.data), { mode: sel.mode, date: str(d.date, 10), start: str(d.start, 5), end: str(d.end, 5), pkg: sel.pkg, people: d.people, options: sel.options }) });
     }

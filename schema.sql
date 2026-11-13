@@ -1010,6 +1010,14 @@ CREATE TABLE IF NOT EXISTS member_hosts (   -- 메가스팟 회원 계정 ↔ �
   host_id INTEGER NOT NULL UNIQUE,          -- hosts.id
   created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS host_customers (   -- 호스트가 남긴 고객 메모·표시 (고객은 휴대폰 번호 숫자로 묶습니다 · 2026-11-13)
+  host_id INTEGER NOT NULL,
+  phone_key TEXT NOT NULL,                  -- 휴대폰 번호 숫자만
+  memo TEXT,
+  tags TEXT,                                -- JSON 배열: regular 단골 · corp 기업·단체 · followup 다시 연락 · caution 주의 필요
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (host_id, phone_key)
+);
 
 -- Existing bookings are baselines; installation never sends old confirmation/paid notices.
 CREATE TABLE IF NOT EXISTS booking_payment_schedule (

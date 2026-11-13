@@ -2,12 +2,18 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>호스트센터 | 메가스팟</title>
-<meta name="description" content="메가스팟 호스트센터 — 문의·예약·결제 기록·정산·통계·공간 정보 관리.">
+<meta name="description" content="메가스팟 호스트센터 — 문의·예약·일정·고객·정산·공간 정보를 한곳에서 관리합니다.">
 <meta name="author" content="메가스팟 MEGASPOT">
 <meta name="robots" content="noindex,nofollow">
-<meta name="theme-color" content="#F1EFEB">
+<meta name="theme-color" content="#FFFFFF">
+<link rel="manifest" href="/host/manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="메가스팟 호스트">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="application-name" content="메가스팟 호스트">
 <link rel="canonical" href="https://megaspot.kr/host/center/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="메가스팟 MEGASPOT">
@@ -22,7 +28,7 @@
 <meta name="twitter:title" content="호스트센터 | 메가스팟">
 <meta name="twitter:description" content="메가스팟 호스트센터 — 문의·예약·결제 기록·정산·통계·공간 정보 관리.">
 <link rel="icon" href="/assets/img/brand/favicon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="/assets/img/brand/apple-touch-icon.png">
+<link rel="apple-touch-icon" href="/assets/img/brand/host-app-touch-180.png">
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -30,6 +36,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Black+Han+Sans&display=swap">
 <link rel="stylesheet" href="/assets/css/site.css?v=2a9e9a18210a">
 <link rel="stylesheet" href="/assets/css/platform.css?v=20261112hostcopy1">
+<link rel="stylesheet" href="/assets/css/host-app.css?v=20261113app1">
 </head>
 <body class="page-hostcenter pf-noquick">
 <a class="skip-link" href="#hc-main">본문으로 바로가기</a>
@@ -37,12 +44,13 @@
   <header class="hc-top">
     <a class="logo" href="/host/center/" aria-label="호스트센터 홈"><span class="en">MEGA<b>SPOT</b></span><span class="hc-badge">호스트센터</span></a>
     <div class="hc-top-mid"><label class="sr-only" for="hc-space">공간 선택</label><select class="select" id="hc-space"></select></div>
-    <div class="hc-top-end"><a class="btn btn-light btn-sm" id="hc-public" href="/spaces/" target="_blank" rel="noopener" hidden>내 공간 페이지 ↗</a><span class="hc-who" id="hc-who"></span><a class="btn btn-light btn-sm" id="hc-customer" href="/mypage/" hidden>고객 화면으로</a><button class="btn btn-ghost btn-sm" type="button" id="hc-logout">로그아웃</button></div>
+    <div class="hc-top-end"><a class="btn btn-kakao btn-sm hc-top-kakao" href="https://pf.kakao.com/_LnxbmX/chat" target="_blank" rel="noopener" data-kakao aria-label="메가스팟 카카오톡 문의"><svg class="ico-talk" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3.2C6.6 3.2 2.3 6.6 2.3 10.9c0 2.7 1.8 5.1 4.5 6.5l-.9 3.4c-.1.3.3.6.6.4l4-2.6c.5.1 1 .1 1.5.1 5.4 0 9.7-3.4 9.7-7.8S17.4 3.2 12 3.2z"/></svg><span>카톡 문의</span></a><a class="btn btn-light btn-sm" id="hc-public" href="/spaces/" target="_blank" rel="noopener" hidden>내 공간 페이지 ↗</a><span class="hc-who" id="hc-who"></span><a class="btn btn-light btn-sm" id="hc-customer" href="/mypage/" hidden>고객 화면으로</a><button class="btn btn-ghost btn-sm" type="button" id="hc-logout">로그아웃</button></div>
   </header>
   <nav class="hc-nav" id="hc-nav" aria-label="호스트센터 메뉴">
     <a href="#home" data-tab="home">홈</a>
     <a href="#bookings" data-tab="bookings">문의·예약<em id="hc-n-new" hidden></em></a>
     <a href="#calendar" data-tab="calendar">일정</a>
+    <a href="#customers" data-tab="customers">고객</a>
     <a href="#space" data-tab="space">공간 정보</a>
     <a href="#stats" data-tab="stats">통계</a>
     <a href="#settlement" data-tab="settlement">정산</a>
@@ -50,6 +58,14 @@
     <a href="#account" data-tab="account">계정</a>
   </nav>
   <main class="hc-main" id="hc-main" tabindex="-1"></main>
+  <nav class="hc-tabbar" id="hc-tabbar" aria-label="호스트센터 아래 메뉴">
+    <a href="#home" data-tab="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/></svg><span>홈</span></a>
+    <a href="#bookings" data-tab="bookings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5zM8 9h8M8 13h8M8 17h5"/></svg><span>예약</span><em id="hc-tb-new" hidden></em></a>
+    <a href="#calendar" data-tab="calendar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v14H4zM4 10h16M8 3v5M16 3v5"/></svg><span>일정</span></a>
+    <a href="#customers" data-tab="customers"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 4.5a3.5 3.5 0 0 1 0 6.5M18 14c2 .7 3 2.6 3 6"/></svg><span>고객</span></a>
+    <button type="button" id="hc-more"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg><span>더보기</span></button>
+  </nav>
+  <button type="button" class="hc-fab" id="hc-fab" hidden aria-label="예약 등록"><span aria-hidden="true">+</span>예약 등록</button>
   <footer class="hc-foot"><span>메가스팟 호스트센터 · 문의 <a href="tel:01023849580" data-phone>010-2384-9580</a> · <a href="https://pf.kakao.com/_LnxbmX/chat" target="_blank" rel="noopener" data-kakao>카카오톡</a></span><span><a href="/host/">입점 안내·이용료</a> · <a href="/terms/#host">호스트 이용약관</a> · <a href="/">메가스팟 홈</a></span></footer>
 </div>
 <div class="hc-loading" id="hc-loading">호스트센터를 여는 중…</div>
@@ -63,6 +79,6 @@
 <script src="/assets/js/site.js?v=20261112hostlink1"></script>
 <script src="/assets/js/data/platform.js?v=20261112platform2"></script>
 <script src="/assets/js/platform-ui.js?v=20261112host1"></script>
-<script src="/assets/js/pages/host-center.js?v=20261112host1"></script>
+<script src="/assets/js/pages/host-center.js?v=20261113app1"></script>
 </body>
 </html>

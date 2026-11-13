@@ -1,5 +1,6 @@
 // 입점 공간 예약 — 고객 요청 접수 · 호스트 처리(견적·승인·확정·결제 기록·메시지) · 고객 처리(견적 수락·입금 알림·취소) · 화면별 보기
 //  결제는 고객이 호스트에게 직접 합니다. 여기서는 호스트가 받은 금액을 기록만 합니다.
+//  호스트는 메가스팟 밖(전화·카카오톡·다른 예약 플랫폼 등)에서 받은 예약도 접수 경로와 함께 넣어 한곳에서 관리합니다 (2026-11-13).
 //  고객이 고른 본사 부가서비스(출장뷔페·케이터링·출장 칵테일·사회자/강연자·현장 매니저·디자인)는 hq_addons 로 본사에 따로 넘어갑니다.
 import { str, num, isDate, isEmail, now, kstToday, uniqueRef, log } from './_lib.js';
 import { phoneOk, last4, timeOk, safeJson } from './_platform.js';
@@ -9,7 +10,37 @@ const KST = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 16).r
 const amt = v => { const n = num(v); return n === null || n < 0 ? null : Math.min(n, 999999999); };
 const MAX_MSG = 200;
 export const PAY_KINDS = { deposit: '예약금', balance: '잔금', full: '전액', extra: '추가 결제', refund: '환불' };
-export const PAY_METHODS = { bank: '계좌이체', card_link: '카드·간편결제', onsite: '현장 결제', cash: '현금', etc: '기타' };
+export const PAY_METHODS = { bank: '계좌이체', card_link: '카드·간편결제', onsite: '현장 결제', cash: '현금', platform: '플랫폼 결제', etc: '기타' };
+// 접수 경로 — 메가스팟(web)으로 들어온 요청은 megaspot, 호스트가 직접 넣은 예약은 아래 가운데 하나.
+//  다른 예약 플랫폼은 호스트가 이름을 직접 적습니다 (화면에 다른 플랫폼 이름을 미리 넣어 두지 않습니다).
+export const CHANNELS = { megaspot: '메가스팟', phone: '전화', kakao: '카카오톡', sms: '문자', email: '이메일', walkin: '방문·현장', homepage: '자체 홈페이지·SNS', platform: '다른 예약 플랫폼', etc: '기타' };
+export function channelOf(source, data) {
+  const c = (data && data.channel) || {};
+  if (source === 'web') return { kind: 'megaspot', name: '', label: CHANNELS.megaspot };
+  const kind = CHANNELS[c.kind] && c.kind !== 'megaspot' ? c.kind : '', name = kind === 'platform' || kind === 'etc' ? str(c.name, 30) : '';
+  return { kind, name, label: name || CHANNELS[kind] || '직접 등록' };
+}
+function cleanChannel(d) { const kind = CHANNELS[d.channel] && d.channel !== 'megaspot' ? d.channel : 'phone'; return { kind, name: kind === 'platform' || kind === 'etc' ? str(d.channel_name, 30) : '' }; }
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+// 같은 공간·같은 시간에 이미 잡힌 예약(예약 대기·확정)과 닫은 날 — 호스트가 예약을 넣거나 확정할 때 경고합니다.
+//  시간이 없으면 하루 종일, 끝 시각이 시작보다 이르면 다음 날 새벽까지로 봅니다. 앞뒤 날의 밤샘 예약도 살핍니다.
+const mins = t => { const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(t || ''); return m ? +m[1] * 60 + +m[2] : null; };
+function span(start, end) { const s = mins(start), e = mins(end); if (s === null) return [0, 1440]; if (e === null) return [s, 1440]; return [s, e <= s ? e + 1440 : e]; }
+const shiftDay = (iso, n) => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+export async function findOverlaps(env, spaceRef, date, start, end, exclude = '') {
+  if (!date || !isDate(date)) return { list: [], closed: false };
+  const prev = shiftDay(date, -1), next = shiftDay(date, 1);
+  const { results } = await env.DB.prepare("SELECT code, status, source, name, event_date, start_time, end_time, people, data FROM host_bookings WHERE space_ref = ? AND event_date BETWEEN ? AND ? AND status IN ('pending','confirmed') AND code <> ? ORDER BY event_date, start_time")
+    .bind(spaceRef, prev, next, exclude || '').all();
+  const a = span(start, end), list = [];
+  for (const r of results || []) {
+    const off = r.event_date === prev ? -1440 : r.event_date === next ? 1440 : 0, b = span(r.start_time, r.end_time).map(x => x + off);
+    if (a[0] < b[1] && b[0] < a[1]) list.push({ code: r.code, status: r.status, status_label: BOOKING_STATUS[r.status], name: r.name, date: r.event_date, start: r.start_time || '', end: r.end_time || '', people: r.people, channel: channelOf(r.source, safeJson(r.data)).label });
+  }
+  const closed = !!(await env.DB.prepare('SELECT 1 AS x FROM host_blocks WHERE space_ref = ? AND day = ?').bind(spaceRef, date).first());
+  return { list, closed };
+}
 
 function push(data, what, by) { (data.log = data.log || []).push({ at: KST(), what, by }); if (data.log.length > 80) data.log = data.log.slice(-80); }
 function message(data, from, text) { (data.messages = data.messages || []).push({ from, text: str(text, 1000), at: KST() }); if (data.messages.length > MAX_MSG) data.messages = data.messages.slice(-MAX_MSG); }
@@ -19,7 +50,8 @@ function paidSum(data) { return (data.payments || []).reduce((a, p) => a + (p.ki
 export async function createBooking(env, space, d, { source = 'web' } = {}) {
   const sd = safeJson(space.data), name = str(d.name, 40), phone = phoneOk(d.phone), email = str(d.email, 120).toLowerCase();
   if (!name) return { error: '이름을 적어 주세요.' };
-  if (!phone) return { error: '연락처를 확인해 주세요.' };
+  // 다른 플랫폼 예약처럼 고객 번호를 모르는 경우가 있어, 호스트가 직접 넣을 때는 연락처를 비워 둘 수 있습니다
+  if (!phone && (source === 'web' || str(d.phone, 30))) return { error: '연락처를 확인해 주세요.' };
   if (email && !isEmail(email)) return { error: '이메일 형식을 확인해 주세요.' };
   const date = str(d.date, 10); if (date && !isDate(date)) return { error: '이용일을 확인해 주세요.' };
   if (source === 'web' && date && date < kstToday()) return { error: '지난 날짜는 신청할 수 없습니다.' };
@@ -35,11 +67,14 @@ export async function createBooking(env, space, d, { source = 'web' } = {}) {
   push(data, source === 'web' ? '고객이 예약 요청을 보냈습니다' : '호스트가 예약을 직접 등록했습니다', source === 'web' ? 'customer' : 'host');
   const code = await uniqueRef(env, 'host_bookings', 'code', 'HB'), t = now();
   let status = 'new', amount = est.ok ? est.total : null, confirmed_at = null;
-  if (source === 'host') {   // 전화·카톡·현장에서 받은 예약을 호스트가 직접 넣는 경우
+  if (source === 'host') {   // 전화·카톡·현장·다른 플랫폼에서 받은 예약을 호스트가 직접 넣는 경우
     status = BOOKING_STATUS[d.status] ? d.status : 'confirmed'; amount = amt(d.amount) ?? amount; data.memo = str(d.memo, 2000); if (status === 'confirmed') confirmed_at = t;
+    data.channel = cleanChannel(d); data.ext_ref = str(d.ext_ref, 40); data.ext_fee = amt(d.ext_fee);
+    const got = amt(d.paid_amount);   // 이미 받은 돈 (다른 플랫폼은 대개 결제를 먼저 받습니다)
+    if (got) data.payments = [{ id: newId(), kind: amount && got >= amount ? 'full' : 'deposit', amount: got, method: PAY_METHODS[d.paid_method] ? d.paid_method : data.channel.kind === 'platform' ? 'platform' : 'bank', date: kstToday(), note: '예약 등록 때 기록', at: KST() }];
   }
-  await env.DB.prepare('INSERT INTO host_bookings (code, space_ref, host_id, status, source, name, phone, phone_last4, email, event_date, start_time, end_time, people, amount, paid, data, created_at, updated_at, confirmed_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?,?)')
-    .bind(code, space.ref, space.host_id, status, source, name, phone, last4(phone), email, date || null, start || null, end || null, people, amount, JSON.stringify(data), t, t, confirmed_at).run();
+  await env.DB.prepare('INSERT INTO host_bookings (code, space_ref, host_id, status, source, name, phone, phone_last4, email, event_date, start_time, end_time, people, amount, paid, data, created_at, updated_at, confirmed_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+    .bind(code, space.ref, space.host_id, status, source, name, phone || '', last4(phone), email, date || null, start || null, end || null, people, amount, paidSum(data), JSON.stringify(data), t, t, confirmed_at).run();
   for (const service of addons) {
     const ref = await uniqueRef(env, 'hq_addons', 'ref', 'AO');
     await env.DB.prepare('INSERT INTO hq_addons (ref, booking_code, space_ref, service, status, data, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)')
@@ -56,13 +91,14 @@ export async function addonsFor(env, code) {
 
 // 화면별 보기. role: host(호스트 센터) · customer(고객 조회) · hq(본사 관리자)
 export function viewBooking(row, role, space) {
-  const d = safeJson(row.data), paid = row.paid || 0, due = row.amount != null ? Math.max(0, row.amount - paid) : null;
+  const d = safeJson(row.data), paid = row.paid || 0, due = row.amount != null ? Math.max(0, row.amount - paid) : null, ch = channelOf(row.source, d);
   const v = { code: row.code, space: row.space_ref, status: row.status, status_label: BOOKING_STATUS[row.status] || row.status, open: BOOKING_OPEN.includes(row.status), source: row.source,
+    channel: ch.kind, channel_name: ch.name, channel_label: ch.label,
     name: row.name, phone: row.phone, email: row.email || '', org: d.org || '', date: row.event_date || '', start: row.start_time || '', end: row.end_time || '', people: row.people,
     purpose: d.purpose || '', purpose_label: PURPOSE_LABEL[d.purpose] || '', message: d.message || '', options: d.options || [], addons: d.addons || [], addon_labels: (d.addons || []).map(a => ADDON_LABEL[a] || a), addon_note: d.addon_note || '',
     visit: !!d.visit, estimate: d.estimate || null, quote: d.quote || null, amount: row.amount, paid, due, accepted_at: d.accepted_at || '', paid_notice: d.paid_notice || null, cancel: d.cancel || null,
     cancel_requested: !!d.cancel_requested, messages: d.messages || [], created_at: row.created_at, updated_at: row.updated_at || '', confirmed_at: row.confirmed_at || '' };
-  if (role !== 'customer') { v.payments = d.payments || []; v.memo = d.memo || ''; v.log = d.log || []; }
+  if (role !== 'customer') { v.payments = d.payments || []; v.memo = d.memo || ''; v.log = d.log || []; v.ext_ref = d.ext_ref || ''; v.ext_fee = d.ext_fee ?? null; }
   if (role === 'customer' && space) {
     // 결제 안내(계좌 등)는 호스트가 일정을 확인한 뒤(예약 대기·확정)에만 보여 줍니다
     const sd = safeJson(space.data), pay = sd.payment || {}, shown = ['pending', 'confirmed'].includes(row.status);
@@ -72,10 +108,10 @@ export function viewBooking(row, role, space) {
   return v;
 }
 async function save(env, row, data, set = {}) {
-  const f = { status: row.status, amount: row.amount, event_date: row.event_date, start_time: row.start_time, end_time: row.end_time, people: row.people, name: row.name, phone: row.phone, confirmed_at: row.confirmed_at, ...set };
+  const f = { status: row.status, amount: row.amount, event_date: row.event_date, start_time: row.start_time, end_time: row.end_time, people: row.people, name: row.name, phone: row.phone, email: row.email || '', confirmed_at: row.confirmed_at, ...set };
   const paid = paidSum(data);
-  await env.DB.prepare('UPDATE host_bookings SET status = ?, amount = ?, paid = ?, event_date = ?, start_time = ?, end_time = ?, people = ?, name = ?, phone = ?, phone_last4 = ?, confirmed_at = ?, data = ?, updated_at = ? WHERE code = ?')
-    .bind(f.status, f.amount, paid, f.event_date, f.start_time, f.end_time, f.people, f.name, f.phone, last4(f.phone), f.confirmed_at, JSON.stringify(data), now(), row.code).run();
+  await env.DB.prepare('UPDATE host_bookings SET status = ?, amount = ?, paid = ?, event_date = ?, start_time = ?, end_time = ?, people = ?, name = ?, phone = ?, phone_last4 = ?, email = ?, confirmed_at = ?, data = ?, updated_at = ? WHERE code = ?')
+    .bind(f.status, f.amount, paid, f.event_date, f.start_time, f.end_time, f.people, f.name, f.phone || '', last4(f.phone), f.email, f.confirmed_at, JSON.stringify(data), now(), row.code).run();
 }
 
 // 호스트 처리
@@ -114,7 +150,7 @@ export async function hostAction(env, row, d) {
     const amount = amt(d.amount), kind = PAY_KINDS[d.kind] ? d.kind : 'full', method = PAY_METHODS[d.method] ? d.method : 'bank', date = isDate(str(d.date, 10)) ? str(d.date, 10) : kstToday();
     if (!amount) return { error: '받은 금액을 적어 주세요.' };
     if ((data.payments || []).length >= 40) return { error: '결제 기록이 너무 많습니다.' };
-    (data.payments = data.payments || []).push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), kind, amount, method, date, note: str(d.note, 200), at: KST() });
+    (data.payments = data.payments || []).push({ id: newId(), kind, amount, method, date, note: str(d.note, 200), at: KST() });
     delete data.paid_notice; push(data, `${PAY_KINDS[kind]} ${amount.toLocaleString('ko-KR')}원 기록`, 'host');
     if (d.confirm && BOOKING_OPEN.includes(row.status)) { set.status = 'confirmed'; set.confirmed_at = row.confirmed_at || now(); if (row.status !== 'confirmed') { message(data, 'host', '결제를 확인했습니다. 예약이 확정되었습니다.'); push(data, '예약 확정', 'host'); } }
   } else if (a === 'payment_remove') {
@@ -130,7 +166,14 @@ export async function hostAction(env, row, d) {
     if (d.people !== undefined) set.people = num(d.people) > 0 ? Math.min(num(d.people), 100000) : null;
     if (d.amount !== undefined) set.amount = d.amount === '' || d.amount === null ? null : amt(d.amount);
     if (d.name !== undefined) { const v = str(d.name, 40); if (!v) return { error: '이름을 적어 주세요.' }; set.name = v; }
-    if (d.phone !== undefined) { const v = phoneOk(d.phone); if (!v) return { error: '연락처를 확인해 주세요.' }; set.phone = v; }
+    if (d.phone !== undefined) { const raw = str(d.phone, 30), v = phoneOk(raw); if (raw ? !v : row.source === 'web') return { error: '연락처를 확인해 주세요.' }; set.phone = v || ''; }
+    if (d.email !== undefined) { const v = str(d.email, 120).toLowerCase(); if (v && !isEmail(v)) return { error: '이메일 형식을 확인해 주세요.' }; set.email = v; }
+    if (d.org !== undefined) data.org = str(d.org, 60);
+    if (row.source === 'host') {   // 직접 넣은 예약만 접수 경로를 바꿀 수 있습니다
+      if (d.channel !== undefined) data.channel = cleanChannel(d);
+      if (d.ext_ref !== undefined) data.ext_ref = str(d.ext_ref, 40);
+      if (d.ext_fee !== undefined) data.ext_fee = d.ext_fee === '' || d.ext_fee === null ? null : amt(d.ext_fee);
+    }
     push(data, '예약 내용 수정', 'host');
   } else return { error: '처리할 수 없는 요청입니다.' };
   await save(env, row, data, set);

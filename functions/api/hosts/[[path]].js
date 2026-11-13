@@ -3,12 +3,16 @@
 //   /api/hosts/spaces[/:ref[/submit|pause|resume|photos|blocks|calendar]]
 //   /api/hosts/bookings[/:code] · stats · settlement · billing · billing/BL-…/(pay|withdraw|cancel|cancel-withdraw)
 //   /api/hosts/status · switch — 메가스팟 회원 계정과 연결된 호스트로 전환 (2026-11-12)
+//   /api/hosts/schedule · customers[/:번호] · ical — 여러 공간 일정, 고객 관리, 휴대폰 캘린더 구독 (2026-11-13)
+//   /api/hosts/ical/<토큰>.ics — 캘린더 앱이 읽는 구독 주소 (로그인 없이 토큰으로만 열림)
 // 로그인 쿠키 ms_host (HttpOnly). 모든 조회·변경은 로그인한 호스트의 공간·예약에만 닿습니다.
 import { json, err, hasDb, readJson, str, num, isDate, isEmail, now, later, kstToday, uniqueRef, log, clientIp, tooMany, hit, clearHits, hashPassword, verifyPassword, randomToken, sha256, getCookie, sameOrigin, withCookies, getMember } from '../_lib.js';
 import { safeJson, phoneOk } from '../_platform.js';
 import { PLATFORM, PLAN, SPACE_STATUS, BOOKING_STATUS, BILLING_STATUS, SPACE_REF, BOOKING_CODE, PHOTO_ID, MAX_PHOTOS, HOST_SESSION_DAYS, cleanSpace, tierOf, listedUntil, photoUrl, safeArr, hostCookies, getHost, publicHost,
   bookingToken, addMonths, addDays, STAT_FIELDS, TYPE_LABEL, REGION_LABEL, hostOfMember, memberOfHost } from '../_hostplat.js';
-import { createBooking, viewBooking, hostAction, addonsFor } from '../_hostbook.js';
+import { createBooking, viewBooking, hostAction, addonsFor, findOverlaps, CHANNELS } from '../_hostbook.js';
+import { listCustomers, customerDetail, saveCustomer, schedule, icalToken, hostByIcal, icsFeed, CUSTOMER_TAGS } from '../_hostcrm.js';
+import { timeOk } from '../_platform.js';
 import { feeOf, periodFor, billView, payRequest, onlinePay, requestCancel, withdrawCancel } from '../_hostbilling.js';
 
 const NO_DB = () => err('데이터베이스가 연결되어 있지 않습니다.', 503, 'NO_DB');
@@ -58,14 +62,39 @@ function spaceView(row, { full = false } = {}) {
   if (full) v.data = safeJson(row.data);
   return v;
 }
-// 심사에 낼 수 있는지 — 빠진 항목 목록
+// 심사에 낼 수 있는지 — 빠진 항목을 한꺼번에 알려 줍니다 (하나 고치면 다음 것이 나오는 식이 되지 않게)
 async function missing(env, row) {
-  const d = safeJson(row.data), out = [];
+  const d = safeJson(row.data), p = d.price || {}, out = [];
+  if (!row.address) out.push('공간 주소를 적어 주세요.');
+  if (!row.capacity) out.push('최대 이용 인원을 적어 주세요.');
+  if (!row.area) out.push('면적(평)을 적어 주세요.');
+  if (!safeArr(row.types).length) out.push('공간 유형을 한 가지 이상 골라 주세요. (최대 5가지)');
+  if (!(p.modes || []).length) out.push('요금 방식을 한 가지 이상 골라 주세요. 금액을 정하기 어렵다면 ‘견적 문의’를 고르세요.');
+  if (String(d.intro || '').length < 20) out.push('공간 소개를 20자 이상 적어 주세요.');
   const c = cleanSpace({ ...d, name: row.name, region: row.region, address: row.address, capacity: row.capacity, area: row.area, types: safeArr(row.types) }, { strict: true });
-  if (c.error) out.push(c.error);
+  if (c.error && !out.includes(c.error)) out.push(c.error);
   const n = (await env.DB.prepare('SELECT COUNT(*) AS n FROM host_photos WHERE space_ref = ?').bind(row.ref).first()).n;
   if (n < 3) out.push(`사진을 3장 이상 올려 주세요. (지금 ${n}장)`);
   return out;
+}
+
+// 겹치는 예약 안내 문구
+function overlapError(o) {
+  const t = b => b.name + (b.start ? ` ${b.start}${b.end ? '~' + b.end : ''}` : ' 시간 미정') + ` · ${b.status_label}` + (b.channel ? ` · ${b.channel}` : '');
+  const msg = (o.closed ? '이 날짜는 예약을 받지 않도록 닫아 둔 날입니다. ' : '') + (o.list.length ? '같은 시간에 이미 잡힌 예약이 있습니다: ' + o.list.slice(0, 3).map(t).join(', ') + (o.list.length > 3 ? ` 외 ${o.list.length - 3}건` : '') : '');
+  return json({ ok: false, code: 'OVERLAP', error: msg.trim(), conflicts: o.list, closed: o.closed }, 409);
+}
+// 호스트가 예약을 고치거나 확정할 때 시간이 겹치는지 — 겹치면 경고를 보내고, 호스트가 확인하면(force) 그대로 진행합니다
+async function patchOverlap(env, row, d) {
+  const a = str(d.action, 20), held = ['pending', 'confirmed'].includes(row.status);
+  let date = row.event_date, start = row.start_time, end = row.end_time;
+  if (a === 'edit') {
+    if (d.date !== undefined) date = str(d.date, 10) || null; if (d.start !== undefined) start = timeOk(d.start) || null; if (d.end !== undefined) end = timeOk(d.end) || null;
+    if ((date || null) === (row.event_date || null) && (start || null) === (row.start_time || null) && (end || null) === (row.end_time || null)) return null;
+    if (!['new', 'quoted', 'pending', 'confirmed'].includes(row.status)) return null;
+  } else if (!(['approve', 'confirm'].includes(a) || (a === 'payment' && d.confirm)) || held) return null;
+  const o = await findOverlaps(env, row.space_ref, date, start, end, row.code);
+  return o.list.length || o.closed ? o : null;
 }
 
 export async function onRequest({ request, env, params }) {
@@ -145,6 +174,14 @@ export async function onRequest({ request, env, params }) {
       return withCookies(json({ ok: true }), hostCookies('', 0));
     }
 
+    // ---------- 휴대폰 캘린더 구독 주소 (캘린더 앱이 로그인 없이 읽습니다) ----------
+    let im = path.match(/^ical\/([A-Za-z0-9_-]+)\.ics$/);
+    if (im && method === 'GET') {
+      const key = 'hostical:' + clientIp(request); if (await tooMany(env, key, 120, 10)) return new Response('Too many requests', { status: 429 });
+      const h = await hostByIcal(env, im[1]); if (!h) { await hit(env, key, 10); return new Response('Not found', { status: 404, headers: { 'cache-control': 'no-store' } }); }
+      return new Response(await icsFeed(env, h, url.origin), { headers: { 'content-type': 'text/calendar; charset=utf-8', 'content-disposition': 'inline; filename="megaspot-host.ics"', 'cache-control': 'private, max-age=300', 'x-robots-tag': 'noindex', 'referrer-policy': 'no-referrer' } });
+    }
+
     const host = await getHost(request, env); if (!host) return LOGIN();
 
     if (path === 'me' && method === 'GET') {
@@ -154,7 +191,12 @@ export async function onRequest({ request, env, params }) {
       const cover = Object.fromEntries((covers || []).map(c => [c.space_ref, photoUrl(c.pid, true)]));
       const spaces = (results || []).map(r => { const c = {}; for (const x of cnt || []) if (x.space_ref === r.ref) c[x.status] = x.n; return { ...spaceView(r), cover: cover[r.ref] || '', counts: c }; });
       const mem = await memberOfHost(env, host.id);
-      return json({ ok: true, host: { ...publicHost(host), member: !!mem, member_email: mem ? mem.email : '' }, spaces, today: kstToday() });
+      const { results: pn } = await env.DB.prepare("SELECT DISTINCT json_extract(data, '$.channel.name') AS n FROM host_bookings WHERE host_id = ? AND source = 'host' AND json_extract(data, '$.channel.kind') IN ('platform','etc') AND json_extract(data, '$.channel.name') <> '' LIMIT 30").bind(host.id).all();
+      const body = json({ ok: true, host: { ...publicHost(host), member: !!mem, member_email: mem ? mem.email : '' }, spaces, today: kstToday(), channels: CHANNELS, customer_tags: CUSTOMER_TAGS, channel_names: (pn || []).map(r => r.n).filter(Boolean) });
+      // 홈 화면 앱처럼 자주 여는 호스트가 다시 로그인하지 않도록, 쓰는 동안에는 로그인 기간을 이어 줍니다
+      const tok = getCookie(request, 'ms_host'), th = await sha256(tok), ses = await env.DB.prepare('SELECT expires_at FROM host_sessions WHERE token_hash = ?').bind(th).first();
+      if (ses && ses.expires_at < later(HOST_SESSION_DAYS - 7)) { await env.DB.prepare('UPDATE host_sessions SET expires_at = ? WHERE token_hash = ?').bind(later(HOST_SESSION_DAYS), th).run(); return withCookies(body, hostCookies(tok)); }
+      return body;
     }
     if (path === 'me' && method === 'PUT') {
       const d = await readJson(request), name = str(d.name, 40), phone = phoneOk(d.phone); if (!name || !phone) return err('담당자 이름과 연락처를 확인해 주세요.');
@@ -251,21 +293,33 @@ export async function onRequest({ request, env, params }) {
 
     // ---------- 문의·예약 ----------
     if (path === 'bookings' && method === 'GET') {
-      const sp = url.searchParams, space = str(sp.get('space'), 20), status = str(sp.get('status'), 12), q = str(sp.get('q'), 40);
+      const sp = url.searchParams, space = str(sp.get('space'), 20), status = str(sp.get('status'), 12), q = str(sp.get('q'), 40), channel = str(sp.get('channel'), 60);
       const where = ['b.host_id = ?'], bind = [host.id];
       if (space) { where.push('b.space_ref = ?'); bind.push(space); }
+      // 접수 경로: megaspot · phone · kakao … · platform:<플랫폼 이름>
+      if (channel === 'megaspot') where.push("b.source = 'web'");
+      else if (channel) { const [kind, ...rest] = channel.split(':'), name = rest.join(':'); if (!CHANNELS[kind]) return err('접수 경로를 확인해 주세요.');
+        where.push("b.source = 'host' AND json_extract(b.data, '$.channel.kind') = ?"); bind.push(kind); if (name) { where.push("json_extract(b.data, '$.channel.name') = ?"); bind.push(name); } }
+      const from = sp.get('from'), to = sp.get('to');
+      if (isDate(from)) { where.push('b.event_date >= ?'); bind.push(from); } if (isDate(to)) { where.push('b.event_date <= ?'); bind.push(to); }
       if (status === 'open') where.push("b.status IN ('new','quoted','pending','confirmed')");
       else if (status === 'closed') where.push("b.status IN ('done','cancelled','declined')");
       else if (status) { if (!BOOKING_STATUS[status]) return err('상태를 확인해 주세요.'); where.push('b.status = ?'); bind.push(status); }
       if (q) { const like = '%' + q.replace(/[%_]/g, '') + '%', digits = q.replace(/\D/g, ''); where.push('(b.name LIKE ? OR b.code LIKE ?' + (digits.length >= 3 ? " OR REPLACE(b.phone, '-', '') LIKE ?" : '') + ')'); bind.push(like, like); if (digits.length >= 3) bind.push('%' + digits + '%'); }
-      const { results } = await env.DB.prepare(`SELECT b.*, s.name AS space_name FROM host_bookings b JOIN host_spaces s ON s.ref = b.space_ref WHERE ${where.join(' AND ')} ORDER BY CASE b.status WHEN 'new' THEN 0 WHEN 'quoted' THEN 1 WHEN 'pending' THEN 2 WHEN 'confirmed' THEN 3 ELSE 4 END, COALESCE(b.event_date, '9999'), b.id DESC LIMIT 500`).bind(...bind).all();
+      const visits = "(SELECT COUNT(*) FROM host_bookings x WHERE x.host_id = b.host_id AND b.phone <> '' AND REPLACE(x.phone, '-', '') = REPLACE(b.phone, '-', '') AND x.status NOT IN ('cancelled','declined')) AS visits";
+      const { results } = await env.DB.prepare(`SELECT b.*, s.name AS space_name, ${visits} FROM host_bookings b JOIN host_spaces s ON s.ref = b.space_ref WHERE ${where.join(' AND ')} ORDER BY CASE b.status WHEN 'new' THEN 0 WHEN 'quoted' THEN 1 WHEN 'pending' THEN 2 WHEN 'confirmed' THEN 3 ELSE 4 END, COALESCE(b.event_date, '9999'), b.id DESC LIMIT 500`).bind(...bind).all();
       const { results: cnt } = await env.DB.prepare('SELECT status, COUNT(*) AS n FROM host_bookings WHERE host_id = ?' + (space ? ' AND space_ref = ?' : '') + ' GROUP BY status').bind(...(space ? [host.id, space] : [host.id])).all();
-      return json({ ok: true, statuses: BOOKING_STATUS, counts: Object.fromEntries((cnt || []).map(c => [c.status, c.n])),
-        items: (results || []).map(r => { const v = viewBooking(r, 'host'); return { code: v.code, space: v.space, space_name: r.space_name, status: v.status, status_label: v.status_label, source: v.source, name: v.name, phone: v.phone, date: v.date, start: v.start, end: v.end,
-          people: v.people, amount: v.amount, paid: v.paid, due: v.due, addons: v.addon_labels, purpose_label: v.purpose_label, paid_notice: !!v.paid_notice, cancel_requested: v.cancel_requested, created_at: v.created_at, last: (v.messages[v.messages.length - 1] || {}).from || '' }; }) });
+      const { results: chs } = await env.DB.prepare("SELECT source, json_extract(data, '$.channel.kind') AS k, json_extract(data, '$.channel.name') AS nm, COUNT(*) AS n FROM host_bookings WHERE host_id = ?" + (space ? ' AND space_ref = ?' : '') + ' GROUP BY 1, 2, 3').bind(...(space ? [host.id, space] : [host.id])).all();
+      const chMap = {};
+      for (const c of chs || []) { const key = c.source === 'web' ? 'megaspot' : !CHANNELS[c.k] ? '' : c.k === 'platform' && c.nm ? 'platform:' + c.nm : c.k; if (!key) continue;
+        const label = key === 'megaspot' ? CHANNELS.megaspot : key.startsWith('platform:') ? c.nm : CHANNELS[c.k]; (chMap[key] = chMap[key] || { key, label, n: 0 }).n += c.n; }
+      return json({ ok: true, statuses: BOOKING_STATUS, counts: Object.fromEntries((cnt || []).map(c => [c.status, c.n])), channels: Object.values(chMap).sort((a, b) => b.n - a.n),
+        items: (results || []).map(r => { const v = viewBooking(r, 'host'); return { code: v.code, space: v.space, space_name: r.space_name, status: v.status, status_label: v.status_label, source: v.source, channel: v.channel, channel_label: v.channel_label, name: v.name, phone: v.phone, org: v.org, date: v.date, start: v.start, end: v.end,
+          people: v.people, amount: v.amount, paid: v.paid, due: v.due, ext_fee: v.ext_fee, visits: r.visits || 0, addons: v.addon_labels, purpose_label: v.purpose_label, paid_notice: !!v.paid_notice, cancel_requested: v.cancel_requested, created_at: v.created_at, last: (v.messages[v.messages.length - 1] || {}).from || '' }; }) });
     }
     if (path === 'bookings' && method === 'POST') {   // 전화·카톡·현장에서 받은 예약을 직접 등록
       const d = await readJson(request), row = await spaceOf(env, host, str(d.space, 20)); if (!row) return err('공간을 골라 주세요.');
+      if (!d.force && str(d.date, 10)) { const o = await findOverlaps(env, row.ref, str(d.date, 10), timeOk(d.start), timeOk(d.end)); if (o.list.length || o.closed) return overlapError(o); }
       const r = await createBooking(env, row, d, { source: 'host' }); if (r.error) return err(r.error);
       return json({ ok: true, code: r.code });
     }
@@ -273,11 +327,29 @@ export async function onRequest({ request, env, params }) {
     if (m) {
       if (!BOOKING_CODE.test(m[1])) return err('예약번호를 확인해 주세요.', 404, 'NOT_FOUND');
       const row = await env.DB.prepare('SELECT * FROM host_bookings WHERE code = ? AND host_id = ?').bind(m[1], host.id).first(); if (!row) return err('예약을 찾을 수 없습니다.', 404, 'NOT_FOUND');
-      if (method === 'PATCH') { const r = await hostAction(env, row, await readJson(request)); if (r.error) return err(r.error); }
+      if (method === 'PATCH') { const d = await readJson(request); if (!d.force) { const o = await patchOverlap(env, row, d); if (o) return overlapError(o); } const r = await hostAction(env, row, d); if (r.error) return err(r.error); }
       else if (method !== 'GET') return err('지원하지 않는 요청입니다.', 405, 'METHOD');
       const fresh = await env.DB.prepare('SELECT b.*, s.name AS space_name FROM host_bookings b JOIN host_spaces s ON s.ref = b.space_ref WHERE b.code = ?').bind(row.code).first();
       const k = await bookingToken(env, row.code);
       return json({ ok: true, item: { ...viewBooking(fresh, 'host'), space_name: fresh.space_name }, hq_addons: await addonsFor(env, row.code), customer_url: k ? url.origin + '/spaces/booking/?code=' + row.code + '&k=' + k : '' });
+    }
+
+    // ---------- 일정: 여러 공간의 예약·닫은 날을 기간으로 ----------
+    if (path === 'schedule' && method === 'GET') {
+      const space = str(url.searchParams.get('space'), 20); if (space && !(await spaceOf(env, host, space))) return err('공간을 찾을 수 없습니다.', 404, 'NOT_FOUND');
+      return json({ ok: true, ...(await schedule(env, host.id, { from: url.searchParams.get('from'), to: url.searchParams.get('to'), space })) });
+    }
+    // ---------- 고객: 휴대폰 번호로 묶은 예약 이력 · 메모 ----------
+    if (path === 'customers' && method === 'GET') return json({ ok: true, tags: CUSTOMER_TAGS, ...(await listCustomers(env, host.id, { q: url.searchParams.get('q') || '', sort: url.searchParams.get('sort') || '', tag: url.searchParams.get('tag') || '' })) });
+    m = path.match(/^customers\/(\d{9,12})$/);
+    if (m && method === 'GET') { const c = await customerDetail(env, host.id, m[1]); if (!c) return err('고객을 찾을 수 없습니다.', 404, 'NOT_FOUND'); return json({ ok: true, tags: CUSTOMER_TAGS, customer: c }); }
+    if (m && method === 'PUT') { const r = await saveCustomer(env, host.id, m[1], await readJson(request)); if (r.error) return err(r.error, 404, 'NOT_FOUND'); return json(r); }
+    // ---------- 휴대폰 캘린더 구독 주소 ----------
+    if (path === 'ical' && (method === 'GET' || method === 'POST')) {
+      const reset = method === 'POST' && !!(await readJson(request)).reset, token = await icalToken(env, host, { reset });
+      if (reset) await log(env, 'host.ical.reset', host.code, 'host', {});
+      const feed = url.origin + '/api/hosts/ical/' + token + '.ics';
+      return json({ ok: true, url: feed, webcal: feed.replace(/^https?:/, 'webcal:') });
     }
 
     // ---------- 통계: 노출 · 조회 · 연락 · 문의 · 예약 ----------
@@ -298,13 +370,14 @@ export async function onRequest({ request, env, params }) {
     if (path === 'settlement' && method === 'GET') {
       const month = /^\d{4}-\d{2}$/.test(url.searchParams.get('month') || '') ? url.searchParams.get('month') : kstToday().slice(0, 7), space = str(url.searchParams.get('space'), 20);
       const { results } = await env.DB.prepare(`SELECT b.*, s.name AS space_name FROM host_bookings b JOIN host_spaces s ON s.ref = b.space_ref WHERE b.host_id = ? AND b.status IN ('confirmed','done') AND substr(b.event_date, 1, 7) = ?` + (space ? ' AND b.space_ref = ?' : '') + ' ORDER BY b.event_date, b.start_time').bind(...(space ? [host.id, month, space] : [host.id, month])).all();
-      const rows = (results || []).map(r => { const v = viewBooking(r, 'host'); return { code: v.code, space_name: r.space_name, date: v.date, name: v.name, people: v.people, status: v.status, status_label: v.status_label, source: v.source, amount: v.amount || 0, paid: v.paid, due: v.due || 0, payments: v.payments }; });
-      const sum = k => rows.reduce((a, r) => a + (r[k] || 0), 0), byMethod = {};
+      const rows = (results || []).map(r => { const v = viewBooking(r, 'host'); return { code: v.code, space_name: r.space_name, date: v.date, name: v.name, people: v.people, status: v.status, status_label: v.status_label, source: v.source, channel: v.channel, channel_label: v.channel_label, ext_ref: v.ext_ref, ext_fee: v.ext_fee || 0, amount: v.amount || 0, paid: v.paid, due: v.due || 0, payments: v.payments }; });
+      const sum = k => rows.reduce((a, r) => a + (r[k] || 0), 0), byMethod = {}, byChannel = {};
       for (const r of rows) for (const p of r.payments) byMethod[p.method] = (byMethod[p.method] || 0) + (p.kind === 'refund' ? -p.amount : p.amount);
+      for (const r of rows) { const c = byChannel[r.channel_label] = byChannel[r.channel_label] || { label: r.channel_label, count: 0, amount: 0, fee: 0 }; c.count++; c.amount += r.amount; c.fee += r.ext_fee; }
       const { results: months } = await env.DB.prepare("SELECT DISTINCT substr(event_date, 1, 7) AS m FROM host_bookings WHERE host_id = ? AND status IN ('confirmed','done') AND event_date IS NOT NULL ORDER BY m DESC LIMIT 36").bind(host.id).all();
       const amount = sum('amount');
       // 수수료 10% 플랫폼이었다면 냈을 금액 (비교용 · 메가스팟은 0원)
-      return json({ ok: true, month, months: (months || []).map(x => x.m), rows, total: { count: rows.length, amount, paid: sum('paid'), due: sum('due'), fee: 0, fee_if_10pct: Math.round(amount / 10) }, by_method: byMethod });
+      return json({ ok: true, month, months: (months || []).map(x => x.m), rows, total: { count: rows.length, amount, paid: sum('paid'), due: sum('due'), fee: 0, ext_fee: sum('ext_fee'), net: amount - sum('ext_fee'), fee_if_10pct: Math.round(amount / 10) }, by_method: byMethod, by_channel: Object.values(byChannel).sort((a, b) => b.amount - a.amount) });
     }
     // ---------- 입점 이용료 (공간 한 곳 기준 · 부가세 별도 · 온라인 결제 또는 계좌이체) ----------
     if (path === 'billing' && method === 'GET') {

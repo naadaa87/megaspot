@@ -30,6 +30,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Black+Han+Sans&display=swap">
 <link rel="stylesheet" href="/assets/css/site.css?v=2a9e9a18210a">
 <link rel="stylesheet" href="/assets/css/platform.css?v=20261112hostcopy1">
+<link rel="stylesheet" href="/assets/css/host-app.css?v=20261113app1">
 </head>
 <body class="page-host pf-noquick">
 <a class="skip-link" href="#main">본문으로 바로가기</a>
@@ -150,6 +151,7 @@
       <p class="sub">호스트 등록은 메가스팟 회원 계정으로 합니다. 로그인하면 이 화면으로 돌아와 공간 등록을 이어 가고, 등록을 마치면 같은 계정으로 고객 화면과 호스트센터를 오갈 수 있습니다.</p>
       <div class="ap-gate-btns"><a class="btn btn-primary btn-lg" href="/login/?next=/host/register/">로그인하고 등록하기 <span class="arrow">→</span></a><a class="btn btn-light btn-lg" href="/signup/?next=/host/register/">회원가입하고 등록하기</a></div>
       <p class="pf-help">회원가입은 이메일·비밀번호·이름·휴대폰 번호만 적으면 됩니다. 예전에 입점 신청 화면에서 만든 호스트 계정이 있다면 <a class="pf-link" href="/host/login/">호스트센터 로그인</a>을 이용해 주세요.</p>
+      <p class="pf-help">가입이나 등록 순서가 헷갈리면 <a class="pf-link" href="https://pf.kakao.com/_LnxbmX/chat" target="_blank" rel="noopener" data-kakao>메가스팟 카카오톡</a>으로 물어보세요.</p>
     </div>
     <form class="card form" id="ap-form" novalidate hidden>
       <!-- 1단계 -->
@@ -168,6 +170,7 @@
         <div class="ap-tier" id="ap-tier" aria-live="polite">최대 인원이나 면적을 적어 주세요. 50명 이상이거나 50평 이상이면 입점할 수 있습니다.</div>
         <div class="f"><span class="lbl">공간 유형 <span class="pf-req">*</span> <span class="pf-help" style="font-weight:400">— 최대 5가지</span></span><div id="ap-types"></div></div>
         <p class="pf-msg" id="ap-msg1" hidden></p>
+        <div class="ap-kakao"><span>공간 유형이나 입점 기준(50명 또는 50평 이상)이 헷갈리면 먼저 물어보세요.</span><a class="btn btn-kakao btn-sm" href="https://pf.kakao.com/_LnxbmX/chat" target="_blank" rel="noopener" data-kakao><svg class="ico-talk" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3.2C6.6 3.2 2.3 6.6 2.3 10.9c0 2.7 1.8 5.1 4.5 6.5l-.9 3.4c-.1.3.3.6.6.4l4-2.6c.5.1 1 .1 1.5.1 5.4 0 9.7-3.4 9.7-7.8S17.4 3.2 12 3.2z"/></svg>카카오톡 문의</a></div>
         <div class="ap-nav"><a class="btn btn-light" href="/host/">입점 안내 보기</a><button class="btn btn-primary" type="button" id="ap-next">다음 · 담당자 확인 <span class="arrow">→</span></button></div>
       </div>
       <!-- 2단계 -->
@@ -198,6 +201,7 @@
         <p class="lead" id="ap-done-text"></p>
         <div class="ap-box" style="text-align:left;max-width:520px"><b>이제 호스트센터에서 세 가지만 채우면 심사가 시작됩니다</b><ol style="list-style:decimal;padding-left:20px;display:grid;gap:4px;font-size:15px"><li>요금 방식과 금액 (금액을 정하기 어렵다면 ‘견적 문의’)</li><li>사진 3장 이상</li><li>공간 소개 글</li></ol></div>
         <a class="btn btn-primary btn-lg" id="ap-go" href="/host/center/#space">호스트센터에서 이어서 작성 <span class="arrow">→</span></a>
+        <p class="small muted" style="max-width:520px">호스트센터의 공간 정보 화면에 항목별 작성 Tip과 예시가 있습니다. 그래도 막히면 <a class="pf-link" href="https://pf.kakao.com/_LnxbmX/chat" target="_blank" rel="noopener" data-kakao>메가스팟 카카오톡</a>으로 물어보세요.</p>
       </div>
     </form>
   </div>

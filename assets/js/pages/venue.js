@@ -5,11 +5,11 @@
   var M=window.MEGASPOT, S=window.MSP; if(!M||!S) return;
   var $=M.$, $$=M.$$, esc=M.esc, P=S.P, won=S.won, q=S.qs(), ref=(q.get('id')||'').toUpperCase();
   var box=$('#vn-book'); if(!box) return;
-  var V=null, CLOSED={}, BOOKED={}, ADDONS=[], TODAY=S.today(), EST=null, step=1, timer=null, seq=0;
+  var V=null, CLOSED={}, BOOKED={}, ADDONS=[], TODAY=S.today(), EST=null, step=1, timer=null, seq=0, PREVIEW=false;
   var SEL={ date:'', mode:'', start:'', end:'', pkg:0, people:'', options:{}, addons:{}, addon_note:'' };
   function fail(){ $('#vn-loading').hidden=true; $('#vn-none').hidden=false; }
   if(!/^SP-[A-Z0-9-]+$/.test(ref)) return fail();
-  function track(ev){ M.api('/venues/track', { method:'POST', body:{ ref:ref, ev:ev } }).catch(function(){}); }
+  function track(ev){ if(PREVIEW) return; M.api('/venues/track', { method:'POST', body:{ ref:ref, ev:ev } }).catch(function(){}); }
   function addDays(iso, n){ var d=new Date(iso+'T00:00:00'); d.setDate(d.getDate()+n); return M.fmtDate(d); }
   function nl(t){ return esc(t).replace(/\n/g,'<br>'); }
   function sec(id, title, html, sub){ return html?'<section class="vn-sec" id="vn-'+id+'"><h2>'+esc(title)+(sub?' <small>'+esc(sub)+'</small>':'')+'</h2>'+html+'</section>':''; }
@@ -17,8 +17,12 @@
   function times(from, to, sel){ var o=''; for(var m=from; m<=to; m+=30){ var t=M.pad2(Math.floor(m/60))+':'+M.pad2(m%60); o+='<option value="'+t+'"'+(t===sel?' selected':'')+'>'+t+'</option>'; } return o; }
 
   M.api('/venues/item/'+encodeURIComponent(ref)).then(function(r){
-    V=r.space; TODAY=r.today||TODAY; ADDONS=r.addons||P.addons; (r.closed||[]).forEach(function(d){ CLOSED[d]=1; }); (r.booked||[]).forEach(function(b){ (BOOKED[b.day]=BOOKED[b.day]||[]).push(b); });
+    V=r.space; TODAY=r.today||TODAY; ADDONS=r.addons||P.addons; PREVIEW=!!r.preview; (r.closed||[]).forEach(function(d){ CLOSED[d]=1; }); (r.booked||[]).forEach(function(b){ (BOOKED[b.day]=BOOKED[b.day]||[]).push(b); });
     draw(); track('view');
+    // 호스트 미리보기: 공개 전 공간을 그 호스트에게만 보여 줍니다
+    if(PREVIEW){ var art=$('#vn'), bar=document.createElement('div'); bar.className='hc-banner warn vn-preview'; bar.setAttribute('role','status');
+      bar.innerHTML='<h2>내 공간 미리보기</h2><p>아직 공개 전이라 고객에게는 보이지 않습니다. 공개되면 고객이 이 화면을 보고 예약을 요청합니다. 미리보기에서는 예약 요청을 보낼 수 없습니다.</p><div class="hc-acts"><a class="btn btn-primary btn-sm" href="/host/center/#space='+encodeURIComponent(V.id)+'">호스트센터에서 고치기</a></div>';
+      art.insertBefore(bar, art.firstChild); document.title='[미리보기] '+document.title; }
   }).catch(fail);
 
   function draw(){
@@ -173,7 +177,9 @@
     $('#vn-back').addEventListener('click', function(){ step=1; book(); });
     var f2=$('#vn-f2'), ph=f2.elements.phone;
     ph.addEventListener('input', function(){ var x=this.value.replace(/[^0-9]/g,'').slice(0,11); if(x.length>7) x=x.replace(/(\d{3})(\d{3,4})(\d{1,4})/,'$1-$2-$3'); else if(x.length>3) x=x.replace(/(\d{3})(\d+)/,'$1-$2'); this.value=x; });
-    f2.addEventListener('submit', function(e){ e.preventDefault(); if(!M.validate(f2)) return;
+    f2.addEventListener('submit', function(e){ e.preventDefault();
+      if(PREVIEW){ var pe=$('#vn-err'); pe.textContent='미리보기에서는 예약 요청을 보낼 수 없습니다. 공간이 공개되면 고객이 여기서 요청을 보냅니다.'; pe.hidden=false; return; }
+      if(!M.validate(f2)) return;
       var b=selBody(), el=f2.elements, btn=$('#vn-send'), err=$('#vn-err'); err.hidden=true; btn.disabled=true; btn.textContent='보내는 중…';
       b.name=el.name.value.trim(); b.phone=el.phone.value.trim(); b.org=el.org.value.trim(); b.email=el.email.value.trim(); b.purpose=el.purpose.value; b.message=el.message.value.trim(); b.visit=!!(el.visit&&el.visit.checked);
       b.addons=Object.keys(SEL.addons); b.addon_note=SEL.addon_note; b.agree_privacy=el.agree_privacy.checked; b.agree_share=el.agree_share.checked; b.website=el.website.value;

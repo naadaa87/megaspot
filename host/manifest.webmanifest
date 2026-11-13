@@ -1,0 +1,26 @@
+{
+  "id": "/host/center/",
+  "name": "메가스팟 호스트센터",
+  "short_name": "메가스팟 호스트",
+  "description": "메가스팟 호스트센터 — 문의·예약, 일정, 고객, 공간 정보를 휴대폰에서 바로 관리합니다.",
+  "lang": "ko",
+  "dir": "ltr",
+  "start_url": "/host/center/?app=1",
+  "scope": "/host/",
+  "display": "standalone",
+  "background_color": "#F1EFEB",
+  "theme_color": "#FFFFFF",
+  "categories": ["business", "productivity"],
+  "icons": [
+    { "src": "/assets/img/brand/host-app-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/img/brand/host-app-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/img/brand/host-app-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/assets/img/brand/host-app-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "문의·예약", "short_name": "예약", "url": "/host/center/?app=1#bookings", "icons": [{ "src": "/assets/img/brand/host-app-192.png", "sizes": "192x192" }] },
+    { "name": "예약 등록", "short_name": "예약 등록", "url": "/host/center/?app=1#new", "icons": [{ "src": "/assets/img/brand/host-app-192.png", "sizes": "192x192" }] },
+    { "name": "일정", "short_name": "일정", "url": "/host/center/?app=1#calendar", "icons": [{ "src": "/assets/img/brand/host-app-192.png", "sizes": "192x192" }] },
+    { "name": "고객", "short_name": "고객", "url": "/host/center/?app=1#customers", "icons": [{ "src": "/assets/img/brand/host-app-192.png", "sizes": "192x192" }] }
+  ]
+}

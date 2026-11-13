@@ -1,0 +1,167 @@
+/* 호스트센터 앱 화면 (2026-11-13) — 공간 등록 안내·작성 Tip, 카카오톡 문의, 홈 화면 앱(아래쪽 메뉴), 일정 목록, 고객 관리
+   host/center/index.html 에서만 씁니다. 색·서체는 site.css 값을 그대로 씁니다. */
+
+/* ---------- 카카오톡 문의 ---------- */
+.hc-top-kakao{gap:6px}
+.hc-top-kakao .ico-talk,.hc-kakao .ico-talk{width:16px;height:16px;flex:none}
+.hc-kakao{gap:6px;white-space:nowrap}
+.hc-help{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 14px;padding:12px 14px;border:1px dashed var(--concrete);border-radius:var(--radius-lg);background:var(--white)}
+.hc-help p{flex:1 1 220px;font-size:13.5px;line-height:1.65;color:var(--ink-2);margin:0}
+.hc-drawer-body>.hc-help,.hc-form>.hc-help{margin-top:2px}
+@media (max-width:760px){.hc-top-kakao span{display:none}.hc-top-kakao{width:38px;padding:0;justify-content:center}.hc-savebar .hc-kakao.icon-only{width:40px;padding:0;justify-content:center;font-size:0}.hc-savebar .hc-kakao.icon-only .ico-talk{width:18px;height:18px}}
+
+/* 입점 신청·로그인 화면의 문의 안내 */
+.ap-kakao{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 14px;padding:12px 14px;border:1px dashed var(--concrete);border-radius:var(--radius-lg);background:var(--concrete-3)}
+.ap-kakao span{flex:1 1 220px;font-size:13.5px;color:var(--ink-2);line-height:1.6}
+.ap-kakao .ico-talk,.hl-help .ico-talk{width:16px;height:16px}
+.hl-help{padding:18px}
+
+/* ---------- 공간 등록 안내 ---------- */
+.hc-guide{background:var(--white);border:1px solid var(--concrete);border-radius:var(--radius-lg);padding:18px;display:grid;gap:14px;margin-bottom:14px}
+.hc-guide-head{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:flex-start;justify-content:space-between}
+.hc-guide-head h2{font-size:18px}
+.hc-guide-head p{font-size:14.5px;color:var(--ink-2);margin-top:4px;max-width:62ch;line-height:1.65}
+.hc-meter{min-width:180px;display:grid;gap:4px;justify-items:end;text-align:right}
+.hc-meter b{font-size:28px;line-height:1;color:var(--cobalt);font-variant-numeric:tabular-nums}
+.hc-meter span{font-size:12.5px;color:var(--ink-3)}
+.hc-meter i{display:block;width:100%;height:6px;border-radius:3px;background:var(--concrete-2);overflow:hidden}
+.hc-meter i em{display:block;height:100%;background:var(--cobalt);border-radius:3px;transition:width .3s}
+.hc-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;counter-reset:none}
+.hc-steps li{display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:var(--radius);background:var(--concrete-3);font-size:13.5px;font-weight:700;color:var(--ink-3);min-width:0}
+.hc-steps li i{flex:none;display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--concrete-2);font-style:normal;font-size:12px;font-weight:800}
+.hc-steps li span{overflow:hidden;text-overflow:ellipsis}
+.hc-steps li.done{color:var(--ok)}.hc-steps li.done i{background:var(--ok);color:#fff}
+.hc-steps li.now{background:var(--cobalt-soft);color:var(--cobalt-2)}.hc-steps li.now i{background:var(--cobalt);color:#fff}
+.hc-need{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:12px 14px;border-radius:var(--radius-lg);background:var(--rust-soft);border:1px solid #E6C3B5}
+.hc-need b{flex:1 1 100%;font-size:14px;color:var(--rust)}
+.hc-need a,.hc-need span{font-size:13px;font-weight:700;padding:4px 10px;border-radius:14px;background:var(--white);border:1px solid #E6C3B5;color:var(--ink)}
+.hc-need a:hover{border-color:var(--rust)}
+.hc-need.ok{background:var(--ok-soft);border-color:#B9DCC6}.hc-need.ok b{color:var(--ok)}.hc-need.ok span{background:transparent;border:0;padding:0;font-weight:500}
+.hc-need.soft{background:var(--concrete-3);border-color:var(--concrete-2)}.hc-need.soft b{color:var(--ink-2)}.hc-need.soft a{border-color:var(--concrete);font-weight:600;color:var(--ink-2)}
+@media (max-width:760px){.hc-steps{grid-template-columns:repeat(2,minmax(0,1fr))}.hc-meter{justify-items:start;text-align:left;min-width:0;width:100%}}
+.hc-toc a{display:inline-flex;align-items:center;gap:6px}
+.hc-toc a i{display:none;width:8px;height:8px;border-radius:50%;flex:none}
+.hc-toc a.need i{display:inline-block;background:var(--rust)}
+.hc-toc a.ok i{display:inline-block;width:auto;height:auto;border-radius:0;background:none;font-style:normal;color:var(--ok);font-weight:800}
+.hc-toc a.ok i::before{content:"✓"}
+.hc-tip{border:1px solid #C9D6F6;border-radius:var(--radius-lg);background:var(--cobalt-soft);margin:2px 0 4px}
+.hc-tip>summary{cursor:pointer;list-style:none;padding:10px 14px;font-size:14px;font-weight:800;color:var(--cobalt-2);display:flex;align-items:center;gap:8px}
+.hc-tip>summary::-webkit-details-marker{display:none}
+.hc-tip>summary::before{content:"?";display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--cobalt);color:#fff;font-size:12px}
+.hc-tip>summary::after{content:"펼치기";margin-left:auto;font-size:12px;font-weight:700;color:var(--cobalt)}
+.hc-tip[open]>summary::after{content:"접기"}
+.hc-tip>div{padding:0 14px 14px;display:grid;gap:10px}
+.hc-tip ul,.hc-tip ol{display:grid;gap:7px;padding-left:18px;font-size:14px;line-height:1.7;color:var(--ink)}
+.hc-tip ul{list-style:disc}.hc-tip ol{list-style:decimal}
+.hc-tip .ex{display:block;font-size:13px;color:var(--ink-2)}
+.hc-tip .hc-help{background:var(--white);border-style:solid;border-color:#C9D6F6}
+.hc-guide>.hc-tip{margin:0}
+
+/* ---------- 홈 ---------- */
+.hc-quick{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:14px}
+.hc-q{display:grid;gap:2px;justify-items:start;text-align:left;padding:12px 14px;background:var(--white);border:1px solid var(--concrete);border-radius:var(--radius-lg);min-width:0}
+.hc-q:hover{border-color:var(--cobalt)}
+.hc-q b{font-size:16px;color:var(--graphite)}
+.hc-q span{font-size:12.5px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.hc-q:first-child{background:var(--cobalt);border-color:var(--cobalt)}.hc-q:first-child b,.hc-q:first-child span{color:#fff}
+.hc-q:first-child b{font-size:20px;line-height:1}
+@media (max-width:520px){.hc-quick{gap:6px}.hc-q{padding:10px;justify-items:center;text-align:center}.hc-q b{font-size:14.5px}.hc-q span{font-size:11.5px}}
+.hc-install{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:14px;border:1px solid #C9D6F6;border-radius:var(--radius-lg);background:var(--cobalt-soft);margin-bottom:14px}
+.hc-install img{border-radius:12px;flex:none;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.hc-install>div:not(.hc-acts){flex:1 1 200px}
+.hc-install b{font-size:15.5px}.hc-install p{font-size:13.5px;color:var(--ink-2);margin-top:2px;line-height:1.6}
+.hc-install-why{grid-template-columns:auto minmax(0,1fr);align-items:start}
+.hc-install-why img{border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.hc-install-why p{margin-top:4px;line-height:1.65}
+.hc-isteps{display:grid;gap:8px;padding-left:22px;list-style:decimal;font-size:14.5px;line-height:1.7}
+
+/* ---------- 일정 목록 ---------- */
+.hc-agday{display:grid;gap:6px}
+.hc-agday+.hc-agday{margin-top:14px}
+.hc-agday>h3{font-size:14px;color:var(--ink-2);padding-bottom:4px;border-bottom:1px solid var(--concrete-2)}
+.hc-agday.today>h3{color:var(--cobalt-2)}
+.hc-agclosed{font-size:13px;font-weight:700;color:var(--ink-2);padding:6px 10px;border-radius:var(--radius);background:repeating-linear-gradient(135deg,var(--concrete-3),var(--concrete-3) 6px,var(--concrete-2) 6px,var(--concrete-2) 12px)}
+.hc-aglist{display:grid;gap:6px}
+.hc-ag{display:grid;grid-template-columns:62px minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;text-align:left;padding:10px 12px;background:var(--white);border:1px solid var(--concrete);border-left:3px solid var(--ok);border-radius:var(--radius-lg);min-width:0}
+.hc-ag:hover{border-color:var(--cobalt);border-left-color:var(--cobalt)}
+.hc-ag.soft{border-left-color:var(--concrete);opacity:.85}
+.hc-ag.clash{border-color:var(--rust);border-left-color:var(--rust);background:var(--rust-soft)}
+.hc-ag .t{font-weight:800;font-size:15px;font-variant-numeric:tabular-nums;line-height:1.25}
+.hc-ag .t small{display:block;font-size:12px;font-weight:600;color:var(--ink-3)}
+.hc-ag .m{display:grid;gap:3px;min-width:0}
+.hc-ag .r1{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;font-size:14.5px}
+.hc-ag .r2{font-size:12.5px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hc-ag .a{text-align:right;font-weight:800;font-size:13.5px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.hc-ag .a small{display:block;font-size:11px;font-weight:600;color:var(--rust)}
+@media (max-width:420px){.hc-ag{grid-template-columns:52px minmax(0,1fr)}.hc-ag .a{grid-column:2;text-align:left}}
+.hc-flag.warn{background:var(--rust-soft);color:var(--rust);border:1px solid #E6C3B5}
+.hc-day.clash{box-shadow:inset 0 -3px 0 var(--rust)}
+.hc-day .ev.clash{outline:1px solid var(--rust);outline-offset:-1px}
+.hc-dayrow{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--concrete-2)}
+.hc-dayrow>div{display:grid;gap:2px;min-width:0}
+.hc-seg2{display:inline-flex;padding:3px;border-radius:18px;background:var(--concrete-2)}
+.hc-seg2 button{height:32px;padding:0 14px;border-radius:15px;font-size:13.5px;font-weight:700;color:var(--ink-2)}
+.hc-seg2 button[aria-pressed="true"]{background:var(--white);color:var(--graphite);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.hc-ical{display:grid;gap:10px;margin-top:10px}
+.hc-calnav{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;margin-bottom:12px}
+.hc-calnav>b{text-align:center;font-size:16.5px;font-variant-numeric:tabular-nums}
+.hc-calnav>b .pf-link{font-size:13px;margin-left:6px;font-weight:700}
+.hc-legend2{font-size:12.5px;color:var(--ink-3);margin:-4px 0 10px}
+
+/* ---------- 예약 등록 ---------- */
+.hc-seg{display:flex;flex-wrap:wrap;gap:6px}
+.hc-seg label{position:relative}
+.hc-seg input{position:absolute;opacity:0;pointer-events:none}
+.hc-seg span{display:inline-flex;align-items:center;height:36px;padding:0 13px;border:1px solid var(--concrete);border-radius:18px;background:var(--white);font-size:14px;font-weight:700;color:var(--ink-2);cursor:pointer}
+.hc-seg input:checked+span{background:var(--cobalt);border-color:var(--cobalt);color:#fff}
+.hc-seg input:focus-visible+span{outline:2px solid var(--cobalt);outline-offset:2px}
+.hc-suggest{display:grid;gap:4px;padding:10px;border:1px solid #C9D6F6;border-radius:var(--radius-lg);background:var(--cobalt-soft)}
+.hc-suggest button{text-align:left;padding:8px 10px;border-radius:var(--radius);background:var(--white);border:1px solid #C9D6F6;font-size:14px}
+.hc-suggest button:hover{border-color:var(--cobalt)}
+.hc-clash{display:grid;gap:8px;padding:14px;border-radius:var(--radius-lg);background:var(--rust-soft);border:1px solid #E6C3B5}
+.hc-clash>b{color:var(--rust);font-size:15px}
+.hc-clash .row{gap:6px 10px}
+.hc-chips.sub{margin-top:6px;align-items:center}
+.hc-chips.sub .lbl{flex:none;font-size:12.5px;font-weight:700;color:var(--ink-3);margin-right:2px}
+.hc-chips.sub .chip{min-height:32px;font-size:13px}
+
+/* ---------- 고객 ---------- */
+.hc-row .r2.memo{color:var(--ink-3);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hc-flag.tag-regular{background:var(--ok-soft);color:var(--ok)}
+.hc-flag.tag-corp{background:var(--cobalt-soft);color:var(--cobalt-2)}
+.hc-flag.tag-followup{background:var(--warn-soft);color:#7A4E00}
+.hc-flag.tag-caution{background:var(--rust-soft);color:var(--rust)}
+.hc-kv dd .pf-link.small{font-size:13px;margin-left:6px}
+
+/* ---------- 더보기 ---------- */
+.hc-more{display:grid;gap:8px}
+.hc-more a{display:grid;gap:2px;padding:14px 16px;background:var(--white);border:1px solid var(--concrete);border-radius:var(--radius-lg)}
+.hc-more a:hover{border-color:var(--cobalt)}
+.hc-more b{font-size:15.5px}.hc-more span{font-size:13px;color:var(--ink-3)}
+
+/* ---------- 좁은 화면: 아래쪽 메뉴 · 예약 등록 버튼 (홈 화면 앱처럼) ---------- */
+.hc-tabbar,.hc-fab{display:none}
+@media (max-width:760px){
+  .hc-nav{display:none}
+  .hc-app{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
+  .hc-tabbar{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));position:fixed;left:0;right:0;bottom:0;z-index:60;background:var(--white);border-top:1px solid var(--concrete);padding:4px 4px calc(4px + env(safe-area-inset-bottom));box-shadow:0 -2px 12px rgba(38,43,46,.06)}
+  .hc-tabbar a,.hc-tabbar button{position:relative;display:grid;justify-items:center;align-content:center;gap:2px;height:54px;border-radius:var(--radius);font-size:11.5px;font-weight:700;color:var(--ink-3);background:none;border:0}
+  .hc-tabbar svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .hc-tabbar .on{color:var(--cobalt)}
+  .hc-tabbar em{position:absolute;top:4px;left:calc(50% + 6px);font-style:normal;font-size:11px;font-weight:800;background:var(--rust);color:#fff;border-radius:9px;min-width:18px;height:18px;display:grid;place-items:center;padding:0 4px}
+  .hc-fab{display:grid;place-items:center;position:fixed;right:16px;bottom:calc(76px + env(safe-area-inset-bottom));z-index:61;width:56px;height:56px;border-radius:50%;background:var(--cobalt);color:#fff;font-size:0;box-shadow:0 6px 18px rgba(31,83,213,.35)}
+  .hc-fab span{font-size:30px;line-height:1;font-weight:400;margin-top:-2px}
+  .page-hostcenter .to-top{display:none!important}
+  #hc-customer,#hc-logout{display:none!important}
+  .hc-top .logo{flex-direction:row}
+  .hc-fab[hidden]{display:none}
+  body.hc-lock .hc-fab{display:none}
+  .hc-foot{padding-bottom:20px}
+  .hc-savebar{bottom:calc(64px + env(safe-area-inset-bottom))}
+  .hc-main{padding-bottom:84px}
+  .hc-drawer{z-index:90}
+  .hc-drawer-panel{padding-bottom:env(safe-area-inset-bottom)}
+}
+/* 홈 화면 앱으로 열었을 때: 위쪽 여백(상태 표시줄)과 고객 화면 링크 정리 */
+.hc-standalone .hc-top{padding-top:calc(10px + env(safe-area-inset-top))}
+.hc-standalone #hc-customer{display:none!important}
