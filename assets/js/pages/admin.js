@@ -124,22 +124,34 @@
   function fail(box){ return function(e){ if(guard(e)) return; box.innerHTML='<div class="empty">'+esc(e.message||'불러오지 못했습니다.')+'</div>'; }; }
 
   /* 새 문의 알림: 행사일과 무관하게 접수 시각순으로 표시합니다. 읽음은 관리자 전체에 공유됩니다. */
-  var notifyItems=[];
-  function loadNotifications(){
-    if(app.hidden || document.hidden) return;
-    A('/inquiry-notifications').then(function(r){
+  var notifyItems=[],notifyThrough=0,notifyBusy=false,notifyRequest=0;
+  function loadNotifications(keepStatus){
+    if(app.hidden || document.hidden || notifyBusy) return Promise.resolve();
+    if(keepStatus!==true)$('#adm-notify-status').textContent='';
+    var request=++notifyRequest;
+    return A('/inquiry-notifications').then(function(r){
+      if(request!==notifyRequest||notifyBusy)return;
       notifyItems=r.items||[];
+      notifyThrough=r.through_id||0;$('#adm-notify-read-all').disabled=!notifyThrough;
       var count=$('#adm-notify-count'); count.textContent=r.count>99?'99+':String(r.count||''); count.hidden=!r.count;
       $('#adm-notify-btn').setAttribute('aria-label',r.count?'새 문의 '+r.count+'건 알림':'새 문의 알림 없음');
       $('#adm-notify-list').innerHTML=notifyItems.length?notifyItems.map(function(it){
         return '<button type="button" class="adm-notify-item" data-notify-ref="'+esc(it.ref)+'"><span class="adm-notify-item-top"><b>'+esc(it.name||'(이름 없음)')+'</b><small>'+esc(ago(it.created_at))+'</small></span><span>'+esc(spaceShort(it.space_id))+' · '+esc(it.event_date?kd(it.event_date):'날짜 미정')+'</span><small>'+esc(it.ref)+' · '+esc(chLabel(it.channel))+' · '+esc(it.status)+'</small></button>';
       }).join(''):emptyMsg('확인하지 않은 문의가 없습니다.');
       if(r.count>notifyItems.length) $('#adm-notify-list').insertAdjacentHTML('beforeend','<p class="adm-notify-more">최근 50건을 표시합니다. 문의를 확인하면 이전 문의가 이어서 나타납니다.</p>');
-    }).catch(function(e){ if(!guard(e) && !$('#adm-notify-panel').hidden) $('#adm-notify-list').innerHTML=emptyMsg('알림을 불러오지 못했습니다. 새로고침해 주세요.'); });
+    }).catch(function(e){ if(request!==notifyRequest)return;if(!guard(e) && !$('#adm-notify-panel').hidden) $('#adm-notify-status').textContent='알림을 불러오지 못했습니다. 새로고침해 주세요.'; });
   }
   function closeNotifications(){ $('#adm-notify-panel').hidden=true; $('#adm-notify-btn').setAttribute('aria-expanded','false'); }
   $('#adm-notify-btn').addEventListener('click',function(){ var panel=$('#adm-notify-panel'); panel.hidden=!panel.hidden; this.setAttribute('aria-expanded',String(!panel.hidden)); if(!panel.hidden) loadNotifications(); });
   $('#adm-notify-reload').addEventListener('click',loadNotifications);
+  $('#adm-notify-close').addEventListener('click',function(){closeNotifications();$('#adm-notify-btn').focus();});
+  $('#adm-notify-read-all').addEventListener('click',function(){
+    if(notifyBusy||!notifyThrough)return;
+    var button=this,through=notifyThrough;notifyBusy=true;notifyRequest++;button.disabled=true;button.textContent='처리 중…';$('#adm-notify-reload').disabled=true;$('#adm-notify-status').textContent='';
+    A('/inquiry-notifications/read-all',{method:'POST',body:{through_id:through}}).then(function(){
+      notifyBusy=false;$('#adm-notify-status').textContent='기존 새 문의 알림을 모두 읽음 처리했습니다.';return loadNotifications(true);
+    }).catch(function(e){if(!guard(e))$('#adm-notify-status').textContent=e.message||'읽음 상태를 저장하지 못했습니다. 다시 시도해 주세요.';}).finally(function(){notifyBusy=false;button.textContent='모두 읽음';button.disabled=!notifyThrough;$('#adm-notify-reload').disabled=false;});
+  });
   $('#adm-notify-all').addEventListener('click',function(){ closeNotifications(); go('inq'); });
   $('#adm-notify-list').addEventListener('click',function(e){ var b=e.target.closest('[data-notify-ref]'); if(!b) return; closeNotifications(); openInquiry(b.dataset.notifyRef); });
   document.addEventListener('click',function(e){ if(!e.target.closest('#adm-notify')) closeNotifications(); });
@@ -151,6 +163,7 @@
   // 모임·입점·등록 공간·광고 화면은 admin-platform.js 가 MEGASPOT_ADMIN.register 로 붙입니다
   var LOAD={ revenue:function(){}, 'booking-readiness':function(){}, 'booking-new':function(){}, 'prices-catering':function(){}, 'prices-reception':function(){}, 'prices-cocktail':function(){}, 'guide-settings':function(){}, 'deposit-settings':function(){}, 'parking-settings':function(){}, 'deposit-notifications':function(){}, 'deposit-refunds':function(){}, 'guide-messages':function(){}, cocktail:function(){}, parking:function(){}, reception:function(){}, dash:loadDash, resv:loadResv, visits:loadVisits, inq:loadInq, quote:function(){ ensureCurrentQuote('view').catch(function(e){if(!guard(e))M.toast(e.message);});calc();loadRecentQuotes(); }, catering:loadCatering, orders:loadOrders, bookings:loadBookings, calendar:loadCalendar, reviews:loadReviews, members:loadMembers };
   function go(v){
+    if(v==='booking-new')v='inq';
     if(!LOAD[v]) v='dash';
     var layout=window.MEGASPOT_ADMIN_LAYOUT, panel=layout?layout.panel(v):v;
     $$('.adm-view').forEach(function(s){ s.hidden = s.id!=='view-'+panel; });

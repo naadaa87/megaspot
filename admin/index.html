@@ -52,7 +52,7 @@
 <link rel="stylesheet" href="/assets/css/admin-settlement.css?v=20261105mobilepayment1">
 <link rel="stylesheet" href="/assets/css/admin-parking-alerts.css?v=20261104adminsms1">
 <link rel="stylesheet" href="/assets/css/admin-parking.css?v=20261106mobile-status">
-<link rel="stylesheet" href="/assets/css/admin-navigation.css?v=6c865732ac7d">
+<link rel="stylesheet" href="/assets/css/admin-navigation.css?v=01bbe8006926">
 <link rel="stylesheet" href="/assets/css/admin-booking-readiness.css?v=20261105readiness1">
 <link rel="stylesheet" href="/assets/css/admin-revenue.css?v=20261110revenue1">
 <link rel="stylesheet" href="/assets/css/admin-reservation-search.css?v=20261105inquirysearch1">
@@ -109,7 +109,7 @@
   </aside>
 
   <main class="adm-main">
-    <div class="adm-notify-bar"><div class="adm-notify" id="adm-notify"><button type="button" class="adm-notify-btn" id="adm-notify-btn" aria-label="새 문의 알림" aria-expanded="false" aria-controls="adm-notify-panel"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span>새 문의</span><em id="adm-notify-count" hidden></em></button><div class="adm-notify-panel" id="adm-notify-panel" hidden><div class="adm-notify-head"><strong>새로 들어온 문의</strong><button type="button" class="btn btn-light btn-xs" id="adm-notify-reload">새로고침</button></div><div class="adm-notify-list" id="adm-notify-list"></div><button type="button" class="adm-notify-all" id="adm-notify-all">문의 관리 전체 보기 →</button></div></div></div>
+    <div class="adm-notify-bar"><div class="adm-notify" id="adm-notify"><button type="button" class="adm-notify-btn" id="adm-notify-btn" aria-label="새 문의 알림" aria-expanded="false" aria-controls="adm-notify-panel"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span>새 문의</span><em id="adm-notify-count" hidden></em></button><div class="adm-notify-panel" id="adm-notify-panel" hidden><div class="adm-notify-head"><strong>새로 들어온 문의</strong><div class="adm-notify-tools"><button type="button" class="btn btn-light btn-xs" id="adm-notify-read-all" disabled>모두 읽음</button><button type="button" class="btn btn-light btn-xs" id="adm-notify-reload">새로고침</button><button type="button" class="btn btn-light btn-xs" id="adm-notify-close" aria-label="새 문의 알림 닫기">닫기 ×</button></div></div><p class="adm-notify-status" id="adm-notify-status" role="status" aria-live="polite"></p><div class="adm-notify-list" id="adm-notify-list"></div><button type="button" class="adm-notify-all" id="adm-notify-all">문의 관리 전체 보기 →</button></div></div></div>
     <!-- 대시보드 -->
     <section class="adm-view" id="view-dash">
       <header class="adm-head"><div><h1>오늘 확인할 것</h1><p id="dash-date" class="small muted"></p></div><div class="row" style="gap:8px"><button class="btn btn-light btn-sm" type="button" data-go="inq-new">+ 문의 직접 등록</button><button class="btn btn-light btn-sm" type="button" id="dash-reload">새로고침</button></div></header>
@@ -439,9 +439,9 @@
 
     <!-- 예약 관리 -->
     <section class="adm-view" id="view-bookings" hidden>
-      <header class="adm-head"><div><h1>예약 관리</h1><p class="small muted">예약별 진행 상태와 수납·안내 내역을 확인합니다. 새 예약은 예약 등록에서 추가하고, 이용 완료 후에는 고객이 예약번호로 후기를 쓸 수 있습니다.</p></div><button class="btn btn-light btn-sm" type="button" data-go="guide-messages">예약별 알림</button><button class="btn btn-light btn-sm" type="button" id="bk-reload">새로고침</button></header>
+      <header class="adm-head"><div><h1>예약 관리</h1><p class="small muted">예약별 진행 상태와 수납·안내 내역을 확인합니다. 새 예약은 문의 관리에서 해당 문의를 예약 확정해 주세요. 이용 완료 후에는 고객이 예약번호로 후기를 쓸 수 있습니다.</p></div><button class="btn btn-light btn-sm" type="button" data-go="guide-messages">예약별 알림</button><button class="btn btn-light btn-sm" type="button" id="bk-reload">새로고침</button></header>
       <div class="adm-grid2" style="align-items:start">
-        <form class="adm-card form" id="bk-form" novalidate>
+        <form class="adm-card form" id="bk-form" novalidate hidden>
           <h2>예약 확정 등록</h2>
           <div class="field-row"><div class="f"><label>공간</label><select class="select" name="space_id" id="bk-space"></select></div><div class="f"><label>연결할 문의번호</label><input class="input" name="inquiry_ref" id="bk-ref" placeholder="MS-2611-XXXX"></div></div>
           <div class="field-row"><div class="f"><label>예약자 이름 <span class="req">*</span></label><input class="input" name="customer_name" id="bk-name" required></div><div class="f"><label>연락처 <span class="req">*</span></label><input class="input" name="phone" id="bk-phone" type="tel" required placeholder="010-0000-0000"></div></div>
@@ -719,7 +719,7 @@
 <script src="/assets/js/inquiry-overview.js?v=20261105cfbudget1"></script>
 <script src="/assets/js/quote-calculation.js?v=20261105cflifecycle1"></script>
 <script src="/assets/js/quote-policy.js?v=292941d5ba14"></script>
-<script src="/assets/js/pages/admin.js?v=b3006c0ef638"></script>
+<script src="/assets/js/pages/admin.js?v=ffbcb2ae9db6"></script>
 <script src="/assets/js/pages/admin-platform.js?v=20261102adminux1"></script>
 <script src="/assets/js/pages/admin-cocktail.js?v=20261104foodprices3"></script>
 <script src="/assets/js/pages/admin-food-pricing.js?v=20261105cfbudget1"></script>
@@ -728,7 +728,7 @@
 <script src="/assets/js/pages/admin-parking-view.js?v=a42cd33105ff"></script>
 <script src="/assets/js/pages/admin-parking.js?v=6a4dc25cb71f"></script>
 <script src="/assets/js/pages/admin-amano-server.js?v=20261108weekend"></script>
-<script src="/assets/js/pages/admin-parking-alerts.js?v=20261106parking-groups"></script>
+<script src="/assets/js/pages/admin-parking-alerts.js?v=1394ef361304"></script>
 <script src="/assets/js/pages/admin-parking-notifications.js?v=20261109-alimtalk"></script>
 <script src="/assets/js/pages/admin-guide-messages.js?v=810c3b21d654"></script>
 <script src="/assets/js/pages/admin-deposit-refunds.js?v=20261105accountreminder9"></script>
@@ -741,7 +741,7 @@
 <script src="/assets/js/pages/admin-transaction-notifications.js?v=20261112trial1"></script>
 <script src="/assets/js/pages/admin-revenue.js?v=20261110revenue3"></script>
 <script src="/assets/js/pages/admin-hostplat.js?v=20261112host1"></script>
-<script src="/assets/js/pages/admin-navigation.js?v=a1286eaff4c3"></script>
+<script src="/assets/js/pages/admin-navigation.js?v=98126e8642e9"></script>
 <script src="/assets/js/pages/admin-booking-readiness.js?v=20261105readiness1"></script>
 <script src="/assets/js/pages/admin-contacts.js?v=6d34a1d37fb7"></script>
 </body>

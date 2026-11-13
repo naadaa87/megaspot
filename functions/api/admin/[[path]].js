@@ -206,9 +206,16 @@ export async function onRequest({ request, env, params, waitUntil }) {
     }
 
     if (path === 'inquiry-notifications' && method === 'GET') {
-      const count = await env.DB.prepare("SELECT COUNT(*) AS n FROM inquiries i LEFT JOIN admin_inquiry_reads r ON r.ref = i.ref WHERE r.ref IS NULL AND i.status = '문의 접수'").first();
+      const count = await env.DB.prepare("SELECT COUNT(*) AS n, COALESCE(MAX(i.id),0) AS through_id FROM inquiries i LEFT JOIN admin_inquiry_reads r ON r.ref = i.ref WHERE r.ref IS NULL AND i.status = '문의 접수'").first();
       const { results } = await env.DB.prepare("SELECT i.ref, i.name, i.event_date, i.status, i.created_at, i.space_id, json_extract(i.data, '$.channel') AS channel FROM inquiries i LEFT JOIN admin_inquiry_reads r ON r.ref = i.ref WHERE r.ref IS NULL AND i.status = '문의 접수' ORDER BY i.created_at DESC LIMIT 50").all();
-      return json({ ok: true, count: count?.n || 0, items: results || [] });
+      return json({ ok: true, count: count?.n || 0, through_id:count?.through_id || 0, items: results || [] });
+    }
+    if(path==='inquiry-notifications/read-all'&&method==='POST'){
+      const d=await readJson(request),through=d.through_id;
+      if(!Number.isSafeInteger(through)||through<1)return err('새 문의 알림을 새로고침한 뒤 다시 읽음 처리해 주세요.',400,'INVALID_SNAPSHOT');
+      // Use the displayed snapshot boundary so inquiries arriving later stay unread.
+      const result=await env.DB.prepare("INSERT OR IGNORE INTO admin_inquiry_reads(ref,read_at) SELECT i.ref,? FROM inquiries i LEFT JOIN admin_inquiry_reads r ON r.ref=i.ref WHERE r.ref IS NULL AND i.status='문의 접수' AND i.id<=?").bind(now(),through).run();
+      return json({ok:true,read_count:Number(result?.meta?.changes??result?.changes??0)});
     }
     const notificationRead = path.match(/^inquiry-notifications\/([A-Z0-9-]+)\/read$/);
     if (notificationRead && method === 'POST') {

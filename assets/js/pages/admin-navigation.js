@@ -37,10 +37,8 @@
   var channels=$('#adm-side-links');if(channels){var box=document.createElement('details');box.className='adm-channel-links';box.innerHTML='<summary>채널 바로가기 ↗</summary>';channels.before(box);box.appendChild(channels);}
   var context=document.createElement('div');context.className='adm-context';context.setAttribute('aria-label','현재 위치');$('.adm-notify-bar').after(context);
   function section(id,title,description){var s=document.createElement('section');s.id='view-'+id;s.className='adm-view';s.hidden=true;var h=document.createElement('header');h.className='adm-head';h.innerHTML='<div><h1>'+title+'</h1><p class="small muted">'+description+'</p></div>';s.appendChild(h);main.appendChild(s);return s;}
-  // DOM을 복사하지 않고 옮겨 기존 저장·검증·미저장 입력을 유지합니다.
-  var registration=section('booking-new','예약 등록','결제 확인을 마친 예약을 등록합니다. 연결할 문의가 있으면 문의번호를 함께 입력해 주세요.');
-  registration.appendChild($('#bk-form'));$('#view-bookings .adm-grid2').classList.add('adm-booking-list-only');
-  X.register('booking-new',function(){});
+  // Reservations are confirmed from inquiries. Keep legacy form bindings out of the UI.
+  $('#bk-form').hidden=true;$('#view-bookings .adm-grid2').classList.add('adm-booking-list-only');
   var prices=section('prices','공급가·판매가','서비스별 공급가와 판매가를 관리합니다. 저장하면 홈페이지·소개서·새 견적에 반영되며 기존 발행 견적은 유지됩니다.');
   [['catering','#catering-pricing','출장뷔페'],['reception','#reception-pricing','테이블·박스 케이터링'],['cocktail','#view-cocktail .ak-economics','출장 칵테일']].forEach(function(item){
     var host=document.createElement('div');host.dataset.priceService=item[0];host.hidden=true;prices.appendChild(host);host.appendChild($(item[1]));
@@ -65,9 +63,9 @@
   }
   var bookingTabs=[['resv','일자별'],['bookings','예약 목록'],['calendar','달력']];
   ['resv','bookings','calendar'].forEach(function(id){tabs(id,bookingTabs,'예약 현황 보기 방식');$('#view-'+id+' h1').textContent='예약 현황';});
-  // Keep view tabs before month navigation; stack them in that order on phones.
+  // Keep month navigation immediately above the calendar, next to the space filter.
   var calendarView=$('#view-calendar'),calendarTabs=calendarView.querySelector('.adm-workspace-tabs'),monthControls=$('#cal-prev').parentElement;
-  var calendarNavigation=document.createElement('div');calendarNavigation.className='adm-calendar-navigation';calendarTabs.before(calendarNavigation);calendarNavigation.appendChild(calendarTabs);monthControls.classList.add('adm-calendar-month-controls');calendarNavigation.appendChild(monthControls);
+  var calendarNavigation=document.createElement('div');calendarNavigation.className='adm-calendar-toolbar';var calendarFilter=$('#cal-filter').parentElement;calendarFilter.before(calendarNavigation);calendarNavigation.appendChild(calendarFilter);monthControls.classList.add('adm-calendar-month-controls');calendarNavigation.appendChild(monthControls);
   var calendarGrid=$('#cal-grid'),calendarScroll=document.createElement('div');calendarScroll.className='adm-calendar-scroll';calendarGrid.before(calendarScroll);calendarScroll.appendChild(calendarGrid);
   var calendarHint=document.createElement('p');calendarHint.className='adm-calendar-swipe-hint small muted';calendarHint.textContent='모바일에서는 달력 전체를 좌우로 밀어 다른 요일을 확인할 수 있습니다.';calendarScroll.before(calendarHint);
   var foodTabs=[['catering','출장뷔페'],['reception','테이블·박스 케이터링'],['cocktail','출장 칵테일']];
@@ -79,8 +77,6 @@
   $('#view-guide-delivery .adm-workspace-tabs').classList.add('adm-settings-tabs');
   dn.querySelectorAll('.adm-workspace-tabs')[0].classList.add('adm-settings-tabs');dn.querySelectorAll('.adm-workspace-tabs')[1].classList.add('adm-work-tabs');
   function action(view,id,label){var b=document.createElement('button');b.type='button';b.className='btn btn-light btn-sm adm-context-action';b.dataset.go=id;b.textContent=label;$('#view-'+view+' .adm-head').appendChild(b);return b;}
-  ['resv','bookings','calendar'].forEach(function(id){var b=action(id,'booking-new','+ 예약 등록');b.className='btn btn-primary btn-sm adm-context-action';});
-  action('booking-new','bookings','예약 목록으로');
   action('orders','resv','예약 현황 보기');
   action('orders','revenue','매출 현황 보기');
   action('guide-delivery','guide-settings','알림톡·자동 발송 설정').classList.add('adm-work-block');
