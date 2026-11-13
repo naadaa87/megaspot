@@ -316,7 +316,7 @@ test('서버가 계산한 대기 순번을 유지하고 취소 행은 회색 기
   const cancelled = {kind:'pending',ref:'MS-B',date,name:'취소',status:'대기 취소',amount:500000,wait:null};
   const context = vm.createContext({ RS:{items:[active,cancelled]}, BST:{}, ST_CLS:{'대기 취소':'st-cancel'}, esc:String, famAsk:()=>'', PUR:{}, SRC:{}, resvTime:()=>'', resvHours:()=>'', waitDraggable:()=>true, won:String, chTag:()=>'', depositControl:()=>'',
     DEFAULT_SPACE:'megaspot-gundae', SPACE_IDS:['megaspot-gundae','megaspot-gundae-2'], spaceTag:()=>'', spKey:id=>id==='megaspot-gundae-2'?id:'megaspot-gundae' });
-  vm.runInContext(source.slice(source.indexOf('  var PAYMENT_CHECKS='),source.indexOf('  function resvBase('))+'\n'+source.slice(source.indexOf('  function dayStats('),source.indexOf('  function drawResv(')) + '\n'
+  vm.runInContext(source.slice(source.indexOf('  function serviceChips('),source.indexOf('  var bkCache='))+'\n'+source.slice(source.indexOf('  var PAYMENT_CHECKS='),source.indexOf('  function resvBase('))+'\n'+source.slice(source.indexOf('  function dayStats('),source.indexOf('  function drawResv(')) + '\n'
     + source.slice(source.indexOf('  function resvRow('),source.indexOf("  $('#rs-ch').innerHTML")), context);
   assert.match(context.resvRow(active,{bk:0},false),/대기 <b>3<\/b>번/);
   assert.equal(context.dayStats([active,cancelled])[date].pend,1);

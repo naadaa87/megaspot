@@ -1,3 +1,4 @@
+import {SERVICE_DATA_SQL,reservationServices} from '../_reservation_services.js';
 import {bookingNotificationsAdmin} from '../_booking_notifications.js';
 import {reservationPaymentAdmin,paymentChecksFor} from '../_reservation_payment_checks.js';
 import {cleanPhone2,bookingPhone2Sql,saveBookingPhone2,contactsAdmin} from '../_contacts.js';
@@ -754,10 +755,11 @@ export async function onRequest({ request, env, params, waitUntil }) {
       const page = Math.max(0, Math.min(100000, num(url.searchParams.get('page')) || 0)); args.push(page * 300);
       const { results } = await env.DB.prepare(`SELECT booking_code, space_id, inquiry_ref, customer_name, phone, ${bookingPhone2Sql()} AS phone2, date, slot, headcount, memo, status, ${bookingAmountSql()} AS amount, start_h, end_h, created_at, json_extract(confirm_doc, '$.issued_at') AS confirm_issued,
         CASE WHEN b.inquiry_ref IS NOT NULL THEN (SELECT CASE WHEN json_extract(ic.checks, '$.guarantee_paid') IS NULL THEN NULL WHEN json_extract(ic.checks, '$.guarantee_paid') = 0 THEN 0 ELSE 1 END FROM inquiry_checks ic WHERE ic.ref = b.inquiry_ref)
-             ELSE (SELECT dc.paid FROM booking_deposit_checks dc WHERE dc.booking_code = b.booking_code) END AS deposit_paid
+             ELSE (SELECT dc.paid FROM booking_deposit_checks dc WHERE dc.booking_code = b.booking_code) END AS deposit_paid, ${ORDER_OF_BOOKING} AS cat_ord,
+        (SELECT ${SERVICE_DATA_SQL} FROM inquiries i WHERE i.ref=b.inquiry_ref) AS service_data
         FROM bookings b ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY date DESC, created_at DESC, id DESC LIMIT 301 OFFSET ?`).bind(...args).all();
       const items=(results || []).slice(0,300), guides=await guideSummary(env,items.map(x=>x.booking_code)),settlements=await settlementsFor(env,items.map(x=>x.booking_code));
-      return json({ ok: true, has_more: (results || []).length > 300, items: items.map(x=>({...x,settlement:settlements[x.booking_code],guide_status:guides[x.booking_code] || ''})) });
+      return json({ ok: true, has_more: (results || []).length > 300, items: items.map(({service_data,cat_ord,...x})=>({...x,services:reservationServices(service_data,orderBrief(cat_ord)),settlement:settlements[x.booking_code],guide_status:guides[x.booking_code] || ''})) });
     }
     if (path === 'bookings' && method === 'POST') {
       const d = await readJson(request);
@@ -813,7 +815,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
           o.oid AS order_oid, o.price AS order_price, o.status AS order_status, ${latestQ} AS quote_total,
           ${bookingAmountSql()} AS effective_amount, ${amountOverrideSql()} AS amount_override,
           json_extract(i.data, '$.total') AS inq_total, json_extract(i.data, '$.start_h') AS inq_start, json_extract(i.data, '$.end_h') AS inq_end, json_extract(i.data, '$.purpose') AS purpose, json_extract(i.data, '$.channel') AS channel, json_extract(i.data, '$.channel_note') AS channel_note, json_extract(i.data, '$.family') AS family,
-          ${ORDER_OF_BOOKING} AS cat_ord, CASE WHEN COALESCE(json_extract(i.data, '$.catering.by'), '') <> 'admin' THEN json_extract(i.data, '$.catering.summary') END AS cat_req
+          ${SERVICE_DATA_SQL} AS service_data, ${ORDER_OF_BOOKING} AS cat_ord, CASE WHEN COALESCE(json_extract(i.data, '$.catering.by'), '') <> 'admin' THEN json_extract(i.data, '$.catering.summary') END AS cat_req
         FROM bookings b LEFT JOIN orders o ON o.id = (SELECT ox.id FROM orders ox WHERE ox.booking_code = b.booking_code ORDER BY ox.id DESC LIMIT 1) LEFT JOIN inquiries i ON i.ref = b.inquiry_ref
         WHERE b.date BETWEEN ? AND ? AND ${OPERATIONAL_BOOKING_SQL}
         ORDER BY b.date ASC, COALESCE(b.start_h, json_extract(i.data, '$.start_h'), 99) ASC, b.id ASC LIMIT 1001 OFFSET ?`).bind(f, t, offset).all();
@@ -822,7 +824,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
         SELECT i.ref, i.space_id, i.status, i.name, i.phone, i.event_date, i.headcount, i.memo, i.created_at, (SELECT CASE WHEN json_extract(ic.checks, '$.guarantee_paid') IS NULL THEN NULL WHEN json_extract(ic.checks, '$.guarantee_paid') = 0 THEN 0 ELSE 1 END FROM inquiry_checks ic WHERE ic.ref = i.ref) AS deposit_paid, ${iqQ} AS quote_total, ${inquiryAmountSql()} AS effective_amount, ${amountOverrideSql()} AS amount_override,
           json_extract(i.data, '$.total') AS inq_total, json_extract(i.data, '$.start_h') AS start_h, json_extract(i.data, '$.end_h') AS end_h, json_extract(i.data, '$.t_start') AS t_start, json_extract(i.data, '$.t_end') AS t_end,
           json_extract(i.data, '$.slot') AS slot, json_extract(i.data, '$.reserve') AS reserve, json_extract(i.data, '$.purpose') AS purpose, json_extract(i.data, '$.channel') AS channel, json_extract(i.data, '$.channel_note') AS channel_note, json_extract(i.data, '$.inquiry_type') AS inquiry_type, json_extract(i.data, '$.family') AS family, json_extract(i.data, '$.wait_rank') AS wait_rank, json_extract(i.data, '$.wait_restored_at') AS wait_restored_at,
-          ${ORDER_OF_INQUIRY} AS cat_ord, CASE WHEN COALESCE(json_extract(i.data, '$.catering.by'), '') <> 'admin' THEN json_extract(i.data, '$.catering.summary') END AS cat_req,
+          ${SERVICE_DATA_SQL} AS service_data, ${ORDER_OF_INQUIRY} AS cat_ord, CASE WHEN COALESCE(json_extract(i.data, '$.catering.by'), '') <> 'admin' THEN json_extract(i.data, '$.catering.summary') END AS cat_req,
           w.no AS wait_no,w.total AS wait_total,w.space_id AS wait_space_id
         FROM inquiries i LEFT JOIN wait_queue w ON w.ref=i.ref
         WHERE i.event_date BETWEEN ? AND ? AND (w.ref IS NOT NULL OR (i.status='대기 취소'
@@ -833,11 +835,11 @@ export async function onRequest({ request, env, params, waitUntil }) {
       for (const b of (bks || []).slice(0, 1000)) items.push({ family: jarr(b.family), kind: 'booking', code: b.booking_code, space_id: b.space_id || '', ref: b.inquiry_ref, name: b.customer_name, phone: b.phone, phone2:b.phone2||'', date: b.date, slot: b.slot,
         start_h: b.start_h ?? b.inq_start ?? null, end_h: b.end_h ?? b.inq_end ?? null, headcount: b.headcount, memo: b.operation_memo, status: b.status, purpose: b.purpose || '', channel: b.order_oid ? 'online' : (b.channel || (b.inquiry_ref ? 'web' : '')), channel_note: b.channel_note || '',
         amount: b.effective_amount, deposit_paid: b.deposit_paid,
-        confirm_issued: b.confirm_issued || '', amount_src: b.amount_override ? 'adjusted' : (b.amount != null ? 'booking' : (b.order_price != null && b.order_status !== 'failed' ? 'order' : (b.quote_total != null ? 'quote' : (b.inq_total != null ? 'estimate' : '')))), order: b.order_oid || '', catering: orderBrief(b.cat_ord), catering_req: b.cat_req || '' });
+        confirm_issued: b.confirm_issued || '', amount_src: b.amount_override ? 'adjusted' : (b.amount != null ? 'booking' : (b.order_price != null && b.order_status !== 'failed' ? 'order' : (b.quote_total != null ? 'quote' : (b.inq_total != null ? 'estimate' : '')))), order: b.order_oid || '', services: reservationServices(b.service_data,orderBrief(b.cat_ord)), catering: orderBrief(b.cat_ord), catering_req: b.cat_req || '' });
       for (const p of (pend || []).slice(0, 1000)) items.push({ family: jarr(p.family), kind: 'pending', code: '', ref: p.ref, space_id: p.space_id || '', name: p.name, phone: p.phone, date: p.event_date, slot: p.slot, start_h: p.start_h ?? null, end_h: p.end_h ?? null,
         t_start: p.t_start || '', t_end: p.t_end || '', headcount: p.headcount, memo: p.memo || '', status: p.status, reserve: !!p.reserve, purpose: p.purpose || '', channel: p.channel || 'web', channel_note: p.channel_note || '', inquiry_type: p.inquiry_type || 'event', wait_rank: p.wait_rank == null ? null : Number(p.wait_rank), created_at: p.created_at, wait_restored_at: p.wait_restored_at || '',
         wait: p.wait_no==null?null:{no:p.wait_no,total:p.wait_total,date:p.event_date,space_id:p.wait_space_id},
-        amount: p.effective_amount, deposit_paid: p.deposit_paid, amount_src: p.amount_override ? 'adjusted' : (p.quote_total != null ? 'quote' : (p.inq_total != null ? 'estimate' : '')), catering: orderBrief(p.cat_ord), catering_req: p.cat_req || '' });
+        amount: p.effective_amount, deposit_paid: p.deposit_paid, amount_src: p.amount_override ? 'adjusted' : (p.quote_total != null ? 'quote' : (p.inq_total != null ? 'estimate' : '')), services: reservationServices(p.service_data,orderBrief(p.cat_ord)), catering: orderBrief(p.cat_ord), catering_req: p.cat_req || '' });
       const guides=await guideSummary(env,items.filter(x=>x.kind==='booking').map(x=>x.code));
       for(const item of items) if(item.kind==='booking') item.guide_status=guides[item.code] || '';
       const paymentChecks=await paymentChecksFor(env,items,await settlementsFor(env,items.filter(x=>x.kind==='booking').map(x=>x.code)));
