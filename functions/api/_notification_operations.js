@@ -1,6 +1,6 @@
 import {depositMessageConfig,depositMessageHash,depositTemplateMatches} from './_deposit_notifications.js';
 import {parkingNoticeCron,parkingSign} from './_parking_notifications.js';
-// HMAC-authenticated, narrow operational migration; no arbitrary SQL or customer send endpoint.
+// HMAC-authenticated operations; booking confirmation sends require an exact current recipient and booking match.
 import {json,err,now,sha256} from './_lib.js';
 import {guideAdmin,aligoProvider,guidePhone} from './_guide_messages.js';
 import {CUSTOMER_ALIMTALK} from './_customer_alimtalk_templates.js';
@@ -15,6 +15,19 @@ export async function notificationAudit(env){
  return {manual_guide:{enabled:s.enabled,automatic:s.automatic,code:s.template_code,spaces:s.spaces,test_delivered:s.test_delivered},legacy_queued:legacyPending?.n||0,transaction_counts:transactions,deposit_counts:deposits};
 }
 export async function notificationOperations(env,d){
+ if(['queue_existing_confirmation','existing_confirmation_status'].includes(d?.action)){
+  if(!/^[A-Z0-9-]{1,40}$/.test(d.booking_code||''))return err('예약번호를 확인해 주세요.');
+  const b=await env.DB.prepare('SELECT b.booking_code,b.status,b.space_id,b.date,b.phone,j.confirm_version FROM bookings b JOIN booking_journey_state j ON j.booking_code=b.booking_code WHERE b.booking_code=?').bind(d.booking_code).first();
+  if(!b)return err('예약이 없습니다.',404);
+  const key='journey-confirm:'+b.booking_code+':'+b.confirm_version;
+  if(d.action==='queue_existing_confirmation'){
+   if(d.confirm_send!==true||b.status!=='confirmed'||b.space_id!==d.space_id||b.date!==d.date||guidePhone(b.phone)!==guidePhone(d.phone)||!guidePhone(b.phone)||b.date<new Date(Date.now()+9*3600000).toISOString().slice(0,10))return err('확정 예약과 수신자 정보를 다시 확인해 주세요.',409);
+   if((await env.DB.prepare("SELECT json_extract(value,'$.enabled') AS enabled FROM settings WHERE key='booking_journey'").first())?.enabled!==1)return err('통합 안내 자동 발송이 중지되어 있습니다.',409);
+   await env.DB.prepare("INSERT OR IGNORE INTO transaction_notifications(event_key,kind,audience,ref,booking_code,receiver,occurred_at) SELECT ?,'booking_confirmed','customer',b.booking_code,b.booking_code,b.phone,datetime('now') FROM bookings b JOIN booking_journey_state j ON j.booking_code=b.booking_code WHERE b.booking_code=? AND b.status='confirmed' AND b.phone IS ? AND b.space_id=? AND b.date=? AND j.confirm_version=? AND NOT EXISTS(SELECT 1 FROM transaction_notifications old WHERE old.booking_code=b.booking_code AND old.kind='booking_confirmed' AND old.audience='customer')").bind(key,b.booking_code,b.phone,d.space_id,d.date,b.confirm_version).run();
+  }
+  const rows=(await env.DB.prepare("SELECT id,status,error,occurred_at,updated_at,substr(replace(receiver,'-',''),-4) AS receiver_last4 FROM transaction_notifications WHERE booking_code=? AND kind='booking_confirmed' AND audience='customer' ORDER BY id").bind(b.booking_code).all()).results||[];
+  return json({ok:true,booking_code:b.booking_code,items:rows});
+ }
  if(d?.action==='audit_extended'){
   const deposit=await depositMessageConfig(env),templates=[];
   for(const [kind,code] of Object.entries(deposit.codes)){const result=await aligoProvider(env,'template/list',{tpl_code:code});const template=(result.list||[]).find(t=>t.templtCode===code);templates.push({kind,code,review:template?.inspStatus||'missing',matches:depositTemplateMatches(kind,template),ready:template?.inspStatus==='APR'&&['A','R'].includes(template.status)&&depositTemplateMatches(kind,template)});}

@@ -60,3 +60,13 @@ test('자동 입실 안내 접수 후 이용 시간이 바뀌면 최신 조건�
 test('자동 입실 안내 결과도 예약 관리의 안내 현황에 반영된다',async t=>{
  const f=setup(t);await f.activate();f.priorDayBooking();await f.plan();await transactionNoticeTick(f.env);const b=(await f.api('bookings')).items.find(b=>b.booking_code==='BK-TEST');assert.equal(b.guide_status,'accepted');
 });
+
+test('기존 예약 통합 안내는 정확한 예약·수신자만 허용하며 재요청도 한 건만 대기시킨다',async t=>{
+ const f=setup(t);f.db.exec("DELETE FROM transaction_notifications");
+ f.db.prepare("UPDATE bookings SET space_id='megaspot-gundae-2',date=?,phone='01012342304',status='confirmed' WHERE booking_code='BK-TEST'").run(shiftDay(f.today,20));
+ f.db.exec("DELETE FROM transaction_notifications");
+ const d={action:'queue_existing_confirmation',booking_code:'BK-TEST',space_id:'megaspot-gundae-2',date:shiftDay(f.today,20),phone:'01012342304',confirm_send:true};
+ assert.equal((await f.op({...d,phone:'01099999999'})).status,409);
+ const a=await f.op(d);assert.equal(a.items.length,1);assert.equal(a.items[0].status,'queued');
+ const b=await f.op(d);assert.equal(b.items.length,1);assert.equal(b.items[0].id,a.items[0].id);assert.equal(f.sent.length,0);
+});
