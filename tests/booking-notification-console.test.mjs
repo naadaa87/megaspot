@@ -72,3 +72,10 @@ test('보증금 미납 안내는 기한 창과 승인·시험 설정을 충족�
  const row=f.db.prepare("SELECT * FROM deposit_notifications WHERE mode='live'").get();assert.equal(row.kind,'payment');assert.equal(row.status,'queued');assert.equal(JSON.parse(row.payload).delivery_phone,'01012345678');
  assert.equal((await f.api(path)).steps.find(x=>x.kind==='payment').can_send,false);
 });
+
+test('첫 미리보기에서도 예약확정서나 수납 내역을 생성·변경하지 않는다',async t=>{
+ const f=setup(t);f.db.exec("UPDATE bookings SET confirm_doc=NULL WHERE booking_code='BK-TEST'");
+ const p=await f.api(path+'/preview','POST',{kind:'booking_confirmed'});assert.equal(p.items.length,1);
+ assert.equal(f.db.prepare("SELECT confirm_doc FROM bookings WHERE booking_code='BK-TEST'").get().confirm_doc,null);
+ assert.equal(f.db.prepare('SELECT COUNT(*) n FROM booking_payment_entries').get().n,0);assert.equal(f.sends(),0);
+});

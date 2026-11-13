@@ -39,7 +39,7 @@ async function steps(env,c){
   const engine=Object.hasOwn(keys,kind)?'transaction':'deposit',db=deposit.b,key=keys[kind];let reason=reasons[kind]||'';
   if(engine==='deposit'){
    if(!db)reason='보증금 정보를 확인해 주세요.';
-   else{const e={kind,payload:JSON.stringify(payload(db)),occurred_at:now()};reason=noticeObsolete(db,e,Date.now(),kind==='payment');if(kind==='refunded'&&db.refund_state!=='completed')reason='보증금 환급 완료 처리 후 자동 안내합니다.';if(!reason&&kind==='account'&&Number(db.deposit_amount)-Number(db.deduction||0)<=0)reason='전액 차감되어 환급 계좌 등록이 필요하지 않습니다.';if(!reason&&kind==='payment'&&!depositPaymentWindow(db))reason='보증금 납부 기한 전날부터 미납 고객에게 발송합니다.';if(!reason&&!deposit.ready[kind])reason='보증금 알림의 연결·승인·시험 수신 설정을 확인해 주세요.';}
+   else{const e={kind,payload:JSON.stringify(payload(db)),occurred_at:now()};reason=noticeObsolete(db,e,Date.now(),kind==='payment');if(kind==='account'&&!db.deposit_paid)reason='보증금 입금 확인 후 안내할 수 있습니다.';if(kind==='refunded'&&db.refund_state!=='completed')reason='보증금 환급 완료 처리 후 자동 안내합니다.';if(!reason&&kind==='account'&&Number(db.deposit_amount)-Number(db.deduction||0)<=0)reason='전액 차감되어 환급 계좌 등록이 필요하지 않습니다.';if(!reason&&kind==='payment'&&!depositPaymentWindow(db))reason='보증금 납부 기한 전날부터 미납 고객에게 발송합니다.';if(!reason&&!deposit.ready[kind])reason='보증금 알림의 연결·승인·시험 수신 설정을 확인해 주세요.';}
   }
   if(engine==='transaction'&&!reason&&!c.enabled)reason='통합 알림 자동 발송 설정이 중지되어 있습니다.';
   if(kind!=='booking_confirmed'&&!reason&&(hour<9||hour>=21))reason='발송 가능 시간은 오전 9시부터 오후 9시 전까지입니다.';
@@ -91,7 +91,7 @@ export async function bookingNotificationsAdmin({env,request,url,path,method}){
    if(stage.event_row){
     const row=stage.event_row,template=CUSTOMER_ALIMTALK[row.kind];items.push({phone:recipient.phone,message:template.content.replace(/#\{번호\}/g,row.ref).replace(/#\{금액\}/g,Number(row.amount).toLocaleString('ko-KR')),buttons:[]});
    }else if(stage.engine==='transaction'){
-    const ctx=await journeyContext(env,{kind:stage.kind,booking_code:c.b.booking_code,receiver:recipient.phone,event_key:stage.event_key});if(ctx.cancel||ctx.hold)return err(ctx.cancel||ctx.hold,409);
+    const ctx=await journeyContext(env,{kind:stage.kind,booking_code:c.b.booking_code,receiver:recipient.phone,event_key:stage.event_key},{preview:true});if(ctx.cancel||ctx.hold)return err(ctx.cancel||ctx.hold,409);
     const template=JOURNEY_TEMPLATES[stage.kind==='booking_arrival'&&c.b.space_id==='megaspot-gundae-2'?'booking_arrival_space2':stage.kind];items.push({phone:recipient.phone,message:ctx.render(template),buttons:ctx.buttonsFor(template)});
    }else{const template=DEPOSIT_TEMPLATES[stage.kind],e={kind:stage.kind,payload:JSON.stringify(payload(c.deposit.b)),occurred_at:now()},vars=depositNoticeVariables(c.deposit.b,e,'발송 시 생성');items.push({phone:recipient.phone,message:depositNoticeRender(template.content,vars),buttons:template.buttons.map(b=>({name:b.name,linkMo:null})),link_note:template.buttons.length?'예약자 전용 환급 계좌 링크는 실제 발송할 때 생성됩니다.':''});}
   }

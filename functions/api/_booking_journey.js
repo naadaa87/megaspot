@@ -12,7 +12,7 @@ import {JOURNEY_TEMPLATES,journeyButtons} from './_booking_journey_templates.js'
 export const journeyKind=kind=>Object.hasOwn(JOURNEY_TEMPLATES,kind);
 export async function journeyEnabled(env){return (await env.DB.prepare("SELECT json_extract(value,'$.enabled') AS enabled FROM settings WHERE key='booking_journey'").first())?.enabled===1;}
 const hour=h=>(h>=24?'다음날 ':'')+String(Math.floor(h%24)).padStart(2,'0')+':'+String(Math.round((h%1)*60)).padStart(2,'0');
-export async function journeyContext(env,row){
+export async function journeyContext(env,row,{preview=false}={}){
  if(!await journeyEnabled(env))return {hold:'예약 통합 알림 자동 발송 중지'};
  const b=await env.DB.prepare(`SELECT b.*,${bookingPhone2Sql()} AS phone2,s.amount_visible,s.confirmed_at,s.confirm_version FROM bookings b JOIN booking_journey_state s ON s.booking_code=b.booking_code WHERE b.booking_code=?`).bind(row.booking_code).first();
  const today=dayAt(Date.now());
@@ -31,7 +31,7 @@ export async function journeyContext(env,row){
  if(row.kind==='booking_arrival'&&!await env.DB.prepare(`SELECT 1 FROM bookings b WHERE booking_code=? AND ${noManualArrivalSql()}`).bind(b.booking_code,String(row.receiver).replace(/\D/g,'')).first())return {cancel:'현재 예약의 입실 안내가 수동 발송되어 자동 안내를 생략합니다.'};
  let link;try{link=await portalMessageLink(env,b.booking_code,{issue:true});}catch(error){link=await portalMessageLink(env,b.booking_code);if(!link)throw error;}
  if(!link)return {hold:'통합 링크를 준비하지 못했습니다.'};
- if(row.kind==='booking_confirmed'&&!b.confirm_doc&&!s.legacy_pending){
+ if(!preview&&row.kind==='booking_confirmed'&&!b.confirm_doc&&!s.legacy_pending){
   const deposit=await env.DB.prepare('SELECT amount FROM booking_refunds WHERE booking_code=?').bind(b.booking_code).first();
   const prepared=await prepareCombinedConfirmation(env,b.booking_code,s,0,deposit?.amount??150000,now());
   prepared.doc.show_amount=b.amount_visible!==0;
