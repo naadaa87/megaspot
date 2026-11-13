@@ -1,6 +1,9 @@
 import {json,err,now,readJson,sha256,SPACES,log} from './_lib.js';
 import {bookingPhone2Sql,contactPhones} from './_contacts.js';
-import {guidePhone} from './_guide_messages.js';
+import {guidePhone,aligoProvider} from './_guide_messages.js';
+import {readNotificationContent,saveNotificationContent,noticeButtons} from './_notification_content.js';
+import {eventTime} from './_deposit_refunds.js';
+import {portalGuideMessage} from './_guide_portal.js';
 import {settlementFor} from './_settlement.js';
 import {paymentSchedule,dayAt,shiftDay} from './_booking_payment_schedule.js';
 import {journeyContext} from './_booking_journey.js';
@@ -10,7 +13,7 @@ import {depositConsoleContext,noticeObsolete,depositNoticeVariables,depositNotic
 import {DEPOSIT_TEMPLATES} from './_deposit_templates.js';
 import {depositPaymentWindow,depositDueDate} from './_deposit_due.js';
 const active=['queued','sending','accepted','unknown','review'];
-const labels={booking_confirmed:'예약 확정 · 통합 안내',balance_reminder:'이용료 잔금 안내',rental_paid:'잔금 납부 완료',booking_arrival:'입실·주차 안내',payment:'보증금 입금 안내',account:'환급 계좌 등록 안내',refunded:'보증금 환급 완료',inquiry:'문의 접수',reservation_request:'예약 신청 접수',payment_review:'결제 후 확정 보류',booking_cancelled:'예약 취소',rental_refund:'이용료 환불',parking_partial_refund:'주차권 부분 환불'};
+const labels={booking_confirmed:'예약 확정 · 통합 안내',balance_reminder:'이용료 잔금 안내',rental_paid:'잔금 납부 완료',booking_arrival:'입실·주차 안내',payment:'보증금 입금 안내',account:'환급 계좌 등록 안내',refunded:'보증금 환급 완료',inquiry:'문의 접수',reservation_request:'예약 신청 접수',payment_review:'결제 후 확정 보류',booking_cancelled:'예약 취소',rental_refund:'이용료 환불',parking_partial_refund:'주차권 부분 환불',parking_paid:'주차권 결제 완료',parking_arrival_received:'주차권 입차 요청 접수',parking_applied:'주차권 등록 완료',parking_issue:'주차권 등록 확인 필요',parking_cancel_requested:'주차권 취소 문의 접수',parking_refunded:'주차권 전체 환불',parking_partially_refunded:'주차권 부분 환불'};
 const parse=s=>{try{return JSON.parse(s||'{}');}catch{return {};}};
 const placeholders=items=>items.map(()=>'?').join(',');
 const summary=r=>({id:r.id,engine:r.engine,kind:r.kind,label:labels[r.kind]||r.kind,audience:r.audience||'customer',receiver:r.receiver||'',status:r.status,error:r.error||'',occurred_at:r.occurred_at||r.created_at,updated_at:r.updated_at,channel:/대체 문자.*(성공|완료)|문자 대체.*(성공|완료)/.test(r.error||'')?'sms':r.provider_mid?.startsWith('at:')||r.engine!=='transaction'?'alimtalk':r.provider_mid?'sms':''});
@@ -69,17 +72,50 @@ async function steps(env,c){
 }
 async function fingerprint(c,kind){return sha256(JSON.stringify([kind,{...c.b,confirm_doc:undefined},c.settlement,c.schedule,c.deposit.hash,c.deposit.ready,c.enabled,JOURNEY_TEMPLATES,c.history.map(r=>[r.engine,r.id,r.kind,r.status,r.receiver,r.updated_at,r.error,r.event_key])]));}
 function brief(c){const b=c.b;return {booking_code:b.booking_code,name:b.customer_name,space_id:b.space_id,space:SPACES[b.space_id]||b.space_id,date:b.date,status:b.status,phones:c.phones,balance:c.settlement.balance,deposit_paid:!!c.deposit.b?.deposit_paid};}
+function currentContent(c,kind){
+ if(kind.startsWith('parking_'))return null;
+ const template=JOURNEY_TEMPLATES[kind==='booking_arrival'&&c.b.space_id==='megaspot-gundae-2'?'booking_arrival_space2':kind]||DEPOSIT_TEMPLATES[kind]||CUSTOMER_ALIMTALK[kind];if(!template)return null;
+ const hours=eventTime(c.b)?.hours||[c.b.start_h,c.b.end_h],clock=h=>h==null?'확인 필요':(h>=24?'다음날 ':'')+String(Math.floor(h%24)).padStart(2,'0')+':'+String(Math.round(h%1*60)).padStart(2,'0');
+ const vars={고객명:c.b.customer_name,공간명:SPACES[c.b.space_id],이용일:c.b.date,이용시간:hours.map(clock).join('~'),예약번호:c.b.booking_code,잔금:Number(c.settlement.balance).toLocaleString('ko-KR'),수납액:Number(c.settlement.net).toLocaleString('ko-KR'),납부기한:c.schedule.due_date,번호:c.b.booking_code,금액:'처리 시 확정'};
+ if(DEPOSIT_TEMPLATES[kind]&&c.deposit.b)Object.assign(vars,depositNoticeVariables(c.deposit.b,{payload:JSON.stringify(payload(c.deposit.b)),occurred_at:now()},'예약자 전용 코드'));
+ return {source:'current',message:kind==='booking_confirmed'?portalGuideMessage(c.b,hours):template.content.replace(/#\{([^}]+)\}/g,(_,k)=>vars[k]??'발송 시 확정'),buttons:template.buttons.map(b=>({...b,linkMo:/#\{/.test(b.linkMo)?'':b.linkMo,linkPc:/#\{/.test(b.linkPc)?'':b.linkPc})),note:'현재 예약·납부 정보로 구성한 안내 예시입니다. 실제 과거 수신 내용과 다를 수 있으며, 조회만으로 발송하거나 전용 링크를 새로 만들지 않습니다.'};
+}
+async function historicalContent(env,row){
+ const saved=await readNotificationContent(env,row.engine,row.id);if(saved)return {...saved,source:'saved'};
+ const mid=/^at:[^:]+:(\d+)$/.exec(row.provider_mid||'')?.[1]||/^(?:fallback:)?(\d+)$/.exec(row.provider_mid||'')?.[1];
+ if(mid&&row.receiver){try{
+  const sms=row.engine==='transaction'&&!String(row.provider_mid).startsWith('at:');
+  const response=await aligoProvider(env,sms?'sms/detail':'history/detail',sms?{mid,page_size:'50'}:{mid,limit:'50'});
+  const expected=/^at:([^:]+):/.exec(row.provider_mid||'')?.[1];
+  const found=(response.list||[]).find(r=>guidePhone(r.phone||r.receiver)===guidePhone(row.receiver)&&(sms||r.type==='AT'&&r.senderKey===env.ALIGO_SENDER_KEY&&(!expected||r.tpl_code===expected)));
+  const message=found?.message||found?.msg;if(message){const content={receiver:row.receiver,message,buttons:noticeButtons(found.button_json||found.buttons),template_code:found.tpl_code||'',channel:sms?'sms':'alimtalk',requested_at:row.occurred_at||row.created_at};await saveNotificationContent(env,row.engine,row.id,content);return {...content,source:'provider'};}
+ }catch{ /* An unavailable historical body never becomes a fabricated current receipt. */ }}
+ const snap=parse(row.snapshot);if(row.engine==='guide'&&snap.message)return {source:'snapshot',receiver:row.receiver,message:snap.message,buttons:noticeButtons(snap.buttons||snap.button),requested_at:row.created_at,note:'기존 발송 당시 저장된 본문입니다. 당시 버튼 정보가 없는 경우 버튼은 표시하지 않습니다.'};
+ return {source:'unavailable',message:'',buttons:[],note:'이 과거 발송의 본문·버튼 원문을 저장하지 않았거나 공급사에서 조회할 수 없습니다. 현재 안내 예시는 아래에서 별도로 확인할 수 있습니다.'};
+}
 export async function bookingNotificationsAdmin({env,request,url,path,method}){
  if(path==='booking-notifications'&&method==='GET'){
-  const q=String(url.searchParams.get('q')||'').trim().slice(0,100),space=url.searchParams.get('space')||'',period=url.searchParams.get('period')||'upcoming',page=Math.max(0,Math.min(10000,Number(url.searchParams.get('page'))||0));
+  const calendar=url.searchParams.get('calendar')==='1';let month=url.searchParams.get('month')||'';
+  const q=String(url.searchParams.get('q')||'').trim().slice(0,100),space=url.searchParams.get('space')||'',period=calendar?'all':url.searchParams.get('period')||'upcoming',page=Math.max(0,Math.min(10000,Number(url.searchParams.get('page'))||0));
   const where=['1'],args=[];if(q){where.push("(b.customer_name LIKE ? ESCAPE '\\' OR b.booking_code LIKE ? ESCAPE '\\' OR replace(b.phone,'-','') LIKE ? ESCAPE '\\')");const value='%'+q.replace(/[\\%_]/g,'\\$&')+'%';args.push(value,value,value.replace(/-/g,''));}if(space){where.push('b.space_id=?');args.push(space);}if(period==='upcoming'){where.push("b.date>=? AND b.status<>'cancelled'");args.push(dayAt(Date.now()));}else if(period==='past'){where.push('b.date<?');args.push(dayAt(Date.now()));}
-  const rows=(await env.DB.prepare(`SELECT b.booking_code,b.customer_name AS name,b.space_id,b.date,b.status,b.phone,${bookingPhone2Sql()} AS phone2 FROM bookings b WHERE ${where.join(' AND ')} ORDER BY b.date ${period==='past'?'DESC':'ASC'},b.booking_code LIMIT 21 OFFSET ?`).bind(...args,page*20).all()).results||[];
-  const items=rows.slice(0,20),codes=items.map(x=>x.booking_code);let counts=[];
-  if(codes.length)counts=(await env.DB.prepare(`SELECT booking_code,status,COUNT(*) AS n FROM (SELECT booking_code,status FROM transaction_notifications WHERE audience='customer' AND booking_code IN (${placeholders(codes)}) UNION ALL SELECT booking_code,status FROM deposit_notifications WHERE mode='live' AND booking_code IN (${placeholders(codes)}) UNION ALL SELECT booking_code,status FROM booking_guide_messages WHERE mode='live' AND booking_code IN (${placeholders(codes)})) GROUP BY booking_code,status`).bind(...codes,...codes,...codes).all()).results||[];
-  return json({ok:true,items:items.map(b=>({...b,space:SPACES[b.space_id]||b.space_id,counts:Object.fromEntries(counts.filter(r=>r.booking_code===b.booking_code).map(r=>[r.status,r.n]))})),page,has_more:rows.length>20});
+  if(calendar){
+   if(month&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))return err('조회할 월을 확인해 주세요.');
+   if(!month&&q){const first=await env.DB.prepare(`SELECT COALESCE(MIN(CASE WHEN b.date>=? THEN b.date END),MAX(b.date)) date FROM bookings b WHERE ${where.join(' AND ')}`).bind(dayAt(Date.now()),...args).first();month=first?.date?.slice(0,7)||'';}
+   month=month||dayAt(Date.now()).slice(0,7);const [year,m]=month.split('-').map(Number),next=new Date(Date.UTC(year,m,1)).toISOString().slice(0,10);where.push('b.date>=? AND b.date<?');args.push(month+'-01',next);
+  }
+  const limit=calendar?500:20,rows=(await env.DB.prepare(`SELECT b.booking_code,b.customer_name AS name,b.space_id,b.date,b.status,b.phone,b.start_h,b.end_h,${bookingPhone2Sql()} AS phone2 FROM bookings b WHERE ${where.join(' AND ')} ORDER BY b.date ${period==='past'?'DESC':'ASC'},b.start_h,b.booking_code LIMIT ? OFFSET ?`).bind(...args,limit+1,calendar?0:page*20).all()).results||[];
+  const items=rows.slice(0,limit),codes=items.map(x=>x.booking_code);let counts=[];
+  for(let i=0;i<codes.length;i+=30){const group=codes.slice(i,i+30);counts.push(...((await env.DB.prepare(`SELECT booking_code,status,COUNT(*) AS n FROM (SELECT booking_code,status FROM transaction_notifications WHERE audience='customer' AND booking_code IN (${placeholders(group)}) UNION ALL SELECT booking_code,status FROM deposit_notifications WHERE mode='live' AND booking_code IN (${placeholders(group)}) UNION ALL SELECT booking_code,status FROM booking_guide_messages WHERE mode='live' AND booking_code IN (${placeholders(group)})) GROUP BY booking_code,status`).bind(...group,...group,...group).all()).results||[]));}
+  return json({ok:true,month:calendar?month:null,items:items.map(b=>({...b,space:SPACES[b.space_id]||b.space_id,counts:Object.fromEntries(counts.filter(r=>r.booking_code===b.booking_code).map(r=>[r.status,r.n]))})),page,has_more:rows.length>limit});
  }
- const match=path.match(/^booking-notifications\/([A-Z0-9-]{1,40})(?:\/(preview|send))?$/);if(!match)return err('경로를 찾을 수 없습니다.',404);
+ const match=path.match(/^booking-notifications\/([A-Z0-9-]{1,40})(?:\/(preview|send|content))?$/);if(!match)return err('경로를 찾을 수 없습니다.',404);
  const c=await context(env,match[1]);if(!c)return err('예약을 찾을 수 없습니다.',404);
+ if(match[2]==='content'&&method==='GET'){
+  const kind=url.searchParams.get('kind')||'',id=url.searchParams.get('id'),engine=url.searchParams.get('engine'),records=c.history.filter(r=>r.kind===kind).sort((a,b)=>String(b.occurred_at||b.created_at).localeCompare(String(a.occurred_at||a.created_at)));
+  if(!Object.hasOwn(labels,kind)&&!records.length)return err('안내 종류를 확인해 주세요.',404);
+  const row=id?records.find(r=>String(r.id)===id&&r.engine===engine):records[0];if(id&&!row)return err('이 예약에 연결된 발송 이력이 아닙니다.',404);
+  return json({ok:true,label:labels[kind]||kind,booking:brief(c),records:records.map(summary),record:row?summary(row):null,content:row?await historicalContent(env,row):null,current:currentContent(c,kind)});
+ }
  const stages=await steps(env,c);
  if(!match[2]&&method==='GET')return json({ok:true,booking:brief(c),steps:stages,history:c.history.map(summary).sort((a,b)=>String(b.occurred_at).localeCompare(String(a.occurred_at)))});
  if(method!=='POST')return err('지원하지 않는 요청입니다.',405);

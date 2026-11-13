@@ -1,3 +1,4 @@
+import {saveNotificationContent,noticeButtons} from './_notification_content.js';
 import {approvedCustomerTemplate,customerFallback,reviewCustomerTemplate} from './_customer_alimtalk.js';
 import {CUSTOMER_ALIMTALK} from './_customer_alimtalk_templates.js';
 import {JOIN} from './_parking.js';
@@ -115,6 +116,7 @@ async function dispatch(env,e){
   const vars=parkingNoticeVariables(p,e,key),message=parkingNoticeRender(notice.content,vars);
   const buttons=notice.buttons.map(b=>({...b,linkMo:parkingNoticeRender(b.linkMo,vars),linkPc:parkingNoticeRender(b.linkPc,vars)}));
   const sms=parkingNoticeRender(notice.sms,vars);
+  await saveNotificationContent(env,'parking',e.id,{receiver,message,buttons,template_code:notice.code,fallback_message:sms});
   const r=await provider(env,'alimtalk/send',{tpl_code:notice.code,receiver_1:receiver,subject_1:SUBJECT,message_1:message,
    button_1:JSON.stringify({button:buttons}),failover:'Y',fsubject_1:SUBJECT,fmessage_1:sms},id);
   if(Number(r.code)!==0){await state(env,e.id,'failed','알리고 접수 거절 '+String(r.code).slice(0,20));return;}

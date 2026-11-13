@@ -1,3 +1,4 @@
+import {saveNotificationContent,noticeButtons} from './_notification_content.js';
 import {noManualArrivalSql} from './_arrival_guard.js';
 import {contactPhones,bookingContacts} from './_contacts.js';
 import {settlementRevisionSql} from './_settlement.js';
@@ -108,6 +109,7 @@ async function dispatch(env,row){
   if(template){
    const message=journey?journey.render(template):template.content.replace(/#\{번호\}/g,row.ref).replace(/#\{금액\}/g,Number(row.amount).toLocaleString('ko-KR'));
    const subject=TITLES[row.kind],buttons=journey?journey.buttonsFor(template):[];
+   await saveNotificationContent(env,'transaction',row.id,{receiver,message,buttons,template_code:template.code,fallback_message:customerFallback(subject,journey?message:msg,buttons).fmessage_1});
    const r=await provider('alimtalk/send',{tpl_code:template.code,receiver_1:receiver,subject_1:subject,message_1:message,
     ...(journey?{button_1:JSON.stringify({button:buttons})}:{}),
     ...customerFallback(subject,journey?message:msg,buttons)},requestId);
@@ -117,6 +119,7 @@ async function dispatch(env,row){
     return state(env,row.id,'unknown','알림톡 접수 결과 확인 필요');
    return state(env,row.id,'accepted','','at:'+template.code+':'+r.info.mid);
   }
+  await saveNotificationContent(env,'transaction',row.id,{receiver,message:msg,buttons:[],channel:'sms'});
   const r=await provider('transaction/admin/send',{receiver,msg},requestId);
   if(r?.result_code==null||!/^[-]?\d+$/.test(String(r.result_code)))return state(env,row.id,'unknown','문자 접수 결과 확인 필요');
   if(Number(r.result_code)!==1)return state(env,row.id,'failed','알리고 접수 거절 ('+Number(r.result_code)+')');

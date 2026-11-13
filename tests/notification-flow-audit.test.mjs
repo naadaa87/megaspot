@@ -70,3 +70,10 @@ test('기존 예약 통합 안내는 정확한 예약·수신자만 허용하며
  const a=await f.op(d);assert.equal(a.items.length,1);assert.equal(a.items[0].status,'queued');
  const b=await f.op(d);assert.equal(b.items.length,1);assert.equal(b.items[0].id,a.items[0].id);assert.equal(f.sent.length,0);
 });
+
+test('실제 전송 함수는 개인화된 확정 알림 본문·버튼과 대체 문자 내용을 암호화해 저장한다',async t=>{
+ const f=setup(t);f.priorDayBooking();f.db.exec("INSERT INTO transaction_notifications(event_key,kind,audience,ref,booking_code,receiver,occurred_at) VALUES('journey-confirm:BK-TEST:1','booking_confirmed','customer','BK-TEST','BK-TEST','01012345678',datetime('now'))");
+ await transactionNoticeTick(f.env);assert.equal(f.sent.length,1);const row=f.db.prepare("SELECT id,status FROM transaction_notifications WHERE kind='booking_confirmed'").get();assert.equal(row.status,'accepted');
+ const {readNotificationContent}=await import('../functions/api/_notification_content.js');const content=await readNotificationContent(f.env,'transaction',row.id);assert.equal(content.message,f.sent[0].message_1);assert.deepEqual(content.buttons,JSON.parse(f.sent[0].button_1).button);assert.equal(content.fallback_message,f.sent[0].fmessage_1);
+ const cipher=f.db.prepare("SELECT value FROM settings WHERE key=?").get('notification_content:transaction:'+row.id).value;assert.ok(!cipher.includes('booking='));
+});

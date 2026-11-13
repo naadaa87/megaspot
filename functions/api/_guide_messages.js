@@ -1,3 +1,4 @@
+import {saveNotificationContent,noticeButtons} from './_notification_content.js';
 import {noAutomaticArrivalSql} from './_arrival_guard.js';
 import {JOURNEY_TEMPLATES} from './_booking_journey_templates.js';
 import {mobilePhone,contactPhones,bookingPhone2Sql} from './_contacts.js';
@@ -192,6 +193,7 @@ async function dispatch(env,id,s,template) {
     const payload=providerPayload(env,s,snap,template,button);
     const fallback=m.mode==='live'&&!!env.ALIGO_RELAY_URL;
     if(fallback)Object.assign(payload,customerFallback(payload.subject_1,payload.message_1,[button].flat()));
+    await saveNotificationContent(env,'guide',id,{receiver:payload.receiver_1,message:payload.message_1,buttons:noticeButtons(payload.button_1),template_code:payload.tpl_code,fallback_message:payload.fmessage_1||''});
     const r = await provider(env,'alimtalk/send',payload,id);
     if (!r || !/^-?\d+$/.test(String(r.code))) return state(env,id,'unknown','알리고 응답 형식 확인이 필요합니다. 재발송 전에 전송내역을 확인해 주세요.');
     if (String(r.code) !== '0') return state(env,id,'failed',safeProviderError(r));

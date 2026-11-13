@@ -1,3 +1,4 @@
+import {saveNotificationContent,noticeButtons} from './_notification_content.js';
 import {depositDueDate,depositPaymentWindow,depositConfirmedSql,depositDueSql} from './_deposit_due.js';
 import {contactPhones,bookingPhone2Sql} from './_contacts.js';
 import {customerFallback,customerFallbackResult} from './_customer_alimtalk.js';
@@ -88,6 +89,7 @@ async function dispatch(env,e){
  const fallback=e.mode==='live';
  const vars=depositNoticeVariables(b,e,token),message=depositNoticeRender(t.templtContent,vars),buttons=T[e.kind].buttons.map(b=>({name:b.name,linkType:'WL',linkMo:depositNoticeRender(b.linkMo,vars),linkPc:depositNoticeRender(b.linkPc,vars)}));
  try{
+  await saveNotificationContent(env,'deposit',e.id,{receiver,message,buttons,template_code:s.codes[e.kind],fallback_message:fallback?customerFallback('메가스팟 보증금 안내',message,buttons).fmessage_1:''});
   const response=await aligoProvider(env,'alimtalk/send',{senderkey:env.ALIGO_SENDER_KEY,tpl_code:s.codes[e.kind],sender:env.ALIGO_SENDER,receiver_1:receiver,recvname_1:clean(b.customer_name),subject_1:'메가스팟 보증금 안내',message_1:message,...(buttons.length?{button_1:JSON.stringify({button:buttons})}:{}),failover:'N',testMode:'N',...(fallback?customerFallback('메가스팟 보증금 안내',message,buttons):{})},id);
   if(!response||!/^[-]?\d+$/.test(String(response.code)))return state(env,e.id,'unknown','접수 응답 확인 필요 · 자동 재발송 중지');
   if(Number(response.code)!==0)return state(env,e.id,'failed','알리고 접수 거절 '+str(response.code,20));
