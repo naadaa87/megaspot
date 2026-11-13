@@ -69,3 +69,22 @@
  .page-admin .adm-menu-open .adm-side-foot{display:flex;gap:12px;margin-top:8px;border-top:1px solid #ffffff1a;padding-top:4px}
  .page-admin .adm-side-foot a,.page-admin .adm-side-foot button{color:#c9cdd1;background:none;border:0;font:inherit;font-size:12px;padding:9px 10px;cursor:pointer}
 }
+
+/* Calendar days expand with their bookings; scrolling belongs to the page. */
+#view-calendar .adm-calendar-navigation{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:0 0 20px}
+#view-calendar .adm-calendar-navigation .adm-workspace-tabs{margin:0;flex-shrink:0}
+#view-calendar .adm-calendar-month-controls{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:nowrap}
+#view-calendar .adm-cal{grid-template-rows:28px;grid-auto-rows:minmax(160px,auto);gap:6px}
+#view-calendar .adm-cal .dc{min-height:160px;max-height:none;height:auto;overflow:visible;overscroll-behavior:auto;padding:8px;gap:6px}
+#view-calendar .adm-cal .ev,#view-calendar .adm-cal .cal-booked span{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+#view-calendar .adm-cal .ev{line-height:1.5;padding:5px 6px}
+@media(max-width:640px){
+ #view-calendar .adm-calendar-navigation{flex-direction:column;align-items:stretch;gap:12px}
+ #view-calendar .adm-calendar-navigation .adm-workspace-tabs{width:100%}
+ #view-calendar .adm-calendar-month-controls{width:100%;justify-content:space-between;gap:6px}
+ #view-calendar .adm-calendar-month-controls .btn{min-height:40px;padding:0 10px}
+ #view-calendar .adm-cal{grid-auto-rows:minmax(120px,auto);gap:3px}
+ #view-calendar .adm-cal .dc{min-height:120px;padding:4px;gap:4px}
+ #view-calendar .adm-cal .ev{padding:3px;font-size:10.5px}
+}
+@media print{#view-calendar .adm-calendar-navigation{display:none!important}}

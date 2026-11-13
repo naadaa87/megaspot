@@ -65,6 +65,9 @@
   }
   var bookingTabs=[['resv','일자별'],['bookings','예약 목록'],['calendar','달력']];
   ['resv','bookings','calendar'].forEach(function(id){tabs(id,bookingTabs,'예약 현황 보기 방식');$('#view-'+id+' h1').textContent='예약 현황';});
+  // Keep view tabs before month navigation; stack them in that order on phones.
+  var calendarView=$('#view-calendar'),calendarTabs=calendarView.querySelector('.adm-workspace-tabs'),monthControls=$('#cal-prev').parentElement;
+  var calendarNavigation=document.createElement('div');calendarNavigation.className='adm-calendar-navigation';calendarTabs.before(calendarNavigation);calendarNavigation.appendChild(calendarTabs);monthControls.classList.add('adm-calendar-month-controls');calendarNavigation.appendChild(monthControls);
   var foodTabs=[['catering','출장뷔페'],['reception','테이블·박스 케이터링'],['cocktail','출장 칵테일']];
   ['catering','reception','cocktail'].forEach(function(id){tabs(id,foodTabs,'식음료 서비스');$('#view-'+id+' h1').textContent='식음료 서비스';});
   tabs('prices',[['prices-catering','출장뷔페'],['prices-reception','테이블·박스 케이터링'],['prices-cocktail','출장 칵테일']],'서비스별 가격표');
