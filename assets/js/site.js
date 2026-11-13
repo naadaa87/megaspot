@@ -221,6 +221,9 @@
   })();
   function source(){ try{ var v=JSON.parse(localStorage.getItem(SRC_KEY)||'null'); return v && (Date.now()-(v.t||0))<=30*864e5 ? v : null; }catch(e){ return null; } }
 
+  /* ---------- 방문 통계 (관리자 'KPI 지표' 화면용 · assets/js/stats.js) ---------- */
+  (function(){ try{ var s=document.createElement('script'); s.src='/assets/js/stats.js?v=20261114kpi2'; s.async=true; document.head.appendChild(s); }catch(e){} })();
+
   /* ---------- 함께 알아보기 (같은 건물·패밀리 공간) ----------
      예약 신청·문의 양식에 붙는 선택 항목입니다. 값은 서버(functions/api/inquiry.js의 FAMILY_ASK)와 관리자 화면(admin.js)이 같은 id를 씁니다. */
   var FAMILY_ASK=[['socialfactory','같은 건물 4층 소셜팩토리 룸(15~40명)','소셜팩토리 룸(4층)'],['playtion','행사 뒤 뒤풀이 공간(플레이션 게임파티룸)','플레이션 뒤풀이']];

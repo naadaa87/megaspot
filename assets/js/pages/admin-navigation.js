@@ -21,6 +21,8 @@
   nav.replaceChildren();
   function button(id,label){var b=original[id]||document.createElement('button');b.type='button';b.dataset.view=id;b.classList.remove('on');var counts=Array.from(b.querySelectorAll('em'));b.textContent=label;counts.forEach(function(c){b.appendChild(c);});return b;}
   nav.appendChild(button('dash','오늘 할 일'));
+  // 본사 경영 지표 (admin-kpi.js 가 화면을 만듭니다)
+  if(document.getElementById('view-kpi')){nav.appendChild(button('kpi','KPI 지표'));labels.kpi='KPI 지표';}
   groups.forEach(function(g,i){
     var d=document.createElement('details');d.className='adm-nav-group';d.dataset.navGroup=g.id;d.open=Object.prototype.hasOwnProperty.call(saved,g.id)?saved[g.id]===true:!!g.open;
     var summary=document.createElement('summary');summary.innerHTML='<span class="adm-nav-step" aria-hidden="true">'+('0'+(i+1)).slice(-2)+'</span><span>'+g.label+'</span><em class="adm-group-count" hidden></em><span class="adm-nav-chevron" aria-hidden="true">⌄</span>';

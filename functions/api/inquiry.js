@@ -11,7 +11,7 @@ const TYPES = ['event', 'regular', 'partner'];
 // '함께 알아보기'로 받을 수 있는 패밀리 공간 (assets/js/site.js의 FAMILY_ASK와 같은 id)
 export const FAMILY_ASK = ['socialfactory', 'playtion'];
 // 홈페이지로 들어오기 직전 어디에 있었는지(검색·SNS·광고 링크)를 분류합니다. 브라우저가 보낸 referrer·utm 값만 쓰고 개인 식별 정보는 받지 않습니다.
-const SRC_RULES = [
+export const SRC_RULES = [
   // 패밀리 사이트에서 넘어온 경우 (관리자 화면에 '패밀리 · 브랜드명'으로 표시)
   [/socialfactory\.co\.kr/, 'family', '패밀리 · 소셜팩토리'], [/playtion\.kr/, 'family', '패밀리 · 플레이션'], [/ssople\.com/, 'family', '패밀리 · 쏘플파티룸'],
   [/hellomingle\.kr/, 'family', '패밀리 · 밍글'], [/choisijun\.com/, 'family', '패밀리 · 최시준'], [/coremood\.kr/, 'family', '패밀리 · 코어무드'],

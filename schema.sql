@@ -1018,6 +1018,29 @@ CREATE TABLE IF NOT EXISTS host_customers (   -- 호스트가 남긴 고객 메�
   updated_at TEXT NOT NULL,
   PRIMARY KEY (host_id, phone_key)
 );
+CREATE TABLE IF NOT EXISTS web_hits (       -- 홈페이지 방문 통계 · 페이지 조회 1건 = 1줄 (이름·연락처·IP는 저장하지 않음 · 13개월 뒤 삭제 · 2026-11-14)
+  pid TEXT PRIMARY KEY,                     -- 페이지 조회 번호 (브라우저가 만든 무작위 값)
+  day TEXT NOT NULL,                        -- 한국 날짜 YYYY-MM-DD
+  hour INTEGER,                             -- 한국 시각 0~23
+  vid TEXT NOT NULL,                        -- 방문자 번호 (브라우저에 저장한 무작위 값 · ms_stat)
+  sid TEXT NOT NULL,                        -- 방문(세션) 번호 · 30분 넘게 움직임이 없으면 새로 만듦
+  path TEXT NOT NULL,                       -- 페이지 주소 (? 뒤 값은 빼고 저장)
+  title TEXT,
+  src TEXT, ref_host TEXT,                  -- 방문의 첫 페이지만: 들어온 경로 분류(naver·google·direct …) · 이전 사이트 도메인
+  device TEXT,                              -- mobile | tablet | desktop
+  new_visitor INTEGER NOT NULL DEFAULT 0,   -- 이 브라우저의 첫 방문이면 1
+  dwell INTEGER,                            -- 머문 시간(초) · 화면을 보고 있던 시간만, 최대 30분
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_web_hits_day ON web_hits(day);
+CREATE TABLE IF NOT EXISTS web_clicks (     -- 홈페이지 링크 클릭 수 (날짜·페이지·링크별 합계)
+  day TEXT NOT NULL, path TEXT NOT NULL,
+  kind TEXT NOT NULL,                       -- tel 전화 · sms 문자 · mail 이메일 · kakao 카카오톡 · inquiry 예약·문의 페이지 · file 소개서 · external 다른 사이트 · internal 홈페이지 안
+  target TEXT NOT NULL,                     -- 링크 주소 (전화·문자·이메일은 종류만)
+  label TEXT,                               -- 링크 글자 (최대 40자)
+  n INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (day, path, kind, target)
+);
 
 -- Existing bookings are baselines; installation never sends old confirmation/paid notices.
 CREATE TABLE IF NOT EXISTS booking_payment_schedule (
