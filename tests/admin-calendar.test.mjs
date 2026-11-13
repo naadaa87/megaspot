@@ -83,6 +83,7 @@ test('확정 예약은 초록색으로 표시하고 별도 종일 마감과 구�
   const day = date => html.match(new RegExp('data-day="' + date + '">([^]*?)</div>'))?.[1];
   assert.match(day('2026-12-11'), /ev full cal-booked" title="2호 · 종일 마감"/);
   assert.match(day('2026-12-11'), /ev bk cal-booked" data-ref="MS-ONE" title="1호 · 예약 확정 · 10:00–18:00/);
+  assert.ok(day('2026-12-11').indexOf('MS-ONE')<day('2026-12-11').indexOf('2호 · 종일 마감'),'먼저 입력된 2호 마감보다 1호 예약을 앞 그룹에 표시');
   assert.match(day('2026-12-12'), /1호 · 예약 확정 · 08:00–다음 날 00:00/);
   assert.doesNotMatch(day('2026-12-12'), /ev full|2호 확정/);
   assert.match(day('2026-12-13'), /예약 확정 · 시간 확인 필요/);

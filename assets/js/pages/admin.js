@@ -2012,14 +2012,14 @@
   function drawCalendar(blocks, bookings, inqs, loading){
     var y=+calMonth.slice(0,4), m=+calMonth.slice(5,7), first=new Date(y,m-1,1), days=new Date(y,m,0).getDate(), pad=first.getDay(), t=todayIso();
     $('#cal-title').textContent=y+'년 '+m+'월';
-    var by={}; function add(d,html){ (by[d]=by[d]||[]).push(html); }
-    var room=function(x){ return x.space_id==='megaspot-gundae-2'?'2호':'1호'; };
+    var by={}; function add(d,html,item){ var group=room(item),day=by[d]=by[d]||{};(day[group]=day[group]||[]).push(html); }
+    var room=function(x){ return (x.space_id||(x.data&&x.data.space_id))==='megaspot-gundae-2'?'2호':'1호'; };
     var label=function(x){ return room(x)+' · '; };
     blocks.forEach(function(b){
       var full=b.state==='full',memo=b.memo&&b.memo.indexOf('예약 ')!==0?' · '+b.memo:'';
       if(full){
-        add(b.date,'<i class="ev full cal-booked" title="'+esc(label(b)+'종일 마감'+memo)+'"><span class="cal-booked-label">'+room(b)+' 마감</span><span>'+esc('종일'+memo)+'</span></i>');
-      }else add(b.date,'<i class="ev hold">'+label(b)+'확보'+esc(memo)+'</i>');
+        add(b.date,'<i class="ev full cal-booked" title="'+esc(label(b)+'종일 마감'+memo)+'"><span class="cal-booked-label">'+room(b)+' 마감</span><span>'+esc('종일'+memo)+'</span></i>',b);
+      }else add(b.date,'<i class="ev hold">'+label(b)+'확보'+esc(memo)+'</i>',b);
     });
     var hour=function(h){ return (h>=24?'다음 날 ':'')+M.pad2(h%24)+':00'; };
     bookings.forEach(function(b){
@@ -2029,20 +2029,20 @@
       if(b.status==='confirmed'){
         var known=Number.isInteger(b.start_h)&&Number.isInteger(b.end_h)&&b.start_h>=0&&b.end_h<=48&&b.start_h<b.end_h;
         var time=known?hour(b.start_h)+'–'+hour(b.end_h):'시간 확인 필요';
-        add(b.date,'<i class="ev bk cal-booked"'+ref+' title="'+esc(label(b)+'예약 확정 · '+time+' · '+person)+'"><span class="cal-booked-label">'+room(b)+' 확정</span><span>'+esc(time)+'</span><span>'+esc(person)+'</span></i>');
+        add(b.date,'<i class="ev bk cal-booked"'+ref+' title="'+esc(label(b)+'예약 확정 · '+time+' · '+person)+'"><span class="cal-booked-label">'+room(b)+' 확정</span><span>'+esc(time)+'</span><span>'+esc(person)+'</span></i>',b);
         return;
       }
       var status=b.status==='payment_review'?'결제 확인':'이용 완료';
-      add(b.date,'<i class="ev '+(b.status==='payment_review'?'hold':'inq')+'"'+ref+'>'+label(b)+status+' · '+esc(person)+'</i>');
+      add(b.date,'<i class="ev '+(b.status==='payment_review'?'hold':'inq')+'"'+ref+'>'+label(b)+status+' · '+esc(person)+'</i>',b);
     });
-    inqs.forEach(function(i){ var d=(i.data&&i.data.date)||i.event_date; if(d) add(d,'<i class="ev inq" data-ref="'+esc(i.ref)+'">'+label(i)+esc(i.name||'')+' · '+esc(i.status)+'</i>'); });
+    inqs.forEach(function(i){ var d=(i.data&&i.data.date)||i.event_date; if(d) add(d,'<i class="ev inq" data-ref="'+esc(i.ref)+'">'+label(i)+esc(i.name||'')+' · '+esc(i.status)+'</i>',{space_id:i.space_id||(i.data&&i.data.space_id)}); });
     var h='<div class="dw">일</div><div class="dw">월</div><div class="dw">화</div><div class="dw">수</div><div class="dw">목</div><div class="dw">금</div><div class="dw">토</div>';
     for(var cell=0; cell<42; cell++){
       var d=cell-pad+1;
       if(d<1 || d>days){ h+='<div class="dc empty" aria-hidden="true"></div>'; continue; }
       if(loading){ h+='<div class="dc cal-skeleton" aria-hidden="true"><span class="cal-sk-date"></span><span class="cal-sk-event"></span><span class="cal-sk-event short"></span></div>'; continue; }
       var iso=calMonth+'-'+M.pad2(d), off=E&&E.isOff(iso), dow=cell%7;
-      h+='<div class="dc'+(iso===t?' today':'')+(iso<t?' past':'')+(off||dow===0?' off':'')+(dow===6?' sat':'')+'" data-day="'+iso+'"><b>'+d+'</b>'+(by[iso]||[]).join('')+'</div>';
+      h+='<div class="dc'+(iso===t?' today':'')+(iso<t?' past':'')+(off||dow===0?' off':'')+(dow===6?' sat':'')+'" data-day="'+iso+'"><b>'+d+'</b>'+['1호','2호'].map(function(group){var entries=by[iso]&&by[iso][group];return entries&&entries.length?'<section class="cal-space-group" aria-label="'+group+'점 일정"><span class="cal-space-title">'+group+'점</span>'+entries.join('')+'</section>':'';}).join('')+'</div>';
     }
     $('#cal-grid').innerHTML=h;
   }
