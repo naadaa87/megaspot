@@ -88,3 +88,10 @@
  #view-calendar .adm-cal .ev{padding:3px;font-size:10.5px}
 }
 @media print{#view-calendar .adm-calendar-navigation{display:none!important}}
+
+#view-calendar .adm-calendar-scroll{max-width:100%;overflow-x:auto}
+#view-calendar .adm-calendar-swipe-hint{display:none}
+@media(max-width:640px){
+ #view-calendar .adm-calendar-scroll .adm-cal{min-width:720px}
+ #view-calendar .adm-calendar-swipe-hint{display:block;margin:0 0 12px}
+}
