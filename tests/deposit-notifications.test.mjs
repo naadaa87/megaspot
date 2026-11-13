@@ -110,3 +110,43 @@ test('보증금 추가 번호가 발송 전에 삭제되면 대기 중인 추가
  f.db.prepare("UPDATE booking_contacts SET phone2='' WHERE booking_code='BK-REMOVE'").run();await f.tick();
  assert.equal(f.sent.filter(x=>x.receiver_1==='01033334444').length,0);assert.equal(f.db.prepare("SELECT status FROM deposit_notifications WHERE booking_code='BK-REMOVE' AND event_key LIKE '%:to:%'").get().status,'cancelled');
 });
+
+async function timed(t){const f=setup(t);await f.enable();f.db.prepare("INSERT INTO settings VALUES('booking_journey','{\"enabled\":true}',?)").run(now());return f;}
+function confirmedOn(f,code,date='2026-11-03'){f.db.prepare('UPDATE booking_journey_state SET confirmed_at=? WHERE booking_code=?').run(date+' 12:00:00',code);}
+test('통합 안내 활성화 후 확정 직후에는 보증금 입금 안내가 나가지 않고 전날 미납일 때만 한 번 발송한다',async t=>{
+ const f=await timed(t);f.booking('BK-DUE',{date:'2026-11-08'});confirmedOn(f,'BK-DUE');await f.tick();assert.equal(f.sent.length,3);assert.equal(f.db.prepare("SELECT COUNT(*) n FROM transaction_notifications WHERE kind='booking_confirmed' AND booking_code='BK-DUE'").get().n,1);assert.equal(f.db.prepare("SELECT status FROM deposit_notifications WHERE booking_code='BK-DUE'").get().status,'queued');
+ t.mock.method(Date,'now',()=>Date.parse('2026-11-04T09:00:00+09:00'));await f.tick();assert.equal(f.sent.length,4);assert.equal(f.sent.at(-1).tpl_code,C.payment);assert.match(f.sent.at(-1).message_1,/2026-11-05/);await f.tick();assert.equal(f.sent.length,4);
+});
+test('납부 기한 전날에 확정한 예약도 확정 당일에는 통합 안내 외 보증금 안내를 보내지 않는다',async t=>{
+ const f=await timed(t);f.booking('BK-TODAY',{date:'2026-11-07'});confirmedOn(f,'BK-TODAY');await f.tick();assert.equal(f.sent.length,3);
+});
+test('한 달 뒤 기한을 기다린 보증금 안내는 기존 7일 유효기간으로 취소되지 않는다',async t=>{
+ const f=await timed(t);f.booking('BK-MONTH',{date:'2026-12-08'});confirmedOn(f,'BK-MONTH');f.db.prepare("UPDATE deposit_notifications SET occurred_at='2026-11-03 03:00:00' WHERE booking_code='BK-MONTH'").run();await f.tick();assert.equal(f.sent.length,3);
+ t.mock.method(Date,'now',()=>Date.parse('2026-12-04T09:00:00+09:00'));await f.tick();assert.equal(f.sent.length,4);assert.match(f.sent.at(-1).message_1,/2026-12-05/);assert.equal(f.db.prepare("SELECT status FROM deposit_notifications WHERE booking_code='BK-MONTH'").get().status,'accepted');
+});
+test('전날 발송 전에 보증금 입금 확인 또는 예약 취소가 되면 입금 안내를 보내지 않는다',async t=>{
+ const f=await timed(t);f.booking('BK-PAID-LATER',{date:'2026-11-08'});f.booking('BK-CANCEL-LATER',{date:'2026-11-08'});confirmedOn(f,'BK-PAID-LATER');confirmedOn(f,'BK-CANCEL-LATER');
+ f.db.prepare('INSERT INTO booking_deposit_checks VALUES(?,?,?)').run('BK-PAID-LATER',1,now());f.db.prepare("UPDATE bookings SET status='cancelled' WHERE booking_code='BK-CANCEL-LATER'").run();t.mock.method(Date,'now',()=>Date.parse('2026-11-04T09:00:00+09:00'));await f.tick();
+ assert.equal(f.sent.filter(d=>d.tpl_code===C.payment).length,1); // only the earlier operator fixture test
+ const rows=f.db.prepare("SELECT status FROM deposit_notifications WHERE kind='payment' AND mode='live'").all();assert.ok(rows.length===2&&rows.every(r=>r.status==='cancelled'));
+});
+test('미래 보증금 대기가 앞에 쌓여도 계좌 요청·환급 완료 알림은 가로막지 않는다',async t=>{
+ const f=await timed(t);for(let i=0;i<5;i++){f.booking('BK-FUTURE-'+i,{date:'2026-12-08'});confirmedOn(f,'BK-FUTURE-'+i);}
+ f.db.prepare('INSERT INTO booking_deposit_checks VALUES(?,?,?)').run('BK-FUTURE-4',1,now());await f.tick();assert.equal(f.sent.length,4);assert.equal(f.sent.at(-1).tpl_code,C.account);
+});
+test('보증금을 이미 받은 신규 확정은 통합 링크에 계좌 등록을 모으고 별도 즉시 안내를 만들지 않는다',async t=>{
+ const f=await timed(t);f.db.prepare('INSERT INTO booking_deposit_checks VALUES(?,?,?)').run('BK-ALREADY-PAID',1,now());f.booking('BK-ALREADY-PAID',{date:'2026-11-08'});confirmedOn(f,'BK-ALREADY-PAID');await f.tick();assert.equal(f.db.prepare("SELECT COUNT(*) n FROM deposit_notifications WHERE booking_code='BK-ALREADY-PAID'").get().n,0);assert.equal(f.db.prepare("SELECT COUNT(*) n FROM transaction_notifications WHERE kind='booking_confirmed' AND booking_code='BK-ALREADY-PAID'").get().n,1);assert.equal(f.sent.length,3);
+});
+test('보증금 기한이 지난 대기와 취소 건은 새 메시지를 보내지 않고 발송 취소로 남긴다',async t=>{
+ const f=await timed(t);f.booking('BK-PAST-DUE',{date:'2026-11-06'});confirmedOn(f,'BK-PAST-DUE','2026-11-01');t.mock.method(Date,'now',()=>Date.parse('2026-11-04T09:00:00+09:00'));await f.tick();assert.equal(f.sent.length,3);assert.equal(f.db.prepare("SELECT status FROM deposit_notifications WHERE booking_code='BK-PAST-DUE'").get().status,'cancelled');
+});
+test('보증금 기한 전날에도 09시 이전에는 보내지 않고 스키마 재적용 후 중복 발송하지 않는다',async t=>{
+ const f=await timed(t);f.booking('BK-MORNING',{date:'2026-11-08'});confirmedOn(f,'BK-MORNING');t.mock.method(Date,'now',()=>Date.parse('2026-11-04T08:59:00+09:00'));await f.tick();assert.equal(f.sent.length,3);
+ f.db.exec((await import('node:fs')).readFileSync(new URL('../schema.sql',import.meta.url),'utf8'));t.mock.method(Date,'now',()=>Date.parse('2026-11-04T09:00:00+09:00'));await f.tick();await f.tick();assert.equal(f.sent.length,4);
+});
+test('서명된 상태 조회는 지연 발송 정책만 보여 주며 예정일 전 고객에게 발송하지 않는다',async t=>{
+ const f=await timed(t);f.booking('BK-READONLY',{date:'2026-12-08'});confirmedOn(f,'BK-READONLY');const body=JSON.stringify({time:Date.now()});const response=await cron({env:f.env,params:{path:['status']},request:new Request('https://local.test/api/deposit-notifications/status',{method:'POST',headers:{'X-Megaspot-Signature':await parkingSign(f.env.ALIGO_RELAY_SECRET,body)},body})});assert.equal(response.status,200);const j=await response.json();assert.equal(j.payment_schedule,'day_before_due');assert.equal(f.sent.length,3);
+});
+test('예전 예약의 UTC 확정 시각도 한국 날짜로 계산해 확정 당일 추가 발송을 막는다',async t=>{
+ const f=await timed(t);f.booking('BK-UTC-BASELINE',{date:'2026-11-07'});f.db.prepare("UPDATE bookings SET created_at='2026-11-02 20:00:00' WHERE booking_code='BK-UTC-BASELINE'").run();f.db.prepare("UPDATE booking_journey_state SET confirm_version=0,confirmed_at='2026-11-02 20:00:00' WHERE booking_code='BK-UTC-BASELINE'").run();await f.tick();assert.equal(f.sent.length,3);
+});

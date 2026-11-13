@@ -1,3 +1,4 @@
+import {depositDueDate} from './_deposit_due.js';
 import {trialPortalResponse} from './_booking_journey_trial.js';
 // Separate capability for a reservation's unified page. Never accept a confirm/last4 token here.
 import {settlementFor} from './_settlement.js';
@@ -99,10 +100,10 @@ export async function portalCustomer({env,request,path}){
  const auth=await authorize(env,request);if(auth.error)return auth.error;
  const {b,hash,link}=auth,amount=depositAmount(b),account=accountState(b,amount);
  if(path==='view'&&request.method==='GET'){
-  const visibility=await env.DB.prepare('SELECT amount_visible FROM booking_journey_state WHERE booking_code=?').bind(b.booking_code).first();
+  const visibility=await env.DB.prepare('SELECT amount_visible,confirmed_at,confirm_version FROM booking_journey_state WHERE booking_code=?').bind(b.booking_code).first();
   const doc=parseDoc(b.confirm_doc),issued=!!doc?.issued_at,showAmount=doc?.show_amount!==false&&visibility?.amount_visible!==0,end=eventTime(b);
   const deposit={amount:showAmount?amount:null,amount_visible:showAmount,paid:!!b.deposit_paid,returned:account.state==='completed',due_date:null,refund_date:b.settled_refund_date||refundDate(b),account};
-  if(end){const due=new Date(b.date+'T00:00:00Z');due.setUTCDate(due.getUTCDate()-3);const raw=String(b.created_at||'').replace(' ','T'),created=Date.parse(raw+(raw.includes('T')?'Z':'T00:00:00Z'));deposit.due_date=due.toISOString().slice(0,10);if(Number.isFinite(created)){const confirmedDay=new Date(created+9*36e5).toISOString().slice(0,10);if(confirmedDay>deposit.due_date)deposit.due_date=confirmedDay;}}
+  if(end)deposit.due_date=depositDueDate({...b,confirmed_day:visibility?.confirm_version>0?visibility.confirmed_at?.slice(0,10):undefined});
   if(showAmount&&amount>0&&!deposit.paid&&!deposit.returned)deposit.bank={name:'하나은행',account:'298-910064-39104',holder:'주식회사 블랭크'};
   const settlement=showAmount?await settlementFor(env,b.booking_code):null,schedule=await paymentSchedule(env,b);
   const payment={amount_visible:showAmount,total:settlement?.amount??null,received:settlement?.received??null,refunded:settlement?.refunded??null,paid:settlement?.net??null,balance:settlement?.balance??null,refund_due:settlement?.refund_due??null,due_date:schedule.due_date,complete:!!settlement&&settlement.amount!=null&&settlement.balance===0&&!settlement.over_refunded};

@@ -1,3 +1,4 @@
+import {depositDueDate,depositPaymentWindow,depositConfirmedSql,depositDueSql} from './_deposit_due.js';
 import {contactPhones,bookingPhone2Sql} from './_contacts.js';
 import {customerFallback,customerFallbackResult} from './_customer_alimtalk.js';
 // Information-only notices. DB triggers create an outbox in the booking transaction.
@@ -21,19 +22,19 @@ async function template(env,s,kind){if(!configured(env)||!s.codes[kind])throw Er
 const usable=(kind,t)=>t?.inspStatus==='APR'&&['A','R'].includes(t.status)&&depositTemplateMatches(kind,t);
 async function approvals(env,s){const out=[];for(const kind of kinds){try{const t=await template(env,s,kind);out.push({kind,name:T[kind].name,code:s.codes[kind],review:t?.inspStatus||'missing',matches:depositTemplateMatches(kind,t),ready:usable(kind,t)});}catch{out.push({kind,name:T[kind].name,code:s.codes[kind],review:'unavailable',matches:false,ready:false});}}return out;}
 async function tested(env,kind,hash){return !!await env.DB.prepare("SELECT id FROM deposit_notifications WHERE mode='test' AND kind=? AND status='delivered' AND config_hash=? LIMIT 1").bind(kind,hash).first();}
-const BOOKING_SELECT=`SELECT b.*,${bookingPhone2Sql()} AS phone2,r.state AS refund_state,r.account_cipher,r.purged_at,r.completion_id,r.paid_amount,r.deduction,r.completed_at,r.account_version,
+const BOOKING_SELECT=`SELECT b.*,${depositConfirmedSql()} AS confirmed_day,${bookingPhone2Sql()} AS phone2,r.state AS refund_state,r.account_cipher,r.purged_at,r.completion_id,r.paid_amount,r.deduction,r.completed_at,r.account_version,
  COALESCE(r.amount,json_extract(b.confirm_doc,'$.deposit'),(SELECT json_extract(q.data,'$.deposit') FROM quotes q WHERE q.inquiry_ref=b.inquiry_ref ORDER BY q.id DESC LIMIT 1),150000) AS deposit_amount,
  CASE WHEN b.inquiry_ref IS NOT NULL THEN COALESCE(json_extract(ic.checks,'$.guarantee_paid'),0) ELSE COALESCE(dc.paid,0) END AS deposit_paid,
  COALESCE(json_extract(ic.checks,'$.guarantee_returned'),0) AS returned
  FROM bookings b LEFT JOIN booking_refunds r ON r.booking_code=b.booking_code LEFT JOIN inquiry_checks ic ON ic.ref=b.inquiry_ref LEFT JOIN booking_deposit_checks dc ON dc.booking_code=b.booking_code`;
 async function booking(env,code){return env.DB.prepare(BOOKING_SELECT+' WHERE b.booking_code=?').bind(code).first();}
 async function bookings(env,codes){const out=[];for(let i=0;i<codes.length;i+=80){const group=codes.slice(i,i+80);const r=await env.DB.prepare(BOOKING_SELECT+' WHERE b.booking_code IN ('+group.map(()=>'?').join(',')+')').bind(...group).all();out.push(...r.results||[]);}return out;}
-export function noticeObsolete(b,e,at=Date.now()){
+export function noticeObsolete(b,e,at=Date.now(),scheduledPayment=false){
  if(!b||!Object.hasOwn(SPACES,b.space_id))return '예약 정보를 확인해 주세요.';
  const p=parse(e.payload),end=eventTime(b);
  if(p.delivery_phone&&!contactPhones(b).includes(p.delivery_phone))return '수신 연락처가 변경되었습니다.';
  if(clean(p.name)!==clean(b.customer_name)||guidePhone(p.phone)!==guidePhone(b.phone)||p.date!==b.date||p.space!==b.space_id)return '예약자·연락처·이용일·호점이 변경되었습니다.';
- if(!Number.isFinite(utc(e.occurred_at))||at-utc(e.occurred_at)>7*864e5)return '안내 발생 후 7일이 지나 자동 발송하지 않습니다.';
+ if(!Number.isFinite(utc(e.occurred_at))||(!scheduledPayment&&at-utc(e.occurred_at)>7*864e5))return '안내 발생 후 7일이 지나 자동 발송하지 않습니다.';
  if(e.kind==='refunded')return b.refund_state!=='completed'||!p.completion||p.completion!==b.completion_id||p.refund!==b.paid_amount||p.deduction!==(b.deduction||0)?'환급 완료 내역이 변경되었습니다.':'';
  if(!['confirmed','completed'].includes(b.status)||!end)return '취소되었거나 이용 시간이 확인되지 않은 예약입니다.';
  if(p.start!==b.start_h||p.end!==b.end_h||p.slot!==b.slot)return '예약 이용 시간이 변경되었습니다.';
@@ -41,11 +42,11 @@ export function noticeObsolete(b,e,at=Date.now()){
  if(b.returned||b.refund_state==='completed')return '보증금 반환이 완료되었습니다.';
  if(e.kind==='payment'){if(b.deposit_paid)return '이미 보증금 입금이 확인되었습니다.';if(end.end<=at)return '이용이 종료되어 입금 안내를 보내지 않습니다.';}
  if(e.kind==='account'){if(!b.deposit_paid)return '보증금 입금 확인이 취소되었습니다.';if(b.account_cipher)return '환급 계좌가 이미 등록되었습니다.';if(['processing','hold'].includes(b.refund_state)||b.purged_at)return '계좌 등록을 받을 수 없는 처리 상태입니다.';if(end.end+90*864e5<=at)return '계좌 등록 안내 유효기간이 지났습니다.';}
- if(at-utc(e.occurred_at)>7*864e5)return '안내 발생 후 7일이 지나 자동 발송하지 않습니다.';
+ if(!scheduledPayment&&at-utc(e.occurred_at)>7*864e5)return '안내 발생 후 7일이 지나 자동 발송하지 않습니다.';
  return '';
 }
 export function depositNoticeVariables(b,e,token=''){
- const p=parse(e.payload),d=new Date(b.date+'T00:00:00Z');d.setUTCDate(d.getUTCDate()-3);let due=d.toISOString().slice(0,10);const occurred=new Date(utc(e.occurred_at)+9*36e5).toISOString().slice(0,10);if(due<occurred)due=occurred;
+ const p=parse(e.payload),occurred=new Date(utc(e.occurred_at)+9*36e5).toISOString().slice(0,10),due=depositDueDate(b)||occurred;
  return {고객명:clean(b.customer_name),공간명:SPACES[b.space_id],이용일:b.date,보증금액:format(p.amount??b.deposit_amount),입금기한:due,환급예정일:refundDate(b)||'관리자 확인 후 안내',등록코드:token,차감액:format(p.deduction??b.deduction),환급금액:format(p.refund??b.paid_amount),처리일:p.completed_at?new Date(utc(p.completed_at)+9*36e5).toISOString().slice(0,10):occurred};
 }
 export function depositNoticeRender(text,vars){return text.replace(/#\{([^}]+)\}/g,(_,k)=>{if(vars[k]==null)throw Error('안내 변수 누락');return String(vars[k]);});}
@@ -66,8 +67,10 @@ async function accountToken(env,code){
 }
 async function dispatch(env,e){
  const s=await depositMessageConfig(env),hash=await depositMessageHash(env,s);let b;
+ const scheduled=e.mode==='live'&&e.kind==='payment'&&(await env.DB.prepare("SELECT json_extract(value,'$.enabled') AS enabled FROM settings WHERE key='booking_journey'").first())?.enabled===1;
  if(e.mode==='test')b={booking_code:'TEST',customer_name:'운영자 시험',phone:parse(e.payload).test_phone,space_id:'megaspot-gundae',date:'2099-01-05',start_h:10,end_h:17,deposit_amount:150000,paid_amount:150000,deduction:0};
- else {b=await booking(env,e.booking_code);const reason=noticeObsolete(b,e);if(reason)return state(env,e.id,'cancelled',reason);if(env.ALIGO_LIVE_ENABLED!=='true'||!s.enabled||!s.types[e.kind]||s.hash!==hash||!await tested(env,e.kind,hash))return;}
+ else {b=await booking(env,e.booking_code);const reason=noticeObsolete(b,e,Date.now(),scheduled);if(reason)return state(env,e.id,'cancelled',reason);if(env.ALIGO_LIVE_ENABLED!=='true'||!s.enabled||!s.types[e.kind]||s.hash!==hash||!await tested(env,e.kind,hash))return;}
+ if(scheduled&&!depositPaymentWindow(b))return;
  if(e.mode==='live'&&!parse(e.payload).delivery_phone){for(const phone of contactPhones(b).filter(p=>p!==guidePhone(b.phone)))await env.DB.prepare("INSERT OR IGNORE INTO deposit_notifications(booking_code,kind,event_key,occurred_at,payload,mode) VALUES(?,?,?,?,?,'live')").bind(e.booking_code,e.kind,e.event_key+':to:'+phone,e.occurred_at,JSON.stringify({...parse(e.payload),delivery_phone:phone})).run();}
  const receiver=guidePhone(parse(e.payload).delivery_phone||b.phone);if(!receiver)return state(env,e.id,'failed','알림톡 수신 가능한 휴대폰 번호를 확인해 주세요.');
  const t=await template(env,s,e.kind);if(!usable(e.kind,t)){await env.DB.prepare('UPDATE deposit_notifications SET error=? WHERE id=? AND status=\'queued\'').bind('승인·본문·버튼 확인 대기',e.id).run();return;}
@@ -76,7 +79,7 @@ async function dispatch(env,e){
  const id=crypto.randomUUID(),r=await env.DB.prepare("UPDATE deposit_notifications SET status='sending',request_id=?,phone_hash=?,config_hash=?,updated_at=? WHERE id=? AND status='queued'").bind(id,await sha256(receiver),hash,now(),e.id).run();if(!changes(r))return;
  let token='';try{if(e.kind==='account')token=e.mode==='test'?'DEMO':await accountToken(env,e.booking_code);}catch{return state(env,e.id,'failed','계좌 등록 링크 발급 실패 · 관리자 확인 필요');}
  // Recheck the booking after issuing the link and taking the sending lock.
- if(e.mode==='live'){const latest=await booking(env,e.booking_code),reason=noticeObsolete(latest,e);if(reason)return state(env,e.id,'cancelled',reason);b=latest;const latestSettings=await depositMessageConfig(env);if(!latestSettings.enabled||!latestSettings.types[e.kind]||latestSettings.hash!==hash||env.ALIGO_LIVE_ENABLED!=='true')return state(env,e.id,'cancelled','고객 발송 중지·설정 변경');}
+ if(e.mode==='live'){const latest=await booking(env,e.booking_code),reason=noticeObsolete(latest,e,Date.now(),scheduled);if(reason)return state(env,e.id,'cancelled',reason);b=latest;if(scheduled&&!depositPaymentWindow(b))return state(env,e.id,'cancelled','보증금 안내 발송 시점 또는 납부 기한이 변경되었습니다.');const latestSettings=await depositMessageConfig(env);if(!latestSettings.enabled||!latestSettings.types[e.kind]||latestSettings.hash!==hash||env.ALIGO_LIVE_ENABLED!=='true')return state(env,e.id,'cancelled','고객 발송 중지·설정 변경');}
  if(e.kind==='account'&&e.mode==='live'&&e.event_key.startsWith('account-reminder:')){const other=await env.DB.prepare("SELECT id FROM deposit_notifications WHERE booking_code=? AND mode='live' AND kind='account' AND id<>? AND COALESCE(json_extract(payload,'$.delivery_phone'),json_extract(payload,'$.phone'))=? AND (status IN ('queued','sending','accepted','unknown','review') OR (status='delivered' AND updated_at>?)) LIMIT 1").bind(e.booking_code,e.id,parse(e.payload).delivery_phone||parse(e.payload).phone,new Date(Date.now()-3600000).toISOString().slice(0,19).replace('T',' ')).first();if(other)return state(env,e.id,'cancelled','다른 계좌 안내가 처리 중이거나 최근 수신 완료되었습니다.');}
  const fallback=e.mode==='live';
  const vars=depositNoticeVariables(b,e,token),message=depositNoticeRender(t.templtContent,vars),buttons=T[e.kind].buttons.map(b=>({name:b.name,linkType:'WL',linkMo:depositNoticeRender(b.linkMo,vars),linkPc:depositNoticeRender(b.linkPc,vars)}));
@@ -116,7 +119,14 @@ export async function depositNoticeTick(env,send=true){
   if(!active)await env.DB.prepare("UPDATE deposit_notifications SET status='cancelled',error='고객 발송 중지·설정 변경' WHERE mode='live' AND status='queued'").run();
   const {results:pending}=await env.DB.prepare("SELECT * FROM deposit_notifications WHERE status='accepted' ORDER BY updated_at,id LIMIT 3").all();for(const e of pending||[])try{await refresh(env,e);}catch{}
   // Korea local 09:00–21:00. Operator test sends bypass quiet hours explicitly.
-  const h=new Date(Date.now()+9*36e5).getUTCHours();if(active&&send&&h>=9&&h<21){const {results}=await env.DB.prepare("SELECT * FROM deposit_notifications WHERE status='queued' AND mode='live' ORDER BY id LIMIT 3").all();for(const e of results||[])try{await dispatch(env,e);}catch{}}
+  const h=new Date(Date.now()+9*36e5).getUTCHours();
+  if(active&&send&&h>=9&&h<21){
+   const scheduled=(await env.DB.prepare("SELECT json_extract(value,'$.enabled') AS enabled FROM settings WHERE key='booking_journey'").first())?.enabled===1;
+   const today=new Date(Date.now()+9*36e5).toISOString().slice(0,10),tomorrow=new Date(Date.parse(today+'T00:00:00Z')+86400000).toISOString().slice(0,10);
+   if(scheduled)await env.DB.prepare(`UPDATE deposit_notifications SET status='cancelled',error='납부 기한 경과 또는 예약·보증금 입금 상태 변경',updated_at=? WHERE kind='payment' AND mode='live' AND status='queued' AND request_id IS NULL AND provider_mid IS NULL AND EXISTS(SELECT 1 FROM bookings b WHERE b.booking_code=deposit_notifications.booking_code AND (b.status<>'confirmed' OR ${depositDueSql()}<? OR CASE WHEN b.inquiry_ref IS NOT NULL THEN COALESCE((SELECT json_extract(checks,'$.guarantee_paid') FROM inquiry_checks WHERE ref=b.inquiry_ref),0) ELSE COALESCE((SELECT paid FROM booking_deposit_checks WHERE booking_code=b.booking_code),0) END<>0))`).bind(now(),today).run();
+   const {results}=await env.DB.prepare(`SELECT n.* FROM deposit_notifications n WHERE n.status='queued' AND n.mode='live' AND (?=0 OR n.kind<>'payment' OR EXISTS(SELECT 1 FROM bookings b WHERE b.booking_code=n.booking_code AND ${depositDueSql()} BETWEEN ? AND ? AND COALESCE(${depositConfirmedSql()},'')<?)) ORDER BY n.id LIMIT 3`).bind(scheduled?1:0,today,tomorrow,today).all();
+   for(const e of results||[])try{await dispatch(env,e);}catch{}
+  }
   return {ok:true,enabled:active};
  }finally{await env.DB.prepare("UPDATE deposit_notification_lease SET until_at=? WHERE name='tick' AND until_at=?").bind(Date.now()+60000,leaseUntil).run();}
 }
@@ -124,7 +134,7 @@ export async function depositNoticeCron(request,env,readOnly=false){
  if(request.method!=='POST'||!configured(env))return err('허용되지 않은 요청입니다.',403);
  const raw=await request.text();if(raw.length>1024)return err('허용되지 않은 요청입니다.',403);const d=parse(raw);
  if(!Number.isFinite(d.time)||Math.abs(Date.now()-d.time)>60000||!equalSecret(request.headers.get('X-Megaspot-Signature')||'',await parkingSign(env.ALIGO_RELAY_SECRET,raw)))return err('허용되지 않은 요청입니다.',403);
- if(readOnly){const s=await depositMessageConfig(env);return json({ok:true,configured:true,enabled:s.enabled,live_allowed:env.ALIGO_LIVE_ENABLED==='true',types:s.types});}
+ if(readOnly){const s=await depositMessageConfig(env),scheduled=(await env.DB.prepare("SELECT json_extract(value,'$.enabled') AS enabled FROM settings WHERE key='booking_journey'").first())?.enabled===1;return json({ok:true,configured:true,enabled:s.enabled,live_allowed:env.ALIGO_LIVE_ENABLED==='true',types:s.types,payment_schedule:scheduled?'day_before_due':'on_confirmation',send_hours:'09:00–21:00'});}
  return json(await depositNoticeTick(env));
 }
 export async function depositNoticeAdmin({request,env,path,method}){
