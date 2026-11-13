@@ -118,6 +118,7 @@ export async function clearHits(env, key) { await env.DB.prepare('DELETE FROM au
 let schemaReady = false;
 // 이미 만들어진 표에 나중에 추가한 칸 — 칸이 이미 있으면 오류가 나므로 하나씩 실행하고 오류는 무시합니다.
 const MIGRATIONS = [
+  'ALTER TABLE transaction_notifications ADD COLUMN booking_snapshot TEXT',
   'ALTER TABLE bookings ADD COLUMN amount INTEGER',
   'ALTER TABLE bookings ADD COLUMN start_h INTEGER',
   'ALTER TABLE bookings ADD COLUMN end_h INTEGER',

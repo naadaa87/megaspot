@@ -12,12 +12,12 @@ function setup(t,{existing=false}={}){
  const f=fixture({booking:existing});t.after(()=>f.db.close());
  Object.assign(f.env,{DEPOSIT_ACCOUNT_KEY:'ab'.repeat(32),ALIGO_RELAY_URL:'https://relay.naranhistory.com/megaspot/aligo',ALIGO_RELAY_SECRET:'journey-regression-secret-at-least-32',ALIGO_SENDER_KEY:'fixture-profile',ALIGO_SENDER:'0212345678',ALIGO_LIVE_ENABLED:'true'});
  f.db.prepare("INSERT INTO settings VALUES('booking_journey','{\"enabled\":true}',datetime('now'))").run();
- const sends=[];let pending=false;
+ const sends=[];let pending=false,onTemplate=null;
  t.mock.method(Date,'now',()=>Date.parse(dayAt(new Date().getTime())+'T12:00:00+09:00'));
  t.mock.method(globalThis,'fetch',async(url,init)=>{
   assert.equal(url,f.env.ALIGO_RELAY_URL);const req=JSON.parse(init.body),d=req.data;
   if(req.path==='transaction/status')return Response.json({ready:true});
-  if(req.path==='template/list'){const t=Object.values(JOURNEY_TEMPLATES).flatMap(t=>[t,t.fallback].filter(Boolean)).find(t=>t.code===d.tpl_code);assert.ok(t);return Response.json({code:0,list:[{templtCode:t.code,senderKey:f.env.ALIGO_SENDER_KEY,inspStatus:pending?'REQ':'APR',status:'R',templtContent:t.content,buttons:t.buttons}]});}
+  if(req.path==='template/list'){if(onTemplate)onTemplate();const t=Object.values(JOURNEY_TEMPLATES).flatMap(t=>[t,t.fallback].filter(Boolean)).find(t=>t.code===d.tpl_code);assert.ok(t);return Response.json({code:0,list:[{templtCode:t.code,senderKey:f.env.ALIGO_SENDER_KEY,inspStatus:pending?'REQ':'APR',status:'R',templtContent:t.content,buttons:t.buttons}]});}
   if(req.path==='alimtalk/send'){sends.push(d);return Response.json({code:0,info:{mid:String(sends.length),scnt:1,fcnt:0}});}
   throw Error('Unexpected '+req.path);
  });
@@ -26,7 +26,7 @@ function setup(t,{existing=false}={}){
  const resetLease=()=>f.db.exec("UPDATE booking_guide_lease SET until_at=0");
  const tick=async()=>{resetLease();await bookingJourneyTick(f.env);};
  const row=(kind='booking_confirmed')=>f.db.prepare('SELECT * FROM transaction_notifications WHERE kind=? ORDER BY id DESC LIMIT 1').get(kind);
- return {...f,create,receipt,tick,row,sends,pending:value=>pending=value};
+ return {...f,create,receipt,tick,row,sends,pending:value=>pending=value,onTemplate:value=>onTemplate=value};
 }
 test('예약금만 받은 확정은 통합 링크를 1회 발송하며 기존 시설 자동 안내는 보내지 않는다',async t=>{
  const f=setup(t);f.create();f.receipt('BK-NEW',100000,'first');await f.tick();
@@ -59,7 +59,7 @@ test('잔금 기한을 수정하고 납부·기한 변경 시 과거 안내를 �
  assert.match((await journeyContext(f.env,f.row('balance_reminder'))).cancel,/기한/);
 });
 test('방문 전날에만 안내를 만들고 날짜 변경·취소 후 발송을 중지한다',async t=>{
- const f=setup(t);const tomorrow=shiftDay(dayAt(Date.now()),1);f.create(tomorrow);await f.tick();await f.tick();assert.equal(f.db.prepare("SELECT COUNT(*) n FROM transaction_notifications WHERE kind='booking_arrival'").get().n,1);
+ const f=setup(t);const tomorrow=shiftDay(dayAt(Date.now()),1);f.create(tomorrow);f.db.exec("UPDATE booking_journey_state SET confirmed_at='2020-01-01' WHERE booking_code='BK-NEW'");await f.tick();await f.tick();assert.equal(f.db.prepare("SELECT COUNT(*) n FROM transaction_notifications WHERE kind='booking_arrival'").get().n,1);
  f.db.prepare("UPDATE bookings SET date=? WHERE booking_code='BK-NEW'").run(DAY);assert.ok((await journeyContext(f.env,f.row('booking_arrival'))).cancel);
  f.db.exec("UPDATE bookings SET status='cancelled' WHERE booking_code='BK-NEW'");assert.ok((await journeyContext(f.env,f.row())).cancel);
 });
@@ -100,16 +100,27 @@ test('확정 안내의 두 버튼은 전용 예약 링크와 식음료 링크를
  assert.deepEqual(buttons.map(b=>b.name),['예약 안내 확인','뷔페·케이터링·칵테일 안내']);assert.match(buttons[0].linkMo,/\/booking\/#booking=/);assert.equal(buttons[1].linkMo,'https://megaspot.kr/catering/#food-compare');assert.ok(payload.fmessage_1.includes(buttons[0].linkMo));assert.ok(payload.fmessage_1.includes(buttons[1].linkMo));
 });
 test('입실 전 안내는 입실·이용 안내와 주차권 구매만 보내고 식음료·전용 예약 버튼을 섞지 않는다',async t=>{
- const f=setup(t);f.create(shiftDay(dayAt(Date.now()),1));await f.tick();await transactionNoticeTick(f.env);await transactionNoticeTick(f.env);
+ const f=setup(t);f.create(shiftDay(dayAt(Date.now()),1));f.db.exec("UPDATE booking_journey_state SET confirmed_at='2020-01-01' WHERE booking_code='BK-NEW'");await f.tick();await transactionNoticeTick(f.env);await transactionNoticeTick(f.env);
  const payload=f.sends.find(d=>d.tpl_code===JOURNEY_TEMPLATES.booking_arrival.code),buttons=JSON.parse(payload.button_1).button;
  assert.deepEqual(buttons.map(b=>b.name),['입실 및 이용 안내','주차권 구매']);assert.equal(buttons[0].linkMo,'https://megaspot-guide.pages.dev/');assert.equal(buttons[1].linkMo,'https://megaspot.kr/parking/purchase/');assert.ok(!payload.fmessage_1.includes('/catering/'));assert.ok(payload.fmessage_1.includes('/parking/purchase/'));assert.ok(!/#\{/.test(payload.message_1));
 });
-test('새 확정 템플릿 검수 중에는 승인된 기존 알림톡을 유지하고 승인 후 두 버튼으로 자동 전환한다',async t=>{
- const f=setup(t);f.create();
- const {approvedCustomerTemplate}=await import('../functions/api/_customer_alimtalk.js');const expected=JOURNEY_TEMPLATES.booking_confirmed;
- let approved=false;const provider=async(path,data)=>{assert.equal(path,'template/list');const t=data.tpl_code===expected.code?expected:expected.fallback;return {code:0,list:[{templtCode:t.code,senderKey:f.env.ALIGO_SENDER_KEY,inspStatus:t===expected&&!approved?'REQ':'APR',status:'R',templtContent:t.content,buttons:t.buttons}]};};
- const old=await approvedCustomerTemplate(f.env,provider,'booking_confirmed');assert.equal(old.code,'UN_2935');assert.equal(old.buttons.length,1);
- const context=await journeyContext(f.env,f.row());assert.equal(context.buttonsFor(old).length,1);
- approved=true;const updated=await approvedCustomerTemplate(f.env,provider,'booking_confirmed');assert.equal(updated.code,expected.code);assert.equal(context.buttonsFor(updated).length,2);assert.equal(context.buttonsFor(updated)[1].linkMo,'https://megaspot.kr/catering/#food-compare');
- const outage=await approvedCustomerTemplate(f.env,async()=>{throw Error('temporary provider outage');},'booking_confirmed');assert.equal(outage.code,expected.code);
+test('승인된 새 확정 템플릿은 승인 캐시를 사용하고 예전 한 버튼 템플릿으로 되돌아가지 않는다',async t=>{
+ const f=setup(t);const {approvedCustomerTemplate}=await import('../functions/api/_customer_alimtalk.js');const expected=JOURNEY_TEMPLATES.booking_confirmed;assert.equal(expected.fallback,undefined);
+ let approved=false;const provider=async(path,data)=>{assert.equal(path,'template/list');assert.equal(data.tpl_code,expected.code);return {code:0,list:[{templtCode:expected.code,senderKey:f.env.ALIGO_SENDER_KEY,inspStatus:approved?'APR':'REQ',status:'R',templtContent:expected.content,buttons:expected.buttons}]};};
+ assert.equal(await approvedCustomerTemplate(f.env,provider,'booking_confirmed'),null);approved=true;assert.equal((await approvedCustomerTemplate(f.env,provider,'booking_confirmed')).code,expected.code);assert.equal((await approvedCustomerTemplate(f.env,async()=>{throw Error('temporary outage');},'booking_confirmed')).code,expected.code);
+});
+
+test('전날·당일 임박 예약은 확정 통합 안내만 보내고 입실 안내를 같은 시점에 추가하지 않는다',async t=>{
+ const f=setup(t);f.create(shiftDay(dayAt(Date.now()),1));await f.tick();await transactionNoticeTick(f.env);assert.equal(f.sends.length,1);assert.equal(f.sends[0].tpl_code,'UN_6623');assert.equal(f.row('booking_arrival'),undefined);
+});
+test('2호 입실 안내에는 1호 시설 페이지 대신 승인된 예약별 통합 링크를 보낸다',async t=>{
+ const f=setup(t);f.create(shiftDay(dayAt(Date.now()),1));f.db.exec("UPDATE bookings SET space_id='megaspot-gundae-2' WHERE booking_code='BK-NEW'; UPDATE booking_journey_state SET confirmed_at='2020-01-01' WHERE booking_code='BK-NEW'");await f.tick();await transactionNoticeTick(f.env);await transactionNoticeTick(f.env);
+ const d=f.sends.find(d=>d.tpl_code==='UN_6621');assert.ok(d);const buttons=JSON.parse(d.button_1).button;assert.equal(buttons.length,1);assert.match(buttons[0].linkMo,/\/booking\/#booking=/);assert.ok(!d.fmessage_1.includes('megaspot-guide.pages.dev'));assert.match(d.message_1,/건대 2호/);
+});
+
+test('시간 구간만 저장된 예전 예약도 기존 주간 시간으로 안내하고 모르는 구간은 확인 대기로 남긴다',async t=>{
+ const f=setup(t);f.create();f.db.exec("UPDATE bookings SET start_h=NULL,end_h=NULL,slot='pkg-day' WHERE booking_code='BK-NEW'");await f.tick();await transactionNoticeTick(f.env);assert.equal(f.sends.length,1);assert.match(f.sends[0].message_1,/10:00~17:00/);
+});
+test('알림톡 승인 조회 중 예약 날짜가 바뀌면 예전 날짜를 보내지 않고 다음 처리에 최신 날짜를 보낸다',async t=>{
+ const f=setup(t);f.create();const changed=shiftDay(DAY,1);let changedOnce=false;f.onTemplate(()=>{if(!changedOnce){changedOnce=true;f.db.prepare("UPDATE bookings SET date=?,confirm_doc=NULL WHERE booking_code='BK-NEW'").run(changed);}});await f.tick();await transactionNoticeTick(f.env);assert.equal(f.sends.length,0);await transactionNoticeTick(f.env);assert.equal(f.sends.length,1);assert.ok(f.sends[0].message_1.includes(changed.replace(/^(\d{4})-(\d{2})-(\d{2})$/,'$1년 $2월 $3일')));
 });

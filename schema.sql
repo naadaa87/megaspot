@@ -786,6 +786,7 @@ CREATE TABLE IF NOT EXISTS transaction_notifications (
  status TEXT NOT NULL DEFAULT 'queued',
  request_id TEXT UNIQUE,
  provider_mid TEXT,
+ booking_snapshot TEXT,
  error TEXT NOT NULL DEFAULT '',
  occurred_at TEXT NOT NULL,
  updated_at TEXT NOT NULL DEFAULT (datetime('now')),

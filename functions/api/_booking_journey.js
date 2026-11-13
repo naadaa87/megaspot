@@ -1,3 +1,5 @@
+import {eventTime} from './_deposit_refunds.js';
+import {noManualArrivalSql} from './_arrival_guard.js';
 import {bookingPhone2Sql,contactPhones} from './_contacts.js';
 import {now,SPACES} from './_lib.js';
 import {prepareCombinedConfirmation,confirmationSourceSQL} from './_confirmation_auto.js';
@@ -16,13 +18,17 @@ export async function journeyContext(env,row){
  const today=dayAt(Date.now());
  if(!b||b.status!=='confirmed'||b.date<today||!contactPhones(b).includes(String(row.receiver||'').replace(/\D/g,'')))return {cancel:'예약 상태 또는 연락처가 변경되었습니다.'};
  if(row.kind==='booking_confirmed'&&row.event_key!=='journey-confirm:'+b.booking_code+':'+b.confirm_version)return {cancel:'예약 확정 차수가 바뀌었습니다.'};
- if(!SPACES[b.space_id]||b.start_h==null||b.end_h==null)return {hold:'확정된 이용 시간을 확인해 주세요.'};
+ const booking_revision=JSON.stringify([b.space_id,b.date,b.start_h,b.end_h,b.slot,b.customer_name]),range=eventTime(b);
+ if(!SPACES[b.space_id]||!range)return {hold:'확정된 이용 시간을 확인해 주세요.'};
+ if(range.end<=Date.now())return {cancel:'이용이 종료되어 예약 안내를 보내지 않습니다.'};
+ [b.start_h,b.end_h]=range.hours;
  const s=await settlementFor(env,b.booking_code),schedule=await paymentSchedule(env,b);
  const hidden=b.amount_visible===0||(b.confirm_doc&&JSON.parse(b.confirm_doc).show_amount===false);
  if(['balance_reminder','rental_paid'].includes(row.kind)&&(hidden||s.amount==null))return {hold:'금액 공개 및 이용료 확정 확인 필요'};
  if(row.kind==='balance_reminder'&&(!(s.balance>0)||schedule.due_date<today||today<shiftDay(schedule.due_date,-1)||!row.event_key.endsWith(':'+schedule.due_date)))return {cancel:'잔금 또는 납부 기한이 변경되었습니다.'};
  if(row.kind==='rental_paid'&&(s.balance!==0||s.net<=0||s.over_refunded))return {cancel:'이용료 수납 상태가 변경되었습니다.'};
- if(row.kind==='booking_arrival'&&(b.date!==shiftDay(today,1)||!row.event_key.endsWith(':'+b.date)))return {cancel:'방문 전날 안내 대상이 아닙니다.'};
+ if(row.kind==='booking_arrival'&&(b.date!==shiftDay(today,1)||b.confirmed_at?.slice(0,10)>=today||!row.event_key.endsWith(':'+b.date)))return {cancel:'방문 전날 안내 대상이 아닙니다.'};
+ if(row.kind==='booking_arrival'&&!await env.DB.prepare(`SELECT 1 FROM bookings b WHERE booking_code=? AND ${noManualArrivalSql()}`).bind(b.booking_code,String(row.receiver).replace(/\D/g,'')).first())return {cancel:'현재 예약의 입실 안내가 수동 발송되어 자동 안내를 생략합니다.'};
  let link;try{link=await portalMessageLink(env,b.booking_code,{issue:true});}catch(error){link=await portalMessageLink(env,b.booking_code);if(!link)throw error;}
  if(!link)return {hold:'통합 링크를 준비하지 못했습니다.'};
  if(row.kind==='booking_confirmed'&&!b.confirm_doc&&!s.legacy_pending){
@@ -34,7 +40,7 @@ export async function journeyContext(env,row){
  const vars={고객명:String(b.customer_name||'').replace(/[\r\n]/g,' '),공간명:SPACES[b.space_id],예약번호:b.booking_code,이용일:b.date,이용시간:[b.start_h,b.end_h].map(hour).join('~'),잔금:Number(s.balance).toLocaleString('ko-KR'),수납액:Number(s.net).toLocaleString('ko-KR'),납부기한:schedule.due_date};
  const render=template=>row.kind==='booking_confirmed'?portalGuideMessage(b,[b.start_h,b.end_h]):template.content.replace(/#\{([^}]+)\}/g,(_,key)=>vars[key]);
  const buttonsFor=template=>journeyButtons(template,link.url),buttons=buttonsFor(JOURNEY_TEMPLATES[row.kind]);
- return {b,s,render,buttons,buttonsFor,link};
+ return {b,s,render,buttons,buttonsFor,link,booking_revision};
 }
 export async function bookingJourneyTick(env){
  if(!env.DB||!await journeyEnabled(env))return;
@@ -63,7 +69,7 @@ export async function bookingJourneyTick(env){
  if(hourKST<9||hourKST>=21)continue;
  const schedule=await paymentSchedule(env,b);
  if(s?.balance>0&&today>=shiftDay(schedule.due_date,-1)&&today<=schedule.due_date&&b.confirmed_at?.slice(0,10)<today)await enqueue('balance_reminder','journey-balance:'+b.booking_code+':'+b.confirm_version+':'+schedule.due_date);
- if(b.date===shiftDay(today,1))await enqueue('booking_arrival','journey-arrival:'+b.booking_code+':'+b.confirm_version+':'+b.date);
+ if(b.date===shiftDay(today,1)&&b.confirmed_at?.slice(0,10)<today)await enqueue('booking_arrival','journey-arrival:'+b.booking_code+':'+b.confirm_version+':'+b.date);
  }
  }finally{await env.DB.prepare("UPDATE booking_guide_lease SET until_at=? WHERE name='journey' AND until_at=?").bind(Date.now()+30000,lease).run();}
 }

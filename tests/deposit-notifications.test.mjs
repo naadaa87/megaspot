@@ -150,3 +150,11 @@ test('서명된 상태 조회는 지연 발송 정책만 보여 주며 예정일
 test('예전 예약의 UTC 확정 시각도 한국 날짜로 계산해 확정 당일 추가 발송을 막는다',async t=>{
  const f=await timed(t);f.booking('BK-UTC-BASELINE',{date:'2026-11-07'});f.db.prepare("UPDATE bookings SET created_at='2026-11-02 20:00:00' WHERE booking_code='BK-UTC-BASELINE'").run();f.db.prepare("UPDATE booking_journey_state SET confirm_version=0,confirmed_at='2026-11-02 20:00:00' WHERE booking_code='BK-UTC-BASELINE'").run();await f.tick();assert.equal(f.sent.length,3);
 });
+test('예약 확정과 동시에 보증금도 확인한 경우 통합 안내 접수까지 기다리고 계좌 요청을 중복 발송하지 않는다',async t=>{
+ const f=await timed(t);f.booking('BK-INITIAL-GUARANTEE');f.db.prepare('INSERT INTO booking_deposit_checks VALUES(?,?,?)').run('BK-INITIAL-GUARANTEE',1,now());await f.tick();assert.equal(f.sent.length,3);
+ f.db.prepare("UPDATE transaction_notifications SET status='delivered' WHERE kind='booking_confirmed' AND booking_code='BK-INITIAL-GUARANTEE'").run();await f.tick();assert.equal(f.sent.length,3);assert.equal(f.db.prepare("SELECT status FROM deposit_notifications WHERE booking_code='BK-INITIAL-GUARANTEE' AND kind='account'").get().status,'cancelled');
+});
+test('확정 안내 결과 대기 중인 계좌 요청들이 다른 고객의 환급 안내를 가로막지 않는다',async t=>{
+ const f=await timed(t);for(let i=0;i<4;i++){const code='BK-WAIT-'+i;f.booking(code);f.db.prepare('INSERT INTO booking_deposit_checks VALUES(?,?,?)').run(code,1,now());}
+ f.db.prepare("INSERT INTO booking_refunds(booking_code,amount,created_at,updated_at) VALUES('BK-TEST',150000,?,?)").run(now(),now());f.db.prepare("UPDATE booking_refunds SET state='completed',paid_amount=150000,completion_id='wait-proof',completed_at=? WHERE booking_code='BK-TEST'").run(now());await f.tick();assert.equal(f.sent.length,4);assert.equal(f.sent.at(-1).tpl_code,C.refunded);
+});

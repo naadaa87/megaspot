@@ -65,12 +65,16 @@ async function accountToken(env,code){
  const r=await refundAdmin({env,url,path:'deposit-refunds/bookings/'+code+'/link',method:'POST',request:new Request(url,{method:'POST',body:'{}'})});
  const j=await r.json();if(!r.ok||!j.url)throw Error('계좌 등록 링크를 준비하지 못했습니다.');return j.url.split('#refund-account=')[1];
 }
+// A guarantee check saved in the same confirmation action is covered by the unified link.
+const initialConfirmationSql=(alias='n',states="('queued','sending','accepted','unknown','delivered')")=>`SELECT tn.status FROM transaction_notifications tn JOIN booking_journey_state js ON js.booking_code=tn.booking_code WHERE tn.booking_code=${alias}.booking_code AND tn.kind='booking_confirmed' AND tn.event_key='journey-confirm:'||tn.booking_code||':'||js.confirm_version AND js.confirm_version>0 AND tn.status IN ${states} AND abs((julianday(js.confirmed_at)-julianday(${alias}.occurred_at,'+9 hours'))*86400)<=120 LIMIT 1`;
 async function dispatch(env,e){
  const s=await depositMessageConfig(env),hash=await depositMessageHash(env,s);let b;
  const scheduled=e.mode==='live'&&e.kind==='payment'&&(await env.DB.prepare("SELECT json_extract(value,'$.enabled') AS enabled FROM settings WHERE key='booking_journey'").first())?.enabled===1;
  if(e.mode==='test')b={booking_code:'TEST',customer_name:'운영자 시험',phone:parse(e.payload).test_phone,space_id:'megaspot-gundae',date:'2099-01-05',start_h:10,end_h:17,deposit_amount:150000,paid_amount:150000,deduction:0};
  else {b=await booking(env,e.booking_code);const reason=noticeObsolete(b,e,Date.now(),scheduled);if(reason)return state(env,e.id,'cancelled',reason);if(env.ALIGO_LIVE_ENABLED!=='true'||!s.enabled||!s.types[e.kind]||s.hash!==hash||!await tested(env,e.kind,hash))return;}
  if(scheduled&&!depositPaymentWindow(b))return;
+ if(e.mode==='live'&&e.kind==='account'&&e.event_key===e.booking_code+':account'&&(await env.DB.prepare("SELECT json_extract(value,'$.enabled') AS enabled FROM settings WHERE key='booking_journey'").first())?.enabled===1){const initial=await env.DB.prepare(`SELECT (${initialConfirmationSql()}) AS status FROM deposit_notifications n WHERE n.id=?`).bind(e.id).first();if(initial?.status){if(['accepted','delivered'].includes(initial.status))return state(env,e.id,'cancelled','확정 통합 안내에 환급 계좌 등록 링크를 함께 제공했습니다.');return;}}
+
  if(e.mode==='live'&&!parse(e.payload).delivery_phone){for(const phone of contactPhones(b).filter(p=>p!==guidePhone(b.phone)))await env.DB.prepare("INSERT OR IGNORE INTO deposit_notifications(booking_code,kind,event_key,occurred_at,payload,mode) VALUES(?,?,?,?,?,'live')").bind(e.booking_code,e.kind,e.event_key+':to:'+phone,e.occurred_at,JSON.stringify({...parse(e.payload),delivery_phone:phone})).run();}
  const receiver=guidePhone(parse(e.payload).delivery_phone||b.phone);if(!receiver)return state(env,e.id,'failed','알림톡 수신 가능한 휴대폰 번호를 확인해 주세요.');
  const t=await template(env,s,e.kind);if(!usable(e.kind,t)){await env.DB.prepare('UPDATE deposit_notifications SET error=? WHERE id=? AND status=\'queued\'').bind('승인·본문·버튼 확인 대기',e.id).run();return;}
@@ -124,7 +128,7 @@ export async function depositNoticeTick(env,send=true){
    const scheduled=(await env.DB.prepare("SELECT json_extract(value,'$.enabled') AS enabled FROM settings WHERE key='booking_journey'").first())?.enabled===1;
    const today=new Date(Date.now()+9*36e5).toISOString().slice(0,10),tomorrow=new Date(Date.parse(today+'T00:00:00Z')+86400000).toISOString().slice(0,10);
    if(scheduled)await env.DB.prepare(`UPDATE deposit_notifications SET status='cancelled',error='납부 기한 경과 또는 예약·보증금 입금 상태 변경',updated_at=? WHERE kind='payment' AND mode='live' AND status='queued' AND request_id IS NULL AND provider_mid IS NULL AND EXISTS(SELECT 1 FROM bookings b WHERE b.booking_code=deposit_notifications.booking_code AND (b.status<>'confirmed' OR ${depositDueSql()}<? OR CASE WHEN b.inquiry_ref IS NOT NULL THEN COALESCE((SELECT json_extract(checks,'$.guarantee_paid') FROM inquiry_checks WHERE ref=b.inquiry_ref),0) ELSE COALESCE((SELECT paid FROM booking_deposit_checks WHERE booking_code=b.booking_code),0) END<>0))`).bind(now(),today).run();
-   const {results}=await env.DB.prepare(`SELECT n.* FROM deposit_notifications n WHERE n.status='queued' AND n.mode='live' AND (?=0 OR n.kind<>'payment' OR EXISTS(SELECT 1 FROM bookings b WHERE b.booking_code=n.booking_code AND ${depositDueSql()} BETWEEN ? AND ? AND COALESCE(${depositConfirmedSql()},'')<?)) ORDER BY n.id LIMIT 3`).bind(scheduled?1:0,today,tomorrow,today).all();
+   const {results}=await env.DB.prepare(`SELECT n.* FROM deposit_notifications n WHERE n.status='queued' AND n.mode='live' AND (?=0 OR n.kind<>'payment' OR EXISTS(SELECT 1 FROM bookings b WHERE b.booking_code=n.booking_code AND ${depositDueSql()} BETWEEN ? AND ? AND COALESCE(${depositConfirmedSql()},'')<?)) AND (?=0 OR n.kind<>'account' OR n.event_key<>n.booking_code||':account' OR NOT EXISTS(${initialConfirmationSql('n',"('queued','sending','unknown')")})) ORDER BY n.id LIMIT 3`).bind(scheduled?1:0,today,tomorrow,today,scheduled?1:0).all();
    for(const e of results||[])try{await dispatch(env,e);}catch{}
   }
   return {ok:true,enabled:active};

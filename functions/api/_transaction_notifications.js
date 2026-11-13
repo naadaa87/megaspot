@@ -1,3 +1,4 @@
+import {noManualArrivalSql} from './_arrival_guard.js';
 import {contactPhones,bookingContacts} from './_contacts.js';
 import {settlementRevisionSql} from './_settlement.js';
 import {bookingPhone2Sql} from './_contacts.js';
@@ -93,15 +94,15 @@ async function dispatch(env,row){
   if(row.kind!=='booking_confirmed'){const h=new Date(Date.now()+9*3600000).getUTCHours();if(h<9||h>=21)return;}
  }
  const provider=(path,data,id)=>aligoProvider(env,path,data,id);
- const template=row.audience==='customer'?await approvedCustomerTemplate(env,provider,row.kind):null;
+ const template=row.audience==='customer'?await approvedCustomerTemplate(env,provider,row.kind==='booking_arrival'&&journey?.b.space_id==='megaspot-gundae-2'?'booking_arrival_space2':row.kind):null;
  if(row.audience==='customer'&&!template){
   await env.DB.prepare("UPDATE transaction_notifications SET error=?,updated_at=datetime('now') WHERE id=? AND status='queued'")
    .bind('승인된 알림톡 본문·버튼 확인 대기',row.id).run();
   return;
  }
  const msg=journey?'':transactionMessage(row),requestId=crypto.randomUUID();
- const claim=await env.DB.prepare(`UPDATE transaction_notifications SET status='sending',request_id=?,amount=?,updated_at=?
-  WHERE id=? AND status='queued'${journey?` AND EXISTS(SELECT 1 FROM bookings b JOIN booking_portal_links pl ON pl.booking_code=b.booking_code WHERE b.booking_code=? AND b.status='confirmed' AND b.phone IS ? AND (${bookingPhone2Sql()})=? AND ${settlementRevisionSql()}=? AND pl.token_hash=? AND pl.version=? AND pl.recipient_hash=? AND pl.expires_at>?)`:''}`).bind(requestId,row.amount,now(),row.id,...(journey?[row.booking_code,journey.b.phone,journey.b.phone2,journey.s.revision,journey.link.reference.token_hash,journey.link.reference.version,journey.link.reference.recipient_hash,Date.now()]:[])).run();
+ const claim=await env.DB.prepare(`UPDATE transaction_notifications SET status='sending',request_id=?,amount=?,booking_snapshot=?,updated_at=?
+  WHERE id=? AND status='queued'${journey?` AND EXISTS(SELECT 1 FROM bookings b JOIN booking_portal_links pl ON pl.booking_code=b.booking_code WHERE b.booking_code=? AND b.status='confirmed' AND b.phone IS ? AND (${bookingPhone2Sql()})=? AND ${settlementRevisionSql()}=? AND json_array(b.space_id,b.date,b.start_h,b.end_h,b.slot,b.customer_name)=? AND pl.token_hash=? AND pl.version=? AND pl.recipient_hash=? AND pl.expires_at>?${row.kind==='booking_arrival'?` AND ${noManualArrivalSql()}`:''})`:''}`).bind(requestId,row.amount,journey?.booking_revision||null,now(),row.id,...(journey?[row.booking_code,journey.b.phone,journey.b.phone2,journey.s.revision,journey.booking_revision,journey.link.reference.token_hash,journey.link.reference.version,journey.link.reference.recipient_hash,Date.now(),...(row.kind==='booking_arrival'?[receiver]:[])]:[])).run();
  if(!Number(claim.meta?.changes??claim.changes))return;
  try{
   if(template){

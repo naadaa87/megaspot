@@ -1,3 +1,4 @@
+import {notificationOperations} from '../_notification_operations.js';
 import {bookingJourneyTrial} from '../_booking_journey_trial.js';
 import {err,hasDb} from '../_lib.js';
 import {depositNoticeCron} from '../_deposit_notifications.js';
@@ -10,10 +11,11 @@ import {guideTick} from '../_guide_messages.js';
 import {transactionNoticeStatus,transactionNoticeTick} from '../_transaction_notifications.js';
 export async function onRequest({request,env,params}){
  if(!hasDb(env))return err('준비 중입니다.',503);
- const p=(params.path||[]).join('/');if(!['tick','status','journey-setup','journey-trial'].includes(p))return err('경로를 찾을 수 없습니다.',404);
+ const p=(params.path||[]).join('/');if(!['tick','status','journey-setup','journey-trial','journey-operations'].includes(p))return err('경로를 찾을 수 없습니다.',404);
  try{
-  const setup=['journey-setup','journey-trial'].includes(p)?await request.clone().json().catch(()=>null):null;
+  const setup=['journey-setup','journey-trial','journey-operations'].includes(p)?await request.clone().json().catch(()=>null):null;
   const response=await depositNoticeCron(request,env,p!=='tick');
+  if(response.ok&&p==='journey-operations')return await notificationOperations(env,setup);
   if(response.ok&&p==='journey-trial')return await bookingJourneyTrial(env,setup);
   if(response.ok&&p==='journey-setup'){
    if(setup?.action!=='enable_booking_journey')return err('서명된 설정 작업을 확인해 주세요.',400);
