@@ -1,3 +1,4 @@
+import {bookingNotificationsAdmin} from '../_booking_notifications.js';
 import {reservationPaymentAdmin,paymentChecksFor} from '../_reservation_payment_checks.js';
 import {cleanPhone2,bookingPhone2Sql,saveBookingPhone2,contactsAdmin} from '../_contacts.js';
 import {rankedWaitsSql,waitList,waitSummary} from '../_reservation_waitlist.js';
@@ -192,6 +193,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
       }
       return err('지원하지 않는 요청입니다.',405);
     }
+    if(path==='booking-notifications'||path.startsWith('booking-notifications/'))return await bookingNotificationsAdmin({env,request,url,path,method});
     if(path==='transaction-notifications')return await transactionNoticeAdmin(env,request);
     if(path==='deposit-notifications'||path.startsWith('deposit-notifications/'))return await depositNoticeAdmin({env,request,url,path,method});
     if (path === 'deposit-refunds' || path.startsWith('deposit-refunds/')) {

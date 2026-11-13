@@ -182,3 +182,10 @@ export async function depositNoticeAdmin({request,env,path,method}){
  }
  return err('경로를 찾을 수 없습니다.',404);
 }
+
+// Shared read-only context for the reservation notification console.
+export async function depositConsoleContext(env,code){
+ const s=await depositMessageConfig(env),hash=await depositMessageHash(env,s),b=await booking(env,code);
+ const ready=Object.fromEntries(await Promise.all(kinds.map(async kind=>[kind,configured(env)&&env.ALIGO_LIVE_ENABLED==='true'&&s.enabled&&s.types[kind]&&s.hash===hash&&await tested(env,kind,hash)])));
+ return {b,ready,hash};
+}

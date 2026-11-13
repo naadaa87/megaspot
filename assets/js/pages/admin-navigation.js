@@ -3,10 +3,10 @@
   'use strict';
   var X=window.MEGASPOT_ADMIN,M=window.MEGASPOT;if(!X||!M)return;
   var $=function(s){return document.querySelector(s);},nav=$('#adm-nav'),main=$('.adm-main');
-  var aliases={'guide-settings':'guide-messages','deposit-settings':'deposit-notifications','parking-settings':'parking','prices-catering':'prices','prices-reception':'prices','prices-cocktail':'prices'};
+  var aliases={'guide-settings':'guide-delivery','deposit-settings':'deposit-notifications','parking-settings':'parking','prices-catering':'prices','prices-reception':'prices','prices-cocktail':'prices'};
   var groups=[
     {id:'consult',label:'문의·상담',open:true,items:[['inq','문의 관리'],['quote','견적 계산'],['visits','현장답사']]},
-    {id:'booking',label:'예약·일정',open:true,items:[['orders','주문·결제 확인'],['resv','예약 현황'],['booking-readiness','미안내·미발급'],['transaction-notifications','거래 알림'],['guide-messages','이용 안내']]},
+    {id:'booking',label:'예약·일정',open:true,items:[['orders','주문·결제 확인'],['resv','예약 현황'],['booking-readiness','미안내·미발급'],['transaction-notifications','거래 알림'],['guide-messages','예약별 알림']]},
     {id:'event',label:'행사·부가서비스',items:[['catering','식음료 서비스'],['parking','주차권 관리']]},
     {id:'after',label:'정산·사후관리',items:[['revenue','매출 현황'],['deposit-refunds','보증금 환급'],['reviews','후기 관리']]},
     {id:'platform',label:'고객·플랫폼',items:[['members','회원'],['meetups','모임 관리'],['hosts','입점·광고 신청'],['listings','등록 공간'],['ads','배너 광고']]},
@@ -14,7 +14,7 @@
     {id:'settings',label:'운영 설정',items:[['prices-catering','공급가·판매가'],['guide-settings','알림톡·자동 발송'],['parking-settings','주차 판매·연결 설정']]}
   ];
   var owners={bookings:'resv',calendar:'resv','booking-new':'resv',reception:'catering',cocktail:'catering','deposit-notifications':'deposit-refunds','prices-reception':'prices-catering','prices-cocktail':'prices-catering','deposit-settings':'guide-settings'};
-  var labels={dash:'오늘 할 일',bookings:'예약 목록',calendar:'일정 달력','booking-new':'예약 등록',reception:'케이터링',cocktail:'출장 칵테일','deposit-notifications':'보증금 안내 내역','prices-reception':'공급가·판매가','prices-cocktail':'공급가·판매가','deposit-settings':'알림톡·자동 발송'};
+  var labels={'guide-delivery':'입실 안내 상세·설정',dash:'오늘 할 일',bookings:'예약 목록',calendar:'일정 달력','booking-new':'예약 등록',reception:'케이터링',cocktail:'출장 칵테일','deposit-notifications':'보증금 안내 내역','prices-reception':'공급가·판매가','prices-cocktail':'공급가·판매가','deposit-settings':'알림톡·자동 발송'};
   var sections={},storageKey='megaspot.admin.nav.groups.v1',saved={};
   try{var stored=JSON.parse(localStorage.getItem(storageKey)||'{}');if(stored&&typeof stored==='object'&&!Array.isArray(stored))saved=stored;}catch(e){}
   var original={};nav.querySelectorAll('button[data-view]').forEach(function(b){original[b.dataset.view]=b;});
@@ -69,26 +69,26 @@
   ['catering','reception','cocktail'].forEach(function(id){tabs(id,foodTabs,'식음료 서비스');$('#view-'+id+' h1').textContent='식음료 서비스';});
   tabs('prices',[['prices-catering','출장뷔페'],['prices-reception','테이블·박스 케이터링'],['prices-cocktail','출장 칵테일']],'서비스별 가격표');
   ['deposit-refunds','deposit-notifications'].forEach(function(id){tabs(id,[['deposit-refunds','환급 관리'],['deposit-notifications','보증금 안내 내역']],'보증금 관리');});
-  tabs('guide-messages',[['guide-settings','이용 안내 설정'],['deposit-settings','보증금 알림 설정']],'알림톡 설정');
+  tabs('guide-delivery',[['guide-settings','이용 안내 설정'],['deposit-settings','보증금 알림 설정']],'알림톡 설정');
   tabs('deposit-notifications',[['guide-settings','이용 안내 설정'],['deposit-settings','보증금 알림 설정']],'알림톡 설정');
-  $('#view-guide-messages .adm-workspace-tabs').classList.add('adm-settings-tabs');
+  $('#view-guide-delivery .adm-workspace-tabs').classList.add('adm-settings-tabs');
   dn.querySelectorAll('.adm-workspace-tabs')[0].classList.add('adm-settings-tabs');dn.querySelectorAll('.adm-workspace-tabs')[1].classList.add('adm-work-tabs');
   function action(view,id,label){var b=document.createElement('button');b.type='button';b.className='btn btn-light btn-sm adm-context-action';b.dataset.go=id;b.textContent=label;$('#view-'+view+' .adm-head').appendChild(b);return b;}
   ['resv','bookings','calendar'].forEach(function(id){var b=action(id,'booking-new','+ 예약 등록');b.className='btn btn-primary btn-sm adm-context-action';});
   action('booking-new','bookings','예약 목록으로');
   action('orders','resv','예약 현황 보기');
   action('orders','revenue','매출 현황 보기');
-  action('guide-messages','guide-settings','알림톡·자동 발송 설정').classList.add('adm-work-block');
+  action('guide-delivery','guide-settings','알림톡·자동 발송 설정').classList.add('adm-work-block');
   action('deposit-notifications','deposit-settings','보증금 알림 설정').classList.add('adm-work-block');
   action('parking','parking-settings','주차 판매·연결 설정').classList.add('adm-work-block');
   action('parking','parking','주차 주문으로').classList.add('adm-settings-block');
-  action('guide-messages','guide-messages','이용 안내 업무로').classList.add('adm-settings-block');
+  action('guide-delivery','guide-delivery','이용 안내 업무로').classList.add('adm-settings-block');
   action('deposit-notifications','deposit-notifications','보증금 안내 내역으로').classList.add('adm-settings-block');
   // 오늘 할 일에서 환급 업무로 바로 이동합니다. 기존 조회·등록 기능은 그대로 사용합니다.
   var refundCard=document.createElement('div');refundCard.className='adm-card adm-refund-shortcut';refundCard.innerHTML='<div><h2>이용 후 보증금 환급</h2><p class="small muted">환급 대기·계좌 등록·시설 확인과 송금 완료 기록을 확인하세요.</p></div><button type="button" class="btn btn-light btn-sm" data-go="deposit-refunds">환급 관리 →</button>';$('#dash-kpis').after(refundCard);
   function badges(){groups.forEach(function(g){var d=sections[g.id],n=0;d.querySelectorAll('.adm-nav-items em').forEach(function(em){if(!em.hidden)n+=parseInt(em.textContent,10)||0;});var badge=d.querySelector('.adm-group-count'),value=n>99?'99+':String(n);if(badge.textContent!==value)badge.textContent=value;if(badge.hidden!==!n)badge.hidden=!n;badge.setAttribute('aria-label','관련 항목 '+n+'건');});}
   new MutationObserver(function(records){if(records.some(function(r){var el=r.target.nodeType===1?r.target:r.target.parentElement;return el&&el.closest('.adm-nav-items');}))badges();}).observe(nav,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['hidden']});badges();
-  var baseTitles={};['guide-messages','deposit-notifications','parking'].forEach(function(id){baseTitles[id]=$('#view-'+id+' h1').textContent;});
+  var baseTitles={};['guide-delivery','deposit-notifications','parking'].forEach(function(id){baseTitles[id]=$('#view-'+id+' h1').textContent;});
   var settingsTitles={'guide-settings':'알림톡·자동 발송 설정','deposit-settings':'보증금 알림 설정','parking-settings':'주차 판매·연결 설정'};
   window.MEGASPOT_ADMIN_LAYOUT={
     panel:function(id){return aliases[id]||id;},
@@ -98,10 +98,10 @@
       nav.querySelectorAll('.adm-nav-group').forEach(function(d){d.classList.toggle('has-current',d===parent);if(d!==parent&&['consult','booking'].indexOf(d.dataset.navGroup)<0)d.open=false;});if(parent)parent.open=true;
       context.replaceChildren();var small=document.createElement('span');small.textContent=parent?parent.querySelector('summary > span:nth-child(2)').textContent:'업무 홈';var strong=document.createElement('strong');strong.textContent=labels[id]||id;context.append(small,document.createTextNode(' / '),strong);menu.textContent=labels[id]||'전체 메뉴';menu.setAttribute('aria-label','전체 메뉴 열기 · 현재 '+(labels[id]||id));
       var panel=aliases[id]||id,s=$('#view-'+panel),settings=!!settingsTitles[id];
-      ['guide-messages','deposit-notifications','parking'].forEach(function(key){var el=$('#view-'+key);el.classList.toggle('adm-mode-settings',settings&&panel===key);el.classList.toggle('adm-mode-work',!settings||panel!==key);el.querySelector('h1').textContent=settings&&panel===key?settingsTitles[id]:baseTitles[key];});
+      ['guide-delivery','deposit-notifications','parking'].forEach(function(key){var el=$('#view-'+key);el.classList.toggle('adm-mode-settings',settings&&panel===key);el.classList.toggle('adm-mode-work',!settings||panel!==key);el.querySelector('h1').textContent=settings&&panel===key?settingsTitles[id]:baseTitles[key];});
       document.querySelectorAll('.adm-workspace-tabs a').forEach(function(a){var on=a.dataset.go===id;a.classList.toggle('on',on);if(on)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
       prices.querySelectorAll('[data-price-service]').forEach(function(el){el.hidden=id!=='prices-'+el.dataset.priceService;});
-      if(settings&&panel==='guide-messages')$('#gm-setup').open=true;
+      if(settings&&panel==='guide-delivery')$('#gm-setup').open=true;
       if(settings&&panel==='parking')parking.querySelectorAll(':scope > details').forEach(function(d){d.open=true;});
       // 키보드 사용자는 메뉴가 접힌 뒤에도 현재 화면에서 계속 탐색할 수 있습니다.
       var fromMenu=nav.contains(document.activeElement);closeMenu();if(fromMenu&&matchMedia('(max-width:999px)').matches){var h=s.querySelector('h1');h.tabIndex=-1;h.focus({preventScroll:true});}

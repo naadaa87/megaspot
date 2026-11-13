@@ -1988,7 +1988,7 @@
   // 어디서든 data-cdoc="예약번호" 버튼을 누르면 확정서 창을 엽니다 (목록 행 클릭보다 먼저 처리)
   document.addEventListener('click', function(e){ var b=e.target.closest && e.target.closest('[data-cdoc]'); if(!b) return; e.preventDefault(); e.stopPropagation(); openConfirmDoc(b.dataset.cdoc); }, true);
   window.addEventListener('admin-confirmation-open',function(e){var code=e.detail&&e.detail.code;if(typeof code==='string'&&/^[A-Z0-9-]{1,40}$/.test(code))openConfirmDoc(code);});
-  function cdBtn(code, issued, cls){ return '<button class="btn btn-light '+(cls||'btn-xs')+' cdoc-btn'+(issued?' on':'')+'" type="button" data-cdoc="'+esc(code)+'" title="'+(issued?'예약확정서 발급됨 · 다시 열기':'예약확정서 만들기')+'">'+(issued?'확정서 ✓':'확정서')+'</button> <button class="btn btn-light '+(cls||'btn-xs')+'" type="button" data-portal-code="'+esc(code)+'">통합 안내</button> <button class="btn btn-light '+(cls||'btn-xs')+'" type="button" data-booking-contacts="'+esc(code)+'">연락처 관리</button>'; }
+  function cdBtn(code, issued, cls){ return '<button class="btn btn-light '+(cls||'btn-xs')+' cdoc-btn'+(issued?' on':'')+'" type="button" data-cdoc="'+esc(code)+'" title="'+(issued?'예약확정서 발급됨 · 다시 열기':'예약확정서 만들기')+'">'+(issued?'확정서 ✓':'확정서')+'</button> <button class="btn btn-light '+(cls||'btn-xs')+'" type="button" data-portal-code="'+esc(code)+'">통합 안내</button> <button class="btn btn-light '+(cls||'btn-xs')+'" type="button" data-notification-code="'+esc(code)+'">알림 현황</button> <button class="btn btn-light '+(cls||'btn-xs')+'" type="button" data-booking-contacts="'+esc(code)+'">연락처 관리</button>'; }
 
   /* =================== 일정 달력 =================== */
   var calMonth=todayIso().slice(0,7), calRequest=0;

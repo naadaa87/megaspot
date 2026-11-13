@@ -43,7 +43,7 @@
 <meta name="theme-color" content="#F1EFEB">
 
 <link rel="stylesheet" href="/assets/css/parking-purchase.css?v=6f9060937dfe">
-<link rel="stylesheet" href="/assets/css/admin-guide-messages.css?v=20261104guide3buttons1">
+<link rel="stylesheet" href="/assets/css/admin-guide-messages.css?v=4f41fec5f148">
 <link rel="stylesheet" href="/assets/css/deposit-refunds.css?v=20261105accountreminder9">
 <link rel="stylesheet" href="/assets/css/quote-print.css?v=d50a86ba597b">
 <link rel="stylesheet" href="/assets/css/admin-confirmation.css?v=f1b323cf1117">
@@ -60,6 +60,7 @@
 <link rel="stylesheet" href="/assets/css/admin-hostplat.css?v=20261112host1">
 <link rel="stylesheet" href="/assets/css/admin-contacts.css?v=88bab903cfa1">
 <link rel="stylesheet" href="/assets/css/admin-payment-checks.css?v=513e26734bfa">
+<link rel="stylesheet" href="/assets/css/admin-booking-notifications.css?v=965ee88a22e2">
 </head>
 <body class="page-admin">
 <div id="admin-root">
@@ -163,7 +164,7 @@
     <!-- 예약 목록 -->
     <section class="adm-view" id="view-resv" hidden>
       <header class="adm-head"><div><h1>일자별 예약 · 문의</h1><p class="small muted">날짜마다 <b>예약 확정</b>과 아직 정해지지 않은 <b>예약 문의(후보)</b>를 나눠 봅니다. 후보 줄의 <b>확정</b>에서 일시·금액을 확인해 예약을 확정합니다. 하루 전체 마감은 선택한 경우에만 적용됩니다. 대기 취소 건은 회색으로 남고 대기 인원·순번에서 제외됩니다. 줄을 누르면 문의 상세가 열립니다.</p></div>
-        <div class="row" style="gap:6px"><button class="btn btn-light btn-sm" type="button" data-go="guide-messages">이용 안내 알림톡</button><button class="btn btn-light btn-sm" type="button" id="rs-csv">CSV 내려받기</button><button class="btn btn-light btn-sm" type="button" id="rs-print">인쇄</button><button class="btn btn-light btn-sm" type="button" id="rs-reload">새로고침</button></div></header>
+        <div class="row" style="gap:6px"><button class="btn btn-light btn-sm" type="button" data-go="guide-messages">예약별 알림</button><button class="btn btn-light btn-sm" type="button" id="rs-csv">CSV 내려받기</button><button class="btn btn-light btn-sm" type="button" id="rs-print">인쇄</button><button class="btn btn-light btn-sm" type="button" id="rs-reload">새로고침</button></div></header>
       <div class="rs-bar">
         <div class="rs-range" role="group" aria-label="기간">
           <button type="button" class="chip" data-range="week">이번 주</button><button type="button" class="chip" data-range="month">이번 달</button><button type="button" class="chip" data-range="next">다음 달</button><button type="button" class="chip on" data-range="upcoming">앞으로 전체</button><button type="button" class="chip" data-range="past">지난 예약</button>
@@ -438,7 +439,7 @@
 
     <!-- 예약 관리 -->
     <section class="adm-view" id="view-bookings" hidden>
-      <header class="adm-head"><div><h1>예약 관리</h1><p class="small muted">예약별 진행 상태와 수납·안내 내역을 확인합니다. 새 예약은 예약 등록에서 추가하고, 이용 완료 후에는 고객이 예약번호로 후기를 쓸 수 있습니다.</p></div><button class="btn btn-light btn-sm" type="button" data-go="guide-messages">이용 안내 알림톡</button><button class="btn btn-light btn-sm" type="button" id="bk-reload">새로고침</button></header>
+      <header class="adm-head"><div><h1>예약 관리</h1><p class="small muted">예약별 진행 상태와 수납·안내 내역을 확인합니다. 새 예약은 예약 등록에서 추가하고, 이용 완료 후에는 고객이 예약번호로 후기를 쓸 수 있습니다.</p></div><button class="btn btn-light btn-sm" type="button" data-go="guide-messages">예약별 알림</button><button class="btn btn-light btn-sm" type="button" id="bk-reload">새로고침</button></header>
       <div class="adm-grid2" style="align-items:start">
         <form class="adm-card form" id="bk-form" novalidate>
           <h2>예약 확정 등록</h2>
@@ -718,7 +719,7 @@
 <script src="/assets/js/inquiry-overview.js?v=20261105cfbudget1"></script>
 <script src="/assets/js/quote-calculation.js?v=20261105cflifecycle1"></script>
 <script src="/assets/js/quote-policy.js?v=292941d5ba14"></script>
-<script src="/assets/js/pages/admin.js?v=4ae12110f851"></script>
+<script src="/assets/js/pages/admin.js?v=25c9a3a35979"></script>
 <script src="/assets/js/pages/admin-platform.js?v=20261102adminux1"></script>
 <script src="/assets/js/pages/admin-cocktail.js?v=20261104foodprices3"></script>
 <script src="/assets/js/pages/admin-food-pricing.js?v=20261105cfbudget1"></script>
@@ -729,17 +730,18 @@
 <script src="/assets/js/pages/admin-amano-server.js?v=20261108weekend"></script>
 <script src="/assets/js/pages/admin-parking-alerts.js?v=20261106parking-groups"></script>
 <script src="/assets/js/pages/admin-parking-notifications.js?v=20261109-alimtalk"></script>
-<script src="/assets/js/pages/admin-guide-messages.js?v=a464a4b19ecc"></script>
+<script src="/assets/js/pages/admin-guide-messages.js?v=810c3b21d654"></script>
 <script src="/assets/js/pages/admin-deposit-refunds.js?v=20261105accountreminder9"></script>
 <script src="/assets/js/pages/admin-deposit-notifications.js?v=86f9291cbc6a"></script>
 <script src="/assets/js/pages/admin-booking-portal.js?v=20261103portal1"></script>
 <script src="/assets/js/admin-save-recovery.js?v=20261104retry1"></script>
 <script src="/assets/js/pages/admin-settlement.js?v=20261112autoconfirm1"></script>
 <script src="/assets/js/pages/admin-cancellation.js?v=20261104retry1"></script>
+<script src="/assets/js/pages/admin-booking-notifications.js?v=0b874eae9fcb"></script>
 <script src="/assets/js/pages/admin-transaction-notifications.js?v=20261112trial1"></script>
 <script src="/assets/js/pages/admin-revenue.js?v=20261110revenue3"></script>
 <script src="/assets/js/pages/admin-hostplat.js?v=20261112host1"></script>
-<script src="/assets/js/pages/admin-navigation.js?v=20261112host1"></script>
+<script src="/assets/js/pages/admin-navigation.js?v=dc7b245cdccb"></script>
 <script src="/assets/js/pages/admin-booking-readiness.js?v=20261105readiness1"></script>
 <script src="/assets/js/pages/admin-contacts.js?v=6d34a1d37fb7"></script>
 </body>
