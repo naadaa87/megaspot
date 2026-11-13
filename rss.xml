@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
  <channel>
-  <title>메가스팟 MEGASPOT — 건대입구 190평·400평 대형 행사 공간</title>
+  <title>메가스팟 MEGASPOT — 초대형 공간 예약 플랫폼</title>
   <link>https://megaspot.kr/</link>
   <atom:link href="https://megaspot.kr/rss.xml" rel="self" type="application/rss+xml"/>
-  <description>서울 광진구 건대입구 한아름건물 2층 한 층 전체를 쓰는 190평 초대형 행사 공간. 최대 200명, 200인치 빔프로젝터·마이크·스피커·강단 무료 제공, 건물 주차 최대 140대. 세미나·워크숍·네트워킹·파티·클래스·공연·팝업·촬영. 시간당 4만 원부터, 낮 패키지 7시간 30만 원부터.</description>
+  <description>50명부터 350명까지 큰 모임에 맞는 대형·초대형 공간을 모아 찾고 예약하는 플랫폼. 건대입구 190평·400평 직영 홀 안내와 인원·목적별 공간 모음, 행사 준비 가이드를 전합니다.</description>
   <language>ko</language>
-  <lastBuildDate>Tue, 27 Oct 2026 09:00:00 +0900</lastBuildDate>
+  <lastBuildDate>Fri, 13 Nov 2026 09:00:00 +0900</lastBuildDate>
   <item>
    <title>메가스팟 건대 1호 | 건대입구 190평 대관 · 최대 200명 · 200인치 빔프로젝터</title>
    <link>https://megaspot.kr/spaces/megaspot-gundae/</link>
@@ -302,5 +302,147 @@
    <pubDate>Tue, 27 Oct 2026 09:00:00 +0900</pubDate>
   </item>
  <item><title>메가스팟 출장 케이터링 | 25,000원부터 네 가지 구성</title><link>https://megaspot.kr/reception/</link><guid isPermaLink="true">https://megaspot.kr/reception/</guid><description>샌드위치·카나페·스큐어·샐러드·디저트 네 가지 구성과 개별·박스 메뉴 43종. 메가스팟 소개서 PDF와 상담 안내를 확인하세요.</description></item>
+  <!-- seo-pages:start · tools/seo-pages/build.mjs 가 만드는 구간입니다. 손으로 고치지 마세요 -->
+  <item>
+   <title>초대형 공간 모음 | 인원·목적별 대형 행사장 대관 — 메가스팟</title>
+   <link>https://megaspot.kr/venues/</link>
+   <guid isPermaLink="true">https://megaspot.kr/venues/</guid>
+   <description>50명부터 350명까지, 큰 모임에 맞는 공간만 모았습니다. 100명·200명·300명 이상 행사장과 대형 파티룸, 세미나실, 기업 행사·송년회 장소를 인원과 목적별로 찾아보세요.</description>
+   <pubDate>Fri, 13 Nov 2026 09:00:00 +0900</pubDate>
+  </item>
+  <item>
+   <title>50명 단체 모임 장소 | 50인 이상 파티룸·세미나실 대관 — 메가스팟</title>
+   <link>https://megaspot.kr/venues/50-people/</link>
+   <guid isPermaLink="true">https://megaspot.kr/venues/50-people/</guid>
+   <description>50명 이상이 한 공간에 모이는 동문회·동호회·회사 행사 장소. 50명에 필요한 평수와 예약 전에 확인할 것을 정리하고, 지금 예약할 수 있는 대형 공간을 모았습니다.</description>
+   <pubDate>Fri, 13 Nov 2026 09:00:00 +0900</pubDate>
+  </item>
+  <item>
+   <title>100명 행사장 대관 | 100인 이상 파티룸·세미나실·연회장 — 메가스팟</title>
+   <link>https://megaspot.kr/venues/100-people/</link>
+   <guid isPermaLink="true">https://megaspot.kr/venues/100-people/</guid>
+   <description>100명 이상이 들어가는 행사장·파티룸·세미나실을 모았습니다. 배치별로 100명에 필요한 평수와 음향·주차·식사 동선처럼 미리 확인할 것까지 한 번에 보세요.</description>
+   <pubDate>Fri, 13 Nov 2026 09:00:00 +0900</pubDate>
+  </item>
+  <item>
+   <title>200명 행사장 대관 | 200인 이상 대형 세미나·연회 장소 — 메가스팟</title>
+   <link>https://megaspot.kr/venues/200-people/</link>
+   <guid isPermaLink="true">https://megaspot.kr/venues/200-people/</guid>
+   <description>200명 이상 규모의 세미나·총회·연회·송년회를 열 수 있는 초대형 공간. 200명에 필요한 평수와 화면·음향·주차·입퇴장 동선 점검 항목을 함께 정리했습니다.</description>
+   <pubDate>Fri, 13 Nov 2026 09:00:00 +0900</pubDate>
+  </item>
+  <item>
+   <title>300명 행사장 대관 | 300인 이상 초대형 홀·컨퍼런스 장소 — 메가스팟</title>
+   <link>https://megaspot.kr/venues/300-people/</link>
+   <guid isPermaLink="true">https://megaspot.kr/venues/300-people/</guid>
+   <description>300명 이상이 한 층에 모이는 총회·컨퍼런스·대규모 송년회 장소. 400평 메가스팟 건대 2호(최대 350명)를 비롯해 300명 이상 받을 수 있는 초대형 공간을 모았습니다.</description>
+   <pubDate>Fri, 13 Nov 2026 09:00:00 +0900</pubDate>
+  </item>
+  <item>
+   <title>대형 파티룸·연회장 대관 | 100명 단체 파티·기념행사 — 메가스팟</title>
+   <link>https://megaspot.kr/venues/party/</link>
+   <guid isPermaLink="true">https://megaspot.kr/venues/party/</guid>
+   <description>단체 파티, 기념행사, 동문회, 브랜드 파티처럼 인원이 많은 모임을 위한 대형 파티룸·연회장. 음식·주류 반입, 음향, 종료 시각처럼 파티 장소에서 꼭 확인할 것을 함께 안내합니다.</description>
+   <pubDate>Fri, 13 Nov 2026 09:00:00 +0900</pubDate>
+  </item>
+  <item>
+   <title>대형 세미나실·강연장 대관 | 100명 이상 세미나·컨퍼런스 — 메가스팟</title>
+   <link>https://megaspot.kr/venues/seminar/</link>
+   <guid isPermaLink="true">https://megaspot.kr/venues/seminar/</guid>
+   <description>100명 이상이 앉는 세미나·강연·컨퍼런스·설명회 장소. 대형 화면과 마이크, 좌석 배치, 접수 동선, 주차까지 발표형 행사에 필요한 조건을 기준으로 공간을 모았습니다.</description>
+   <pubDate>Fri, 13 Nov 2026 09:00:00 +0900</pubDate>
+  </item>
+  <item>
+   <title>기업 행사 장소 대관 | 워크숍·타운홀·시무식·창립기념일 — 메가스팟</title>
+   <link>https://megaspot.kr/venues/corporate/</link>
+   <guid isPermaLink="true">https://megaspot.kr/venues/corporate/</guid>
+   <description>전 직원 워크숍, 타운홀 미팅, 시무식·종무식, 창립기념 행사를 위한 대형 공간. 견적서와 세금계산서, 식음료, 사회자·현장 진행까지 회사 행사 담당자가 챙길 것을 함께 정리했습니다.</description>
+   <pubDate>Fri, 13 Nov 2026 09:00:00 +0900</pubDate>
+  </item>
+  <item>
+   <title>송년회·신년회 장소 대관 | 50~350명 단체 송년회 — 메가스팟</title>
+   <link>https://megaspot.kr/venues/year-end/</link>
+   <guid isPermaLink="true">https://megaspot.kr/venues/year-end/</guid>
+   <description>회사 송년회, 동문회 송년 모임, 신년회·시무식 장소를 찾는다면. 50명부터 350명까지 한 공간에 모이는 대형 홀과 출장뷔페·칵테일 준비, 연말 예약 때 확인할 것을 정리했습니다.</description>
+   <pubDate>Fri, 13 Nov 2026 09:00:00 +0900</pubDate>
+  </item>
+  <item>
+   <title>팝업스토어·전시·마켓 대형 공간 대관 — 메가스팟</title>
+   <link>https://megaspot.kr/venues/popup/</link>
+   <guid isPermaLink="true">https://megaspot.kr/venues/popup/</guid>
+   <description>팝업스토어, 브랜드 전시, 플리마켓, 쇼케이스를 여는 대형 공간. 반입 동선과 전력, 설치·철수 시간처럼 팝업·전시 대관에서 먼저 확인할 조건을 기준으로 공간을 모았습니다.</description>
+   <pubDate>Fri, 13 Nov 2026 09:00:00 +0900</pubDate>
+  </item>
+  <item>
+   <title>서울 대형 행사장·초대형 공간 대관 | 50~350명 — 메가스팟</title>
+   <link>https://megaspot.kr/venues/seoul/</link>
+   <guid isPermaLink="true">https://megaspot.kr/venues/seoul/</guid>
+   <description>서울에서 50명 이상 모이는 행사장을 찾는다면. 건대입구 190평·400평 직영 홀을 비롯해 서울의 대형·초대형 공간을 인원과 목적에 맞춰 모았습니다.</description>
+   <pubDate>Fri, 13 Nov 2026 09:00:00 +0900</pubDate>
+  </item>
+  <item>
+   <title>행사 준비 가이드 | 대형 행사 장소·평수·견적 체크리스트 — 메가스팟</title>
+   <link>https://megaspot.kr/event-guide/</link>
+   <guid isPermaLink="true">https://megaspot.kr/event-guide/</guid>
+   <description>몇 명이면 몇 평이 필요한지, 견적서에서 무엇을 봐야 하는지, 100명 행사는 언제부터 준비하는지. 큰 모임을 준비하는 담당자를 위한 실무 가이드를 모았습니다.</description>
+   <pubDate>Fri, 13 Nov 2026 09:00:00 +0900</pubDate>
+  </item>
+  <item>
+   <title>행사 인원별 필요 평수 계산기 | 배치별 수용 인원 기준표 — 메가스팟</title>
+   <link>https://megaspot.kr/event-guide/capacity/</link>
+   <guid isPermaLink="true">https://megaspot.kr/event-guide/capacity/</guid>
+   <description>50명, 100명, 200명 행사에는 몇 평이 필요할까요? 스탠딩·강연형·연회형·책상형 배치별 1명당 면적 기준과 계산기로 필요한 평수와 수용 인원을 바로 확인하세요.</description>
+   <pubDate>Fri, 13 Nov 2026 09:00:00 +0900</pubDate>
+  </item>
+  <item>
+   <title>행사장 대관 비용, 견적서에서 확인할 8가지 — 메가스팟</title>
+   <link>https://megaspot.kr/event-guide/venue-cost/</link>
+   <guid isPermaLink="true">https://megaspot.kr/event-guide/venue-cost/</guid>
+   <description>대관료만 보고 예약하면 인원 추가 요금, 장비, 보증금, 부가세에서 금액이 달라집니다. 행사장 대관 견적을 받을 때 꼭 확인할 여덟 가지를 정리했습니다.</description>
+   <pubDate>Fri, 13 Nov 2026 09:00:00 +0900</pubDate>
+  </item>
+  <item>
+   <title>100명 행사 준비 체크리스트 | 두 달 전부터 당일까지 — 메가스팟</title>
+   <link>https://megaspot.kr/event-guide/100-people-checklist/</link>
+   <guid isPermaLink="true">https://megaspot.kr/event-guide/100-people-checklist/</guid>
+   <description>100명 규모 행사를 처음 맡았다면. 날짜와 예산 정하기부터 장소 답사, 식음료, 진행 순서, 당일 점검까지 시기별로 챙길 것을 순서대로 정리했습니다.</description>
+   <pubDate>Fri, 13 Nov 2026 09:00:00 +0900</pubDate>
+  </item>
+  <item>
+   <title>송년회 장소 고르는 법 | 단체 송년회 준비 순서 — 메가스팟</title>
+   <link>https://megaspot.kr/event-guide/year-end-party/</link>
+   <guid isPermaLink="true">https://megaspot.kr/event-guide/year-end-party/</guid>
+   <description>회사 송년회나 동문 송년 모임을 맡았다면. 인원과 날짜 정하기, 식사와 주류, 프로그램, 예산까지 단체 송년회 장소를 고르는 기준을 순서대로 정리했습니다.</description>
+   <pubDate>Fri, 13 Nov 2026 09:00:00 +0900</pubDate>
+  </item>
+  <item>
+   <title>기업 워크숍·세미나 장소 고르는 기준 7가지 — 메가스팟</title>
+   <link>https://megaspot.kr/event-guide/workshop-venue/</link>
+   <guid isPermaLink="true">https://megaspot.kr/event-guide/workshop-venue/</guid>
+   <description>워크숍 장소를 정할 때는 위치보다 프로그램이 돌아가는 공간인지를 먼저 봐야 합니다. 배치 전환, 화면과 음향, 식사, 이동까지 일곱 가지 기준을 정리했습니다.</description>
+   <pubDate>Fri, 13 Nov 2026 09:00:00 +0900</pubDate>
+  </item>
+  <item>
+   <title>대형 공간 답사 체크리스트 | 계약 전에 현장에서 볼 것 — 메가스팟</title>
+   <link>https://megaspot.kr/event-guide/site-visit/</link>
+   <guid isPermaLink="true">https://megaspot.kr/event-guide/site-visit/</guid>
+   <description>사진과 평수만 보고 계약하면 당일에 문제가 생깁니다. 오는 길, 주차, 엘리베이터, 화면과 음향, 전기, 반입, 화장실까지 답사 때 확인할 항목을 정리했습니다.</description>
+   <pubDate>Fri, 13 Nov 2026 09:00:00 +0900</pubDate>
+  </item>
+  <item>
+   <title>공간 예약 플랫폼 수수료 계산법 | 수수료형과 월 정액형 비교 — 메가스팟</title>
+   <link>https://megaspot.kr/event-guide/space-platform-fee/</link>
+   <guid isPermaLink="true">https://megaspot.kr/event-guide/space-platform-fee/</guid>
+   <description>공간을 플랫폼에 올릴 때 드는 비용은 예약마다 떼는 수수료형과 기간마다 내는 정액형으로 나뉩니다. 대관 단가가 큰 대형 공간이라면 어느 쪽이 유리한지 계산해 봅니다.</description>
+   <pubDate>Fri, 13 Nov 2026 09:00:00 +0900</pubDate>
+  </item>
+  <item>
+   <title>대형 공간 소개에 꼭 넣을 정보 10가지 | 문의가 오는 상세페이지 — 메가스팟</title>
+   <link>https://megaspot.kr/event-guide/space-listing-checklist/</link>
+   <guid isPermaLink="true">https://megaspot.kr/event-guide/space-listing-checklist/</guid>
+   <description>100명 행사를 맡은 담당자는 사진보다 숫자를 먼저 봅니다. 면적, 배치별 인원, 요금 구조, 장비, 주차, 반입 규정까지 대형 공간 소개에 꼭 들어가야 할 정보를 정리했습니다.</description>
+   <pubDate>Fri, 13 Nov 2026 09:00:00 +0900</pubDate>
+  </item>
+  <!-- seo-pages:end -->
 </channel>
 </rss>
