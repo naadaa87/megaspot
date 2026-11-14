@@ -42,9 +42,9 @@ test('통합 미리보기는 예약별 실제 버튼을 만들고 모의시험�
  assert.equal((await f.view(p.items[0].guide_url)).json.booking.code,'BK-TEST');assert.deepEqual(f.db.prepare('SELECT * FROM settings').all(),before);assert.equal(f.db.prepare('SELECT COUNT(*) n FROM booking_guide_previews').get().n,0);assert.equal(f.db.prepare('SELECT COUNT(*) n FROM booking_guide_messages').get().n,1);assert.equal(f.calls(),0);
  await f.api('guide-messages/send','POST',{confirm_send:true,preview_id:'simulation'},409);
 });
-test('같은 문의의 복수 예약은 다른 통합 버튼으로 이어지고 2호는 준비 중 안내를 유지한다',async t=>{
+test('같은 문의의 복수 예약은 다른 통합 버튼으로 이어지고 2호는 전용 입실 안내로 이어진다',async t=>{
  const f=setup(t);f.db.prepare("INSERT INTO bookings(booking_code,space_id,inquiry_ref,customer_name,phone,phone_last4,date,start_h,end_h,status,created_at) VALUES('BK-SECOND','megaspot-gundae-2','MS-TEST','가상 두번째','01099998888','8888',?,18,31,'confirmed','now')").run(NEXT);
- const p=await f.draft(true,{codes:['BK-TEST','BK-SECOND']});assert.equal(p.passed,true);assert.notEqual(p.items[0].guide_url,p.items[1].guide_url);for(const item of p.items)assert.equal((await f.view(item.guide_url)).json.booking.code,item.booking_code);assert.equal(p.items[1].checks.arrival_ready,false);assert.equal((await f.view(p.items[1].guide_url)).json.arrival.door_code,undefined);
+ const p=await f.draft(true,{codes:['BK-TEST','BK-SECOND']});assert.equal(p.passed,true);assert.notEqual(p.items[0].guide_url,p.items[1].guide_url);for(const item of p.items)assert.equal((await f.view(item.guide_url)).json.booking.code,item.booking_code);assert.equal(p.items[1].checks.arrival_ready,true);assert.equal((await f.view(p.items[1].guide_url)).json.arrival.door_code,'0105#');
 });
 test('기존 고정 버튼·미승인·본문 불일치 템플릿은 새 통합 안내 승인 검사에서 거절하고 설정을 저장하지 않는다',async t=>{
  const f=setup(t);f.allow();const before=f.db.prepare('SELECT * FROM settings').all();for(const patch of [{inspStatus:'REQ'},{inspStatus:'APR',buttons:[GUIDE_BUTTON]},{buttons:[PORTAL_GUIDE_BUTTON],templtContent:GUIDE_TEMPLATE}]){f.setTemplate(patch);await f.api('guide-messages/portal-check-template','POST',{template_code:'PORTAL-TEST'},400);}
