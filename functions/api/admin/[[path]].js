@@ -761,7 +761,8 @@ export async function onRequest({ request, env, params, waitUntil }) {
       const page = Math.max(0, Math.min(100000, num(url.searchParams.get('page')) || 0)); args.push(page * 300);
       const { results } = await env.DB.prepare(`SELECT booking_code, space_id, inquiry_ref, customer_name, phone, ${bookingPhone2Sql()} AS phone2, date, slot, headcount, memo, status, ${bookingAmountSql()} AS amount, start_h, end_h, created_at, json_extract(confirm_doc, '$.issued_at') AS confirm_issued,
         CASE WHEN b.inquiry_ref IS NOT NULL THEN (SELECT CASE WHEN json_extract(ic.checks, '$.guarantee_paid') IS NULL THEN NULL WHEN json_extract(ic.checks, '$.guarantee_paid') = 0 THEN 0 ELSE 1 END FROM inquiry_checks ic WHERE ic.ref = b.inquiry_ref)
-             ELSE (SELECT dc.paid FROM booking_deposit_checks dc WHERE dc.booking_code = b.booking_code) END AS deposit_paid, ${ORDER_OF_BOOKING} AS cat_ord,
+             ELSE (SELECT dc.paid FROM booking_deposit_checks dc WHERE dc.booking_code = b.booking_code) END AS deposit_paid, CASE WHEN EXISTS(SELECT 1 FROM orders oc WHERE oc.booking_code=b.booking_code) THEN 'online' ELSE COALESCE((SELECT NULLIF(json_extract(ic.data,'$.channel'),'') FROM inquiries ic WHERE ic.ref=b.inquiry_ref),CASE WHEN NULLIF(b.inquiry_ref,'') IS NOT NULL THEN 'web' ELSE '' END) END AS channel,
+        (SELECT json_extract(ic.data,'$.channel_note') FROM inquiries ic WHERE ic.ref=b.inquiry_ref) AS channel_note, ${ORDER_OF_BOOKING} AS cat_ord,
         (SELECT ${SERVICE_DATA_SQL} FROM inquiries i WHERE i.ref=b.inquiry_ref) AS service_data
         FROM bookings b ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY date DESC, created_at DESC, id DESC LIMIT 301 OFFSET ?`).bind(...args).all();
       const items=(results || []).slice(0,300), guides=await guideSummary(env,items.map(x=>x.booking_code)),settlements=await settlementsFor(env,items.map(x=>x.booking_code));
