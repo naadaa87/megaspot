@@ -5,6 +5,7 @@
  var panel=document.createElement('div');panel.id='adm-service-popover';panel.className='adm-service-popover';panel.hidden=true;panel.setAttribute('role','dialog');panel.setAttribute('aria-labelledby','asp-title');
  var tooltip=document.createElement('div');tooltip.id='adm-food-tooltip';tooltip.className='adm-food-tooltip';tooltip.hidden=true;tooltip.setAttribute('role','tooltip');document.body.append(panel,tooltip);
  var trigger=null,target='',info=null,busy=false,request=0,dot=null,pinned=false,hideTimer,suppressDot=null;
+ function clearFeedback(){document.querySelectorAll('.toast').forEach(function(el){if(typeof el.hidePopover==='function'){try{el.hidePopover();}catch(e){}}});}
  function place(el,anchor){
   if(!anchor||!anchor.isConnected)return;
   var vp=window.visualViewport,w=vp?vp.width:innerWidth,h=vp?vp.height:innerHeight,left=vp?vp.offsetLeft:0,top=vp?vp.offsetTop:0,r=anchor.getBoundingClientRect();
@@ -30,8 +31,9 @@
   return X.A('/reservation-services/'+target).then(function(r){if(id!==request)return;info=r;paint(message);}).catch(function(e){if(id!==request)return;if(!X.guard(e)){panel.innerHTML='<div class="asp-head"><strong id="asp-title">식음료 상태</strong><button class="btn btn-light btn-xs" type="button" data-asp-close>닫기</button></div><p class="small" role="alert">'+X.esc(e.message||'상태를 불러오지 못했습니다.')+'</p><button type="button" class="btn btn-light btn-sm" data-asp-retry>다시 불러오기</button>';place(panel,trigger);}});
  }
  function open(button){
+  clearFeedback();
   if(busy)return;if(trigger===button&&!panel.hidden){dismiss(true);return;}
-  dismiss(false);hideTip();trigger=button;target=button.dataset.serviceTarget;info=null;button.setAttribute('aria-expanded','true');panel.hidden=false;paint();panel.querySelector('[data-asp-close]').focus({preventScroll:true});read();
+  var anchor=tooltip.contains(button)?dot:button,selected=button.dataset.serviceTarget;dismiss(false);hideTip();trigger=anchor;target=selected;info=null;trigger.setAttribute('aria-expanded','true');panel.hidden=false;paint();panel.querySelector('[data-asp-close]').focus({preventScroll:true});read();
  }
  function save(status){
   if(busy||!info||status===info.status)return;
@@ -41,16 +43,18 @@
    busy=false;dismiss(false);window.dispatchEvent(new CustomEvent('admin-service-status-saved',{detail:{target:oldTarget,status:r.status}}));
    M.toast((names[r.kind]||'식음료')+'를 '+states[r.status]+' 상태로 변경했습니다.'+(r.confirm_doc_invalidated?' 예약확정서를 다시 발급해 주세요.':''));
    var oldView=oldTrigger.closest('.adm-view'),id=oldTarget;
-   setTimeout(function(){var next=Array.from(document.querySelectorAll('[data-service-target]')).find(function(e){return e.dataset.serviceTarget===id&&e.getClientRects().length;});if(next)next.focus({preventScroll:true});else if(oldView){var fallback=oldView.querySelector('#bk-service-filter,#rs-service-filter');if(fallback)fallback.focus({preventScroll:true});}},200);
+   setTimeout(function(){var next=Array.from(document.querySelectorAll('[data-service-target]')).find(function(e){return e.dataset.serviceTarget===id&&e.getClientRects().length;});if(next)next.focus({preventScroll:true});else if(oldView){var fallback=oldView.querySelector('#bk-service-filter,#rs-service-filter,#cal-filter');if(fallback)fallback.focus({preventScroll:true});}},200);
   }).catch(function(e){busy=false;if(!X.guard(e))read(e.message||'저장하지 못했습니다. 다시 시도해 주세요.');else dismiss(false);});
  }
  function hideTip(){clearTimeout(hideTimer);tooltip.hidden=true;pinned=false;if(dot){dot.setAttribute('aria-expanded','false');dot.removeAttribute('aria-describedby');}dot=null;}
  function showTip(button,pin){
+  clearFeedback();
   if(!panel.hidden)return;
   clearTimeout(hideTimer);var values;try{values=JSON.parse(button.dataset.foodInfo);}catch{return;}
   values=values.filter(function(s){return names[s.kind]&&states[s.status];});if(!values.length)return;
   if(dot&&dot!==button)hideTip();dot=button;pinned=!!pin;button.setAttribute('aria-expanded','true');button.setAttribute('aria-describedby',tooltip.id);
-  tooltip.innerHTML='<strong>'+X.esc(button.dataset.foodCustomer||'식음료 진행 상태')+'</strong>'+values.map(function(s){return '<div><span>'+names[s.kind]+'</span><b class="cat-st cat-'+s.status+'">'+states[s.status]+'</b></div>';}).join('');
+  tooltip.setAttribute('role','dialog');tooltip.setAttribute('aria-label','식음료 진행 상태 및 변경');
+  tooltip.innerHTML='<strong>'+X.esc(button.dataset.foodCustomer||'식음료 진행 상태')+'</strong>'+values.map(function(s){return '<div><span>'+names[s.kind]+'</span><button type="button" class="cat-st cat-'+s.status+' cal-food-edit" data-service-target="'+X.esc(button.dataset.foodTarget+'/'+s.kind)+'" aria-haspopup="dialog" aria-label="'+names[s.kind]+' '+states[s.status]+' — 상태 변경">'+states[s.status]+' ⌄</button></div>';}).join('');
   tooltip.hidden=false;place(tooltip,button);
  }
  document.addEventListener('click',function(e){

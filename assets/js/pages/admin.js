@@ -1489,7 +1489,7 @@
   function calendarServiceDot(item){
     var services=item.services||(Object.keys(item.data||{}).filter(function(k){var v=item.data[k];return ['catering','reception','cocktail'].includes(k)&&v&&typeof v==='object'&&!v.removed;}).map(function(k){return {kind:k,status:item.data[k].status||'pending'};}));
     if(!services.length)return '';
-    return '<button type="button" class="cal-food-dot" data-food-info="'+esc(JSON.stringify(services))+'" data-food-customer="'+esc(item.customer_name||item.name||'')+'" aria-label="'+esc((item.customer_name||item.name||'')+' 식음료 진행 상태 보기')+'" aria-expanded="false"><span aria-hidden="true"></span></button>';
+    return '<button type="button" class="cal-food-dot" data-food-target="'+esc(item.booking_code?'booking/'+item.booking_code:'inquiry/'+item.ref)+'" data-food-info="'+esc(JSON.stringify(services))+'" data-food-customer="'+esc(item.customer_name||item.name||'')+'" aria-label="'+esc((item.customer_name||item.name||'')+' 식음료 진행 상태 보기')+'" aria-expanded="false"><span aria-hidden="true"></span></button>';
   }
   function matchesConfirmedService(item,value){
     if(!value) return true;

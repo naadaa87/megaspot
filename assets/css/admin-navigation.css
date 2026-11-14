@@ -137,3 +137,5 @@
 #view-calendar .cal-food-dot>span,.cal-food-legend>span{display:inline-block;width:8px;height:8px;border-radius:50%;background:#d92c35;box-shadow:0 0 0 2px #fff;flex-shrink:0}
 .cal-food-legend{display:inline-flex;align-items:center;gap:6px}.adm-food-tooltip{width:min(280px,calc(100vw - 24px));font-size:13px}.adm-food-tooltip>strong{display:block;overflow-wrap:anywhere;margin-bottom:8px}.adm-food-tooltip>div{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:4px 0}.adm-food-tooltip .cat-st{max-width:100%;white-space:normal}
 @media print{.cal-food-dot,.cal-food-legend,.adm-service-popover,.adm-food-tooltip{display:none!important}}
+
+.adm-food-tooltip .cal-food-edit{min-height:36px;padding:6px 10px;font-family:inherit;cursor:pointer;flex-shrink:0}.adm-food-tooltip .cal-food-edit:focus-visible{outline:2px solid var(--cobalt);outline-offset:2px}
