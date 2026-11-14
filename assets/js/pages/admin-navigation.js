@@ -67,7 +67,7 @@
   ['resv','bookings','calendar'].forEach(function(id){tabs(id,bookingTabs,'예약 현황 보기 방식');$('#view-'+id+' h1').textContent='예약 현황';});
   // Keep month navigation immediately above the calendar, next to the space filter.
   var calendarView=$('#view-calendar'),calendarTabs=calendarView.querySelector('.adm-workspace-tabs'),monthControls=$('#cal-prev').parentElement;
-  var calendarNavigation=document.createElement('div');calendarNavigation.className='adm-calendar-toolbar';var calendarFilter=$('#cal-filter').parentElement;calendarFilter.before(calendarNavigation);calendarNavigation.appendChild(calendarFilter);calendarNavigation.appendChild($('#cal-service-filter').parentElement);monthControls.classList.add('adm-calendar-month-controls');calendarNavigation.appendChild(monthControls);
+  var calendarNavigation=document.createElement('div');calendarNavigation.className='adm-calendar-toolbar';var calendarFilter=$('#cal-filter').parentElement;calendarFilter.before(calendarNavigation);calendarNavigation.appendChild(calendarFilter);calendarNavigation.appendChild($('#cal-service-filter').parentElement);calendarNavigation.appendChild($('#cal-filter-reset'));monthControls.classList.add('adm-calendar-month-controls');calendarNavigation.appendChild(monthControls);
   var calendarGrid=$('#cal-grid'),calendarScroll=document.createElement('div');calendarScroll.className='adm-calendar-scroll';calendarGrid.before(calendarScroll);calendarScroll.appendChild(calendarGrid);
   var calendarHint=document.createElement('p');calendarHint.className='adm-calendar-swipe-hint small muted';calendarHint.textContent='모바일에서는 달력 전체를 좌우로 밀어 다른 요일을 확인할 수 있습니다.';calendarScroll.before(calendarHint);
   var foodTabs=[['catering','출장뷔페'],['reception','테이블·박스 케이터링'],['cocktail','출장 칵테일']];

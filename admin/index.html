@@ -52,7 +52,7 @@
 <link rel="stylesheet" href="/assets/css/admin-settlement.css?v=20261105mobilepayment1">
 <link rel="stylesheet" href="/assets/css/admin-parking-alerts.css?v=20261104adminsms1">
 <link rel="stylesheet" href="/assets/css/admin-parking.css?v=20261106mobile-status">
-<link rel="stylesheet" href="/assets/css/admin-navigation.css?v=d8b433bf6375">
+<link rel="stylesheet" href="/assets/css/admin-navigation.css?v=51e2add39f90">
 <link rel="stylesheet" href="/assets/css/admin-booking-readiness.css?v=20261105readiness1">
 <link rel="stylesheet" href="/assets/css/admin-revenue.css?v=20261110revenue1">
 <link rel="stylesheet" href="/assets/css/admin-reservation-search.css?v=20261105inquirysearch1">
@@ -184,6 +184,7 @@
           <input class="input" id="rs-q" placeholder="이름·연락처·예약번호·문의번호" aria-label="검색" aria-describedby="rs-search-status">
           <button class="btn btn-light btn-sm" type="button" id="rs-search-clear" disabled>검색 초기화</button>
         </div>
+        <button type="button" class="btn btn-light btn-sm reservation-filter-reset" data-reservation-filter-reset title="이번 달 · 전체 호점 · 전체 식음료">필터 초기화</button>
       </div>
       <div class="rs-search-status" id="rs-search-status" role="status" aria-live="polite" aria-atomic="true" hidden><strong id="rs-search-summary"></strong><span>검색어에 맞는 예약·문의만 표시 중입니다.</span></div>
       <div class="rs-kpis" id="rs-kpis"></div>
@@ -457,7 +458,7 @@
           <button class="btn btn-primary" type="submit">예약 등록</button>
           <div class="form-note" id="bk-msg" hidden></div>
         </form>
-        <div class="adm-card"><div class="adm-booking-list-head"><h2>예약 목록</h2><div class="adm-booking-filters"><label>선택 월<input class="input" type="month" id="bk-month-filter" aria-label="예약 목록 선택 월"></label><label>호점<select class="select" id="bk-space-filter"><option value="">1호·2호 전체</option><option value="megaspot-gundae">건대 1호</option><option value="megaspot-gundae-2">건대 2호</option></select></label><label>예약 상태<select class="select" id="bk-filter"><option value="upcoming">예정</option><option value="completed">이용 완료</option><option value="cancelled">취소</option><option value="">전체</option></select></label><label>식음료<select class="select" id="bk-service-filter"><option value="">식음료 전체</option><option value="confirmed">식음료 이용 확정 전체</option><option value="catering">출장뷔페 이용 확정</option><option value="reception">케이터링 이용 확정</option><option value="cocktail">칵테일 이용 확정</option></select></label></div></div><p id="bk-service-summary" class="small muted" role="status" aria-live="polite" hidden></p><div id="bk-list" class="adm-list mt-2"></div></div>
+        <div class="adm-card"><div class="adm-booking-list-head"><h2>예약 목록</h2><div class="adm-booking-filters"><label>선택 월<input class="input" type="month" id="bk-month-filter" aria-label="예약 목록 선택 월"></label><label>호점<select class="select" id="bk-space-filter"><option value="">1호·2호 전체</option><option value="megaspot-gundae">건대 1호</option><option value="megaspot-gundae-2">건대 2호</option></select></label><label>예약 상태<select class="select" id="bk-filter"><option value="upcoming">예정</option><option value="completed">이용 완료</option><option value="cancelled">취소</option><option value="">전체</option></select></label><label>식음료<select class="select" id="bk-service-filter"><option value="">식음료 전체</option><option value="confirmed">식음료 이용 확정 전체</option><option value="catering">출장뷔페 이용 확정</option><option value="reception">케이터링 이용 확정</option><option value="cocktail">칵테일 이용 확정</option></select></label><button type="button" class="btn btn-light btn-sm reservation-filter-reset" data-reservation-filter-reset title="이번 달 · 전체 호점 · 전체 식음료">필터 초기화</button></div></div><p id="bk-service-summary" class="small muted" role="status" aria-live="polite" hidden></p><div id="bk-list" class="adm-list mt-2"></div></div>
       </div>
     </section>
 
@@ -485,6 +486,7 @@
       <header class="adm-head"><div><h1>일정 달력</h1><p class="small muted">초록색은 확정 예약입니다. 같은 날에도 이용 시간이 겹치지 않으면 다른 예약을 받을 수 있습니다.</p></div><div class="row" style="gap:6px"><button class="btn btn-light btn-sm" type="button" id="cal-prev">← 이전 달</button><b id="cal-title" class="cal-title"></b><button class="btn btn-light btn-sm" type="button" id="cal-next">다음 달 →</button></div></header>
       <div class="f" style="max-width:260px"><label for="cal-filter">달력에 표시할 공간</label><select class="select" id="cal-filter"><option value="">전체 공간</option><option value="megaspot-gundae">건대 1호</option><option value="megaspot-gundae-2">건대 2호</option></select></div>
       <div class="f adm-calendar-food"><label for="cal-service-filter">식음료 진행</label><select class="select" id="cal-service-filter"><option value="">식음료 전체</option><option value="confirmed">식음료 이용 확정 전체</option><option value="catering">출장뷔페 이용 확정</option><option value="reception">케이터링 이용 확정</option><option value="cocktail">칵테일 이용 확정</option></select></div>
+      <button type="button" class="btn btn-light btn-sm reservation-filter-reset" id="cal-filter-reset" data-reservation-filter-reset title="이번 달 · 전체 호점 · 전체 식음료">필터 초기화</button>
       <p class="small muted" id="cal-service-summary" role="status" aria-live="polite" hidden></p>
       <div class="adm-card"><div class="adm-cal" id="cal-grid" aria-busy="false"></div><span class="sr-only" id="cal-status" role="status" aria-live="polite"></span><div class="cal-legend small"><span class="lg bk">확정 예약</span><span class="lg full">별도 종일 마감</span><span class="lg hold">임시 확보 · 결제 확인</span><span class="lg inq">미확정 문의 · 이용 완료</span><span class="cal-food-legend"><span aria-hidden="true"></span>식음료 · 점을 눌러 확인</span></div></div>
       <form class="adm-card form mt-3" id="cal-form" novalidate>
@@ -724,7 +726,7 @@
 <script src="/assets/js/inquiry-overview.js?v=20261105cfbudget1"></script>
 <script src="/assets/js/quote-calculation.js?v=20261105cflifecycle1"></script>
 <script src="/assets/js/quote-policy.js?v=292941d5ba14"></script>
-<script src="/assets/js/pages/admin-food-filter.js?v=d0ca4d1bb3b9"></script>
+<script src="/assets/js/pages/admin-food-filter.js?v=cd29964dab85"></script>
 <script src="/assets/js/pages/admin-reservation-period.js?v=d19a2c8a0701"></script>
 <script src="/assets/js/pages/admin.js?v=83d4871088cf"></script>
 <script src="/assets/js/pages/admin-service-status.js?v=6f085e2a9a83"></script>
@@ -751,7 +753,7 @@
 <script src="/assets/js/pages/admin-hostplat.js?v=20261114assist1"></script>
 <script src="/assets/js/pages/admin-kpi.js?v=20261114kpi1"></script>
 <script src="/assets/js/pages/admin-members.js?v=20261114mbr1"></script>
-<script src="/assets/js/pages/admin-navigation.js?v=8aa4855066b3"></script>
+<script src="/assets/js/pages/admin-navigation.js?v=4536f67c3cc0"></script>
 <script src="/assets/js/pages/admin-booking-readiness.js?v=20261105readiness1"></script>
 <script src="/assets/js/pages/admin-contacts.js?v=6d34a1d37fb7"></script>
 </body>
