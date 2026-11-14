@@ -175,7 +175,7 @@
       </div>
       <div class="adm-filters rs-filters">
         <div class="rs-tabs" id="rs-tabs" role="tablist" aria-label="구분"><button type="button" role="tab" data-kind="all" aria-selected="true">전체 <em data-kc="all">0</em></button><button type="button" role="tab" data-kind="booking" aria-selected="false">예약 확정 <em data-kc="booking">0</em></button><button type="button" role="tab" data-kind="pending" aria-selected="false">예약 문의 (미정) <em data-kc="pending">0</em></button></div>
-        <select class="select" id="rs-space" aria-label="공간"><option value="">1호·2호 전체</option></select>
+        <select class="select" id="rs-space" aria-label="공간"><option value="">1호·2호 전체</option><option value="megaspot-gundae">건대 1호</option><option value="megaspot-gundae-2">건대 2호</option></select>
         <select class="select" id="rs-ch" aria-label="문의 경로"><option value="">모든 경로</option></select>
         <select class="select" id="rs-status" aria-label="상태"><option value="">전체 · 취소 기록 포함</option><option value="active">취소 제외</option><option value="confirmed">예약 확정</option><option value="completed">이용 완료</option><option value="cancelled">취소만</option></select>
         <select class="select" id="rs-payment-filter" aria-label="결제 상태 필터"><option value="">결제 전체</option><option value="outstanding">잔금·입금 확인 필요</option><option value="unpaid">입금 전</option><option value="reservation_paid">예약금 입금 완료</option><option value="balance_paid">잔금 입금 완료</option><option value="fully_paid">전액 입금 완료</option></select>
@@ -457,7 +457,7 @@
           <button class="btn btn-primary" type="submit">예약 등록</button>
           <div class="form-note" id="bk-msg" hidden></div>
         </form>
-        <div class="adm-card"><div class="adm-booking-list-head"><h2>예약 목록</h2><div class="adm-booking-filters"><label>예약 상태<select class="select" id="bk-filter"><option value="upcoming">예정</option><option value="completed">이용 완료</option><option value="cancelled">취소</option><option value="">전체</option></select></label><label>식음료<select class="select" id="bk-service-filter"><option value="">식음료 전체</option><option value="confirmed">식음료 이용 확정 전체</option><option value="catering">출장뷔페 이용 확정</option><option value="reception">케이터링 이용 확정</option><option value="cocktail">칵테일 이용 확정</option></select></label></div></div><p id="bk-service-summary" class="small muted" role="status" aria-live="polite" hidden></p><div id="bk-list" class="adm-list mt-2"></div></div>
+        <div class="adm-card"><div class="adm-booking-list-head"><h2>예약 목록</h2><div class="adm-booking-filters"><label>호점<select class="select" id="bk-space-filter"><option value="">1호·2호 전체</option><option value="megaspot-gundae">건대 1호</option><option value="megaspot-gundae-2">건대 2호</option></select></label><label>예약 상태<select class="select" id="bk-filter"><option value="upcoming">예정</option><option value="completed">이용 완료</option><option value="cancelled">취소</option><option value="">전체</option></select></label><label>식음료<select class="select" id="bk-service-filter"><option value="">식음료 전체</option><option value="confirmed">식음료 이용 확정 전체</option><option value="catering">출장뷔페 이용 확정</option><option value="reception">케이터링 이용 확정</option><option value="cocktail">칵테일 이용 확정</option></select></label></div></div><p id="bk-service-summary" class="small muted" role="status" aria-live="polite" hidden></p><div id="bk-list" class="adm-list mt-2"></div></div>
       </div>
     </section>
 
@@ -724,8 +724,8 @@
 <script src="/assets/js/inquiry-overview.js?v=20261105cfbudget1"></script>
 <script src="/assets/js/quote-calculation.js?v=20261105cflifecycle1"></script>
 <script src="/assets/js/quote-policy.js?v=292941d5ba14"></script>
-<script src="/assets/js/pages/admin-food-filter.js?v=b6ffac6ae345"></script>
-<script src="/assets/js/pages/admin.js?v=9db883645d4a"></script>
+<script src="/assets/js/pages/admin-food-filter.js?v=d0ca4d1bb3b9"></script>
+<script src="/assets/js/pages/admin.js?v=dd6da2852615"></script>
 <script src="/assets/js/pages/admin-service-status.js?v=6f085e2a9a83"></script>
 <script src="/assets/js/pages/admin-platform.js?v=20261102adminux1"></script>
 <script src="/assets/js/pages/admin-cocktail.js?v=20261104foodprices3"></script>

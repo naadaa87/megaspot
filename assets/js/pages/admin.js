@@ -1502,8 +1502,8 @@
     AList('/bookings'+params).then(function(r){ if(request!==bkRequest) return; bkCache=r.items||[]; drawBookings(); }).catch(function(e){ if(request===bkRequest) fail(box)(e); });
   }
   function drawBookings(){
-    var f=$('#bk-filter').value, service=$('#bk-service-filter').value, t=todayIso();
-    var list=bkCache.filter(function(b){ return matchesConfirmedService(b,service)&&(f==='upcoming'?(b.status==='confirmed'&&b.date>=t):(f?b.status===f:true)); });
+    var f=$('#bk-filter').value, service=$('#bk-service-filter').value, space=$('#bk-space-filter').value, t=todayIso();
+    var list=bkCache.filter(function(b){ return (!space||spKey(b.space_id)===space)&&matchesConfirmedService(b,service)&&(f==='upcoming'?(b.status==='confirmed'&&b.date>=t):(f?b.status===f:true)); });
     var summary=$('#bk-service-summary');summary.hidden=!service;summary.textContent=service?$('#bk-service-filter').selectedOptions[0].textContent+' · '+list.length+'건':'';
     if(f==='upcoming') list.sort(function(a,b){ return a.date<b.date?-1:1; });
     $('#bk-list').innerHTML=list.length?list.map(function(b){
@@ -1512,7 +1512,7 @@
     }).join(''):emptyMsg(service?'현재 예약 상태에 해당하는 식음료 이용 확정 건이 없습니다. 예약 상태나 식음료 필터를 변경해 주세요.':'해당하는 예약이 없습니다.');
   }
   $('#bk-filter').insertAdjacentHTML('beforeend','<option value="payment_review">일정 확인 필요</option>');
-  $('#bk-filter').addEventListener('change', loadBookings); $('#bk-service-filter').addEventListener('change', drawBookings); $('#bk-reload').addEventListener('click', loadBookings);
+  $('#bk-filter').addEventListener('change', loadBookings); $('#bk-service-filter').addEventListener('change', drawBookings); $('#bk-space-filter').addEventListener('change', drawBookings); $('#bk-reload').addEventListener('click', loadBookings);
   $('#bk-list').addEventListener('click', changeDeposit);
   $('#bk-list').addEventListener('click', function(e){ var b=e.target.closest('button[data-bk]'); if(!b) return; var s=b.dataset.bk;
     if(s==='cancelled'){window.dispatchEvent(new CustomEvent('admin-cancellation-open',{detail:{codes:[b.dataset.code]}}));return;}
@@ -1663,7 +1663,6 @@
   $('#rs-ch').innerHTML=chOptions('', '모든 경로').replace('<option value="web">', '<option value="online">온라인 결제</option><option value="web">');
   $('#view-resv').addEventListener('click', function(e){ var vd=e.target.closest('[data-vday]'); if(vd){ e.stopPropagation(); $('#vs-from').value=vd.dataset.vday; $('#vs-to').value=vd.dataset.vday; VS.range='custom'; $$('#view-visits [data-vrange]').forEach(function(b){ b.classList.remove('on'); }); go('visits'); return; } var r=e.target.closest('[data-range]'); if(r){ setRange(r.dataset.range); loadResv(); return; } var t=e.target.closest('#rs-tabs [data-kind]'); if(t){ RS.kind=t.dataset.kind; drawResv(); } });
   ['#rs-from','#rs-to'].forEach(function(sel){ $(sel).addEventListener('change', function(){ RS.range='custom'; $$('#view-resv [data-range]').forEach(function(b){ b.classList.remove('on'); }); loadResv(); }); });
-  if($('#rs-space')) $('#rs-space').insertAdjacentHTML('beforeend', spaceOptions(''));
   ['#rs-status','#rs-ch','#rs-space','#rs-payment-filter','#rs-service-filter'].forEach(function(sel){ if($(sel)) $(sel).addEventListener('change', drawResv); });
   $('#rs-q').addEventListener('input', drawResv);
   $('#rs-search-clear').addEventListener('click', function(){ $('#rs-q').value=''; drawResv(); $('#rs-q').focus(); });
