@@ -528,6 +528,7 @@
       +'<p class="tiny muted">'+(d.included_catering_amount||d.included_reception_amount||d.included_cocktail_amount?'현재 금액에는 견적에 추가한 식음료가 포함됩니다. ':'')+'여기서 직접 입력하면 공간 금액으로 저장되며 식음료는 상단 요약에서 별도로 합산합니다. 할인·추가 항목을 유지하려면 \'이 문의로 견적 계산\'에서 고쳐 저장하세요. 확정 예약의 금액을 바꾸면 확정서를 다시 발급해 주세요.</p></div>';
   }
   window.addEventListener('admin-settlement-saved',function(e){refreshLists();if(cur&&cur.item&&(cur.bookings||[]).some(function(b){return b.booking_code===e.detail.code;})&&!drawerDirty['adm-drawer'])openInquiry(cur.item.ref);});
+  window.addEventListener('admin-service-status-saved',function(){refreshLists();if(!$('#view-calendar').hidden)loadCalendar();});
   function refreshLists(){ if(!$('#view-visits').hidden) loadVisits(); if(!$('#view-inq').hidden) loadInq(); if(!$('#view-dash').hidden) loadDash(); if(!$('#view-resv').hidden) loadResv(); if(!$('#view-bookings').hidden) loadBookings(); }
   var LOGK={'inquiry.created':'접수','reserve.created':'예약 신청 접수','inquiry.updated':'상태·메모·금액 변경','inquiry.edited':'내용 수정','quote.saved':'견적 저장','booking.created':'예약 등록','inquiry.confirmed':'예약 확정 처리','inquiry.deleted':'삭제 (보관함으로)','inquiry.restored':'삭제 문의 복원','waitlist.updated':'대기 순번 변경','waitlist.cancelled':'대기 취소','waitlist.restored':'대기 복원','booking.updated':'예약 상태 변경','order.created':'주문 생성','order.paid':'결제 완료','order.updated':'주문 변경','visit.created':'현장답사 등록','catering.created':'출장뷔페 저장','catering.updated':'출장뷔페 변경','catering.status':'출장뷔페 상태 변경','catering.deleted':'출장뷔페 삭제','visit.updated':'현장답사 변경','visit.deleted':'현장답사 삭제'};
   var LOGA={admin:'관리자',customer:'고객',system:'시스템'};
@@ -1481,8 +1482,14 @@
   window.addEventListener('admin-contacts-updated',function(){loadBookings();if(!$('#view-resv').hidden)loadResv();if(cur&&cur.item&&!$('#adm-drawer').hidden)A('/inquiries/'+encodeURIComponent(cur.item.ref)).then(function(r){cur=r;renderDetail();}).catch(function(e){if(!guard(e))M.toast(e.message);});});
   function serviceChips(item){
     var names={catering:'출장뷔페',reception:'케이터링',cocktail:'칵테일'},states={confirmed:'이용 확정',pending:'상담 중',cancelled:'취소'};
-    var chips=(item.services||[]).filter(function(s){return names[s.kind]&&states[s.status];}).map(function(s){return '<span class="cat-st cat-'+s.status+'">'+names[s.kind]+' '+states[s.status]+'</span>';});
+    var type=item.kind==='pending'?'inquiry':'booking',ref=type==='inquiry'?item.ref:(item.code||item.booking_code),editable=!!ref&&!['cancelled','대기 취소','취소·환불','삭제됨'].includes(item.status);
+    var chips=(item.services||[]).filter(function(s){return names[s.kind]&&states[s.status];}).map(function(s){var text=names[s.kind]+' '+states[s.status];return editable?'<button type="button" class="cat-st cat-'+s.status+' adm-service-edit" data-service-target="'+esc(type+'/'+ref+'/'+s.kind)+'" aria-haspopup="dialog" aria-expanded="false" aria-label="'+esc(text+' — 상태 변경')+'">'+text+'</button>':'<span class="cat-st cat-'+s.status+'">'+text+'</span>';});
     return chips.length?'<div class="adm-service-chips" aria-label="식음료 진행 상태">'+chips.join('')+'</div>':'';
+  }
+  function calendarServiceDot(item){
+    var services=item.services||(Object.keys(item.data||{}).filter(function(k){var v=item.data[k];return ['catering','reception','cocktail'].includes(k)&&v&&typeof v==='object'&&!v.removed;}).map(function(k){return {kind:k,status:item.data[k].status||'pending'};}));
+    if(!services.length)return '';
+    return '<button type="button" class="cal-food-dot" data-food-info="'+esc(JSON.stringify(services))+'" data-food-customer="'+esc(item.customer_name||item.name||'')+'" aria-label="'+esc((item.customer_name||item.name||'')+' 식음료 진행 상태 보기')+'" aria-expanded="false"><span aria-hidden="true"></span></button>';
   }
   function matchesConfirmedService(item,value){
     if(!value) return true;
@@ -2053,13 +2060,13 @@
       if(b.status==='confirmed'){
         var known=Number.isInteger(b.start_h)&&Number.isInteger(b.end_h)&&b.start_h>=0&&b.end_h<=48&&b.start_h<b.end_h;
         var time=known?hour(b.start_h)+'–'+hour(b.end_h):'시간 확인 필요';
-        add(b.date,'<i class="ev bk cal-booked"'+ref+' title="'+esc(label(b)+'예약 확정 · '+time+' · '+person)+'"><span class="cal-booked-label">'+room(b)+' 확정</span><span>'+esc(time)+'</span><span>'+esc(person)+'</span></i>',b);
+        add(b.date,'<i class="ev bk cal-booked"'+ref+' title="'+esc(label(b)+'예약 확정 · '+time+' · '+person)+'"><span class="cal-booked-label">'+room(b)+' 확정</span><span>'+esc(time)+'</span><span>'+esc(person)+'</span>'+calendarServiceDot(b)+'</i>',b);
         return;
       }
       var status=b.status==='payment_review'?'결제 확인':'이용 완료';
-      add(b.date,'<i class="ev '+(b.status==='payment_review'?'hold':'inq')+'"'+ref+'>'+label(b)+status+' · '+esc(person)+'</i>',b);
+      add(b.date,'<i class="ev '+(b.status==='payment_review'?'hold':'inq')+'"'+ref+'>'+label(b)+status+' · '+esc(person)+calendarServiceDot(b)+'</i>',b);
     });
-    inqs.forEach(function(i){ var d=(i.data&&i.data.date)||i.event_date; if(d) add(d,'<i class="ev inq" data-ref="'+esc(i.ref)+'">'+label(i)+esc(i.name||'')+' · '+esc(i.status)+'</i>',{space_id:i.space_id||(i.data&&i.data.space_id)}); });
+    inqs.forEach(function(i){ var d=(i.data&&i.data.date)||i.event_date; if(d) add(d,'<i class="ev inq" data-ref="'+esc(i.ref)+'">'+label(i)+esc(i.name||'')+' · '+esc(i.status)+calendarServiceDot(i)+'</i>',{space_id:i.space_id||(i.data&&i.data.space_id)}); });
     var h='<div class="dw">일</div><div class="dw">월</div><div class="dw">화</div><div class="dw">수</div><div class="dw">목</div><div class="dw">금</div><div class="dw">토</div>';
     for(var cell=0; cell<42; cell++){
       var d=cell-pad+1;
@@ -2073,7 +2080,7 @@
   $('#cal-prev').addEventListener('click', function(){ var y=+calMonth.slice(0,4), m=+calMonth.slice(5,7)-1; if(m<1){ m=12; y--; } calMonth=y+'-'+M.pad2(m); loadCalendar(); });
   $('#cal-next').addEventListener('click', function(){ var y=+calMonth.slice(0,4), m=+calMonth.slice(5,7)+1; if(m>12){ m=1; y++; } calMonth=y+'-'+M.pad2(m); loadCalendar(); });
   $('#cal-filter').addEventListener('change',function(){ if(this.value) $('#cal-space').value=this.value; loadCalendar(); });
-  $('#cal-grid').addEventListener('click', function(e){ if(e.target.closest('[data-cal-retry]')){ loadCalendar(); return; } if(e.target.closest('[data-ref]')) return; var c=e.target.closest('[data-day]'); if(!c) return; $('#cal-date').value=c.dataset.day; $('#cal-form').scrollIntoView({behavior:'smooth',block:'center'}); });
+  $('#cal-grid').addEventListener('click', function(e){ if(e.target.closest('[data-food-info]')) return; if(e.target.closest('[data-cal-retry]')){ loadCalendar(); return; } if(e.target.closest('[data-ref]')) return; var c=e.target.closest('[data-day]'); if(!c) return; $('#cal-date').value=c.dataset.day; $('#cal-form').scrollIntoView({behavior:'smooth',block:'center'}); });
   $('#cal-form').addEventListener('submit', function(e){ e.preventDefault(); var f=e.target; if(!M.validate(f)) return;
     A('/calendar',{method:'POST', body:M.formData(f)}).then(function(){ note($('#cal-msg'),'저장했습니다.',true); loadCalendar(); }).catch(function(x){ if(!guard(x)) note($('#cal-msg'), x.message); }); });
 

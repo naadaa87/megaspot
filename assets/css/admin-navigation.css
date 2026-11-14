@@ -124,3 +124,16 @@
 .page-admin .adm-booking-filters label{display:grid;gap:6px;font-size:12px;color:var(--ink-3);min-width:0}
 .page-admin .adm-booking-filters .select{min-width:140px;max-width:100%}
 @media(max-width:600px){.page-admin .adm-booking-filters{width:100%}.page-admin .adm-booking-filters label{flex:1 1 100%}.page-admin .adm-booking-filters .select{width:100%;min-width:0}.page-admin #rs-service-filter{flex-basis:100%}}
+
+.page-admin .adm-service-edit{font-family:inherit;cursor:pointer;min-height:28px;text-align:left}
+.page-admin .adm-service-edit::after{content:'⌄';margin-left:5px;text-decoration:none}
+.page-admin .adm-service-edit:focus-visible,.page-admin .cal-food-dot:focus-visible{outline:2px solid var(--cobalt);outline-offset:2px}
+.adm-service-popover,.adm-food-tooltip{position:fixed;z-index:1600;box-sizing:border-box;width:min(340px,calc(100vw - 24px));padding:16px;background:#fff;border:1px solid #d6d3ce;border-radius:12px;box-shadow:0 8px 32px #0003;color:var(--ink);overflow:auto;line-height:1.5}
+.adm-service-popover[hidden],.adm-food-tooltip[hidden]{display:none!important}
+.asp-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.asp-head strong{font-size:15px}.asp-head .btn{flex-shrink:0;min-height:36px}
+.asp-customer{margin:8px 0;font-size:13px;overflow-wrap:anywhere}.asp-options{display:flex;gap:8px;margin:12px 0}.asp-options .btn{flex:1;min-width:0;min-height:44px;padding:8px 6px;white-space:normal;font-size:13px}.asp-options .is-current{border-color:var(--cobalt);background:var(--cobalt-soft);color:var(--cobalt)}.asp-message{margin:8px 0 0;color:#924323;overflow-wrap:anywhere}.asp-message:empty{display:none}
+#view-calendar .adm-cal .ev:has(.cal-food-dot){position:relative;padding-right:28px}
+#view-calendar .cal-food-dot{position:absolute;right:0;top:0;width:26px;height:28px;display:flex;align-items:center;justify-content:center;padding:0;border:0;border-radius:5px;background:transparent;cursor:pointer}
+#view-calendar .cal-food-dot>span,.cal-food-legend>span{display:inline-block;width:8px;height:8px;border-radius:50%;background:#d92c35;box-shadow:0 0 0 2px #fff;flex-shrink:0}
+.cal-food-legend{display:inline-flex;align-items:center;gap:6px}.adm-food-tooltip{width:min(280px,calc(100vw - 24px));font-size:13px}.adm-food-tooltip>strong{display:block;overflow-wrap:anywhere;margin-bottom:8px}.adm-food-tooltip>div{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:4px 0}.adm-food-tooltip .cat-st{max-width:100%;white-space:normal}
+@media print{.cal-food-dot,.cal-food-legend,.adm-service-popover,.adm-food-tooltip{display:none!important}}

@@ -1,3 +1,4 @@
+import {reservationServiceStatus} from '../_reservation_service_status.js';
 import {SERVICE_DATA_SQL,reservationServices} from '../_reservation_services.js';
 import {bookingNotificationsAdmin} from '../_booking_notifications.js';
 import {reservationPaymentAdmin,paymentChecksFor} from '../_reservation_payment_checks.js';
@@ -176,7 +177,8 @@ export async function onRequest({ request, env, params, waitUntil }) {
     if(path==='booking-readiness')return await bookingReadiness({env,url,method});
     if(/^bookings\/[A-Z0-9-]+\/portal-link(?:\/rotate)?$/.test(path))return await portalAdmin({env,request,url,path,method});
     if(method==='PATCH'&&/^inquiries\/[A-Z0-9-]+$/.test(path)){const v=await readJson(request.clone());if(v.total!==undefined&&v.total!==null&&v.total!==''&&amountOk(v.total)===null)return err('금액을 확인해 주세요.');}
-    if(method!=='GET'&&/^(quotes$|inquiries\/|bookings(?:\/|$)|catering\/orders)/.test(path))await preserveLegacyPayments(env);
+    if(method!=='GET'&&/^(quotes$|inquiries\/|bookings(?:\/|$)|reservation-services\/|catering\/orders)/.test(path))await preserveLegacyPayments(env);
+    if(path.startsWith('reservation-services/')){const result=await reservationServiceStatus({env,request,path,method});if(result)return result;}
     if(/^bookings\/[A-Z0-9-]+\/reconfirm$/.test(path))return await reconfirmationAdmin({env,request,path,method,waitUntil});
     if(/^bookings\/[A-Z0-9-]+\/cancellation(?:\/document)?$/.test(path))return await cancellationAdmin({env,request,path,method,url});
     if(/^bookings\/[A-Z0-9-]+\/payment-schedule$/.test(path))return await paymentScheduleAdmin({env,request,path,method});

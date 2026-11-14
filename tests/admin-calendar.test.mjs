@@ -13,7 +13,7 @@ function calendar() {
     M: { pad2: n => String(n).padStart(2, '0') }, E: null,
     todayIso: () => '2026-10-23', guard: () => false, esc: String
   });
-  vm.runInContext(source.slice(source.indexOf('  var calMonth='), source.indexOf("  $('#cal-prev').addEventListener")), context);
+  vm.runInContext(source.slice(source.indexOf('  function calendarServiceDot('),source.indexOf('  function matchesConfirmedService'))+'\n'+source.slice(source.indexOf('  var calMonth='), source.indexOf("  $('#cal-prev').addEventListener")), context);
   return { context, nodes, requests };
 }
 const cells = html => (html.match(/class="dc(?: |")/g) || []).length;
