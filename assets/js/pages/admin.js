@@ -2022,6 +2022,11 @@
   function cdBtn(code, issued, cls){ return '<button class="btn btn-light '+(cls||'btn-xs')+' cdoc-btn'+(issued?' on':'')+'" type="button" data-cdoc="'+esc(code)+'" title="'+(issued?'예약확정서 발급됨 · 다시 열기':'예약확정서 만들기')+'">'+(issued?'확정서 ✓':'확정서')+'</button> <button class="btn btn-light '+(cls||'btn-xs')+'" type="button" data-portal-code="'+esc(code)+'">통합 안내</button> <button class="btn btn-light '+(cls||'btn-xs')+'" type="button" data-notification-code="'+esc(code)+'">알림 현황</button> <button class="btn btn-light '+(cls||'btn-xs')+'" type="button" data-booking-contacts="'+esc(code)+'">연락처 관리</button>'; }
 
   /* =================== 일정 달력 =================== */
+  function calendarFoodMatches(item,filter){
+    if(!filter)return true;
+    var services=item.services||['catering','reception','cocktail'].filter(function(k){var v=(item.data||{})[k];return v&&typeof v==='object'&&!v.removed;}).map(function(k){return {kind:k,status:item.data[k].status};});
+    return services.some(function(s){return s.status==='confirmed'&&['catering','reception','cocktail'].includes(s.kind)&&(filter==='confirmed'||s.kind===filter);});
+  }
   var calMonth=todayIso().slice(0,7), calRequest=0;
   function loadCalendar(){
     var grid=$('#cal-grid'), request=++calRequest;
@@ -2041,6 +2046,10 @@
     }).finally(function(){ if(request===calRequest) grid.setAttribute('aria-busy', 'false'); });
   }
   function drawCalendar(blocks, bookings, inqs, loading){
+    var foodFilter=$('#cal-service-filter').value,summary=$('#cal-service-summary');
+    if(foodFilter){blocks=[];bookings=bookings.filter(function(b){return b.status!=='cancelled'&&calendarFoodMatches(b,foodFilter);});inqs=inqs.filter(function(i){return calendarFoodMatches(i,foodFilter);});}
+    summary.hidden=!foodFilter;summary.textContent=foodFilter?(loading?'식음료 이용 확정 건을 불러오는 중…':'선택한 식음료 이용 확정 '+(bookings.length+inqs.length)+'건'+(bookings.length+inqs.length?'':' · 이 달에는 해당하는 건이 없습니다.')):'';
+
     var y=+calMonth.slice(0,4), m=+calMonth.slice(5,7), first=new Date(y,m-1,1), days=new Date(y,m,0).getDate(), pad=first.getDay(), t=todayIso();
     $('#cal-title').textContent=y+'년 '+m+'월';
     var by={}; function add(d,html,item){ var group=room(item),day=by[d]=by[d]||{};(day[group]=day[group]||[]).push(html); }
@@ -2079,6 +2088,7 @@
   }
   $('#cal-prev').addEventListener('click', function(){ var y=+calMonth.slice(0,4), m=+calMonth.slice(5,7)-1; if(m<1){ m=12; y--; } calMonth=y+'-'+M.pad2(m); loadCalendar(); });
   $('#cal-next').addEventListener('click', function(){ var y=+calMonth.slice(0,4), m=+calMonth.slice(5,7)+1; if(m>12){ m=1; y++; } calMonth=y+'-'+M.pad2(m); loadCalendar(); });
+  $('#cal-service-filter').addEventListener('change',loadCalendar);
   $('#cal-filter').addEventListener('change',function(){ if(this.value) $('#cal-space').value=this.value; loadCalendar(); });
   $('#cal-grid').addEventListener('click', function(e){ if(e.target.closest('[data-food-info]')) return; if(e.target.closest('[data-cal-retry]')){ loadCalendar(); return; } if(e.target.closest('[data-ref]')) return; var c=e.target.closest('[data-day]'); if(!c) return; $('#cal-date').value=c.dataset.day; $('#cal-form').scrollIntoView({behavior:'smooth',block:'center'}); });
   $('#cal-form').addEventListener('submit', function(e){ e.preventDefault(); var f=e.target; if(!M.validate(f)) return;

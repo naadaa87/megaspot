@@ -13,7 +13,7 @@ function calendar() {
     M: { pad2: n => String(n).padStart(2, '0') }, E: null,
     todayIso: () => '2026-10-23', guard: () => false, esc: String
   });
-  vm.runInContext(source.slice(source.indexOf('  function calendarServiceDot('),source.indexOf('  function matchesConfirmedService'))+'\n'+source.slice(source.indexOf('  var calMonth='), source.indexOf("  $('#cal-prev').addEventListener")), context);
+  vm.runInContext(source.slice(source.indexOf('  function calendarServiceDot('),source.indexOf('  function matchesConfirmedService'))+'\n'+source.slice(source.indexOf('  function calendarFoodMatches('), source.indexOf("  $('#cal-prev').addEventListener")), context);
   return { context, nodes, requests };
 }
 const cells = html => (html.match(/class="dc(?: |")/g) || []).length;
@@ -87,4 +87,13 @@ test('확정 예약은 초록색으로 표시하고 별도 종일 마감과 구�
   assert.match(day('2026-12-12'), /1호 · 예약 확정 · 08:00–다음 날 00:00/);
   assert.doesNotMatch(day('2026-12-12'), /ev full|2호 확정/);
   assert.match(day('2026-12-13'), /예약 확정 · 시간 확인 필요/);
+});
+
+test('달력 식음료 필터는 상담·취소·미선택과 종일 마감을 제외하고 42칸을 유지한다',()=>{
+ const {context,nodes}=calendar();context.calMonth='2026-12';nodes['#cal-service-filter']={value:'catering'};
+ const bookings=[{date:'2026-12-11',status:'confirmed',customer_name:'뷔페확정',services:[{kind:'catering',status:'confirmed'},{kind:'cocktail',status:'confirmed'}]},{date:'2026-12-11',status:'confirmed',customer_name:'상담중',services:[{kind:'catering',status:'pending'}]},{date:'2026-12-12',status:'cancelled',customer_name:'취소예약',services:[{kind:'catering',status:'confirmed'}]},{date:'2026-12-12',status:'confirmed',customer_name:'칵테일확정',services:[{kind:'cocktail',status:'confirmed'}]}];
+ context.drawCalendar([{date:'2026-12-11',state:'full'}],bookings,[]);let html=nodes['#cal-grid'].innerHTML;assert.equal(cells(html),42);assert.match(html,/뷔페확정/);assert.doesNotMatch(html,/상담중|취소예약|칵테일확정|종일 마감/);assert.match(nodes['#cal-service-summary'].textContent,/1건/);
+ nodes['#cal-service-filter'].value='confirmed';context.drawCalendar([],bookings,[]);assert.match(nodes['#cal-service-summary'].textContent,/2건/);
+ nodes['#cal-service-filter'].value='reception';context.drawCalendar([],bookings,[]);assert.match(nodes['#cal-service-summary'].textContent,/해당하는 건이 없습니다/);
+ nodes['#cal-service-filter'].value='';context.drawCalendar([],bookings,[]);assert.equal(nodes['#cal-service-summary'].hidden,true);assert.match(nodes['#cal-grid'].innerHTML,/상담중/);
 });

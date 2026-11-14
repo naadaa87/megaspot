@@ -139,3 +139,5 @@
 @media print{.cal-food-dot,.cal-food-legend,.adm-service-popover,.adm-food-tooltip{display:none!important}}
 
 .adm-food-tooltip .cal-food-edit{min-height:36px;padding:6px 10px;font-family:inherit;cursor:pointer;flex-shrink:0}.adm-food-tooltip .cal-food-edit:focus-visible{outline:2px solid var(--cobalt);outline-offset:2px}
+
+#view-calendar .adm-calendar-food{flex:1 1 220px;max-width:300px;margin:0;min-width:0}#view-calendar .adm-calendar-food .select{width:100%;min-width:0}
