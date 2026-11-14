@@ -114,39 +114,56 @@
  .page-parking-purchase:not(.menu-open) .pk-checkout.quick-bar{position:static;visibility:visible!important;pointer-events:auto!important;margin-top:18px;border:1px solid var(--concrete-2);border-radius:10px;padding:12px;box-shadow:none}
 }
 
-.pk-result{display:grid;gap:16px;margin-top:20px}
-.pk-receipt-summary{display:grid;gap:10px;padding:20px;background:#fff;border:1px solid var(--concrete-2);border-radius:10px}
+/* Receipt spacing follows the reading order: payment, guidance, vehicles, actions. */
+.pk-result{display:grid;gap:24px;margin-top:24px}
+.pk-result>*{min-width:0;margin:0}
+.pk-receipt-summary{display:grid;gap:12px;padding:24px;background:#fff;border:1px solid var(--concrete-2);border-radius:10px}
 .pk-summary-top,.pk-receipt-top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .pk-summary-top strong{font-size:25px;color:var(--graphite)}
 .pk-payment-state{font-size:15px;font-weight:800}
 .pk-receipt-meta{margin:0;font-size:14px;color:var(--ink-2);line-height:1.6}
-.pk-status-counts{display:flex;flex-wrap:wrap;gap:7px}
-.pk-state{display:inline-flex;align-items:center;padding:6px 10px;border-radius:6px;font-size:13px;line-height:1.5;font-weight:800;white-space:nowrap}
+.pk-status-counts{display:flex;flex-wrap:wrap;gap:8px}
+.pk-state{display:inline-flex;align-items:center;padding:6px 10px;border-radius:6px;font-size:13px;line-height:1.5;font-weight:700;white-space:nowrap}
 .pk-state.pk-tone-success{color:#156442;background:#e8f5ed}
 .pk-state.pk-tone-waiting{color:#80570c;background:#fff4d9}
 .pk-state.pk-tone-progress{color:#1c49b4;background:#eaf0ff}
 .pk-state.pk-tone-attention{color:#a33a23;background:#fff0e8}
 .pk-state.pk-tone-neutral{color:#59616a;background:#edf0f3}
-.pk-receipt-guidance{margin:0;padding:12px 14px;border-radius:8px;background:#edf2ff;font-size:13px;line-height:1.7;color:var(--ink-2)}
-.pk-receipt-list{display:grid;gap:12px}
-.pk-receipt-card{display:grid;gap:10px;padding:18px 20px;background:#fff;border:1px solid var(--concrete-2);border-left:4px solid #d7a842;border-radius:10px;min-width:0}
-.pk-receipt-card.pk-tone-success{border-left-color:#2f9565}.pk-receipt-card.pk-tone-progress{border-left-color:var(--cobalt)}.pk-receipt-card.pk-tone-attention{border-left-color:#ce6b43}.pk-receipt-card.pk-tone-neutral{border-left-color:#a2a9b1}
+.pk-receipt-guidance{display:grid;gap:8px;font-size:14px;line-height:1.75;color:var(--ink-2)}
+.pk-receipt-guidance p{margin:0}
+.pk-receipt-guidance strong{font-size:15px;font-weight:700;color:var(--graphite)}
+.pk-receipt-list{display:grid;gap:18px}
+.pk-receipt-card{display:grid;gap:12px;padding:24px;background:#fff;border:1px solid var(--concrete-2);border-radius:10px;min-width:0}
+.pk-receipt-card.pk-tone-attention{border-color:#e2bdad}
 .pk-receipt-card .pk-receipt-top h2{font-size:22px;line-height:1.4;margin:0;letter-spacing:0}
-.pk-receipt-hint{font-size:13px;line-height:1.7;color:var(--ink-2);margin:0}
-.pk-receipt-card>.btn{justify-self:start;min-height:44px;font-size:14px}
-.pk-receipt-more{font-size:13px;line-height:1.7;border-top:1px solid var(--concrete-2);padding-top:10px}
-.pk-receipt-more>summary{font-weight:600;color:var(--ink-2);cursor:pointer}
+.pk-receipt-hint{font-size:14px;line-height:1.7;color:var(--ink-2);margin:0}
+.pk-arrival-action{display:grid;gap:8px;margin:4px 0 2px;min-width:0}
+.pk-arrival-action>.btn{justify-self:start;min-height:48px;font-size:14px}
+.pk-arrival-help{margin:0;font-size:12px;line-height:1.65;color:var(--ink-3)}
+.pk-receipt-more{font-size:13px;line-height:1.7;border-top:1px solid var(--concrete-2);padding-top:14px;margin-top:2px}
+.pk-receipt-more>summary{font-weight:600;color:var(--ink-2);cursor:pointer;min-height:24px}
 .pk-receipt-more[open]{display:grid;gap:12px}
-.pk-receipt-more[open]>summary{margin-bottom:10px}
+.pk-receipt-more[open]>summary{margin-bottom:2px}
 .pk-receipt-more .pk-detail{font-size:13px;grid-template-columns:88px minmax(0,1fr);gap:10px}
-.pk-receipt-actions{display:flex;flex-wrap:wrap;gap:8px}
-.pk-receipt-actions .btn{font-size:13px;min-height:44px}
-.pk-receipt-actions .text-link{align-self:center;font-size:13px;color:var(--cobalt);padding:8px}
+.pk-receipt-actions{display:flex;flex-wrap:wrap;gap:10px;padding-top:4px}
+.pk-receipt-actions .btn{font-size:13px;min-height:48px}
+.pk-receipt-actions .text-link{align-self:center;font-size:13px;color:var(--cobalt);padding:10px;min-height:44px;display:flex;align-items:center;justify-content:center}
 .page-parking-purchase :is(.pk-result,.pk-receipt-summary,.pk-receipt-list,.pk-receipt-card,.pk-receipt-more){min-width:0;grid-template-columns:minmax(0,1fr)}
 .page-parking-purchase #pk-result :is(h2,p,summary,.pk-summary-top>*,.pk-receipt-top>*){min-width:0;overflow-wrap:anywhere}
 .page-parking-purchase #pk-result .btn{min-width:0;max-width:100%;white-space:normal;padding-top:12px;padding-bottom:12px;line-height:1.5}
 .page-parking-purchase #pk-result .textarea{resize:vertical}
-@media(max-width:599px){.pk-result{gap:12px;margin-top:16px}.pk-receipt-summary{padding:16px}.pk-summary-top strong{font-size:23px}.pk-receipt-card{padding:16px 14px}.pk-receipt-card .pk-receipt-top h2{font-size:20px}.pk-receipt-actions .btn{flex:1 1 auto}.pk-state{font-size:12px;padding:6px 9px}}
+@media(max-width:599px){
+ .pk-result{gap:22px;margin-top:22px}
+ .pk-receipt-summary{padding:20px}
+ .pk-summary-top strong{font-size:23px}
+ .pk-receipt-list{gap:16px}
+ .pk-receipt-card{padding:20px 18px}
+ .pk-receipt-card .pk-receipt-top h2{font-size:20px}
+ .pk-arrival-action>.btn{justify-self:stretch;width:100%}
+ .pk-receipt-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+ .pk-receipt-actions>*{min-width:0;width:100%;text-align:center;white-space:normal}
+ .pk-state{font-size:12px;padding:6px 9px}
+}
 
 .pk-history summary{cursor:pointer;font-weight:700;color:var(--cobalt)}
 .pk-history-list{display:grid;gap:8px;margin-top:12px}.pk-history-list .btn{display:flex;flex-direction:column;align-items:flex-start;min-width:0;white-space:normal;overflow-wrap:anywhere;text-align:left}.pk-history-list small{font-size:11px;font-weight:400}

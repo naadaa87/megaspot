@@ -43,7 +43,7 @@ export async function parkingSettings(env){
  // Venue operator confirmed midnight expiry on 2026-11-03. This does not enable sales.
  const basis=typeof v.daily_basis==='string'&&Object.hasOwn(DAILY_BASES,v.daily_basis)?v.daily_basis:'calendar',details=str(v.daily_details??v.daily_terms,240),rollover=str(v.daily_rollover,160);
  const terms=DAILY_BASES[basis]+' '+details+' 익일·초과 정산: '+rollover;
- return {enabled:v.enabled===true,daily_enabled:v.daily_enabled===true&&basis!=='unconfirmed'&&!!details&&!!rollover,daily_basis:basis,daily_details:details,daily_rollover:rollover,daily_terms:terms,service_hours:'매일 10:00–24:00 자동 등록 (공휴일 제외)',processing_notice:'결제·입차 확인 후 등록까지 최대 약 5분이 소요됩니다. 당일 구매·입차 요청은 23:50까지입니다. 등록 완료를 확인한 뒤 출차해 주세요. 전날 입차·익일 연속 주차는 별도 문의가 필요합니다.'};
+ return {enabled:v.enabled===true,daily_enabled:v.daily_enabled===true&&basis!=='unconfirmed'&&!!details&&!!rollover,daily_basis:basis,daily_details:details,daily_rollover:rollover,daily_terms:terms,service_hours:'매일 10:00–24:00 자동 등록 (공휴일 제외)',processing_notice:'버튼을 누르지 않아도 결제·입차 확인 후 바로 자동 등록을 시작합니다. 입차 정보 반영이 늦으면 약 1분 뒤 다시 확인합니다. 당일 구매·입차 요청은 23:50까지입니다. 등록 완료를 확인한 뒤 출차해 주세요. 전날 입차·익일 연속 주차는 별도 문의가 필요합니다.'};
 }
 export const JOIN = `SELECT p.*,COALESCE(p.vehicle_price,o.price) AS price,o.status AS payment_status,o.buyer_name,o.buyer_phone,o.paid_at,o.test,
  o.price AS payment_total,COALESCE(p.payment_oid,p.oid) AS payment_id,
