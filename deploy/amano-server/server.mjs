@@ -1,3 +1,4 @@
+import {queueAmanoWake} from './wake.mjs';
 import {createHmac,timingSafeEqual,createHash,randomBytes,generateKeyPairSync,privateDecrypt,constants,createCipheriv,createDecipheriv} from 'node:crypto';
 import {createServer} from 'node:http';
 import {readFileSync,writeFileSync,mkdirSync,existsSync,renameSync} from 'node:fs';
@@ -29,6 +30,16 @@ export async function amanoRequest(request,env,store,clientFactory=c=>new AmanoC
  if(!Number.isFinite(v.time)||Math.abs(Date.now()-v.time)>60000)return json({error:'Expired request'},400);
  try{
   if(v.action==='status')return json({ok:true,configured:!!store.read('credentials'),enabled:store.read('settings')?.enabled===true,adapter_ready:true,busy:cycleBusy,public_key:store.publicKey(),last_run:store.read('last-run'),verification:store.read('verification-'+VERIFICATION_DATE),error_alert_receivers:(env.ALIGO_PARKING_ADMIN_RECEIVERS||'').split(',').filter(s=>/^01[016789]\d{7,8}$/.test(s)).map(s=>s.slice(-4)),error_notifications:Object.values(store.read('alert-journal')||{}).map(e=>({receiver_last4:e.receiver.slice(-4),status:e.status,error:e.error||'',created_at:e.created_at})).slice(-30)});
+  if(v.action==='wake'){
+   if(!store.read('settings')?.enabled)return json({ok:true,accepted:false,enabled:false});
+   if(!store.read('credentials'))return json({error:'아마노 계정 연결 필요'},409);
+   queueAmanoWake({store,enabled:()=>store.read('settings')?.enabled===true,run:async()=>{
+    const body=JSON.stringify({action:'cycle',megaspot_only:true,time:Date.now()});
+    const r=await amanoRequest(new Request('http://localhost/v1/amano',{method:'POST',headers:{'X-Megaspot-Signature':createHmac('sha256',env.ALIGO_RELAY_SECRET).update(body).digest('hex')},body}),env,store,clientFactory);
+    const result=await r.json();if(!r.ok)throw Error('Amano wake cycle failed');return result;
+   }},v.reason);
+   return json({ok:true,accepted:true},202);
+  }
   if(v.action==='settings'){
    if(v.enabled===true&&(v.confirm_policy!==true||!store.read('credentials')))return json({error:'계정 연결과 승인된 무료 우선·차감 한도를 확인해 주세요.'},409);
    store.save('settings',{enabled:v.enabled===true,updated_at:new Date().toISOString()});return json({ok:true,enabled:v.enabled===true});

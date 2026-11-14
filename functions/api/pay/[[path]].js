@@ -1,3 +1,4 @@
+import {wakeParkingRegistration} from '../_parking_wake.js';
 import {preserveLegacyPayments} from '../_settlement.js';
 import {recordPayappRefund} from '../_payapp_refunds.js';
 // 페이앱: 서버에서 결제 요청 → payurl 이동 → 검증된 feedback만 주문·예약 확정.
@@ -328,6 +329,7 @@ async function feedback(request, env, C, waitUntil) {
     batch.push(sql(`UPDATE orders AS o SET status='paid',tid=?,pay_method=?,appl_at=?,result_msg=CASE WHEN EXISTS(SELECT 1 FROM bookings WHERE booking_code=(${selectedCode}) AND status='payment_review') THEN '승인 완료 · 일정 확인 필요 · 예약 확정 보류' ELSE '승인 완료' END,booking_code=NULLIF((${selectedCode}),''),paid_at=?,updated_at=? WHERE oid=? AND status IN ('created','pending')`,originalNo,'PayApp:'+(f.pay_type||''),(f.pay_date||t).slice(0,30),t,t,oid));
     // D1 batch is a transaction; the chosen booking and its current conditions are resolved inside it.
     const changed=await env.DB.batch(batch),last=changed.at(-1);
+    if((last?.meta?.changes||last?.changes)&&!row.test&&['parking','parking_batch'].includes(data.kind))await wakeParkingRegistration(env,{reason:'payment',waitUntil});
     if(generated&&!linked&&(last?.meta?.changes||last?.changes)){
       const created=await env.DB.prepare('SELECT status FROM bookings WHERE booking_code=?').bind(generated).first();
       if(created?.status==='confirmed')await confirmedGuide(env,generated,waitUntil);

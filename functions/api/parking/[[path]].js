@@ -1,3 +1,4 @@
+import {wakeParkingRegistration} from '../_parking_wake.js';
 import {prepareParkingBatch} from '../_parking_checkout.js';
 import {json,err,hasDb,readJson,str,now,randomToken,sha256,sameOrigin,requireAdmin,tooMany,hit,clientIp,log,kstToday} from '../_lib.js';
 import {payappConfig,requestPayment,equalSecret} from '../_payapp.js';
@@ -7,14 +8,14 @@ import {TICKETS,POLICY,parkingInput,parkingSettings,parkingAdmin,JOIN,publicPark
 import {parkingNoticeAdmin,parkingNoticeCron,parkingNoticeAccess} from '../_parking_notifications.js';
 import {amanoAdmin,amanoAutomation} from '../_amano_server.js';
 import {parkingAdminAlerts} from '../_parking_admin_alerts.js';
-export async function onRequest({request,env,params}){
+export async function onRequest({request,env,params,waitUntil}){
  const path=(params.path||[]).join('/'),method=request.method;
  if(!hasDb(env))return err('서버를 준비 중입니다.',503);
  try{
   if(path==='automation/server')return await amanoAutomation(request,env);
   if(path==='notifications/tick')return await parkingNoticeCron(request,env);
   if(path==='notifications/status')return await parkingNoticeCron(request,env,true);
-  if(path==='feedback'&&method==='POST')return await payRequest({request,env,params:{path:['feedback']}});
+  if(path==='feedback'&&method==='POST')return await payRequest({request,env,params:{path:['feedback']},waitUntil});
   if(path.startsWith('admin/')){
    const denied=await requireAdmin(request,env);if(denied)return denied;
    if(method!=='GET'&&!sameOrigin(request))return err('허용되지 않은 요청입니다.',403);
@@ -79,6 +80,7 @@ export async function onRequest({request,env,params}){
    const d=await readJson(request),reason=str(d.reason,300);if(!reason)return err('취소 문의 사유를 입력해 주세요.');
    await env.DB.prepare('UPDATE parking_orders SET refund_requested_at=?,refund_reason=?,refund_reviewed_at=NULL,updated_at=? WHERE oid=?').bind(now(),reason,now(),p.oid).run();
   }
+  if(m[2]==='arrive'&&!p.test&&['waiting','requested'].includes(p.status))await wakeParkingRegistration(env,{reason:'arrival',waitUntil});
   await log(env,'parking.'+m[2],p.oid,'customer',{});return json({ok:true});
  }catch(e){console.error('parking',String(e?.message||e));return err('처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.',500);}
 }
