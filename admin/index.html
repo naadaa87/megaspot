@@ -52,7 +52,7 @@
 <link rel="stylesheet" href="/assets/css/admin-settlement.css?v=20261105mobilepayment1">
 <link rel="stylesheet" href="/assets/css/admin-parking-alerts.css?v=20261104adminsms1">
 <link rel="stylesheet" href="/assets/css/admin-parking.css?v=20261106mobile-status">
-<link rel="stylesheet" href="/assets/css/admin-navigation.css?v=489f67d21042">
+<link rel="stylesheet" href="/assets/css/admin-navigation.css?v=d8b433bf6375">
 <link rel="stylesheet" href="/assets/css/admin-booking-readiness.css?v=20261105readiness1">
 <link rel="stylesheet" href="/assets/css/admin-revenue.css?v=20261110revenue1">
 <link rel="stylesheet" href="/assets/css/admin-reservation-search.css?v=20261105inquirysearch1">
@@ -171,7 +171,7 @@
         <div class="rs-range" role="group" aria-label="기간">
           <button type="button" class="chip" data-range="week">이번 주</button><button type="button" class="chip" data-range="month">이번 달</button><button type="button" class="chip" data-range="next">다음 달</button><button type="button" class="chip on" data-range="upcoming">앞으로 전체</button><button type="button" class="chip" data-range="past">지난 예약</button>
         </div>
-        <div class="rs-dates"><label class="sr-only" for="rs-from">시작일</label><input class="input" type="date" id="rs-from"><span>~</span><label class="sr-only" for="rs-to">종료일</label><input class="input" type="date" id="rs-to"></div>
+        <label class="rs-month-choice">선택 월<input class="input" type="month" id="rs-month-filter" aria-label="일자별 선택 월"></label><div class="rs-dates"><label class="sr-only" for="rs-from">시작일</label><input class="input" type="date" id="rs-from"><span>~</span><label class="sr-only" for="rs-to">종료일</label><input class="input" type="date" id="rs-to"></div>
       </div>
       <div class="adm-filters rs-filters">
         <div class="rs-tabs" id="rs-tabs" role="tablist" aria-label="구분"><button type="button" role="tab" data-kind="all" aria-selected="true">전체 <em data-kc="all">0</em></button><button type="button" role="tab" data-kind="booking" aria-selected="false">예약 확정 <em data-kc="booking">0</em></button><button type="button" role="tab" data-kind="pending" aria-selected="false">예약 문의 (미정) <em data-kc="pending">0</em></button></div>
@@ -457,7 +457,7 @@
           <button class="btn btn-primary" type="submit">예약 등록</button>
           <div class="form-note" id="bk-msg" hidden></div>
         </form>
-        <div class="adm-card"><div class="adm-booking-list-head"><h2>예약 목록</h2><div class="adm-booking-filters"><label>호점<select class="select" id="bk-space-filter"><option value="">1호·2호 전체</option><option value="megaspot-gundae">건대 1호</option><option value="megaspot-gundae-2">건대 2호</option></select></label><label>예약 상태<select class="select" id="bk-filter"><option value="upcoming">예정</option><option value="completed">이용 완료</option><option value="cancelled">취소</option><option value="">전체</option></select></label><label>식음료<select class="select" id="bk-service-filter"><option value="">식음료 전체</option><option value="confirmed">식음료 이용 확정 전체</option><option value="catering">출장뷔페 이용 확정</option><option value="reception">케이터링 이용 확정</option><option value="cocktail">칵테일 이용 확정</option></select></label></div></div><p id="bk-service-summary" class="small muted" role="status" aria-live="polite" hidden></p><div id="bk-list" class="adm-list mt-2"></div></div>
+        <div class="adm-card"><div class="adm-booking-list-head"><h2>예약 목록</h2><div class="adm-booking-filters"><label>선택 월<input class="input" type="month" id="bk-month-filter" aria-label="예약 목록 선택 월"></label><label>호점<select class="select" id="bk-space-filter"><option value="">1호·2호 전체</option><option value="megaspot-gundae">건대 1호</option><option value="megaspot-gundae-2">건대 2호</option></select></label><label>예약 상태<select class="select" id="bk-filter"><option value="upcoming">예정</option><option value="completed">이용 완료</option><option value="cancelled">취소</option><option value="">전체</option></select></label><label>식음료<select class="select" id="bk-service-filter"><option value="">식음료 전체</option><option value="confirmed">식음료 이용 확정 전체</option><option value="catering">출장뷔페 이용 확정</option><option value="reception">케이터링 이용 확정</option><option value="cocktail">칵테일 이용 확정</option></select></label></div></div><p id="bk-service-summary" class="small muted" role="status" aria-live="polite" hidden></p><div id="bk-list" class="adm-list mt-2"></div></div>
       </div>
     </section>
 
@@ -725,7 +725,8 @@
 <script src="/assets/js/quote-calculation.js?v=20261105cflifecycle1"></script>
 <script src="/assets/js/quote-policy.js?v=292941d5ba14"></script>
 <script src="/assets/js/pages/admin-food-filter.js?v=d0ca4d1bb3b9"></script>
-<script src="/assets/js/pages/admin.js?v=dd6da2852615"></script>
+<script src="/assets/js/pages/admin-reservation-period.js?v=d19a2c8a0701"></script>
+<script src="/assets/js/pages/admin.js?v=83d4871088cf"></script>
 <script src="/assets/js/pages/admin-service-status.js?v=6f085e2a9a83"></script>
 <script src="/assets/js/pages/admin-platform.js?v=20261102adminux1"></script>
 <script src="/assets/js/pages/admin-cocktail.js?v=20261104foodprices3"></script>

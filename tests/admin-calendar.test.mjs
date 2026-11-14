@@ -11,7 +11,7 @@ function calendar() {
     A: path => new Promise((resolve, reject) => requests.push({ path, resolve, reject })),
     AList: path => new Promise((resolve, reject) => requests.push({ path, resolve, reject })),
     M: { pad2: n => String(n).padStart(2, '0') }, E: null,
-    todayIso: () => '2026-10-23', guard: () => false, esc: String
+    reservationMonth:()=>'',todayIso: () => '2026-10-23', guard: () => false, esc: String
   });
   vm.runInContext(source.slice(source.indexOf('  function calendarServiceDot('),source.indexOf('  function matchesConfirmedService'))+'\n'+source.slice(source.indexOf('  function calendarFoodMatches('), source.indexOf("  $('#cal-prev').addEventListener")), context);
   return { context, nodes, requests };
