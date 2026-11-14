@@ -35,10 +35,10 @@ export async function portalPreparationState(env,b,link,at=Date.now()){
 // Server-only copy of the existing, operator-provided 1호 arrival instructions.
 // Never put these values in a public page bundle, an unauthenticated response, or the 2호 guide.
 function arrival(b){
- const shared={space:SPACES[b.space_id].name,address:'서울시 광진구 능동로13길 39, 한아름건물 2층',checkin:'예약 시작 시간부터',checkout:'예약 종료 시간까지',note:'준비와 정리 시간도 예약하신 이용 시간에 포함됩니다.'};
+ const shared={space:SPACES[b.space_id],address:'서울시 광진구 능동로13길 39, 한아름건물 2층',checkin:'예약 시작 시간부터',checkout:'예약 종료 시간까지',note:'준비와 정리 시간도 예약하신 이용 시간에 포함됩니다.'};
  if(b.space_id==='megaspot-gundae-2')return {...shared,ready:true,door_code:'0105#',wifi_name:'설치 예정',wifi_password:'',lock_note:'자동문이 닫히고 잠금 상태인지 확인해 주세요.',equipment_url:'https://megaspot.kr/arrival/space2/'};
  if(b.space_id!=='megaspot-gundae')return {...shared,ready:false,message:'운영팀에 입실 안내를 문의해 주세요.'};
- return {...shared,ready:true,door_code:'0105*',wifi_name:'U+NetBB18_5G/2.4G',wifi_password:'#2CF96J5B5',lock_note:'퇴실 시 도어락의 # 버튼을 누르고 잠금 상태를 확인해 주세요.',equipment_url:'https://megaspot-guide.pages.dev/#facilities'};
+ return {...shared,ready:true,door_code:'0105*',wifi_name:'U+NetBB18_5G/2.4G',wifi_password:'#2CF96J5B5',lock_note:'퇴실 시 도어락의 # 버튼을 누르고 잠금 상태를 확인해 주세요.',equipment_url:'https://megaspot.kr/arrival/space1/#facilities'};
 }
 function accountState(b,amount){
  const expired=!!(b.account_expires_at&&b.account_expires_at<=Date.now()),registered=!!b.account_cipher&&!expired;

@@ -5,7 +5,7 @@ import {json,err,now,sha256} from './_lib.js';
 import {guideAdmin,aligoProvider,guidePhone} from './_guide_messages.js';
 import {CUSTOMER_ALIMTALK} from './_customer_alimtalk_templates.js';
 import {approvedCustomerTemplate} from './_customer_alimtalk.js';
-const ARRIVAL='UN_6624';
+const ARRIVAL='UN_7028';
 async function guide(env,path,body){const url=new URL('https://megaspot.kr/api/admin/'+path);return guideAdmin({env,url,path,method:body?'POST':'GET',request:new Request(url,{method:body?'POST':'GET',...(body?{body:JSON.stringify(body)}:{})})});}
 export async function notificationAudit(env){
  const g=await guide(env,'guide-messages/settings'),s=await g.json();
@@ -44,7 +44,7 @@ export async function notificationOperations(env,d){
   if(existing)return json({ok:true,duplicate:true,...JSON.parse(existing.value)});
   const claim=await env.DB.prepare('INSERT OR IGNORE INTO settings(key,value,updated_at) VALUES(?,?,?)').bind(key,JSON.stringify({state:'sending',receiver_hash:await sha256(phone)}),now()).run();
   if(!Number(claim.meta?.changes??claim.changes))return err('시험 요청이 이미 진행 중입니다.',409);
-  const settings=await (await guide(env,'guide-messages/settings')).json(),spaces=['megaspot-gundae'];
+  const settings=await (await guide(env,'guide-messages/settings')).json(),spaces=['megaspot-gundae','megaspot-gundae-2'];
   const response=await guide(env,'guide-messages/test',{phone,confirm_test:true,candidate:{variant:'legacy',template_code:ARRIVAL,spaces}}),result=await response.clone().json();
   await env.DB.prepare('UPDATE settings SET value=?,updated_at=? WHERE key=?').bind(JSON.stringify({...result,state:response.ok?'accepted':'failed'}),now(),key).run();return response;
  }
@@ -57,7 +57,7 @@ export async function notificationOperations(env,d){
  if(d?.action==='activate_approved_notifications'){
   const connected=[];
   for(const kind of Object.keys(CUSTOMER_ALIMTALK)){const template=await approvedCustomerTemplate(env,(path,data)=>aligoProvider(env,path,data),kind);if(!template)return err('승인·본문·버튼 확인이 필요합니다: '+kind,409);connected.push({kind,code:template.code});}
-  const previous=await (await guide(env,'guide-messages/settings')).json(),spaces=['megaspot-gundae'];
+  const previous=await (await guide(env,'guide-messages/settings')).json(),spaces=['megaspot-gundae','megaspot-gundae-2'];
   const url=new URL('https://megaspot.kr/api/admin/guide-messages/settings');
   const response=await guideAdmin({env,url,path:'guide-messages/settings',method:'PUT',request:new Request(url,{method:'PUT',body:JSON.stringify({variant:'legacy',enabled:true,automatic:false,template_code:ARRIVAL,spaces})})});if(!response.ok)return response;
   await env.DB.prepare("UPDATE booking_guide_messages SET status='cancelled',error='이전 이용 안내 종료 · 새 입실·주차 안내로 통합',updated_at=? WHERE mode='live' AND status='queued' AND COALESCE(json_extract(snapshot,'$.template_code'),'')<>?").bind(now(),ARRIVAL).run();

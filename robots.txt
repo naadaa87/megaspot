@@ -3,6 +3,7 @@ Allow: /
 Disallow: /admin/
 Disallow: /deposit/
 Disallow: /booking/
+Disallow: /arrival/
 Disallow: /api/
 Disallow: /mypage/
 Disallow: /order/
@@ -18,6 +19,7 @@ Allow: /
 Disallow: /admin/
 Disallow: /deposit/
 Disallow: /booking/
+Disallow: /arrival/
 Disallow: /host/center/
 Disallow: /spaces/booking/
 Disallow: /planning/status/
@@ -28,6 +30,7 @@ Allow: /
 Disallow: /admin/
 Disallow: /deposit/
 Disallow: /booking/
+Disallow: /arrival/
 Disallow: /host/center/
 Disallow: /spaces/booking/
 Disallow: /planning/status/
@@ -38,6 +41,7 @@ Allow: /
 Disallow: /admin/
 Disallow: /deposit/
 Disallow: /booking/
+Disallow: /arrival/
 Disallow: /host/center/
 Disallow: /spaces/booking/
 Disallow: /planning/status/

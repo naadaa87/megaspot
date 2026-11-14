@@ -1,0 +1,30 @@
+.parking-route-guide{--pr-blue:#1f53d5;--pr-ink:#262b2e;--pr-muted:#5b6168;--pr-line:#e6e2db;color:var(--pr-ink);min-width:0}
+.parking-route-guide .pr-title{margin:0;font-size:clamp(26px,4vw,44px);font-weight:800;line-height:1.35;letter-spacing:-.04em;text-wrap:balance}
+.pr-intro{max-width:760px;margin:10px 0 16px;font-size:16px;line-height:1.85;color:var(--pr-muted)}
+.pr-intro strong{color:var(--pr-ink)}
+.pr-steps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;list-style:none!important;margin:0!important;padding:0!important}
+.pr-step{min-width:0;margin:0!important;border:1px solid var(--pr-line);border-radius:12px;overflow:hidden;background:#fff}
+.pr-photo{position:relative;display:block;width:100%;padding:0;border:0;background:#edf0f2;cursor:zoom-in;overflow:hidden;border-radius:0;font:inherit;color:inherit}
+.pr-photo img{display:block;width:100%;height:auto;aspect-ratio:4/3;object-fit:contain;margin:0}
+.pr-enlarge{position:absolute;top:12px;right:12px;padding:5px 9px;border-radius:5px;background:#fffef3ed;color:#262b2e;font-size:11px;font-weight:750;box-shadow:0 2px 8px #0002;pointer-events:none}
+.pr-photo:focus-visible{outline:3px solid var(--pr-blue);outline-offset:-4px}
+.pr-copy{padding:20px 22px 23px}
+.pr-stepno{display:inline-flex;align-items:center;gap:8px;margin-bottom:10px;color:var(--pr-blue);font-size:12px;font-weight:800;letter-spacing:.04em}
+.pr-stepno span{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:#edf2ff;font-size:12px}
+.parking-route-guide .pr-copy h3{margin:0 0 10px;font-size:20px;line-height:1.45;font-weight:800;letter-spacing:-.025em}
+.pr-copy p{margin:0;color:var(--pr-muted);font-size:14px;line-height:1.85}
+.pr-extra{margin-top:24px;border:1px solid var(--pr-line);border-radius:12px;overflow:hidden;background:#fff}
+.pr-extra>summary{cursor:pointer;padding:18px 22px;font-size:15px;font-weight:750;line-height:1.6}
+.pr-gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;padding:0 20px 20px}
+.pr-gallery figure{min-width:0;margin:0}
+.pr-gallery .pr-photo{border-radius:8px}
+.pr-gallery figcaption{padding:10px 0 0;font-size:13px;line-height:1.6;color:var(--pr-muted)}
+.pr-note{margin:18px 0 0;font-size:12px;line-height:1.7;color:var(--pr-muted)}
+.pr-guest{margin:30px 0;padding:26px 22px;background:#f8f9fc;border:1px solid #dfe5ee;border-radius:12px}
+.parking-route-guide.pr-guest .pr-title{font-size:clamp(22px,3.5vw,30px)}
+.pr-guest .pr-intro{font-size:14px}
+.pr-guest .pr-steps{gap:16px}.pr-guest .pr-copy{padding:16px}.parking-route-guide.pr-guest .pr-copy h3{font-size:17px}.pr-guest .pr-copy p{font-size:13px}
+@media(max-width:620px){.pr-steps,.pr-gallery{grid-template-columns:1fr}.pr-intro{font-size:15px}.pr-steps{gap:18px}.pr-copy{padding:18px}.parking-route-guide .pr-copy h3{font-size:19px}.pr-guest{padding:22px 16px;margin:24px -2px}.pr-guest .pr-steps{gap:16px}.pr-gallery{padding:0 16px 16px}.pr-extra>summary{padding:16px}.pr-enlarge{top:9px;right:9px}}
+@media(min-width:760px){
+ .pr-step:first-child{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);align-items:center}
+}

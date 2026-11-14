@@ -3,7 +3,7 @@ import {json,err,readJson,now,str,isDate,sha256,randomToken,SPACES,kstToday,getC
 export const CONSENT_VERSION='deposit-refund-20261103-v1';
 export const RETENTION_DAYS=30;
 export const BANKS=[['004','KB국민은행'],['088','신한은행'],['020','우리은행'],['081','하나은행'],['011','NH농협은행'],['012','지역농축협'],['003','IBK기업은행'],['023','SC제일은행'],['027','한국씨티은행'],['090','카카오뱅크'],['089','케이뱅크'],['092','토스뱅크'],['002','KDB산업은행'],['007','Sh수협은행'],['045','새마을금고'],['048','신협'],['071','우체국'],['031','iM뱅크'],['032','부산은행'],['039','경남은행'],['034','광주은행'],['037','전북은행'],['035','제주은행'],['064','산림조합'],['050','저축은행']];
-const GUIDE='https://megaspot-guide.pages.dev/';
+const GUIDE='https://megaspot.kr/arrival/space1/';
 const changed=r=>Number(r?.meta?.changes??r?.changes??0);
 const parse=s=>{try{return JSON.parse(s)||{};}catch{return {};}};
 const slots={'pkg-day':[10,17],'pkg-allday':[10,24],'pkg-allnight':[18,31],morning:[7,12],day:[12,17],evening:[17,24],am:[9,13],pm:[13,18],ev:[18,23],ampm:[9,18],pmev:[14,23]};

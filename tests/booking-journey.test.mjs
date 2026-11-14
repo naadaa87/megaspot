@@ -102,7 +102,7 @@ test('확정 안내의 두 버튼은 전용 예약 링크와 식음료 링크를
 test('입실 전 안내는 입실·이용 안내와 주차권 구매만 보내고 식음료·전용 예약 버튼을 섞지 않는다',async t=>{
  const f=setup(t);f.create(shiftDay(dayAt(Date.now()),1));f.db.exec("UPDATE booking_journey_state SET confirmed_at='2020-01-01' WHERE booking_code='BK-NEW'");await f.tick();await transactionNoticeTick(f.env);await transactionNoticeTick(f.env);
  const payload=f.sends.find(d=>d.tpl_code===JOURNEY_TEMPLATES.booking_arrival.code),buttons=JSON.parse(payload.button_1).button;
- assert.deepEqual(buttons.map(b=>b.name),['입실 및 이용 안내','주차권 구매']);assert.equal(buttons[0].linkMo,'https://megaspot-guide.pages.dev/');assert.equal(buttons[1].linkMo,'https://megaspot.kr/parking/purchase/');assert.ok(!payload.fmessage_1.includes('/catering/'));assert.ok(payload.fmessage_1.includes('/parking/purchase/'));assert.ok(!/#\{/.test(payload.message_1));
+ assert.deepEqual(buttons.map(b=>b.name),['입실 및 이용 안내','주차권 구매']);assert.equal(buttons[0].linkMo,'https://megaspot.kr/arrival/space1/');assert.equal(buttons[1].linkMo,'https://megaspot.kr/parking/purchase/');assert.ok(!payload.fmessage_1.includes('/catering/'));assert.ok(payload.fmessage_1.includes('/parking/purchase/'));assert.ok(!/#\{/.test(payload.message_1));
 });
 test('승인된 새 확정 템플릿은 승인 캐시를 사용하고 예전 한 버튼 템플릿으로 되돌아가지 않는다',async t=>{
  const f=setup(t);const {approvedCustomerTemplate}=await import('../functions/api/_customer_alimtalk.js');const expected=JOURNEY_TEMPLATES.booking_confirmed;assert.equal(expected.fallback,undefined);
@@ -113,9 +113,9 @@ test('승인된 새 확정 템플릿은 승인 캐시를 사용하고 예전 한
 test('전날·당일 임박 예약은 확정 통합 안내만 보내고 입실 안내를 같은 시점에 추가하지 않는다',async t=>{
  const f=setup(t);f.create(shiftDay(dayAt(Date.now()),1));await f.tick();await transactionNoticeTick(f.env);assert.equal(f.sends.length,1);assert.equal(f.sends[0].tpl_code,'UN_6623');assert.equal(f.row('booking_arrival'),undefined);
 });
-test('2호 입실 안내에는 1호 시설 페이지 대신 승인된 예약별 통합 링크를 보낸다',async t=>{
+test('2호 입실 안내는 같은 승인 템플릿의 지점별 변수로 2호 안내와 공통 주차권을 보낸다',async t=>{
  const f=setup(t);f.create(shiftDay(dayAt(Date.now()),1));f.db.exec("UPDATE bookings SET space_id='megaspot-gundae-2' WHERE booking_code='BK-NEW'; UPDATE booking_journey_state SET confirmed_at='2020-01-01' WHERE booking_code='BK-NEW'");await f.tick();await transactionNoticeTick(f.env);await transactionNoticeTick(f.env);
- const d=f.sends.find(d=>d.tpl_code==='UN_6621');assert.ok(d);const buttons=JSON.parse(d.button_1).button;assert.equal(buttons.length,1);assert.match(buttons[0].linkMo,/\/booking\/#booking=/);assert.ok(!d.fmessage_1.includes('megaspot-guide.pages.dev'));assert.match(d.message_1,/건대 2호/);
+ const d=f.sends.find(d=>d.tpl_code==='UN_7028');assert.ok(d);const buttons=JSON.parse(d.button_1).button;assert.equal(buttons.length,2);assert.equal(buttons[0].linkMo,'https://megaspot.kr/arrival/space2/');assert.equal(buttons[1].linkMo,'https://megaspot.kr/parking/purchase/');assert.ok(!d.fmessage_1.includes('megaspot-guide.pages.dev'));assert.match(d.message_1,/건대 2호/);
 });
 
 test('시간 구간만 저장된 예전 예약도 기존 주간 시간으로 안내하고 모르는 구간은 확인 대기로 남긴다',async t=>{

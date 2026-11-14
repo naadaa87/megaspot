@@ -32,7 +32,7 @@ test('관리자 인증·동일 출처·암호화 미설정·시간 미정·취�
  f.db.exec("UPDATE bookings SET start_h=NULL,end_h=NULL,slot=NULL");await f.api(PATH+'/link','POST',{},409);f.db.exec("UPDATE bookings SET status='cancelled'");await f.api(PATH+'/link','POST',{},409);
 });
 test('전용 토큰만 허용·CORS 제한·응답 마스킹·계좌 원문 암호화·계좌 변경 CAS',async t=>{
- const f=setup(t),r=await f.link();assert.match(r.url,/^https:\/\/megaspot-guide.pages.dev\/#refund-account=[A-Za-z0-9_-]{43}$/);assert.equal((await f.link()).url,r.url);
+ const f=setup(t),r=await f.link();assert.match(r.url,/^https:\/\/megaspot.kr\/arrival\/space1\/#refund-account=[A-Za-z0-9_-]{43}$/);assert.equal((await f.link()).url,r.url);
  assert.equal((await f.call('GET',null,'wrong')).status,403);assert.equal((await f.call('GET',null,undefined,'https://evil.test')).status,403);
  const preflight=await f.call('OPTIONS');assert.equal(preflight.status,204);assert.equal(preflight.headers.get('Access-Control-Allow-Origin'),'https://megaspot-guide.pages.dev');assert.equal(preflight.headers.get('Access-Control-Allow-Credentials'),null);
  await f.register();const row=f.db.prepare('SELECT * FROM booking_refunds').get();assert.ok(!row.account_cipher.includes('001234567890'));assert.ok(!JSON.stringify(row).includes('홍길동'));assert.ok(!JSON.stringify(row).includes(f.token()));

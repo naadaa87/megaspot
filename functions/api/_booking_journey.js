@@ -39,7 +39,7 @@ export async function journeyContext(env,row,{preview=false}={}){
  }
  const vars={고객명:String(b.customer_name||'').replace(/[\r\n]/g,' '),공간명:SPACES[b.space_id],예약번호:b.booking_code,이용일:b.date,이용시간:[b.start_h,b.end_h].map(hour).join('~'),잔금:Number(s.balance).toLocaleString('ko-KR'),수납액:Number(s.net).toLocaleString('ko-KR'),납부기한:schedule.due_date};
  const render=template=>row.kind==='booking_confirmed'?portalGuideMessage(b,[b.start_h,b.end_h]):template.content.replace(/#\{([^}]+)\}/g,(_,key)=>vars[key]);
- const buttonsFor=template=>journeyButtons(template,link.url),buttons=buttonsFor(JOURNEY_TEMPLATES[row.kind]);
+ const buttonsFor=template=>journeyButtons(template,link.url,b.space_id),buttons=buttonsFor(JOURNEY_TEMPLATES[row.kind]);
  return {b,s,render,buttons,buttonsFor,link,booking_revision};
 }
 export async function bookingJourneyTick(env){

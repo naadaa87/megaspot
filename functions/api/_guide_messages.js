@@ -1,6 +1,6 @@
 import {saveNotificationContent,noticeButtons} from './_notification_content.js';
 import {noAutomaticArrivalSql} from './_arrival_guard.js';
-import {JOURNEY_TEMPLATES} from './_booking_journey_templates.js';
+import {JOURNEY_TEMPLATES,journeyButtons,arrivalGuideUrl} from './_booking_journey_templates.js';
 import {mobilePhone,contactPhones,bookingPhone2Sql} from './_contacts.js';
 import {customerFallback,customerFallbackResult} from './_customer_alimtalk.js';
 // Reservation guide Alimtalk. No credentials or public sending routes live in the browser.
@@ -146,7 +146,7 @@ async function active(env,b) {
 }
 function snapshot(b) { return { booking_code:b.booking_code, revision:b.revision || 0, inquiry_ref:b.inquiry_ref || '', customer_name:b.customer_name, phone:guidePhone(b.delivery_phone||b.phone), ...(b.delivery_phone&&b.delivery_phone!==guidePhone(b.phone)?{primary_phone:guidePhone(b.phone)}:{}), space_id:b.space_id, date:b.date, time:hours(b), message:guideMessage(b), guide_sent:b.guide_sent || false }; }
 async function messageSnapshot(env,b,s,issue=false){const snap=snapshot(b);if(s.template_code===JOURNEY_TEMPLATES.booking_arrival.code)snap.template_code=s.template_code;if(s.variant===PORTAL_GUIDE_VARIANT)return portalGuideSnapshot(env,b,snap,issue);snap.message=guideMessage(b,profile(s).template);return snap;}
-async function presentSnapshot(env,snap,s={}){if(snap.delivery_variant!==PORTAL_GUIDE_VARIANT){const p=profile(s);return {...snap,button:p.button,buttons:p.buttons||[p.button],guide_url:GUIDE_URL};}const button=await portalGuideButton(env,snap);return {...snap,button,buttons:[button],guide_url:button.linkMo};}
+async function presentSnapshot(env,snap,s={}){if(snap.delivery_variant!==PORTAL_GUIDE_VARIANT){const p=profile(s);const buttons=s.template_code===JOURNEY_TEMPLATES.booking_arrival.code?journeyButtons(JOURNEY_TEMPLATES.booking_arrival,'',snap.space_id):(p.buttons||[p.button]);return {...snap,button:buttons[0],buttons,guide_url:s.template_code===JOURNEY_TEMPLATES.booking_arrival.code?arrivalGuideUrl(snap.space_id):GUIDE_URL};}const button=await portalGuideButton(env,snap);return {...snap,button,buttons:[button],guide_url:button.linkMo};}
 async function reconciliationConfig(env,m,snap){
  const current=await deliveryConfig(env,m,snap);if(m.mode!=='live'||m.config_hash===await configHash(env,current))return current;
  const archived=await env.DB.prepare('SELECT value FROM settings WHERE key=?').bind('retired_reservation_guide:'+m.config_hash).first();
@@ -183,6 +183,7 @@ async function dispatch(env,id,s,template) {
     if (reason || !sameSnapshot(snap,fresh)) return state(env,id,'cancelled',reason || '예약 내용 또는 통합 링크가 변경되었습니다. 다시 미리보기해 주세요.');
     if (m.mode==='live'&&await ready(env,s)) return; // safely retain an unsent queue when switched off
   }
+  if(!isPortal&&s.template_code===JOURNEY_TEMPLATES.booking_arrival.code)button=journeyButtons(JOURNEY_TEMPLATES.booking_arrival,'',snap.space_id);
   if(isPortal)try{button=await portalGuideButton(env,snap);}catch{return state(env,id,'cancelled','통합 안내 링크가 변경되었습니다. 새로 미리보기해 주세요.');}
   const ref=snap.portal_reference,guard=isPortal?" AND EXISTS(SELECT 1 FROM booking_portal_links pl JOIN bookings pb ON pb.booking_code=pl.booking_code WHERE pl.booking_code=? AND pl.token_hash=? AND pl.version=? AND pl.recipient_hash=? AND pl.expires_at>? AND pb.status='confirmed' AND pb.phone IS ? AND pb.customer_name IS ?)":'';
   const recipientGuard=m.mode==='live'?` AND EXISTS(SELECT 1 FROM bookings cb WHERE cb.booking_code=? AND cb.status='confirmed' AND cb.phone IS ? AND (?=0 OR (${bookingPhone2Sql('cb')})=?) AND COALESCE((SELECT revision FROM booking_guide_state cgs WHERE cgs.booking_code=cb.booking_code),0)=?)`:'';
@@ -378,7 +379,7 @@ export async function guideAdmin({env,request,url,path,method}) {
   if(path==='guide-messages/settings' && method==='PUT') {
     const d=await readJson(request),variant=d.variant??s.variant;if(!['legacy',PORTAL_GUIDE_VARIANT].includes(variant))return err('안내 방식을 확인해 주세요.');
     const next={variant,enabled:d.enabled===true,automatic:d.automatic===true,template_code:str(d.template_code,60),spaces:Array.isArray(d.spaces)?d.spaces.filter(x=>Object.hasOwn(SPACES,x)):[]};
-    if(next.enabled&&(await env.DB.prepare("SELECT json_extract(value,'$.enabled') AS enabled FROM settings WHERE key='booking_journey'").first())?.enabled===1&&(next.variant!=='legacy'||next.template_code!==JOURNEY_TEMPLATES.booking_arrival.code||next.automatic||next.spaces.some(space=>space!=='megaspot-gundae')))return err('이전 자동·수동 안내는 종료되었습니다. 새 입실·주차 템플릿으로 수동 안내만 설정해 주세요.',409);
+    if(next.enabled&&(await env.DB.prepare("SELECT json_extract(value,'$.enabled') AS enabled FROM settings WHERE key='booking_journey'").first())?.enabled===1&&(next.variant!=='legacy'||next.template_code!==JOURNEY_TEMPLATES.booking_arrival.code||next.automatic))return err('이전 자동·수동 안내는 종료되었습니다. 새 입실·주차 템플릿으로 수동 안내만 설정해 주세요.',409);
     if(next.enabled) { if(env.ALIGO_LIVE_ENABLED!=='true') return err('Cloudflare의 ALIGO_LIVE_ENABLED를 true로 설정한 뒤 활성화할 수 있습니다.',409); await approved(env,next); if(!next.spaces.length || !await tested(env,await configHash(env,next))) return err('호점별 안내 확인과 현재 설정의 운영자 시험 수신을 먼저 완료해 주세요.',409); }
     const statements=[];
     if(await configHash(env,next)!==hash)statements.push(env.DB.prepare('INSERT OR IGNORE INTO settings(key,value,updated_at) VALUES(?,?,?)').bind('retired_reservation_guide:'+hash,JSON.stringify(s),now()));

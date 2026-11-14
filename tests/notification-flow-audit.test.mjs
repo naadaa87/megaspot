@@ -28,8 +28,8 @@ function setup(t){
  const manual=async()=>{const p=await f.api('guide-messages/preview','POST',{codes:['BK-TEST']});assert.equal(p.excluded.length,0);return f.api('guide-messages/send','POST',{preview_id:p.preview_id,confirm_send:true});};
  return {...f,op,activate,priorDayBooking,plan,manual,sent,today};
 }
-test('운영 전환은 승인된 13종을 연결하고 수동 안내도 두 버튼으로 바꾸며 이전 자동·세 버튼 경로를 재활성화하지 못한다',async t=>{
- const f=setup(t),r=await f.activate();assert.equal(r.connected.length,Object.keys(T).length);assert.equal(r.manual_guide.code,'UN_6624');assert.equal(r.manual_guide.automatic,false);assert.equal(r.manual_guide.test_delivered,true);
+test('운영 전환은 승인된 공통 템플릿을 연결하고 수동 안내도 두 버튼으로 바꾸며 이전 자동·세 버튼 경로를 재활성화하지 못한다',async t=>{
+ const f=setup(t),r=await f.activate();assert.equal(r.connected.length,Object.keys(T).length);assert.equal(r.manual_guide.code,'UN_7028');assert.equal(r.manual_guide.automatic,false);assert.equal(r.manual_guide.test_delivered,true);
  assert.equal(f.sent.length,1);assert.equal(f.sent[0].receiver_1,'01011112222');assert.deepEqual(JSON.parse(f.sent[0].button_1).button.map(b=>b.name),['입실 및 이용 안내','주차권 구매']);assert.ok(!/#\{/.test(f.sent[0].message_1));
  await f.api('guide-messages/settings','PUT',{variant:'legacy',enabled:true,automatic:true,template_code:'UN_3115',spaces:['megaspot-gundae']},409);
  const audit=await notificationAudit(f.env);assert.equal(audit.legacy_queued,0);assert.ok(!JSON.stringify(audit).includes('01011112222'));
@@ -43,7 +43,7 @@ test('서명 없는 운영 연결 요청은 설정·발송을 변경하지 않�
  const f=setup(t);const response=await cron({env:f.env,params:{path:['journey-operations']},request:new Request('https://local.test/api/deposit-notifications/journey-operations',{method:'POST',body:JSON.stringify({time:Date.now(),action:'activate_approved_notifications'})})});assert.equal(response.status,403);assert.equal(f.sent.length,0);assert.equal((await notificationAudit(f.env)).manual_guide.code,'UN_3115');
 });
 test('자동 입실 안내가 먼저 접수되면 같은 예약의 수동 입실 안내를 중복 발송하지 않는다',async t=>{
- const f=setup(t);await f.activate();f.priorDayBooking();await f.plan();await transactionNoticeTick(f.env);assert.equal(f.sent.length,2);assert.equal(f.sent[1].tpl_code,'UN_6624');await f.manual();assert.equal(f.sent.length,2);assert.equal(f.db.prepare("SELECT status FROM booking_guide_messages WHERE mode='live'").get().status,'cancelled');
+ const f=setup(t);await f.activate();f.priorDayBooking();await f.plan();await transactionNoticeTick(f.env);assert.equal(f.sent.length,2);assert.equal(f.sent[1].tpl_code,'UN_7028');await f.manual();assert.equal(f.sent.length,2);assert.equal(f.db.prepare("SELECT status FROM booking_guide_messages WHERE mode='live'").get().status,'cancelled');
 });
 test('수동 입실 안내가 먼저 접수되면 자동 입실 안내를 수신자별로 생략한다',async t=>{
  const f=setup(t);await f.activate();f.priorDayBooking();await f.manual();assert.equal(f.sent.length,2);await f.plan();await transactionNoticeTick(f.env);assert.equal(f.sent.length,2);assert.equal(f.db.prepare("SELECT status FROM transaction_notifications WHERE kind='booking_arrival'").get().status,'cancelled');

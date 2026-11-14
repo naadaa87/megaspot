@@ -95,7 +95,7 @@ async function dispatch(env,row){
   if(row.kind!=='booking_confirmed'){const h=new Date(Date.now()+9*3600000).getUTCHours();if(h<9||h>=21)return;}
  }
  const provider=(path,data,id)=>aligoProvider(env,path,data,id);
- const template=row.audience==='customer'?await approvedCustomerTemplate(env,provider,row.kind==='booking_arrival'&&journey?.b.space_id==='megaspot-gundae-2'?'booking_arrival_space2':row.kind):null;
+ const template=row.audience==='customer'?await approvedCustomerTemplate(env,provider,row.kind):null;
  if(row.audience==='customer'&&!template){
   await env.DB.prepare("UPDATE transaction_notifications SET error=?,updated_at=datetime('now') WHERE id=? AND status='queued'")
    .bind('승인된 알림톡 본문·버튼 확인 대기',row.id).run();
