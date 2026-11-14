@@ -6,6 +6,8 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 const json=(body,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store'}});
+// 문자 길이(바이트): 한글 등은 2바이트, 영문·숫자·기호는 1바이트로 셉니다. 90바이트 이하는 단문(SMS), 넘으면 장문(LMS).
+export const smsBytes=s=>[...String(s||'')].reduce((n,c)=>n+(c.charCodeAt(0)>127?2:1),0);
 const FIELDS={
   'socialfactory-admin/status':[],
   'socialfactory-admin/send':['receiver','msg'],
@@ -17,6 +19,8 @@ const FIELDS={
   'transaction/customer/send':['receiver','msg'],
   'transaction/admin/send':['receiver','msg'],
   'host/send':['receiver','msg'],
+  'member/status':[],
+  'member/send':['receiver','msg'],
   'template/list':['tpl_code'],
   'history/detail':['mid','page','limit'],
   'sms/detail':['mid','page','page_size'],
@@ -53,9 +57,10 @@ export async function relayRequest(request,env,ledger,upstream=fetch){
   if(v.path==='socialfactory-admin/status')return json({ready:!!socialfactoryReceivers.length,receiver_last4:socialfactoryReceivers.map(s=>s.slice(-4))});
   if(v.path==='parking-admin/status')return json({ready:!!adminReceivers.length,receivers:adminReceivers});
   if(v.path==='transaction/status')return json({ready:true});
+  if(v.path==='member/status')return json({ready:true});   // 관리자 '회원 관리'의 문자 발송 경로가 이 서버에 있는지 확인
   const transactionCustomer=v.path==='transaction/customer/send',transactionAdmin=v.path==='transaction/admin/send';
   const transactionSMS=transactionCustomer||transactionAdmin;
-  const socialfactorySMS=v.path==='socialfactory-admin/send',adminSMS=v.path==='parking-admin/send'||socialfactorySMS,paidSMS=v.path==='parking-paid/send',arrivalSMS=v.path==='parking-arrival/send',customerSMS=paidSMS||arrivalSMS,hostSMS=v.path==='host/send',directSMS=adminSMS||customerSMS||transactionSMS||hostSMS;
+  const socialfactorySMS=v.path==='socialfactory-admin/send',adminSMS=v.path==='parking-admin/send'||socialfactorySMS,paidSMS=v.path==='parking-paid/send',arrivalSMS=v.path==='parking-arrival/send',customerSMS=paidSMS||arrivalSMS,hostSMS=v.path==='host/send',memberSMS=v.path==='member/send',directSMS=adminSMS||customerSMS||transactionSMS||hostSMS||memberSMS;
   const sending=directSMS||v.path==='alimtalk/send';
   const data=Object.fromEntries(FIELDS[v.path].filter(k=>v.data[k]!=null).map(k=>[k,String(v.data[k])]));
   if(['history/detail','sms/detail'].includes(v.path) && !/^\d{1,30}$/.test(data.mid || ''))return json({error:'Invalid message ID'},400);
@@ -63,6 +68,8 @@ export async function relayRequest(request,env,ledger,upstream=fetch){
   if(v.path==='sms/detail' && !ledger.ownsSmsMid(data.mid))return json({error:'SMS not owned by this relay'},403);
   // 입점 호스트 알림톡 템플릿 코드는 서버 환경 변수 ALIGO_HOST_TEMPLATE_CODES(쉼표 구분)에 넣은 것만 허용합니다
   const hostCodes=new Set((env.ALIGO_HOST_TEMPLATE_CODES||'').split(',').map(s=>s.trim()).filter(s=>/^[A-Za-z0-9_-]{2,30}$/.test(s)));
+  // 회원 안내 알림톡 템플릿 코드는 ALIGO_MEMBER_TEMPLATE_CODES(쉼표 구분)에 넣은 것만 허용합니다
+  for(const c of (env.ALIGO_MEMBER_TEMPLATE_CODES||'').split(',').map(s=>s.trim()).filter(s=>/^[A-Za-z0-9_-]{2,30}$/.test(s)))hostCodes.add(c);
   if(['template/list','alimtalk/send'].includes(v.path) && !NEW_CUSTOMER_CODES.has(data.tpl_code) && !hostCodes.has(data.tpl_code) && !(env.ALIGO_TEMPLATE_CODES || 'UN_2584').split(',').map(s=>s.trim()).includes(data.tpl_code))return json({error:'Template not allowed'},403);
   const hash=createHash('sha256').update(JSON.stringify([v.path,data,env.ALIGO_USERID,env.ALIGO_SENDER_KEY])).digest('hex');
   const staffMessage=socialfactorySMS?socialfactoryReceivers.includes(data.receiver)&&/^\[소셜팩토리 주차권 (?:자동 등록 오류|잔액 부족)\]\n/.test(data.msg||'')&&data.msg.endsWith('https://socialfactory.co.kr/admin#parking'):/^\[메가스팟 주차권 (?:결제 완료|관리자 알림 시험|자동 등록 오류|잔액 부족|검증 완료|검증 확인 필요)\]\n/.test(data.msg||'')&&data.msg.endsWith('https://megaspot.kr/admin/#parking');
@@ -79,6 +86,12 @@ export async function relayRequest(request,env,ledger,upstream=fetch){
   }
   // 입점 호스트 알림(새 문의·견적 수락·입금 알림·취소·심사 결과·이용료): 정해진 머리말로 시작하고 호스트센터 주소로 끝나는 문자만 보냅니다.
   if(hostSMS && (!/^01[016789]\d{7,8}$/.test(data.receiver||'')||!(data.msg||'').startsWith('[메가스팟 호스트 알림]\n')||!/\nhttps:\/\/megaspot\.kr\/host\/center\/(?:#[A-Za-z0-9=-]{1,40})?$/.test(data.msg)||data.msg.length>600||/#\{/.test(data.msg)))return json({error:'Invalid host notice'},400);
+  // 회원 안내·광고 문자(관리자 '회원 관리'): [메가스팟] 또는 (광고)[메가스팟]으로 시작. 광고는 수신거부 방법이 있어야 하고 밤 9시~아침 8시(한국 시각)에는 보내지 않습니다.
+  if(memberSMS){
+    const msg=data.msg||'',ad=msg.startsWith('(광고)[메가스팟]'),hour=new Date(Date.now()+9*3600e3).getUTCHours();
+    if(!/^01[016789]\d{7,8}$/.test(data.receiver||'')||!(ad||msg.startsWith('[메가스팟]'))||msg.length>1000||/#\{/.test(msg))return json({error:'Invalid member message'},400);
+    if(ad&&(!/수신거부/.test(msg)||hour>=21||hour<8))return json({error:'Advertising rule'},403);
+  }
   const fallback=PARKING_SMS.has(data.tpl_code)||(CUSTOMER_FALLBACK_CODES.has(data.tpl_code)||hostCodes.has(data.tpl_code))&&!!data.fmessage_1;
   if(sending){
     if(!directSMS && (!/^01[016789]\d{7,8}$/.test(data.receiver_1 || '') || !data.message_1 || data.message_1.length>1000 || !data.subject_1))return json({error:'Invalid recipient/message'},400);
@@ -88,7 +101,7 @@ export async function relayRequest(request,env,ledger,upstream=fetch){
     // Durable reservation survives process restarts and uncertain HTTP outcomes.
     if(!ledger.claim(v.request_id,hash))return json({error:'Delivery outcome requires review'},409);
     if(!fallback){delete data.fmessage_1;delete data.fsubject_1;}
-    Object.assign(data,directSMS?{sender:env.ALIGO_SENDER,msg_type:'LMS',title:hostSMS?'메가스팟 호스트 알림':transactionSMS?'메가스팟 거래 안내':socialfactorySMS?'소셜팩토리 주차권 관리자 알림':arrivalSMS?'메가스팟 주차 등록 요청 접수':customerSMS?'메가스팟 주차권 결제 완료':'메가스팟 주차권 관리자 알림',testmode_yn:'N'}:{sender:env.ALIGO_SENDER,failover:fallback?'Y':'N',testMode:'N'});
+    Object.assign(data,directSMS?{sender:env.ALIGO_SENDER,msg_type:memberSMS&&smsBytes(data.msg)<=90?'SMS':'LMS',title:memberSMS?(data.msg.startsWith('(광고)')?'(광고) 메가스팟':'메가스팟 안내'):hostSMS?'메가스팟 호스트 알림':transactionSMS?'메가스팟 거래 안내':socialfactorySMS?'소셜팩토리 주차권 관리자 알림':arrivalSMS?'메가스팟 주차 등록 요청 접수':customerSMS?'메가스팟 주차권 결제 완료':'메가스팟 주차권 관리자 알림',testmode_yn:'N'}:{sender:env.ALIGO_SENDER,failover:fallback?'Y':'N',testMode:'N'});
   }
   const smsQuery=v.path==='sms/detail';
   const body=new URLSearchParams((smsQuery||directSMS)?{...data,key:env.ALIGO_API_KEY,user_id:env.ALIGO_USERID}:{...data,apikey:env.ALIGO_API_KEY,userid:env.ALIGO_USERID});

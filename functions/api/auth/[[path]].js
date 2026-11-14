@@ -58,6 +58,7 @@ export async function onRequest({ request, env, params }) {
         .bind(email, name, phone, org, await hashPassword(d.password), d.agree_marketing ? 1 : 0, t, 'active', t).run();
       const m = await env.DB.prepare('SELECT id, email, name, phone, org, agree_marketing, created_at FROM members WHERE email = ?').bind(email).first();
       await log(env, 'member.created', String(m.id), 'member', { marketing: !!d.agree_marketing });
+      if (d.agree_marketing) await env.DB.prepare('INSERT INTO member_consent_log (member_id, value, source, created_at) VALUES (?,?,?,?)').bind(m.id, 1, 'signup', t).run();
       return withCookies(json({ ok: true, member: publicMember(m) }), await startSession(env, request, m.id));
     }
 
@@ -104,6 +105,8 @@ export async function onRequest({ request, env, params }) {
       sets.push('updated_at = ?'); b.push(now(), me.id);
       await env.DB.prepare('UPDATE members SET ' + sets.join(', ') + ' WHERE id = ?').bind(...b).run();
       await log(env, 'member.updated', String(me.id), 'member', Object.keys(d));
+      // 마케팅 수신 동의를 바꾸면 그 기록을 남깁니다 (관리자 '회원 관리'에서 확인 · 2026-11-14)
+      if (d.agree_marketing !== undefined && !!d.agree_marketing !== !!me.agree_marketing) await env.DB.prepare('INSERT INTO member_consent_log (member_id, value, source, created_at) VALUES (?,?,?,?)').bind(me.id, d.agree_marketing ? 1 : 0, 'mypage', now()).run();
       const m = await env.DB.prepare('SELECT id, email, name, phone, org, agree_marketing, created_at FROM members WHERE id = ?').bind(me.id).first();
       return json({ ok: true, member: publicMember(m) });
     }

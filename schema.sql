@@ -1018,6 +1018,32 @@ CREATE TABLE IF NOT EXISTS host_customers (   -- 호스트가 남긴 고객 메�
   updated_at TEXT NOT NULL,
   PRIMARY KEY (host_id, phone_key)
 );
+CREATE TABLE IF NOT EXISTS member_notes (    -- 관리자 '회원 관리'의 회원별 메모·표시 (회원에게 보이지 않음 · 2026-11-14)
+  member_id INTEGER PRIMARY KEY, memo TEXT, tags TEXT NOT NULL DEFAULT '[]', updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS member_consent_log (   -- 마케팅 수신 동의 바뀐 기록 (수신거부 링크·관리자)
+  id INTEGER PRIMARY KEY AUTOINCREMENT, member_id INTEGER NOT NULL, value INTEGER NOT NULL, source TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_member_consent_member ON member_consent_log(member_id);
+CREATE TABLE IF NOT EXISTS member_campaigns (   -- 회원에게 보낸 문자·알림톡·이메일 (한 번 보내기 = 한 줄)
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ref TEXT NOT NULL UNIQUE,                 -- MC-YYMM-XXXX
+  channel TEXT NOT NULL,                    -- sms 문자 | kakao 알림톡 | email 이메일
+  purpose TEXT NOT NULL,                    -- info 정보성 안내 | ad 광고성 (마케팅 수신 동의 회원만)
+  subject TEXT, body TEXT NOT NULL,         -- 관리자가 쓴 제목·내용 ({이름} 은 회원 이름으로 바뀜)
+  status TEXT NOT NULL DEFAULT 'ready',     -- ready 보낼 준비 | sending 보내는 중 | done 끝 | stopped 멈춤
+  total INTEGER NOT NULL DEFAULT 0, sent INTEGER NOT NULL DEFAULT 0, failed INTEGER NOT NULL DEFAULT 0, unknown INTEGER NOT NULL DEFAULT 0,
+  data TEXT NOT NULL DEFAULT '{}',          -- 대상 조건·제외 수 JSON
+  created_at TEXT NOT NULL, updated_at TEXT, finished_at TEXT
+);
+CREATE TABLE IF NOT EXISTS member_campaign_targets (   -- 받는 회원별 결과
+  campaign_id INTEGER NOT NULL, member_id INTEGER NOT NULL,
+  receiver TEXT NOT NULL,                   -- 휴대폰(숫자만) 또는 이메일
+  status TEXT NOT NULL DEFAULT 'queued',    -- queued 대기 | sending 보내는 중 | sent 접수 | failed 실패 | unknown 확인 필요 | skipped 보내기 전 제외
+  error TEXT, provider_id TEXT, updated_at TEXT,
+  PRIMARY KEY (campaign_id, member_id)
+);
+CREATE INDEX IF NOT EXISTS idx_member_campaign_targets_member ON member_campaign_targets(member_id);
 CREATE TABLE IF NOT EXISTS host_assist (    -- 공간 등록 대행 요청 (호스트가 자료를 보내면 본사가 공간 정보를 대신 채움 · 2026-11-14)
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   ref TEXT NOT NULL UNIQUE,                 -- 요청 번호 AS-YYMM-XXXX
