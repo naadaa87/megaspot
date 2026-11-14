@@ -11,8 +11,9 @@ function calendar() {
     A: path => new Promise((resolve, reject) => requests.push({ path, resolve, reject })),
     AList: path => new Promise((resolve, reject) => requests.push({ path, resolve, reject })),
     M: { pad2: n => String(n).padStart(2, '0') }, E: null,
-    reservationMonth:()=>'',todayIso: () => '2026-10-23', guard: () => false, esc: String
+    reservationFilterMatch:()=>true,reservationMonth:()=>'',todayIso: () => '2026-10-23', guard: () => false, esc: String
   });
+  vm.runInContext(source.slice(source.indexOf('  function reservationFilterMatch('),source.indexOf('  function reservationMonth(')),context);
   vm.runInContext(source.slice(source.indexOf('  function calendarServiceDot('),source.indexOf('  function matchesConfirmedService'))+'\n'+source.slice(source.indexOf('  function calendarFoodMatches('), source.indexOf("  $('#cal-prev').addEventListener")), context);
   return { context, nodes, requests };
 }
@@ -97,3 +98,5 @@ test('달력 식음료 필터는 상담·취소·미선택과 종일 마감을 �
  nodes['#cal-service-filter'].value='reception';context.drawCalendar([],bookings,[]);assert.match(nodes['#cal-service-summary'].textContent,/해당하는 건이 없습니다/);
  nodes['#cal-service-filter'].value='';context.drawCalendar([],bookings,[]);assert.equal(nodes['#cal-service-summary'].hidden,true);assert.match(nodes['#cal-grid'].innerHTML,/상담중/);
 });
+
+test('달력 상태·검색은 취소 기록도 조회하고 다른 상태·검색어를 제외한다',()=>{const {context,nodes}=calendar();nodes['#cal-status-filter']={value:'cancelled'};nodes['#cal-q']={value:'01012345678'};context.drawCalendar([],[{date:'2026-10-23',status:'cancelled',customer_name:'취소 검증',phone:'010-1234-5678'},{date:'2026-10-23',status:'completed',customer_name:'완료 검증',phone:'010-1234-5678'}],[]);assert.match(nodes['#cal-grid'].innerHTML,/취소 검증/);assert.doesNotMatch(nodes['#cal-grid'].innerHTML,/완료 검증/);assert.match(nodes['#cal-service-summary'].textContent,/1건/);});

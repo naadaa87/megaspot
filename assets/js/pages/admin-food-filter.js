@@ -3,9 +3,11 @@
  'use strict';
  var groups=[
   {key:'megaspot.admin.food-filter.v1',allowed:['','confirmed','catering','reception','cocktail'],ids:['bk-service-filter','rs-service-filter','cal-service-filter']},
-  {key:'megaspot.admin.space-filter.v1',allowed:['','megaspot-gundae','megaspot-gundae-2'],ids:['bk-space-filter','rs-space','cal-filter']}
+  {key:'megaspot.admin.space-filter.v1',allowed:['','megaspot-gundae','megaspot-gundae-2'],ids:['bk-space-filter','rs-space','cal-filter']},
+  {key:'megaspot.admin.status-filter.v1',allowed:['','active','confirmed','completed','cancelled','payment_review'],ids:['bk-filter','rs-status','cal-status-filter']},
+  {key:'megaspot.admin.search-filter.v1',text:true,ids:['bk-q','rs-q','cal-q']}
  ];
- function valid(group,value){return group.allowed.indexOf(value)>=0?value:'';}
+ function valid(group,value){if(group.text)return typeof value==='string'?value.slice(0,120):'';return group.allowed.indexOf(value)>=0?value:'';}
  function apply(group,value){value=valid(group,value);group.controls.forEach(function(control){control.value=value;});return value;}
  groups.forEach(function(group){group.controls=group.ids.map(function(id){return document.getElementById(id);}).filter(Boolean);var initial='';try{initial=localStorage.getItem(group.key)||'';}catch(e){}apply(group,initial);});
  function reset(){
@@ -18,7 +20,8 @@
   if(window.MEGASPOT&&window.MEGASPOT.toast)window.MEGASPOT.toast('이번 달 · 전체 호점 · 전체 식음료 · 전체 예약 상태로 초기화하고 검색어를 지웠습니다.');
  }
  window.MEGASPOT_RESERVATION_FILTERS={reset:reset};
- document.addEventListener('click',function(e){if(!e.target.closest('[data-reservation-filter-reset]'))return;e.preventDefault();reset();});
+ document.addEventListener('click',function(e){if(e.target.closest('#rs-search-clear')){var group=groups.find(function(g){return g.text;});apply(group,'');try{localStorage.setItem(group.key,'');}catch(error){}return;}if(!e.target.closest('[data-reservation-filter-reset]'))return;e.preventDefault();reset();});
+ document.addEventListener('input',function(e){var group=groups.find(function(g){return g.text&&g.controls.indexOf(e.target)>=0;});if(!group)return;var value=apply(group,e.target.value);try{localStorage.setItem(group.key,value);}catch(error){}});
  document.addEventListener('change',function(e){
   var group=groups.find(function(g){return g.controls.indexOf(e.target)>=0;});if(!group)return;
   var value=apply(group,e.target.value);try{localStorage.setItem(group.key,value);}catch(error){}

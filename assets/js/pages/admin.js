@@ -1495,17 +1495,26 @@
     if(!value) return true;
     return (item.services||[]).some(function(s){return s.status==='confirmed'&&['catering','reception','cocktail'].includes(s.kind)&&(value==='confirmed'||s.kind===value);});
   }
+  function reservationFilterMatch(item,status,query){
+    var cancelled=['cancelled','대기 취소','취소·환불','삭제됨'].includes(item.status);
+    if(status==='active'&&cancelled)return false;
+    if(status==='cancelled'&&!cancelled)return false;
+    if(status&&status!=='active'&&status!=='cancelled'&&item.status!==status)return false;
+    var normalize=function(v){return String(v||'').toLowerCase().replace(/[-\s]/g,'');},q=normalize(query);
+    if(!q)return true;
+    var d=item.data||{};return normalize([item.name,item.customer_name,item.phone,item.phone2,item.code,item.booking_code,item.ref,item.inquiry_ref,item.memo,d.name,d.phone,d.phone2].join(' ')).indexOf(q)>=0;
+  }
   function reservationMonth(){return typeof window!=='undefined'&&window.MEGASPOT_RESERVATION_PERIOD?window.MEGASPOT_RESERVATION_PERIOD.get():'';}
   var bkCache=[], bkRequest=0;
   function loadBookings(){
     var box=$('#bk-list');
-    var filter=$('#bk-filter').value, month=reservationMonth(), request=++bkRequest, params=filter==='upcoming'?'?status=confirmed'+(month?'':'&from='+todayIso()):filter?'?status='+encodeURIComponent(filter):'';
+    var filter=$('#bk-filter').value, month=reservationMonth(), request=++bkRequest, params=filter==='upcoming'?'?status=confirmed'+(month?'':'&from='+todayIso()):filter&&filter!=='active'?'?status='+encodeURIComponent(filter):'';
     if(month){var range=window.MEGASPOT_RESERVATION_PERIOD.bounds(month);params+=(params?'&':'?')+'from='+range.from+'&to='+range.to;}
     AList('/bookings'+params).then(function(r){ if(request!==bkRequest) return; bkCache=r.items||[]; drawBookings(); }).catch(function(e){ if(request===bkRequest) fail(box)(e); });
   }
   function drawBookings(){
-    var f=$('#bk-filter').value, service=$('#bk-service-filter').value, space=$('#bk-space-filter').value, month=reservationMonth(), t=todayIso();
-    var list=bkCache.filter(function(b){ return (!month||String(b.date).slice(0,7)===month)&&(!space||spKey(b.space_id)===space)&&matchesConfirmedService(b,service)&&(f==='upcoming'?(b.status==='confirmed'&&(month||b.date>=t)):(f?b.status===f:true)); });
+    var f=$('#bk-filter').value, service=$('#bk-service-filter').value, space=$('#bk-space-filter').value, month=reservationMonth(), query=$('#bk-q')?$('#bk-q').value:'', t=todayIso();
+    var list=bkCache.filter(function(b){ return (!month||String(b.date).slice(0,7)===month)&&(!space||spKey(b.space_id)===space)&&matchesConfirmedService(b,service)&&reservationFilterMatch(b,f==='upcoming'?'confirmed':f,query)&&(f!=='upcoming'||month||b.date>=t); });
     var summary=$('#bk-service-summary');summary.hidden=!service;summary.textContent=service?$('#bk-service-filter').selectedOptions[0].textContent+' · '+list.length+'건':'';
     if(f==='upcoming') list.sort(function(a,b){ return a.date<b.date?-1:1; });
     $('#bk-list').innerHTML=list.length?list.map(function(b){
@@ -1513,7 +1522,7 @@
       return '<div class="adm-row"'+(b.inquiry_ref?' data-ref="'+esc(b.inquiry_ref)+'"':'')+'><div class="r1"><b>'+esc(b.customer_name)+'</b>'+spaceTag(b.space_id)+'<span class="st '+st[1]+'">'+st[0]+'</span>'+depositControl(b)+'</div>'+serviceChips(b)+settlementSummary(b)+'<div class="r2">'+esc(kd(b.date))+' · '+esc(b.start_h!=null&&b.end_h!=null?hl(b.start_h)+'–'+hl(b.end_h):(SLOT[b.slot]||b.slot||''))+(b.headcount?' · '+b.headcount+'명':'')+(b.amount!=null?' · <b>'+esc(won(b.amount))+'</b>':'')+'</div>'+(b.memo?'<div class="tiny muted">'+esc(b.memo)+'</div>':'')+'<div class="r3"><span>'+esc(b.booking_code)+(b.inquiry_ref?' · '+esc(b.inquiry_ref):'')+' · <a href="tel:'+esc(b.phone)+'">'+esc(b.phone)+'</a>'+(b.phone2?' · <a href="tel:'+esc(b.phone2)+'">'+esc(b.phone2)+'</a>':'')+'</span><span>'+(['confirmed','completed'].includes(b.status)?'<button type="button" class="btn btn-light btn-sm" data-refund-code="'+esc(b.booking_code)+'">보증금 환급</button> '+cdBtn(b.booking_code, b.confirm_issued, 'btn-sm')+' ':'')+(b.status==='payment_review'?'<button class="btn btn-primary btn-sm" type="button" data-bk="confirmed" data-code="'+esc(b.booking_code)+'">일정 검토 후 확정</button>':'')+(b.status==='confirmed'?guideControl(b.booking_code,b.guide_status)+' <button class="btn btn-light btn-sm" type="button" data-bk="completed" data-code="'+esc(b.booking_code)+'">이용 완료</button> <button class="btn btn-light btn-sm" type="button" data-bk="cancelled" data-code="'+esc(b.booking_code)+'">취소</button>':'')+'</span></div></div>';
     }).join(''):emptyMsg(service?'현재 예약 상태에 해당하는 식음료 이용 확정 건이 없습니다. 예약 상태나 식음료 필터를 변경해 주세요.':'해당하는 예약이 없습니다.');
   }
-  $('#bk-filter').insertAdjacentHTML('beforeend','<option value="payment_review">일정 확인 필요</option>');
+  $('#bk-q').addEventListener('input',drawBookings);
   $('#bk-month-filter').addEventListener('change', loadBookings);
   $('#bk-filter').addEventListener('change', loadBookings); $('#bk-service-filter').addEventListener('change', drawBookings); $('#bk-space-filter').addEventListener('change', drawBookings); $('#bk-reload').addEventListener('click', loadBookings);
   $('#bk-list').addEventListener('click', changeDeposit);
@@ -1570,11 +1579,9 @@
     return RS.items.filter(function(it){
       if(sp && spKey(it.space_id)!==sp) return false;
       if(!matchesConfirmedService(it,$('#rs-service-filter').value)) return false;
-      if(it.kind==='booking'){ if(st==='active' && it.status==='cancelled') return false; if(st && st!=='active' && it.status!==st) return false; }
-      else { if(st==='active' && it.status==='대기 취소') return false; if(st==='cancelled' && it.status!=='대기 취소') return false; if(st && st!=='active' && st!=='cancelled') return false; }
+      if(!reservationFilterMatch(it,st,q))return false;
       var payment=$('#rs-payment-filter').value;if(payment==='outstanding'){if(!paymentEditable(it)||!['unpaid','reservation_paid'].includes(it.payment_status||'unpaid'))return false;}else if(payment&&(it.payment_status||'unpaid')!==payment)return false;
       if(ch && (it.channel||'')!==ch) return false;
-      if(q){ var hay=[it.name,it.phone,it.code,it.ref,it.memo].join(' ').toLowerCase().replace(/-/g,''); if(hay.indexOf(q)<0) return false; }
       return true;
     });
   }
@@ -2040,9 +2047,11 @@
     $('#cal-status').textContent=$('#cal-title').textContent+' 일정을 불러오는 중입니다.';
     var end=calMonth+'-'+M.pad2(new Date(+calMonth.slice(0,4),+calMonth.slice(5,7),0).getDate());
     var filter=$('#cal-filter'), space=filter&&filter.value?'&space='+encodeURIComponent(filter.value):'', range='from='+calMonth+'-01&to='+end+space;
-    return Promise.all([A('/calendar?'+range), AList('/bookings?'+range), AList('/inquiries?status=open&'+range)]).then(function(res){
+    return Promise.all([A('/calendar?'+range), AList('/bookings?'+range), AList('/inquiries?'+range)]).then(function(res){
       if(request!==calRequest) return;
-      drawCalendar(res[0].items||[], res[1].items||[], res[2].items||[]);
+      var bookings=res[1].items||[],linked=bookings.filter(function(b){return b.status!=='cancelled';}).map(function(b){return b.inquiry_ref;});
+      var inquiries=(res[2].items||[]).filter(function(i){return ['문의 접수','조건 확인','견적 발송','결제 대기','대기 취소'].includes(i.status)&&!linked.includes(i.ref);});
+      drawCalendar(res[0].items||[],bookings,inquiries);
       $('#cal-status').textContent=$('#cal-title').textContent+' 일정을 불러왔습니다.';
     }).catch(function(e){
       if(request!==calRequest || guard(e)) return;
@@ -2052,8 +2061,10 @@
   }
   function drawCalendar(blocks, bookings, inqs, loading){
     var foodFilter=$('#cal-service-filter').value,summary=$('#cal-service-summary');
+    var status=$('#cal-status-filter').value||'',query=$('#cal-q').value||'';
+    if(status||query){blocks=[];bookings=bookings.filter(function(b){return reservationFilterMatch(b,status,query);});inqs=inqs.filter(function(i){return reservationFilterMatch(i,status,query);});}
     if(foodFilter){blocks=[];bookings=bookings.filter(function(b){return b.status!=='cancelled'&&calendarFoodMatches(b,foodFilter);});inqs=inqs.filter(function(i){return calendarFoodMatches(i,foodFilter);});}
-    summary.hidden=!foodFilter;summary.textContent=foodFilter?(loading?'식음료 이용 확정 건을 불러오는 중…':'선택한 식음료 이용 확정 '+(bookings.length+inqs.length)+'건'+(bookings.length+inqs.length?'':' · 이 달에는 해당하는 건이 없습니다.')):'';
+    summary.hidden=!(foodFilter||status||query);summary.textContent=(foodFilter||status||query)?(loading?'식음료 이용 확정 건을 불러오는 중…':(foodFilter?'선택한 식음료 이용 확정 ':'선택 조건에 맞는 예약·문의 ')+(bookings.length+inqs.length)+'건'+(bookings.length+inqs.length?'':' · 이 달에는 해당하는 건이 없습니다.')):'';
 
     var y=+calMonth.slice(0,4), m=+calMonth.slice(5,7), first=new Date(y,m-1,1), days=new Date(y,m,0).getDate(), pad=first.getDay(), t=todayIso();
     $('#cal-title').textContent=y+'년 '+m+'월';
@@ -2068,7 +2079,7 @@
     });
     var hour=function(h){ return (h>=24?'다음 날 ':'')+M.pad2(h%24)+':00'; };
     bookings.forEach(function(b){
-      if(b.status==='cancelled') return;
+
       var person=(b.customer_name||'')+(b.headcount?' '+b.headcount+'명':'');
       var ref=b.inquiry_ref?' data-ref="'+esc(b.inquiry_ref)+'"':'';
       if(b.status==='confirmed'){
@@ -2077,8 +2088,8 @@
         add(b.date,'<i class="ev bk cal-booked"'+ref+' title="'+esc(label(b)+'예약 확정 · '+time+' · '+person)+'"><span class="cal-booked-label">'+room(b)+' 확정</span><span>'+esc(time)+'</span><span>'+esc(person)+'</span>'+calendarServiceDot(b)+'</i>',b);
         return;
       }
-      var status=b.status==='payment_review'?'결제 확인':'이용 완료';
-      add(b.date,'<i class="ev '+(b.status==='payment_review'?'hold':'inq')+'"'+ref+'>'+label(b)+status+' · '+esc(person)+calendarServiceDot(b)+'</i>',b);
+      var status=b.status==='cancelled'?'취소':b.status==='payment_review'?'결제 확인':'이용 완료';
+      add(b.date,'<i class="ev '+(b.status==='cancelled'?'inq cancelled':b.status==='payment_review'?'hold':'inq')+'"'+ref+'>'+label(b)+status+' · '+esc(person)+(b.status==='cancelled'?'':calendarServiceDot(b))+'</i>',b);
     });
     inqs.forEach(function(i){ var d=(i.data&&i.data.date)||i.event_date; if(d) add(d,'<i class="ev inq" data-ref="'+esc(i.ref)+'">'+label(i)+esc(i.name||'')+' · '+esc(i.status)+calendarServiceDot(i)+'</i>',{space_id:i.space_id||(i.data&&i.data.space_id)}); });
     var h='<div class="dw">일</div><div class="dw">월</div><div class="dw">화</div><div class="dw">수</div><div class="dw">목</div><div class="dw">금</div><div class="dw">토</div>';
@@ -2093,6 +2104,8 @@
   }
   $('#cal-prev').addEventListener('click', function(){ var y=+calMonth.slice(0,4), m=+calMonth.slice(5,7)-1; if(m<1){ m=12; y--; } calMonth=y+'-'+M.pad2(m);if(window.MEGASPOT_RESERVATION_PERIOD)window.MEGASPOT_RESERVATION_PERIOD.set(calMonth);loadCalendar(); });
   $('#cal-next').addEventListener('click', function(){ var y=+calMonth.slice(0,4), m=+calMonth.slice(5,7)+1; if(m>12){ m=1; y++; } calMonth=y+'-'+M.pad2(m);if(window.MEGASPOT_RESERVATION_PERIOD)window.MEGASPOT_RESERVATION_PERIOD.set(calMonth);loadCalendar(); });
+  var calSearchTimer;$('#cal-q').addEventListener('input',function(){clearTimeout(calSearchTimer);calSearchTimer=setTimeout(loadCalendar,250);});
+  $('#cal-status-filter').addEventListener('change',loadCalendar);
   $('#cal-service-filter').addEventListener('change',loadCalendar);
   $('#cal-filter').addEventListener('change',function(){ if(this.value) $('#cal-space').value=this.value; loadCalendar(); });
   $('#cal-grid').addEventListener('click', function(e){ if(e.target.closest('[data-food-info]')) return; if(e.target.closest('[data-cal-retry]')){ loadCalendar(); return; } if(e.target.closest('[data-ref]')) return; var c=e.target.closest('[data-day]'); if(!c) return; $('#cal-date').value=c.dataset.day; $('#cal-form').scrollIntoView({behavior:'smooth',block:'center'}); });

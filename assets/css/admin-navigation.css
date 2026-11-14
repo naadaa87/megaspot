@@ -145,3 +145,5 @@
 .page-admin .rs-month-choice{display:grid;gap:5px;min-width:0;font-size:12px}.page-admin .rs-month-choice .input,.page-admin #bk-month-filter{min-width:0;width:100%;box-sizing:border-box}@media(max-width:600px){.page-admin .rs-month-choice{flex:1 1 100%;max-width:100%}}
 
 .page-admin .reservation-filter-reset{align-self:flex-end;min-height:42px;white-space:normal}.page-admin .adm-booking-filters{align-items:flex-end}@media(max-width:600px){.page-admin .adm-booking-filters>.reservation-filter-reset{width:100%}.page-admin #view-calendar #cal-filter-reset{margin-right:auto}}
+
+.page-admin .adm-calendar-extra-filters{display:flex;flex-wrap:wrap;gap:12px;margin:0 0 12px}.page-admin .adm-calendar-extra-filters label{display:grid;gap:6px;font-size:12px;flex:1 1 220px;min-width:0}.page-admin .adm-calendar-extra-filters .input,.page-admin .adm-calendar-extra-filters .select,.page-admin #bk-q{width:100%;min-width:0;max-width:100%;box-sizing:border-box}.page-admin #view-calendar .ev.cancelled{background:#eceae6;color:#666;text-decoration:line-through}
