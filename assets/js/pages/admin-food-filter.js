@@ -10,9 +10,12 @@
  groups.forEach(function(group){group.controls=group.ids.map(function(id){return document.getElementById(id);}).filter(Boolean);var initial='';try{initial=localStorage.getItem(group.key)||'';}catch(e){}apply(group,initial);});
  function reset(){
   groups.forEach(function(group){apply(group,'');try{localStorage.setItem(group.key,'');}catch(e){}});
+  ['bk-filter','rs-status','rs-q'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
+  var search=document.getElementById('rs-search'),hint=document.getElementById('rs-search-status'),summary=document.getElementById('rs-search-summary'),clear=document.getElementById('rs-search-clear');
+  if(search&&search.classList)search.classList.remove('is-active');if(hint)hint.hidden=true;if(summary)summary.textContent='';if(clear)clear.disabled=true;
   var period=window.MEGASPOT_RESERVATION_PERIOD;if(period)period.set(new Date(Date.now()+9*3600e3).toISOString().slice(0,7));
   var X=window.MEGASPOT_ADMIN,view=document.querySelector('.adm-view:not([hidden])');if(X&&view&&['view-bookings','view-resv','view-calendar'].indexOf(view.id)>=0)X.loadView(view.id.slice(5));
-  if(window.MEGASPOT&&window.MEGASPOT.toast)window.MEGASPOT.toast('이번 달 · 전체 호점 · 전체 식음료로 초기화했습니다.');
+  if(window.MEGASPOT&&window.MEGASPOT.toast)window.MEGASPOT.toast('이번 달 · 전체 호점 · 전체 식음료 · 전체 예약 상태로 초기화하고 검색어를 지웠습니다.');
  }
  window.MEGASPOT_RESERVATION_FILTERS={reset:reset};
  document.addEventListener('click',function(e){if(!e.target.closest('[data-reservation-filter-reset]'))return;e.preventDefault();reset();});
