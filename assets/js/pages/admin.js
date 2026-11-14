@@ -1504,6 +1504,10 @@
     if(!q)return true;
     var d=item.data||{};return normalize([item.name,item.customer_name,item.phone,item.phone2,item.code,item.booking_code,item.ref,item.inquiry_ref,item.memo,d.name,d.phone,d.phone2].join(' ')).indexOf(q)>=0;
   }
+  function reservationPaymentMatch(item,value){
+    if(!value)return true;var status=item.payment_status||'unpaid';
+    return value==='outstanding'?reservationFilterMatch(item,'active','')&&['unpaid','reservation_paid'].includes(status):status===value;
+  }
   function reservationMonth(){return typeof window!=='undefined'&&window.MEGASPOT_RESERVATION_PERIOD?window.MEGASPOT_RESERVATION_PERIOD.get():'';}
   var bkCache=[], bkRequest=0;
   function loadBookings(){
@@ -1513,8 +1517,8 @@
     AList('/bookings'+params).then(function(r){ if(request!==bkRequest) return; bkCache=r.items||[]; drawBookings(); }).catch(function(e){ if(request===bkRequest) fail(box)(e); });
   }
   function drawBookings(){
-    var f=$('#bk-filter').value, service=$('#bk-service-filter').value, space=$('#bk-space-filter').value, month=reservationMonth(), query=$('#bk-q')?$('#bk-q').value:'', t=todayIso();
-    var list=bkCache.filter(function(b){ return (!month||String(b.date).slice(0,7)===month)&&(!space||spKey(b.space_id)===space)&&matchesConfirmedService(b,service)&&reservationFilterMatch(b,f==='upcoming'?'confirmed':f,query)&&(f!=='upcoming'||month||b.date>=t); });
+    var f=$('#bk-filter').value, service=$('#bk-service-filter').value, space=$('#bk-space-filter').value, month=reservationMonth(), query=$('#bk-q')?$('#bk-q').value:'', payment=$('#bk-payment-filter')?$('#bk-payment-filter').value:'', t=todayIso();
+    var list=bkCache.filter(function(b){ return (!month||String(b.date).slice(0,7)===month)&&(!space||spKey(b.space_id)===space)&&matchesConfirmedService(b,service)&&reservationPaymentMatch(b,payment)&&reservationFilterMatch(b,f==='upcoming'?'confirmed':f,query)&&(f!=='upcoming'||month||b.date>=t); });
     var summary=$('#bk-service-summary');summary.hidden=!service;summary.textContent=service?$('#bk-service-filter').selectedOptions[0].textContent+' · '+list.length+'건':'';
     if(f==='upcoming') list.sort(function(a,b){ return a.date<b.date?-1:1; });
     $('#bk-list').innerHTML=list.length?list.map(function(b){
@@ -1522,6 +1526,7 @@
       return '<div class="adm-row"'+(b.inquiry_ref?' data-ref="'+esc(b.inquiry_ref)+'"':'')+'><div class="r1"><b>'+esc(b.customer_name)+'</b>'+spaceTag(b.space_id)+'<span class="st '+st[1]+'">'+st[0]+'</span>'+depositControl(b)+'</div>'+serviceChips(b)+settlementSummary(b)+'<div class="r2">'+esc(kd(b.date))+' · '+esc(b.start_h!=null&&b.end_h!=null?hl(b.start_h)+'–'+hl(b.end_h):(SLOT[b.slot]||b.slot||''))+(b.headcount?' · '+b.headcount+'명':'')+(b.amount!=null?' · <b>'+esc(won(b.amount))+'</b>':'')+'</div>'+(b.memo?'<div class="tiny muted">'+esc(b.memo)+'</div>':'')+'<div class="r3"><span>'+esc(b.booking_code)+(b.inquiry_ref?' · '+esc(b.inquiry_ref):'')+' · <a href="tel:'+esc(b.phone)+'">'+esc(b.phone)+'</a>'+(b.phone2?' · <a href="tel:'+esc(b.phone2)+'">'+esc(b.phone2)+'</a>':'')+'</span><span>'+(['confirmed','completed'].includes(b.status)?'<button type="button" class="btn btn-light btn-sm" data-refund-code="'+esc(b.booking_code)+'">보증금 환급</button> '+cdBtn(b.booking_code, b.confirm_issued, 'btn-sm')+' ':'')+(b.status==='payment_review'?'<button class="btn btn-primary btn-sm" type="button" data-bk="confirmed" data-code="'+esc(b.booking_code)+'">일정 검토 후 확정</button>':'')+(b.status==='confirmed'?guideControl(b.booking_code,b.guide_status)+' <button class="btn btn-light btn-sm" type="button" data-bk="completed" data-code="'+esc(b.booking_code)+'">이용 완료</button> <button class="btn btn-light btn-sm" type="button" data-bk="cancelled" data-code="'+esc(b.booking_code)+'">취소</button>':'')+'</span></div></div>';
     }).join(''):emptyMsg(service?'현재 예약 상태에 해당하는 식음료 이용 확정 건이 없습니다. 예약 상태나 식음료 필터를 변경해 주세요.':'해당하는 예약이 없습니다.');
   }
+  $('#bk-payment-filter').addEventListener('change',drawBookings);
   $('#bk-q').addEventListener('input',drawBookings);
   $('#bk-month-filter').addEventListener('change', loadBookings);
   $('#bk-filter').addEventListener('change', loadBookings); $('#bk-service-filter').addEventListener('change', drawBookings); $('#bk-space-filter').addEventListener('change', drawBookings); $('#bk-reload').addEventListener('click', loadBookings);
@@ -1580,7 +1585,7 @@
       if(sp && spKey(it.space_id)!==sp) return false;
       if(!matchesConfirmedService(it,$('#rs-service-filter').value)) return false;
       if(!reservationFilterMatch(it,st,q))return false;
-      var payment=$('#rs-payment-filter').value;if(payment==='outstanding'){if(!paymentEditable(it)||!['unpaid','reservation_paid'].includes(it.payment_status||'unpaid'))return false;}else if(payment&&(it.payment_status||'unpaid')!==payment)return false;
+      if(!reservationPaymentMatch(it,$('#rs-payment-filter').value))return false;
       if(ch && (it.channel||'')!==ch) return false;
       return true;
     });
@@ -2061,10 +2066,10 @@
   }
   function drawCalendar(blocks, bookings, inqs, loading){
     var foodFilter=$('#cal-service-filter').value,summary=$('#cal-service-summary');
-    var status=$('#cal-status-filter').value||'',query=$('#cal-q').value||'';
-    if(status||query){blocks=[];bookings=bookings.filter(function(b){return reservationFilterMatch(b,status,query);});inqs=inqs.filter(function(i){return reservationFilterMatch(i,status,query);});}
+    var status=$('#cal-status-filter').value||'',query=$('#cal-q').value||'',payment=$('#cal-payment-filter').value||'';
+    if(status||query||payment){blocks=[];bookings=bookings.filter(function(b){return reservationFilterMatch(b,status,query)&&reservationPaymentMatch(b,payment);});inqs=inqs.filter(function(i){return reservationFilterMatch(i,status,query)&&reservationPaymentMatch(i,payment);});}
     if(foodFilter){blocks=[];bookings=bookings.filter(function(b){return b.status!=='cancelled'&&calendarFoodMatches(b,foodFilter);});inqs=inqs.filter(function(i){return calendarFoodMatches(i,foodFilter);});}
-    summary.hidden=!(foodFilter||status||query);summary.textContent=(foodFilter||status||query)?(loading?'식음료 이용 확정 건을 불러오는 중…':(foodFilter?'선택한 식음료 이용 확정 ':'선택 조건에 맞는 예약·문의 ')+(bookings.length+inqs.length)+'건'+(bookings.length+inqs.length?'':' · 이 달에는 해당하는 건이 없습니다.')):'';
+    summary.hidden=!(foodFilter||status||query||payment);summary.textContent=(foodFilter||status||query||payment)?(loading?'조건에 맞는 일정을 불러오는 중…':(foodFilter?'선택한 식음료 이용 확정 ':'선택 조건에 맞는 예약·문의 ')+(bookings.length+inqs.length)+'건'+(bookings.length+inqs.length?'':' · 이 달에는 해당하는 건이 없습니다.')):'';
 
     var y=+calMonth.slice(0,4), m=+calMonth.slice(5,7), first=new Date(y,m-1,1), days=new Date(y,m,0).getDate(), pad=first.getDay(), t=todayIso();
     $('#cal-title').textContent=y+'년 '+m+'월';
@@ -2105,6 +2110,7 @@
   $('#cal-prev').addEventListener('click', function(){ var y=+calMonth.slice(0,4), m=+calMonth.slice(5,7)-1; if(m<1){ m=12; y--; } calMonth=y+'-'+M.pad2(m);if(window.MEGASPOT_RESERVATION_PERIOD)window.MEGASPOT_RESERVATION_PERIOD.set(calMonth);loadCalendar(); });
   $('#cal-next').addEventListener('click', function(){ var y=+calMonth.slice(0,4), m=+calMonth.slice(5,7)+1; if(m>12){ m=1; y++; } calMonth=y+'-'+M.pad2(m);if(window.MEGASPOT_RESERVATION_PERIOD)window.MEGASPOT_RESERVATION_PERIOD.set(calMonth);loadCalendar(); });
   var calSearchTimer;$('#cal-q').addEventListener('input',function(){clearTimeout(calSearchTimer);calSearchTimer=setTimeout(loadCalendar,250);});
+  $('#cal-payment-filter').addEventListener('change',loadCalendar);
   $('#cal-status-filter').addEventListener('change',loadCalendar);
   $('#cal-service-filter').addEventListener('change',loadCalendar);
   $('#cal-filter').addEventListener('change',function(){ if(this.value) $('#cal-space').value=this.value; loadCalendar(); });

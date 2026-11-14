@@ -463,7 +463,9 @@ export async function onRequest({ request, env, params, waitUntil }) {
       const page = Math.max(0, Math.min(100000, num(url.searchParams.get('page')) || 0));
       sql += ' ORDER BY created_at DESC, ref DESC LIMIT 301 OFFSET ?'; b.push(page * 300);
       const { results } = await env.DB.prepare(sql).bind(...b).all();
-      return json({ ok: true, has_more: (results || []).length > 300, items: (results || []).slice(0, 300).map(r => ({ ...r, data: safe(r.data) })) });
+      const items=(results||[]).slice(0,300).map(r=>({...r,data:safe(r.data)}));
+      const paymentChecks=await paymentChecksFor(env,items.map(x=>({kind:'pending',ref:x.ref,amount:x.effective_amount,status:x.status})));
+      return json({ok:true,has_more:(results||[]).length>300,items:items.map(x=>({...x,...paymentChecks['inquiry:'+x.ref]}))});
     }
     // 선택한 문의 여러 건 삭제
     if (path === 'inquiries/delete' && method === 'POST') {
@@ -763,7 +765,8 @@ export async function onRequest({ request, env, params, waitUntil }) {
         (SELECT ${SERVICE_DATA_SQL} FROM inquiries i WHERE i.ref=b.inquiry_ref) AS service_data
         FROM bookings b ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY date DESC, created_at DESC, id DESC LIMIT 301 OFFSET ?`).bind(...args).all();
       const items=(results || []).slice(0,300), guides=await guideSummary(env,items.map(x=>x.booking_code)),settlements=await settlementsFor(env,items.map(x=>x.booking_code));
-      return json({ ok: true, has_more: (results || []).length > 300, items: items.map(({service_data,cat_ord,...x})=>({...x,services:reservationServices(service_data,orderBrief(cat_ord)),settlement:settlements[x.booking_code],guide_status:guides[x.booking_code] || ''})) });
+      const paymentChecks=await paymentChecksFor(env,items.map(x=>({kind:'booking',code:x.booking_code,ref:x.inquiry_ref,amount:x.amount,status:x.status})),settlements);
+      return json({ ok: true, has_more: (results || []).length > 300, items: items.map(({service_data,cat_ord,...x})=>({...x,...paymentChecks['booking:'+x.booking_code],services:reservationServices(service_data,orderBrief(cat_ord)),settlement:settlements[x.booking_code],guide_status:guides[x.booking_code] || ''})) });
     }
     if (path === 'bookings' && method === 'POST') {
       const d = await readJson(request);

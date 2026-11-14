@@ -15,7 +15,7 @@ test('확정 전체는 서비스 중복 없이 모으고 서비스별로 상담�
 test('예약 목록은 예약 상태와 식음료 필터를 함께 적용하고 건수·빈 결과를 갱신한다',()=>{
  const nodes={'#bk-space-filter':{value:''},'#bk-filter':{value:'upcoming'},'#bk-service-filter':{value:'confirmed',selectedOptions:[{textContent:'식음료 이용 확정 전체'}]},'#bk-service-summary':{},'#bk-list':{}};
  const c=context({$:s=>nodes[s],todayIso:()=> '2026-11-13',bkCache:rows,SLOT:{},spaceTag:()=>'',depositControl:()=>'',settlementSummary:()=>'',kd:String,hl:String,won:String,guideControl:()=>'',cdBtn:()=>'',emptyMsg:s=>s});
- vm.runInContext(source.slice(source.indexOf('  function drawBookings('),source.indexOf("  $('#bk-q').addEventListener")),c);
+ vm.runInContext(source.slice(source.indexOf('  function drawBookings('),source.indexOf("  $('#bk-payment-filter').addEventListener")),c);
  c.drawBookings();assert.equal(nodes['#bk-service-summary'].textContent,'식음료 이용 확정 전체 · 2건');assert.match(nodes['#bk-list'].innerHTML,/뷔페확정/);assert.match(nodes['#bk-list'].innerHTML,/칵테일확정/);assert.doesNotMatch(nodes['#bk-list'].innerHTML,/지난케이터링|상담취소|미선택/);
  nodes['#bk-service-filter'].value='reception';c.drawBookings();assert.match(nodes['#bk-list'].innerHTML,/확정 건이 없습니다/);
  nodes['#bk-filter'].value='completed';c.drawBookings();assert.match(nodes['#bk-list'].innerHTML,/지난케이터링/);
