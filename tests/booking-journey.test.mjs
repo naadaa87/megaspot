@@ -124,3 +124,13 @@ test('시간 구간만 저장된 예전 예약도 기존 주간 시간으로 안
 test('알림톡 승인 조회 중 예약 날짜가 바뀌면 예전 날짜를 보내지 않고 다음 처리에 최신 날짜를 보낸다',async t=>{
  const f=setup(t);f.create();const changed=shiftDay(DAY,1);let changedOnce=false;f.onTemplate(()=>{if(!changedOnce){changedOnce=true;f.db.prepare("UPDATE bookings SET date=?,confirm_doc=NULL WHERE booking_code='BK-NEW'").run(changed);}});await f.tick();await transactionNoticeTick(f.env);assert.equal(f.sends.length,0);await transactionNoticeTick(f.env);assert.equal(f.sends.length,1);assert.ok(f.sends[0].message_1.includes(changed.replace(/^(\d{4})-(\d{2})-(\d{2})$/,'$1년 $2월 $3일')));
 });
+
+test('2호 운영자 시험은 실제 입실 템플릿과 2호 링크를 보내고 출입번호는 전용 링크에만 표시한다',async t=>{
+ const f=setup(t);f.db.prepare("INSERT INTO settings VALUES('parking_admin_alerts',?,datetime('now'))").run(JSON.stringify({phones:['01012345678']}));
+ const {bookingJourneyTrial}=await import('../functions/api/_booking_journey_trial.js');
+ const d={action:'send_booking_deposit_test',kind:'booking_arrival',space_id:'megaspot-gundae-2',test_id:crypto.randomUUID(),receiver:'01012345678',confirm_test:true};
+ const response=await bookingJourneyTrial(f.env,d),j=await response.json();assert.equal(response.status,200);assert.equal(j.status,'accepted');assert.equal(f.sends.length,1);
+ const sent=f.sends[0],buttons=JSON.parse(sent.button_1).button;assert.equal(sent.tpl_code,'UN_7028');assert.match(sent.message_1,/건대 2호/);assert.equal(buttons[0].linkMo,'https://megaspot.kr/arrival/space2/');assert.equal(buttons[1].linkMo,'https://megaspot.kr/parking/purchase/');assert.ok(!JSON.stringify(sent).includes('0105#'));
+ const view=await (await portal({env:f.env,params:{path:['view']},request:new Request('https://local.test/api/booking-portal/view',{headers:{Authorization:'Bearer '+j.url.split('#booking=')[1]}})})).json();assert.equal(view.arrival.door_code,'0105#');assert.equal(view.arrival.equipment_url,buttons[0].linkMo);assert.equal(view.arrival.wifi_name,'설치 예정');
+ const repeat=await (await bookingJourneyTrial(f.env,d)).json();assert.equal(repeat.duplicate,true);assert.equal(f.sends.length,1);
+});
