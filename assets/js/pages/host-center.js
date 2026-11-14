@@ -1,7 +1,8 @@
 /* 호스트센터(/host/center/) — 홈 · 문의·예약 · 일정 · 고객 · 공간 정보 · 통계 · 정산 · 이용료 · 계정
    서버: /api/hosts/* (functions/api/hosts/[[path]].js). 결제는 고객에게 직접 받고, 여기서는 받은 금액을 기록합니다.
    2026-11-13: 메가스팟 밖(전화·카카오톡·다른 예약 플랫폼 등)에서 받은 예약도 접수 경로와 함께 넣어 한곳에서 관리합니다.
-               휴대폰 홈 화면에 추가하면 앱처럼 열립니다(/host/manifest.webmanifest · /host/sw.js). 화면이 좁으면 아래쪽 메뉴를 씁니다. */
+               휴대폰 홈 화면에 추가하면 앱처럼 열립니다(/host/manifest.webmanifest · /host/sw.js). 화면이 좁으면 아래쪽 메뉴를 씁니다.
+   2026-11-14: 공간 등록 대행 요청 — 자료만 보내면 본사가 공간 정보를 대신 채웁니다. 본사가 대신 연 화면(AS.acting)은 공간 정보만 보입니다. */
 (function(){
   'use strict';
   var M=window.MEGASPOT, S=window.MSP; if(!M||!S) return;
@@ -51,12 +52,12 @@
   $('#hc-logout').addEventListener('click', function(){ var member=ST.host&&ST.host.member;
     M.api('/hosts/logout',{method:'POST'}).catch(function(){}).then(function(){ return member?M.account.logout():null; }).then(function(){ location.href=member?'/':'/host/login/'; }); });
   function reload(){ return api('/me').then(function(r){ ST.host=r.host; ST.spaces=r.spaces||[]; ST.today=r.today||S.today(); ST.channels=r.channels||CHN; ST.ctags=r.customer_tags||CTAGS; ST.chNames=r.channel_names||[];
-    if(ST.cur && !space(ST.cur)) ST.cur=''; if(!ST.cur && ST.spaces.length===1) ST.cur=ST.spaces[0].ref; fillSpaces(); return r; }); }
+    if(ST.cur && !space(ST.cur)) ST.cur=''; if(!ST.cur && ST.spaces.length===1) ST.cur=ST.spaces[0].ref; fillSpaces(); return asLoad().then(function(){ return r; }); }); }
   var VIEWS={}, VT=0;
   // 화면을 바꾼 뒤 늦게 도착한 응답이 새 화면을 덮어쓰지 않게 합니다
   function fresh(){ var my=VT; return function(){ return my===VT; }; }
   function show(tab){
-    if(!VIEWS[tab]) tab='home'; ST.tab=tab; VT++;
+    if(!VIEWS[tab]) tab='home'; if(AS.acting) tab='space'; ST.tab=tab; VT++;   // 본사가 대신 연 화면은 공간 정보만
     $$('#hc-nav a, #hc-tabbar a').forEach(function(a){ var on=a.getAttribute('data-tab')===tab; a.classList.toggle('on', on); if(on){ a.setAttribute('aria-current','page'); if(a.closest('#hc-nav') && wide()) a.scrollIntoView({block:'nearest', inline:'center'}); } else a.removeAttribute('aria-current'); });
     var more=$('#hc-more'); if(more) more.classList.toggle('on', ['space','stats','settlement','billing','account'].indexOf(tab)>=0);
     var fab=$('#hc-fab'); if(fab) fab.hidden=['home','bookings','calendar','customers'].indexOf(tab)<0;
@@ -126,7 +127,9 @@
   /* ---------- 홈 ---------- */
   function banner(s){
     var until=s.listed_until, left=s.days_left, kind='info', title='', body='', btn='';
-    if(s.status==='draft'){ title='입점 신청이 접수되었습니다'; body='<p>아래 항목을 채우고 <b>심사 요청</b>을 누르면 메가스팟 운영팀이 확인합니다.</p><ul data-missing="'+esc(s.ref)+'"><li>확인하는 중…</li></ul>'; btn='<a class="btn btn-primary btn-sm" href="#space='+esc(s.ref)+'">공간 정보 채우기 →</a>'; }
+    if(s.status==='draft'){ var as=asFor(s.ref); title='입점 신청이 접수되었습니다'; body='<p>아래 항목을 채우고 <b>심사 요청</b>을 누르면 메가스팟 운영팀이 확인합니다.</p><ul data-missing="'+esc(s.ref)+'"><li>확인하는 중…</li></ul>'
+        +(as?'<p class="hc-assist-line">공간 등록 대행 <b>'+esc(as.status_label)+'</b> · '+esc(asLead(as))+'</p>':'<p class="hc-assist-line">직접 채우기 번거로우면 공간소개서나 홈페이지 주소만 보내 주세요. 메가스팟이 대신 등록해 드립니다.</p>');
+      btn='<a class="btn btn-primary btn-sm" href="#space='+esc(s.ref)+'">'+(as?'진행 상황 보기':'공간 정보 채우기')+' →</a>'+(as?'':'<button class="btn btn-light btn-sm" type="button" data-assist="'+esc(s.ref)+'">공간 등록 대행 요청</button>'); }
     else if(s.status==='review'){ kind='warn'; title='메가스팟 운영팀이 등록 내용을 확인하고 있습니다'; body='<p>확인이 끝나면 이 화면에 결과가 표시됩니다. 기다리는 동안에도 공간 정보와 사진은 고칠 수 있습니다.</p>'; }
     else if(s.status==='fix'){ kind='bad'; title='보완 요청이 있습니다'; body='<p>'+esc(s.review_note||'')+'</p>'; btn='<a class="btn btn-primary btn-sm" href="#space='+esc(s.ref)+'">고치러 가기 →</a>'; }
     else if(s.status==='rejected'||s.status==='hidden'){ kind='bad'; title=s.status==='rejected'?'입점이 반려되었습니다':'운영팀이 공간을 숨겼습니다'; body='<p>'+esc(s.review_note||'자세한 내용은 운영팀에 문의해 주세요.')+'</p>'; }
@@ -551,6 +554,7 @@
     main.innerHTML=head('공간 정보', esc(s.name)+' · '+esc(s.ref)+' · <span class="pf-st '+esc(s.status)+'">'+esc(s.status_label)+'</span>', s.visible?'<a class="btn btn-light btn-sm" href="/docs/?type=space&id='+encodeURIComponent(s.ref)+'" target="_blank" rel="noopener">공간소개서 PDF</a>':'')
       +(s.status==='fix'&&s.review_note?'<div class="hc-banner bad"><h2>보완 요청</h2><p>'+esc(s.review_note)+'</p></div>':'')
       +'<section class="hc-guide" id="sp-guide" aria-label="공간 등록 안내"></section>'
+      +asBox(s)
       +'<nav class="hc-toc" aria-label="공간 정보 바로가기">'+SECS.map(function(x){ return '<a href="#sp-'+x[0]+'" data-jump="sp-'+x[0]+'"><i aria-hidden="true"></i>'+x[1]+'</a>'; }).join('')+'</nav>'
       +'<form class="hc-form" id="sp-form" novalidate>'
       // 기본
@@ -663,7 +667,7 @@
   }
   window.addEventListener('beforeunload', function(e){ if(SP.dirty && ST.tab==='space'){ e.preventDefault(); e.returnValue=''; } });
   function addSpace(){
-    var body=drawer('공간 추가', '<form class="hc-form" id="as-form" novalidate><p class="pf-help">기본 정보를 넣으면 ‘작성 중’ 공간이 만들어집니다. 요금·사진·소개를 채워 심사를 요청하세요. 공간마다 따로 심사하고 이용료도 공간별로 계산합니다.</p>'
+    var body=drawer('공간 추가', '<form class="hc-form" id="as-form" novalidate>'+(AS.acting?'':asCta('new', true))+'<p class="pf-help">기본 정보를 넣으면 ‘작성 중’ 공간이 만들어집니다. 요금·사진·소개를 채워 심사를 요청하세요. 공간마다 따로 심사하고 이용료도 공간별로 계산합니다.</p>'
       +'<div class="f"><label for="as-name">공간 이름 <span class="pf-req">*</span></label><input class="input" id="as-name" name="name" required maxlength="60"></div>'
       +'<div class="field-row two"><div class="f"><label for="as-region">지역 <span class="pf-req">*</span></label><select class="select" id="as-region" name="region" required>'+S.opts(P.regions, '', '지역 선택')+'</select></div><div class="f"><label for="as-address">주소 <span class="pf-req">*</span></label><input class="input" id="as-address" name="address" required maxlength="160"></div></div>'
       +'<div class="field-row two"><div class="f"><label for="as-cap">최대 이용 인원</label><div class="unit"><input class="input" id="as-cap" name="capacity" type="number" min="1"><i>명</i></div></div><div class="f"><label for="as-area">면적</label><div class="unit"><input class="input" id="as-area" name="area" type="number" min="1"><i>평</i></div></div></div>'
@@ -674,6 +678,163 @@
       api('/spaces', { method:'POST', body:{ name:v(f,'name'), region:v(f,'region'), address:v(f,'address'), capacity:v(f,'capacity'), area:v(f,'area'), types:S.readTypes(f) } }).then(function(r){ return reload().then(function(){ closeDrawer(); location.hash='#space='+r.ref; }); })
         .catch(function(x){ var m=$('#as-msg'); m.textContent=x.message; m.hidden=false; }); });
     if(location.hash==='#add') history.replaceState(null,'','#'+(ST.tab||'home')); if(main.innerHTML.indexOf('불러오는 중')>=0||!main.innerHTML) show(ST.tab||'home');
+  }
+
+  /* ---------- 공간 등록 대행 요청 (2026-11-14) ----------
+     공간소개서 파일·홈페이지 주소·공간 이름만 보내면 본사가 확인하고 공간 정보를 대신 채웁니다. 서버: functions/api/_hostassist.js
+     파일은 900KB씩 나눠 올립니다(서버가 조각을 그대로 저장). */
+  var AS={ items:[], rule:{ chunk:900000, maxFile:20971520, maxTotal:62914560, maxFiles:10, exts:['pdf','ppt','pptx','doc','docx','hwp','hwpx','xls','xlsx','zip','jpg','jpeg','png','webp','heic','heif','gif'] }, times:{ any:'아무 때나' }, acting:null };
+  var AS_STEPS=[['new','접수'],['checking','자료 확인'],['working','등록 작업'],['confirm','내용 확인'],['done','완료']];
+  var AS_PILL={ 'new':'review', checking:'review', working:'review', confirm:'fix', done:'live', cancelled:'rejected' };
+  function asLoad(){ return api('/assist').then(function(a){ AS.items=a.items||[]; if(a.rule) AS.rule=a.rule; if(a.contact_times) AS.times=a.contact_times; AS.acting=a.acting||null; actingUi(); }).catch(function(){}); }
+  function asFor(ref){ return AS.items.filter(function(a){ return a.open && a.space_ref===ref; })[0]||null; }
+  function asLast(ref){ return AS.items.filter(function(a){ return a.space_ref===ref; })[0]||null; }
+  function size(n){ return n>=1048576?(Math.round(n/104857.6)/10)+'MB':Math.max(1, Math.round(n/1024))+'KB'; }
+  function extOf(n){ var m=/\.([a-z0-9]{2,5})$/i.exec(n||''); return m?m[1].toLowerCase():''; }
+  function asLead(a){
+    return ({ 'new':'요청을 받았습니다. 본사가 자료를 확인한 뒤 남겨 주신 번호로 연락드립니다.',
+      checking:'본사가 보내 주신 자료를 보고 있습니다. 더 필요한 내용이 있으면 연락드립니다.',
+      working:'본사가 공간 정보를 채우고 있습니다. 이 동안 직접 고친 내용은 본사 작업과 겹칠 수 있으니, 바꿀 내용은 ‘자료 더 보내기’로 알려 주세요.',
+      confirm:'본사가 공간 정보를 채워 두었습니다. 아래 내용을 확인하고 고칠 부분은 고친 뒤 맨 아래 ‘저장하고 심사 요청’을 눌러 주세요.',
+      done:'등록 대행이 끝났습니다.', cancelled:'취소한 요청입니다.' })[a.status]||'';
+  }
+  function asCta(ref, compact){
+    return '<div class="hc-assist-cta'+(compact?' compact':'')+'"><div><b>등록 과정이 번거로우신가요? 메가스팟이 대신 등록해 드립니다.</b>'
+      +'<p>공간소개서 파일이나 홈페이지·SNS 주소, 공간 이름만 보내 주세요. 본사가 자료를 확인하고 요금·사진·소개 같은 공간 정보를 대신 채워 둡니다.</p></div>'
+      +'<div class="hc-acts"><button class="btn btn-primary btn-sm" type="button" data-assist="'+esc(ref||'new')+'">공간 등록 대행 요청</button></div></div>';
+  }
+  function asFiles(a, del){
+    var f=a.files||[], l=a.links||[];
+    if(!f.length && !l.length && !a.message) return '<p class="small muted">보낸 자료가 없습니다. 공간 이름만으로도 본사가 찾아보고 연락드립니다.</p>';
+    return (f.length?'<ul class="hc-files">'+f.map(function(x){ return '<li><span class="hc-file-ext">'+esc((x.ext||'').toUpperCase())+'</span><span class="nm">'+esc(x.name)+'</span><small>'+esc(size(x.size))+'</small>'+(del?'<button type="button" class="pf-link" data-assist-del="'+esc(a.ref+'|'+x.fid)+'">지우기</button>':'')+'</li>'; }).join('')+'</ul>':'')
+      +(l.length?'<ul class="hc-links">'+l.map(function(u){ return '<li><a class="pf-link" href="'+esc(u)+'" target="_blank" rel="noopener noreferrer">'+esc(u.replace(/^https?:\/\//,'').slice(0, 70))+'</a></li>'; }).join('')+'</ul>':'')
+      +(a.message?'<p class="hc-assist-note">'+esc(a.message).replace(/\n/g,'<br>')+'</p>':'');
+  }
+  function asCard(a){
+    var idx=AS_STEPS.map(function(x){ return x[0]; }).indexOf(a.status), mine=!AS.acting;
+    return '<div class="hc-assist" id="sp-assist-card"><div class="hc-assist-head"><h2>공간 등록 대행 <span class="pf-st '+(AS_PILL[a.status]||'')+'">'+esc(a.status_label)+'</span></h2><span class="small muted">'+esc(a.ref)+' · '+esc(S.kdate(String(a.created_at).slice(0,10)))+' 요청</span></div>'
+      +(a.status==='cancelled'?'':'<ol class="hc-steps c5">'+AS_STEPS.map(function(x, i){ var cls=a.status==='done'||i<idx?'done':i===idx?'now':''; return '<li class="'+cls+'"><i>'+(cls==='done'?'✓':i+1)+'</i><span>'+x[1]+'</span></li>'; }).join('')+'</ol>')
+      +'<p>'+esc(asLead(a))+'</p>'
+      +(a.hq_message?'<div class="hc-assist-msg"><b>메가스팟 본사</b><p>'+esc(a.hq_message).replace(/\n/g,'<br>')+'</p></div>':'')
+      +'<details class="hc-tip"><summary>보낸 자료 · 파일 '+(a.files||[]).length+'개 · 주소 '+(a.links||[]).length+'개</summary><div>'+asFiles(a, mine&&a.open)+'<p class="small muted">연락 받을 번호 '+esc(a.phone)+' · '+esc(a.contact_label)+'</p></div></details>'
+      +(mine&&a.open?'<div class="hc-acts"><button class="btn btn-light btn-sm" type="button" data-assist-more="'+esc(a.ref)+'">자료 더 보내기</button>'+(['new','checking'].indexOf(a.status)>=0?'<button class="btn btn-ghost btn-sm" type="button" data-assist-cancel="'+esc(a.ref)+'">요청 취소</button>':'')+kakao('카카오톡 문의')+'</div>':'')
+      +'</div>';
+  }
+  // 공간 정보 화면 위쪽: 진행 중인 요청이 있으면 진행 상황, 없으면(공개 전) 대행 요청 안내
+  function asBox(s){
+    var a=asFor(s.ref)||asLast(s.ref), pre=['draft','fix','rejected'].indexOf(s.status)>=0;
+    if(a && (a.open || (a.status==='done' && a.done_at && S.ddays(String(a.done_at).slice(0,10))>=-14))) return '<section id="sp-assist">'+asCard(a)+'</section>';
+    return pre && !AS.acting?'<section id="sp-assist">'+asCta(s.ref)+'</section>':'<section id="sp-assist" hidden></section>';
+  }
+  function asPicker(){
+    return '<div class="f"><span class="lbl">공간소개서·자료 파일</span><label class="hc-file"><input type="file" data-assist-files multiple accept=".'+AS.rule.exts.join(',.')+'"><span>파일 고르기</span></label>'
+      +'<ul class="hc-files" data-assist-list></ul><p class="pf-help">PDF·파워포인트·워드·한글·엑셀·사진·ZIP 파일, 파일당 20MB까지 '+AS.rule.maxFiles+'개를 보낼 수 있습니다. 사진이 많으면 구글 드라이브·네이버 MYBOX 같은 공유 폴더 주소를 위 칸에 적어 주세요.</p></div>';
+  }
+  function asBindPicker(box){
+    var list=[], input=box.querySelector('[data-assist-files]'), ul=box.querySelector('[data-assist-list]');
+    function draw(){ ul.innerHTML=list.map(function(f, i){ return '<li><span class="hc-file-ext">'+esc(extOf(f.name).toUpperCase())+'</span><span class="nm">'+esc(f.name)+'</span><small>'+esc(size(f.size))+'</small><button type="button" class="pf-link" data-rm="'+i+'">빼기</button></li>'; }).join(''); }
+    input.addEventListener('change', function(){
+      var bad=[]; Array.prototype.forEach.call(input.files||[], function(f){
+        if(AS.rule.exts.indexOf(extOf(f.name))<0) bad.push(f.name+' (보낼 수 없는 파일 형식)');
+        else if(f.size>AS.rule.maxFile) bad.push(f.name+' (20MB 넘음 · 공유 링크로 보내 주세요)');
+        else if(!f.size) bad.push(f.name+' (빈 파일)');
+        else if(list.length>=AS.rule.maxFiles) bad.push(f.name+' (파일은 '+AS.rule.maxFiles+'개까지)');
+        else if(!list.some(function(x){ return x.name===f.name && x.size===f.size; })) list.push(f);
+      });
+      input.value=''; draw(); if(bad.length) M.toast('빠진 파일: '+bad.join(', '));
+    });
+    ul.addEventListener('click', function(e){ var b=e.target.closest('[data-rm]'); if(b){ list.splice(+b.getAttribute('data-rm'), 1); draw(); } });
+    return { files:function(){ return list.slice(); } };
+  }
+  function b64(blob){ return new Promise(function(ok, no){ var r=new FileReader(); r.onload=function(){ var t=String(r.result||''); ok(t.slice(t.indexOf(',')+1)); }; r.onerror=function(){ no(new Error('파일을 읽지 못했습니다.')); }; r.readAsDataURL(blob); }); }
+  function sendFile(ref, file, tick){
+    return api('/assist/'+ref+'/files', { method:'POST', body:{ name:file.name, size:file.size } }).then(function(s){
+      var i=0;
+      function next(){
+        if(i>=s.chunks) return api('/assist/'+ref+'/files/'+s.fid+'/done', { method:'POST', body:{} });
+        return b64(file.slice(i*s.chunk, (i+1)*s.chunk)).then(function(d){ return api('/assist/'+ref+'/files/'+s.fid+'/'+i, { method:'POST', body:{ data:d } }); }).then(function(){ i++; tick(i/s.chunks); return next(); });
+      }
+      return next();
+    });
+  }
+  // 여러 파일을 차례로 올립니다. 실패한 파일은 이름과 이유를 모아 돌려줍니다.
+  function sendFiles(ref, files, msg){
+    var failed=[], total=files.reduce(function(n, f){ return n+f.size; }, 0)||1, done=0;
+    return files.reduce(function(p, f){ return p.then(function(){
+      var tick=function(r){ msg.textContent='파일 올리는 중… '+Math.min(100, Math.round((done+f.size*r)/total*100))+'% ('+f.name+')'; };
+      tick(0); return sendFile(ref, f, tick).then(function(){ done+=f.size; }, function(e){ done+=f.size; failed.push(f.name+' — '+((e&&e.message)||'올리지 못했습니다')); });
+    }); }, Promise.resolve()).then(function(){ return failed; });
+  }
+  function asForm(ref){
+    var s=ref&&ref!=='new'?space(ref):null, times=Object.keys(AS.times).map(function(k){ return [k, AS.times[k]]; });
+    var body=drawer('공간 등록 대행 요청', '<form class="hc-form" id="asq-form" novalidate>'
+      +'<div class="hc-assist-intro"><b>자료만 보내 주시면 공간 정보는 메가스팟이 채워 둡니다.</b><ol><li>공간 이름과 가진 자료(공간소개서, 홈페이지·SNS·다른 예약 사이트 주소)를 보냅니다. 공간 이름만 적어도 됩니다.</li><li>본사가 자료를 확인하고, 더 필요한 내용은 전화나 카카오톡으로 여쭙니다.</li><li>요금·사진·소개·시설 같은 공간 정보를 본사가 채워 두면, 호스트센터에서 확인하고 심사를 요청합니다.</li></ol></div>'
+      +(s?'<div class="f"><span class="lbl">맡길 공간</span><p><b>'+esc(s.name)+'</b> <span class="small muted">'+esc(s.ref)+' · '+esc(s.status_label)+'</span></p></div>':'<p class="pf-help">새로 등록할 공간입니다. 본사가 공간을 만들어 이 호스트센터에 넣어 둡니다.</p>')
+      +'<div class="f"><label for="asq-name">공간 이름 <span class="pf-req">*</span></label><input class="input" id="asq-name" name="name" maxlength="60" required value="'+esc(s?s.name:'')+'"></div>'
+      +'<div class="f"><label for="asq-addr">주소 또는 위치</label><input class="input" id="asq-addr" name="address" maxlength="160" placeholder="예: 서울 성동구 성수이로 100, 3층" value="'+esc(s?s.address||'':'')+'"></div>'
+      +'<div class="f"><label for="asq-links">참고할 주소</label><textarea class="textarea" id="asq-links" name="links" rows="3" placeholder="한 줄에 하나씩 적어 주세요.&#10;공간 홈페이지, 인스타그램, 블로그, 다른 예약 사이트의 공간 페이지, 사진을 모아 둔 공유 폴더"></textarea></div>'
+      +asPicker()
+      +'<div class="f"><label for="asq-msg">전할 말</label><textarea class="textarea" id="asq-msg" name="message" rows="4" maxlength="2000" placeholder="요금, 운영 시간, 꼭 넣고 싶은 내용, 빼고 싶은 내용 등을 편하게 적어 주세요."></textarea></div>'
+      +'<div class="field-row two"><div class="f"><label for="asq-phone">연락 받을 번호 <span class="pf-req">*</span></label><input class="input" id="asq-phone" name="phone" type="tel" inputmode="numeric" maxlength="13" required value="'+esc(ST.host&&ST.host.phone||'')+'"></div>'
+      +'<div class="f"><label for="asq-time">연락 받기 편한 시간</label><select class="select" id="asq-time" name="contact_time">'+S.opts(times, 'any')+'</select></div></div>'
+      +'<label class="chk"><input type="checkbox" name="agree" required><span><b>(필수)</b> 보낸 자료와 주소의 글·사진을 메가스팟이 이 공간 정보를 작성하는 데 쓰는 것에 동의합니다. 다른 사람이 찍은 사진이나 쓴 글이 들어 있다면 써도 되는지 확인했습니다.</span></label>'
+      +'<p class="pf-msg" id="asq-msg-box" hidden></p><div class="hc-acts"><button class="btn btn-primary" type="submit" id="asq-send">등록 대행 요청 보내기</button></div>'
+      +help('무엇을 보내야 할지 모르겠다면 카카오톡으로 먼저 물어보세요.', s?s.ref:'')+'</form>');
+    var f=$('#asq-form'), pick=asBindPicker(f), box=$('#asq-msg-box'), btn=$('#asq-send'); telFmt(f.elements.phone);
+    f.addEventListener('submit', function(e){ e.preventDefault(); if(!M.validate(f)) return;
+      if(!f.elements.agree.checked){ box.textContent='자료 사용 동의에 체크해 주세요.'; box.hidden=false; return; }
+      btn.disabled=true; box.hidden=false; box.textContent='요청을 보내는 중…';
+      var files=pick.files(), ref2='';
+      api('/assist', { method:'POST', body:{ space:s?s.ref:'', name:v(f,'name'), address:v(f,'address'), links:f.elements.links.value, message:f.elements.message.value, phone:v(f,'phone'), contact_time:v(f,'contact_time'), agree:true } })
+        .then(function(r){ ref2=r.ref; if(r.rule) AS.rule=r.rule; return files.length?sendFiles(ref2, files, box):[]; })
+        .then(function(failed){ return reload().then(function(){ return failed; }); })
+        .then(function(failed){ asDone(ref2, v(f,'phone'), failed); if(ST.tab==='space'||ST.tab==='home') show(ST.tab); })
+        .catch(function(x){ btn.disabled=false; box.textContent=(x&&x.message)||'요청을 보내지 못했습니다.'; if(ref2) reload().then(function(){ show(ST.tab); }); });
+    });
+    return body;
+  }
+  function asDone(ref, phone, failed){
+    drawer('공간 등록 대행 요청', '<div class="hc-assist-done"><b>요청을 보냈습니다</b><p>요청 번호 <b>'+esc(ref)+'</b>. 본사가 자료를 확인한 뒤 '+esc(phone)+'(으)로 연락드립니다. 진행 상황과 본사 메시지는 <b>공간 정보</b> 화면 위쪽에서 볼 수 있습니다.</p>'
+      +(failed.length?'<div class="pf-msg">올리지 못한 파일이 있습니다. ‘자료 더 보내기’로 다시 보내 주세요.<ul>'+failed.map(function(x){ return '<li>'+esc(x)+'</li>'; }).join('')+'</ul></div>':'')
+      +'<div class="hc-acts">'+(failed.length?'<button class="btn btn-primary btn-sm" type="button" data-assist-more="'+esc(ref)+'">자료 더 보내기</button>':'')+'<button class="btn btn-light btn-sm" type="button" data-close>닫기</button>'+kakao('카카오톡 문의')+'</div></div>');
+  }
+  function asMore(ref){
+    var a=AS.items.filter(function(x){ return x.ref===ref; })[0]; if(!a) return M.toast('요청을 찾지 못했습니다. 새로고침해 주세요.');
+    drawer('자료 더 보내기', '<form class="hc-form" id="asm-form" novalidate><p class="pf-help">'+esc(a.name)+' · '+esc(a.ref)+' · 지금까지 보낸 자료에 더해집니다.</p>'
+      +'<details class="hc-tip"><summary>지금까지 보낸 자료</summary><div>'+asFiles(a, true)+'</div></details>'
+      +'<div class="f"><label for="asm-links">참고할 주소 더하기</label><textarea class="textarea" id="asm-links" name="links" rows="2" placeholder="한 줄에 하나씩"></textarea></div>'
+      +asPicker()
+      +'<div class="f"><label for="asm-msg">전할 말 더하기</label><textarea class="textarea" id="asm-msg" name="message" rows="3" maxlength="1000" placeholder="바뀐 요금, 고칠 내용, 연락 가능한 시간 등"></textarea></div>'
+      +'<p class="pf-msg" id="asm-box" hidden></p><div class="hc-acts"><button class="btn btn-primary" type="submit" id="asm-send">보내기</button></div></form>');
+    var f=$('#asm-form'), pick=asBindPicker(f), box=$('#asm-box'), btn=$('#asm-send');
+    f.addEventListener('submit', function(e){ e.preventDefault();
+      var links=f.elements.links.value.trim(), msg=f.elements.message.value.trim(), files=pick.files();
+      if(!links && !msg && !files.length){ box.textContent='보낼 주소, 파일, 전할 말 중 하나는 넣어 주세요.'; box.hidden=false; return; }
+      btn.disabled=true; box.hidden=false; box.textContent='보내는 중…';
+      (links||msg?api('/assist/'+ref, { method:'PATCH', body:{ links:links, message:msg } }):Promise.resolve())
+        .then(function(){ return files.length?sendFiles(ref, files, box):[]; })
+        .then(function(failed){ return reload().then(function(){ return failed; }); })
+        .then(function(failed){ if(failed.length){ btn.disabled=false; box.innerHTML='올리지 못한 파일: '+failed.map(esc).join(', '); return; } closeDrawer(); M.toast('자료를 보냈습니다.'); show(ST.tab); })
+        .catch(function(x){ btn.disabled=false; box.textContent=(x&&x.message)||'보내지 못했습니다.'; });
+    });
+  }
+  document.addEventListener('click', function(e){
+    var t=e.target.closest('[data-assist],[data-assist-more],[data-assist-cancel],[data-assist-del]'); if(!t) return;
+    if(t.hasAttribute('data-assist')){ e.preventDefault(); var r=t.getAttribute('data-assist'), open=r!=='new'&&asFor(r); if(open) return asMore(open.ref); return asForm(r); }
+    if(t.hasAttribute('data-assist-more')) return asMore(t.getAttribute('data-assist-more'));
+    if(t.hasAttribute('data-assist-cancel')){ if(!confirm('등록 대행 요청을 취소할까요? 보낸 자료는 본사에서 더 쓰지 않습니다.')) return;
+      return api('/assist/'+t.getAttribute('data-assist-cancel')+'/cancel', { method:'POST' }).then(function(){ M.toast('요청을 취소했습니다.'); return reload(); }).then(function(){ show(ST.tab); }).catch(oops); }
+    var d=t.getAttribute('data-assist-del').split('|'); if(!confirm('이 파일을 지울까요?')) return;
+    api('/assist/'+d[0]+'/files/'+d[1], { method:'DELETE' }).then(function(){ M.toast('파일을 지웠습니다.'); return reload(); }).then(function(){ var a=AS.items.filter(function(x){ return x.ref===d[0]; })[0]; if(!$('#hc-drawer').hidden && $('#asm-form') && a) asMore(a.ref); else show(ST.tab); }).catch(oops);
+  });
+  // 본사가 대신 연 호스트센터: 위쪽 안내 띠와 끝내기 버튼, 공간 정보 외 메뉴 숨김(서버도 막음)
+  function actingUi(){
+    var on=!!AS.acting, bar=$('#hc-actbar'); document.documentElement.classList.toggle('hc-acting', on);
+    if(!on){ if(bar) bar.remove(); return; }
+    var until=String(AS.acting.until||''), d=new Date(until.replace(' ','T')+'Z'), hm=isNaN(d)?'':new Date(d.getTime()+9*3600e3).toISOString().slice(11,16);
+    if(!bar){ bar=document.createElement('div'); bar.id='hc-actbar'; bar.className='hc-actbar'; bar.setAttribute('role','status'); var app=$('#hc-app'); app.insertBefore(bar, app.firstChild); }
+    bar.innerHTML='<div><b>메가스팟 본사가 대신 작성하는 화면입니다</b><span>'+esc(ST.host?ST.host.name+' 님 계정':'호스트 계정')+' · 등록 대행 '+esc(AS.acting.ref)+(hm?' · '+hm+'까지':'')+' · 공간 정보와 사진만 고칠 수 있습니다</span></div><button class="btn btn-light btn-sm" type="button" id="hc-actend">대신 작성 끝내기</button>';
+    $('#hc-actend').onclick=function(){ api('/logout', { method:'POST' }).catch(function(){}).then(function(){ location.href='/admin/#hp-assist'; }); };
   }
 
   /* ---------- 통계 ---------- */

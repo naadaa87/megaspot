@@ -1,4 +1,4 @@
-/* 관리자 · 입점 플랫폼 — 입점 심사·공간 / 호스트 예약·문의 / 본사 부가서비스 / 행사 준비 요청 / 입점 이용료 / 호스트 알림 기록
+/* 관리자 · 입점 플랫폼 — 입점 심사·공간 / 공간 등록 대행 / 호스트 예약·문의 / 본사 부가서비스 / 행사 준비 요청 / 입점 이용료 / 호스트 알림 기록
    직영 지점(건대 1호·2호)을 다루는 기존 관리자 화면과 API(/api/admin/*)는 건드리지 않습니다.
    이 파일이 화면(section)을 직접 만들고 /api/hq/* 만 씁니다. 메뉴 묶음은 admin-navigation.js 의 groups 에 한 줄로 들어 있습니다. */
 (function(){
@@ -65,11 +65,11 @@
   var card=null;
   function summary(){
     H('/summary').then(function(s){
-      X.setCount('hp-spaces', s.review); X.setCount('hp-bookings', s.bookings_new); X.setCount('hp-addons', s.addons_new); X.setCount('hp-planning', s.planning_new); X.setCount('hp-billing', s.billing_requested);
+      X.setCount('hp-spaces', s.review); X.setCount('hp-assist', s.assist_new); X.setCount('hp-bookings', s.bookings_new); X.setCount('hp-addons', s.addons_new); X.setCount('hp-planning', s.planning_new); X.setCount('hp-billing', s.billing_requested);
       var kp=$('#dash-kpis'); if(!kp) return;
       if(!card){ card=document.createElement('div'); card.className='adm-card hp-dash'; (kp.parentNode.querySelector('.adm-refund-shortcut')||kp).after(card); }
       card.innerHTML='<div class="row between" style="margin-bottom:10px"><h2>입점 플랫폼</h2><span class="small muted">공개 중 '+s.live+'곳 · 호스트 '+s.hosts+'명'+(s.expiring?' · 14일 안에 기간이 끝나는 공간 '+s.expiring+'곳':'')+'</span></div><div class="adm-kpis" style="margin-bottom:0">'
-        +[['hp-spaces','입점 심사 대기',s.review],['hp-addons','본사 부가서비스 접수',s.addons_new],['hp-planning','행사 준비 요청',s.planning_new],['hp-billing','이용료 입금·환불 처리',s.billing_requested]].map(function(k){
+        +[['hp-spaces','입점 심사 대기',s.review],['hp-assist','공간 등록 대행 접수',s.assist_new],['hp-addons','본사 부가서비스 접수',s.addons_new],['hp-planning','행사 준비 요청',s.planning_new],['hp-billing','이용료 입금·환불 처리',s.billing_requested]].map(function(k){
           return '<button type="button" class="kpi'+(k[2]?' hot':'')+'" data-go="'+k[0]+'"><small>'+k[1]+'</small><b>'+(k[2]||0)+'</b></button>'; }).join('')+'</div>';
     }).catch(function(){});
   }
@@ -226,6 +226,76 @@
     b.onclick=function(e){ var c=e.target.closest('[data-copy]'); if(c) M.copy(c.getAttribute('data-copy')).then(function(ok){ M.toast(ok?'조회 링크를 복사했습니다.':'복사하지 못했습니다.'); }); };
   }
 
+  /* ---------- 공간 등록 대행 요청 (2026-11-14) ----------
+     호스트가 공간 이름·공간소개서·홈페이지 주소 등을 보내면, 본사가 확인하고 ‘호스트센터에서 대신 작성’으로 공간 정보를 채웁니다.
+     파일은 서버에 900KB 조각으로 있어서, 내려받을 때 조각을 차례로 받아 브라우저에서 합칩니다. */
+  view('hp-assist', '공간 등록 대행', '호스트가 호스트센터의 ‘공간 등록 대행 요청’으로 보낸 자료입니다. 자료를 보고 호스트에게 연락한 뒤 ‘호스트센터에서 대신 작성’으로 공간 정보를 채워 주세요. 다 채우면 상태를 ‘호스트 확인 요청’으로 바꾸고, 호스트가 내용을 확인해 심사를 요청합니다.',
+    '<div class="pf-filter" id="hp-as-filter" role="group" aria-label="상태"></div><div id="hp-as-list" class="adm-list"></div>');
+  var AQ={ f:'open', items:[], statuses:{} };
+  var AQ_ST={ 'new':'st-new', checking:'st-check', working:'st-quote', confirm:'st-pay', done:'st-ok', cancelled:'st-cancel' };
+  function aqSt(a){ return '<span class="st '+(AQ_ST[a.status]||'')+'">'+esc(a.status_label)+'</span>'; }
+  function aqSize(n){ return n>=1048576?(Math.round(n/104857.6)/10)+'MB':Math.max(1, Math.round(n/1024))+'KB'; }
+  function loadAssist(){
+    var box=$('#hp-as-list'); summary();
+    H('/assist'+(AQ.f==='all'?'?status=all':'?status='+encodeURIComponent(AQ.f))).then(function(r){
+      AQ.items=r.items||[]; AQ.statuses=r.statuses||{}; var c=r.counts||{};
+      chips($('#hp-as-filter'), [['open','진행 중',(c['new']||0)+(c.checking||0)+(c.working||0)+(c.confirm||0)],['new','접수'],['checking','자료 확인'],['working','등록 작업 중'],['confirm','호스트 확인 요청'],['done','완료'],['cancelled','취소'],['all','전체',0]], AQ.f, c);
+      box.innerHTML=AQ.items.length?AQ.items.map(function(a){
+        return '<div class="adm-row hp-row" data-hp="'+esc(a.ref)+'" tabindex="0"><div class="r1">'+aqSt(a)+'<b>'+esc(a.name)+'</b><span class="small muted">'+esc([a.host.name, a.host.company, a.phone].filter(Boolean).join(' · '))+'</span></div>'
+          +'<div class="r2">'+esc([a.space?a.space.ref+' · '+(a.space.status_label||''):'새 공간', a.address, '파일 '+a.files.length+'개', '주소 '+a.links.length+'개', '연락 '+a.contact_label].filter(Boolean).join(' · '))+'</div>'
+          +'<div class="r3"><span>'+esc((a.message||'').slice(0, 80))+'</span><span>'+esc(a.ref)+' · '+esc(kst(a.created_at))+'</span></div></div>'; }).join('')
+        :X.emptyMsg(AQ.f==='open'?'진행 중인 등록 대행 요청이 없습니다.':'해당하는 요청이 없습니다.');
+    }).catch(X.fail(box));
+  }
+  bindChips($('#hp-as-filter'), function(f){ AQ.f=f; loadAssist(); });
+  rowKey($('#hp-as-list'), openAssist);
+  function openAssist(ref){
+    var a=AQ.items.filter(function(x){ return x.ref===ref; })[0]; if(!a) return;
+    var spaces=[['', a.space?'연결 안 함':'아직 없음 (대신 작성에서 새로 만들면 자동 연결)']].concat((a.host_spaces||[]).map(function(s){ return [s.ref, s.name+' · '+s.ref+' · '+s.status_label]; }));
+    var b=drawer(a.name+' · '+a.ref, '<form class="form" id="hp-as-form">'
+      +kv([['호스트', esc(a.host.name)+(a.host.company?' · '+esc(a.host.company):'')+' <span class="small muted">'+esc(a.host.code)+'</span>'],
+        ['연락', tel(a.phone)+' · '+esc(a.contact_label)+(a.host.email?' · '+esc(a.host.email):'')],
+        ['공간 이름', '<b>'+esc(a.name)+'</b>'],['위치', esc(a.address)],
+        ['맡긴 공간', a.space?esc(a.space.name+' · '+a.space.ref+' · '+a.space.status_label):'새 공간'],
+        ['참고 주소', a.links.length?a.links.map(function(u){ return '<a class="pf-link" href="'+esc(u)+'" target="_blank" rel="noopener noreferrer">'+esc(u.replace(/^https?:\/\//,'').slice(0, 80))+'</a>'; }).join('<br>'):''],
+        ['전할 말', nl(a.message)],['동의', a.agreed_at?esc(kst(a.agreed_at))+' 자료 사용 동의':'']])
+      +'<h3 class="mt-2">자료 파일 <span class="small muted">'+a.files.length+'개</span></h3>'
+      +(a.files.length?'<div class="hp-files">'+a.files.map(function(f){ return '<div><span class="hp-ext">'+esc((f.ext||'').toUpperCase())+'</span><span class="nm">'+esc(f.name)+'</span><small>'+esc(aqSize(f.size))+'</small><button class="btn btn-light btn-sm" type="button" data-as-dl="'+esc(f.fid)+'">내려받기</button></div>'; }).join('')+'</div><p class="tiny muted">호스트가 올린 파일입니다. 받은 파일은 바로 실행하지 말고, 문서·사진 프로그램으로 여세요. 끝난 지 90일이 지나면 서버에서 지웁니다.</p>'
+        :'<p class="small muted">올린 파일이 없습니다.</p>')
+      +'<div class="hp-act mt-2"><div><b>호스트센터에서 대신 작성</b><p class="small">이 호스트 계정으로 호스트센터를 새 창에 엽니다. 4시간 동안 열리고, 공간 정보·사진·심사 요청만 쓸 수 있습니다(예약·고객·정산·이용료·계정은 열리지 않습니다). 이 브라우저에 다른 호스트로 로그인해 둔 상태였다면 그 로그인은 풀립니다.</p></div>'
+        +(a.open?'<button class="btn btn-primary btn-sm" type="button" data-as-act>대신 작성 열기</button>':'<span class="small muted">끝난 요청입니다</span>')+'</div>'
+      +'<div class="field-row mt-2"><div class="f"><label>진행 상태</label><select class="select" name="status">'+opts(Object.keys(AQ.statuses).map(function(k){ return [k, AQ.statuses[k]]; }), a.status)+'</select></div>'
+      +'<div class="f"><label>연결할 공간</label><select class="select" name="space">'+opts(spaces, a.space_ref)+'</select></div></div>'
+      +'<div class="f"><label>호스트에게 보일 메시지 <span class="small muted">호스트센터 공간 정보 화면에 보입니다</span></label><textarea class="textarea" name="hq_message" rows="3" maxlength="1000" placeholder="예: 보내 주신 소개서로 요금·소개·시설을 채워 두었습니다. 사진 순서와 환불 규정을 확인하고 심사를 요청해 주세요.">'+esc(a.hq_message)+'</textarea></div>'
+      +'<div class="f"><label>운영 메모 (호스트에게 보이지 않음)</label><textarea class="textarea" name="memo" rows="2" maxlength="2000">'+esc(a.memo)+'</textarea></div>'
+      +'<div class="row" style="gap:6px"><button class="btn btn-primary btn-sm" type="submit">저장</button></div>'
+      +(a.history.length?'<details class="mt-2"><summary class="small">진행 기록 '+a.history.length+'건</summary><ul class="hp-hist">'+a.history.slice().reverse().map(function(h){ return '<li><span>'+esc(kst(h.at))+'</span><b>'+(h.who==='hq'?'본사':'호스트')+'</b> '+esc(h.text)+'</li>'; }).join('')+'</ul></details>':'')
+      +'<p class="tiny muted mt-1">호스트에게 자동 알림은 가지 않습니다. 상태를 바꾼 뒤 전화나 카카오톡으로 알려 주세요.</p></form>');
+    b.onsubmit=function(e){ e.preventDefault(); var f=e.target;
+      H('/assist/'+encodeURIComponent(ref), { method:'PATCH', body:{ status:f.elements.status.value, space:f.elements.space.value, hq_message:f.elements.hq_message.value, memo:f.elements.memo.value } })
+        .then(function(){ M.toast('저장했습니다.'); X.closeDrawer(dr, true); loadAssist(); }).catch(oops); };
+    b.onclick=function(e){
+      var d=e.target.closest('[data-as-dl]'); if(d){ var file=a.files.filter(function(x){ return x.fid===d.getAttribute('data-as-dl'); })[0]; if(file) download(file, d); return; }
+      if(e.target.closest('[data-as-act]')){
+        var w=window.open('about:blank', '_blank');   // 창을 먼저 열어야 팝업 차단에 걸리지 않습니다
+        H('/assist/'+encodeURIComponent(ref)+'/act', { method:'POST', body:{} }).then(function(r){
+          if(w && !w.closed){ try{ w.opener=null; }catch(x){} w.location.href=r.url; } else location.href=r.url;
+          M.toast('호스트센터를 대신 작성 화면으로 열었습니다.'); loadAssist();
+        }).catch(function(x){ if(w) w.close(); oops(x); });
+      }
+    };
+  }
+  // 조각을 차례로 받아 원래 파일로 합칩니다
+  function download(file, btn){
+    var parts=[], i=0, label=btn.textContent; btn.disabled=true;
+    function next(){
+      if(i>=file.chunks){ var blob=new Blob(parts, { type:'application/octet-stream' }), url=URL.createObjectURL(blob), link=document.createElement('a'); link.href=url; link.download=file.name; document.body.appendChild(link); link.click(); link.remove(); setTimeout(function(){ URL.revokeObjectURL(url); }, 4000); return Promise.resolve(); }
+      btn.textContent='받는 중 '+Math.round(i/file.chunks*100)+'%';
+      return H('/assist/files/'+encodeURIComponent(file.fid)+'/'+i).then(function(r){ var bin=atob(r.data), u=new Uint8Array(bin.length); for(var k=0; k<bin.length; k++) u[k]=bin.charCodeAt(k); parts.push(u); i++; return next(); });
+    }
+    next().catch(oops).finally(function(){ btn.disabled=false; btn.textContent=label; });
+  }
+
   /* ---------- 입점 이용료: 계좌이체 입금 확인 · 중도 해지 환불 ---------- */
   var BL={ f:'todo', items:[] };
   function feeText(b){ return esc(won(b.supply))+' + 부가세 '+esc(won(b.vat))+' = <b>'+esc(won(b.amount))+'</b>'; }
@@ -307,9 +377,9 @@
   $('#hp-rn-run').addEventListener('click', function(){ var b=this; if(!confirm('무료 기간 종료 안내 대상을 지금 확인해 보낼까요? 이미 보낸 단계는 다시 보내지 않습니다.')) return; b.disabled=true;
     H('/notices/renewal-run', { method:'POST', body:{} }).then(function(r){ M.toast('안내 '+(r.sent||0)+'건을 보냈습니다.'+(r.retried?' 막혀 있던 알림 '+r.retried+'건도 다시 보냈습니다.':'')); loadNotices(); }).catch(oops).finally(function(){ b.disabled=false; }); });
 
-  X.register('hp-spaces', loadSpaces); X.register('hp-bookings', loadBookings); X.register('hp-addons', loadAddons); X.register('hp-planning', loadPlanning); X.register('hp-billing', loadBilling); X.register('hp-notices', loadNotices);
+  X.register('hp-spaces', loadSpaces); X.register('hp-assist', loadAssist); X.register('hp-bookings', loadBookings); X.register('hp-addons', loadAddons); X.register('hp-planning', loadPlanning); X.register('hp-billing', loadBilling); X.register('hp-notices', loadNotices);
   X.register('dash', summary);
   // 메뉴(admin-navigation.js)가 만들어진 뒤에 숫자 배지를 붙입니다
-  function badges(){ ['hp-spaces','hp-bookings','hp-addons','hp-planning','hp-billing','hp-notices'].forEach(function(id){ var b=$('#adm-nav [data-view="'+id+'"]'); if(b && !b.querySelector('em')){ var em=document.createElement('em'); em.setAttribute('data-count', id); em.hidden=true; b.appendChild(em); } }); if(X.visible()) summary(); }
+  function badges(){ ['hp-spaces','hp-assist','hp-bookings','hp-addons','hp-planning','hp-billing','hp-notices'].forEach(function(id){ var b=$('#adm-nav [data-view="'+id+'"]'); if(b && !b.querySelector('em')){ var em=document.createElement('em'); em.setAttribute('data-count', id); em.hidden=true; b.appendChild(em); } }); if(X.visible()) summary(); }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', badges); else setTimeout(badges, 0);
 })();

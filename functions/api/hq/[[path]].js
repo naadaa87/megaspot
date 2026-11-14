@@ -6,6 +6,7 @@
 //   GET  /api/hq/addons[?status=&service=]   PATCH /api/hq/addons/AO-…           (본사 부가서비스: 출장뷔페·케이터링·칵테일·사회자/강연자·현장 매니저·디자인)
 //   GET  /api/hq/planning[?status=]          PATCH /api/hq/planning/PL-…         (행사 지원 요청)
 //   GET  /api/hq/billing[?status=]           PATCH /api/hq/billing/BL-…          (입점 이용료: 계좌이체 입금 확인 · 중도 해지 환불 처리)
+//   GET  /api/hq/assist[?status=]           PATCH /api/hq/assist/AS-… · POST …/act · GET assist/files/<fid>/<번호>  (공간 등록 대행 요청)
 //   GET  /api/hq/notices[?status=]           PUT notices/templates · POST notices/templates/check · POST notices/renewal-run  (호스트 알림 기록 · 알림톡 템플릿 · 무료 종료 안내)
 import { json, err, hasDb, readJson, str, num, isDate, now, kstToday, log, requireAdmin, sameOrigin } from '../_lib.js';
 import { safeJson, httpsUrl } from '../_platform.js';
@@ -15,6 +16,7 @@ import { PLANNING_NEEDS, PLANNING_REF, publicPlanning } from '../_planning.js';
 import { BILL_REF, CANCEL_STATUS, billView, ensurePay, markPaid, finalizeRefund, refundCalc, onlinePay } from '../_hostbilling.js';
 import { notifyHost, hostNoticeList, hostNoticeLive, hostAlimtalkStatus, saveHostAlimtalkCodes, checkHostAlimtalk } from '../_hostnotify.js';
 import { hostRenewalDue, hostRenewalTick } from '../_hostrenewal.js';
+import { hqAssist } from '../_hostassist.js';   // 공간 등록 대행 요청 (2026-11-14)
 
 const d10 = s => String(s || '').slice(0, 10);
 function spaceRow(r) {
@@ -34,9 +36,11 @@ export async function onRequest({ request, env, params }) {
   const path = (params.path || []).join('/'), method = request.method, url = new URL(request.url), q = url.searchParams;
   if (method !== 'GET' && !sameOrigin(request)) return err('허용되지 않은 요청입니다.', 403, 'ORIGIN');
   try {
+    if (path === 'assist' || path.startsWith('assist/')) { const r = await hqAssist({ env, request, path, method, url }); if (r) return r; }
     if (path === 'summary' && method === 'GET') {
       const one = async (sql, ...b) => ((await env.DB.prepare(sql).bind(...b).first()) || {}).n || 0, t = kstToday();
       return json({ ok: true, review: await one("SELECT COUNT(*) AS n FROM host_spaces WHERE status = 'review'"), live: await one("SELECT COUNT(*) AS n FROM host_spaces WHERE status = 'live' AND (COALESCE(free_until,'') >= ? OR COALESCE(paid_until,'') >= ?)", t, t),
+        assist_new: await one("SELECT COUNT(*) AS n FROM host_assist WHERE status = 'new'"), assist_open: await one("SELECT COUNT(*) AS n FROM host_assist WHERE status IN ('new','checking','working','confirm')"),
         hosts: await one("SELECT COUNT(*) AS n FROM hosts WHERE status = 'active'"), bookings_new: await one("SELECT COUNT(*) AS n FROM host_bookings WHERE status = 'new'"), bookings_open: await one("SELECT COUNT(*) AS n FROM host_bookings WHERE status IN ('new','quoted','pending','confirmed')"),
         addons_new: await one("SELECT COUNT(*) AS n FROM hq_addons WHERE status = 'new'"), addons_open: await one("SELECT COUNT(*) AS n FROM hq_addons WHERE status IN ('new','talking','confirmed')"), planning_new: await one("SELECT COUNT(*) AS n FROM planning_requests WHERE status = 'new'"),
         // 운영팀이 처리할 이용료 일: 계좌이체 입금 확인 + 중도 해지 환불 + 확인이 필요한 결제

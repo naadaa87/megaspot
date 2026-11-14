@@ -1018,6 +1018,31 @@ CREATE TABLE IF NOT EXISTS host_customers (   -- 호스트가 남긴 고객 메�
   updated_at TEXT NOT NULL,
   PRIMARY KEY (host_id, phone_key)
 );
+CREATE TABLE IF NOT EXISTS host_assist (    -- 공간 등록 대행 요청 (호스트가 자료를 보내면 본사가 공간 정보를 대신 채움 · 2026-11-14)
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ref TEXT NOT NULL UNIQUE,                 -- 요청 번호 AS-YYMM-XXXX
+  host_id INTEGER NOT NULL,
+  space_ref TEXT,                           -- 맡긴 공간 (새 공간이면 비어 있다가 본사가 만든 뒤 연결)
+  status TEXT NOT NULL DEFAULT 'new',       -- new 접수 | checking 자료 확인 | working 등록 작업 중 | confirm 호스트 확인 요청 | done 완료 | cancelled 취소
+  name TEXT NOT NULL,                       -- 공간 이름
+  data TEXT NOT NULL DEFAULT '{}',          -- 위치·참고 주소·전할 말·연락 번호·편한 시간·동의 시각·진행 기록 JSON
+  hq_message TEXT,                          -- 호스트센터에 보이는 본사 메시지
+  memo TEXT,                                -- 본사 내부 메모
+  created_at TEXT NOT NULL, updated_at TEXT, done_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_host_assist_host ON host_assist(host_id, status);
+CREATE TABLE IF NOT EXISTS host_assist_files (   -- 등록 대행 요청에 붙인 자료 (본문은 host_assist_chunks · 끝난 지 90일 뒤 삭제)
+  fid TEXT PRIMARY KEY, req_ref TEXT NOT NULL, host_id INTEGER NOT NULL,
+  name TEXT NOT NULL, mime TEXT, size INTEGER NOT NULL, chunks INTEGER NOT NULL, created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_host_assist_files_req ON host_assist_files(req_ref);
+CREATE TABLE IF NOT EXISTS host_assist_chunks (  -- 파일 본문 조각 (900KB씩 base64)
+  fid TEXT NOT NULL, idx INTEGER NOT NULL, body TEXT NOT NULL,
+  PRIMARY KEY (fid, idx)
+);
+CREATE TABLE IF NOT EXISTS host_assist_sessions (   -- 본사가 호스트 대신 호스트센터를 연 로그인 (host_sessions 와 같은 토큰 · 4시간 · 공간 정보 화면만)
+  token_hash TEXT PRIMARY KEY, req_ref TEXT NOT NULL, host_id INTEGER NOT NULL, created_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS web_hits (       -- 홈페이지 방문 통계 · 페이지 조회 1건 = 1줄 (이름·연락처·IP는 저장하지 않음 · 13개월 뒤 삭제 · 2026-11-14)
   pid TEXT PRIMARY KEY,                     -- 페이지 조회 번호 (브라우저가 만든 무작위 값)
   day TEXT NOT NULL,                        -- 한국 날짜 YYYY-MM-DD

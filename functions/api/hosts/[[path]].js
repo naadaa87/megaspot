@@ -5,6 +5,7 @@
 //   /api/hosts/status · switch — 메가스팟 회원 계정과 연결된 호스트로 전환 (2026-11-12)
 //   /api/hosts/schedule · customers[/:번호] · ical — 여러 공간 일정, 고객 관리, 휴대폰 캘린더 구독 (2026-11-13)
 //   /api/hosts/ical/<토큰>.ics — 캘린더 앱이 읽는 구독 주소 (로그인 없이 토큰으로만 열림)
+//   /api/hosts/assist[/AS-…[/cancel|files…]] — 공간 등록 대행 요청 (_hostassist.js · 2026-11-14)
 // 로그인 쿠키 ms_host (HttpOnly). 모든 조회·변경은 로그인한 호스트의 공간·예약에만 닿습니다.
 import { json, err, hasDb, readJson, str, num, isDate, isEmail, now, later, kstToday, uniqueRef, log, clientIp, tooMany, hit, clearHits, hashPassword, verifyPassword, randomToken, sha256, getCookie, sameOrigin, withCookies, getMember } from '../_lib.js';
 import { safeJson, phoneOk } from '../_platform.js';
@@ -14,6 +15,7 @@ import { createBooking, viewBooking, hostAction, addonsFor, findOverlaps, CHANNE
 import { listCustomers, customerDetail, saveCustomer, schedule, icalToken, hostByIcal, icsFeed, CUSTOMER_TAGS } from '../_hostcrm.js';
 import { timeOk } from '../_platform.js';
 import { feeOf, periodFor, billView, payRequest, onlinePay, requestCancel, withdrawCancel } from '../_hostbilling.js';
+import { hostAssist, actingOf, actingAllowed, linkActingSpace } from '../_hostassist.js';   // 공간 등록 대행 요청 (2026-11-14)
 
 const NO_DB = () => err('데이터베이스가 연결되어 있지 않습니다.', 503, 'NO_DB');
 const LOGIN = () => err('호스트 로그인이 필요합니다.', 401, 'HOST_LOGIN');
@@ -183,6 +185,10 @@ export async function onRequest({ request, env, params }) {
     }
 
     const host = await getHost(request, env); if (!host) return LOGIN();
+    // 본사가 ‘공간 등록 대행’으로 대신 연 호스트센터는 공간 정보·사진 화면만 씁니다 (예약·고객·정산·이용료·계정은 막음)
+    const acting = await actingOf(request, env);
+    if (acting && !actingAllowed(path, method)) return err('메가스팟 본사가 대신 작성하는 화면에서는 공간 정보와 사진만 고칠 수 있습니다.', 403, 'ASSIST_LIMIT');
+    if (path === 'assist' || path.startsWith('assist/')) { const r = await hostAssist({ env, request, host, path, method, acting }); if (r) return r; }
 
     if (path === 'me' && method === 'GET') {
       const { results } = await env.DB.prepare('SELECT * FROM host_spaces WHERE host_id = ? ORDER BY id').bind(host.id).all();
@@ -195,7 +201,7 @@ export async function onRequest({ request, env, params }) {
       const body = json({ ok: true, host: { ...publicHost(host), member: !!mem, member_email: mem ? mem.email : '' }, spaces, today: kstToday(), channels: CHANNELS, customer_tags: CUSTOMER_TAGS, channel_names: (pn || []).map(r => r.n).filter(Boolean) });
       // 홈 화면 앱처럼 자주 여는 호스트가 다시 로그인하지 않도록, 쓰는 동안에는 로그인 기간을 이어 줍니다
       const tok = getCookie(request, 'ms_host'), th = await sha256(tok), ses = await env.DB.prepare('SELECT expires_at FROM host_sessions WHERE token_hash = ?').bind(th).first();
-      if (ses && ses.expires_at < later(HOST_SESSION_DAYS - 7)) { await env.DB.prepare('UPDATE host_sessions SET expires_at = ? WHERE token_hash = ?').bind(later(HOST_SESSION_DAYS), th).run(); return withCookies(body, hostCookies(tok)); }
+      if (ses && !acting && ses.expires_at < later(HOST_SESSION_DAYS - 7)) { await env.DB.prepare('UPDATE host_sessions SET expires_at = ? WHERE token_hash = ?').bind(later(HOST_SESSION_DAYS), th).run(); return withCookies(body, hostCookies(tok)); }
       return body;
     }
     if (path === 'me' && method === 'PUT') {
@@ -222,6 +228,7 @@ export async function onRequest({ request, env, params }) {
       sp.data.contact = { ...sp.data.contact, phone: sp.data.contact.phone || host.phone };
       await env.DB.prepare('INSERT INTO host_spaces (ref, host_id, status, name, region, address, capacity, area, tier, types, price_from, data, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
         .bind(ref, host.id, 'draft', sp.name, sp.region, sp.address, sp.capacity, sp.area, sp.tier, JSON.stringify(sp.types), sp.price_from, JSON.stringify(sp.data), t, t).run();
+      if (acting) await linkActingSpace(env, acting.req_ref, ref);   // 본사가 대신 만든 공간은 등록 대행 요청에 바로 연결
       return json({ ok: true, ref });
     }
     let m = path.match(/^spaces\/(SP-[A-Z0-9-]+)(?:\/(.+))?$/);

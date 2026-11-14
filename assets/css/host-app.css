@@ -165,3 +165,45 @@
 /* 홈 화면 앱으로 열었을 때: 위쪽 여백(상태 표시줄)과 고객 화면 링크 정리 */
 .hc-standalone .hc-top{padding-top:calc(10px + env(safe-area-inset-top))}
 .hc-standalone #hc-customer{display:none!important}
+
+/* ---------- 공간 등록 대행 요청 (2026-11-14) ---------- */
+.hc-assist-cta{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 18px;padding:16px 18px;margin-bottom:14px;border:1px solid #BFD0F5;border-radius:var(--radius-lg);background:var(--cobalt-soft)}
+.hc-assist-cta>div:first-child{flex:1 1 320px;display:grid;gap:4px}
+.hc-assist-cta b{font-size:15.5px;color:var(--ink)}
+.hc-assist-cta p{font-size:14px;color:var(--ink);line-height:1.6}
+.hc-assist-cta.compact{padding:13px 14px;margin-bottom:4px}
+.hc-assist-cta.compact b{font-size:14.5px}
+.hc-assist-cta.compact p{font-size:13.5px}
+.hc-assist{background:var(--white);border:1px solid #BFD0F5;border-radius:var(--radius-lg);padding:18px;display:grid;gap:12px;margin-bottom:14px}
+.hc-assist-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 12px}
+.hc-assist-head h2{font-size:17px;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.hc-assist>p{font-size:14.5px;line-height:1.6}
+.hc-steps.c5{grid-template-columns:repeat(5,minmax(0,1fr))}
+@media (max-width:760px){.hc-steps.c5{grid-template-columns:repeat(3,minmax(0,1fr))}.hc-steps.c5 li{padding:8px 7px;gap:6px;font-size:12.5px}.hc-steps.c5 li span{white-space:nowrap}.hc-steps.c5 li i{width:20px;height:20px;font-size:11px}}
+.hc-assist-msg{padding:12px 14px;border-radius:var(--radius);background:var(--concrete-3);display:grid;gap:4px}
+.hc-assist-msg b{font-size:13px;color:var(--cobalt-2)}
+.hc-assist-msg p{font-size:14.5px;line-height:1.6}
+.hc-assist-note{font-size:13.5px;line-height:1.6;padding:10px 12px;border-radius:var(--radius);background:var(--concrete-3);margin-top:8px}
+.hc-assist-line{font-size:14px;padding-top:6px;border-top:1px dashed rgba(0,0,0,.12)}
+.hc-assist-intro{display:grid;gap:6px;padding:14px;border-radius:var(--radius-lg);background:var(--cobalt-soft)}
+.hc-assist-intro b{font-size:15px}
+.hc-assist-intro ol{display:grid;gap:4px;padding-left:20px;list-style:decimal;font-size:13.5px;line-height:1.55}
+.hc-assist-done{display:grid;gap:12px}
+.hc-assist-done>b{font-size:18px}
+.hc-assist-done p{font-size:14.5px;line-height:1.65}
+.hc-assist-done .pf-msg ul{margin-top:6px;padding-left:18px;list-style:disc}
+.hc-file{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 16px;border:1px dashed var(--cobalt);border-radius:var(--radius);color:var(--cobalt-2);font-weight:700;font-size:14px;cursor:pointer;background:var(--white);width:max-content}
+.hc-file input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.hc-file:focus-within{outline:2px solid var(--cobalt);outline-offset:2px}
+.hc-files{display:grid;gap:6px;margin:8px 0 0}
+.hc-files li{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--concrete);border-radius:var(--radius);background:var(--white);font-size:13.5px;min-width:0}
+.hc-files .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hc-files small{color:var(--ink-3,#6B7178);white-space:nowrap}
+.hc-file-ext{flex:none;min-width:38px;padding:2px 5px;border-radius:5px;background:var(--cobalt-soft);color:var(--cobalt-2);font-size:11px;font-weight:800;text-align:center}
+.hc-links{display:grid;gap:4px;margin-top:8px;font-size:13.5px;word-break:break-all}
+/* 본사가 대신 연 호스트센터 */
+.hc-actbar{position:sticky;top:0;z-index:60;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 14px;padding:10px 16px;background:#FFF4E5;border-bottom:2px solid #E8A34A;color:var(--ink)}
+.hc-actbar>div{display:grid;gap:2px;min-width:0}
+.hc-actbar b{font-size:14.5px}
+.hc-actbar span{font-size:12.5px;color:#6B5A3C}
+.hc-acting #hc-nav a:not([data-tab="space"]),.hc-acting #hc-tabbar,.hc-acting #hc-fab,.hc-acting #hc-more,.hc-acting #hc-logout,.hc-acting #hc-customer,.hc-acting .hc-install{display:none!important}

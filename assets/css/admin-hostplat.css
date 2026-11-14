@@ -49,3 +49,15 @@
 .hp-card>summary>b{font-size:15.5px}
 .hp-tp-row b{font-size:14.5px}
 .hp-tp-row .hp-msg{margin-top:6px}
+
+/* 공간 등록 대행 (2026-11-14) */
+.hp-files{display:grid;gap:6px;margin:6px 0}
+.hp-files>div{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid #E6E2DB;border-radius:8px;background:#fff;font-size:13px;min-width:0}
+.hp-files .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hp-files small{color:#6B7178;white-space:nowrap}
+.hp-ext{flex:none;min-width:38px;padding:2px 5px;border-radius:5px;background:#EAF0FC;color:#1A45B0;font-size:11px;font-weight:800;text-align:center}
+.hp-act{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 14px;padding:12px 14px;border:1px solid #BFD0F5;border-radius:10px;background:#F3F6FE}
+.hp-act>div{flex:1 1 260px;display:grid;gap:3px}
+.hp-act p{line-height:1.55;color:#3B4148}
+.hp-hist{display:grid;gap:4px;margin-top:6px;font-size:12.5px}
+.hp-hist span{color:#6B7178;margin-right:6px;font-variant-numeric:tabular-nums}
