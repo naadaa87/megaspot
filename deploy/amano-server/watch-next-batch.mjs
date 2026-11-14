@@ -20,26 +20,26 @@ export function verificationMessage(result,final=false){
  lines.push(LINK);const msg=lines.join('\n');if(msg.length>600)throw Error('검증 결과 문자 길이 확인 필요');return msg;
 }
 
-export async function runWatch({env,store,since,site=(action,data)=>parkingSite(env.ALIGO_RELAY_SECRET,action,data),upstream=fetch,at=Date.now()}){
- let s=store.read(KEY)||{version:1,since,phase:'watching',messages:{},errors:0};
+export async function runWatch({env,store,since,site=(action,data)=>parkingSite(env.ALIGO_RELAY_SECRET,action,data),upstream=fetch,at=Date.now(),key=KEY,audit=auditBatch,message=verificationMessage,action='audit-batch'}){
+ let s=store.read(key)||{version:1,since,phase:'watching',messages:{},errors:0};
  if(!/^20\d{2}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(since||'')||s.since!==since)throw Error('검증 시작 시각 변경은 허용하지 않습니다.');
  if(s.phase==='completed')return {ok:true,phase:'completed',target:s.target};
  const receivers=[...new Set((env.ALIGO_PARKING_ADMIN_RECEIVERS||'').split(',').map(x=>x.trim()))];
  if(receivers.length!==2||receivers.some(x=>!/^01[016789]\d{7,8}$/.test(x))||!['1886','9580'].every(t=>receivers.some(x=>x.endsWith(t))))throw Error('승인된 두 관리자 수신 설정 확인 필요');
  if(String(env.ALIGO_RELAY_SECRET||'').length<32)throw Error('기존 서버 연결 설정 확인 필요');
- const save=()=>store.save(KEY,s);
+ const save=()=>store.save(key,s);
  const enqueue=(kind,result,final=false)=>{
-  for(const receiver of receivers){const key=kind+':'+receiver;if(!s.messages[key])s.messages[key]={key,receiver,message:verificationMessage(result,final),request_id:idFor(since+':'+(s.target||'system')+':'+key),status:'queued',attempts:0};}
+  for(const receiver of receivers){const messageKey=kind+':'+receiver;if(!s.messages[messageKey])s.messages[messageKey]={key:messageKey,receiver,message:message(result,final),request_id:idFor((key===KEY?'':key+':')+since+':'+(s.target||'system')+':'+messageKey),status:'queued',attempts:0};}
   save();
  };
  let result=null;
  if(!s.final_kind){
   try{
-   const data=await site('audit-batch',{since,...(s.target?{oid:s.target}:{})});
+   const data=await site(action,{since,...(s.target?{oid:s.target}:{})});
    if(!data.ok)throw Error('검증 응답 확인 필요');
    if(s.target&&!data.batch)throw Error('선택한 통합 주문 조회 미확인');
    if(data.batch){if(s.target&&s.target!==data.batch.oid)throw Error('다른 통합 주문으로 검증 대상이 바뀌었습니다.');s.target=data.batch.oid;}
-   result=auditBatch(data.batch,store.read('operations')||{},store.read('alert-journal')||{},at);
+   result=audit(data.batch,store.read('operations')||{},store.read('alert-journal')||{},at);
    s.errors=0;delete s.error;s.last_result=result;s.checked_at=new Date(at).toISOString();
    const final=result.status==='verified'||result.status==='attention'&&!result.pending;
    if(final){s.final_kind=result.status==='verified'?'verified':'final_attention';s.phase='reporting';enqueue(s.final_kind,result,true);}

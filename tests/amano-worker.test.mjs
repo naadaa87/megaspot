@@ -32,3 +32,9 @@ test('번호 대조 실패는 대기가 아닌 확인 필요로 보류하고 다
  assert.equal(r.waiting,1);assert.equal(r.issues.length,1);assert.equal(f.memory.operations[f.p.oid].phase,'review');assert.equal(r.processed,0);
 });
 test('문자 접수 오류가 있어도 번호 대조 실패 보류와 오류 요약은 유지한다',async()=>{const f=fixture();f.client.entries=async()=>{throw new PlateMatchError(f.p.plate,[{carNo:'XXXX123XX4567'}]);};const r=await runCycle({site:f.site,client:f.client,store:f.store,onIssue:async()=>{throw Error('relay unavailable');}});assert.equal(f.q.status,'issue');assert.equal(r.issues[0].kind,'plate');assert.deepEqual(f.mutations,[]);});
+test('initial wake and subsequent scheduled entry keep first-check time while completion records actual free-first proof',async()=>{
+ const f=fixture({entries:false});let clock=Date.parse('2026-11-04T04:00:01Z');const now=()=>clock;
+ await runCycle({site:f.site,client:f.client,store:f.store,now,trigger:'wake'});assert.equal(f.memory['registration-timing'][f.p.oid].first_trigger,'wake');assert.equal(f.memory['registration-timing'][f.p.oid].first_checked_at,'2026-11-04T04:00:01.000Z');assert.deepEqual(f.mutations,[]);
+ clock+=60000;f.client.entries=async()=>[f.entry];await runCycle({site:f.site,client:f.client,store:f.store,now,trigger:'scheduled'});
+ const proof=f.memory.operations[f.p.oid].verification;assert.equal(proof.first_trigger,'wake');assert.equal(proof.first_checked_at,'2026-11-04T04:00:01.000Z');assert.equal(proof.completed_at,'2026-11-04T04:01:01.000Z');assert.equal(proof.entry_at,f.entry.entryAt);assert.equal(proof.free_first_verified,true);assert.deepEqual(f.mutations,['1','6']);
+});

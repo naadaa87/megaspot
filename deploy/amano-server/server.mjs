@@ -50,7 +50,7 @@ export async function amanoRequest(request,env,store,clientFactory=c=>new AmanoC
    if(!store.read('settings')?.enabled)return json({ok:true,enabled:false,processed:0,waiting:0,issues:[]});
    const credentials=store.read('credentials');if(!credentials)return json({error:'아마노 계정 연결 필요'},409);
    cycleBusy=true;
-   try{const result=await runCycle({site:(action,data)=>parkingSite(env.ALIGO_RELAY_SECRET,action,data),client:clientFactory(credentials),store,isEnabled:()=>store.read('settings')?.enabled===true,onIssue:issue=>notifyProblems(env,store,[issue])});await notifyProblems(env,store,result.issues||[]);return json(result);}
+   try{const result=await runCycle({site:(action,data)=>parkingSite(env.ALIGO_RELAY_SECRET,action,data),client:clientFactory(credentials),store,trigger:v.megaspot_only===true?'wake':'scheduled',isEnabled:()=>store.read('settings')?.enabled===true,onIssue:issue=>notifyProblems(env,store,[issue])});await notifyProblems(env,store,result.issues||[]);return json(result);}
    catch(error){const message=String(error?.message||'서버 처리 확인 필요').slice(0,180);store.save('last-run',{ok:false,error:message,finished_at:new Date().toISOString()});try{await notifyProblems(env,store,[{kind:'system',message}]);}catch{}return json({ok:false,error:'서버 자동 처리 확인 필요',alerts_handled:true},502);}
    finally{cycleBusy=false;}
   }

@@ -1,0 +1,17 @@
+[Unit]
+Description=Verify the next real parking payment and report registration timing to both administrators
+After=network-online.target megaspot-aligo.service
+Wants=megaspot-aligo.service
+[Service]
+Type=oneshot
+User=megaspot-aligo
+Group=megaspot-aligo
+EnvironmentFile=/etc/megaspot-aligo.env
+ExecStart=/usr/bin/node /opt/megaspot-amano/watch-next-payment.mjs
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/megaspot-amano
+UMask=0077
+TimeoutStartSec=120

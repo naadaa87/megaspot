@@ -18,7 +18,7 @@ export function plan(d,p){
 }
 function sameHistory(a,b){const ids=d=>d.discounts.map(x=>x.id).sort().join(',');return ids(a)===ids(b)&&a.balance===b.balance;}
 function paid(p){if(p.payment_status!=='paid'||p.refunded_amount||p.refund_pending||p.status!=='processing')throw Error('결제·환불·처리 상태 변경');}
-export async function runCycle({site,client,store,maxOrders=10,now=()=>Date.now(),isEnabled=()=>true,onIssue=async()=>{}}){
+export async function runCycle({site,client,store,maxOrders=10,now=()=>Date.now(),isEnabled=()=>true,onIssue=async()=>{},trigger='scheduled'}){
  const started=now(),feed=await site('orders'),summary={ok:true,operating:!!feed.operating,started_at:new Date(started).toISOString(),processed:0,waiting:0,issues:[],checked:0};
  if(!feed.operating){store.save('last-run',summary);return summary;}
  const date=feed.date||new Date(now()+9*36e5).toISOString().slice(0,10),observation=store.read('observation-'+date)||{date,order_ids:[],waiting_ids:[]};
@@ -27,7 +27,9 @@ export async function runCycle({site,client,store,maxOrders=10,now=()=>Date.now(
  const save=(oid,phase,extra={})=>{const at=new Date(now()).toISOString();ledger[oid]={...ledger[oid],...extra,phase,updated_at:at,steps:[...(ledger[oid]?.steps||[]),{phase,at}].slice(-20)};store.save('operations',ledger);};
  const issue=async(oid,message,extra={})=>{const problem={oid,message,kind:/잔액 부족/.test(message)?'balance':'registration',...extra};summary.issues.push(problem);save(oid,'review',{message});try{await site('issue',{oid,data:{memo:message}});}catch{}try{await onIssue(problem);}catch{}};
  for(const [oid,r] of Object.entries(ledger)){if(['completed','review'].includes(r.phase))continue;try{const q=(await site('order',{oid})).order;if(q.status==='applied'){save(oid,'completed');continue;}}catch{}await issue(oid,'이전 서버 처리 결과 확인 필요 · 자동 재등록 중지');}
- const orders=feed.items.slice(0,maxOrders);if(orders.length)await client.login();
+ const orders=feed.items.slice(0,maxOrders),timing=store.read('registration-timing')||{};
+ for(const p of orders){const at=new Date(now()).toISOString();timing[p.oid]={...timing[p.oid],first_checked_at:timing[p.oid]?.first_checked_at||at,first_trigger:timing[p.oid]?.first_trigger||trigger,last_checked_at:at};}
+ if(orders.length){store.save('registration-timing',timing);await client.login();}
  for(const p of orders){
   if(now()-started>180000)break;summary.checked++;
   if(ledger[p.oid]){if(ledger[p.oid].phase!=='completed')summary.issues.push({oid:p.oid,message:'기존 처리 결과 확인 필요'});continue;}
@@ -35,6 +37,7 @@ export async function runCycle({site,client,store,maxOrders=10,now=()=>Date.now(
   try{
    const matches=await client.entries(p.plate,p.visit_date);if(!matches.length){summary.waiting++;observation.waiting_ids=[...new Set([...observation.waiting_ids,p.oid])];store.save('observation-'+date,observation);continue;}if(matches.length!==1)throw Error('동일 차량의 입차 건이 여러 개입니다.');
    const e=matches[0];let d=await client.detail(e,p.visit_date);assertEntry(d,p,e);const wanted=plan(d,p);
+   timing[p.oid]={...timing[p.oid],entry_confirmed_at:new Date(now()).toISOString(),entry_at:e.entryAt};store.save('registration-timing',timing);
    save(p.oid,'claim_requested',{entry_id:e.id,cost:wanted.cost});
    await site('claim',{oid:p.oid,data:{entry_id:e.id,entry_at:e.entryAt.slice(0,16),plate_confirm:p.plate,confirm_entry:true,free_used:!wanted.free,confirm_no_free:wanted.free,memo:'입차·기존 무료 할인 이력 대조 완료'}});locked=true;
    let q=(await site('order',{oid:p.oid})).order;paid(q);
@@ -61,7 +64,7 @@ export async function runCycle({site,client,store,maxOrders=10,now=()=>Date.now(
    save(p.oid,'verified',{cost:wanted.cost});
    await site('complete',{oid:p.oid,data:{cost:wanted.cost,confirm_free_applied:true,confirm_paid_applied:true,memo:'아마노 입차ID '+e.id+' · 무료 1시간 선사용 확인 · 할인내역 '+d.discounts.map(h=>h.id).join(',')+' · 실제 차감 '+wanted.cost+'원'}});
    const freeRecord=d.discounts.find(h=>h.code==='1'),paidRecord=wanted.code?d.discounts.find(h=>h.code===wanted.code&&h.memo===p.oid):null;
-   const proof={date:p.visit_date,entry_id:e.id,free_confirmed:freeCount(d)===1,free_existing:!wanted.free,free_registered_at:freeRecord?.at||null,paid_registered_at:paidRecord?.at||null,free_first_verified:freeFirst,cost:wanted.cost,history_ids:d.discounts.map(h=>h.id),site_status:'applied',steps:ledger[p.oid].steps};
+   const proof={...timing[p.oid],completed_at:new Date(now()).toISOString(),date:p.visit_date,entry_id:e.id,free_confirmed:freeCount(d)===1,free_existing:!wanted.free,free_registered_at:freeRecord?.at||null,paid_registered_at:paidRecord?.at||null,free_first_verified:freeFirst,cost:wanted.cost,history_ids:d.discounts.map(h=>h.id),site_status:'applied',steps:ledger[p.oid].steps};
    save(p.oid,'completed',{verification:proof});recordVerification(store,p.oid,proof);summary.processed++;
   }catch(error){const message=String(error?.message||'서버 처리 확인 필요').slice(0,180);await issue(p.oid,(locked?'등록 처리 중 · ':'등록 전 확인 · ')+message,{plate:p.plate,visit_date:p.visit_date,...(error.code==='PLATE_MATCH_REQUIRED'?{kind:'plate'}:{})});}
  }

@@ -1,0 +1,8 @@
+[Unit]
+Description=Check the next parking payment verification once a minute
+[Timer]
+OnCalendar=*-*-* *:*:15 Asia/Seoul
+Persistent=true
+Unit=megaspot-parking-payment-watch.service
+[Install]
+WantedBy=timers.target

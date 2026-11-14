@@ -6,12 +6,12 @@ import {parkingSite} from './site.mjs';
 const delivered=s=>['delivered','sms_delivered'].includes(s);
 const bad=s=>['failed','unknown','cancelled'].includes(s);
 const wantedAdmins=['1886','9580'];
-export function auditBatch(batch,operations={},journal={},at=Date.now()){
+export function auditBatch(batch,operations={},journal={},at=Date.now(),{minVehicles=2,checkNotifications=true}={}){
  if(!batch)return {status:'no_order',batch:null};
  let pending=false;const problems=[];
  const cancelled=batch.refunded_amount>0||batch.payment_status&&batch.payment_status!=='paid';
  if(cancelled)problems.push('대상 통합 결제 취소·부분 환불 상태 확인 필요');
- if(batch.items.length<2||batch.items.reduce((n,p)=>n+p.price,0)!==batch.price)problems.push('차량별 금액·통합 결제 총액 대조 필요');
+ if(batch.items.length<minVehicles||batch.items.reduce((n,p)=>n+p.price,0)!==batch.price)problems.push('차량별 금액·통합 결제 총액 대조 필요');
  const items=batch.items.map(p=>{
   const proof=operations[p.oid]?.verification,issues=[];
   const complete=p.status==='applied';
@@ -35,9 +35,11 @@ export function auditBatch(batch,operations={},journal={},at=Date.now()){
     if(stale||complete&&!rows.length)issues.push(label+' 전달 미확인');else pending=true;
    }
   }
+  if(checkNotifications){
   check(notices.filter(x=>x.kind==='paid'),'고객 결제 안내');
   if(complete)check(notices.filter(x=>x.kind==='applied'),'고객 등록 완료 안내');
   for(const tail of wantedAdmins)check(admins.filter(x=>x.receiver_last4===tail),'관리자 '+tail+' 결제 문자');
+  }
   const error_sms=Object.values(journal).filter(e=>e.key?.startsWith('order:'+p.oid+':')||e.key?.startsWith('balance:'+p.visit_date+':')).map(e=>({receiver_last4:e.receiver?.slice(-4),status:e.status}));
   if(p.status==='issue')for(const tail of wantedAdmins)if(!error_sms.some(e=>e.receiver_last4===tail&&e.status==='delivered')){
    issues.push('관리자 '+tail+' 오류 문자 전달 미확인');
