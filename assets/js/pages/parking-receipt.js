@@ -10,6 +10,7 @@
  function stamp(v){if(!v)return '';var d=new Date(String(v).replace(' ','T')+(/Z$|[+-]\d\d:\d\d$/.test(v)?'':'Z'));return Number.isFinite(d.getTime())?d.toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'}):String(v);}
  function state(p){
   if(p.payment_status==='refunded')return {key:'refunded',label:'환불 완료',tone:'neutral',hint:'결제가 환불되었습니다. 기존 등록 이력은 상세 내역에서 확인하세요.'};
+  if(p.status==='resolved'&&!(p.refund_requested_at&&!p.refund_reviewed_at))return {key:'resolved',label:'관리자 확인 완료',tone:'success',hint:'담당자가 주차권 처리 결과를 확인했습니다. 정산 내역은 카카오톡으로 문의해 주세요.'};
   if(p.refund_hold||Number(p.refunded_amount)>0)return {key:'hold',label:'취소 확인 중',tone:'attention',hint:'취소 내역 확인이 필요해 자동 등록이 보류되었습니다.'};
   if(p.payment_status!=='paid')return {key:'payment',label:paymentLabels[p.payment_status]||'결제 확인 필요',tone:'neutral',hint:['failed','cancelled'].includes(p.payment_status)?'결제가 완료되지 않았습니다.':'결제 결과를 확인 중입니다. 중복 결제하지 말고 잠시 후 새로고침해 주세요.'};
   if(p.refund_requested_at&&!p.refund_reviewed_at)return {key:'cancel',label:'취소 문의 접수',tone:'attention',hint:'담당자가 확인 중입니다. 문의 접수만으로 결제가 취소되지는 않습니다.'};
@@ -55,6 +56,6 @@
    +'<div class="pk-receipt-actions"><button class="btn btn-light" id="pk-refresh">상태 새로고침</button><button class="btn btn-light" id="pk-copy">구매 링크 복사</button><a class="btn btn-light" href="https://pf.kakao.com/_LnxbmX/chat" target="_blank" rel="noopener">카카오톡 문의</a><a class="text-link" href="/parking/purchase/">주차권 추가 구매 →</a></div>'
    +'<p class="pk-help">구매 링크를 보관하면 다른 기기에서도 내역을 확인할 수 있습니다.</p>';
  }
- function needsRefresh(p){return !['failed','refunded','cancelled'].includes(p.payment_status)&&state(p).key!=='applied';}
+ function needsRefresh(p){return !['failed','refunded','cancelled'].includes(p.payment_status)&&!['applied','resolved'].includes(state(p).key);}
  return {state:state,render:render,needsRefresh:needsRefresh};
 });

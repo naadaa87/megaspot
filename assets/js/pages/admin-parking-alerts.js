@@ -28,5 +28,6 @@
  $('#pa-sms-save').onclick=function(){var b=this;b.disabled=true;var phones=$('#pa-sms-phones').value.split(/[\s,;]+/).filter(Boolean);api('/settings','PUT',{phones:phones,enabled:$('#pa-sms-enabled').checked}).then(function(){initialized=false;M.toast('관리자 문자 설정을 저장했습니다.');return load();}).catch(function(e){M.toast(e.message);}).finally(function(){b.disabled=false;});};
  $('#pa-sms-test').onclick=function(){if(!$('#pa-sms-test-confirm').checked){M.toast('시험 문자 요금 차감 동의를 확인해 주세요.');return;}var b=this;b.disabled=true;api('/test','POST',{confirm_test:true}).then(function(){M.toast('시험 문자를 접수했습니다. 도착 결과를 확인해 주세요.');return load();}).catch(function(e){M.toast(e.message);}).finally(function(){b.disabled=false;});};
  $('#pa-sms-refresh').onclick=function(){var b=this;b.disabled=true;api('/refresh','POST',{}).then(load).catch(function(e){M.toast(e.message);}).finally(function(){b.disabled=false;});};
+ document.addEventListener('megaspot:parking-updated',load);
  X.register('parking',load);setTimeout(load,1200);setInterval(function(){if(!document.hidden)load();},10000);document.addEventListener('visibilitychange',function(){if(!document.hidden)load();});
 })();

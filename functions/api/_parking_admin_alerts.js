@@ -25,7 +25,7 @@ async function dispatch(env,e,s){
  let message=TEST_MESSAGE;
  if(e.mode==='live'){
   const p=await env.DB.prepare(JOIN+' WHERE p.oid=?').bind(e.oid).first();
-  if(!p||p.payment_status!=='paid'||p.test||(p.refunded_amount>0||p.refund_hold)){await state(env,e.id,'cancelled','결제 상태 변경');return;}
+  if(!p||p.status==='resolved'||p.payment_status!=='paid'||p.test||(p.refunded_amount>0||p.refund_hold)){await state(env,e.id,'cancelled','결제 상태 변경');return;}
   message=adminPaymentMessage(p);
  }
  const id=crypto.randomUUID();

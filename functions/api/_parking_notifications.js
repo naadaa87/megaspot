@@ -66,7 +66,7 @@ export function parkingNoticeRender(text,vars){return text.replace(/#\{([^}]+)\}
 export function parkingNoticeObsolete(p,e,at=Date.now()){
  if(!p)return true;
  if(['paid','arrival_received','applied','issue'].includes(e.kind) && (p.payment_status!=='paid'||Number(p.refunded_amount)>0||p.refund_hold))return true;
- if(['arrival_received','issue'].includes(e.kind) && p.status==='applied')return true;
+ if(['arrival_received','issue'].includes(e.kind) && ['applied','resolved'].includes(p.status))return true;
  if(e.kind==='paid' && p.status!=='waiting')return true;
  if(e.kind==='issue' && p.status!=='issue')return true;
  if(['paid','arrival_received','applied','issue'].includes(e.kind) && p.refund_requested_at && !p.refund_reviewed_at)return true;

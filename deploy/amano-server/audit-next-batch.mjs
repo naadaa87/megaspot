@@ -24,7 +24,8 @@ export function auditBatch(batch,operations={},journal={},at=Date.now(),{minVehi
    const freeFirst=free===1?freeIndex>=0&&(paidIndex<0||freeIndex<paidIndex):free===0&&proof?.free_existing===true&&p.free_external===1;
    if(!proof||!proof.free_confirmed||!proof.free_first_verified||!freeFirst||!proof.history_ids?.length||proof.entry_id!==p.entry_id||proof.date!==p.visit_date||proof.site_status!=='applied')issues.push('무료 1시간 우선 사용·아마노 할인 이력 증빙 확인 필요');
    if(![0,1].includes(free)||p.paid_hours!==paid||!Number.isSafeInteger(expected)||expected<0||expected>cap||expected>p.price||p.cost!==expected||proof?.cost!==expected)issues.push('필요 유료분·승인 한도·실제 차감액 대조 필요');
-  }else if(p.status==='issue')issues.push('아마노 등록 확인 필요 상태');
+  }else if(p.status==='resolved')issues.push('관리자 확인 완료 · 자동 등록 검증 종료');
+  else if(p.status==='issue')issues.push('아마노 등록 확인 필요 상태');
   else if(p.visit_date<new Date(at+9*36e5).toISOString().slice(0,10))issues.push('이용일이 지났으나 등록 완료 미확인');
   else pending=true;
   if(p.refund_requested_at&&!p.refund_reviewed_at)issues.push('취소 문의 검토 중');
@@ -35,7 +36,7 @@ export function auditBatch(batch,operations={},journal={},at=Date.now(),{minVehi
     if(stale||complete&&!rows.length)issues.push(label+' 전달 미확인');else pending=true;
    }
   }
-  if(checkNotifications){
+  if(checkNotifications&&p.status!=='resolved'){
   check(notices.filter(x=>x.kind==='paid'),'고객 결제 안내');
   if(complete)check(notices.filter(x=>x.kind==='applied'),'고객 등록 완료 안내');
   for(const tail of wantedAdmins)check(admins.filter(x=>x.receiver_last4===tail),'관리자 '+tail+' 결제 문자');

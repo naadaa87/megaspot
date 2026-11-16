@@ -10,12 +10,12 @@ function fixture(t){
  const db=new DatabaseSync(':memory:');db.exec(readFileSync(new URL('../schema.sql',import.meta.url),'utf8'));t.after(()=>db.close());
  const DB={prepare(sql){const st=db.prepare(sql);let a=[];return {bind(...v){a=v;return this;},async first(){return st.get(...a)||null;},async all(){return {results:st.all(...a)};},async run(){return {meta:{changes:Number(st.run(...a).changes)}};}};},async batch(stmts){db.exec('BEGIN');try{const r=await Promise.all(stmts.map(s=>s.run()));db.exec('COMMIT');return r;}catch(e){db.exec('ROLLBACK');throw e;}}};
  const env={DB,ADMIN_KEY:'test-admin',ALIGO_RELAY_URL:'https://relay.naranhistory.com/megaspot/aligo',ALIGO_RELAY_SECRET:'test-relay-secret-with-32-characters'};
- const sent=[];let fail=false,delivered=false,seq=100;
+ const sent=[],mids={};let fail=false,delivered=false,seq=100;
  t.mock.method(globalThis,'fetch',async(url,opts)=>{
   assert.equal(url,env.ALIGO_RELAY_URL);const v=JSON.parse(opts.body);
   if(v.path==='parking-admin/status')return Response.json({ready:true,receivers:phones});
-  if(v.path==='sms/detail')return Response.json({result_code:1,list:delivered?[{receiver:phones[Number(v.data.mid)%2],sms_state:'발송완료',send_date:'2026-11-04 16:00:00'}]:[]});
-  assert.equal(v.path,'parking-admin/send');sent.push(v);if(fail)throw Error('network timeout');return Response.json({result_code:1,msg_id:seq++,success_cnt:1,error_cnt:0});
+  if(v.path==='sms/detail')return Response.json({result_code:1,list:delivered?[{receiver:mids[v.data.mid],sms_state:'발송완료',send_date:'2026-11-04 16:00:00'}]:[]});
+  assert.equal(v.path,'parking-admin/send');sent.push(v);if(fail)throw Error('network timeout');const mid=seq++;mids[mid]=v.data.receiver;return Response.json({result_code:1,msg_id:mid,success_cnt:1,error_cnt:0});
  });
  async function api(path='',method='GET',body,auth=true,origin='https://megaspot.test'){
   const response=await onRequest({env,params:{path:('admin/payment-alerts'+path).split('/')},request:new Request('https://megaspot.test/api/parking/admin/payment-alerts'+path,{method,headers:{origin,'Content-Type':'application/json',...(auth?{'x-admin-key':'test-admin'}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})})});
