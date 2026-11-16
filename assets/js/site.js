@@ -14,6 +14,8 @@
     description: '인원과 목적에 맞는 대형 공간을 비교하고 문의하는 예약 플랫폼',
     phone: '010-2384-9580',          // 대표 상담 번호 — 공개 전 확인
     email: 'guspacedev@gmail.com', // 대표 이메일 — 공개 전 확인
+    inquiryEmail: 'spaceblank0100@gmail.com', // 이용·예약·제휴 문의
+    companyEmail: 'guspacedev@gmail.com', // 회사 문의
     kakaoChannel: 'https://pf.kakao.com/_LnxbmX/chat', // 카카오톡 문의 채널 — 비우면 카카오톡 버튼·링크 숨김
     kakaoNote: '메가스팟 전용 카카오톡 채널로 1:1 채팅이 바로 열립니다.',
     // ※ 채널 주소를 바꾸면 QR 이미지(/assets/img/brand/kakao-qr.svg)도 새 주소로 다시 만들어 교체해야 합니다.
@@ -116,7 +118,11 @@
     $$('.nav-group').forEach(function(g){ g.addEventListener('keydown', function(e){ if(e.key==='Escape'){ var t=$('.nav-top',g); g.classList.add('closed'); if(t) t.focus(); } }); g.addEventListener('mouseleave', function(){ g.classList.remove('closed'); }); g.addEventListener('focusout', function(e){ if(!g.contains(e.relatedTarget)) g.classList.remove('closed'); }); });
     // contact placeholders
     $$('[data-phone]').forEach(function(el){ el.textContent=CONFIG.phone; if(el.tagName==='A') el.href='tel:'+CONFIG.phone.replace(/-/g,''); });
-    $$('[data-email]').forEach(function(el){ el.textContent=CONFIG.email; if(el.tagName==='A') el.href='mailto:'+CONFIG.email; });
+    $$('[data-email]').forEach(function(el){
+      var kind=el.getAttribute('data-email');
+      var email=kind==='inquiry'?CONFIG.inquiryEmail:kind==='company'?CONFIG.companyEmail:CONFIG.email;
+      el.textContent=email; if(el.tagName==='A') el.href='mailto:'+email;
+    });
     $$('[data-hours]').forEach(function(el){ el.textContent=CONFIG.hours; });
     $$('[data-kakao]').forEach(function(el){ if(CONFIG.kakaoChannel){ el.href=CONFIG.kakaoChannel; el.hidden=false; } else { el.hidden=true; } });
     $$('[data-kakao-url]').forEach(function(el){ if(CONFIG.kakaoChannel) el.textContent=CONFIG.kakaoChannel.replace(/^https?:\/\//,''); });
