@@ -789,7 +789,7 @@
     var row=rows.find(function(row){
       var c=row.catering;
       return window.MEGASPOT_FOOD_SERVICES.isRow('catering',row)
-        && c && !c.removed && c.status!=='cancelled' && (c.course||c.bbq||c.beer);
+        && c && !c.removed && c.status!=='cancelled' && (c.course||c.bbq||c.beer||c.soju);
     });
     return row?row.catering:null;
   }
@@ -999,7 +999,7 @@
   // 가격·메뉴는 홈페이지와 같은 assets/js/data/catering.js(고객 안내 판매가, 부가세 별도)를 씁니다.
   // 발주처 연락처와 1인 수수료는 서버 settings 표(settings/catering)에만 저장해 홈페이지 파일에는 남기지 않습니다.
   var CC=window.MEGASPOT_CATERING_CALC||null, CD=CC?CC.data:null, CSET=null;
-  function blankCT(){ return { ref:'', space:DEFAULT_SPACE, customer:'', phone:'', date:'', time:'', rent:'', people:60, course:'classic', bbq:'', beer:0, fee:CD?CD.delivery.fee:100000, note:'', target:null, oref:'', order:null, status:'pending' }; }
+  function blankCT(){ return { ref:'', space:DEFAULT_SPACE, customer:'', phone:'', date:'', time:'', rent:'', people:60, course:'classic', bbq:'', beer:0, soju:0, fee:CD?CD.delivery.fee:100000, note:'', target:null, oref:'', order:null, status:'pending' }; }
   var CT=blankCT();
   var CT_CHECK=[
     ['행사 날짜·대관 시간','세팅·수거도 대관 시간 안에서 합니다. 식사 시작 전에 세팅할 시간이 있는지 확인'],
@@ -1044,8 +1044,8 @@
     $('#ct-courses').innerHTML=CC.courses(CT.course).map(function(c){
       var p=CC.priceText(c);
       return '<label class="ct-c'+(CT.course===c.id?' on':'')+'"><input type="radio" name="ct-course" value="'+c.id+'"'+(CT.course===c.id?' checked':'')+'><b>'+esc(c.name)+'</b><small>'+esc(p)+'</small></label>';
-    }).join('')+'<label class="ct-c none'+(!CT.course?' on':'')+'"><input type="radio" name="ct-course" value=""'+(!CT.course?' checked':'')+'><b>뷔페 없음</b><small>바베큐·생맥주만</small></label>';
-    $('#ct-bbq').innerHTML=CC.bbqOptions(CT.bbq); $('#ct-beer').innerHTML=CC.beerOptions(CT.beer);
+    }).join('')+'<label class="ct-c none'+(!CT.course?' on':'')+'"><input type="radio" name="ct-course" value=""'+(!CT.course?' checked':'')+'><b>뷔페 없음</b><small>바베큐·생맥주·소주만</small></label>';
+    $('#ct-bbq').innerHTML=CC.bbqOptions(CT.bbq); $('#ct-beer').innerHTML=CC.beerOptions(CT.beer); $('#ct-soju').value=CT.soju||0; $('#ct-soju-price').textContent=won(CD.soju.price);
     $('#ct-link').innerHTML=ctLinkHtml();
     var o=$('#ct-open-ref'); if(o) o.addEventListener('click', function(){ openInquiry(CT.ref); });
     var u=$('#ct-unlink'); if(u) u.addEventListener('click', function(){ CT.target=null; CT.ref=''; CT.oref=''; CT.order=null; CT.status='pending'; CT.loading=false; ctFill(); ctCalc(); ctPickCollapse(false); drawCtTargets(); });
@@ -1058,14 +1058,14 @@
     CT.people=Math.max(0, Math.min(999, parseInt($('#ct-people').value,10)||0));
     var fv=$('#ct-fee').value; CT.fee=fv===''?CD.delivery.fee:Math.max(0, Math.round(+fv||0));
     var r=$('#ct-courses input:checked'); CT.course=r?r.value:'';
-    CT.bbq=$('#ct-bbq').value; CT.beer=+$('#ct-beer').value||0; CT.note=$('#ct-note').value.trim();
+    CT.bbq=$('#ct-bbq').value; CT.beer=+$('#ct-beer').value||0; CT.soju=Math.max(0,Math.min(999,Math.round(+$('#ct-soju').value||0))); CT.note=$('#ct-note').value.trim();
     $$('#ct-courses .ct-c').forEach(function(l){ l.classList.toggle('on', l.querySelector('input').checked); });
   }
   var CR=null;
   function ctCalc(){
     if(!CC||CT.loading) return; ctRead(); CR=CC.quote(CT); var r=CR, c=r.course;
     if(r.requiresConsultation){ $('#ct-result').innerHTML='<h2>상담 후 견적 · 합계 미포함</h2><p class="q-notes" role="status">'+esc(r.warn[0])+'</p>'; $('#ct-internal').innerHTML='<p class="small muted">인원에 맞는 코스를 정한 뒤 판매가·공급가·발주 금액을 계산합니다.</p>'; return; }
-    if(r.empty){ $('#ct-result').innerHTML='<h2>고객 안내 금액</h2><div class="empty small">코스나 바베큐·생맥주를 고르면 금액이 나옵니다.</div>'; $('#ct-internal').innerHTML='<div class="empty small">—</div>'; return; }
+    if(r.empty){ $('#ct-result').innerHTML='<h2>고객 안내 금액</h2><div class="empty small">코스나 바베큐·생맥주·소주를 고르면 금액이 나옵니다.</div>'; $('#ct-internal').innerHTML='<div class="empty small">—</div>'; return; }
     var rows=r.lines.map(function(l){ return '<tr><td>'+esc(l.label)+'</td><td>'+esc(won(l.amount))+'</td></tr>'; }).join('');
     var cond=[CT.date?kd(CT.date):'', CT.time?CT.time+' 식사':'', (CT.people||r.billPeople)?(CT.people||r.billPeople)+'명':''].filter(Boolean).join(' · ');
     $('#ct-result').innerHTML='<div class="row between"><h2>고객 안내 금액</h2><span class="small muted">'+esc(CD.version)+' · 부가세 별도 가격 기준</span></div>'
@@ -1081,8 +1081,8 @@
     var pricing=(window.MEGASPOT_FOOD_ADMIN_PRICES||{}).catering;if(!pricing||!CR||CR.empty||CR.requiresConsultation)return null;
     var lookup={};pricing.forEach(function(row){lookup[row.id]=row;});
     var lines=CR.lines.map(function(l){
-      var id=l.key==='course'?'course.'+CR.course.id:l.key==='bbq'?'bbq.'+CR.bbq.id:l.key==='delivery'?'delivery':'beer';
-      var quantity=l.key==='beer'?CR.beer:1;
+      var id=l.key==='course'?'course.'+CR.course.id:l.key==='bbq'?'bbq.'+CR.bbq.id:l.key==='delivery'?'delivery':l.key;
+      var quantity=l.key==='beer'?CR.beer:l.key==='soju'?CR.soju:1;
       if(l.key==='course'){
         if(CR.course.kind==='tiered'){id+='.'+CR.course.tierPeople;quantity=CR.billPeople/CR.course.tierPeople;}
         else if(CR.course.kind==='flat')id+='.'+CR.billPeople;
@@ -1111,6 +1111,7 @@
     if(c) L.push('· 인원: '+(CT.people||r.billPeople)+'명'+(r.billPeople!==CT.people&&CT.people?' (계산 기준 '+r.billPeople+'명)':''));
     if(r.bbq) L.push('· 바베큐: '+r.bbq.size+' ('+r.bbq.people+')');
     if(r.beer) L.push('· 생맥주: '+r.beer+'통 ('+CD.beer.unit+', 약 '+(r.beer*CD.beer.cups)+'잔)');
+    if(r.soju) L.push('· 소주: '+r.soju+'병');
     L.push('--------------------');
     r.lines.forEach(function(l){ L.push(l.label+' '+won(l.amount)); });
     L.push('--------------------');
@@ -1149,6 +1150,7 @@
     if(c&&c.tierPeople) L.push('· 코스 기준: '+c.tierPeople+'인 메뉴 · 실제 제공 '+r.billPeople+'명');
     if(r.bbq) L.push('· 바베큐: '+r.bbq.size+' (실내형 완제품)');
     if(r.beer) L.push('· 생맥주: '+r.beer+'통');
+    if(r.soju) L.push('· 소주: '+r.soju+'병');
     var deliveryLine=v&&v.lines.find(function(x){return x.key==='delivery';});L.push('· 출장비: '+(deliveryLine&&deliveryLine.vendor!==null?won(deliveryLine.vendor):'공급가 미입력'));
     if(v&&!v.unknown) L.push('· 금액: '+won(v.vSup)+' + 부가세 '+won(v.vVat)+' = '+won(v.vSup+v.vVat));
     if(CT.note) L.push('· 요청: '+CT.note);
@@ -1169,6 +1171,7 @@
         return '<tr><td><b>'+esc(c.name)+'</b></td><td>'+esc(p)+'</td><td>'+esc(pv)+'</td><td>'+(c.kind==='tiered'?'20~39명':c.kind==='flat'?'이전 저장 구성':c.min+'인~')+'</td><td>'+c.dishes+'종</td><td class="small">'+(c.live?esc(CC.liveMin(c)+'인↑ '+c.live.replace(/ — .*/,'')):'—')+'</td></tr>'; }).join('')
       +'<tr><td><b>바베큐</b></td><td colspan="5">'+CD.bbq.rows.map(function(b){ return esc(b.size+' '+won(b.price)); }).join(' · ')+'</td></tr>'
       +'<tr><td><b>생맥주</b></td><td colspan="5">'+esc(CD.beer.unit+' '+won(CD.beer.price)+' (약 '+CD.beer.cups+'잔)')+'</td></tr>'
+      +'<tr><td><b>소주</b></td><td colspan="5">'+esc(CD.soju.unit+' '+won(CD.soju.price))+'</td></tr>'
       +'<tr><td><b>출장·세팅비</b></td><td colspan="5">'+esc(won(CD.delivery.fee)+' · 주문 1건당 · '+CD.delivery.note)+'</td></tr>'
       +'</tbody></table></div>';
   }
@@ -1208,7 +1211,7 @@
   }
   function ctToQuote(){
     if(CT.status==='cancelled'){M.toast('취소된 출장뷔페는 견적에 추가할 수 없습니다. 상태를 복원해 주세요.');return;}
-    if(!CR||CR.empty){ M.toast('코스나 바베큐·생맥주를 먼저 골라 주세요.'); return; }
+    if(!CR||CR.empty){ M.toast('코스나 바베큐·생맥주·소주를 먼저 골라 주세요.'); return; }
     if(CR.requiresConsultation){ M.toast(CR.warn[0]); return; }
     if(!E||!D){ M.toast('요금표를 불러오지 못했습니다.'); return; }
     if(CT.standaloneQuote&&CT.standaloneQuote!==Q){
@@ -1239,7 +1242,7 @@
       return false;
     });
     setQuoteHistorical(false);Q.cateringExcluded=false;
-    Q.extras.push({ kind:'catering', label:label, amount:CR.total,catering:{course:CT.course,people:CT.people,bbq:CT.bbq,beer:CT.beer,fee:CT.fee,note:CT.note,status:CT.status||'pending',order_ref:CT.oref||'',meal_time:CT.time||'',course_name:CR.course&&CR.course.name,bill_people:CR.billPeople,tier_people:CR.course&&CR.course.tierPeople||null,bbq_name:CR.bbq&&CR.bbq.size,summary:CC.parts(CR),total:CR.total,supply:CR.supply,vat:CR.vat} });
+    Q.extras.push({ kind:'catering', label:label, amount:CR.total,catering:{course:CT.course,people:CT.people,bbq:CT.bbq,beer:CT.beer,soju:CT.soju,fee:CT.fee,note:CT.note,status:CT.status||'pending',order_ref:CT.oref||'',meal_time:CT.time||'',course_name:CR.course&&CR.course.name,bill_people:CR.billPeople,tier_people:CR.course&&CR.course.tierPeople||null,bbq_name:CR.bbq&&CR.bbq.size,summary:CC.parts(CR),total:CR.total,supply:CR.supply,vat:CR.vat} });
     if(preserveSnapshot){
       savedQuoteSnapshot=Object.assign({},savedQuoteSnapshot,{
         extras:Q.extras,
@@ -1278,9 +1281,9 @@
         +'<span class="ct-tg-c">'+cat+'</span></button>';
     }).join('');
   }
-  function ctApplyConfig(c){ if(c.course!==undefined) CT.course=c.course||''; if(c.people) CT.people=+c.people; if(c.bbq) CT.bbq=c.bbq; if(c.beer) CT.beer=+c.beer; if(c.fee!=null && c.by==='admin') CT.fee=c.fee; if(c.note) CT.note=c.note; }
+  function ctApplyConfig(c){ if(c.course!==undefined) CT.course=c.course||''; if(c.people) CT.people=+c.people; if(c.bbq) CT.bbq=c.bbq; if(c.beer) CT.beer=+c.beer; if(c.soju!==undefined) CT.soju=+c.soju||0; if(c.fee!=null && c.by==='admin') CT.fee=c.fee; if(c.note) CT.note=c.note; }
   function ctApplyOrder(o){
-    if(CT.target)CT.target.reception_revision=o.reception_revision;CT.oref=o.ref; CT.order=o; CT.status=o.status||'pending'; CT.course=o.course||''; if(o.people) CT.people=+o.people; CT.bbq=o.bbq||''; CT.beer=+o.beer||0; if(o.fee!=null) CT.fee=o.fee; CT.note=o.note||''; CT.time=o.meal_time||'';
+    if(CT.target)CT.target.reception_revision=o.reception_revision;CT.oref=o.ref; CT.order=o; CT.status=o.status||'pending'; CT.course=o.course||''; if(o.people) CT.people=+o.people; CT.bbq=o.bbq||''; CT.beer=+o.beer||0; CT.soju=+o.soju||0; if(o.fee!=null) CT.fee=o.fee; CT.note=o.note||''; CT.time=o.meal_time||'';
     if(o.date) CT.date=o.date; if(o.customer) CT.customer=o.customer; if(o.phone) CT.phone=o.phone; if(o.space_id) CT.space=o.space_id;
     if(CT.target) CT.target.order={ ref:o.ref, status:o.status, total:o.total, summary:o.summary };
   }
@@ -1336,11 +1339,11 @@
   function ctSave(){
     ctCalc(); var t=CT.target, msg=$('#ct-msg'); msg.hidden=true;
     if(!t) return M.toast('먼저 위 ① 목록에서 예약이나 문의를 골라 주세요.');
-    if(!CR||CR.empty) return M.toast('코스나 바베큐·생맥주를 먼저 골라 주세요.');
+    if(!CR||CR.empty) return M.toast('코스나 바베큐·생맥주·소주를 먼저 골라 주세요.');
     if(CR.requiresConsultation) return M.toast(CR.warn[0]);
     var ck=$('#ct-save-box input[name=ct-status]:checked'), b=$('#ct-save'); b.disabled=true;
     var body={ inquiry_ref:t.ref||'', booking_code:t.code||'', status:ck?ck.value:'pending', meal_time:CT.time, date:CT.date, customer:CT.customer, phone:CT.phone, space_id:CT.space,
-      reception_revision:t.reception_revision, include_in_booking:t.code&&!t.ref?$('#ct-include-booking').checked:undefined, config:{ course:CT.course, people:CT.people, bbq:CT.bbq, beer:CT.beer, fee:CT.fee, note:CT.note } };
+      reception_revision:t.reception_revision, include_in_booking:t.code&&!t.ref?$('#ct-include-booking').checked:undefined, config:{ course:CT.course, people:CT.people, bbq:CT.bbq, beer:CT.beer, soju:CT.soju, fee:CT.fee, note:CT.note } };
     A('/catering/orders',{method:'POST', body:body}).then(function(r){
       ctApplyOrder(r.item);if(CT.target)CT.target.reception_revision=r.item.reception_revision;ctFill(); ctCalc();
       M.toast((t.name?t.name+' 님 ':'')+'출장뷔페를 \''+r.item.status_label+'\'(으)로 저장했습니다 · '+won(r.item.total)+' (부가세 포함)');

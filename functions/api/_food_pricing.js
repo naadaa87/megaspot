@@ -30,7 +30,7 @@ export function definitions(service,markup=5000){
    }));
    return [{id:'course.'+c.id,name:c.name,unit:'1인',sale_price:c.price,vendor_supply:Math.max(0,c.price-markup-5000)}];
   });
-  return [...courses,...CATERING.bbq.rows.map(b=>({id:'bbq.'+b.id,name:'바베큐 '+b.size,unit:'1건',sale_price:b.price,vendor_supply:Math.max(0,b.price-markup*b.pmax)})),{id:'beer',name:'생맥주',unit:'1통',sale_price:CATERING.beer.price,vendor_supply:CATERING.beer.price},{id:'delivery',name:'출장·세팅비',unit:'1건',sale_price:CATERING.delivery.fee,vendor_supply:CATERING.delivery.fee}];
+  return [...courses,...CATERING.bbq.rows.map(b=>({id:'bbq.'+b.id,name:'바베큐 '+b.size,unit:'1건',sale_price:b.price,vendor_supply:Math.max(0,b.price-markup*b.pmax)})),{id:'beer',name:'생맥주',unit:'1통',sale_price:CATERING.beer.price,vendor_supply:CATERING.beer.price},{id:'soju',name:'소주',unit:'1병',sale_price:CATERING.soju.price,vendor_supply:null},{id:'delivery',name:'출장·세팅비',unit:'1건',sale_price:CATERING.delivery.fee,vendor_supply:CATERING.delivery.fee}];
  }
  if(service==='reception')return [...RECEPTION.courses.map(c=>({id:'course.'+c.id,name:c.name,unit:'1인',sale_price:c.price,vendor_supply:RECEPTION_COURSE_SUPPLY[c.id]??null})),...Object.entries(RECEPTION.feesByFormat).flatMap(([f,bands])=>bands.map(b=>({id:'fee.'+f+'.'+b.upto,name:RECEPTION.formats[f]+' · '+b.label,unit:'1건',sale_price:b.price,vendor_supply:RECEPTION_FEE_SUPPLY[f]?.[b.upto]??null}))),...ITEMS.map(i=>({id:i.id,name:i.name,unit:i.unit,sale_price:i.price,vendor_supply:receptionMenuSupply(i)})),...currentReceptionRows()];
  throw Error('서비스를 확인해 주세요.');

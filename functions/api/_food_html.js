@@ -62,5 +62,5 @@ export function foodHtml(html,path,rates){
   html=html.replace(/<article class="home-food-card" id="reception">[\s\S]*?<\/article>/g,card=>card.replace(/(<div class="hero-mega"><span><b>)[\d,]+(<\/b>원부터)/,(_,a,z)=>a+(rmin==null?'맞춤':comma(rmin))+z));
  }
  html=html.replace(/@@FOODPRICE(\d+)@@/g,(_,i)=>slots[+i]);
- return html.replace('</head>','<script>window.MEGASPOT_FOOD_RATES='+JSON.stringify(rates).replace(/</g,'\\u003c')+';</script><script src="/assets/js/food-pricing.js?v=7e5ba0443b44"></script></head>');
+ return html.replace('</head>','<script>window.MEGASPOT_FOOD_RATES='+JSON.stringify(rates).replace(/</g,'\\u003c')+';</script><script src="/assets/js/food-pricing.js?v=6c46fa09a220"></script></head>');
 }

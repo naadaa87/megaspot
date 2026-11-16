@@ -12,7 +12,7 @@ function ready(kind,value){
  if(!value||value.removed)return false;
  if(kind==='reception')return Number(value.people)>0&&!!value.format&&value.total!=null&&Number(value.total)>0;
  if(kind==='cocktail')return [100,200,300,400].includes(Number(value.cups))&&F.amount(kind,{...value,status:'pending'})>0;
- return F.amount(kind,{...value,status:'pending'})>0&&!!(value.course||value.bbq||value.beer);
+ return F.amount(kind,{...value,status:'pending'})>0&&!!(value.course||value.bbq||value.beer||value.soju);
 }
 export async function reservationServiceStatus({env,request,path,method}){
  const m=path.match(/^reservation-services\/(booking|inquiry)\/([A-Z0-9-]{1,40})\/(catering|reception|cocktail)$/);if(!m)return null;

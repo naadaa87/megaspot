@@ -26,11 +26,11 @@
     rows.push({title:'공간 대관',detail:opts.spaceName||d.space_id||it.space_id||'공간 미정',amount:room,note:[opts.conditions,opts.roomNote||'현재 공간 금액 기준 · 식음료 별도'].filter(Boolean).join('\n')});
     var c=d.catering;
     if(c){var cancelled=c.status==='cancelled'||c.removed,status=c.removed?'저장 구성 삭제':({pending:'확정 대기',confirmed:'확정',ordered:'발주 완료',completed:'제공 완료',cancelled:'취소'}[c.status]||c.status);
-      rows.push({title:'출장뷔페',detail:c.summary?String(c.summary).replace(/\s*—\s*예상.*$/,''): [c.course_name||'코스 상담 후 결정',c.people?c.people+'명':'',c.bbq_name?'바베큐 '+c.bbq_name:'',c.beer?'생맥주 '+c.beer+'통':''].filter(Boolean).join(' · '),amount:amount(c.total),cancelled:cancelled,
+      rows.push({title:'출장뷔페',detail:c.summary?String(c.summary).replace(/\s*—\s*예상.*$/,''): [c.course_name||'코스 상담 후 결정',c.people?c.people+'명':'',c.bbq_name?'바베큐 '+c.bbq_name:'',c.beer?'생맥주 '+c.beer+'통':'',c.soju?'소주 '+c.soju+'병':''].filter(Boolean).join(' · '),amount:amount(c.total),cancelled:cancelled,
         customerNote:[c.total>0?'부가세·출장·세팅비 포함':'코스·인원 상담 후 견적',c.meal_time?'식사 시간 '+c.meal_time:''].filter(Boolean).join('\n'),
         note:[status?'진행 상태: '+status:'',c.total>0?'부가세·출장·세팅비 포함':'코스·인원 상담 후 견적',c.meal_time?'식사 시간 '+c.meal_time:'',c.note?'메모: '+c.note:''].filter(Boolean).join('\n')});
       // A zero from an undecided buffet is a missing quote, rather than a free service.
-      if(!c.course&&!c.bbq&&!c.beer&&!c.total)rows[rows.length-1].amount=null;
+      if(!c.course&&!c.bbq&&!c.beer&&!c.soju&&!c.total)rows[rows.length-1].amount=null;
     }
     var rec=reception(d);if(rec)rows.push(rec);
     var ck=d.cocktail;

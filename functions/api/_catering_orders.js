@@ -20,7 +20,7 @@ export function publicOrder(r) {
   const d = safe(r.data);
   return { ref: r.ref, inquiry_ref: r.inquiry_ref || '', booking_code: r.booking_code || '', space_id: r.space_id || '', date: r.event_date || '', meal_time: r.meal_time || '',
     customer: r.customer || '', phone: r.phone || '', people: r.people ?? null, status: r.status, status_label: CAT_STATUS[r.status] || r.status, total: r.total ?? null,
-    reception_revision:r.food_revision||0,include_in_booking:!!d.include_in_booking,included_amount:Number(d.included_amount)||0,summary: d.summary || '', course: d.course || '', course_name: d.course_name || '', bill_people: d.bill_people ?? null, tier_people: d.tier_people ?? null, bbq: d.bbq || '', bbq_name: d.bbq_name || '', beer: d.beer || 0,
+    reception_revision:r.food_revision||0,include_in_booking:!!d.include_in_booking,included_amount:Number(d.included_amount)||0,summary: d.summary || '', course: d.course || '', course_name: d.course_name || '', bill_people: d.bill_people ?? null, tier_people: d.tier_people ?? null, bbq: d.bbq || '', bbq_name: d.bbq_name || '', beer: d.beer || 0, soju: d.soju || 0,
     fee: d.fee ?? null, supply: d.supply ?? null, vat: d.vat ?? null, note: d.note || '', version: d.version || '', confirmed_at: d.confirmed_at || '',
     created_at: r.created_at, updated_at: r.updated_at || '',
     ...(r.t_status !== undefined ? { target_status: r.t_status || '', target_kind: r.t_kind || '' } : {}) };
@@ -109,7 +109,7 @@ export async function cateringOrdersAdmin(request, env, path, method, url) {
       if (!Object.keys(selection).length) return {};
       if (selection.by !== 'admin') return { request: selection.summary || '출장뷔페 상담 희망' };
       if (selection.removed || selection.status === 'cancelled') return {};
-      if (!selection.course && !selection.bbq && !selection.beer) return {};
+      if (!selection.course && !selection.bbq && !selection.beer && !selection.soju) return {};
       return { saved_catering: selection.summary || '저장된 출장뷔페 구성' };
     };
     const items = [];
@@ -175,7 +175,7 @@ async function saveOrder(env, d, cur, tg) {
   let q = prev;
   if (d.config !== undefined) {
     q = cateringAdmin(d.config,foodPricingData('catering',await readFoodPricing(env,'catering')));
-    if (!q || !q.supply) return err('코스나 바베큐·생맥주를 골라 주세요.');
+    if (!q || !q.supply) return err('코스나 바베큐·생맥주·소주를 골라 주세요.');
   }
   if (!q) return err('출장뷔페 구성을 골라 주세요.');
   const status = d.status === undefined ? (cur ? cur.status : 'pending') : str(d.status, 12);
