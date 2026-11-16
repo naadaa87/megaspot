@@ -3,11 +3,11 @@
   var M = window.MEGASPOT, C = window.MEGASPOT_CATERING_CALC; if (!M || !C) return;
   var D = C.data, esc = M.esc, won = C.won;
   var box = document.getElementById('cat-calc');
-  var st = { people: 60, course: 'classic', bbq: '', beer: 0 };
+  var st = { people: 60, course: 'classic', bbq: '', beer: 0, soju: 0 };
   var p0 = null; try { p0 = JSON.parse(sessionStorage.getItem('ms_catering') || 'null'); } catch (e) {}   // 이 탭에서 전에 고른 구성이 있으면 이어서 보여 줍니다
-  var hasPreset = p0 && (p0.course || p0.bbq || p0.beer);
+  var hasPreset = p0 && (p0.course || p0.bbq || p0.beer || p0.soju);
   var isExample = !hasPreset, exampleLabel = '클래식 60인 예시';
-  if (hasPreset) { st.course = p0.course || ''; st.people = p0.people || st.people; st.bbq = p0.bbq || ''; st.beer = p0.beer || 0; }
+  if (hasPreset) { st.course = p0.course || ''; st.people = p0.people || st.people; st.bbq = p0.bbq || ''; st.beer = p0.beer || 0; st.soju = C.sojuCount(p0.soju); }
   var QUICK = [20, 30, 40, 60, 80, 100, 150, 200, 250, 300, 350];
 
   function courseCard(c){
@@ -23,10 +23,11 @@
       + '<div class="cc-people"><input class="input" type="number" inputmode="numeric" min="1" max="350" name="cc_people" value="' + st.people + '" aria-label="식사 인원"><span>명</span></div>'
       + '<div class="pick cc-quick">' + QUICK.map(function(n){ return '<button type="button" data-n="' + n + '">' + n + '명</button>'; }).join('') + '</div></div>'
       + '<div class="cc-step"><div class="cc-step-h"><span>2</span>코스</div><div class="cc-opts">' + C.courses(st.course).map(courseCard).join('')
-      + '<label class="cc-opt none"><input type="radio" name="cc_course" value=""' + (!st.course ? ' checked' : '') + '><span class="cc-opt-name"><b>뷔페 없이</b><small>바베큐·생맥주만 주문</small></span><span class="cc-opt-price"></span></label></div></div>'
-      + '<div class="cc-step"><div class="cc-step-h"><span>3</span>바베큐 · 생맥주 <small class="muted">(선택)</small></div>'
+      + '<label class="cc-opt none"><input type="radio" name="cc_course" value=""' + (!st.course ? ' checked' : '') + '><span class="cc-opt-name"><b>뷔페 없이</b><small>바베큐·생맥주·소주만 주문</small></span><span class="cc-opt-price"></span></label></div></div>'
+      + '<div class="cc-step"><div class="cc-step-h"><span>3</span>바베큐 · 생맥주 · 소주 <small class="muted">(선택)</small></div>'
       + '<div class="field-row"><div class="f"><label for="cc-bbq">바베큐 (실내형 완제품)</label><select class="select" id="cc-bbq" name="cc_bbq">' + C.bbqOptions(st.bbq) + '</select></div>'
-      + '<div class="f"><label for="cc-beer">생맥주 (' + esc(D.beer.unit) + ')</label><select class="select" id="cc-beer" name="cc_beer">' + C.beerOptions(st.beer) + '</select></div></div></div>'
+      + '<div class="f"><label for="cc-beer">생맥주 (' + esc(D.beer.unit) + ')</label><select class="select" id="cc-beer" name="cc_beer">' + C.beerOptions(st.beer) + '</select></div>'
+      + '<div class="f"><label for="cc-soju">소주 병 수 (1병 ' + esc(won(D.soju.price)) + ' · 부가세 별도)</label><input class="input" type="number" inputmode="numeric" min="0" max="999" step="1" id="cc-soju" name="cc_soju" value="' + st.soju + '"></div></div></div>'
       + '</form>'
       + '<div class="cc-result card" aria-live="polite" data-out="result"></div>'
       + '</div>';
@@ -36,15 +37,16 @@
     var f = box.querySelector('.cc-form');
     st.people = Math.max(0, Math.min(999, parseInt(f.cc_people.value, 10) || 0));
     var r = f.querySelector('[name=cc_course]:checked'); st.course = r ? r.value : '';
-    st.bbq = f.cc_bbq.value; st.beer = +f.cc_beer.value || 0;
+    st.bbq = f.cc_bbq.value; st.beer = +f.cc_beer.value || 0; st.soju = C.sojuCount(f.cc_soju.value);
   }
-  function query(){ return '?catering=' + encodeURIComponent(st.course || '1') + '&cpeople=' + st.people + (st.bbq ? '&bbq=' + st.bbq : '') + (st.beer ? '&beer=' + st.beer : '') + (st.people >= 1 && st.people <= 350 ? '&people=' + st.people : ''); }
+  function query(){ return '?catering=' + encodeURIComponent(st.course || '1') + '&cpeople=' + st.people + (st.bbq ? '&bbq=' + st.bbq : '') + (st.beer ? '&beer=' + st.beer : '') + (st.soju ? '&soju=' + st.soju : '') + (st.people >= 1 && st.people <= 350 ? '&people=' + st.people : ''); }
   function text(r){
     var L = ['[메가스팟 출장뷔페 문의]'];
     if (r.course) L.push('· 코스: ' + r.course.name + (r.course.kind === 'flat' ? (r.billPeople > r.course.tiers[1].people ? ' (30인 코스 단가 기준)' : ' (정액)') : ' (1인 ' + won(r.course.price) + ')'));
     L.push('· 식사 인원: ' + (st.people || r.billPeople) + '명' + (r.billPeople && r.billPeople !== st.people ? ' (계산 기준 ' + r.billPeople + '명)' : ''));
     if (r.bbq) L.push('· 바베큐: ' + r.bbq.size + ' (' + r.bbq.people + ')');
     if (r.beer) L.push('· 생맥주: ' + r.beer + '통');
+    if (r.soju) L.push('· 소주: ' + r.soju + '병 (1병 ' + won(D.soju.price) + ' · 부가세 별도)');
     L.push(r.requiresConsultation ? '· 금액: 상담 후 견적 · ' + r.warn[0] : '· 예상 금액: ' + won(r.total) + ' (공급가 ' + won(r.supply) + ' + 부가세 ' + won(r.vat) + ', ' + D.delivery.label + ' 포함)');
     L.push('· 행사 날짜·시간: ');
     L.push('대관과 함께 상담 부탁드립니다.');
@@ -55,10 +57,10 @@
     box.querySelectorAll('.cc-quick button').forEach(function(b){ b.classList.toggle('on', +b.dataset.n === st.people); });
     box.querySelectorAll('.cc-opt').forEach(function(l){ l.classList.toggle('on', l.querySelector('input').checked); });
     var r = C.quote(st), out = box.querySelector('[data-out=result]');
-    if (r.empty){ out.innerHTML = '<div class="eyebrow">Estimate</div><p class="mt-2 muted">코스나 바베큐·생맥주를 고르면 예상 금액이 나옵니다.</p>'; return; }
+    if (r.empty){ out.innerHTML = '<div class="eyebrow">Estimate</div><p class="mt-2 muted">코스나 바베큐·생맥주·소주를 고르면 예상 금액이 나옵니다.</p>'; return; }
     if (r.requiresConsultation) {
       out.innerHTML = '<div class="eyebrow">Estimate</div><div class="cc-total"><span>선택한 구성<small>인원에 맞는 코스 확인 필요</small></span><b>상담 후 견적</b></div><p class="mt-2" role="status">' + esc(r.warn[0]) + '</p>'
-        + '<p class="small muted mt-2">제공 가능한 코스를 정하기 전에는 뷔페·바베큐·생맥주 금액을 합계에 넣지 않습니다.</p><button type="button" class="btn btn-light mt-3" data-pick="basic">베이직 코스로 다시 계산</button>'
+        + '<p class="small muted mt-2">제공 가능한 코스를 정하기 전에는 뷔페·바베큐·생맥주·소주 금액을 합계에 넣지 않습니다.</p><button type="button" class="btn btn-light mt-3" data-pick="basic">베이직 코스로 다시 계산</button>'
         + '<a class="btn btn-primary cc-go" href="/inquiry/' + query() + '#reserve" data-act="go">이 인원으로 코스 상담하기 →</a>';
       return;
     }
@@ -79,8 +81,8 @@
 
   if (box) {
     render();
-    box.addEventListener('input', function(e){ if (e.target.name === 'cc_people') paintSelection(); });
-    box.addEventListener('change', paintSelection);
+    box.addEventListener('input', function(e){ if (e.target.name === 'cc_people' || e.target.name === 'cc_soju') paintSelection(); });
+    box.addEventListener('change', function(e){ if (e.target.name === 'cc_soju') { e.target.value = st.soju; return; } paintSelection(); });
     box.addEventListener('click', function(e){
       var q = e.target.closest('.cc-quick button'); if (q){ box.querySelector('[name=cc_people]').value = q.dataset.n; paintSelection(); return; }
       var a = e.target.closest('[data-act]'); if (!a) return;

@@ -420,7 +420,7 @@
     function paintHead(r){ ensureCard(); var was = out('head').querySelector('.rv-lines'); var keepOpen = !!(was && was.open); out('head').innerHTML = headBlock(r); if (keepOpen){ var d = out('head').querySelector('.rv-lines'); if (d) d.open = true; } if(PLAN && r.plan) PLAN.paint(el,r); }   // 인원을 고친 뒤 '금액 구성 보기'를 눌러도 다시 닫히지 않게 열림 상태를 유지
     function paintResult(r){
       ensureCard(); paintHead(r);
-      var cp = !PLAN && CC && CC.preset(), cq = cp && (cp.course || cp.bbq || cp.beer) ? CC.quote(cp) : null;
+      var cp = !PLAN && CC && CC.preset(), cq = cp && (cp.course || cp.bbq || cp.beer || cp.soju) ? CC.quote(cp) : null;
       out('body').innerHTML = (cq && !cq.empty ? '<p class="rv-cat-note"><span class="badge badge-direct">출장뷔페</span> ' + esc(CC.parts(cq)) + ' · 예상 ' + esc(won(cq.total)) + ' <small class="muted">부가세 포함 · 대관료와 별도 · 예약 신청서에 함께 담깁니다</small></p>' : '')
         + '<button type="button" class="btn btn-primary btn-lg rv-go" data-act="reserve">이 구성으로 예약 상담 <span class="arrow">→</span></button>'
         + '<div class="rv-sub"><button type="button" class="btn btn-light btn-sm" data-act="pdf">전체 견적서 저장</button>' + (KAKAO ? '<a class="btn btn-kakao btn-sm" data-act="kakao" href="' + esc(KAKAO) + '" target="_blank" rel="noopener">카카오톡으로 문의</a>' : '') + '</div>'
