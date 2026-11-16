@@ -314,7 +314,7 @@ def build_pdf():
     end()
     begin('CONTACT','대관과 케이터링을 한 곳에서 상담하세요','희망 날짜 · 행사 장소 · 예상 인원 · 원하는 구성이나 메뉴를 알려 주세요.')
     pic(IMG/'setting.jpg',538,105,374,258)
-    contact=[('케이터링 전화',PHONE),('카카오톡','pf.kakao.com/_LnxbmX/chat'),('이메일','spaceblank0100@gmail.com'),('메뉴·소개서','megaspot.kr/reception')]
+    contact=[('케이터링 전화',PHONE),('카카오톡','pf.kakao.com/_LnxbmX/chat'),('이메일','guspacedev@gmail.com'),('메뉴·소개서','megaspot.kr/reception')]
     for i,(label,value) in enumerate(contact):
         y=332-i*58;text(48,y,label,11,blue,'B');text(48,y-25,value,17,ink,'S')
     c.linkURL(f'tel:{PHONE_TEL}',(45,302,500,353))
