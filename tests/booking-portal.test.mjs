@@ -30,9 +30,15 @@ test('통합 링크는 별도 난수·암호화·해시를 사용하고 재복�
 });
 test('예약별 최신 정보·보증금·기한·환급일을 통합하며 대관료 결제와 보증금 입금 확인을 구분한다',async t=>{
  const f=setup(t);await f.ready();const r=await f.call();assert.equal(r.status,200);assert.equal(r.headers.get('Cache-Control'),'no-store');assert.equal(r.headers.get('Referrer-Policy'),'no-referrer');
- assert.equal(r.json.booking.code,'BK-TEST');assert.equal(r.json.confirmation.pay_status,'paid');assert.equal(r.json.deposit.paid,false);assert.equal(r.json.deposit.amount,230000);assert.equal(r.json.deposit.bank.name,'하나은행');assert.equal(r.json.deposit.refund_date,refundDate({date:DAY,start_h:10,end_h:17}));
+ assert.equal(r.json.booking.code,'BK-TEST');assert.equal(r.json.confirmation.pay_status,'paid');assert.equal(r.json.deposit.paid,false);assert.equal(r.json.deposit.amount,230000);assert.deepEqual(r.json.deposit.bank,{name:'기업은행',account:'064-179058-04018',holder:'주식회사 지유공간개발'});assert.equal(r.json.deposit.refund_date,refundDate({date:DAY,start_h:10,end_h:17}));
  assert.ok(!JSON.stringify(r.json).includes('010-1234-5678'));assert.equal(r.json.arrival.ready,true);
  f.db.prepare("INSERT INTO inquiry_checks VALUES('MS-TEST','{\"guarantee_paid\":true}','now')").run();const paid=await f.call();assert.equal(paid.json.deposit.paid,true);assert.equal(paid.json.deposit.bank,undefined);
+});
+test('보증금 입금 계좌만 전환하고 이용료 잔금 계좌는 별도로 유지한다',async t=>{
+ const f=setup(t);await f.ready();f.db.prepare("UPDATE orders SET price=400000 WHERE oid='PORTAL-FIXTURE'").run();
+ const r=await f.call();assert.equal(r.status,200);assert.equal(r.json.payment.balance,100000);
+ assert.deepEqual(r.json.deposit.bank,{name:'기업은행',account:'064-179058-04018',holder:'주식회사 지유공간개발'});
+ assert.deepEqual(r.json.payment.bank,{name:'하나은행',account:'298-910064-39104',holder:'주식회사 블랭크'});assert.equal(f.network(),0);
 });
 test('확정서 미발급·금액 비공개·보증금 0원을 각각 처리하고 숨긴 금액을 다른 항목으로 노출하지 않는다',async t=>{
  const f=setup(t,{issued:false});await f.ready();assert.equal((await f.call()).json.confirmation,null);

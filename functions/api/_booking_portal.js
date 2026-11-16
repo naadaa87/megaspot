@@ -105,7 +105,7 @@ export async function portalCustomer({env,request,path}){
   const doc=parseDoc(b.confirm_doc),issued=!!doc?.issued_at,showAmount=doc?.show_amount!==false&&visibility?.amount_visible!==0,end=eventTime(b);
   const deposit={amount:showAmount?amount:null,amount_visible:showAmount,paid:!!b.deposit_paid,returned:account.state==='completed',due_date:null,refund_date:b.settled_refund_date||refundDate(b),account};
   if(end)deposit.due_date=depositDueDate({...b,confirmed_day:visibility?.confirm_version>0?visibility.confirmed_at?.slice(0,10):undefined});
-  if(showAmount&&amount>0&&!deposit.paid&&!deposit.returned)deposit.bank={name:'하나은행',account:'298-910064-39104',holder:'주식회사 블랭크'};
+  if(showAmount&&amount>0&&!deposit.paid&&!deposit.returned)deposit.bank={name:'기업은행',account:'064-179058-04018',holder:'주식회사 지유공간개발'};
   const settlement=showAmount?await settlementFor(env,b.booking_code):null,schedule=await paymentSchedule(env,b);
   const payment={amount_visible:showAmount,total:settlement?.amount??null,received:settlement?.received??null,refunded:settlement?.refunded??null,paid:settlement?.net??null,balance:settlement?.balance??null,refund_due:settlement?.refund_due??null,due_date:schedule.due_date,complete:!!settlement&&settlement.amount!=null&&settlement.balance===0&&!settlement.over_refunded};
   if(showAmount&&payment.balance>0)payment.bank={name:'하나은행',account:'298-910064-39104',holder:'주식회사 블랭크'};

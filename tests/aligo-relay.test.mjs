@@ -48,6 +48,20 @@ test('이 서버의 알림톡 결과에서 확인된 SMS 대체 메시지 ID만 
  await f.send(f.input({path:'sms/detail',data:{mid:'555'}}));const q=f.calls.at(-1);assert.equal(q.url,'https://apis.aligo.in/sms_list/');assert.equal(q.body.get('key'),'server-only-key');assert.equal(q.body.get('user_id'),'server-user');assert.equal(q.body.get('apikey'),null);
 });
 
+test('기업은행 보증금 템플릿은 명시적 허용 목록을 유지하고 치환된 대체 문자만 전달한다',async t=>{
+ const f=fixture(t),v=f.input();v.data.tpl_code='UN_8363';
+ assert.equal((await f.send(v)).status,403);assert.equal(f.calls.length,0);
+ f.env.ALIGO_TEMPLATE_CODES='UN_2759,UN_8363';
+ assert.equal((await f.send(f.input({path:'template/list',data:{tpl_code:'UN_8363'}}))).status,200);
+ const bad=f.input();Object.assign(bad.data,{tpl_code:'UN_8363',fmessage_1:'보증금 #{보증금액}원'});
+ assert.equal((await f.send(bad)).status,400);assert.equal(f.calls.length,1);
+ Object.assign(v.data,{fsubject_1:'메가스팟 보증금 안내',fmessage_1:'보증금 150,000원 · 기업은행 064-179058-04018 · 주식회사 지유공간개발'});
+ assert.equal((await f.send(v)).status,200);const b=f.calls.at(-1).body;
+ assert.equal(b.get('tpl_code'),'UN_8363');assert.equal(b.get('failover'),'Y');assert.equal(b.get('fmessage_1'),v.data.fmessage_1);assert.equal(b.get('senderkey'),f.env.ALIGO_SENDER_KEY);
+ const noFallback=f.input();noFallback.data.tpl_code='UN_8363';
+ assert.equal((await f.send(noFallback)).status,200);assert.equal(f.calls.at(-1).body.get('failover'),'N');assert.equal(f.calls.at(-1).body.get('fmessage_1'),null);
+});
+
 test('관리자 문자는 명시적으로 승인된 번호에만 LMS 발송하고 중복·응답 불명을 잠근다',async t=>{
  const f=fixture(t);f.env.ALIGO_PARKING_ADMIN_RECEIVERS='01011112222,01033334444';
  const v=f.input({path:'parking-admin/send',data:{receiver:'01099998888',msg:'[메가스팟 주차권 결제 완료]\n차량 확인\nhttps://megaspot.kr/admin/#parking'}});

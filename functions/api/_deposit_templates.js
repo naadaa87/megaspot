@@ -1,7 +1,7 @@
-export const DEPOSIT_TEMPLATE_CODES={payment:'UN_2759',account:'UN_2760',refunded:'UN_2761'};
+export const DEPOSIT_TEMPLATE_CODES={payment:'UN_8363',account:'UN_2760',refunded:'UN_2761'};
 export const DEPOSIT_BUTTON={name:'환급 계좌 등록',linkType:'WL',linkMo:'https://megaspot.kr/deposit/#refund-account=#{등록코드}',linkPc:'https://megaspot.kr/deposit/#refund-account=#{등록코드}'};
 export const DEPOSIT_TEMPLATES={
- payment:{name:'메가스팟_보증금_입금안내_v1',content:`[메가스팟 보증금 입금 안내]
+ payment:{name:'메가스팟_보증금_입금안내_기업은행_v2',content:`[메가스팟 보증금 입금 안내]
 
 #{고객명}님, 예약하신 공간의 이용 보증금을 안내드립니다.
 
@@ -9,8 +9,8 @@ export const DEPOSIT_TEMPLATES={
 ■ 이용일: #{이용일}
 ■ 보증금: #{보증금액}원
 ■ 입금 기한: #{입금기한}
-■ 하나은행 298-910064-39104
-■ 예금주: 주식회사 블랭크
+■ 기업은행 064-179058-04018
+■ 예금주: 주식회사 지유공간개발
 
 시설 상태와 청소·정리 여부를 확인한 뒤, 이용 종료일이 속한 주의 다음 주 수요일에 보증금을 환급해 드립니다.
 문의: 메가스팟 카카오톡`,buttons:[]},

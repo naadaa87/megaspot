@@ -28,7 +28,7 @@ const FIELDS={
 };
 const PARKING_SMS = new Set(['UN_2583','UN_2586','UN_2587','UN_2588','UN_2589','UN_2591','UN_2592','UN_3966']);
 const NEW_CUSTOMER_CODES=new Set(['UN_4761','UN_4762','UN_4763','UN_4764','UN_4765','UN_4766','UN_4767','UN_4768','UN_6619','UN_6620','UN_6621','UN_2935','UN_6623','UN_6624']);
-const CUSTOMER_FALLBACK_CODES=new Set(['UN_2584','UN_3085','UN_3115','UN_2935','UN_2759','UN_2760','UN_2761',...NEW_CUSTOMER_CODES]);
+const CUSTOMER_FALLBACK_CODES=new Set(['UN_2584','UN_3085','UN_3115','UN_2935','UN_2759','UN_2760','UN_2761','UN_8363',...NEW_CUSTOMER_CODES]);
 export function relayLedger(db){
   db.exec('CREATE TABLE IF NOT EXISTS relay_requests(id TEXT PRIMARY KEY,hash TEXT NOT NULL,response TEXT,created_at INTEGER NOT NULL)');
   db.exec("CREATE INDEX IF NOT EXISTS relay_requests_mid ON relay_requests(CAST(json_extract(response,'$.info.mid') AS TEXT))");
