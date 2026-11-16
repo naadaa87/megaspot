@@ -54,3 +54,7 @@
 #view-parking .pa-resolution .chk input{flex-shrink:0;margin-top:5px}
 
 #view-parking .pa-resolution-body{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;margin-top:16px;min-width:0}
+
+#view-parking .pa-filter-info{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:12px}
+#view-parking #pa-filter-summary{margin:0;min-width:0;overflow-wrap:anywhere;flex:1 1 220px}
+#view-parking #pa-clear-filters{flex-shrink:0}
