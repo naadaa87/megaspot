@@ -9,20 +9,31 @@
   function man(n){ n = Math.round(n || 0); if (n >= 10000 && n % 10000 === 0) return (n / 10000).toLocaleString('ko-KR') + '만 원'; return won(n); }
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function course(id){ for (var i = 0; i < D.courses.length; i++) if (D.courses[i].id === id) return D.courses[i]; return null; }
+  function courses(selected){ return D.courses.filter(function(c){ return !c.retired || c.id === selected; }); }
+  function priceText(c){
+    if(c.tiers) return (c.retired?'이전 저장 구성 · ':'')+c.tiers.map(function(t){ return t.people+'인 기준 '+won(t.price); }).join(' · ');
+    return '1인 '+won(c.price)+' · '+c.min+'인부터';
+  }
   function bbqRow(id){ for (var i = 0; i < D.bbq.rows.length; i++) if (D.bbq.rows[i].id === id) return D.bbq.rows[i]; return null; }
-  function fromPrice(c){ return c.kind === 'flat' ? c.tiers[0].price : c.price; }
+  function fromPrice(c){ return c.tiers ? c.tiers[0].price : c.price; }
   function liveMin(c){ return c.liveMin || 100; }
   function quote(o){
     o = o || {};
     var c = course(o.course), b = bbqRow(o.bbq), beer = Math.max(0, Math.min(20, Math.round(+o.beer || 0)));
     var people = Math.max(0, Math.min(999, Math.round(+o.people || 0))), lines = [], warn = [], billPeople = people;
     var fee = o.fee != null && o.fee !== '' && !isNaN(+o.fee) ? Math.max(0, Math.round(+o.fee)) : D.delivery.fee;
-    if (c && c.kind === 'flat' && people > c.max) {
+    if (c && c.max && people > c.max) {
       return { course: c, bbq: b, beer: beer, people: people, billPeople: null, lines: [], supply: null, vat: null, total: null, fee: null, perPerson: null,
         requiresConsultation: true, warn: [c.name + '은 ' + c.max + '인까지입니다. 인원에 맞는 코스를 다시 고르거나 상담해 주세요.'], empty: false };
     }
     if (c) {
-      if (c.kind === 'flat') {
+      if (c.kind === 'tiered') {
+        billPeople = Math.max(people || c.min, c.min);
+        var selectedTier = billPeople < 30 ? c.tiers[0] : c.tiers[1];
+        c = Object.assign({}, c, { menu: selectedTier.menu, dishes: selectedTier.dishes, price: selectedTier.price / selectedTier.people, tierPeople: selectedTier.people });
+        if(people && people < c.min) warn.push('소규모 코스는 '+c.min+'인부터 주문할 수 있어 '+c.min+'인 기준으로 계산했습니다.');
+        lines.push({ key: 'course', label: c.name+' '+c.tierPeople+'인 코스 기준 · 1인 '+won(c.price)+' × '+billPeople+'명', amount: Math.round(selectedTier.price * billPeople / selectedTier.people), people: billPeople });
+      } else if (c.kind === 'flat') {
         var tier = people > 20 ? c.tiers[1] : c.tiers[0];
         if (people && people < 20) warn.push('출장뷔페는 20인부터 주문할 수 있어 20인 기준으로 계산했습니다.');
         billPeople = Math.max(tier.people, people);
@@ -33,7 +44,7 @@
         lines.push({ key: 'course', label: label, amount: amount, people: billPeople });
       } else {
         var p = Math.max(people || c.min, c.min);
-        if (people && people < c.min) warn.push(c.name + ' 코스는 ' + c.min + '인부터라 ' + c.min + '인 기준으로 계산했습니다.' + (c.min === 40 && people >= 20 ? ' 20·30인 행사는 소규모 스페셜(정액)을 확인해 보세요.' : ''));
+        if (people && people < c.min) warn.push(c.name + ' 코스는 ' + c.min + '인부터라 ' + c.min + '인 기준으로 계산했습니다.' + (c.min === 40 && people >= 20 ? ' 20~39명 행사는 소규모 베이직·스페셜을 확인해 보세요.' : ''));
         billPeople = p;
         lines.push({ key: 'course', label: c.name + ' 코스 1인 ' + won(c.price) + ' × ' + p + '명', amount: c.price * p, people: p });
       }
@@ -78,8 +89,8 @@
 
   /* ---------- 신청서 칸 ---------- */
   function courseOptions(sel, first){
-    return '<option value="">' + esc(first || '코스는 상담 후 결정') + '</option>' + D.courses.map(function(c){
-      var p = c.kind === 'flat' ? c.tiers[0].people + '·' + c.tiers[1].people + '인 정액 · 31~39인 단가 계산' : '1인 ' + won(c.price) + (c.min > 40 ? ' · ' + c.min + '인~' : '');
+    return '<option value="">' + esc(first || '코스는 상담 후 결정') + '</option>' + courses(sel).map(function(c){
+      var p = priceText(c);
       return '<option value="' + c.id + '"' + (c.id === sel ? ' selected' : '') + '>' + esc(c.name + ' · ' + p) + '</option>';
     }).join('');
   }
@@ -128,6 +139,6 @@
     paint();
     return { paint: paint };
   }
-  window.MEGASPOT_CATERING_CALC = { quote: quote, summary: summary, parts: parts, course: course, bbqRow: bbqRow, fromPrice: fromPrice, liveMin: liveMin, won: won, man: man, data: D,
+  window.MEGASPOT_CATERING_CALC = { quote: quote, summary: summary, parts: parts, course: course, courses: courses, priceText: priceText, bbqRow: bbqRow, fromPrice: fromPrice, liveMin: liveMin, won: won, man: man, data: D,
     preset: preset, savePreset: savePreset, clearPreset: clearPreset, formBlock: formBlock, bind: bind, read: read, courseOptions: courseOptions, bbqOptions: bbqOptions, beerOptions: beerOptions };
 })();

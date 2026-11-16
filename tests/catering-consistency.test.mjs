@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import vm from 'node:vm';
+import {CATERING} from '../functions/api/_catalog.js';
 import {cateringQuote,cateringFrom,cateringAdmin} from '../functions/api/_catering.js';
 import {foodExtras,syncFoodInput} from '../functions/api/_food_services.js';
 import {foodHtml} from '../functions/api/_food_html.js';
@@ -128,9 +129,11 @@ test('catalog IDs keep classic, galbi, other foods and bottle drinks independent
 test('published PDF snapshots and live-price templates both contain the course-specific live-station and cancellation conditions',t=>{
  const extract=(file,page)=>{const result=spawnSync('pdftotext',['-layout','-f',String(page),'-l',String(page),fileURLToPath(new URL('../'+file,import.meta.url)),'-'],{encoding:'utf8'});if(result.error?.code==='ENOENT'){t.skip('pdftotext is not installed');return null;}assert.equal(result.status,0,result.stderr);return result.stdout;};
  for(const suffix of ['guide','pricing-template']){
-  const regular=extract('assets/docs/megaspot-catering-'+suffix+'.pdf',4);if(regular===null)return;
+  const active=CATERING.courses.filter(c=>!c.retired);
+  const page=id=>3+active.slice(0,active.findIndex(c=>c.id===id)).reduce((n,c)=>n+(c.kind==='tiered'?c.tiers.length:1),0);
+  const regular=extract('assets/docs/megaspot-catering-'+suffix+'.pdf',page('basic'));if(regular===null)return;
   assert.match(regular,/즉석 코너\s*·\s*100인 이상/);
-  assert.match(extract('assets/docs/megaspot-catering-'+suffix+'.pdf',9),/즉석 코너\s*·\s*50인 이상/);
+  assert.match(extract('assets/docs/megaspot-catering-'+suffix+'.pdf',page('vip')),/즉석 코너\s*·\s*50인 이상/);
   assert.match(extract('assets/docs/megaspot-reception-'+suffix+'.pdf',17),/변경·취소[\s\S]*인원 변경·취소 가능 시점[\s\S]*발생 비용/);
  }
 });

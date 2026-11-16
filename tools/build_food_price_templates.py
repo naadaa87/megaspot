@@ -74,7 +74,9 @@ def build_reception():
     code=code.replace('name,unit,price=CATALOG[j]','name,unit,item_price=CATALOG[j]')
     ns=dict(vars(reception));ns.update(live=live,price=price,PDF=ROOT/'assets/docs/megaspot-reception-guide.pdf');exec(code,ns);ns['build_pdf']();finalize('reception',ns['PDF'])
 def build_catering():
-    global slots;slots=[];path=ROOT/'assets/docs/megaspot-catering-guide.pdf';c=canvas.Canvas(str(path),pagesize=(960,540),pageCompression=0);page=0
+    global slots;slots=[];
+    courses=[co for co in CAT['courses'] if not co.get('retired')]
+    path=ROOT/'assets/docs/megaspot-catering-guide.pdf';c=canvas.Canvas(str(path),pagesize=(960,540),pageCompression=0);page=0
     def text(x,y,s,size=12,color='#262B2E',font='R'):live(c,x,y,s,size,color,font)
     def rect(x,y,w,h,color):c.setFillColor(HexColor(color));c.rect(x,y,w,h,fill=1,stroke=0)
     def begin(title,subtitle=''):
@@ -87,13 +89,23 @@ def build_catering():
     begin('코스별 가격표','판매가 (부가세 별도) · 주문 1건마다 출장·세팅비가 더해집니다.')
     text(48,361,'코스 / 계산 단위',12,font='B');text(540,361,'판매가',12,font='B');text(748,361,'부가세 포함',12,font='B')
     row=0
-    for co in CAT['courses']:
+    for co in courses:
         for tier in co.get('tiers',[None]):
-            key='course.'+co['id']+('.'+str(tier['people']) if tier else '');y=333-row*23;unit=str(tier['people'])+'인 정액' if tier else '1인 · '+str(co['min'])+'인부터';text(48,y,co['name']+' / '+unit,12);text(535,y,price(key)+'원',12,'#1F53D5','B');text(742,y,price(key+'.gross')+'원',12);row+=1
-    text(48,65,'출장·세팅비 '+price('delivery')+'원 (부가세 별도)',11);end()
-    for i,co in enumerate(CAT['courses']):
-        begin(co['name']+' · 전체 메뉴',str(co['dishes'])+'종 · '+('20·30인 정액 · 베이직 메뉴' if co['kind']=='flat' else str(co['min'])+'인부터'))
-        if co['kind']=='flat':text(48,363,'20인 '+price('course.small.20')+'원 / 30인 '+price('course.small.30')+'원',16,'#1F53D5','B')
+            key='course.'+co['id']+('.'+str(tier['people']) if tier else '');y=333-row*20;unit=str(tier['people'])+'인 기준' if tier else '1인 · '+str(co['min'])+'인부터';text(48,y,co['name']+' / '+unit,12);text(535,y,price(key)+'원',12,'#1F53D5','B');text(742,y,price(key+'.gross')+'원',12);row+=1
+    text(48,80,'소규모 코스는 20~29명은 20인 단가, 30~39명은 30인 단가로 실제 인원만큼 계산합니다.',10,'#5B6168')
+    text(48,60,'출장·세팅비 '+price('delivery')+'원 (부가세 별도)',11);end()
+    menu_pages=[]
+    for co in courses:
+        if co['kind']=='tiered':
+            for tier in co['tiers']:
+                menu_pages.append({**co, 'menu':tier['menu'], 'dishes':tier['dishes'], 'menu_tier':tier['people']})
+        else:menu_pages.append(co)
+    for co in menu_pages:
+        tier=co.get('menu_tier')
+        subtitle=str(co['dishes'])+'종 · '+(('20~29명' if tier==20 else '30~39명')+' 적용 메뉴' if tier else str(co['min'])+'인부터')
+        begin(co['name']+' · 전체 메뉴',subtitle)
+        if tier:
+            text(48,363,str(tier)+'인 기준 '+price('course.'+co['id']+'.'+str(tier))+'원 · 부가세 별도',16,'#1F53D5','B')
         else:text(48,363,'1인 '+price('course.'+co['id'])+'원 (부가세 별도)',16,'#1F53D5','B')
         entries=[]
         for group,menus in co['menu'].items():

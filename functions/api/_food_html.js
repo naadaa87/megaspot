@@ -27,7 +27,7 @@ export function foodHtml(html,path,rates){
    return '<data data-catering-price="'+key+'" value="'+values[key]+'">'+comma(values[key])+'</data>';
   });
   const title='메가스팟 출장뷔페 | 1인 '+comma(cmin)+'원부터 · 대관과 함께 신청 · 바베큐·생맥주';
-  const description='메가스팟 건대 1호·2호 대관과 출장뷔페를 함께 준비합니다. 20·30인 정액 소규모 스페셜, 1인 '+comma(cp['course.basic'])+'원 베이직부터 VIP 스페셜까지 뷔페 코스와 다과 파티·갈비탕 상차림, 바베큐·생맥주 가격과 메뉴를 확인하고 출장·세팅비·부가세를 포함한 예상 금액을 계산하세요.';
+  const description='메가스팟 건대 1호·2호 대관과 출장뷔페를 함께 준비합니다. 20~39명 소규모 베이직·스페셜, 1인 '+comma(cp['course.basic'])+'원 베이직부터 VIP 스페셜까지 뷔페 코스와 다과 파티·갈비탕 상차림, 바베큐·생맥주 가격과 메뉴를 확인하고 출장·세팅비·부가세를 포함한 예상 금액을 계산하세요.';
   html=html.replace(/<title>[^<]*<\/title>/,'<title>'+title+'</title>')
    .replace(/(<meta (?:name="description"|property="og:description"|name="twitter:description") content=")[^"]*/g,(_,a)=>a+description)
    .replace(/(<meta (?:property="og:title"|name="twitter:title") content=")[^"]*/g,(_,a)=>a+title);
@@ -62,5 +62,5 @@ export function foodHtml(html,path,rates){
   html=html.replace(/<article class="home-food-card" id="reception">[\s\S]*?<\/article>/g,card=>card.replace(/(<div class="hero-mega"><span><b>)[\d,]+(<\/b>원부터)/,(_,a,z)=>a+(rmin==null?'맞춤':comma(rmin))+z));
  }
  html=html.replace(/@@FOODPRICE(\d+)@@/g,(_,i)=>slots[+i]);
- return html.replace('</head>','<script>window.MEGASPOT_FOOD_RATES='+JSON.stringify(rates).replace(/</g,'\\u003c')+';</script><script src="/assets/js/food-pricing.js?v=20261105cfbudget1"></script></head>');
+ return html.replace('</head>','<script>window.MEGASPOT_FOOD_RATES='+JSON.stringify(rates).replace(/</g,'\\u003c')+';</script><script src="/assets/js/food-pricing.js?v=7e5ba0443b44"></script></head>');
 }

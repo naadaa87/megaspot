@@ -20,7 +20,7 @@ export function publicOrder(r) {
   const d = safe(r.data);
   return { ref: r.ref, inquiry_ref: r.inquiry_ref || '', booking_code: r.booking_code || '', space_id: r.space_id || '', date: r.event_date || '', meal_time: r.meal_time || '',
     customer: r.customer || '', phone: r.phone || '', people: r.people ?? null, status: r.status, status_label: CAT_STATUS[r.status] || r.status, total: r.total ?? null,
-    reception_revision:r.food_revision||0,include_in_booking:!!d.include_in_booking,included_amount:Number(d.included_amount)||0,summary: d.summary || '', course: d.course || '', course_name: d.course_name || '', bill_people: d.bill_people ?? null, bbq: d.bbq || '', bbq_name: d.bbq_name || '', beer: d.beer || 0,
+    reception_revision:r.food_revision||0,include_in_booking:!!d.include_in_booking,included_amount:Number(d.included_amount)||0,summary: d.summary || '', course: d.course || '', course_name: d.course_name || '', bill_people: d.bill_people ?? null, tier_people: d.tier_people ?? null, bbq: d.bbq || '', bbq_name: d.bbq_name || '', beer: d.beer || 0,
     fee: d.fee ?? null, supply: d.supply ?? null, vat: d.vat ?? null, note: d.note || '', version: d.version || '', confirmed_at: d.confirmed_at || '',
     created_at: r.created_at, updated_at: r.updated_at || '',
     ...(r.t_status !== undefined ? { target_status: r.t_status || '', target_kind: r.t_kind || '' } : {}) };

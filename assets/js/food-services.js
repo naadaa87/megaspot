@@ -3,7 +3,7 @@
   'use strict';
   var types=['catering','cocktail'];
   function amount(kind,value){if(!value||value.status==='cancelled'||value.removed)return 0;return Math.max(0,Number(kind==='cocktail'?(value.vat_excluded===true?value.total:value.price):value.total)||0);}
-  function key(kind,value){if(!value)return '';var fields=kind==='catering'?['course','people','bill_people','bbq','beer','fee','total','status','note','meal_time','removed']:['cups','price','bartender_fee','subtotal','vat','total','vat_excluded','pricing_version','pricing_revision','menus','nonalcohol','note','status'];return JSON.stringify(fields.map(function(k){var v=value[k];return k==='status'?(v||'pending'):v==null?'':v;}));}
+  function key(kind,value){if(!value)return '';var fields=kind==='catering'?['course','people','bill_people','tier_people','bbq','beer','fee','total','status','note','meal_time','removed']:['cups','price','bartender_fee','subtotal','vat','total','vat_excluded','pricing_version','pricing_revision','menus','nonalcohol','note','status'];return JSON.stringify(fields.map(function(k){var v=value[k];return k==='status'?(v||'pending'):v==null?'':v;}));}
   function isRow(kind,row){return row.kind===kind||(kind==='catering'&&/^출장뷔페 ·/.test(row.label||''));}
   function publicCocktail(value){var out={};['cups','price','bartender_fee','subtotal','vat','total','vat_excluded','pricing_version','pricing_revision','unit','menus','menu_names','nonalcohol','note','summary','status','by','kind','amount','included','removed'].forEach(function(k){if(Object.prototype.hasOwnProperty.call(value,k))out[k]=value[k];});return out;}
   function extra(kind,value){var row={kind:kind,label:(kind==='catering'?'출장뷔페 · ':'출장 칵테일 · ')+(value.summary||'저장 구성'),amount:amount(kind,value)};row[kind]=JSON.parse(JSON.stringify(kind==='cocktail'?publicCocktail(value):value));return row;}
@@ -27,6 +27,7 @@
     var kind=value.kind,label=kind==='catering'?'출장뷔페':'출장 칵테일',out=[],won=function(n){return Number(n).toLocaleString('ko-KR')+'원';};
     if(kind==='catering'){
       out.push(['코스 · 식사 인원',(value.course_name||'옵션 구성')+' · '+(value.people?value.people+'명':'인원 협의')+(value.bill_people&&value.bill_people!==value.people?' (계산 '+value.bill_people+'명)':'')]);
+      if(value.tier_people)out.push(['계산 기준',value.tier_people+'인 코스 단가 × '+(value.bill_people||value.people)+'명']);
       var parts=[value.bbq_name?'바베큐 '+value.bbq_name:'',value.beer?'생맥주 '+value.beer+'통':'',value.meal_time?'식사 '+value.meal_time:''].filter(Boolean);if(parts.length)out.push(['추가 구성',parts.join(' · ')]);
     }else{out.push(['패키지',value.cups+'잔']);var names=value.menu_names||(value.menus||[]).map(function(id){return typeof window!=='undefined'&&window.MEGASPOT_COCKTAIL_CALC?window.MEGASPOT_COCKTAIL_CALC.names[id]||id:id;});if(names.length)out.push(['희망 메뉴',names.join(', ')]);if(value.nonalcohol)out.push(['논알코올','논알코올 구성 상담']);}
     var cancelled=value.status==='cancelled'||value.removed;out.push(['진행 상태',cancelled?'취소 · 합계 제외':value.status==='confirmed'?'확정':'대기']);

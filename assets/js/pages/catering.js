@@ -11,7 +11,7 @@
   var QUICK = [20, 30, 40, 60, 80, 100, 150, 200, 250, 300, 350];
 
   function courseCard(c){
-    var price = c.kind === 'flat' ? '<b>' + esc(C.man(c.tiers[0].price)) + '</b><small>' + c.tiers[0].people + '인 · ' + c.tiers[1].people + '인 ' + esc(C.man(c.tiers[1].price)) + '</small>'
+    var price = c.tiers ? '<b>' + esc(C.man(c.tiers[0].price)) + '</b><small>' + c.tiers[0].people + '인 · ' + c.tiers[1].people + '인 ' + esc(C.man(c.tiers[1].price)) + '</small>'
                                   : '<b>' + esc(won(c.price)) + '</b><small>1인 · ' + c.min + '인부터</small>';
     return '<label class="cc-opt' + (c.popular ? ' pop' : '') + '"><input type="radio" name="cc_course" value="' + c.id + '"' + (st.course === c.id ? ' checked' : '') + '>'
       + '<span class="cc-opt-name"><b>' + esc(c.name) + '</b>' + (c.popular ? '<em>추천</em>' : '') + '<small>' + esc(c.tag) + ' · ' + c.dishes + '종</small></span><span class="cc-opt-price">' + price + '</span></label>';
@@ -22,7 +22,7 @@
       + '<div class="cc-step"><div class="cc-step-h"><span>1</span>식사 인원</div>'
       + '<div class="cc-people"><input class="input" type="number" inputmode="numeric" min="1" max="350" name="cc_people" value="' + st.people + '" aria-label="식사 인원"><span>명</span></div>'
       + '<div class="pick cc-quick">' + QUICK.map(function(n){ return '<button type="button" data-n="' + n + '">' + n + '명</button>'; }).join('') + '</div></div>'
-      + '<div class="cc-step"><div class="cc-step-h"><span>2</span>코스</div><div class="cc-opts">' + D.courses.map(courseCard).join('')
+      + '<div class="cc-step"><div class="cc-step-h"><span>2</span>코스</div><div class="cc-opts">' + C.courses(st.course).map(courseCard).join('')
       + '<label class="cc-opt none"><input type="radio" name="cc_course" value=""' + (!st.course ? ' checked' : '') + '><span class="cc-opt-name"><b>뷔페 없이</b><small>바베큐·생맥주만 주문</small></span><span class="cc-opt-price"></span></label></div></div>'
       + '<div class="cc-step"><div class="cc-step-h"><span>3</span>바베큐 · 생맥주 <small class="muted">(선택)</small></div>'
       + '<div class="field-row"><div class="f"><label for="cc-bbq">바베큐 (실내형 완제품)</label><select class="select" id="cc-bbq" name="cc_bbq">' + C.bbqOptions(st.bbq) + '</select></div>'
@@ -96,7 +96,7 @@
     var c = C.course(b.dataset.pick); if (!c) return;
     var r = box.querySelector('[name=cc_course][value="' + c.id + '"]'); if (r) r.checked = true;
     var pi = box.querySelector('[name=cc_people]');
-    if (c.kind === 'flat' && +pi.value > c.max) pi.value = c.max;
+    if (c.max && +pi.value > c.max) pi.value = c.max;
     if (c.kind === 'per' && +pi.value < c.min) pi.value = c.min;
     paintSelection();
     document.getElementById('calc').scrollIntoView({ behavior: 'smooth', block: 'start' });

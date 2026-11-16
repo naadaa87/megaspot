@@ -9,14 +9,19 @@ export function cateringQuote(o, fee, data=CATERING) {   // fee: 관리자가 �
   const bbq = D.bbq.rows.find(x => x.id === String(o.bbq || '')) || null;
   const beer = Math.max(0, Math.min(20, Math.round(+o.beer || 0)));
   const people = Math.max(0, Math.min(999, Math.round(+o.people || 0)));
-  if (course && course.kind === 'flat' && people > course.max) return {
+  if (course && course.max && people > course.max) return {
     course: course.id, course_name: course.name, people, bill_people: null, bbq: bbq ? bbq.id : '', bbq_name: bbq ? bbq.size : '', beer,
     fee: null, supply: null, vat: null, total: null, version: D.version, requires_consultation: true,
     summary: course.name + ' ' + people + '명 희망 — 상담 후 견적 (' + course.max + '인 초과 · 인원에 맞는 코스 재선택 필요)'
   };
-  let bill = 0, supply = 0;
+  let bill = 0, supply = 0, tierPeople = null;
   if (course) {
-    if (course.kind === 'flat') {
+    if (course.kind === 'tiered') {
+      bill = Math.max(people || course.min, course.min);
+      const tier = bill < 30 ? course.tiers[0] : course.tiers[1];
+      tierPeople = tier.people;
+      supply += Math.round(tier.price * bill / tier.people);
+    } else if (course.kind === 'flat') {
       const tier = people > 20 ? course.tiers[1] : course.tiers[0];
       bill = Math.max(tier.people, people);
       supply += Math.round(tier.price * bill / tier.people);
@@ -32,7 +37,7 @@ export function cateringQuote(o, fee, data=CATERING) {   // fee: 관리자가 �
   if (course) parts.push(course.name + (course.kind === 'flat' ? '' : ' 코스') + ' ' + bill + '명');
   if (bbq) parts.push('바베큐 ' + bbq.size);
   if (beer) parts.push('생맥주 ' + beer + '통');
-  return { course: course ? course.id : '', course_name: course ? course.name : '', people, bill_people: bill, bbq: bbq ? bbq.id : '', bbq_name: bbq ? bbq.size : '', beer,
+  return { course: course ? course.id : '', course_name: course ? course.name : '', people, bill_people: bill, tier_people: tierPeople, bbq: bbq ? bbq.id : '', bbq_name: bbq ? bbq.size : '', beer,
            fee: supply ? dfee : 0, supply, vat, total: supply + vat, version: D.version,
            summary: supply ? parts.join(' · ') + ' — 예상 ' + won(supply + vat) + ' (부가세 포함)' : '출장뷔페 상담 희망 (코스 미정' + (people ? ' · ' + people + '명' : '') + ')' };
 }
