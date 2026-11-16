@@ -16,9 +16,9 @@ export function auditBatch(batch,operations={},journal={},at=Date.now(),{minVehi
   const proof=operations[p.oid]?.verification,issues=[];
   const complete=p.status==='applied';
   if(complete){
-   const hours=Number(p.hours),free=p.free_hours,paid=p.ticket==='daily'?0:hours-free;
-   const expected=p.ticket==='daily'?20000:paid*3000;
-   const cap=p.ticket==='daily'?20000:hours*3000;
+   const hours=Number(p.hours),free=p.free_hours,paid=['daily','24h'].includes(p.ticket)?0:hours-free;
+   const expected=['daily','24h'].includes(p.ticket)?20000:paid*3000;
+   const cap=['daily','24h'].includes(p.ticket)?20000:hours*3000;
    const steps=proof?.steps||[],freeIndex=steps.findIndex(s=>s.phase==='verified_1');
    const paidIndex=steps.findIndex(s=>/^request_(6|7|8|10)$/.test(s.phase));
    const freeFirst=free===1?freeIndex>=0&&(paidIndex<0||freeIndex<paidIndex):free===0&&proof?.free_existing===true&&p.free_external===1;

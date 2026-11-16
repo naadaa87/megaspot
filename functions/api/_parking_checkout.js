@@ -1,17 +1,17 @@
 import {json,err,str,now,randomToken,sha256,log,kstToday} from './_lib.js';
 import {requestPayment} from './_payapp.js';
-import {parkingInput,POLICY,arrivalWindow} from './_parking.js';
+import {parkingInput,POLICY,arrivalWindow,fullDayTicket,parkingTicketTerms} from './_parking.js';
 const makeOid=async()=> 'MS'+new Date(Date.now()+9*36e5).toISOString().replace(/[-:T]/g,'').slice(0,14)+(await sha256(randomToken())).slice(0,6).toUpperCase();
 export async function prepareParkingBatch(request,env,settings,C,d){
  if(!Array.isArray(d.vehicles)||d.vehicles.length<1||d.vehicles.length>10)return err('차량은 한 번에 1~10대까지 구매할 수 있습니다.');
  const items=[],seen=new Set();
  for(const [i,item] of d.vehicles.entries()){
   if(!item||typeof item!=='object'||Array.isArray(item))return err('차량 정보를 확인해 주세요.');
-  const v=parkingInput({...d,...item,date:d.date,name:d.name,phone:d.phone},{dailyAllowed:settings.daily_enabled});
+  const v=parkingInput({...d,...item,date:d.date,name:d.name,phone:d.phone},{dailyAllowed:settings.daily_enabled,pass24Allowed:settings.pass24_enabled});
   if(v.error)return err((i+1)+'번 차량: '+v.error);
   if(seen.has(v.plate))return err('같은 차량번호를 두 번 입력했습니다. 차량마다 한 번씩 입력해 주세요.');
   seen.add(v.plate);
-  if(v.ticket==='daily'&&str(d.daily_terms,500)!==settings.daily_terms)return err('일일권 이용 조건이 변경되었습니다. 새로고침 후 확인해 주세요.',409);
+  if(fullDayTicket(v.ticket)&&str(v.ticket==='24h'?d.pass24_terms:d.daily_terms,500)!==parkingTicketTerms(settings,v.ticket))return err('선택한 주차권의 이용 조건이 변경되었습니다. 새로고침 후 확인해 주세요.',409);
   if(v.date===kstToday()&&!arrivalWindow())return err('당일 구매·입차 요청은 10:00부터 23:50 전까지 가능합니다. 다음 이용일을 선택하거나 문의해 주세요.');
   const duplicate=await env.DB.prepare("SELECT COUNT(*) AS n FROM parking_orders p JOIN orders o ON o.oid=COALESCE(p.payment_oid,p.oid) WHERE p.plate=? AND p.visit_date=? AND o.status='paid'").bind(v.plate,v.date).first();
   if(duplicate.n&&!d.confirm_extra)return err('입력한 차량 중 같은 이용일에 결제된 주차권이 있습니다. 추가 구매가 맞는지 확인해 주세요.',409,'EXTRA_CONFIRM');
@@ -19,10 +19,10 @@ export async function prepareParkingBatch(request,env,settings,C,d){
  }
  const oid=await makeOid(),key=await sha256(randomToken()),hash=await sha256(key),nonce=randomToken(),t=now(),total=items.reduce((n,v)=>n+v.price,0),title='메가스팟 주차권 '+items.length+'대';
  const statements=[
-  env.DB.prepare("INSERT INTO orders(oid,product_id,title,event_date,price,buyer_name,buyer_phone,data,status,test,created_at) VALUES(?,'parking-batch',?,?,?,?,?,?,'created',0,?)").bind(oid,title,d.date,total,items[0].name,items[0].phone,JSON.stringify({kind:'parking_batch',policy:POLICY,confirmed_at:t,lines:items.map(v=>({label:v.plate+' · '+v.label,desc:v.date,amount:v.price,qty:1})),agree_daily:d.agree_daily===true}),t),
+  env.DB.prepare("INSERT INTO orders(oid,product_id,title,event_date,price,buyer_name,buyer_phone,data,status,test,created_at) VALUES(?,'parking-batch',?,?,?,?,?,?,'created',0,?)").bind(oid,title,d.date,total,items[0].name,items[0].phone,JSON.stringify({kind:'parking_batch',policy:POLICY,confirmed_at:t,lines:items.map(v=>({label:v.plate+' · '+v.label,desc:v.date+(fullDayTicket(v.ticket)?' · '+parkingTicketTerms(settings,v.ticket):''),amount:v.price,qty:1})),agree_daily:d.agree_daily===true}),t),
   env.DB.prepare('INSERT INTO parking_batches(oid,token_hash,created_at) VALUES(?,?,?)').bind(oid,hash,t),
   env.DB.prepare('INSERT INTO payapp_payments(oid,nonce,created_at) VALUES(?,?,?)').bind(oid,nonce,t),
-  ...items.map(v=>env.DB.prepare('INSERT INTO parking_orders(oid,payment_oid,vehicle_price,plate,visit_date,ticket,hours,daily_terms,token_hash,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)').bind(v.oid,oid,v.price,v.plate,v.date,v.ticket,v.hours,v.ticket==='daily'?settings.daily_terms:'',hash,t,t))
+  ...items.map(v=>env.DB.prepare('INSERT INTO parking_orders(oid,payment_oid,vehicle_price,plate,visit_date,ticket,hours,daily_terms,token_hash,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)').bind(v.oid,oid,v.price,v.plate,v.date,v.ticket,v.hours,parkingTicketTerms(settings,v.ticket),hash,t,t))
  ];
  await env.DB.batch(statements);
  const origin=new URL(request.url).origin;let r;

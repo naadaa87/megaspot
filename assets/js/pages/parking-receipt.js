@@ -32,11 +32,12 @@
   return '<article class="pk-receipt-card pk-tone-'+s.tone+'" data-oid="'+oid+'" aria-label="'+esc(p.plate)+' · '+s.label+'">'
    +'<div class="pk-receipt-top"><h2>'+esc(p.plate)+'</h2><span class="pk-state pk-tone-'+s.tone+'">'+(s.key==='applied'?'<span aria-hidden="true">✓ </span>':'')+s.label+'</span></div>'
    +'<p class="pk-receipt-meta">'+esc(p.ticket_label)+' · '+won(p.price)+'</p>'
+   +(p.valid_until?'<p class="pk-validity"><b>이용 종료</b> '+esc(stamp(p.valid_until))+'</p>':p.ticket==='24h'?'<p class="pk-validity">입차 확인 후 이용 종료 시각을 안내합니다.</p>':'')
    +'<p class="pk-receipt-hint">'+esc(s.hint)+'</p>'
    +(action?'<div class="pk-arrival-action"><button class="btn btn-primary" data-action="arrive"'+(canArrive?'':' disabled')+'>입차했어요 · 등록 요청</button>'+(canArrive?'<p class="pk-arrival-help">이미 입차했다면 눌러 주세요. 바로 다시 확인합니다.</p>':'<p class="pk-help">이용일 10:00부터 23:50 전까지 입차 요청이 가능합니다.</p>')+'</div>':'')
    +'<details class="pk-receipt-more" data-detail-key="'+oid+':detail"'+open(p.oid+':detail',options.expanded)+'><summary>차량 상세 내역</summary><dl class="pk-detail"><dt>이용일</dt><dd>'+esc(date(p.visit_date))+'</dd><dt>주문번호</dt><dd>'+oid+'</dd>'
    +(p.applied_at?'<dt>기존 등록 이력</dt><dd>'+esc(stamp(p.applied_at))+'</dd>':'')
-   +(p.daily_terms?'<dt>일일권 조건</dt><dd>'+esc(p.daily_terms)+'</dd>':'')
+   +(p.daily_terms?'<dt>이용 조건</dt><dd>'+esc(p.daily_terms)+'</dd>':'')
    +(p.refunded_amount?'<dt>취소 금액</dt><dd>'+won(p.refunded_amount)+'</dd>':'')
    +'</dl></details>'
    +(paid&&!refund?'<details class="pk-receipt-more" data-detail-key="'+oid+':cancel"'+open(p.oid+':cancel',options.expanded)+'><summary>취소·차량번호 정정 문의</summary><label class="pk-label"><span>문의 사유</span><textarea class="textarea" data-reason maxlength="300"></textarea></label><button class="btn btn-light" data-action="cancel" type="button">문의 접수</button></details>':'')

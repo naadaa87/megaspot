@@ -184,3 +184,10 @@
 
 .pk-history summary{cursor:pointer;font-weight:700;color:var(--cobalt)}
 .pk-history-list{display:grid;gap:8px;margin-top:12px}.pk-history-list .btn{display:flex;flex-direction:column;align-items:flex-start;min-width:0;white-space:normal;overflow-wrap:anywhere;text-align:left}.pk-history-list small{font-size:11px;font-weight:400}
+
+.pk-ticket-basis{grid-column:1/-1;font-size:12px;font-weight:500;line-height:1.6;color:var(--ink-2)}
+.page-parking-purchase .pk-ticket[data-ticket="24h"]{grid-column:1/-1}
+#pk-daily-notice{white-space:pre-line}
+.pk-validity{font-size:13px;line-height:1.7;color:var(--graphite);margin:0}
+.pk-validity b{margin-right:6px}
+@media(min-width:600px){.page-parking-purchase .pk-ticket-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.page-parking-purchase .pk-ticket[data-ticket="24h"]{grid-column:auto}}

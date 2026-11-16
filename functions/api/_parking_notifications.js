@@ -1,7 +1,7 @@
 import {saveNotificationContent,noticeButtons} from './_notification_content.js';
 import {approvedCustomerTemplate,customerFallback,reviewCustomerTemplate} from './_customer_alimtalk.js';
 import {CUSTOMER_ALIMTALK} from './_customer_alimtalk_templates.js';
-import {JOIN} from './_parking.js';
+import {JOIN,parkingTicketLabel,parkingValidUntil} from './_parking.js';
 import {json,err,now,sha256,readJson,str} from './_lib.js';
 import {equalSecret} from './_payapp.js';
 import {PARKING_TEMPLATES as T,PARKING_BUTTONS as B} from './_parking_templates.js';
@@ -60,7 +60,7 @@ export async function parkingNoticeAccess(env,oid,key){
 }
 export function parkingNoticeVariables(p,e,key){
  const payload=parse(e.payload),amount=Math.min(Number(p.price),Number(payload.refunded_amount??p.refunded_amount??0));
- return {주문번호:p.oid,차량끝번호:p.plate.slice(-4),이용일:p.visit_date.replace(/^(\d{4})-(\d{2})-(\d{2})$/,'$1년 $2월 $3일'),주차권:({'1h':'1시간권','2h':'2시간권','3h':'3시간권',daily:'일일권'})[p.ticket],결제금액:format(p.price),접수일시:kst(e.occurred_at),등록일시:kst(e.occurred_at),환불금액:format(payload.refund_amount),누적환불금액:format(amount),남은결제금액:format(p.price-amount),구매내역키:key};
+ return {주문번호:p.oid,차량끝번호:p.plate.slice(-4),이용일:p.visit_date.replace(/^(\d{4})-(\d{2})-(\d{2})$/,'$1년 $2월 $3일'),주차권:parkingTicketLabel(p)+(p.ticket==='24h'&&parkingValidUntil(p)?' · '+new Date(parkingValidUntil(p)).toLocaleString('sv-SE',{timeZone:'Asia/Seoul'}).slice(0,16)+' 종료':''),결제금액:format(p.price),접수일시:kst(e.occurred_at),등록일시:kst(e.occurred_at),환불금액:format(payload.refund_amount),누적환불금액:format(amount),남은결제금액:format(p.price-amount),구매내역키:key};
 }
 export function parkingNoticeRender(text,vars){return text.replace(/#\{([^}]+)\}/g,(_,k)=>{if(vars[k]==null)throw Error('알림 변수 누락');return vars[k];});}
 export function parkingNoticeObsolete(p,e,at=Date.now()){

@@ -6,7 +6,7 @@ import {parkingSite} from './site.mjs';
 import {auditBatch} from './audit-next-batch.mjs';
 
 const KEY='next-batch-watch',LINK='https://megaspot.kr/admin/#parking';
-const label=t=>({'1h':'1시간권','2h':'2시간권','3h':'3시간권',daily:'일일권'})[t]||'주차권';
+const label=t=>({'1h':'1시간권','2h':'2시간권','3h':'3시간권',daily:'당일권','24h':'24시간권'})[t]||'주차권';
 const idFor=s=>{const h=createHash('sha256').update('parking-watch-v1:'+s).digest('hex');return h.slice(0,8)+'-'+h.slice(8,12)+'-4'+h.slice(13,16)+'-a'+h.slice(17,20)+'-'+h.slice(20,32);};
 export function verificationMessage(result,final=false){
  const ok=result.status==='verified',items=result.batch?.items||[];

@@ -5,8 +5,22 @@ export const TICKETS = {
  '1h': {label:'1시간권', hours:1, price:4000},
  '2h': {label:'2시간권', hours:2, price:8000},
  '3h': {label:'3시간권', hours:3, price:12000},
- daily: {label:'일일권', hours:null, price:30000}
+ daily: {label:'당일권', hours:null, price:30000,subtitle:'이용일 23:59까지'},
+ '24h': {label:'24시간권',hours:null,price:40000,subtitle:'입차 시각부터 24시간'}
 };
+export const PASS24_TERMS='입차 시각부터 24시간(한국시간 기준). 자정을 넘어도 최초 입차 후 24시간까지 유효합니다. 초과 요금은 현장에서 정산하며 재입차는 별도 확인이 필요합니다.';
+export const fullDayTicket=t=>t==='daily'||t==='24h';
+export function parkingTicketTerms(settings,ticket){return ticket==='24h'?settings.pass24_terms:ticket==='daily'?settings.daily_terms:'';}
+export function parkingValidUntil(p){
+ if(p.ticket==='24h'&&p.entry_at){const raw=String(p.entry_at).replace(' ','T'),at=Date.parse(raw+(/Z$|[+-]\d\d:\d\d$/.test(raw)?'':'+09:00'));return Number.isFinite(at)?new Date(at+24*36e5).toISOString():null;}
+ if(p.ticket==='daily'&&p.daily_terms?.includes('23:59'))return p.visit_date+'T23:59:59+09:00';
+ return null;
+}
+export function parkingTicketLabel(p){
+ if(p.ticket==='24h')return '24시간권 · 입차 후 24시간';
+ if(p.ticket==='daily')return p.daily_terms?.startsWith('입차 시각부터 24시간')?'일일권 · 기존 구매 조건':'당일권 · 이용일 23:59 종료';
+ return TICKETS[p.ticket]?.label||p.ticket;
+}
 export function parkingDate(date){return isDate(date)&&!HOLIDAYS[date];}
 export function arrivalWindow(ms=Date.now()){
  const date=new Date(ms+9*3600e3).toISOString(),minutes=+date.slice(11,13)*60+ +date.slice(14,16);
@@ -25,9 +39,10 @@ export function plateOf(value) {
 }
 export function parkingInput(d,options={}){
  const ticket=typeof d.ticket==='string'&&Object.hasOwn(TICKETS,d.ticket)?TICKETS[d.ticket]:null,plate=plateOf(d.plate),date=str(d.date,10);
+ if(d.ticket==='24h'&&!options.pass24Allowed)return {error:'24시간권 판매를 준비 중입니다. 카카오톡으로 문의해 주세요.'};
  if(d.ticket==='daily'&&!options.dailyAllowed)return {error:'일일권의 종료 시각·재입차 조건을 주차장에 확인 중입니다. 카카오톡으로 문의해 주세요.'};
  if(!ticket)return {error:'주차권을 선택해 주세요.'};
- if(d.ticket==='daily'&&d.agree_daily!==true)return {error:'일일권 종료 기준과 익일·초과 정산 조건을 확인해 주세요.'};
+ if(fullDayTicket(d.ticket)&&d.agree_daily!==true)return {error:'선택한 주차권의 종료 기준과 초과 정산 조건을 확인해 주세요.'};
  if(!plate)return {error:'차량번호 전체를 확인해 주세요. 예: 123가4567'};
  if(plateOf(d.plate_confirm)!==plate)return {error:'다시 입력한 차량번호가 일치하지 않습니다.'};
  if(!isDate(date)||date<kstToday()||date>new Date(Date.now()+366*86400000).toISOString().slice(0,10))return {error:'이용일을 확인해 주세요.'};
@@ -44,7 +59,7 @@ export async function parkingSettings(env){
  // Venue operator confirmed midnight expiry on 2026-11-03. This does not enable sales.
  const basis=typeof v.daily_basis==='string'&&Object.hasOwn(DAILY_BASES,v.daily_basis)?v.daily_basis:'calendar',details=str(v.daily_details??v.daily_terms,240),rollover=str(v.daily_rollover,160);
  const terms=DAILY_BASES[basis]+' '+details+' 익일·초과 정산: '+rollover;
- return {enabled:v.enabled===true,daily_enabled:v.daily_enabled===true&&basis!=='unconfirmed'&&!!details&&!!rollover,daily_basis:basis,daily_details:details,daily_rollover:rollover,daily_terms:terms,service_hours:'매일 10:00–24:00 자동 등록 (공휴일 제외)',processing_notice:'버튼을 누르지 않아도 결제·입차 확인 후 바로 자동 등록을 시작합니다. 입차 정보 반영이 늦으면 약 1분 뒤 다시 확인합니다. 당일 구매·입차 요청은 23:50까지입니다. 등록 완료를 확인한 뒤 출차해 주세요. 전날 입차·익일 연속 주차는 별도 문의가 필요합니다.'};
+ return {enabled:v.enabled===true,daily_enabled:v.daily_enabled===true&&basis!=='unconfirmed'&&!!details&&!!rollover,daily_basis:basis,daily_details:details,daily_rollover:rollover,daily_terms:terms,pass24_enabled:v.pass24_enabled!==false,pass24_terms:PASS24_TERMS,service_hours:'매일 10:00–24:00 자동 등록 (공휴일 제외)',processing_notice:'버튼을 누르지 않아도 결제·입차 확인 후 바로 자동 등록을 시작합니다. 입차 정보 반영이 늦으면 약 1분 뒤 다시 확인합니다. 당일 구매·입차 요청은 23:50까지입니다. 등록 완료를 확인한 뒤 출차해 주세요. 24시간권은 최초 입차부터 24시간까지 유효합니다. 전날 입차 후 추가 구매·재입차는 별도 문의가 필요합니다.'};
 }
 export const JOIN = `SELECT p.*,COALESCE(p.vehicle_price,o.price) AS price,o.status AS payment_status,o.buyer_name,o.buyer_phone,o.paid_at,o.test,
  o.price AS payment_total,COALESCE(p.payment_oid,p.oid) AS payment_id,
@@ -55,7 +70,7 @@ export const JOIN = `SELECT p.*,COALESCE(p.vehicle_price,o.price) AS price,o.sta
  CASE WHEN p.payment_oid IS NOT NULL AND EXISTS(SELECT 1 FROM payapp_refunds WHERE oid=o.oid) THEN 1 ELSE 0 END AS refund_hold
  FROM parking_orders p JOIN orders o ON o.oid=COALESCE(p.payment_oid,p.oid) LEFT JOIN parking_sessions s ON s.id=p.session_id`;
 export function publicParking(p){
- return {oid:p.oid,payment_oid:p.payment_oid||p.oid,refund_hold:!!p.refund_hold,payment_refund_amount:p.payment_refund_amount||0,plate:p.plate,visit_date:p.visit_date,ticket:p.ticket,ticket_label:TICKETS[p.ticket]?.label||p.ticket,daily_terms:p.daily_terms,price:p.price,
+ return {oid:p.oid,payment_oid:p.payment_oid||p.oid,refund_hold:!!p.refund_hold,payment_refund_amount:p.payment_refund_amount||0,plate:p.plate,visit_date:p.visit_date,ticket:p.ticket,ticket_label:parkingTicketLabel(p),daily_terms:p.daily_terms,valid_until:parkingValidUntil(p),price:p.price,
  payment_status:p.payment_status,refunded_amount:p.refunded_amount,status:p.status,arrival_at:p.arrival_at,applied_at:p.applied_at,
  refund_requested_at:p.refund_requested_at,refund_reviewed_at:p.refund_reviewed_at,created_at:p.created_at};
 }
@@ -65,7 +80,7 @@ export async function parkingAdmin(request,env,path){
  if(path==='admin/settings'){
   if(method==='GET')return json({ok:true,...await parkingSettings(env)});
   if(method!=='PUT')return err('지원하지 않는 요청입니다.',405);
-  const d=await readJson(request),prior=await parkingSettings(env),value={...prior,enabled:d.enabled===true,daily_enabled:d.daily_enabled===undefined?prior.daily_enabled:d.daily_enabled===true,daily_basis:d.daily_basis===undefined?prior.daily_basis:d.daily_basis,daily_details:d.daily_details===undefined?prior.daily_details:str(d.daily_details,240),daily_rollover:d.daily_rollover===undefined?prior.daily_rollover:str(d.daily_rollover,160)};
+  const d=await readJson(request),prior=await parkingSettings(env),value={...prior,enabled:d.enabled===true,pass24_enabled:d.pass24_enabled===undefined?prior.pass24_enabled:d.pass24_enabled===true,daily_enabled:d.daily_enabled===undefined?prior.daily_enabled:d.daily_enabled===true,daily_basis:d.daily_basis===undefined?prior.daily_basis:d.daily_basis,daily_details:d.daily_details===undefined?prior.daily_details:str(d.daily_details,240),daily_rollover:d.daily_rollover===undefined?prior.daily_rollover:str(d.daily_rollover,160)};
   const policyChanged=['daily_enabled','daily_basis','daily_details','daily_rollover','daily_terms'].some(k=>d[k]!==undefined);
   if(value.daily_enabled&&(!Object.hasOwn(DAILY_BASES,value.daily_basis||'')||!value.daily_details||!value.daily_rollover||policyChanged&&d.confirm_daily!==true))return err('확인된 종료 기준과 재입차·익일 추가 구매 안내를 입력하고 해당 조건으로 판매함을 확인해 주세요.');
   value.daily_terms=Object.hasOwn(DAILY_BASES,value.daily_basis||'')?DAILY_BASES[value.daily_basis]+' '+value.daily_details+' 익일·초과 정산: '+value.daily_rollover:'';
@@ -116,7 +131,7 @@ export async function parkingAdmin(request,env,path){
    sql("UPDATE parking_orders SET session_id=(SELECT id FROM parking_sessions WHERE entry_id=? AND plate=? AND entry_at=?),status='processing',memo=?,updated_at=? WHERE oid=? AND status IN ('waiting','requested') AND (refund_requested_at IS NULL OR refund_reviewed_at IS NOT NULL) AND EXISTS(SELECT 1 FROM orders WHERE oid=? AND status='paid') AND NOT EXISTS(SELECT 1 FROM payapp_refunds WHERE oid=?) AND EXISTS(SELECT 1 FROM parking_sessions WHERE entry_id=? AND plate=? AND entry_at=?)",entry,p.plate,entryAt,claimMemo,t,p.oid,p.payment_id,p.payment_id,entry,p.plate,entryAt),
    sql("UPDATE parking_sessions SET free_external=1 WHERE entry_id=? AND free_order IS NULL AND ?=1 AND EXISTS(SELECT 1 FROM parking_orders WHERE oid=? AND status='processing' AND session_id=parking_sessions.id)",entry,d.free_used?1:0,p.oid),
    sql("UPDATE parking_sessions SET free_order=? WHERE entry_id=? AND free_order IS NULL AND free_external=0 AND EXISTS(SELECT 1 FROM parking_orders WHERE oid=? AND status='processing' AND session_id=parking_sessions.id)",p.oid,entry,p.oid),
-   sql("UPDATE parking_orders SET free_hours=CASE WHEN (SELECT free_order FROM parking_sessions WHERE id=session_id)=oid THEN 1 ELSE 0 END,paid_hours=CASE WHEN ticket='daily' THEN 0 ELSE hours-CASE WHEN (SELECT free_order FROM parking_sessions WHERE id=session_id)=oid THEN 1 ELSE 0 END END WHERE oid=? AND status='processing'",p.oid)
+   sql("UPDATE parking_orders SET free_hours=CASE WHEN (SELECT free_order FROM parking_sessions WHERE id=session_id)=oid THEN 1 ELSE 0 END,paid_hours=CASE WHEN ticket IN ('daily','24h') THEN 0 ELSE hours-CASE WHEN (SELECT free_order FROM parking_sessions WHERE id=session_id)=oid THEN 1 ELSE 0 END END WHERE oid=? AND status='processing'",p.oid)
   ]);}catch(e){if(/UNIQUE/.test(String(e)))return err('같은 입차 건을 다른 주문에서 처리 중입니다. 완료 후 다시 시도해 주세요.',409);throw e;}
   const after=await env.DB.prepare('SELECT p.status,p.session_id,s.entry_id FROM parking_orders p LEFT JOIN parking_sessions s ON s.id=p.session_id WHERE p.oid=?').bind(p.oid).first();
   if(after.status!=='processing'||!after.session_id||after.entry_id!==entry)return err('다른 요청에서 상태가 변경되었습니다. 새로고침해 주세요.',409);

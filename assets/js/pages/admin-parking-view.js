@@ -18,7 +18,7 @@
   if(p.status==='resolved')return '관리자 확인 완료 · 추가 자동 등록 종료';
   if(!p.session_id)return '입차 확인 후 무료 1시간 우선 적용';
   var free=p.free_hours===1?'무료 1시간 우선':p.free_external?'기존 무료 사용 확인':'무료 배정 내역 확인';
-  return free+' · '+(p.ticket==='daily'?'일일권':('유료 '+Number(p.paid_hours||0)+'시간'))+(p.cost!=null?' · 실제 차감 '+won(p.cost):'');
+  return free+' · '+(['daily','24h'].includes(p.ticket)?(p.ticket_label||(p.ticket==='24h'?'24시간권 · 입차 후 24시간':'당일권 · 자정 종료')):('유료 '+Number(p.paid_hours||0)+'시간'))+(p.cost!=null?' · 실제 차감 '+won(p.cost):'');
  }
  function render(items,tools,options){
   options=options||{};var list=groups(items,options),done=items.filter(function(p){return ['applied','resolved'].includes(p.status);}).length,waiting=items.filter(function(p){return ['waiting','requested','processing'].includes(receipt.state(p).key);}).length;

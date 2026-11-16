@@ -48,7 +48,7 @@ export async function amanoAutomation(request,env){
   if(data.free_used!==true&&data.confirm_no_free!==true)return err('무료 1시간 사용 이력을 확인해 주세요.',400);
  }
  if(d.action==='complete'){
-  const expected=p.ticket==='daily'?20000:Number(p.paid_hours)*3000;
+  const expected=['daily','24h'].includes(p.ticket)?20000:Number(p.paid_hours)*3000;
   if(data.cost!==expected||expected>p.price||data.confirm_paid_applied!==true||p.free_hours===1&&data.confirm_free_applied!==true)return err('무료 우선 적용·등록 이력·승인 원가를 확인해 주세요.',409);
  }
  const result=await parkingAdmin(new Request('https://megaspot.kr/api/parking/admin/orders/'+p.oid+'/'+d.action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...data,confirm_applied:d.action==='complete',memo:'서버 자동 처리 · '+String(data.memo||'').slice(0,950)})}),env,'admin/orders/'+p.oid+'/'+d.action);
