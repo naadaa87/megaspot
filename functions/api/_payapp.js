@@ -1,12 +1,40 @@
 // PayApp REST 요청과 서버 통보 검증. 키·통보 원문은 브라우저나 로그에 보내지 않습니다.
 import { sha256 } from './_lib.js';
 
+const ACCOUNT_PREFIXES = { legacy: 'PAYAPP_', jiyu: 'PAYAPP_JIYU_' };
+function accountConfig(env, account) {
+  const prefix = Object.hasOwn(ACCOUNT_PREFIXES, account) ? ACCOUNT_PREFIXES[account] : null;
+  const value = name => prefix && typeof env[prefix + name] === 'string' ? env[prefix + name].trim() : '';
+  const C = { account, userid: value('USERID'), linkkey: value('LINKKEY'),
+    linkval: value('LINKVAL'), requestkey: value('REQUESTKEY') };
+  C.configured = !!(C.userid && C.linkkey && C.linkval && C.requestkey);
+  C.live = C.configured && env.PAYAPP_ENABLED !== '0';
+  return C;
+}
 export function payappConfig(env) {
-  const keys = ['PAYAPP_USERID', 'PAYAPP_LINKKEY', 'PAYAPP_LINKVAL', 'PAYAPP_REQUESTKEY'];
-  const configured = keys.every(k => typeof env[k] === 'string' && env[k].trim());
-  return { configured: !!configured, live: !!configured && env.PAYAPP_ENABLED !== '0',
-    userid: (env.PAYAPP_USERID || '').trim(), linkkey: (env.PAYAPP_LINKKEY || '').trim(),
-    linkval: (env.PAYAPP_LINKVAL || '').trim(), requestkey: (env.PAYAPP_REQUESTKEY || '').trim() };
+  const account = env.PAYAPP_ACTIVE_ACCOUNT == null ? 'legacy'
+    : typeof env.PAYAPP_ACTIVE_ACCOUNT === 'string' ? env.PAYAPP_ACTIVE_ACCOUNT.trim() : '';
+  const C = accountConfig(env, account), legacy = accountConfig(env, 'legacy'), jiyu = accountConfig(env, 'jiyu');
+  // 구계정 통보를 유지할 수 없거나 판매자 구분이 모호하면 새 결제를 만들지 않습니다.
+  if ((legacy.userid && legacy.userid === jiyu.userid) || (account === 'jiyu' && !legacy.configured)) {
+    C.configured = false; C.live = false;
+  }
+  return C;
+}
+// 전환 후에도 기존 결제·취소 통보는 원래 판매자의 키로 검증합니다.
+export function payappFeedbackConfig(env, f) {
+  if (!f || typeof f.userid !== 'string' || !f.userid) return null;
+  const matches = Object.keys(ACCOUNT_PREFIXES).map(account => accountConfig(env, account))
+    .filter(C => C.userid && C.userid === f.userid);
+  return matches.length === 1 && matches[0].configured ? matches[0] : null;
+}
+// 판매자 정보가 없던 과거 행은 legacy 계정에만 귀속시킵니다.
+export function payappMerchantMatches(env, storedUserId, C) {
+  if (!C?.configured || !C.userid) return false;
+  if (typeof storedUserId === 'string' && storedUserId) return storedUserId === C.userid;
+  if (storedUserId != null && storedUserId !== '') return false;
+  const legacyUserId = typeof env.PAYAPP_USERID === 'string' ? env.PAYAPP_USERID.trim() : '';
+  return !!legacyUserId && legacyUserId === C.userid;
 }
 export function kstStamp(ms = Date.now()) {
   return new Date(ms + 9 * 3600e3).toISOString().slice(0, 19).replace(/[-:T]/g, '');

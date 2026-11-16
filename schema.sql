@@ -289,6 +289,7 @@ CREATE TABLE IF NOT EXISTS payapp_payments (
   oid TEXT PRIMARY KEY,
   mul_no TEXT UNIQUE,
   nonce TEXT NOT NULL,
+  merchant_userid TEXT,                    -- NULL은 전환 전 PAYAPP_USERID 계정의 거래
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS payapp_refunds (
@@ -988,6 +989,7 @@ CREATE TABLE IF NOT EXISTS host_billing_pay (   -- 입점 이용료 결제(페�
   supply INTEGER, vat INTEGER,              -- 공급가액 · 부가세 (host_billing.amount = 합계)
   nonce TEXT, reqs TEXT, payurl TEXT, requested_at TEXT,   -- 결제 요청 확인값 · 요청해 받은 거래번호 목록(JSON) · 결제창 주소 · 요청 시각
   mul_no TEXT, pay_type TEXT, pg_state TEXT,               -- 결제된 거래번호 · 결제수단 · pending(입금 대기) | paid
+  merchant_userid TEXT,                     -- 결제 요청/승인 계정, NULL은 기존 PAYAPP_USERID
   pg_refunded INTEGER NOT NULL DEFAULT 0, refund_nos TEXT, -- 페이앱이 통보한 취소 합계 · 반영한 부분 취소 번호(JSON)
   cancel_status TEXT,                       -- requested 해지 신청 | done 환불 완료 | withdrawn 신청 철회
   cancel_base TEXT, cancel_calc TEXT, cancel_reason TEXT, cancel_requested_at TEXT,   -- 해지 기준일 · 환불 계산 내역(JSON)
@@ -995,6 +997,20 @@ CREATE TABLE IF NOT EXISTS host_billing_pay (   -- 입점 이용료 결제(페�
   alert TEXT,                               -- 운영팀 확인이 필요한 일 (중복 결제 등)
   updated_at TEXT
 );
+-- 계정 전환 전후의 요청을 개별 보존합니다. nonce는 API 호출 전에 저장합니다.
+CREATE TABLE IF NOT EXISTS host_billing_pay_requests (
+  id TEXT PRIMARY KEY,
+  ref TEXT NOT NULL,
+  merchant_userid TEXT NOT NULL,
+  nonce TEXT NOT NULL,
+  mul_no TEXT,
+  status TEXT NOT NULL DEFAULT 'requesting', -- requesting | requested | pending | legacy | paid | cancelled | rejected
+  created_at TEXT NOT NULL,
+  UNIQUE(merchant_userid, mul_no)
+);
+CREATE INDEX IF NOT EXISTS idx_host_billing_pay_requests_ref ON host_billing_pay_requests(ref);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_host_billing_pay_requests_open ON host_billing_pay_requests(ref) WHERE status IN ('requesting','requested','pending');
+
 CREATE TABLE IF NOT EXISTS host_notifications (   -- 호스트 문자 알림 (새 문의·견적 수락·입금 알림·취소·고객 메시지·심사 결과·이용료)
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   host_id INTEGER NOT NULL, kind TEXT NOT NULL, ref TEXT NOT NULL,

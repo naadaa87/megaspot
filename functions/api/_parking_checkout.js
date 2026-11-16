@@ -21,7 +21,7 @@ export async function prepareParkingBatch(request,env,settings,C,d){
  const statements=[
   env.DB.prepare("INSERT INTO orders(oid,product_id,title,event_date,price,buyer_name,buyer_phone,data,status,test,created_at) VALUES(?,'parking-batch',?,?,?,?,?,?,'created',0,?)").bind(oid,title,d.date,total,items[0].name,items[0].phone,JSON.stringify({kind:'parking_batch',policy:POLICY,confirmed_at:t,lines:items.map(v=>({label:v.plate+' · '+v.label,desc:v.date+(fullDayTicket(v.ticket)?' · '+parkingTicketTerms(settings,v.ticket):''),amount:v.price,qty:1})),agree_daily:d.agree_daily===true}),t),
   env.DB.prepare('INSERT INTO parking_batches(oid,token_hash,created_at) VALUES(?,?,?)').bind(oid,hash,t),
-  env.DB.prepare('INSERT INTO payapp_payments(oid,nonce,created_at) VALUES(?,?,?)').bind(oid,nonce,t),
+  env.DB.prepare('INSERT INTO payapp_payments(oid,nonce,merchant_userid,created_at) VALUES(?,?,?,?)').bind(oid,nonce,C.userid,t),
   ...items.map(v=>env.DB.prepare('INSERT INTO parking_orders(oid,payment_oid,vehicle_price,plate,visit_date,ticket,hours,daily_terms,token_hash,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)').bind(v.oid,oid,v.price,v.plate,v.date,v.ticket,v.hours,parkingTicketTerms(settings,v.ticket),hash,t,t))
  ];
  await env.DB.batch(statements);

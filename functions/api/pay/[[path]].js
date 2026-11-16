@@ -5,7 +5,7 @@ import {recordPayappRefund} from '../_payapp_refunds.js';
 import { json, err, hasDb, readJson, str, num, isDate, now, log, sha256, sameOrigin, clientIp, getMember, kstToday, tooMany, hit, randomToken, requireAdmin,SPACES } from '../_lib.js';
 import { PRODUCTS, HOLIDAYS, PRICING } from '../_catalog.js';
 
-import { payappConfig, requestPayment, validFeedback, equalSecret } from '../_payapp.js';
+import { payappConfig, payappFeedbackConfig, payappMerchantMatches, requestPayment, validFeedback, equalSecret } from '../_payapp.js';
 import { confirmedGuide } from '../_guide_messages.js';
 import { bookingAvailableSql } from '../_booking_availability.js';
 import {noPendingWaitSql} from '../_reservation_waitlist.js';
@@ -153,6 +153,13 @@ export async function onRequest({ request, env, params, waitUntil }) {
       const summary=product?await passAvailabilitySummary(env,date,product):{payment_blocked:await paymentBlocked(env,date,space)};
       return json({ok:true,date,space,...summary,code:summary.payment_blocked?'RESERVATION_PENDING':null},200,{'cache-control':'no-store'});
     }
+    if (path === 'accounts' && method === 'GET') {
+      const denied = await requireAdmin(request, env); if (denied) return denied;
+      const legacy = payappFeedbackConfig(env, { userid: String(env.PAYAPP_USERID || '').trim() });
+      const jiyu = payappFeedbackConfig(env, { userid: String(env.PAYAPP_JIYU_USERID || '').trim() });
+      return json({ ok: true, active_account: C.account, configured: C.configured, enabled: C.live,
+        accounts: { legacy: { configured: !!legacy }, jiyu: { configured: !!jiyu } } }, 200, { 'cache-control': 'no-store' });
+    }
     if (path === 'diagnostics' && method === 'GET') {
       const denied = await requireAdmin(request, env); if (denied) return denied;
       try {
@@ -161,7 +168,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
         return json({ ok: true, http_status: r.status, content_type: r.headers.get('content-type'), response_format: q.has('state') ? 'query' : (/^\s*</.test(body) ? 'html' : 'other'), provider_code: q.get('errno'), abort_timeout_supported: typeof AbortSignal.timeout === 'function' });
       } catch (e) { return json({ ok: false, diagnostic_error: String(e?.message || '').slice(0, 180), error_name: e?.name, abort_timeout_supported: typeof AbortSignal.timeout === 'function' }); }
     }
-    if (path === 'feedback' && method === 'POST') return await feedback(request, env, C, waitUntil);
+    if (path === 'feedback' && method === 'POST') return await feedback(request, env, waitUntil);
     // return은 화면 이동 전용이며 결제 상태는 절대 바꾸지 않습니다.
     if (path === 'return' && ['GET', 'POST'].includes(method)) {
       const oid = new URL(request.url).searchParams.get('oid') || '';
@@ -220,7 +227,8 @@ export async function onRequest({ request, env, params, waitUntil }) {
         .bind(oid, o.product.id, o.title, o.event_date, o.people, o.total, name, phone, email, JSON.stringify(data), 'created', data.inquiry_ref || null, member ? member.id : null, C.live ? 0 : 1, t).run();
       await log(env, 'order.created', oid, member ? 'member:' + member.id : 'customer', { product: o.product.id, total: o.total, date: o.event_date });
       const nonce = randomToken();
-      await env.DB.prepare('INSERT INTO payapp_payments (oid, nonce, created_at) VALUES (?,?,?)').bind(oid, nonce, t).run();
+      // 요청 전에 판매자 계정을 고정합니다. 전환 후에도 이 거래는 원래 계정으로만 검증합니다.
+      await env.DB.prepare('INSERT INTO payapp_payments (oid, nonce, merchant_userid, created_at) VALUES (?,?,?,?)').bind(oid, nonce, C.userid, t).run();
       const origin = new URL(request.url).origin;
       let r;
       try {
@@ -270,23 +278,26 @@ async function existingBooking(env,row){
  const rows=(await env.DB.prepare("SELECT * FROM bookings WHERE inquiry_ref=? AND status<>'cancelled' AND (? IS NULL OR date=?) ORDER BY id DESC LIMIT 2").bind(row.inquiry_ref,row.event_date,row.event_date).all()).results||[];
  return rows.length===1?rows[0]:null;
 }
-async function feedback(request, env, C, waitUntil) {
+async function feedback(request, env, waitUntil) {
   const raw = await request.text();
   if (raw.length > 32768) return notice('FAIL', 413);
   const f = Object.fromEntries(new URLSearchParams(raw));
-  if (!await validFeedback(C, f)) return notice('FAIL', 403);
+  // 신규 요청의 활성 계정과 독립적으로 구·신계정의 기존 거래 통보를 검증합니다.
+  const C = payappFeedbackConfig(env, f);
+  if (!C || !await validFeedback(C, f)) return notice('FAIL', 403);
   const state = f.pay_state, partial = ['70', '71'].includes(state);
   if (!['1', '4', '8', '16', '31', '32', '9', '64', '10', '70', '71'].includes(state)) return notice('FAIL', 400);
   if (!/^\d{1,30}$/.test(f.mul_no || '')) return notice('FAIL', 400);
-  const row = await env.DB.prepare('SELECT o.*, p.nonce, p.mul_no AS payapp_no FROM orders o JOIN payapp_payments p ON p.oid = o.oid WHERE o.oid = ?').bind(f.var1 || '').first();
-  if (!row || !equalSecret(f.var2, row.nonce)) return notice('FAIL', 403);
+  const row = await env.DB.prepare('SELECT o.*, p.nonce, p.merchant_userid, p.mul_no AS payapp_no FROM orders o JOIN payapp_payments p ON p.oid = o.oid WHERE o.oid = ?').bind(f.var1 || '').first();
+  if (!row || !payappMerchantMatches(env, row.merchant_userid, C) || !equalSecret(f.var2, row.nonce)) return notice('FAIL', 403);
   const price = partial ? f.orig_price : f.price, originalNo = partial ? f.orig_mul_no : f.mul_no;
   if (!/^\d+$/.test(price || '') || Number(price) !== row.price || !/^\d{1,30}$/.test(originalNo || '')) return notice('FAIL', 400);
   if (row.payapp_no && row.payapp_no !== originalNo) return notice('FAIL', 400);
   // 해시와 주문별 nonce를 모두 검증한 통보만 최초 거래번호를 연결할 수 있습니다.
-  await env.DB.prepare('UPDATE payapp_payments SET mul_no = ? WHERE oid = ? AND mul_no IS NULL').bind(originalNo, row.oid).run();
-  const bound = await env.DB.prepare('SELECT mul_no FROM payapp_payments WHERE oid = ?').bind(row.oid).first();
-  if (bound.mul_no !== originalNo) return notice('FAIL', 400);
+  await env.DB.prepare("UPDATE payapp_payments SET mul_no = ?, merchant_userid = ? WHERE oid = ? AND (mul_no IS NULL OR mul_no = ?) AND (merchant_userid IS NULL OR merchant_userid = '' OR merchant_userid = ?)")
+    .bind(originalNo, C.userid, row.oid, originalNo, C.userid).run();
+  const bound = await env.DB.prepare('SELECT mul_no, merchant_userid FROM payapp_payments WHERE oid = ?').bind(row.oid).first();
+  if (!bound || bound.mul_no !== originalNo || !payappMerchantMatches(env, bound.merchant_userid, C)) return notice('FAIL', 400);
   const t = now(), oid = row.oid, data = safe(row.data);
   const sql = (q, ...args) => env.DB.prepare(q).bind(...args);
   if (state === '4') {

@@ -43,7 +43,7 @@ export async function onRequest({request,env,params,waitUntil}){
    await env.DB.batch([
     env.DB.prepare("INSERT INTO orders(oid,product_id,title,event_date,price,buyer_name,buyer_phone,data,status,test,created_at) VALUES(?,?,?,?,?,?,?,?,'created',0,?)").bind(oid,'parking-'+v.ticket,title,v.date,v.price,v.name,v.phone,JSON.stringify({kind:'parking',policy:POLICY,daily_terms:parkingTicketTerms(settings,v.ticket),agree_daily:fullDayTicket(v.ticket)&&d.agree_daily===true,confirmed_at:t,lines:[{label:title,desc:v.date,amount:v.price,qty:1}]}),t),
     env.DB.prepare('INSERT INTO parking_orders(oid,plate,visit_date,ticket,hours,daily_terms,token_hash,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)').bind(oid,v.plate,v.date,v.ticket,v.hours,parkingTicketTerms(settings,v.ticket),await sha256(key),t,t),
-    env.DB.prepare('INSERT INTO payapp_payments(oid,nonce,created_at) VALUES(?,?,?)').bind(oid,nonce,t)
+    env.DB.prepare('INSERT INTO payapp_payments(oid,nonce,merchant_userid,created_at) VALUES(?,?,?,?)').bind(oid,nonce,C.userid,t)
    ]);
    const origin=new URL(request.url).origin;let payment;
    try{payment=await requestPayment(C,{goodname:title,price:String(v.price),recvphone:v.phone,reqaddr:'0',smsuse:'n',checkretry:'y',skip_cstpage:'y',feedbackurl:origin+'/api/parking/feedback',returnurl:origin+'/parking/purchase/?oid='+oid,var1:oid,var2:nonce});}

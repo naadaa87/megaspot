@@ -207,6 +207,8 @@ QR 이미지는 `assets/img/brand/kakao-qr.svg` 입니다. **채널 주소를 �
 | `PAYAPP_LINKVAL` | 연동 VALUE | Secret |
 | `PAYAPP_REQUESTKEY` | 결제 KEY (`requestkey`) | Secret |
 
+**다른 법인 계정으로 전환할 때**는 위 네 값을 덮어쓰지 않습니다. 블랭크의 기존 `PAYAPP_*`는 과거 결제·환불 통보 검증용으로 계속 보관하고, 새 계정은 `PAYAPP_JIYU_USERID`, `PAYAPP_JIYU_LINKKEY`, `PAYAPP_JIYU_LINKVAL`, `PAYAPP_JIYU_REQUESTKEY`에 별도로 넣습니다. 신규 요청만 `PAYAPP_ACTIVE_ACCOUNT=jiyu`로 전환합니다. 계정 구분 코드 배포·기존 거래 보존·검증 순서는 [계정 전환 절차](deploy/payapp-accounts.md)를 따릅니다.
+
 4. **Save** 후 새 코드를 배포합니다. 변수 변경도 다음 배포부터 적용됩니다. Git 저장소의 `main`에 변경 사항을 올리거나 **Deployments → 최신 배포 → More actions → Retry deployment**를 사용하세요. 예전 이니시스 코드를 재배포해서는 페이앱이 연결되지 않습니다.
 5. `https://megaspot.kr/api/pay/config`에서 `provider: "payapp"`, `configured: true`, `enabled: true`를 확인합니다. 키가 없거나 `PAYAPP_ENABLED=0`이면 고객에게 결제 준비 중 안내가 보이고 결제 요청은 차단됩니다.
 6. 실제 결제 승인·취소는 운영자가 직접 확인합니다. 페이앱은 현재 가맹점 키를 쓰므로 결제창이 열리면 실결제입니다. 가짜 테스트 완료 처리는 제공하지 않습니다.

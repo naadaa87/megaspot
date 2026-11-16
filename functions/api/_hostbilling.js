@@ -6,7 +6,7 @@
 //    실제 취소·송금은 운영팀이 페이앱 판매자 화면이나 계좌이체로 처리하고, 여기서는 계산과 기록만 합니다.
 import { now, kstToday, str, log, randomToken } from './_lib.js';
 import { PLATFORM, PLAN, BILLING_STATUS, addMonths, addDays, listedUntil, safeJson } from './_hostplat.js';
-import { payappConfig, requestPayment, validFeedback, equalSecret } from './_payapp.js';
+import { payappConfig, payappFeedbackConfig, payappMerchantMatches, requestPayment, validFeedback, equalSecret } from './_payapp.js';
 import { notifyHost } from './_hostnotify.js';
 
 export const BILL_REF = /^BL-\d{4}-[A-Z0-9]{4}$/;
@@ -47,6 +47,19 @@ export async function ensurePay(env, bill, method = 'bank') {
   return payOf(env, bill.ref);
 }
 
+// 예전 reqs는 계정·nonce 하나를 공유했습니다. 새 요청 전에 보존해야 이전 링크의 통보도 검증할 수 있습니다.
+async function preserveRequests(env, pay) {
+  if (!pay.nonce || await env.DB.prepare('SELECT 1 AS x FROM host_billing_pay_requests WHERE ref=? LIMIT 1').bind(pay.ref).first()) return;
+  const userid = pay.merchant_userid || String(env.PAYAPP_USERID || '').trim();
+  if (!userid) return;
+  const reqs = [...new Set([...arr(pay.reqs), ...(pay.mul_no ? [pay.mul_no] : [])])];
+  // 응답을 받지 못한 옛 요청도 재결제하지 않고 조회·취소를 기다립니다.
+  if (!reqs.length) reqs.push(null);
+  for (const no of reqs) await env.DB.prepare('INSERT OR IGNORE INTO host_billing_pay_requests(id,ref,merchant_userid,nonce,mul_no,status,created_at) VALUES(?,?,?,?,?,?,?)')
+    .bind('legacy:' + pay.ref + ':' + (no || 'unknown'), pay.ref, userid, pay.nonce, no, no && pay.mul_no === no ? 'paid' : 'legacy', pay.requested_at || pay.updated_at || now()).run();
+}
+const paymentPending = migrated => ({ error: migrated ? '이전 결제 요청을 확인하고 있습니다. 중복 결제를 막기 위해 운영팀 확인 후 다시 결제해 주세요.' : '기존 결제 요청을 확인하고 있습니다. 중복 결제하지 말고 잠시 후 확인하거나 운영팀에 문의해 주세요.', status: 409, code: migrated ? 'PAYMENT_ACCOUNT_TRANSITION_PENDING' : 'PAYMENT_PENDING' });
+
 // 화면용 한 줄 (호스트센터 · 본사 관리자 공통)
 export function billView(b, p, today = kstToday()) {
   p = p || {}; const d = safeJson(b.data), active = b.status === 'paid' && (b.period_to || '') >= today;
@@ -61,7 +74,7 @@ export function billView(b, p, today = kstToday()) {
 }
 
 // ---------- 결제 완료 처리: 신청 → 결제 완료 + 공간의 유료 등록 기간 연장 (한 번만) ----------
-export async function markPaid(env, bill, { mulNo = null, payType = '', period = null, revive = false } = {}) {
+export async function markPaid(env, bill, { mulNo = null, payType = '', period = null, revive = false, merchantUserId = null, nonce = null } = {}) {
   const space = await env.DB.prepare('SELECT * FROM host_spaces WHERE ref = ?').bind(bill.space_ref).first();
   if (!space) return { ok: false, error: '공간을 찾을 수 없습니다.' };
   const plan = PLAN[bill.plan], months = plan ? plan.months : bill.months, per = period || periodFor(space, months), t = now();
@@ -69,7 +82,7 @@ export async function markPaid(env, bill, { mulNo = null, payType = '', period =
   const from = revive ? "('requested','cancelled')" : "('requested')", open = `EXISTS (SELECT 1 FROM host_billing WHERE ref = ? AND status IN ${from})`;
   const res = await tx(env, [
     env.DB.prepare(`UPDATE host_spaces SET paid_until = ?, plan = ?, updated_at = ? WHERE ref = ? AND ${open}`).bind(per.to, bill.plan, t, bill.space_ref, bill.ref),
-    env.DB.prepare(`UPDATE host_billing_pay SET mul_no = COALESCE(?, mul_no), pay_type = ?, pg_state = 'paid', payurl = NULL, updated_at = ? WHERE ref = ? AND ${open}`).bind(mulNo, str(payType, 30), t, bill.ref, bill.ref),
+    env.DB.prepare(`UPDATE host_billing_pay SET mul_no = COALESCE(?, mul_no), merchant_userid = COALESCE(?, merchant_userid), nonce = COALESCE(?, nonce), pay_type = ?, pg_state = 'paid', payurl = NULL, updated_at = ? WHERE ref = ? AND ${open}`).bind(mulNo, merchantUserId, nonce, str(payType, 30), t, bill.ref, bill.ref),
     env.DB.prepare(`UPDATE host_billing SET status = 'paid', period_from = ?, period_to = ?, paid_at = ? WHERE ref = ? AND status IN ${from}`).bind(per.from, per.to, t, bill.ref)
   ]);
   if (!changed(res[res.length - 1])) return { ok: false, already: true };
@@ -123,16 +136,32 @@ export async function payRequest(env, origin, host, bill, space) {
   if (!(bill.amount >= 1000)) return { error: '결제 금액을 확인해 주세요.', status: 400, code: 'BAD_AMOUNT' };
   const phone = digits(host.phone); if (phone.length < 9 || phone.length > 11) return { error: '계정에 등록한 휴대폰 번호를 확인해 주세요.', status: 400, code: 'BAD_PHONE' };
   let pay = await ensurePay(env, bill, 'online');
-  if (pay.payurl && pay.requested_at && Date.parse(pay.requested_at.replace(' ', 'T') + 'Z') > Date.now() - PAYURL_MINUTES * 60e3) return { ok: true, payurl: pay.payurl };
-  if (!pay.nonce) { await env.DB.prepare('UPDATE host_billing_pay SET nonce = ? WHERE ref = ? AND nonce IS NULL').bind(randomToken(), bill.ref).run(); pay = await payOf(env, bill.ref); }
+  if (pay.nonce && !pay.merchant_userid && !String(env.PAYAPP_USERID || '').trim()) return paymentPending(true);
+  await preserveRequests(env, pay);
+  const unresolved = await env.DB.prepare("SELECT * FROM host_billing_pay_requests WHERE ref=? AND status IN ('requesting','requested','pending','legacy') LIMIT 1").bind(bill.ref).first();
+  if (unresolved) {
+    if (!payappMerchantMatches(env, unresolved.merchant_userid, C)) return paymentPending(true);
+    if (payappMerchantMatches(env, pay.merchant_userid, C) && pay.payurl && pay.requested_at && Date.parse(pay.requested_at.replace(' ', 'T') + 'Z') > Date.now() - PAYURL_MINUTES * 60e3) return { ok: true, payurl: pay.payurl };
+    return paymentPending(false);
+  }
+  const nonce = randomToken(), requestedAt = now();
+  // 동시 클릭도 한 번만 외부 결제를 요청합니다. 응답 유실 후에는 이 행을 유지합니다.
+  const claimed = await env.DB.prepare("INSERT INTO host_billing_pay_requests(id,ref,merchant_userid,nonce,status,created_at) SELECT ?,?,?,?,'requesting',? WHERE NOT EXISTS(SELECT 1 FROM host_billing_pay_requests WHERE ref=? AND status IN ('requesting','requested','pending','legacy'))")
+    .bind(nonce, bill.ref, C.userid, nonce, requestedAt, bill.ref).run();
+  if (!changed(claimed)) return paymentPending(false);
+  await env.DB.prepare("UPDATE host_billing_pay SET method='online',nonce=?,merchant_userid=?,payurl=NULL,requested_at=?,updated_at=? WHERE ref=?").bind(nonce, C.userid, requestedAt, requestedAt, bill.ref).run();
   let r;
   try {
     r = await requestPayment(C, { goodname: `메가스팟 입점 이용료 ${bill.months}개월 · ${space.name}`.slice(0, 100), price: String(bill.amount), recvphone: phone, recvemail: host.email || '',
-      reqaddr: '0', smsuse: 'n', checkretry: 'y', skip_cstpage: 'y', feedbackurl: origin + '/api/hostpay/feedback', returnurl: origin + '/api/hostpay/return?ref=' + bill.ref, var1: bill.ref, var2: pay.nonce });
+      reqaddr: '0', smsuse: 'n', checkretry: 'y', skip_cstpage: 'y', feedbackurl: origin + '/api/hostpay/feedback', returnurl: origin + '/api/hostpay/return?ref=' + bill.ref, var1: bill.ref, var2: nonce });
   } catch { return { error: '결제창을 열지 못했습니다. 잠시 후 다시 시도해 주세요.', status: 502, code: 'PAYAPP_UNAVAILABLE' }; }
-  if (!r.ok) { await log(env, 'hostbilling.pay_rejected', bill.ref, 'payapp', { code: String(r.code).replace(/[^0-9A-Z_]/gi, '').slice(0, 40) }); return { error: '결제 요청이 거절되었습니다. 잠시 후 다시 시도하거나 운영팀에 문의해 주세요.', status: 502, code: 'PAYAPP_REJECTED' }; }
+  if (!r.ok) { await env.DB.prepare("UPDATE host_billing_pay_requests SET status='rejected' WHERE id=? AND status='requesting' AND mul_no IS NULL").bind(nonce).run(); await log(env, 'hostbilling.pay_rejected', bill.ref, 'payapp', { code: String(r.code).replace(/[^0-9A-Z_]/gi, '').slice(0, 40) }); return { error: '결제 요청이 거절되었습니다. 잠시 후 다시 시도하거나 운영팀에 문의해 주세요.', status: 502, code: 'PAYAPP_REJECTED' }; }
+  const bound = await env.DB.prepare("UPDATE host_billing_pay_requests SET mul_no=?,status=CASE WHEN status='requesting' THEN 'requested' ELSE status END WHERE id=? AND (mul_no IS NULL OR mul_no=?)").bind(r.mulNo, nonce, r.mulNo).run();
+  if (!changed(bound)) return paymentPending(false);
+  pay = await payOf(env, bill.ref);
   const reqs = [...new Set([...arr(pay.reqs), r.mulNo])].slice(-10), t = now();
-  await env.DB.prepare("UPDATE host_billing_pay SET method = 'online', reqs = ?, payurl = ?, requested_at = ?, updated_at = ? WHERE ref = ?").bind(JSON.stringify(reqs), r.payurl, t, t, bill.ref).run();
+  await env.DB.prepare("UPDATE host_billing_pay SET reqs=?,payurl=?,updated_at=? WHERE ref=? AND nonce=? AND merchant_userid=? AND EXISTS(SELECT 1 FROM host_billing WHERE ref=? AND status='requested') AND EXISTS(SELECT 1 FROM host_billing_pay_requests WHERE id=? AND status IN ('requested','pending'))")
+    .bind(JSON.stringify(reqs), r.payurl, t, bill.ref, nonce, C.userid, bill.ref, nonce).run();
   return { ok: true, payurl: r.payurl };
 }
 
@@ -144,30 +173,50 @@ async function alert(env, bill, text) {
 export async function billingFeedback(request, env) {
   const raw = await request.text(); if (raw.length > 32768) return notice('FAIL', 413);
   const f = Object.fromEntries(new URLSearchParams(raw));
-  if (!await validFeedback(payappConfig(env), f)) return notice('FAIL', 403);
+  const C = payappFeedbackConfig(env, f);
+  if (!C || !await validFeedback(C, f)) return notice('FAIL', 403);
   const state = f.pay_state, partial = ['70', '71'].includes(state);
   if (!PAY_STATES.includes(state) || !/^\d{1,30}$/.test(f.mul_no || '') || !BILL_REF.test(f.var1 || '')) return notice('FAIL', 400);
   const bill = await env.DB.prepare('SELECT * FROM host_billing WHERE ref = ?').bind(f.var1).first(), pay = bill ? await payOf(env, bill.ref) : null;
-  if (!bill || !pay || !pay.nonce || !equalSecret(f.var2, pay.nonce)) return notice('FAIL', 403);
+  if (!bill || !pay) return notice('FAIL', 403);
   const price = partial ? f.orig_price : f.price, origNo = partial ? f.orig_mul_no : f.mul_no;
   if (!/^\d+$/.test(price || '') || Number(price) !== bill.amount || !/^\d{1,30}$/.test(origNo || '')) return notice('FAIL', 400);
-  const reqs = arr(pay.reqs);
-  // 우리가 요청해 받은 거래번호만 받습니다 (결제 요청 응답을 받지 못한 채 통보가 먼저 온 첫 거래는 예외)
-  if (!(pay.mul_no === origNo || reqs.includes(origNo) || (!pay.mul_no && !reqs.length))) return notice('FAIL', 400);
+  await preserveRequests(env, pay);
+  // 통보의 계정·요청별 nonce·거래번호를 한 묶음으로 확인합니다. 다른 계정의 같은 거래번호도 별개입니다.
+  let attempt = await env.DB.prepare("SELECT * FROM host_billing_pay_requests WHERE ref=? AND merchant_userid=? AND nonce=? AND (mul_no=? OR (mul_no IS NULL AND status IN ('requesting','legacy','cancelled'))) ORDER BY mul_no IS NOT NULL DESC LIMIT 1")
+    .bind(bill.ref, C.userid, f.var2 || '', origNo).first();
+  if (!attempt || !equalSecret(attempt.nonce, f.var2)) return notice('FAIL', 403);
+  // 이전 구현은 nonce를 재사용했습니다. 오래된 취소 재통보가 미확인 요청 전체의 취소를 증명하지는 않습니다.
+  if (attempt.mul_no === null && attempt.status === 'legacy') {
+    await env.DB.prepare("INSERT OR IGNORE INTO host_billing_pay_requests(id,ref,merchant_userid,nonce,mul_no,status,created_at) VALUES(?,?,?,?,?,'legacy',?)")
+      .bind(randomToken(), bill.ref, C.userid, attempt.nonce, origNo, now()).run();
+    attempt = await env.DB.prepare('SELECT * FROM host_billing_pay_requests WHERE ref=? AND merchant_userid=? AND nonce=? AND mul_no=?')
+      .bind(bill.ref, C.userid, f.var2, origNo).first();
+    if (!attempt) return notice('FAIL', 400);
+  }
+  const bound = await env.DB.prepare('UPDATE host_billing_pay_requests SET mul_no=? WHERE id=? AND (mul_no IS NULL OR mul_no=?)').bind(origNo, attempt.id, origNo).run();
+  if (!changed(bound)) return notice('FAIL', 400);
+  const reqs = arr(pay.reqs), paidIdentity = pay.mul_no === origNo && payappMerchantMatches(env, pay.merchant_userid, C);
+  const currentIdentity = payappMerchantMatches(env, pay.merchant_userid, C) && equalSecret(pay.nonce, attempt.nonce) && (!reqs.length || reqs.at(-1) === origNo);
   const t = now();
   if (state === '4') {
-    if (bill.status === 'paid' && pay.mul_no === origNo) return notice('SUCCESS');   // 같은 통보가 다시 온 경우
+    if (bill.status === 'paid' && paidIdentity) { await env.DB.prepare("UPDATE host_billing_pay_requests SET status='paid' WHERE id=?").bind(attempt.id).run(); return notice('SUCCESS'); } // 같은 통보가 다시 온 경우
     if (!['requested', 'cancelled'].includes(bill.status)) { await alert(env, bill, `같은 신청에 결제가 한 번 더 들어왔습니다 (거래번호 끝 ${tail(origNo)}). 페이앱에서 확인해 주세요.`); return notice('SUCCESS'); }
     // 호스트가 신청을 취소한 뒤에 열어 둔 결제창으로 결제한 경우에도, 낸 금액만큼 등록 기간을 적용합니다
-    const r = await markPaid(env, bill, { mulNo: origNo, payType: 'PayApp:' + str(f.pay_type, 10), revive: true });
+    const r = await markPaid(env, bill, { mulNo: origNo, payType: 'PayApp:' + str(f.pay_type, 10), revive: true, merchantUserId: C.userid, nonce: attempt.nonce });
     if (!r.ok && !r.already) return notice('FAIL', 500);
+    if (r.already) {
+      const recorded = await payOf(env, bill.ref);
+      if (recorded.mul_no !== origNo || !payappMerchantMatches(env, recorded.merchant_userid, C)) await alert(env, bill, `같은 신청에 결제가 한 번 더 들어왔습니다 (거래번호 끝 ${tail(origNo)}). 페이앱에서 확인해 주세요.`);
+    }
+    await env.DB.prepare("UPDATE host_billing_pay_requests SET status='paid' WHERE id=?").bind(attempt.id).run();
   } else if (['9', '64'].includes(state)) {          // 전액 취소
-    if (pay.mul_no !== origNo) return notice('SUCCESS');
+    if (!paidIdentity) { await env.DB.prepare("UPDATE host_billing_pay_requests SET status='cancelled' WHERE id=? AND status<>'paid'").bind(attempt.id).run(); return notice('SUCCESS'); }
     await env.DB.prepare('UPDATE host_billing_pay SET pg_refunded = ?, updated_at = ? WHERE ref = ?').bind(bill.amount, t, bill.ref).run();
     if (bill.status === 'paid') await finalizeRefund(env, bill, bill.amount, { by: 'payapp', memo: '페이앱 전액 취소' });
   } else if (partial) {                                // 부분 취소
     const amount = Number(f.price);
-    if (!/^\d+$/.test(f.price || '') || amount <= 0 || amount > bill.amount || f.mul_no === origNo || pay.mul_no !== origNo) return notice('FAIL', 400);
+    if (!/^\d+$/.test(f.price || '') || amount <= 0 || amount > bill.amount || f.mul_no === origNo || !paidIdentity) return notice('FAIL', 400);
     const nos = arr(pay.refund_nos); if (nos.includes(f.mul_no)) return notice('SUCCESS');
     const total = Math.min(bill.amount, (pay.pg_refunded || 0) + amount);
     await env.DB.prepare('UPDATE host_billing_pay SET pg_refunded = ?, refund_nos = ?, updated_at = ? WHERE ref = ?').bind(total, JSON.stringify([...nos, f.mul_no].slice(-20)), t, bill.ref).run();
@@ -176,9 +225,13 @@ export async function billingFeedback(request, env) {
       else await alert(env, bill, `해지 신청 없이 페이앱에서 ${amount.toLocaleString('ko-KR')}원이 부분 취소되었습니다. 등록 기간을 확인해 주세요.`);
     }
   } else if (['8', '16', '31', '32'].includes(state)) {   // 결제 요청 취소 → 다시 결제할 수 있게 결제창 주소를 지웁니다
-    if (bill.status === 'requested') await env.DB.prepare('UPDATE host_billing_pay SET payurl = NULL, pg_state = NULL, reqs = ?, updated_at = ? WHERE ref = ?').bind(JSON.stringify(reqs.filter(x => x !== origNo)), t, bill.ref).run();
+    const updates = [env.DB.prepare("UPDATE host_billing_pay_requests SET status='cancelled' WHERE id=? AND status<>'paid'").bind(attempt.id)];
+    if (bill.status === 'requested' && currentIdentity) updates.push(env.DB.prepare('UPDATE host_billing_pay SET payurl=NULL,pg_state=NULL,reqs=?,updated_at=? WHERE ref=? AND nonce=? AND COALESCE(merchant_userid,?)=?')
+      .bind(JSON.stringify(reqs.filter(x => x !== origNo)), t, bill.ref, attempt.nonce, String(env.PAYAPP_USERID || '').trim(), C.userid));
+    await tx(env, updates);
   } else if (state === '10') {                         // 입금 대기 (가상계좌 등)
-    if (bill.status === 'requested') await env.DB.prepare("UPDATE host_billing_pay SET pg_state = 'pending', updated_at = ? WHERE ref = ?").bind(t, bill.ref).run();
+    await env.DB.prepare("UPDATE host_billing_pay_requests SET status='pending' WHERE id=? AND status IN ('requesting','requested','legacy')").bind(attempt.id).run();
+    if (bill.status === 'requested' && currentIdentity) await env.DB.prepare("UPDATE host_billing_pay SET pg_state = 'pending', updated_at = ? WHERE ref = ?").bind(t, bill.ref).run();
   }
   return notice('SUCCESS');
 }
