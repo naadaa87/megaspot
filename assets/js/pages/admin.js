@@ -782,6 +782,24 @@
   }
   var R=null;
   function quoteVatNote(){ return R && R.extras.some(function(x){ return (x.kind==='reception'&&!(x.reception&&x.reception.vat_excluded))||(x.kind==='cocktail'&&!(x.cocktail&&x.cocktail.vat_excluded)); })?'공간·뷔페 부가세 포함 · 미확정 식음료 부가세 확인 필요':R&&R.extras.some(function(x){return x.kind==='cocktail';})?'부가세 포함 (칵테일 판매가 + 부가세 10% 반영)':D.vatNote; }
+  function removeQuoteExtra(index){
+    var item=Q.extras[index];if(!item)return;
+    var kind=item.kind||window.MEGASPOT_FOOD_SERVICES.types.find(function(k){return window.MEGASPOT_FOOD_SERVICES.isRow(k,item);});
+    var preserveSnapshot=!!(!Q.ref&&savedQuoteSnapshot&&kind==='reception');
+    if(kind==='reception'){
+      if(!Q.ref&&item.reception)Q.reception_removed=window.MEGASPOT_RECEPTION_CALC.forDocument(item.reception,item.amount);
+      Q.receptionRequested=false;Q.reception_request=null;
+      Q.note=Q.note.split('\n').filter(function(line){return line.indexOf('케이터링 상담 필요: ')!==0;}).join('\n');
+    }
+    if(['reception','catering','cocktail'].indexOf(kind)>=0)Q[kind+'Excluded']=true;
+    Q.extras=Q.extras.filter(function(_,i){return i!==index;});
+    if(preserveSnapshot)savedQuoteSnapshot=Object.assign({},savedQuoteSnapshot,{extras:Q.extras,total:Math.max(0,Number(savedQuoteSnapshot.total)-(Number(item.amount)||0))});
+    invalidateQuote(!preserveSnapshot);
+  }
+  function quoteReceptionConfig(){
+    var row=Q.extras.find(function(x){return x.kind==='reception';});
+    return row?row.reception:!Q.ref&&Q.receptionExcluded?Q.reception_removed:undefined;
+  }
   function savedStandaloneCatering(){
     if(!Q.quoteNo||Q.ref) return null;
     var snapshotRows=savedQuoteSnapshot&&savedQuoteSnapshot.extras;
@@ -797,6 +815,7 @@
     if(!E||!D){ $('#q-result').innerHTML='<div class="empty">요금표를 불러오지 못했습니다.</div>'; return; }
     readForm(); R=compute();
     $('#q-catering').hidden=!R||!savedStandaloneCatering();
+    $('#q-reception').textContent=Q.receptionExcluded&&Q.reception_removed?'케이터링 다시 추가 →':'테이블 케이터링 추가 →';
     if(!R) return;
     var q=R.q;
     $$('#q-pkgs [data-pkg]').forEach(function(b){ b.classList.toggle('on', !!(q.pkg && q.pkg.id===b.dataset.pkg)); });
@@ -815,10 +834,10 @@
   $('#q-form').addEventListener('change', function(e){ if(e.target.id==='q-start'){ readForm(); $('#q-end').innerHTML=hourOpts(Q.start+1, ADMIN_HOURS.to, Math.max(Q.end, Q.start+1)); } invalidateQuote(['q-customer','q-phone','q-email','q-note'].indexOf(e.target.id)<0,['q-space','q-date','q-start','q-end','q-people','q-purpose','q-regular'].indexOf(e.target.id)>=0||!!(e.target.dataset.opt||e.target.dataset.mgr)); calc(); });
   $('#q-pkgs').addEventListener('click', function(e){ var b=e.target.closest('[data-pkg]'); if(!b) return; readForm(); var p=E.findPkg(b.dataset.pkg); Q.start=p.start; Q.end=p.end; $('#q-start').innerHTML=hourOpts(ADMIN_HOURS.from, ADMIN_HOURS.to-1, Q.start); $('#q-end').innerHTML=hourOpts(Q.start+1, ADMIN_HOURS.to, Q.end); invalidateQuote(true,true); calc(); });
   $('#q-extra-add').addEventListener('click', function(){ readForm(); Q.extras.push({label:'',amount:0}); invalidateQuote(); renderExtras(); var l=$$('#q-extras [data-ex=label]'); if(l.length) l[l.length-1].focus(); });
-  $('#q-extras').addEventListener('click', function(e){ var b=e.target.closest('[data-ex-del]'); if(!b) return; readForm(); var item=Q.extras[+b.dataset.exDel],kind=item.kind||window.MEGASPOT_FOOD_SERVICES.types.find(function(k){return window.MEGASPOT_FOOD_SERVICES.isRow(k,item);});if(['reception','catering','cocktail'].indexOf(kind)>=0)Q[kind+'Excluded']=true;Q.extras.splice(+b.dataset.exDel,1); renderExtras(); invalidateQuote(); calc(); });
+  $('#q-extras').addEventListener('click', function(e){ var b=e.target.closest('[data-ex-del]'); if(!b) return; readForm();removeQuoteExtra(+b.dataset.exDel);renderExtras();calc(); });
   $('#q-reset').addEventListener('click', function(){ if(quoteDirty && !confirm('작성 중인 견적을 초기화할까요?')) return; savedQuoteSnapshot=null; savedQuoteCreatedAt=''; quoteDirty=false; setQuoteHistorical(false); Q=blankQ(); fillForm(); calc(); $('#q-msg').hidden=true; });
   $('#q-catering').addEventListener('click',ctOpenStandaloneQuote);
-  $('#q-reception').addEventListener('click',function(){readForm();window.MEGASPOT_ADMIN.openReception(Q.ref,{customer:Q.customer,phone:Q.phone,date:Q.date,space:Q.space,people:Q.people,reception:(Q.extras.find(function(x){return x.kind==='reception';})||{}).reception});});
+  $('#q-reception').addEventListener('click',function(){readForm();window.MEGASPOT_ADMIN.openReception(Q.ref,{customer:Q.customer,phone:Q.phone,date:Q.date,space:Q.space,people:Q.people,reception:quoteReceptionConfig()});});
 
   function quoteFromInquiry(it, lastQuote){
     if(quoteDirty && !confirm('작성 중인 견적을 바꾸고 이 문의를 불러올까요?')) return false;
@@ -2381,7 +2400,7 @@
     }
     var preserveSnapshot=!!(!fresh&&!target.ref&&savedQuoteSnapshot),previousReception=0;
     var extras=preserveSnapshot?savedQuoteSnapshot.extras||[]:Q.extras;
-    setQuoteHistorical(false);Q.receptionExcluded=false;Q.extras=extras.filter(function(x){if(x.kind!=='reception')return true;previousReception+=Number(x.amount)||0;return false;});
+    setQuoteHistorical(false);Q.receptionExcluded=false;delete Q.reception_removed;Q.extras=extras.filter(function(x){if(x.kind!=='reception')return true;previousReception+=Number(x.amount)||0;return false;});
     Q.note=Q.note.split('\n').filter(function(line){return line.indexOf('케이터링 상담 필요: ')!==0;}).join('\n');
     if(target.reception_revision!=null)Q.reception_revision=target.reception_revision;
     Q.reception_request=window.MEGASPOT_RECEPTION_CALC.forDocument(Object.assign({},quote,config));
