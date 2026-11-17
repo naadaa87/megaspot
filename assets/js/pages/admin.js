@@ -927,6 +927,17 @@
     if(R.disc) L.push(R.discLabel+(Q.discWhy?'('+Q.discWhy+')':'')+' -'+won(R.disc));
     R.extras.forEach(function(x){
       var amount=x.amount<0?'-'+won(-x.amount):won(x.amount);
+      if(x.kind==='reception'&&x.reception){
+        var reception=window.MEGASPOT_RECEPTION_CALC.forDocument(x.reception,x.amount);
+        L.push(x.label+' '+amount+(reception.vat_excluded?' (부가세 포함)':' (이전 저장 금액 · 부가세 조건 확인 필요)'));
+        L.push('  · 구성: '+reception.courseName+' · '+reception.people+'명 · '+reception.formatName);
+        if(reception.unitPrice!=null&&reception.food!=null)L.push('  · 1인 '+won(reception.unitPrice)+' × '+reception.people+'명 = '+won(reception.food));
+        if(reception.fee!=null)L.push('  · '+reception.feeName+': '+won(reception.fee));
+        if(reception.supply!=null&&reception.vat!=null)L.push('  · 공급가액 '+won(reception.supply)+' + 부가세 10% '+won(reception.vat));
+        if(reception.price_basis==='manual')L.push('  · 직접 입력한 1인 금액 기준');
+        if(reception.price_basis==='budget')L.push('  · 예산 기준 예상 금액 · 메뉴·제공량 상담 후 확정');
+        return;
+      }
       var buffet=quoteBuffet(x);
       if(!buffet){ L.push(x.label+' '+amount); return; }
       L.push('출장뷔페 '+amount+' (부가세 포함)');
@@ -2362,18 +2373,22 @@
   function receptionToQuote(target, config, quote){
     if(target.ref && Q.ref!==target.ref){ return A('/inquiries/'+encodeURIComponent(target.ref)).then(function(r){ if(!quoteFromInquiry(r.item,(r.quotes||[])[0])) return false; return receptionToQuote(target,config,quote); }); }
     if(!target.ref && Q.ref){ M.toast('문의에 연결된 견적입니다. 케이터링 화면에서 같은 문의를 불러오거나 견적을 초기화해 주세요.'); return Promise.resolve(false); }
-    if(!target.ref && (Q.customer!==target.customer || Q.space!==spaceOk(target.space) || target.date && Q.date!==target.date)){
+    var fresh=!target.ref && (Q.customer!==target.customer || Q.space!==spaceOk(target.space) || target.date && Q.date!==target.date);
+    if(fresh){
       if(quoteDirty && !confirm('작성 중인 견적을 바꾸고 이 고객의 견적을 만들까요?')) return Promise.resolve(false);
       Q=blankQ(); Q.customer=target.customer; Q.phone=target.phone; Q.space=spaceOk(target.space); useSpace(Q.space); Q.people=Math.min(D.people.max,quote.people); Q.deposit=D.deposit.amount; if(target.date) Q.date=target.date;
     }
-    setQuoteHistorical(false);Q.receptionExcluded=false;Q.extras=Q.extras.filter(function(x){ return x.kind!=='reception'; });
+    var preserveSnapshot=!!(!fresh&&!target.ref&&savedQuoteSnapshot),previousReception=0;
+    var extras=preserveSnapshot?savedQuoteSnapshot.extras||[]:Q.extras;
+    setQuoteHistorical(false);Q.receptionExcluded=false;Q.extras=extras.filter(function(x){if(x.kind!=='reception')return true;previousReception+=Number(x.amount)||0;return false;});
     Q.note=Q.note.split('\n').filter(function(line){return line.indexOf('케이터링 상담 필요: ')!==0;}).join('\n');
     if(target.reception_revision!=null)Q.reception_revision=target.reception_revision;
     Q.reception_request=window.MEGASPOT_RECEPTION_CALC.forDocument(Object.assign({},quote,config));
     Q.receptionRequested=true;
     if(quote.total==null){Q.note+=(Q.note?'\n':'')+'케이터링 상담 필요: '+quote.summary+' (금액 미정 · 합계 제외)';}
     else Q.extras.push({kind:'reception',label:'도시락·핑거푸드 케이터링 · '+quote.formatName+' '+quote.courseName+' '+quote.people+'명 (세팅비·부가세 포함)',amount:quote.total,reception:Object.assign({},quote,config)});
-    invalidateQuote();fillForm();go('quote');M.toast(quote.total==null?'케이터링 상담 구성을 견적에 연결했습니다. 미확정 금액은 합계에 포함하지 않습니다.':'케이터링 '+won(quote.total)+'을(를) 대관 견적에 넣었습니다. 견적 저장을 눌러 문의에도 반영해 주세요.');
+    if(preserveSnapshot)savedQuoteSnapshot=Object.assign({},savedQuoteSnapshot,{extras:Q.extras,total:Math.max(0,Number(savedQuoteSnapshot.total)-previousReception+(Number(quote.total)||0))});
+    invalidateQuote(!preserveSnapshot);fillForm();go('quote');M.toast(quote.total==null?'케이터링 상담 구성을 견적에 연결했습니다. 미확정 금액은 합계에 포함하지 않습니다.':'케이터링 '+won(quote.total)+'을(를) 대관 견적에 넣었습니다. 견적 저장을 눌러 문의에도 반영해 주세요.');
     return Promise.resolve(true);
   }
   function foodToQuote(ref,kind,value,revision){

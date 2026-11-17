@@ -71,6 +71,36 @@ test('standalone recent quote snapshots retain an arbitrary unit price through s
  const old=(await f.api('quotes')).items.find(x=>x.quote_no===original.quote_no);assert.deepEqual(old.data,original.data);
 });
 
+for(const format of ['table','box'])test(`recent standalone manual ${format}: changing 17,000 to 20,000 preserves agreed room lines, discounts, unrelated extras and the original quote`,async t=>{
+ const f=fixture();t.after(()=>f.db.close());
+ const initial=cfg(17000,31,format),food=receptionAdmin(initial);
+ const extras=[{kind:'reception',label:'식사 협의',amount:food.total,reception:food},{label:'장비 협의',amount:12345}];
+ const input=quoteInput({customer:'단독 변경 확인',people:31,extras,discType:'won',discVal:50000,discWhy:'기존 합의'});
+ const originalTotal=500000+12345+food.total;
+ const result=await f.api('quotes','POST',{inquiry_ref:'',customer:input.customer,event_date:DAY,total:originalTotal,data:{input,date:DAY,range:'10:00–13:00',colLabel:'협의',lines:[{label:'공간료 · 저장 당시 합의',desc:'현재 요금표로 재계산하지 않음',amount:550000}],subtotal:550000,discount:50000,discountLabel:'합의 할인',extras,total:originalTotal,deposit:150000,validUntil:DAY}});
+ const original=(await f.api('quotes')).items.find(x=>x.quote_no===result.quote_no),before=JSON.stringify(original);
+ const ui=quoteUi(),ctx=ui.ctx;ctx.go=()=>{};
+ const code=source('assets/js/pages/admin.js'),start=code.indexOf('  function receptionToQuote(');
+ vm.runInContext(code.slice(start,code.indexOf('  function foodToQuote(',start)),ctx);
+ await ctx.loadSavedQuote(original,'');
+ const config={...initial,unit_price:20000},changed=receptionAdmin(config);
+ await ctx.receptionToQuote({ref:'',customer:input.customer,space:input.space,date:DAY},config,changed);
+ let docs=ui.documents();
+ assert.equal(docs.total,500000+12345+changed.total);
+ assert.deepEqual(JSON.parse(JSON.stringify(ctx.R.lines)),original.data.lines);
+ assert.equal(ctx.R.disc,50000);assert.equal(ctx.Q.quoteNo,'');
+ assert.equal(docs.input.extras.filter(x=>x.kind==='reception').length,1);
+ assert(docs.text.includes('1인 20,000원'));assert(docs.text.includes(C.won(changed.total)));assert(!docs.text.includes('1인 17,000원'));
+ assert(docs.html.includes('1인 20,000원'));assert(docs.html.includes(C.won(changed.total)));
+ const savedResult=await f.api('quotes','POST',JSON.parse(JSON.stringify(ctx.payload())));
+ assert.notEqual(savedResult.quote_no,original.quote_no);
+ const saved=(await f.api('quotes')).items.find(x=>x.quote_no===savedResult.quote_no);
+ await ctx.loadSavedQuote(saved,'');docs=ui.documents();
+ assert.equal(docs.total,saved.total);assert.equal(docs.input.extras.find(x=>x.kind==='reception').reception.unit_price,20000);
+ const rawOriginal=(await f.api('quotes')).items.find(x=>x.quote_no===original.quote_no);assert.equal(JSON.stringify(rawOriginal),before);
+ await ctx.loadSavedQuote(rawOriginal,'');docs=ui.documents();assert.equal(docs.total,originalTotal);assert(docs.html.includes('1인 17,000원'));assert(docs.text.includes('1인 17,000원'));
+});
+
 test('the lower-priced references are available for table and box, with distinct course records and grouped web content',async t=>{
  const f=fixture();t.after(()=>f.db.close());
  for(const unit of [10000,15000,20000])for(const format of ['table','box']){
