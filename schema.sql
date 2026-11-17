@@ -1109,6 +1109,62 @@ CREATE TABLE IF NOT EXISTS web_clicks (     -- 홈페이지 링크 클릭 수 (�
   PRIMARY KEY (day, path, kind, target)
 );
 
+CREATE TABLE IF NOT EXISTS community_posts (   -- 커뮤니티 글: 모임 소개 게시판 · 자유게시판 (2026-11-17)
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ref TEXT NOT NULL UNIQUE,                  -- 글번호 CG-YYMM-XXXX(모임 소개) · CF-YYMM-XXXX(자유게시판)
+  board TEXT NOT NULL,                       -- group 모임 소개 | free 자유게시판
+  status TEXT NOT NULL DEFAULT 'pending',    -- draft 임시 저장(운영팀) | pending 검토 대기 | published 게시 | hidden 숨김 | rejected 반려 | deleted 삭제
+  category TEXT,
+  title TEXT NOT NULL,                       -- 모임 소개는 모임 이름
+  member_id INTEGER,                         -- 쓴 회원 (운영팀 글은 비움)
+  author TEXT NOT NULL,                      -- 화면에 보이는 이름(별명)
+  official INTEGER NOT NULL DEFAULT 0,       -- 1 = 메가스팟 운영팀 글
+  pinned INTEGER NOT NULL DEFAULT 0,         -- 1 = 목록 맨 위 고정(공지)
+  featured INTEGER NOT NULL DEFAULT 0,       -- 1 = 추천 모임
+  views INTEGER NOT NULL DEFAULT 0,
+  likes INTEGER NOT NULL DEFAULT 0,
+  comments INTEGER NOT NULL DEFAULT 0,       -- 공개된 댓글 수
+  reports INTEGER NOT NULL DEFAULT 0,        -- 처리하지 않은 신고 수
+  data TEXT NOT NULL,                        -- 본문·한 줄 소개·참여 링크·문의처·대표 이미지·운영 메모 (JSON)
+  publish_at TEXT,                           -- 게시 시각 (지금보다 뒤면 예약 게시)
+  created_at TEXT NOT NULL,
+  updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_community_posts_board ON community_posts(board, status, publish_at);
+CREATE INDEX IF NOT EXISTS idx_community_posts_member ON community_posts(member_id, created_at);
+CREATE TABLE IF NOT EXISTS community_comments (   -- 커뮤니티 댓글
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  post_ref TEXT NOT NULL,
+  member_id INTEGER,                         -- 운영팀 댓글은 비움
+  author TEXT NOT NULL,
+  official INTEGER NOT NULL DEFAULT 0,
+  body TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'published',  -- published 게시 | hidden 숨김 | deleted 삭제
+  reports INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_community_comments_post ON community_comments(post_ref, created_at);
+CREATE TABLE IF NOT EXISTS community_reactions (   -- 공감 (회원 한 명이 글 하나에 한 번)
+  post_ref TEXT NOT NULL,
+  member_id INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (post_ref, member_id)
+);
+CREATE TABLE IF NOT EXISTS community_reports (   -- 글·댓글 신고 (회원 한 명이 같은 대상에 한 번)
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  post_ref TEXT NOT NULL,
+  comment_id INTEGER NOT NULL DEFAULT 0,     -- 0 = 글 신고, 그 밖에는 댓글 번호
+  member_id INTEGER NOT NULL,
+  reason TEXT NOT NULL,                      -- spam 광고·도배 | scam 사기·금전 요구 | abuse 욕설·비방 | privacy 개인정보 노출 | illegal 불법·유해 | etc 기타
+  detail TEXT,
+  status TEXT NOT NULL DEFAULT 'new',        -- new 새 신고 | done 조치함 | dismissed 문제 없음
+  created_at TEXT NOT NULL,
+  handled_at TEXT,
+  UNIQUE (post_ref, comment_id, member_id)
+);
+CREATE INDEX IF NOT EXISTS idx_community_reports_status ON community_reports(status, created_at);
+
 -- Existing bookings are baselines; installation never sends old confirmation/paid notices.
 CREATE TABLE IF NOT EXISTS booking_payment_schedule (
  booking_code TEXT PRIMARY KEY,

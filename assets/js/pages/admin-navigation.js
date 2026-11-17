@@ -9,7 +9,7 @@
     {id:'booking',label:'예약·일정',open:true,items:[['orders','주문·결제 확인'],['resv','예약 현황'],['booking-readiness','미안내·미발급'],['transaction-notifications','거래 알림'],['guide-messages','예약별 알림']]},
     {id:'event',label:'행사·부가서비스',items:[['catering','식음료 서비스'],['parking','주차권 관리']]},
     {id:'after',label:'정산·사후관리',items:[['revenue','매출 현황'],['deposit-refunds','보증금 환급'],['reviews','후기 관리']]},
-    {id:'platform',label:'고객·플랫폼',items:[['members','회원'],['meetups','모임 관리'],['hosts','입점·광고 신청'],['listings','등록 공간'],['ads','배너 광고']]},
+    {id:'platform',label:'고객·플랫폼',items:[['members','회원'],['meetups','모임 관리'],['community','커뮤니티 관리'],['hosts','입점·광고 신청'],['listings','등록 공간'],['ads','배너 광고']]},
     {id:'hostplat',label:'입점 플랫폼',items:[['hp-spaces','입점 심사·공간'],['hp-assist','공간 등록 대행'],['hp-bookings','호스트 예약·문의'],['hp-addons','본사 부가서비스'],['hp-planning','행사 준비 요청'],['hp-billing','입점 이용료'],['hp-notices','호스트 알림']]},
     {id:'settings',label:'운영 설정',items:[['prices-catering','공급가·판매가'],['guide-settings','알림톡·자동 발송'],['parking-settings','주차 판매·연결 설정']]}
   ];

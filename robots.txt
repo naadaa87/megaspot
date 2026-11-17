@@ -8,6 +8,8 @@ Disallow: /api/
 Disallow: /mypage/
 Disallow: /order/
 Disallow: /meetups/manage/
+Disallow: /community/write/
+Disallow: /community/my/
 Disallow: /host/center/
 Disallow: /spaces/booking/
 Disallow: /planning/status/

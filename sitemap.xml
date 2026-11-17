@@ -62,6 +62,12 @@
   </url>
   <url><loc>https://megaspot.kr/advertise/</loc><lastmod>2026-10-27</lastmod><changefreq>monthly</changefreq><priority>0.5</priority>
   </url>
+  <url><loc>https://megaspot.kr/community/</loc><lastmod>2026-11-17</lastmod><changefreq>daily</changefreq><priority>0.7</priority>
+  </url>
+  <url><loc>https://megaspot.kr/community/groups/</loc><lastmod>2026-11-17</lastmod><changefreq>daily</changefreq><priority>0.7</priority>
+  </url>
+  <url><loc>https://megaspot.kr/community/free/</loc><lastmod>2026-11-17</lastmod><changefreq>daily</changefreq><priority>0.6</priority>
+  </url>
   <url><loc>https://megaspot.kr/meetups/</loc><lastmod>2026-10-27</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>
   </url>
   <url><loc>https://megaspot.kr/meetups/new/</loc><lastmod>2026-10-27</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
