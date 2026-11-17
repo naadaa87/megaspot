@@ -171,7 +171,7 @@
   "activeCatalog": {
     "provider": "cafefriends",
     "providerName": "카페프렌즈",
-    "version": "20261117cfvalue1",
+    "version": "20261117cfdrinks1",
     "source": "https://xn--sm2b84auzz14b70jcyab6ix4fvvd.com",
     "categories": [
       {
@@ -521,7 +521,7 @@
       },
       {
         "id": "cf-menu-159",
-        "name": "보틀 음료(커피/주스)",
+        "name": "음료(커피/과일 주스)",
         "category": "drink",
         "image": "/assets/img/reception/cafefriends/menu-159.jpg",
         "width": 800,
@@ -650,12 +650,14 @@
         "menus": [
           "모닝 에그포테이토 샌드위치",
           "미니 컵과일",
-          "사르르 버터쿠키"
+          "사르르 버터쿠키",
+          "음료(커피/과일 주스)"
         ],
         "example_ids": [
           "cf-menu-48",
           "cf-menu-63",
-          "cf-menu-130"
+          "cf-menu-130",
+          "cf-menu-159"
         ],
         "image": "menu-48.jpg",
         "kind": "course",
@@ -676,14 +678,16 @@
           "치킨 강정",
           "미니 컵과일",
           "사르르 버터쿠키",
-          "미니 마카롱"
+          "미니 마카롱",
+          "음료(커피/과일 주스)"
         ],
         "example_ids": [
           "cf-menu-48",
           "cf-menu-25",
           "cf-menu-63",
           "cf-menu-130",
-          "cf-menu-104"
+          "cf-menu-104",
+          "cf-menu-159"
         ],
         "image": "menu-48.jpg",
         "kind": "course",
@@ -706,7 +710,8 @@
           "브리치즈 부르스게타",
           "미니 컵과일",
           "사르르 버터쿠키",
-          "미니 마카롱"
+          "미니 마카롱",
+          "음료(커피/과일 주스)"
         ],
         "example_ids": [
           "cf-menu-48",
@@ -715,7 +720,8 @@
           "cf-menu-60",
           "cf-menu-63",
           "cf-menu-130",
-          "cf-menu-104"
+          "cf-menu-104",
+          "cf-menu-159"
         ],
         "image": "menu-48.jpg",
         "kind": "course",
@@ -740,7 +746,8 @@
           "과일 꽂이",
           "미니 컵과일",
           "사르르 버터쿠키",
-          "미니 마카롱"
+          "미니 마카롱",
+          "음료(커피/과일 주스)"
         ],
         "example_ids": [
           "cf-menu-47",
@@ -751,7 +758,8 @@
           "cf-menu-56",
           "cf-menu-63",
           "cf-menu-130",
-          "cf-menu-104"
+          "cf-menu-104",
+          "cf-menu-159"
         ],
         "image": "menu-47.jpg",
         "kind": "course",
@@ -777,7 +785,8 @@
           "사르르 버터쿠키",
           "미니 마카롱",
           "토핑유부초밥(불고기,김치) 2P",
-          "머쉬룸 부르스게타"
+          "머쉬룸 부르스게타",
+          "음료(커피/과일 주스)"
         ],
         "example_ids": [
           "cf-menu-47",
@@ -790,7 +799,8 @@
           "cf-menu-130",
           "cf-menu-104",
           "cf-menu-15",
-          "cf-menu-62"
+          "cf-menu-62",
+          "cf-menu-159"
         ],
         "image": "menu-79.jpg",
         "kind": "course",
@@ -818,7 +828,8 @@
           "토핑유부초밥(불고기,김치) 2P",
           "머쉬룸 부르스게타",
           "모닝 에그포테이토 샌드위치",
-          "훈제오리 야채구이"
+          "훈제오리 야채구이",
+          "음료(커피/과일 주스)"
         ],
         "example_ids": [
           "cf-menu-47",
@@ -833,7 +844,8 @@
           "cf-menu-15",
           "cf-menu-62",
           "cf-menu-48",
-          "cf-menu-24"
+          "cf-menu-24",
+          "cf-menu-159"
         ],
         "image": "menu-24.jpg",
         "kind": "course",
@@ -863,7 +875,8 @@
           "모닝 에그포테이토 샌드위치",
           "훈제오리 야채구이",
           "비프 찹스테이크",
-          "훈제연어 롤밥"
+          "훈제연어 롤밥",
+          "음료(커피/과일 주스)"
         ],
         "example_ids": [
           "cf-menu-47",
@@ -880,7 +893,8 @@
           "cf-menu-48",
           "cf-menu-24",
           "cf-menu-21",
-          "cf-menu-165"
+          "cf-menu-165",
+          "cf-menu-159"
         ],
         "image": "menu-21.jpg",
         "kind": "course",

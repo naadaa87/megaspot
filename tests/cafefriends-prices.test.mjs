@@ -10,7 +10,7 @@ import {fixture,quoteInput,saveQuote} from './helpers/admin-fixture.mjs';
 const table=[[1,200000],[30,200000],[31,250000],[50,250000],[51,300000],[100,300000],[101,350000],[150,350000],[151,400000],[200,400000],[201,450000],[250,450000],[251,500000],[300,500000],[301,550000],[350,550000],[351,600000],[400,600000],[401,650000]];
 test('seven published sets keep old sale tiers, use real supplier menu IDs, and all fee boundaries add VAT exactly once',()=>{
  const courses=C.activeCourses().filter(x=>x.id!=='cf-custom');assert.deepEqual(courses.map(c=>c.price),[10000,15000,20000,25000,35000,45000,55000]);
- for(const co of courses){assert(co.menus.length>=(co.group==='value'?3:9));assert.deepEqual(co.menus,co.example_ids.map(id=>C.data.activeCatalog.items.find(i=>i.id===id).name));if(co.group!=='value')assert.notDeepEqual(co.menus,C.course(co.id.replace('cf-','')).menus);
+ for(const co of courses){assert.equal(co.menus.filter(name=>name==='음료(커피/과일 주스)').length,1);assert(co.menus.length>=(co.group==='value'?3:9));assert.deepEqual(co.menus,co.example_ids.map(id=>C.data.activeCatalog.items.find(i=>i.id===id).name));if(co.group!=='value')assert.notDeepEqual(co.menus,C.course(co.id.replace('cf-','')).menus);
   for(const [n,fee] of table){const q=C.quote(n,'table',co.id);assert(q.ok);assert.equal(q.fee,fee);assert.equal(q.food,co.price*n);assert.equal(q.supply,co.price*n+fee);assert.equal(q.vat,Math.round(q.supply*.1));assert.equal(q.total,q.supply+q.vat);}
   for(const format of ['box'])for(const n of [1,30,50,100,200,300,301,350,1000]){const q=C.quote(n,format,co.id);assert(q.ok);assert.equal(q.fee,30000);assert.equal(q.total,co.price*n+30000+Math.round((co.price*n+30000)/10));}
  }

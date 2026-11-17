@@ -67,7 +67,7 @@ begin('실속 구성 · 1만~2만 원 참고 메뉴','테이블 세팅·박스 �
 for i,co in enumerate(value_courses):
  x=48+i*295;rect(x,103,276,257,SOFT);text(x+16,332,co['name'],20,INK,'B');price(x+16,299,'course.'+co['id'],16)
  para(x+16,264,co['intro'],242,11,leading=17)
- for j,name in enumerate(co['menus']):para(x+16,225-j*19,'• '+name,242,10,INK,leading=13)
+ for j,name in enumerate(co['menus']):para(x+16,230-j*17,'• '+name,242,10,INK,leading=13)
 para(48,83,'위 메뉴는 1인 가격대별 참고 예시이며 고정 구성은 아닙니다. 계절과 요청에 따라 메뉴·제공량을 조정할 수 있습니다.',864,11)
 para(48,62,'테이블 출장세팅비 또는 박스 배송비와 부가세는 별도입니다. 최소 주문 조건과 제공 범위는 최종 견적에서 확인합니다.',864,10);end()
 for co in reference_courses:
