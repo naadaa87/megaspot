@@ -702,7 +702,7 @@
     discType:'none', discVal:0, discWhy:'', extras:[], reception_revision:0, receptionExcluded:false, deposit:(D?D.deposit.amount:150000), valid:1, note:'', quoteNo:'' }; }
   Q=blankQ();
   function hourOpts(from,to,sel){ var s=''; for(var h=from;h<=to;h++) s+='<option value="'+h+'"'+(h===sel?' selected':'')+'>'+esc(E.hourLabel(h))+'</option>'; return s; }
-  function qSpaceHint(){ var h=$('#q-space-hint'); if(!h||!D) return; h.textContent=(D.version||'')+' · 기준 '+D.people.base+'명 포함 · 최대 '+D.people.max+'명'+(D.surcharge&&D.surcharge.amount?' · 시간제 1건당 '+won(D.surcharge.amount)+' 가산':'')+(D.opening?' · '+D.opening.replace(/-/g,'. ')+' 오픈':''); }
+  function qSpaceHint(){ var h=$('#q-space-hint'); if(!h||!D) return; h.textContent=(D.version||'')+' · 기준 '+D.people.base+'명 포함 · 최대 '+D.people.max+'명'+(D.surcharge&&D.surcharge.amount?' · 시간제 1건당 '+won(D.surcharge.amount)+' 가산':''); }
   function fillForm(){
     Q.space=spaceOk(Q.space); useSpace(Q.space);
     var qs=$('#q-space'); if(qs){ qs.innerHTML=spaceOptions(Q.space); } qSpaceHint();

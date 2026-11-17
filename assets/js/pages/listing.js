@@ -38,7 +38,7 @@
       +'<div class="f"><label for="ls-msg">행사 내용</label><textarea class="textarea" id="ls-msg" name="message" rows="3" maxlength="2000" placeholder="시간대, 행사 종류, 필요한 장비"></textarea></div>'
       +'<label class="agree"><input type="checkbox" name="agree_privacy" required> <span>(필수) 문의 답변을 위해 이름·연락처를 수집·이용하고, 가능 여부 확인을 위해 문의 내용을 호스트에게 전달하는 데 동의합니다.</span></label>'
       +'<div class="form-note" id="ls-note" hidden></div><button class="btn btn-primary btn-block" type="submit">문의 보내기 <span class="arrow">→</span></button></form>'
-      +'<div class="card mv-box mt-3"><b>비슷한 조건의 직영 공간</b><p class="small muted mt-1">바로 금액을 확인하고 예약을 신청할 수 있습니다.</p><div class="ls-direct mt-2"><a href="/spaces/megaspot-gundae/">메가스팟 건대 1호<small>190평 · 최대 200명</small></a><a href="/spaces/megaspot-gundae-2/">메가스팟 건대 2호<small>400평 · 최대 350명 · 11/13 오픈</small></a></div></div>'
+      +'<div class="card mv-box mt-3"><b>비슷한 조건의 직영 공간</b><p class="small muted mt-1">바로 금액을 확인하고 예약을 신청할 수 있습니다.</p><div class="ls-direct mt-2"><a href="/spaces/megaspot-gundae/">메가스팟 건대 1호<small>190평 · 최대 200명</small></a><a href="/spaces/megaspot-gundae-2/">메가스팟 건대 2호<small>400평 · 최대 350명</small></a></div></div>'
       +'</aside></div>';
     var form0=$('#ls-form'), st=document.createElement('a'); st.className='mv-sticky'; st.href='#ls-form'; st.innerHTML='이 공간 문의하기 <span class="arrow">↓</span>';
     st.addEventListener('click', function(e){ e.preventDefault(); form0.scrollIntoView({ behavior:'smooth', block:'start' }); }); document.body.appendChild(st);

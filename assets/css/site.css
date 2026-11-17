@@ -2990,3 +2990,23 @@ body.page-inquiry #estimator{margin-top:18px}
 .mobile-nav a.mnav-host small{font-size:12.5px;font-weight:600;color:var(--ink-3)}
 .my-host:not([hidden]){display:grid;gap:10px}
 .my-host .btn{margin-top:2px}
+/* 이용안내 첫 화면 — 주차 할인 등록 · 식음료 서비스 바로가기 (2026-11-17) */
+.guide-quick{display:grid;gap:12px;grid-template-columns:minmax(0,1fr);margin-top:26px;max-width:960px}
+@media (min-width:720px){.guide-quick{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.gq-card{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:16px;padding:20px 20px 20px 18px;border:1px solid var(--concrete);border-radius:var(--radius-lg);background:var(--white);color:var(--graphite);box-shadow:0 1px 2px rgba(20,22,24,.04);transition:border-color .15s,box-shadow .15s,transform .15s}
+.gq-card:hover{border-color:var(--cobalt);box-shadow:0 8px 22px rgba(31,83,213,.10);transform:translateY(-1px)}
+.gq-card:focus-visible{outline:2px solid var(--cobalt);outline-offset:2px}
+.gq-ico{display:grid;place-items:center;width:52px;height:52px;border-radius:14px;background:var(--cobalt-soft);color:var(--cobalt)}
+.gq-ico svg{width:28px;height:28px}
+.gq-body{display:grid;gap:3px;min-width:0}
+.gq-k{font-family:var(--font-display);font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--cobalt)}
+.gq-body b{font-size:19px;letter-spacing:-.02em;line-height:1.3}
+.gq-body small{font-size:13.5px;line-height:1.55;color:var(--ink-2)}
+.gq-go{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:var(--cobalt);color:#fff;font-weight:800;transition:transform .15s}
+.gq-card:hover .gq-go{transform:translateX(2px)}
+.guide-links{display:flex;flex-wrap:wrap;gap:6px 8px;margin-top:16px}
+.guide-links a{font-size:13.5px;font-weight:600;padding:6px 12px;border:1px solid var(--concrete);border-radius:999px;background:var(--white);color:var(--ink-2)}
+.guide-links a:hover{border-color:var(--graphite);color:var(--graphite)}
+@media (max-width:480px){.gq-card{gap:12px;padding:16px 14px}.gq-ico{width:44px;height:44px;border-radius:12px}.gq-ico svg{width:24px;height:24px}.gq-body b{font-size:17px}.gq-go{width:30px;height:30px}}
+/* 상단 메뉴에 이용안내·커뮤니티가 더해져, 1280px 미만 PC 화면에서는 전화 버튼을 메뉴(☰)·카카오톡 쪽으로 넘깁니다 */
+@media (min-width:900px) and (max-width:1279px){.header-cta .btn[data-phone]{display:none}}

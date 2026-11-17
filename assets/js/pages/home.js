@@ -8,7 +8,7 @@
   var pg=$('#purpose-grid'); if(pg){ pg.innerHTML=PUR.map(function(p){ return M.purposeCard(p); }).join(''); }
 
   /* ---------- 지금 문의할 수 있는 공간 ---------- */
-  // 1호(운영 중)를 먼저, 오픈 예정인 2호를 그 다음에 보여 줍니다
+  // 직영 공간을 운영 중인 곳부터 보여 줍니다 (1호 → 2호)
   var fs=$('#featured-space'); if(fs){ var open=(window.MEGASPOT_SPACES||[]).filter(function(s){return s.status==='open'||s.status==='opening';}); open.sort(function(a,b){ return (b.status==='open')-(a.status==='open'); }); fs.innerHTML=open.map(function(s){ return M.spaceCard(s,{wide:true}); }).join(''); }
 
   /* ---------- 모집 중인 모임 (최대 3개 · 없으면 모임 등록 안내) ---------- */

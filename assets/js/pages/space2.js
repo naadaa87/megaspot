@@ -7,14 +7,6 @@
   var photoById={}; S.photos.forEach(function(p){ photoById[p.id]=p; });
   function photoTag(p){ return p&&p.tag||'공간 이미지'; }
 
-  /* ---------- 오픈 D-day ---------- */
-  (function(){
-    var el=$('#open-dday'); if(!el||!S.opening) return;
-    var p=S.opening.split('-'), open=new Date(+p[0],+p[1]-1,+p[2]), today=new Date(); today.setHours(0,0,0,0);
-    var d=Math.round((open-today)/86400000);
-    el.textContent = d>0 ? 'D-'+d : d===0 ? 'D-DAY' : '오픈';
-    if(d<=0){ var band=$('#opening'); if(band){ var h=band.querySelector('h2'); if(h) h.innerHTML='2026년 11월 13일 문을 열었습니다.<br>지금 바로 예약할 수 있습니다'; } }
-  })();
 
   /* ---------- 갤러리: 공간 전경·배치 예시 ---------- */
   (function(){
@@ -65,7 +57,7 @@
   /* ---------- 이용 안내 / 접근 ---------- */
   (function(){
     var flow=$('#flow'); if(flow){
-      var d=['오픈일 이후 날짜로 시간·인원을 골라 금액을 확인하고 이름·연락처만 적어 신청합니다. 접수번호가 바로 나오고, 카카오톡·전화로 알려 주셔도 됩니다.','신청한 날짜·시간이 비어 있는지 확인하고 빠르게 연락드립니다. 영업시간에는 보통 2시간 안에 첫 답을 드립니다.','공간료·인원 추가·옵션을 항목별로 나눈 확정 금액과 보증금·환불 기준, 결제 방법(카드·계좌이체)을 안내합니다.','결제가 끝나면 예약이 확정됩니다. 공사 지연으로 오픈이 늦어지면 전액 환불 또는 1호·다른 날짜로 바꿔 드립니다.','예약번호와 예약확정서를 보내 드리고, 공사 진행 상황에 맞춰 사전 답사와 장비·배치 조건을 안내합니다.','이용 당일 지정 담당자가 입장·장비 연결·퇴실을 돕습니다. 시간을 늘려야 하면 미리 알려 주세요.','이용 뒤 정리·파손 여부를 확인하고 보증금을 돌려 드립니다. 후기는 이용 확인 뒤 게시합니다.'];
+      var d=['날짜·시간·인원을 골라 금액을 확인하고 이름·연락처만 적어 신청합니다. 접수번호가 바로 나오고, 카카오톡·전화로 알려 주셔도 됩니다.','신청한 날짜·시간이 비어 있는지 확인하고 빠르게 연락드립니다. 영업시간에는 보통 2시간 안에 첫 답을 드립니다.','공간료·인원 추가·옵션을 항목별로 나눈 확정 금액과 보증금·환불 기준, 결제 방법(카드·계좌이체)을 안내합니다.','결제가 끝나면 예약이 확정됩니다. 공사 지연으로 오픈이 늦어지면 전액 환불 또는 1호·다른 날짜로 바꿔 드립니다.','예약번호와 예약확정서를 보내 드리고, 공사 진행 상황에 맞춰 사전 답사와 장비·배치 조건을 안내합니다.','이용 당일 지정 담당자가 입장·장비 연결·퇴실을 돕습니다. 시간을 늘려야 하면 미리 알려 주세요.','이용 뒤 정리·파손 여부를 확인하고 보증금을 돌려 드립니다. 후기는 이용 확인 뒤 게시합니다.'];
       flow.innerHTML=S.booking.flow.map(function(f,i){ return '<li><b>'+esc(f)+'</b><span>'+esc(d[i]||'')+'</span></li>'; }).join('');
     }
     var rn=$('#response-note'); if(rn) rn.textContent=S.booking.response;
@@ -86,7 +78,7 @@
     var first=op>today?op:today;
     var cur=new Date(first.getFullYear(), first.getMonth(), 1), selected=null, cache={};
     var dayLabels={open:'가능',partial:'일부',hold:'확보',full:'마감'};
-    var dayDescriptions={open:'사전 예약 가능',partial:'일부 시간 예약, 다른 시간 문의 가능',hold:'임시 확보 중',full:'마감'};
+    var dayDescriptions={open:'신청 가능',partial:'일부 시간 예약, 다른 시간 문의 가능',hold:'임시 확보 중',full:'마감'};
     function load(y,m){
       var key=y+'-'+M.pad2(m+1); if(cache[key]) return Promise.resolve(cache[key]);
       var from=key+'-01', to=y+'-'+M.pad2(m+1)+'-'+M.pad2(new Date(y,m+1,0).getDate());
@@ -110,13 +102,13 @@
           var status=dayLabels[state] ? '<span class="cal-day-status" aria-hidden="true">'+dayLabels[state]+'</span>' : '';
           h+='<div class="'+classes+'" data-d="'+iso+'" role="button" '+control+' aria-label="'+M.fmtKDate(iso)+' '+description+'">'+d+status+'</div>';
         }
-        h+='</div><div class="cal-legend"><span><i class="open"></i>사전 예약 가능 (확인 뒤 확정)</span><span><i class="partial"></i>일부 시간 예약 (다른 시간 가능)</span><span><i class="hold"></i>임시 확보 중</span><span><i class="full"></i>마감</span><span><i class="sel"></i>선택한 날짜</span></div>';
-        h+='<p class="tiny muted mt-2">'+(op>today?'2026년 11월 13일 오픈 전 날짜는 고를 수 없습니다. ':'')+(M.demo.on||!Object.keys(days).length?'달력은 안내용이며 실시간 재고가 아닙니다. 희망일을 고르면 사전 예약 화면에 들어가고, 확정 여부는 상담 때 안내합니다.':'표시 상태는 운영자가 갱신한 일정 기준이며 최종 확정은 금액 확인과 결제 뒤에 이뤄집니다.')+'</p>';
+        h+='</div><div class="cal-legend"><span><i class="open"></i>신청 가능 (확인 뒤 확정)</span><span><i class="partial"></i>일부 시간 예약 (다른 시간 가능)</span><span><i class="hold"></i>임시 확보 중</span><span><i class="full"></i>마감</span><span><i class="sel"></i>선택한 날짜</span></div>';
+        h+='<p class="tiny muted mt-2">'+(op>today?'오픈 전 날짜는 고를 수 없습니다. ':'')+(M.demo.on||!Object.keys(days).length?'달력은 안내용이며 실시간 재고가 아닙니다. 희망일을 고르면 예약 신청 화면에 들어가고, 확정 여부는 상담 때 안내합니다.':'표시 상태는 운영자가 갱신한 일정 기준이며 최종 확정은 금액 확인과 결제 뒤에 이뤄집니다.')+'</p>';
         cal.innerHTML=h;
         $('#cal-prev').addEventListener('click', function(){ cur=new Date(y,m-1,1); render(); });
         $('#cal-next').addEventListener('click', function(){ cur=new Date(y,m+1,1); render(); });
         $('#cal-prev').disabled = (y===first.getFullYear()&&m===first.getMonth());
-        cal.querySelectorAll('.cal-day.open,.cal-day.hold,.cal-day.partial').forEach(function(el){ function pick(){ var part=el.classList.contains('partial'); selected=el.dataset.d; var est=M.pricing&&M.pricing.estimator; if(est) est.setDate(selected); render(); M.toast(M.fmtKDate(selected)+'을(를) 사전 예약 화면에 넣었습니다.'+(part?' 이 날은 일부 시간에 예약이 있어, 가능한 시간을 확인해 안내해 드립니다.':'')); var box=$('#estimate'); if(box) box.scrollIntoView({behavior:'smooth',block:'start'}); } el.addEventListener('click', pick); el.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); pick(); } }); });
+        cal.querySelectorAll('.cal-day.open,.cal-day.hold,.cal-day.partial').forEach(function(el){ function pick(){ var part=el.classList.contains('partial'); selected=el.dataset.d; var est=M.pricing&&M.pricing.estimator; if(est) est.setDate(selected); render(); M.toast(M.fmtKDate(selected)+'을(를) 예약 신청 화면에 넣었습니다.'+(part?' 이 날은 일부 시간에 예약이 있어, 가능한 시간을 확인해 안내해 드립니다.':'')); var box=$('#estimate'); if(box) box.scrollIntoView({behavior:'smooth',block:'start'}); } el.addEventListener('click', pick); el.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); pick(); } }); });
       }).catch(function(){ cal.innerHTML='<p class="plan-attention">예약 현황을 불러오지 못했습니다. 잠시 후 다시 확인하거나 담당자에게 문의해 주세요.</p><button type="button" class="btn btn-light" id="calendar-retry">다시 불러오기</button>';$('#calendar-retry').addEventListener('click',render); });
     }
     M.checkApi().then(render);
