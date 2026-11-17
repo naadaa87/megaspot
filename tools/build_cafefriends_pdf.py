@@ -55,10 +55,22 @@ for i,f in enumerate(D['formats']):
  pic('/assets/img/reception/cafefriends/'+f['image'],x,y+36,270,109);text(x,y+27,f['caption'],8,MUTED);text(x,y+8,f['name'],17,INK,'B');para(x,y-10,f['check'],270,9,leading=12)
 text(650,122,'포장·제공량·세팅·수거',15,BLUE,'B');para(650,99,'실제 제공 범위와 최소 주문 조건은\n상담 후 최종 견적에서 확인합니다.',250,11,leading=17);end()
 begin('테이블·박스 · 1인 가격대별 참고 메뉴','아래 메뉴는 선택을 돕는 참고 예시입니다. 메뉴는 계절과 요청에 따라 변경 가능합니다. 금액은 부가세 별도입니다.')
-for i,co in enumerate(D['offerings'][:4]):
- y=328-i*65;rect(48,y-22,864,59,SOFT);text(65,y+10,co['name'],18,INK,'B');para(65,y-9,co['intro'],405,10);price(510,y,'course.'+co['id'],18)
-para(48,70,'원하는 특정 메뉴는 상담을 통해 변경할 수 있습니다. 메뉴는 계절과 식재료 수급에 따라 일부 달라질 수 있습니다.',864,10);end()
-for co in D['offerings'][:4]:
+value_courses=[co for co in D['offerings'] if co.get('group')=='value']
+reference_courses=[co for co in D['offerings'] if co['id']!='cf-custom' and co.get('group')!='value']
+rect(48,287,864,78,SOFT);text(65,342,'실속 구성 · 가벼운 회의 다과부터 핑거푸드까지',16,INK,'B')
+for i,co in enumerate(value_courses):
+ x=65+i*283;text(x,312,co['name'],11,INK,'S');price(x+45,312,'course.'+co['id'],15)
+for i,co in enumerate(reference_courses):
+ y=251-i*51;rect(48,y-24,864,46,SOFT);text(65,y+5,co['name'],16,INK,'B');para(65,y-13,co['intro'],405,9);price(510,y,'course.'+co['id'],17)
+para(48,62,'1인 금액 × 인원에 출장세팅비 또는 배송비를 더한 뒤 부가세 10%를 추가합니다. 메뉴와 제공량은 상담 후 확정합니다.',864,10);end()
+begin('실속 구성 · 1만~2만 원 참고 메뉴','테이블 세팅·박스 케이터링용 참고 예시입니다. 식사 대용 여부와 제공량은 행사에 맞춰 상담합니다.')
+for i,co in enumerate(value_courses):
+ x=48+i*295;rect(x,103,276,257,SOFT);text(x+16,332,co['name'],20,INK,'B');price(x+16,299,'course.'+co['id'],16)
+ para(x+16,264,co['intro'],242,11,leading=17)
+ for j,name in enumerate(co['menus']):para(x+16,225-j*19,'• '+name,242,10,INK,leading=13)
+para(48,83,'위 메뉴는 1인 가격대별 참고 예시이며 고정 구성은 아닙니다. 계절과 요청에 따라 메뉴·제공량을 조정할 수 있습니다.',864,11)
+para(48,62,'테이블 출장세팅비 또는 박스 배송비와 부가세는 별도입니다. 최소 주문 조건과 제공 범위는 최종 견적에서 확인합니다.',864,10);end()
+for co in reference_courses:
  begin(co['name']+' · 참고 메뉴 예시',co['intro'])
  price(48,350,'course.'+co['id'],20)
  for i,name in enumerate(co['menus']):text(48,315-i*15,'• '+name,11.5)

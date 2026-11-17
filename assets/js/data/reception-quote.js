@@ -171,7 +171,7 @@
   "activeCatalog": {
     "provider": "cafefriends",
     "providerName": "카페프렌즈",
-    "version": "20261105cfbudget1",
+    "version": "20261117cfvalue1",
     "source": "https://xn--sm2b84auzz14b70jcyab6ix4fvvd.com",
     "categories": [
       {
@@ -641,6 +641,90 @@
       }
     ],
     "offerings": [
+      {
+        "id": "cf-value-10000",
+        "name": "실속 A",
+        "price": 10000,
+        "tag": "회의 · 간단한 다과",
+        "intro": "샌드위치·과일·쿠키로 준비하는 간단한 구성",
+        "menus": [
+          "모닝 에그포테이토 샌드위치",
+          "미니 컵과일",
+          "사르르 버터쿠키"
+        ],
+        "example_ids": [
+          "cf-menu-48",
+          "cf-menu-63",
+          "cf-menu-130"
+        ],
+        "image": "menu-48.jpg",
+        "kind": "course",
+        "formats": [
+          "table",
+          "box"
+        ],
+        "group": "value"
+      },
+      {
+        "id": "cf-value-15000",
+        "name": "실속 B",
+        "price": 15000,
+        "tag": "회의 · 간단한 다과",
+        "intro": "샌드위치에 치킨·과일·디저트를 더한 구성",
+        "menus": [
+          "모닝 에그포테이토 샌드위치",
+          "치킨 강정",
+          "미니 컵과일",
+          "사르르 버터쿠키",
+          "미니 마카롱"
+        ],
+        "example_ids": [
+          "cf-menu-48",
+          "cf-menu-25",
+          "cf-menu-63",
+          "cf-menu-130",
+          "cf-menu-104"
+        ],
+        "image": "menu-48.jpg",
+        "kind": "course",
+        "formats": [
+          "table",
+          "box"
+        ],
+        "group": "value"
+      },
+      {
+        "id": "cf-value-20000",
+        "name": "실속 C",
+        "price": 20000,
+        "tag": "회의 · 간단한 다과",
+        "intro": "핑거푸드와 치킨·샌드위치를 함께 준비하는 구성",
+        "menus": [
+          "모닝 에그포테이토 샌드위치",
+          "치킨 강정",
+          "토마토 카프레제",
+          "브리치즈 부르스게타",
+          "미니 컵과일",
+          "사르르 버터쿠키",
+          "미니 마카롱"
+        ],
+        "example_ids": [
+          "cf-menu-48",
+          "cf-menu-25",
+          "cf-menu-55",
+          "cf-menu-60",
+          "cf-menu-63",
+          "cf-menu-130",
+          "cf-menu-104"
+        ],
+        "image": "menu-48.jpg",
+        "kind": "course",
+        "formats": [
+          "table",
+          "box"
+        ],
+        "group": "value"
+      },
       {
         "id": "cf-light",
         "name": "라이트",

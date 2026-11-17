@@ -10,7 +10,7 @@ import {fixture,saveQuote,quoteInput} from './helpers/admin-fixture.mjs';
 const amounts=[10000,15000,20000,25000,30000],packed=['snackbox','sandwichbox','fusionbox'];
 const ctx={window:{}};vm.runInNewContext(readFileSync(new URL('../assets/js/confirm-doc.js',import.meta.url),'utf8'),ctx);const X=ctx.window.MEGASPOT_CONFIRM;
 test('format-specific choices separate table/box references from the five approved budget targets',()=>{
- for(const f of ['table','box']){assert.deepEqual(C.activeCourses(f).map(c=>c.id),['cf-light','cf-classic','cf-premium','cf-signature','cf-custom']);for(const b of amounts)assert.equal(C.quote(50,f,'cf-budget-'+b).ok,false);}
+ for(const f of ['table','box']){assert.deepEqual(C.activeCourses(f).map(c=>c.id),['cf-value-10000','cf-value-15000','cf-value-20000','cf-light','cf-classic','cf-premium','cf-signature','cf-custom']);for(const b of amounts)assert.equal(C.quote(50,f,'cf-budget-'+b).ok,false);}
  for(const f of packed){assert.deepEqual(C.activeCourses(f).filter(c=>c.id!=='cf-custom').map(c=>c.price),amounts);for(const c of ['cf-light','cf-classic','cf-premium','cf-signature']){assert.equal(C.quote(50,f,c).ok,false);assert.equal(receptionCustomer({course:c,people:50,format:f}),null);}}
 });
 for(const format of packed)for(const unit of amounts)test(`${format} · ${unit}: canonical budget, delivery and VAT cannot be replaced by forged submitted amounts`,()=>{

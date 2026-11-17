@@ -134,6 +134,6 @@ test('published PDF snapshots and live-price templates both contain the course-s
   const regular=extract('assets/docs/megaspot-catering-'+suffix+'.pdf',page('basic'));if(regular===null)return;
   assert.match(regular,/즉석 코너\s*·\s*100인 이상/);
   assert.match(extract('assets/docs/megaspot-catering-'+suffix+'.pdf',page('vip')),/즉석 코너\s*·\s*50인 이상/);
-  assert.match(extract('assets/docs/megaspot-reception-'+suffix+'.pdf',17),/변경·취소[\s\S]*인원 변경·취소 가능 시점[\s\S]*발생 비용/);
+  assert.match(extract('assets/docs/megaspot-reception-'+suffix+'.pdf',18),/변경·취소[\s\S]*인원 변경·취소 가능 시점[\s\S]*발생 비용/);
  }
 });
