@@ -1,0 +1,18 @@
+[Unit]
+Description=Verify the next real early-morning or holiday parking registration
+After=network-online.target megaspot-aligo.service
+Wants=megaspot-aligo.service
+ConditionPathExists=!/var/lib/megaspot-amano/offhours-watch.done
+[Service]
+Type=oneshot
+User=megaspot-aligo
+Group=megaspot-aligo
+EnvironmentFile=/etc/megaspot-aligo.env
+ExecStart=/usr/bin/node /opt/megaspot-amano/watch-offhours.mjs
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/megaspot-amano
+UMask=0077
+TimeoutStartSec=120

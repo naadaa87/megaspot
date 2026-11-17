@@ -37,7 +37,7 @@ export function auditBatch(batch,operations={},journal={},at=Date.now(),{minVehi
    }
   }
   if(checkNotifications&&p.status!=='resolved'){
-  check(notices.filter(x=>x.kind==='paid'),'고객 결제 안내');
+  if(checkNotifications===true)check(notices.filter(x=>x.kind==='paid'),'고객 결제 안내');
   if(complete)check(notices.filter(x=>x.kind==='applied'),'고객 등록 완료 안내');
   for(const tail of wantedAdmins)check(admins.filter(x=>x.receiver_last4===tail),'관리자 '+tail+' 결제 문자');
   }

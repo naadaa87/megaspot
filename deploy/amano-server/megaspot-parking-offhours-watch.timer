@@ -1,0 +1,9 @@
+[Unit]
+Description=Check the one-time offhours parking verification each minute
+[Timer]
+OnCalendar=*-*-* *:*:35 Asia/Seoul
+Persistent=true
+AccuracySec=1s
+Unit=megaspot-parking-offhours-watch.service
+[Install]
+WantedBy=timers.target
