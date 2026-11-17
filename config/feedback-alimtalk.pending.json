@@ -1,0 +1,15 @@
+{
+  "status": "draft_only",
+  "automatic": false,
+  "provider_template_code": null,
+  "name": "메가스팟_이용후_의견안내_v1",
+  "content": "[메가스팟 이용 후 의견 안내]\n\n#{고객명}님, 메가스팟 건대 #{호점}에서 즐거운 시간 보내셨나요?\n함께해 주셔서 감사합니다.\n\n이용 공간: #{공간명}\n이용 날짜: #{이용일}\n\n이용 중 불편했던 점이나 개선이 필요한 부분이 있었다면 아래 버튼으로 남겨 주세요.\n좋았던 점도 함께 들려주시면 공간 운영에 참고하겠습니다.\n\n남겨 주신 의견은 운영팀이 확인하겠습니다.",
+  "buttons": [
+    {
+      "name": "이용 의견 남기기",
+      "linkType": "WL",
+      "linkMo": "https://megaspot.kr/feedback/#feedback=#{설문코드}",
+      "linkPc": "https://megaspot.kr/feedback/#feedback=#{설문코드}"
+    }
+  ]
+}

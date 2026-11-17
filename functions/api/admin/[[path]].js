@@ -1,3 +1,4 @@
+import {feedbackAdmin} from '../_feedback.js';
 import {reservationServiceStatus} from '../_reservation_service_status.js';
 import {SERVICE_DATA_SQL,reservationServices} from '../_reservation_services.js';
 import {bookingNotificationsAdmin} from '../_booking_notifications.js';
@@ -198,6 +199,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
       }
       return err('지원하지 않는 요청입니다.',405);
     }
+    if(path==='feedback'||path.startsWith('feedback/'))return await feedbackAdmin({env,request,url,path,method});
     if(path==='booking-notifications'||path.startsWith('booking-notifications/'))return await bookingNotificationsAdmin({env,request,url,path,method});
     if(path==='transaction-notifications')return await transactionNoticeAdmin(env,request);
     if(path==='deposit-notifications'||path.startsWith('deposit-notifications/'))return await depositNoticeAdmin({env,request,url,path,method});
