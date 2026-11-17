@@ -3,10 +3,12 @@ const ENDPOINT='http://127.0.0.1:8787/v1/aligo',LINK='https://megaspot.kr/admin/
 export const kstDate=(at=Date.now())=>new Date(at+9*36e5).toISOString().slice(0,10);
 const requestId=key=>{const h=createHash('sha256').update('amano-alert-v1:'+key).digest('hex');return h.slice(0,8)+'-'+h.slice(8,12)+'-4'+h.slice(13,16)+'-a'+h.slice(17,20)+'-'+h.slice(20,32);};
 export function alertKey(issue,at=Date.now()){
+ if(issue.kind==='query'&&issue.scope&&issue.incident)return 'query:'+issue.scope+':'+issue.incident;
  if(issue.kind==='balance'||/잔액 부족/.test(issue.message))return 'balance:'+kstDate(at);
  return issue.oid?'order:'+issue.oid:'system:'+kstDate(at)+':'+createHash('sha256').update(issue.message||'unknown').digest('hex').slice(0,16);
 }
 export function alertMessage(issue){
+ if(issue.kind==='query')return '[메가스팟 주차권 자동 등록 오류]\n사유: '+String(issue.message||'조회 오류 반복').replace(/[\r\n\t]/g,' ').slice(0,160)+'\n등록 전 조회가 반복 실패했습니다. 자동 조회는 계속 재시도합니다.\n관리자 화면에서 서버 연결과 대기 주문을 확인해 주세요.\n'+LINK;
  const low=issue.kind==='balance'||/잔액 부족/.test(issue.message);
  return '[메가스팟 주차권 '+(low?'잔액 부족':'자동 등록 오류')+']\n'+(issue.oid?'주문: '+issue.oid+'\n':'')+(issue.plate?'차량: '+String(issue.plate).replace(/[\r\n\t]/g,' ').slice(0,15)+'\n':'')+(issue.visit_date?'이용일: '+String(issue.visit_date).slice(0,10)+'\n':'')+'사유: '+String(issue.message||'서버 처리 확인 필요').replace(/[\r\n\t]/g,' ').slice(0,160)+'\n자동 처리를 완료하지 못해 관리자 확인이 필요합니다.\n아마노 할인내역을 확인하기 전 같은 건을 다시 등록하지 마세요.\n'+LINK;
 }

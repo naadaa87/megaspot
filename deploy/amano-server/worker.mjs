@@ -1,3 +1,4 @@
+import {guardedRead,fallbackIssues} from './read-retry.mjs';
 import {DISCOUNTS,plateParts} from './client.mjs';
 import {recordVerification} from './verification.mjs';
 const codes=n=>({1:'6',2:'7',3:'8'})[n];
@@ -19,7 +20,10 @@ export function plan(d,p){
 function sameHistory(a,b){const ids=d=>d.discounts.map(x=>x.id).sort().join(',');return ids(a)===ids(b)&&a.balance===b.balance;}
 function paid(p){if(p.payment_status!=='paid'||p.refunded_amount||p.refund_pending||p.status!=='processing')throw Error('결제·환불·처리 상태 변경');}
 export async function runCycle({site,client,store,maxOrders=10,now=()=>Date.now(),isEnabled=()=>true,onIssue=async()=>{},trigger='scheduled'}){
- const started=now(),feed=await site('orders'),summary={ok:true,operating:!!feed.operating,started_at:new Date(started).toISOString(),processed:0,waiting:0,issues:[],checked:0};
+ const started=now(),summary={ok:true,operating:false,started_at:new Date(started).toISOString(),processed:0,waiting:0,issues:[],checked:0};
+ const defer=async error=>{summary.ok=false;summary.retry_pending=true;summary.finished_at=new Date(now()).toISOString();const active=Object.values(store.read('operations')||{}).some(e=>!['completed','review'].includes(e.phase)),problems=active?fallbackIssues(store):error.notify?[{kind:'query',scope:error.scope,incident:error.incident,message:error.message}]:[];for(const problem of problems){summary.issues.push(problem);try{await onIssue(problem);}catch{}}store.save('last-run',summary);return summary;};
+ let feed;try{feed=await guardedRead(store,'orders','주차 주문 조회',()=>site('orders'));}catch(error){if(error.readDeferred)return defer(error);throw error;}
+ summary.operating=!!feed.operating;
  if(!feed.operating){store.save('last-run',summary);return summary;}
  const date=feed.date||new Date(now()+9*36e5).toISOString().slice(0,10),observation=store.read('observation-'+date)||{date,order_ids:[],waiting_ids:[]};
  observation.order_ids=[...new Set([...observation.order_ids,...feed.items.map(p=>p.oid)])];store.save('observation-'+date,observation);
@@ -29,14 +33,14 @@ export async function runCycle({site,client,store,maxOrders=10,now=()=>Date.now(
  for(const [oid,r] of Object.entries(ledger)){if(['completed','review'].includes(r.phase))continue;try{const q=(await site('order',{oid})).order;if(q.status==='applied'){save(oid,'completed');continue;}}catch{}await issue(oid,'이전 서버 처리 결과 확인 필요 · 자동 재등록 중지');}
  const orders=feed.items.slice(0,maxOrders),timing=store.read('registration-timing')||{};
  for(const p of orders){const at=new Date(now()).toISOString();timing[p.oid]={...timing[p.oid],first_checked_at:timing[p.oid]?.first_checked_at||at,first_trigger:timing[p.oid]?.first_trigger||trigger,last_checked_at:at};}
- if(orders.length){store.save('registration-timing',timing);await client.login();}
+ if(orders.length){store.save('registration-timing',timing);try{await guardedRead(store,'login','아마노 로그인·조회',()=>client.login());}catch(error){if(error.readDeferred)return defer(error);throw error;}}
  for(const p of orders){
   if(now()-started>180000)break;summary.checked++;
   if(ledger[p.oid]){if(ledger[p.oid].phase!=='completed')summary.issues.push({oid:p.oid,message:'기존 처리 결과 확인 필요'});continue;}
   let locked=false;
   try{
-   const matches=await client.entries(p.plate,p.visit_date);if(!matches.length){summary.waiting++;observation.waiting_ids=[...new Set([...observation.waiting_ids,p.oid])];store.save('observation-'+date,observation);continue;}if(matches.length!==1)throw Error('동일 차량의 입차 건이 여러 개입니다.');
-   const e=matches[0];let d=await client.detail(e,p.visit_date);assertEntry(d,p,e);const wanted=plan(d,p);
+   const matches=await guardedRead(store,'entry:'+p.oid,'아마노 입차 조회',()=>client.entries(p.plate,p.visit_date));if(!matches.length){summary.waiting++;observation.waiting_ids=[...new Set([...observation.waiting_ids,p.oid])];store.save('observation-'+date,observation);continue;}if(matches.length!==1)throw Error('동일 차량의 입차 건이 여러 개입니다.');
+   const e=matches[0];let d=await guardedRead(store,'detail:'+p.oid,'아마노 할인 이력 조회',()=>client.detail(e,p.visit_date));assertEntry(d,p,e);const wanted=plan(d,p);
    timing[p.oid]={...timing[p.oid],entry_confirmed_at:new Date(now()).toISOString(),entry_at:e.entryAt};store.save('registration-timing',timing);
    save(p.oid,'claim_requested',{entry_id:e.id,cost:wanted.cost});
    await site('claim',{oid:p.oid,data:{entry_id:e.id,entry_at:e.entryAt.slice(0,16),plate_confirm:p.plate,confirm_entry:true,free_used:!wanted.free,confirm_no_free:wanted.free,memo:'입차·기존 무료 할인 이력 대조 완료'}});locked=true;
@@ -66,7 +70,7 @@ export async function runCycle({site,client,store,maxOrders=10,now=()=>Date.now(
    const freeRecord=d.discounts.find(h=>h.code==='1'),paidRecord=wanted.code?d.discounts.find(h=>h.code===wanted.code&&h.memo===p.oid):null;
    const proof={...timing[p.oid],completed_at:new Date(now()).toISOString(),date:p.visit_date,entry_id:e.id,free_confirmed:freeCount(d)===1,free_existing:!wanted.free,free_registered_at:freeRecord?.at||null,paid_registered_at:paidRecord?.at||null,free_first_verified:freeFirst,cost:wanted.cost,history_ids:d.discounts.map(h=>h.id),site_status:'applied',steps:ledger[p.oid].steps};
    save(p.oid,'completed',{verification:proof});recordVerification(store,p.oid,proof);summary.processed++;
-  }catch(error){const message=String(error?.message||'서버 처리 확인 필요').slice(0,180);await issue(p.oid,(locked?'등록 처리 중 · ':'등록 전 확인 · ')+message,{plate:p.plate,visit_date:p.visit_date,...(error.code==='PLATE_MATCH_REQUIRED'?{kind:'plate'}:{})});}
+  }catch(error){if(error.readDeferred&&!locked&&!error.notify){summary.waiting++;summary.retry_pending=true;continue;}const message=String(error?.message||'서버 처리 확인 필요').slice(0,180);await issue(p.oid,(locked?'등록 처리 중 · ':'등록 전 확인 · ')+message,{plate:p.plate,visit_date:p.visit_date,...(error.code==='PLATE_MATCH_REQUIRED'?{kind:'plate'}:{})});}
  }
  summary.finished_at=new Date(now()).toISOString();store.save('last-run',summary);return summary;
 }
