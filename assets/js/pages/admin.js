@@ -929,7 +929,8 @@
       var amount=x.amount<0?'-'+won(-x.amount):won(x.amount);
       if(x.kind==='reception'&&x.reception){
         var reception=window.MEGASPOT_RECEPTION_CALC.forDocument(x.reception,x.amount);
-        L.push(x.label+' '+amount+(reception.vat_excluded?' (부가세 포함)':' (이전 저장 금액 · 부가세 조건 확인 필요)'));
+        var label=String(x.label||'케이터링').replace(/\(세팅비·부가세 포함\)$/,'('+(reception.feeName||'제공 방식별 비용')+'·부가세 포함)');
+        L.push(label+' '+amount+(reception.vat_excluded?(label.indexOf('부가세 포함')<0?' (부가세 포함)':''):' (이전 저장 금액 · 부가세 조건 확인 필요)'));
         L.push('  · 구성: '+reception.courseName+' · '+reception.people+'명 · '+reception.formatName);
         if(reception.unitPrice!=null&&reception.food!=null)L.push('  · 1인 '+won(reception.unitPrice)+' × '+reception.people+'명 = '+won(reception.food));
         if(reception.fee!=null)L.push('  · '+reception.feeName+': '+won(reception.fee));
@@ -2386,7 +2387,7 @@
     Q.reception_request=window.MEGASPOT_RECEPTION_CALC.forDocument(Object.assign({},quote,config));
     Q.receptionRequested=true;
     if(quote.total==null){Q.note+=(Q.note?'\n':'')+'케이터링 상담 필요: '+quote.summary+' (금액 미정 · 합계 제외)';}
-    else Q.extras.push({kind:'reception',label:'도시락·핑거푸드 케이터링 · '+quote.formatName+' '+quote.courseName+' '+quote.people+'명 (세팅비·부가세 포함)',amount:quote.total,reception:Object.assign({},quote,config)});
+    else Q.extras.push({kind:'reception',label:'도시락·핑거푸드 케이터링 · '+quote.formatName+' '+quote.courseName+' '+quote.people+'명 ('+(quote.feeName||'제공 방식별 비용')+'·부가세 포함)',amount:quote.total,reception:Object.assign({},quote,config)});
     if(preserveSnapshot)savedQuoteSnapshot=Object.assign({},savedQuoteSnapshot,{extras:Q.extras,total:Math.max(0,Number(savedQuoteSnapshot.total)-previousReception+(Number(quote.total)||0))});
     invalidateQuote(!preserveSnapshot);fillForm();go('quote');M.toast(quote.total==null?'케이터링 상담 구성을 견적에 연결했습니다. 미확정 금액은 합계에 포함하지 않습니다.':'케이터링 '+won(quote.total)+'을(를) 대관 견적에 넣었습니다. 견적 저장을 눌러 문의에도 반영해 주세요.');
     return Promise.resolve(true);
