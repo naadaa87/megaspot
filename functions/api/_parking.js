@@ -1,5 +1,4 @@
 import {resolveParkingOrder} from './_parking_resolution.js';
-import { HOLIDAYS } from './_catalog.js';
 import { str, isDate, kstToday, now, json, err, readJson, log } from './_lib.js';
 export const TICKETS = {
  '1h': {label:'1시간권', hours:1, price:4000},
@@ -21,12 +20,9 @@ export function parkingTicketLabel(p){
  if(p.ticket==='daily')return p.daily_terms?.startsWith('입차 시각부터 24시간')?'일일권 · 기존 구매 조건':'당일권 · 이용일 23:59 종료';
  return TICKETS[p.ticket]?.label||p.ticket;
 }
-export function parkingDate(date){return isDate(date)&&!HOLIDAYS[date];}
-export function arrivalWindow(ms=Date.now()){
- const date=new Date(ms+9*3600e3).toISOString(),minutes=+date.slice(11,13)*60+ +date.slice(14,16);
- return parkingDate(date.slice(0,10))&&minutes>=600&&minutes<1430;
-}
-export const POLICY = 'parking-20261105-v3';
+export function parkingDate(date){return isDate(date);}
+export function arrivalWindow(ms=Date.now()){return Number.isFinite(ms)&&parkingDate(new Date(ms+9*36e5).toISOString().slice(0,10));}
+export const POLICY = 'parking-20261117-24x7';
 export const DAILY_BASES = {
  calendar:'이용일 당일 23:59까지(한국시간). 입차 후 24시간권이 아닙니다.',
  '24h':'입차 시각부터 24시간(한국시간 기준).',
@@ -46,7 +42,7 @@ export function parkingInput(d,options={}){
  if(!plate)return {error:'차량번호 전체를 확인해 주세요. 예: 123가4567'};
  if(plateOf(d.plate_confirm)!==plate)return {error:'다시 입력한 차량번호가 일치하지 않습니다.'};
  if(!isDate(date)||date<kstToday()||date>new Date(Date.now()+366*86400000).toISOString().slice(0,10))return {error:'이용일을 확인해 주세요.'};
- if(!parkingDate(date))return {error:'공휴일 주차권 이용은 카카오톡으로 먼저 문의해 주세요.'};
+ if(!parkingDate(date))return {error:'이용일을 확인해 주세요.'};
  if(d.policy!==POLICY||d.agree_privacy!==true||d.agree_terms!==true||d.agree_refund!==true||d.confirmed!==true)return {error:'구매 내용과 이용·취소 안내를 확인해 주세요.'};
  const name=str(d.name,40),phone=str(d.phone,30).replace(/\D/g,'');
  if(!name||!/^01\d{8,9}$/.test(phone))return {error:'이름과 휴대폰 번호를 확인해 주세요.'};
@@ -59,7 +55,7 @@ export async function parkingSettings(env){
  // Venue operator confirmed midnight expiry on 2026-11-03. This does not enable sales.
  const basis=typeof v.daily_basis==='string'&&Object.hasOwn(DAILY_BASES,v.daily_basis)?v.daily_basis:'calendar',details=str(v.daily_details??v.daily_terms,240),rollover=str(v.daily_rollover,160);
  const terms=DAILY_BASES[basis]+' '+details+' 익일·초과 정산: '+rollover;
- return {enabled:v.enabled===true,daily_enabled:v.daily_enabled===true&&basis!=='unconfirmed'&&!!details&&!!rollover,daily_basis:basis,daily_details:details,daily_rollover:rollover,daily_terms:terms,pass24_enabled:v.pass24_enabled!==false,pass24_terms:PASS24_TERMS,service_hours:'매일 10:00–24:00 자동 등록 (공휴일 제외)',processing_notice:'버튼을 누르지 않아도 결제·입차 확인 후 바로 자동 등록을 시작합니다. 입차 정보 반영이 늦으면 약 1분 뒤 다시 확인합니다. 당일 구매·입차 요청은 23:50까지입니다. 등록 완료를 확인한 뒤 출차해 주세요. 24시간권은 최초 입차부터 24시간까지 유효합니다. 전날 입차 후 추가 구매·재입차는 별도 문의가 필요합니다.'};
+ return {enabled:v.enabled===true,daily_enabled:v.daily_enabled===true&&basis!=='unconfirmed'&&!!details&&!!rollover,daily_basis:basis,daily_details:details,daily_rollover:rollover,daily_terms:terms,pass24_enabled:v.pass24_enabled!==false,pass24_terms:PASS24_TERMS,service_hours:'연중무휴 24시간 자동 등록',processing_notice:'버튼을 누르지 않아도 결제·입차 확인 후 바로 자동 등록을 시작합니다. 입차 정보 반영이 늦으면 약 1분 뒤 다시 확인합니다. 야간·주말·공휴일에도 이용할 수 있습니다. 등록 완료를 확인한 뒤 출차해 주세요. 24시간권은 최초 입차부터 24시간까지 유효합니다. 전날 입차 후 추가 구매·재입차는 별도 문의가 필요합니다.'};
 }
 export const JOIN = `SELECT p.*,COALESCE(p.vehicle_price,o.price) AS price,o.status AS payment_status,o.buyer_name,o.buyer_phone,o.paid_at,o.test,
  o.price AS payment_total,COALESCE(p.payment_oid,p.oid) AS payment_id,

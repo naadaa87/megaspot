@@ -1,6 +1,6 @@
 import {json,err,str,now,randomToken,sha256,log,kstToday} from './_lib.js';
 import {requestPayment} from './_payapp.js';
-import {parkingInput,POLICY,arrivalWindow,fullDayTicket,parkingTicketTerms} from './_parking.js';
+import {parkingInput,POLICY,fullDayTicket,parkingTicketTerms} from './_parking.js';
 const makeOid=async()=> 'MS'+new Date(Date.now()+9*36e5).toISOString().replace(/[-:T]/g,'').slice(0,14)+(await sha256(randomToken())).slice(0,6).toUpperCase();
 export async function prepareParkingBatch(request,env,settings,C,d){
  if(!Array.isArray(d.vehicles)||d.vehicles.length<1||d.vehicles.length>10)return err('차량은 한 번에 1~10대까지 구매할 수 있습니다.');
@@ -12,7 +12,6 @@ export async function prepareParkingBatch(request,env,settings,C,d){
   if(seen.has(v.plate))return err('같은 차량번호를 두 번 입력했습니다. 차량마다 한 번씩 입력해 주세요.');
   seen.add(v.plate);
   if(fullDayTicket(v.ticket)&&str(v.ticket==='24h'?d.pass24_terms:d.daily_terms,500)!==parkingTicketTerms(settings,v.ticket))return err('선택한 주차권의 이용 조건이 변경되었습니다. 새로고침 후 확인해 주세요.',409);
-  if(v.date===kstToday()&&!arrivalWindow())return err('당일 구매·입차 요청은 10:00부터 23:50 전까지 가능합니다. 다음 이용일을 선택하거나 문의해 주세요.');
   const duplicate=await env.DB.prepare("SELECT COUNT(*) AS n FROM parking_orders p JOIN orders o ON o.oid=COALESCE(p.payment_oid,p.oid) WHERE p.plate=? AND p.visit_date=? AND o.status='paid'").bind(v.plate,v.date).first();
   if(duplicate.n&&!d.confirm_extra)return err('입력한 차량 중 같은 이용일에 결제된 주차권이 있습니다. 추가 구매가 맞는지 확인해 주세요.',409,'EXTRA_CONFIRM');
   items.push({...v,oid:await makeOid()});

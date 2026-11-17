@@ -2,7 +2,6 @@ import {wakeParkingRegistration} from '../_parking_wake.js';
 import {prepareParkingBatch} from '../_parking_checkout.js';
 import {json,err,hasDb,readJson,str,now,randomToken,sha256,sameOrigin,requireAdmin,tooMany,hit,clientIp,log,kstToday} from '../_lib.js';
 import {payappConfig,requestPayment,equalSecret} from '../_payapp.js';
-import {HOLIDAYS} from '../_catalog.js';
 import {onRequest as payRequest} from '../pay/[[path]].js';
 import {TICKETS,POLICY,parkingInput,parkingSettings,parkingAdmin,JOIN,publicParking,arrivalWindow,fullDayTicket,parkingTicketTerms} from '../_parking.js';
 import {parkingNoticeAdmin,parkingNoticeCron,parkingNoticeAccess} from '../_parking_notifications.js';
@@ -25,7 +24,7 @@ export async function onRequest({request,env,params,waitUntil}){
    return await parkingAdmin(request,env,path);
   }
   const settings=await parkingSettings(env),C=payappConfig(env),publicSettings={enabled:settings.enabled,daily_enabled:settings.daily_enabled,daily_basis:settings.daily_enabled?settings.daily_basis:'calendar',daily_terms:settings.daily_enabled?settings.daily_terms:'',pass24_enabled:settings.pass24_enabled,pass24_terms:settings.pass24_enabled?settings.pass24_terms:'',service_hours:settings.service_hours,processing_notice:settings.processing_notice};
-  if(path==='config'&&method==='GET')return json({ok:true,...publicSettings,enabled:settings.enabled&&C.live,tickets:Object.fromEntries(Object.entries(TICKETS).map(([id,t])=>[id,{...t,available:id==='daily'?settings.daily_enabled:id==='24h'?settings.pass24_enabled:true}])),policy:POLICY,holidays:Object.keys(HOLIDAYS),accepting_arrivals:arrivalWindow()});
+  if(path==='config'&&method==='GET')return json({ok:true,...publicSettings,enabled:settings.enabled&&C.live,tickets:Object.fromEntries(Object.entries(TICKETS).map(([id,t])=>[id,{...t,available:id==='daily'?settings.daily_enabled:id==='24h'?settings.pass24_enabled:true}])),policy:POLICY,holidays:[],accepting_arrivals:arrivalWindow()});
   if(method==='POST'&&!sameOrigin(request))return err('허용되지 않은 요청입니다.',403);
   if(method==='POST'){
    const key='parking:'+clientIp(request);if(await tooMany(env,key,30,10))return err('요청이 많습니다. 잠시 후 다시 시도해 주세요.',429);await hit(env,key,10);
@@ -34,7 +33,6 @@ export async function onRequest({request,env,params,waitUntil}){
    if(!settings.enabled||!C.live)return err('주차권 온라인 판매를 준비 중입니다. 카카오톡으로 문의해 주세요.',503);
    const d=await readJson(request);if(d.vehicles!==undefined)return await prepareParkingBatch(request,env,settings,C,d);const v=parkingInput(d,{dailyAllowed:settings.daily_enabled,pass24Allowed:settings.pass24_enabled});if(v.error)return err(v.error);
    if(fullDayTicket(v.ticket)&&str(v.ticket==='24h'?d.pass24_terms:d.daily_terms,500)!==parkingTicketTerms(settings,v.ticket))return err('선택한 주차권의 이용 조건이 변경되었습니다. 새로고침 후 확인해 주세요.',409);
-   if(v.date===kstToday()&&!arrivalWindow())return err('당일 주차권은 10:00부터 23:50 전까지 구매·입차 요청이 가능합니다. 다른 날짜를 선택하거나 카카오톡으로 문의해 주세요.');
    // The UI requires an explicit extra-purchase confirmation. Do not reveal other buyers' orders.
    const duplicate=await env.DB.prepare("SELECT COUNT(*) AS n FROM parking_orders p JOIN orders o ON o.oid=COALESCE(p.payment_oid,p.oid) WHERE p.plate=? AND p.visit_date=? AND o.status='paid'").bind(v.plate,v.date).first();
    if(duplicate.n&&!d.confirm_extra)return err('동일 차량·이용일에 결제된 주차권이 있습니다. 추가 구매가 맞는지 확인해 주세요.',409,'EXTRA_CONFIRM');
@@ -73,7 +71,7 @@ export async function onRequest({request,env,params,waitUntil}){
   if(method!=='POST')return err('지원하지 않는 요청입니다.',405);
   if(p.payment_status!=='paid'||(p.refunded_amount>0||p.refund_hold))return err('결제·환불 상태를 먼저 확인해 주세요.',409);
   if(m[2]==='arrive'){
-   if(p.visit_date!==kstToday()||!arrivalWindow())return err('이용일 10:00부터 23:50 전까지 입차 후 알려 주세요. 그 외 시간은 카카오톡으로 문의해 주세요.',409);
+   if(p.visit_date!==kstToday()||!arrivalWindow())return err('선택한 이용일에 입차한 뒤 알려 주세요. 날짜가 다르면 카카오톡으로 문의해 주세요.',409);
    if(p.refund_requested_at&&!p.refund_reviewed_at)return err('취소 요청 검토 중입니다.',409);
    await env.DB.prepare("UPDATE parking_orders SET arrival_at=COALESCE(arrival_at,?),status=CASE WHEN status='waiting' THEN 'requested' ELSE status END,updated_at=? WHERE oid=? AND status IN ('waiting','requested') AND (refund_requested_at IS NULL OR refund_reviewed_at IS NOT NULL)").bind(now(),now(),p.oid).run();
   }else{

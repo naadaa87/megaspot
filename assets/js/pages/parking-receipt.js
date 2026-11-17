@@ -34,7 +34,7 @@
    +'<p class="pk-receipt-meta">'+esc(p.ticket_label)+' · '+won(p.price)+'</p>'
    +(p.valid_until?'<p class="pk-validity"><b>이용 종료</b> '+esc(stamp(p.valid_until))+'</p>':p.ticket==='24h'?'<p class="pk-validity">입차 확인 후 이용 종료 시각을 안내합니다.</p>':'')
    +'<p class="pk-receipt-hint">'+esc(s.hint)+'</p>'
-   +(action?'<div class="pk-arrival-action"><button class="btn btn-primary" data-action="arrive"'+(canArrive?'':' disabled')+'>입차했어요 · 등록 요청</button>'+(canArrive?'<p class="pk-arrival-help">이미 입차했다면 눌러 주세요. 바로 다시 확인합니다.</p>':'<p class="pk-help">이용일 10:00부터 23:50 전까지 입차 요청이 가능합니다.</p>')+'</div>':'')
+   +(action?'<div class="pk-arrival-action"><button class="btn btn-primary" data-action="arrive"'+(canArrive?'':' disabled')+'>입차했어요 · 등록 요청</button>'+(canArrive?'<p class="pk-arrival-help">이미 입차했다면 눌러 주세요. 바로 다시 확인합니다.</p>':'<p class="pk-help">선택한 이용일에 입차한 뒤 알려 주세요.</p>')+'</div>':'')
    +'<details class="pk-receipt-more" data-detail-key="'+oid+':detail"'+open(p.oid+':detail',options.expanded)+'><summary>차량 상세 내역</summary><dl class="pk-detail"><dt>이용일</dt><dd>'+esc(date(p.visit_date))+'</dd><dt>주문번호</dt><dd>'+oid+'</dd>'
    +(p.applied_at?'<dt>기존 등록 이력</dt><dd>'+esc(stamp(p.applied_at))+'</dd>':'')
    +(p.daily_terms?'<dt>이용 조건</dt><dd>'+esc(p.daily_terms)+'</dd>':'')
@@ -52,7 +52,7 @@
    +'<p class="pk-receipt-meta">'+(days.length===1?'이용일 '+esc(date(days[0]))+' · ':'')+items.length+'대</p>'
    +'<div class="pk-status-counts" aria-label="차량별 등록 현황" aria-live="polite" aria-atomic="true">'+Object.values(counts).map(function(c){return '<span class="pk-state pk-tone-'+c.tone+'">'+c.label+' '+c.n+'대</span>';}).join('')+'</div>'
    +'<details class="pk-receipt-more" data-detail-key="payment"'+open('payment',options.expanded)+'><summary>결제 상세 보기</summary><dl class="pk-detail"><dt>결제번호</dt><dd>'+esc(payment.oid)+'</dd>'+(payment.refunded_amount?'<dt>취소 누적</dt><dd>'+won(payment.refunded_amount)+'</dd>':'')+'</dl></details></div>'
-   +(registering?'<div class="pk-receipt-guidance"><p><strong>버튼을 누르지 않아도 자동 등록됩니다.</strong></p><p>결제·입차 확인 후 바로 등록을 시작합니다. 입차 정보 반영이 늦으면 약 1분 뒤 다시 확인합니다.</p><p class="pk-help">출차 전 <b>등록 완료</b>를 확인해 주세요.</p></div>':'')
+   +(registering?'<div class="pk-receipt-guidance"><p><strong>버튼을 누르지 않아도 자동 등록됩니다.</strong></p><p>결제·입차 확인 후 바로 등록을 시작합니다. 야간·주말·공휴일에도 확인하며, 입차 정보 반영이 늦으면 약 1분 뒤 다시 확인합니다.</p><p class="pk-help">출차 전 <b>등록 완료</b>를 확인해 주세요.</p></div>':'')
    +'<div class="pk-receipt-list">'+items.map(function(p){return card(p,r,options);}).join('')+'</div>'
    +'<div class="pk-receipt-actions"><button class="btn btn-light" id="pk-refresh">상태 새로고침</button><button class="btn btn-light" id="pk-copy">구매 링크 복사</button><a class="btn btn-light" href="https://pf.kakao.com/_LnxbmX/chat" target="_blank" rel="noopener">카카오톡 문의</a><a class="text-link" href="/parking/purchase/">주차권 추가 구매 →</a></div>'
    +'<p class="pk-help">구매 링크를 보관하면 다른 기기에서도 내역을 확인할 수 있습니다.</p>';

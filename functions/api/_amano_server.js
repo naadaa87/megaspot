@@ -19,10 +19,16 @@ export async function amanoAdmin(request,env,path){
 // This endpoint is reserved for the user's authenticated parking server.
 import {equalSecret} from './_payapp.js';
 import {kstToday} from './_lib.js';
-import {parkingDate,parkingAdmin,JOIN} from './_parking.js';
+import {arrivalWindow,parkingAdmin,JOIN} from './_parking.js';
 import {parkingBatchAudit} from './_parking_audit.js';
-export function amanoOperating(at=Date.now()){
- const kst=new Date(at+9*36e5).toISOString();return parkingDate(kst.slice(0,10))&&Number(kst.slice(11,13))>=10;
+export function amanoOperating(at=Date.now()){return arrivalWindow(at);}
+// Allow already-paid late-night hourly/24h orders a short handover window.
+// Their entry date must still match the original visit date exactly.
+export function amanoPreviousDate(at=Date.now()){
+ const kst=new Date(at+9*36e5).toISOString();return kst.slice(11,16)<'00:30'?new Date(at-864e5+9*36e5).toISOString().slice(0,10):'';
+}
+export function amanoEligible(p,at=Date.now()){
+ const today=new Date(at+9*36e5).toISOString().slice(0,10);return p.visit_date===today||p.visit_date===amanoPreviousDate(at)&&(p.ticket!=='daily'||p.status==='processing');
 }
 export async function amanoAutomation(request,env){
  if(request.method!=='POST'||String(env.ALIGO_RELAY_SECRET||'').length<32)return err('허용되지 않은 요청입니다.',403);
@@ -35,10 +41,10 @@ export async function amanoAutomation(request,env){
  const operating=amanoOperating();
  if(d.action==='orders'){
   if(!operating)return json({ok:true,operating:false,date:kstToday(),items:[]});
-  const {results}=await env.DB.prepare("SELECT oid,plate,visit_date,ticket,hours,status,price FROM ("+JOIN+") WHERE payment_status='paid' AND test=0 AND visit_date=? AND status IN ('waiting','requested') AND (refund_requested_at IS NULL OR refund_reviewed_at IS NOT NULL) AND refunded_amount=0 AND refund_hold=0 ORDER BY created_at,oid LIMIT 50").bind(kstToday()).all();return json({ok:true,operating:true,date:kstToday(),items:results||[]});
+  const {results}=await env.DB.prepare("SELECT oid,plate,visit_date,ticket,hours,status,price FROM ("+JOIN+") WHERE payment_status='paid' AND test=0 AND (visit_date=? OR (visit_date=? AND ticket<>'daily')) AND status IN ('waiting','requested') AND (refund_requested_at IS NULL OR refund_reviewed_at IS NOT NULL) AND refunded_amount=0 AND refund_hold=0 ORDER BY created_at,oid LIMIT 50").bind(kstToday(),amanoPreviousDate()).all();return json({ok:true,operating:true,date:kstToday(),items:results||[]});
  }
  if(!['claim','complete','issue','order'].includes(d.action)||!/^MS[A-Z0-9]{1,38}$/.test(d.oid||''))return err('허용되지 않은 작업입니다.',400);
- const p=await env.DB.prepare(JOIN+' WHERE p.oid=? AND o.test=0').bind(d.oid).first();if(!p||p.test||p.visit_date!==kstToday())return err('당일 주차권 주문만 처리할 수 있습니다.',409);
+ const p=await env.DB.prepare(JOIN+' WHERE p.oid=? AND o.test=0').bind(d.oid).first();if(!p||p.test||!amanoEligible(p))return err('이용일의 주차권 주문만 처리할 수 있습니다.',409);
  if(d.action==='order')return json({ok:true,order:{oid:p.oid,plate:p.plate,visit_date:p.visit_date,ticket:p.ticket,status:p.status,price:p.price,payment_status:p.payment_status,refunded_amount:p.refunded_amount,refund_pending:!!(p.refund_hold||p.refund_requested_at&&!p.refund_reviewed_at),free_hours:p.free_hours,paid_hours:p.paid_hours,entry_id:p.entry_id,entry_at:p.entry_at}});
  if(!operating)return err('주차 등록 운영시간이 아닙니다.',409);
  if(d.action!=='issue'&&(p.payment_status!=='paid'||p.refunded_amount||p.refund_hold||p.refund_requested_at&&!p.refund_reviewed_at))return err('결제·환불 상태가 변경되었습니다.',409);

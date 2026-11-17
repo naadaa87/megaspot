@@ -6,9 +6,9 @@ import {fixture} from './helpers/parking-fixture.mjs';
 const ORIGIN='https://megaspot.test';
 test('차량번호 정규화·전체 재입력·정책 확인·판매 기간·일일권 미확정 검증',t=>{
  const f=fixture(t);assert.equal(plateOf(' 123 가-4567 '),'123가4567');assert.equal(plateOf('서울12가3456'),'서울12가3456');assert.equal(plateOf('4567'),null);
- for(const extra of [{plate_confirm:'123가4568'},{price:1,confirmed:false},{ticket:'daily'},{date:'2026-11-01'},{date:'2026-12-25'},{phone:'abc'},{agree_privacy:'false'},{ticket:['1h']},{ticket:'constructor'},{ticket:'__proto__'}])assert.ok(parkingInput(f.input(extra)).error,JSON.stringify(extra));
+ for(const extra of [{plate_confirm:'123가4568'},{price:1,confirmed:false},{ticket:'daily'},{date:'2026-11-01'},{phone:'abc'},{agree_privacy:'false'},{ticket:['1h']},{ticket:'constructor'},{ticket:'__proto__'}])assert.ok(parkingInput(f.input(extra)).error,JSON.stringify(extra));
  assert.equal(parkingInput(f.input({price:1})).price,8000);
- assert.equal(arrivalWindow(Date.parse('2026-11-03T09:59:00+09:00')),false);assert.equal(arrivalWindow(Date.parse('2026-11-03T17:49:00+09:00')),true);assert.equal(arrivalWindow(Date.parse('2026-11-03T17:50:00+09:00')),true);
+ assert.equal(arrivalWindow(Date.parse('2026-11-03T09:59:00+09:00')),true);assert.equal(arrivalWindow(Date.parse('2026-11-03T17:49:00+09:00')),true);assert.equal(arrivalWindow(Date.parse('2026-11-03T17:50:00+09:00')),true);
 });
 test('판매는 기본 준비 상태·관리자 인증·외부 출처 요청 거절',async t=>{
  const f=fixture(t);assert.equal((await(await f.call('config')).json()).enabled,false);assert.equal((await f.call('prepare','POST',f.input())).status,503);
@@ -22,11 +22,11 @@ test('주차 결제는 서버 판매가·서명 통보만 사용하고 예약을
  assert.equal((await f.call('orders/'+p.oid)).status,403);assert.equal((await f.call('orders/'+p.oid,'GET',undefined,'a'.repeat(64))).status,403);
  const publicData=await(await f.call('orders/'+p.oid,'GET',undefined,p.key)).json();for(const secret of ['token_hash','free_hours','buyer_phone','memo','test-link'])assert.ok(!JSON.stringify(publicData).includes(secret));
 });
-test('입차 알림은 운영일·운영시간·결제 확인 후에만 접수한다',async t=>{
+test('입차 알림은 시간 제한 없이 이용일·결제 확인 후에만 접수한다',async t=>{
  const f=fixture(t),p=await f.buy();assert.equal((await f.call('orders/'+p.oid+'/arrive','POST',{},p.key)).status,409);await f.feedback(p);
  assert.equal((await f.call('orders/'+p.oid+'/arrive','POST',{},p.key)).status,200);assert.equal((await f.get(p)).status,'requested');
  t.mock.method(Date,'now',()=>Date.parse('2026-11-03T19:00:00+09:00'));assert.equal((await f.call('orders/'+p.oid+'/arrive','POST',{},p.key)).status,200);
- t.mock.method(Date,'now',()=>Date.parse('2026-11-03T23:50:00+09:00'));assert.equal((await f.call('orders/'+p.oid+'/arrive','POST',{},p.key)).status,409);
+ t.mock.method(Date,'now',()=>Date.parse('2026-11-03T23:50:00+09:00'));assert.equal((await f.call('orders/'+p.oid+'/arrive','POST',{},p.key)).status,200);
 });
 test('1·2·3시간권 각각 무료1+유료0·1·2 배정',async t=>{
  const f=fixture(t);let i=1;for(const ticket of ['1h','2h','3h']){const p=await f.buy({ticket,plate:'123가'+String(4500+i),plate_confirm:'123가'+String(4500+i)});await f.feedback(p);const r=await f.claim(p,{entry_id:'ENTRY-'+i,plate_confirm:'123가'+String(4500+i)});assert.equal(r.status,200,await r.text());const row=f.db.prepare('SELECT * FROM parking_orders WHERE oid=?').get(p.oid);assert.equal(row.free_hours,1);assert.equal(row.paid_hours,i-1);i++;}
