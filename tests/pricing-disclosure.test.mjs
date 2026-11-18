@@ -49,10 +49,10 @@ test('2호 주차는 무료 시설 목록과 견적서에서 분리되어 유료
  assert(!ui.D.included.some(x=>/주차/.test(x.label)));
  const included={innerHTML:''};ui.R.included(included);
  assert(!/<div class="inc[^>]*">[^<]*주차/.test(included.innerHTML));
- assert.match(included.innerHTML,/건물 주차 최대 140대 · 유료/);assert.match(included.innerHTML,/href="\/parking\/"/);
+ assert.match(included.innerHTML,/건물 주차 120여 대 · 유료/);assert.match(included.innerHTML,/href="\/parking\/"/);
  ui.renderQuoteSheet(ui.E.quote({date:'2026-11-16',start:7,end:8,people:50}),'');
  const free=print.innerHTML.match(/<h3>기본 제공 \(무료\)<\/h3>([\s\S]*?)<h3>유료 시설<\/h3>/)[1];
- assert(!free.includes('주차'));assert.match(print.innerHTML,/<h3>유료 시설<\/h3>[\s\S]*주차 최대/);
+ assert(!free.includes('주차'));assert.match(print.innerHTML,/<h3>유료 시설<\/h3>[\s\S]*건물 주차 120여 대/);
 });
 
 test('제작 예외는 2시간 전액 환불을 유지하고 제작 상품에만 적용하며 정적 정책과 일치한다',()=>{

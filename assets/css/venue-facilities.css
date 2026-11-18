@@ -1,0 +1,32 @@
+/* 공간 상세 · 시설·장비 픽토그램 목록 (건대 2호, 2026-11-18) — 밝은 바탕 + 코발트 포인트 */
+.vf-grid{display:grid;gap:12px;grid-template-columns:repeat(2,minmax(0,1fr));margin-top:28px;list-style:none;padding:0}
+@media (min-width:760px){.vf-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (min-width:1100px){.vf-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.vf{position:relative;display:grid;align-content:start;gap:8px;padding:20px 18px 18px;background:var(--white);border:1px solid var(--concrete);border-radius:var(--radius-lg);transition:border-color .15s,box-shadow .15s}
+.vf:hover{border-color:#BFD0F5;box-shadow:0 6px 18px rgba(31,83,213,.07)}
+.vf-ico{display:grid;place-items:center;width:52px;height:52px;border-radius:14px;background:var(--cobalt-soft);color:var(--cobalt)}
+.vf-ico svg{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.vf h3{font-size:16.5px;letter-spacing:-.02em;line-height:1.35;margin-top:4px}
+.vf h3 b{color:var(--cobalt-2)}
+.vf p{font-size:13.5px;line-height:1.6;color:var(--ink-2)}
+.vf-tag{position:absolute;top:16px;right:14px;font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px;background:var(--concrete-3);color:var(--ink-2);border:1px solid var(--concrete-2)}
+.vf-tag.inc{background:var(--ok-soft);color:var(--ok);border-color:transparent}
+.vf-tag.paid{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+.vf.lead-item{background:var(--graphite);border-color:var(--graphite);color:#fff}
+.vf.lead-item .vf-ico{background:rgba(255,255,255,.12);color:#fff}
+.vf.lead-item h3{color:#fff}
+.vf.lead-item h3 b{color:#9DB7FF}
+.vf.lead-item p{color:rgba(255,255,255,.78)}
+.vf.lead-item .vf-tag{background:rgba(255,255,255,.12);color:#fff;border-color:transparent}
+.vf a{color:var(--cobalt-2);font-weight:700;text-decoration:underline}
+@media (max-width:480px){
+  .vf-grid{gap:8px}
+  .vf{padding:16px 12px 14px;gap:6px}
+  .vf-ico{width:44px;height:44px;border-radius:12px}
+  .vf-ico svg{width:26px;height:26px}
+  .vf h3{font-size:15px}
+  .vf p{font-size:12.5px}
+  .vf-tag{position:static;justify-self:start;order:3}
+}
+.vf-note{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:16px;font-size:13.5px;color:var(--ink-2)}
+.vf-note span::before{content:"·";margin-right:6px;color:var(--cobalt)}
