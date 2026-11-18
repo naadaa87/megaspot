@@ -131,6 +131,7 @@
   $('revenue-trend-year').addEventListener('change',()=>{if(filters)loadTrend();});
   ['revenue-from','revenue-to'].forEach(id=>$(id).addEventListener('change',()=>{$('revenue-month-select').value='';$('revenue-trend-year').value=form.elements.from.value.slice(0,4);}));
   $('revenue-category').addEventListener('change',()=>{$('revenue-component').value='';});
+  $('revenue-show-all').addEventListener('click',()=>{form.elements.category.value='';form.elements.component.value='';form.elements.channel.value='';search();});
   $('revenue-clear-component').addEventListener('click',()=>{$('revenue-component').value='';search();});
   $('revenue-categories').addEventListener('click',e=>{const b=e.target.closest('[data-revenue-category]');if(b){form.elements.category.value=filters.get('category')===b.dataset.revenueCategory?'':b.dataset.revenueCategory;$('revenue-component').value='';search();}});
   $('revenue-components').addEventListener('click',e=>{const b=e.target.closest('[data-revenue-component]');if(b){form.elements.category.value=b.dataset.category;$('revenue-component').value=b.dataset.revenueComponent;search();}});

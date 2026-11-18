@@ -419,7 +419,7 @@
           </div>
           <section class="adm-card"><h2>결제 채널별 비중</h2><p class="tiny muted">수납액 기준 · 환불액은 아래에 별도 표시</p><div id="revenue-channel-shares"></div></section>
         </div>
-        <section class="adm-card mt-3"><h2>매출 세부 구성</h2><p class="tiny muted">공간대관·식음료·청소지원·현수막 등 실제 수납·환불의 항목별 금액입니다.</p><div class="revenue-table-wrap" id="revenue-components"></div><p class="tiny muted mt-2">묶음 수납은 저장된 주문·견적 비율로 배분합니다. 구성 근거가 없으면 ‘구성 미분류’로 남으며, 거래 내역의 ‘분류’에서 직접 지정할 수 있습니다.</p></section>
+        <section class="adm-card mt-3"><div class="revenue-section-head"><h2>매출 세부 구성</h2><button type="button" class="btn btn-light btn-sm" id="revenue-show-all" title="선택한 기간·지점의 전체 매출 보기">전체보기</button></div><p class="tiny muted">공간대관·식음료·청소지원·현수막 등 실제 수납·환불의 항목별 금액입니다.</p><div class="revenue-table-wrap" id="revenue-components"></div><p class="tiny muted mt-2">묶음 수납은 저장된 주문·견적 비율로 배분합니다. 구성 근거가 없으면 ‘구성 미분류’로 남으며, 거래 내역의 ‘분류’에서 직접 지정할 수 있습니다.</p></section>
         <section class="adm-card mt-3" id="revenue-upcoming"><h2>입금 확인 전 예정 예약</h2><p class="tiny muted">조회 기간과 지점에 해당하는 예정 예약입니다. 수납을 기록하면 해당 이용월 매출에 반영됩니다.</p><div id="revenue-upcoming-items"></div></section>
         <section class="adm-card mt-3"><h2>날짜별 매출</h2><p class="tiny muted">날짜를 선택하면 아래 거래 내역에서 해당 날짜만 볼 수 있습니다. 지점별 열은 순매출입니다.</p><div class="revenue-table-wrap" id="revenue-daily"></div></section>
         <section class="adm-card mt-3" id="revenue-detail"><div class="revenue-detail-head"><h2>거래 내역</h2><button class="btn btn-light btn-sm" type="button" id="revenue-clear-day" hidden>날짜 필터 해제</button></div><p class="tiny muted" id="revenue-detail-label" aria-live="polite"></p><div class="revenue-table-wrap" id="revenue-items"></div><div class="revenue-pagination" id="revenue-pagination" hidden><button type="button" class="btn btn-light btn-sm" id="revenue-prev">이전</button><span id="revenue-page" class="small"></span><button type="button" class="btn btn-light btn-sm" id="revenue-next">다음</button></div></section>
@@ -741,7 +741,7 @@
 <script src="/assets/js/pages/admin-cancellation.js?v=20261104retry1"></script>
 <script src="/assets/js/pages/admin-booking-notifications.js?v=c6fc7015286c"></script>
 <script src="/assets/js/pages/admin-transaction-notifications.js?v=20261118feedbackdelivery1"></script>
-<script src="/assets/js/pages/admin-revenue.js?v=20261118revenueanalysis1"></script>
+<script src="/assets/js/pages/admin-revenue.js?v=20261118revenueall1"></script>
 <script src="/assets/js/pages/admin-hostplat.js?v=20261114assist1"></script>
 <script src="/assets/js/pages/admin-kpi.js?v=20261114kpi1"></script>
 <script src="/assets/js/pages/admin-members.js?v=20261114mbr1"></script>
