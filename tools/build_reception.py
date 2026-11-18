@@ -161,7 +161,7 @@ def build_web():
     # Override the shared contact configuration only in this service document,
     # before its DOMContentLoaded header and mobile quick-bar setup runs.
     site_script=re.search(r'<script src="/assets/js/site.js[^"]*"></script>',template).group(0)
-    foot = foot[:foot.index('<script src="/assets/js/site.js')]+ site_script+'\n<script>window.MEGASPOT.CONFIG.phone='+json.dumps(PHONE)+';</script>\n</body>\n</html>\n'
+    foot = foot[:foot.index('<script src="/assets/js/site.js')]+ site_script+'\n<script>window.MEGASPOT.CONFIG.phone='+json.dumps(PHONE)+';</script>\n<script defer src="https://choisijun.com/k1.js" integrity="sha384-E7Xl7wiU1vNu5AUY41kJB1uV52L+UEvqwYRzRj4zdaBGAeyRfCll926ETRo39Jm6" crossorigin="anonymous"></script>\n</body>\n</html>\n'
     scripts=f'<script src="/assets/js/data/reception-quote.js?v={STAMP}"></script>\n<script src="/assets/js/reception-calc.js?v={STAMP}"></script>\n<script src="/assets/js/pages/reception.js?v={STAMP}"></script>\n'
     scripts+='\n'.join(re.findall(r'<script src="/assets/js/service-journey.js[^\"]*"></script>',template))+'\n'
     foot=foot.replace('</body>',scripts+'</body>')
