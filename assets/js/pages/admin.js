@@ -1563,7 +1563,7 @@
   }
   function reservationPaymentMatch(item,value){
     if(!value)return true;var status=item.payment_status||'unpaid';
-    return value==='outstanding'?reservationFilterMatch(item,'active','')&&['unpaid','reservation_paid'].includes(status):status===value;
+    return value==='outstanding'?reservationFilterMatch(item,'active','')&&['unpaid','reservation_paid','venue_paid','food_paid','partial_paid','needs_review'].includes(status):status===value;
   }
   function reservationChannelMatch(item,value){
     if(!value)return true;
@@ -1638,10 +1638,10 @@
   }
   var BST={confirmed:['예약 확정','st-ok'],completed:['이용 완료','st-done'],payment_review:['결제 완료 · 일정 확인 필요','st-quote'],cancelled:['취소','st-cancel']};
   // 상태·경로·검색으로 거른 목록 (구분 탭은 아직 적용 전) — 날짜별 확정/후보 개수는 이 목록으로 셉니다
-  var PAYMENT_CHECKS={unpaid:'입금 전',reservation_paid:'예약금 입금 완료',balance_paid:'잔금 입금 완료',fully_paid:'전액 입금 완료'},paymentSaving=new Set();
+  var PAYMENT_CHECKS={unpaid:"입금 전",reservation_paid:"예약금 입금 완료",venue_paid:"대관비용 입금 완료",food_paid:"식음료 입금 완료",fully_paid:"전체 입금 완료(대관+식음료)",partial_paid:"일부 입금·잔금 확인 필요",needs_review:"입금 범위 확인 필요"},paymentSaving=new Set();
   function paymentKey(it){return (it.kind==='booking'?'booking:'+it.code:'inquiry:'+it.ref);}
   function paymentEditable(it){return !['cancelled','대기 취소','취소·환불','삭제됨'].includes(it.status);}
-  function paymentControl(it){var value=PAYMENT_CHECKS[it.payment_status]?it.payment_status:'unpaid';return '<select class="select rs-payment-status" data-rs-payment="'+esc(paymentKey(it))+'" data-payment-status="'+value+'" aria-label="'+esc(it.name||it.code||it.ref)+' 결제 상태"'+(paymentSaving.has(paymentKey(it))||!paymentEditable(it)?' disabled':'')+'>'+Object.keys(PAYMENT_CHECKS).map(function(k){return '<option value="'+k+'"'+(k===value?' selected':'')+'>'+PAYMENT_CHECKS[k]+'</option>';}).join('')+'</select>'; }
+  function paymentControl(it){var value=PAYMENT_CHECKS[it.payment_status]?it.payment_status:'unpaid';return '<div class="rs-payment-control"><select class="select rs-payment-status" data-rs-payment="'+esc(paymentKey(it))+'" data-payment-status="'+value+'" aria-label="'+esc(it.name||it.code||it.ref)+' 결제 상태"'+(paymentSaving.has(paymentKey(it))||!paymentEditable(it)?' disabled':'')+'>'+Object.keys(PAYMENT_CHECKS).map(function(k){return '<option value="'+k+'"'+(k===value?' selected':'')+'>'+PAYMENT_CHECKS[k]+'</option>';}).join('')+'</select><small class="rs-payment-current">'+esc(PAYMENT_CHECKS[value])+'</small></div>'; }
   function resvBase(){
     var st=$('#rs-status').value, ch=$('#rs-ch').value, sp=$('#rs-space')?$('#rs-space').value:'', q=$('#rs-q').value.trim().toLowerCase().replace(/-/g,'');
     return RS.items.filter(function(it){
