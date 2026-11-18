@@ -1639,9 +1639,9 @@
   }
   var BST={confirmed:['예약 확정','st-ok'],completed:['이용 완료','st-done'],payment_review:['결제 완료 · 일정 확인 필요','st-quote'],cancelled:['취소','st-cancel']};
   // 상태·경로·검색으로 거른 목록 (구분 탭은 아직 적용 전) — 날짜별 확정/후보 개수는 이 목록으로 셉니다
-  var PAYMENT_CHECKS={unpaid:"입금 전",reservation_paid:"예약금 입금 완료",venue_paid:"대관비용 입금 완료",food_paid:"식음료 입금 완료",fully_paid:"전체 입금 완료(대관+식음료)",partial_paid:"일부 입금·잔금 확인 필요",needs_review:"입금 범위 확인 필요"},paymentSaving=new Set();
+  var PAYMENT_CHECKS={unpaid:"입금 전",reservation_paid:"예약금 입금 완료",venue_paid:"대관비용 입금 완료",food_paid:"식음료 입금 완료",venue_fully_paid:"전체 입금 완료(대관)",fully_paid:"전체 입금 완료(대관+식음료)",partial_paid:"일부 입금·잔금 확인 필요",needs_review:"입금 범위 확인 필요"},paymentSaving=new Set();
   function paymentBadge(item,calendar){
-    var type=item.booking_code||item.kind==='booking'?'booking':'inquiry',ref=type==='booking'?(item.booking_code||item.code):item.ref,status=PAYMENT_CHECKS[item.payment_status]?item.payment_status:'unpaid',text=PAYMENT_CHECKS[status],short={unpaid:'입금 전',reservation_paid:'예약금 완료',venue_paid:'대관 완료',food_paid:'식음료 완료',fully_paid:'전체 완료',partial_paid:'일부 입금',needs_review:'범위 확인'},name=item.customer_name||item.name||ref||'',disabled=!ref||!paymentEditable(item);
+    var type=item.booking_code||item.kind==='booking'?'booking':'inquiry',ref=type==='booking'?(item.booking_code||item.code):item.ref,status=PAYMENT_CHECKS[item.payment_status]?item.payment_status:'unpaid',text=PAYMENT_CHECKS[status],short={unpaid:'입금 전',reservation_paid:'예약금 완료',venue_paid:'대관 완료',food_paid:'식음료 완료',venue_fully_paid:'대관 전체 완료',fully_paid:'대관+식음료 완료',partial_paid:'일부 입금',needs_review:'범위 확인'},name=item.customer_name||item.name||ref||'',disabled=!ref||!paymentEditable(item);
     return '<button type="button" class="adm-payment-badge'+(calendar?' cal-payment-badge':'')+'" data-payment-editor="'+esc(type+'/'+(ref||''))+'" data-payment-status="'+status+'" aria-haspopup="dialog" aria-label="'+esc(name+' 결제 상태: '+text+' — 변경')+'" title="'+esc(text)+'"'+(disabled?' disabled':'')+'>결제 · '+esc(calendar?short[status]:text)+' ⌄</button>';
   }
   function paymentKey(it){return (it.kind==='booking'?'booking:'+it.code:'inquiry:'+it.ref);}

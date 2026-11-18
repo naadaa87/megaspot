@@ -1,20 +1,27 @@
 // Operator payment checklist. Does not create receipts, refunds, booking confirmations or messages.
 import {json,err,readJson,now} from './_lib.js';
+import {completionScopeSql} from './_payment_completion_scope.js';
 import {settlementsFor} from './_settlement.js';
-export const PAYMENT_CHECKS={unpaid:"입금 전",reservation_paid:"예약금 입금 완료",venue_paid:"대관비용 입금 완료",food_paid:"식음료 입금 완료",fully_paid:"전체 입금 완료(대관+식음료)",partial_paid:"일부 입금·잔금 확인 필요",needs_review:"입금 범위 확인 필요"};
+export const PAYMENT_CHECKS={unpaid:"입금 전",reservation_paid:"예약금 입금 완료",venue_paid:"대관비용 입금 완료",food_paid:"식음료 입금 완료",venue_fully_paid:"전체 입금 완료(대관)",fully_paid:"전체 입금 완료(대관+식음료)",partial_paid:"일부 입금·잔금 확인 필요",needs_review:"입금 범위 확인 필요"};
 const key=(kind,ref)=>kind+':'+ref;
 const changed=r=>Number(r?.meta?.changes??r?.changes??0);
 export function inferredPaymentCheck(item,settlement,legacy=false){
  const net=Number(settlement?.net)||0,amount=settlement?.amount??item.amount;
- if(net>0&&Number.isFinite(amount)&&amount>0&&net>=amount)return 'fully_paid';
+ if(net>0&&Number.isFinite(amount)&&amount>0&&net>=amount)return item.completion_status||'needs_review';
  return legacy?'reservation_paid':net>0?'partial_paid':'unpaid';
 }
 export async function paymentChecksFor(env,items,settlements={}){
- const out={},refs=[...new Set(items.map(x=>x.kind==='booking'?x.code:x.ref).filter(Boolean))],linked=[...new Set(items.map(x=>x.ref).filter(Boolean))],saved={},legacy={};
- for(let i=0;i<refs.length;i+=80){const group=refs.slice(i,i+80),{results}=await env.DB.prepare(`SELECT * FROM reservation_payment_scopes WHERE target_ref IN (${group.map(()=>'?').join(',')})`).bind(...group).all();for(const r of results||[])saved[key(r.target_type,r.target_ref)]=r;}
+ const out={},refs=[...new Set(items.map(x=>x.kind==='booking'?x.code:x.ref).filter(Boolean))],linked=[...new Set(items.map(x=>x.ref).filter(Boolean))],saved={},legacy={},completion={};
+ for(let i=0;i<refs.length;i+=80){const group=refs.slice(i,i+80),{results}=await env.DB.prepare(`SELECT * FROM reservation_payment_scopes_v2 WHERE target_ref IN (${group.map(()=>'?').join(',')})`).bind(...group).all();for(const r of results||[])saved[key(r.target_type,r.target_ref)]=r;}
  for(let i=0;i<linked.length;i+=80){const group=linked.slice(i,i+80),{results}=await env.DB.prepare(`SELECT ref,json_extract(checks,'$.deposit_paid') AS paid FROM inquiry_checks WHERE ref IN (${group.map(()=>'?').join(',')})`).bind(...group).all();for(const r of results||[])legacy[r.ref]=r.paid!=null&&r.paid!==false&&r.paid!==0&&r.paid!==''&&r.paid!=='0';}
+ for(const type of ['booking','inquiry']){
+  const refs=[...new Set(items.filter(x=>(x.kind==='booking'?'booking':'inquiry')===type&&!saved[key(type,type==='booking'?x.code:x.ref)]&&type==='booking'&&(settlements[x.code]?.net||0)>0).map(x=>type==='booking'?x.code:x.ref).filter(Boolean))];
+  for(let i=0;i<refs.length;i+=80){const group=refs.slice(i,i+80),sql=type==='booking'?`SELECT b.booking_code AS target_ref,${completionScopeSql()} AS scope FROM bookings b LEFT JOIN inquiries i ON i.ref=b.inquiry_ref WHERE b.booking_code IN (${group.map(()=>'?').join(',')})`:`SELECT i.ref AS target_ref,${completionScopeSql('i.data','i.ref','NULL','NULL')} AS scope FROM inquiries i WHERE i.ref IN (${group.map(()=>'?').join(',')})`;
+   const {results}=await env.DB.prepare(sql).bind(...group).all();for(const r of results||[])completion[key(type,r.target_ref)]=r.scope;
+  }
+ }
  for(const item of items){const type=item.kind==='booking'?'booking':'inquiry',ref=type==='booking'?item.code:item.ref,row=saved[key(type,ref)],s=type==='booking'?settlements[item.code]:null;
-  out[key(type,ref)]={payment_status:row?.status||inferredPaymentCheck(item,s,!!legacy[item.ref]),payment_revision:row?.version||0,payment_updated_at:row?.updated_at||'',payment_source:row?'manual':s?.net>0?'ledger':legacy[item.ref]?'legacy':'default'};
+  out[key(type,ref)]={payment_status:row?.status||inferredPaymentCheck({...item,completion_status:completion[key(type,ref)]},s,!!legacy[item.ref]),payment_revision:row?.version||0,payment_updated_at:row?.updated_at||'',payment_source:row?'manual':s?.net>0?'ledger':legacy[item.ref]?'legacy':'default'};
  }
  return out;
 }
@@ -33,14 +40,14 @@ export async function reservationPaymentAdmin({env,request,path,method}){
  const table=type==='booking'?'bookings':'inquiries',column=type==='booking'?'booking_code':'ref',allowed=type==='booking'?"status IN ('confirmed','completed','payment_review')":"status NOT IN ('취소·환불','대기 취소','삭제됨')";
  const target=await env.DB.prepare(`SELECT status FROM ${table} WHERE ${column}=?`).bind(ref).first();if(!target)return err('예약 또는 문의를 찾을 수 없습니다.',404);
  const t=now();
- const write=env.DB.prepare(`INSERT INTO reservation_payment_scopes(target_type,target_ref,status,version,updated_at)
+ const write=env.DB.prepare(`INSERT INTO reservation_payment_scopes_v2(target_type,target_ref,status,version,updated_at)
   SELECT ?,?,?,1,? FROM ${table} WHERE ${column}=? AND ${allowed}
-   AND (?=0 OR EXISTS(SELECT 1 FROM reservation_payment_scopes WHERE target_type=? AND target_ref=? AND version=?))
-  ON CONFLICT(target_type,target_ref) DO UPDATE SET status=excluded.status,version=reservation_payment_scopes.version+1,updated_at=excluded.updated_at
-  WHERE reservation_payment_scopes.version=?`).bind(type,ref,d.status,t,ref,revision,type,ref,revision,revision);
+   AND (?=0 OR EXISTS(SELECT 1 FROM reservation_payment_scopes_v2 WHERE target_type=? AND target_ref=? AND version=?))
+  ON CONFLICT(target_type,target_ref) DO UPDATE SET status=excluded.status,version=reservation_payment_scopes_v2.version+1,updated_at=excluded.updated_at
+  WHERE reservation_payment_scopes_v2.version=?`).bind(type,ref,d.status,t,ref,revision,type,ref,revision,revision);
  const audit=env.DB.prepare("INSERT INTO event_log(kind,ref,actor,detail,created_at) SELECT 'reservation.payment_check',?,'admin',?,? WHERE changes()>0").bind(ref,JSON.stringify({target_type:type,status:d.status}),t);
  const results=await env.DB.batch([write,audit]);
  if(!changed(results[0]))return err('다른 관리자가 상태를 바꿨거나 취소된 건입니다. 새로고침 후 확인해 주세요.',409,'PAYMENT_CHECK_CHANGED');
- const row=await env.DB.prepare('SELECT * FROM reservation_payment_scopes WHERE target_type=? AND target_ref=?').bind(type,ref).first();
+ const row=await env.DB.prepare('SELECT * FROM reservation_payment_scopes_v2 WHERE target_type=? AND target_ref=?').bind(type,ref).first();
  return json({ok:true,payment_status:row.status,payment_revision:row.version,payment_updated_at:row.updated_at,payment_source:'manual'});
 }

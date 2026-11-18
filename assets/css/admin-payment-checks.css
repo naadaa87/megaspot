@@ -2,7 +2,7 @@
 #view-resv .rs-payment-status{width:100%;min-width:0;min-height:38px;height:auto;padding:7px 22px 7px 8px;font-size:12.5px;font-weight:700;line-height:1.4;box-sizing:border-box;border-radius:6px}
 #view-resv .rs-payment-status[data-payment-status="unpaid"]{background-color:#fff4e5;border-color:#e5c59b;color:#80450d}
 #view-resv .rs-payment-status[data-payment-status="reservation_paid"]{background-color:#eef2ff;border-color:#bfcbeb;color:#2442a3}
-#view-resv .rs-payment-status:is([data-payment-status="venue_paid"],[data-payment-status="food_paid"],[data-payment-status="fully_paid"]){background-color:#eaf6ee;border-color:#b9dcc5;color:#1d6541}
+#view-resv .rs-payment-status:is([data-payment-status="venue_paid"],[data-payment-status="food_paid"],[data-payment-status="fully_paid"],[data-payment-status="venue_fully_paid"]){background-color:#eaf6ee;border-color:#b9dcc5;color:#1d6541}
 #view-resv .rs-payment-status:disabled{opacity:.65}
 @media(min-width:1101px){
  #view-resv .rs-table th:nth-child(1){width:5%}#view-resv .rs-table th:nth-child(2){width:9%}#view-resv .rs-table th:nth-child(3){width:12%}#view-resv .rs-table th:nth-child(4){width:6%}#view-resv .rs-table th:nth-child(5){width:5%}#view-resv .rs-table th:nth-child(6){width:9%}#view-resv .rs-table th:nth-child(7){width:16%}#view-resv .rs-table th:nth-child(8){width:8%}#view-resv .rs-table th:nth-child(9){width:8%}#view-resv .rs-table th:nth-child(10){width:14%}#view-resv .rs-table th:nth-child(11){width:8%}
@@ -25,7 +25,7 @@
 .rs-payment-current{display:block;font-size:11px;line-height:1.5;margin-top:4px;overflow-wrap:anywhere;white-space:normal}
 #view-resv .rs-payment-status:is([data-payment-status="partial_paid"],[data-payment-status="needs_review"]){background-color:#fff4e5;border-color:#e5c59b;color:#80450d}
 .adm-payment-badge{max-width:100%;min-height:36px;padding:7px 10px;margin:6px 0;border:1px solid #d6c5a9;border-radius:6px;background:#fff4e5;color:#80450d;font:700 12px/1.5 var(--font-body);text-align:left;white-space:normal;overflow-wrap:anywhere;cursor:pointer}
-.adm-payment-badge[data-payment-status="fully_paid"]{background:#eaf6ee;border-color:#b9dcc5;color:#1d6541}
+.adm-payment-badge:is([data-payment-status="fully_paid"],[data-payment-status="venue_fully_paid"]){background:#eaf6ee;border-color:#b9dcc5;color:#1d6541}
 .adm-payment-badge:is([data-payment-status="venue_paid"],[data-payment-status="food_paid"],[data-payment-status="reservation_paid"]){background:#eef2ff;border-color:#bfcbeb;color:#2442a3}
 .adm-payment-badge:disabled{opacity:.6;cursor:default}
 .adm-payment-badge:focus-visible{outline:2px solid var(--cobalt);outline-offset:2px}

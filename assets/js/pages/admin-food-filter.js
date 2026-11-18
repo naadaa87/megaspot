@@ -6,7 +6,7 @@
   {key:'megaspot.admin.space-filter.v1',allowed:['','megaspot-gundae','megaspot-gundae-2'],ids:['bk-space-filter','rs-space','cal-filter']},
   {key:'megaspot.admin.status-filter.v1',allowed:['','active','confirmed','completed','cancelled','payment_review'],ids:['bk-filter','rs-status','cal-status-filter']},
   {key:'megaspot.admin.search-filter.v1',text:true,ids:['bk-q','rs-q','cal-q']},
-  {key:'megaspot.admin.payment-filter.v1',allowed:['','outstanding','unpaid','reservation_paid','venue_paid','food_paid','fully_paid','partial_paid','needs_review'],ids:['bk-payment-filter','rs-payment-filter','cal-payment-filter']},
+  {key:'megaspot.admin.payment-filter.v1',allowed:['','outstanding','unpaid','reservation_paid','venue_paid','food_paid','venue_fully_paid','fully_paid','partial_paid','needs_review'],ids:['bk-payment-filter','rs-payment-filter','cal-payment-filter']},
   {key:'megaspot.admin.channel-filter.v1',allowed:['','online','web','naver','spacecloud','sns','kakao','phone','email','visit','other'],ids:['bk-channel-filter','rs-ch','cal-channel-filter']}
  ];
  function valid(group,value){if(group.key==='megaspot.admin.payment-filter.v1'&&value==='balance_paid')value='needs_review';if(group.text)return typeof value==='string'?value.slice(0,120):'';return group.allowed.indexOf(value)>=0?value:'';}
