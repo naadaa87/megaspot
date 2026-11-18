@@ -98,12 +98,12 @@ async function paymentResult(env,code,duplicate=false){
  const settlement=await settlementFor(env,code),doc=parseDoc((await env.DB.prepare('SELECT confirm_doc FROM bookings WHERE booking_code=?').bind(code).first())?.confirm_doc);
  return json({ok:true,...(duplicate?{duplicate:true}:{}),settlement,confirmation:{issued:!!doc?.issued_at,current:!!doc?.issued_at&&doc.settlement?.revision===settlement.revision,issue_no:doc?.issue_no||0}});
 }
-async function paymentConfirmation(env,code,settlement,receivedDelta,refundedDelta,time){
+export async function paymentConfirmation(env,code,settlement,receivedDelta,refundedDelta,time){
  if(!['confirmed','completed'].includes(settlement.booking_status)||settlement.amount==null)return null;
  const after={...settlement,...S.calculate({...settlement,received:settlement.received+receivedDelta,refunded:settlement.refunded+refundedDelta}),manual_received:settlement.manual_received+receivedDelta,manual_refunded:settlement.manual_refunded+refundedDelta};
  return prepareSettlementConfirmation(env,code,after,null,time);
 }
-function paymentDocumentStatements(env,code,id,source,prepared,time){
+export function paymentDocumentStatements(env,code,id,source,prepared,time){
  const table=source==='entry'?'booking_payment_entries':'booking_payment_revisions';
  const guard=`EXISTS(SELECT 1 FROM ${table} WHERE booking_code=? AND request_id=?)`;
  if(!prepared)return [env.DB.prepare(`UPDATE bookings SET confirm_doc=NULL,updated_at=? WHERE booking_code=? AND changes()>0 AND ${guard}`).bind(time,code,code,id)];

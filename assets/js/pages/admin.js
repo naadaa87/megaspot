@@ -537,7 +537,7 @@
       +'<p class="tiny muted">'+(d.included_catering_amount||d.included_reception_amount||d.included_cocktail_amount?'현재 금액에는 견적에 추가한 식음료가 포함됩니다. ':'')+'여기서 직접 입력하면 공간 금액으로 저장되며 식음료는 상단 요약에서 별도로 합산합니다. 할인·추가 항목을 유지하려면 \'이 문의로 견적 계산\'에서 고쳐 저장하세요. 확정 예약의 금액을 바꾸면 확정서를 다시 발급해 주세요.</p></div>';
   }
   window.addEventListener('admin-settlement-saved',function(e){refreshLists();if(cur&&cur.item&&(cur.bookings||[]).some(function(b){return b.booking_code===e.detail.code;})&&!drawerDirty['adm-drawer'])openInquiry(cur.item.ref);});
-  window.addEventListener('admin-payment-status-saved',function(){refreshLists();if(!$('#view-calendar').hidden)loadCalendar();});
+  window.addEventListener('admin-payment-status-saved',function(e){if(!e.detail.receipt_added)refreshLists();if(!$('#view-calendar').hidden)loadCalendar();});
   window.addEventListener('admin-service-status-saved',function(){refreshLists();if(!$('#view-calendar').hidden)loadCalendar();});
   function refreshLists(){ if(!$('#view-visits').hidden) loadVisits(); if(!$('#view-inq').hidden) loadInq(); if(!$('#view-dash').hidden) loadDash(); if(!$('#view-resv').hidden) loadResv(); if(!$('#view-bookings').hidden) loadBookings(); }
   var LOGK={'inquiry.created':'접수','reserve.created':'예약 신청 접수','inquiry.updated':'상태·메모·금액 변경','inquiry.edited':'내용 수정','quote.saved':'견적 저장','booking.created':'예약 등록','inquiry.confirmed':'예약 확정 처리','inquiry.deleted':'삭제 (보관함으로)','inquiry.restored':'삭제 문의 복원','waitlist.updated':'대기 순번 변경','waitlist.cancelled':'대기 취소','waitlist.restored':'대기 복원','booking.updated':'예약 상태 변경','order.created':'주문 생성','order.paid':'결제 완료','order.updated':'주문 변경','visit.created':'현장답사 등록','catering.created':'출장뷔페 저장','catering.updated':'출장뷔페 변경','catering.status':'출장뷔페 상태 변경','catering.deleted':'출장뷔페 삭제','visit.updated':'현장답사 변경','visit.deleted':'현장답사 삭제'};
@@ -1753,13 +1753,9 @@
   $('#rs-search-clear').addEventListener('click', function(){ $('#rs-q').value=''; drawResv(); $('#rs-q').focus(); });
   $('#rs-list').addEventListener('change',function(e){
     var select=e.target.closest('[data-rs-payment]');if(!select)return;
-    var key=select.dataset.rsPayment,it=RS.items.find(function(x){return paymentKey(x)===key;});if(!it||paymentSaving.has(key))return;
-    var previous=it.payment_status||'unpaid',value=select.value,type=it.kind==='booking'?'booking':'inquiry',ref=it.kind==='booking'?it.code:it.ref;
-    paymentSaving.add(key);select.disabled=true;select.setAttribute('aria-busy','true');
-    A('/reservation-payment-checks/'+type+'/'+encodeURIComponent(ref),{method:'PUT',body:{status:value,expected_revision:it.payment_revision||0}}).then(function(r){
-      var current=RS.items.find(function(x){return paymentKey(x)===key;});if(current)Object.assign(current,{payment_status:r.payment_status,payment_revision:r.payment_revision,payment_updated_at:r.payment_updated_at,payment_source:r.payment_source});
-      paymentSaving.delete(key);if(RS.loading)loadResv();else{drawResv();var next=$$('#rs-list [data-rs-payment]').find(function(x){return x.dataset.rsPayment===key;});if(next)next.focus({preventScroll:true});else $('#rs-payment-filter').focus({preventScroll:true});}M.toast('결제 상태를 저장했습니다.');
-    }).catch(function(error){if(select.isConnected)select.value=previous;if(!guard(error)){M.toast(error.message||'저장 상태를 다시 확인해 주세요.');loadResv();}}).finally(function(){paymentSaving.delete(key);if(select.isConnected){select.disabled=false;select.removeAttribute('aria-busy');}});
+    var key=select.dataset.rsPayment,it=RS.items.find(function(x){return paymentKey(x)===key;});if(!it)return;
+    var value=select.value;select.value=it.payment_status||'unpaid';
+    window.dispatchEvent(new CustomEvent('admin-payment-editor-open',{detail:{target:(it.kind==='booking'?'booking/'+it.code:'inquiry/'+it.ref),status:value,trigger:select}}));
   });
   $('#rs-list').addEventListener('click', changeDeposit);
   $('#rs-reload').addEventListener('click', loadResv);

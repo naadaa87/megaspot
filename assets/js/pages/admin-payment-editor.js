@@ -1,29 +1,44 @@
-/* One payment scope editor for calendar and booking cards. Actual receipts stay unchanged. */
+/* Shared status editor. Cumulative gross receipts add only the unrecorded difference. */
 (function(){
  'use strict';
  var X=window.MEGASPOT_ADMIN,M=window.MEGASPOT;if(!X||!M)return;
  var dialog=document.createElement('dialog');dialog.id='adm-payment-editor';dialog.className='adm-payment-editor';dialog.setAttribute('aria-labelledby','ape-title');document.body.append(dialog);
- var target='',trigger=null,info=null,busy=false,request=0;
- function close(){if(busy)return;++request;if(dialog.open)dialog.close();target='';info=null;if(trigger&&trigger.isConnected)trigger.focus({preventScroll:true});trigger=null;}
+ var target='',trigger=null,info=null,busy=false,request=0,draft=null,pending=null,initialStatus='';
+ function money(n){return Number(n||0).toLocaleString('ko-KR')+'원';}
+ function place(){if(!dialog.open)return;var v=window.visualViewport,w=v?v.width:innerWidth,h=v?v.height:innerHeight,left=v?v.offsetLeft:0,top=v?v.offsetTop:0;dialog.style.maxHeight=Math.max(120,h-24)+'px';dialog.style.width=Math.min(420,w-24)+'px';dialog.style.left=(left+(w-dialog.getBoundingClientRect().width)/2)+'px';dialog.style.top=(top+Math.max(12,(h-dialog.getBoundingClientRect().height)/2))+'px';}
+ function close(){if(busy)return;++request;if(dialog.open)dialog.close();target='';info=null;draft=null;pending=null;if(trigger&&trigger.isConnected)trigger.focus({preventScroll:true});trigger=null;}
+ function receiptPreview(){if(!info||!info.receipt_available)return;var total=draft.total===''?null:Number(draft.total),s=info.settlement,delta=total==null?null:total-s.received,el=dialog.querySelector('#ape-delta');el.textContent=delta==null?'실제 받은 이용료의 누적 총액을 입력해 주세요.':delta<0?'기존 기록보다 작습니다. 수납·환불 기록에서 정정해 주세요.':'이번에 추가할 수납 '+money(delta)+(delta===0?' · 이미 등록된 입금은 추가하지 않습니다.':'');}
  function paint(message){
-  var labels=info&&info.choices||{};
-  dialog.innerHTML='<div class="ape-heading"><h2 id="ape-title">결제 상태 변경</h2><button type="button" class="btn btn-light btn-sm" data-ape-close'+(busy?' disabled':'')+'>닫기</button></div><p class="ape-customer">'+X.esc(info?info.name:'최신 상태를 불러오는 중…')+'</p>'
-   +(info?'<label for="ape-status">입금 확인 범위</label><select id="ape-status" class="select"'+(busy||!info.editable?' disabled':'')+'>'+Object.keys(labels).map(function(k){return '<option value="'+k+'"'+(k===info.payment_status?' selected':'')+'>'+X.esc(labels[k])+'</option>';}).join('')+'</select><p class="ape-selected">'+X.esc(labels[info.payment_status]||'')+'</p><p class="ape-help">전체 완료(대관)는 식음료 이용 없이 결제가 끝난 경우입니다. 대관비용 입금 완료는 식음료 결제가 남은 경우입니다. 실제 수납·환불 금액과 반환 보증금은 별도로 관리합니다.</p><button type="button" class="btn btn-primary" data-ape-save'+(busy||!info.editable?' disabled':'')+'>'+(busy?'저장 중…':'변경 저장')+'</button>':'')
+  var labels=info&&info.choices||{},s=info&&info.settlement;
+  dialog.innerHTML='<div class="ape-heading"><h2 id="ape-title">결제 상태·입금 기록</h2><button type="button" class="btn btn-light btn-sm" data-ape-close'+(busy?' disabled':'')+'>닫기</button></div><p class="ape-customer">'+X.esc(info?info.name:'최신 상태를 불러오는 중…')+'</p>'
+   +(info?'<label for="ape-status">입금 확인 범위</label><select id="ape-status" class="select"'+(busy||!info.editable?' disabled':'')+'>'+Object.keys(labels).map(function(k){return '<option value="'+k+'"'+(k===draft.status?' selected':'')+'>'+X.esc(labels[k])+'</option>';}).join('')+'</select><p class="ape-selected">'+X.esc(labels[draft.status]||'')+'</p>'
+    +(info.receipt_available?'<dl class="ape-balances"><div><dt>등록된 누적 이용료</dt><dd>'+money(s.received)+'</dd></div><div><dt>환불 완료</dt><dd>'+money(s.refunded)+'</dd></div><div><dt>현재 수납액</dt><dd>'+money(s.net)+'</dd></div><div><dt>남은 잔금</dt><dd>'+(s.balance==null?'금액 확인 필요':money(s.balance))+'</dd></div></dl><label for="ape-received-total">지금까지 받은 이용료 총액(원)</label><input id="ape-received-total" class="input" type="number" inputmode="numeric" min="0" max="1000000000" step="1" value="'+X.esc(draft.total)+'"'+(busy||!info.editable?' disabled':'')+'><p class="ape-help">이번 입금액이 아닌, 환불 전 누적 총액을 입력하세요. 온라인 결제와 기존 수기 입금을 포함하며 반환 보증금은 제외합니다. 이미 등록된 금액을 뺀 차액만 수납·매출에 추가됩니다.</p><p id="ape-delta" class="ape-selected" role="status" aria-live="polite"></p><label for="ape-receipt-note">입금 메모(선택)</label><input id="ape-receipt-note" class="input" maxlength="300" value="'+X.esc(draft.note)+'"'+(busy||!info.editable?' disabled':'')+'>':'<p class="ape-help">예약 미확정 문의는 상태만 변경합니다. 실제 수납은 예약 확정 후 예약별로 등록해 주세요.</p>')
+    +'<p class="ape-help">전체 완료(대관)는 식음료 이용 없이 결제가 끝난 경우입니다. 대관비용 입금 완료는 식음료 결제가 남은 경우입니다.</p><div class="ape-actions"><button type="button" class="btn btn-primary" data-ape-save'+(busy||!info.editable?' disabled':'')+'>'+(busy?'저장 중…':info.receipt_available?'상태·입금 함께 저장':'상태 저장')+'</button></div>':'')
    +'<p id="ape-message" class="ape-message" role="status" aria-live="polite">'+X.esc(message||(info&&!info.editable?'취소·삭제된 건은 변경할 수 없습니다.':''))+'</p>'
    +(!info&&message?'<button type="button" class="btn btn-light" data-ape-retry>다시 불러오기</button>':'');
+  receiptPreview();place();
  }
- function read(message){var id=++request;info=null;paint(message);X.A('/reservation-payment-checks/'+target).then(function(r){if(id!==request||!dialog.open)return;info=r;paint(message);dialog.querySelector('#ape-status').focus();}).catch(function(e){if(id!==request||!dialog.open)return;if(!X.guard(e))paint(e.message||'상태를 불러오지 못했습니다.');else close();});}
+ function read(message){var id=++request;info=null;draft=null;pending=null;paint(message);X.A('/reservation-payment-checks/'+target).then(function(r){if(id!==request||!dialog.open)return;info=r;draft={status:initialStatus||r.payment_status,total:r.settlement?String(r.settlement.received):'',note:''};initialStatus='';paint(message);dialog.querySelector('#ape-status').focus({preventScroll:true});}).catch(function(e){if(id!==request||!dialog.open)return;if(!X.guard(e))paint(e.message||'상태를 불러오지 못했습니다.');else close();});}
  function save(){
-  if(busy||!info||!info.editable)return;var value=dialog.querySelector('#ape-status').value;if(value===info.payment_status){close();return;}
+  if(busy||!info||!info.editable)return;
+  if(info.receipt_available){var input=dialog.querySelector('#ape-received-total');if(draft.total===''||!input.reportValidity()){dialog.querySelector('#ape-message').textContent='실제 누적 입금액을 확인해 주세요.';return;}}
+  var signature=JSON.stringify(draft);
+  if(!pending||pending.signature!==signature){var body={status:draft.status,expected_revision:info.payment_revision};if(info.receipt_available)Object.assign(body,{received_total:Number(draft.total),receipt_note:draft.note,expected_settlement_revision:info.settlement.revision,request_id:'scope_'+crypto.randomUUID()});pending={signature:signature,body:body};}
   busy=true;paint();var savedTarget=target,view=trigger&&trigger.closest('.adm-view');
-  X.A('/reservation-payment-checks/'+target,{method:'PUT',body:{status:value,expected_revision:info.payment_revision}}).then(function(r){
-   busy=false;close();window.dispatchEvent(new CustomEvent('admin-payment-status-saved',{detail:{target:savedTarget,status:r.payment_status}}));M.toast('결제 상태를 저장했습니다.');
-   if(view){var fallback=view.querySelector('#bk-payment-filter,#cal-payment-filter');if(fallback)fallback.focus({preventScroll:true});}
-  }).catch(function(e){busy=false;if(!X.guard(e))read(e.message||'저장하지 못했습니다. 최신 상태를 확인해 주세요.');else close();});
+  X.A('/reservation-payment-checks/'+target,{method:'PUT',body:pending.body}).then(function(r){
+   busy=false;close();var detail={target:savedTarget,status:r.payment_status,receipt_added:r.receipt_added||0,code:savedTarget.startsWith('booking/')?savedTarget.slice(8):''};
+   if(detail.receipt_added>0)window.dispatchEvent(new CustomEvent('admin-settlement-saved',{detail:detail}));window.dispatchEvent(new CustomEvent('admin-payment-status-saved',{detail:detail}));
+   M.toast(detail.receipt_added>0?'결제 상태와 추가 수납 '+money(detail.receipt_added)+'을 저장했습니다.':'결제 상태를 저장했습니다. 기존 입금은 중복 추가하지 않았습니다.');
+   if(view){var fallback=view.querySelector('#bk-payment-filter,#cal-payment-filter,#rs-payment-filter');if(fallback)fallback.focus({preventScroll:true});}
+  }).catch(function(e){busy=false;if(X.guard(e)){close();return;}if(e.status===409){initialStatus='';read(e.message||'최신 기록을 다시 확인해 주세요.');}else{paint(e.status?e.message:'저장 결과를 확인하지 못했습니다. 같은 내용으로 다시 저장하면 중복 기록을 방지합니다.');}});
  }
- document.addEventListener('click',function(e){var b=e.target.closest('[data-payment-editor]');if(!b||b.disabled||busy)return;e.preventDefault();e.stopPropagation();trigger=b;target=b.dataset.paymentEditor;dialog.showModal();read();});
+ function open(button,selected,requestedTarget){if(busy)return;trigger=button;target=requestedTarget||button.dataset.paymentEditor;initialStatus=selected||'';dialog.showModal();read();}
+ document.addEventListener('click',function(e){var b=e.target.closest('[data-payment-editor]');if(!b||b.disabled||busy)return;e.preventDefault();e.stopPropagation();open(b);});
+ window.addEventListener('admin-payment-editor-open',function(e){var d=e.detail||{};if(d.trigger&&typeof d.target==='string')open(d.trigger,d.status,d.target);});
  dialog.addEventListener('click',function(e){if(e.target.closest('[data-ape-close]')||e.target===dialog)close();else if(e.target.closest('[data-ape-save]'))save();else if(e.target.closest('[data-ape-retry]'))read();});
- dialog.addEventListener('change',function(e){if(e.target.id==='ape-status'&&info)dialog.querySelector('.ape-selected').textContent=info.choices[e.target.value]||'';});
- dialog.addEventListener('cancel',function(e){e.preventDefault();close();});
- window.addEventListener('hashchange',close);
+ dialog.addEventListener('input',function(e){if(!draft)return;if(e.target.id==='ape-received-total'){draft.total=e.target.value;receiptPreview();}if(e.target.id==='ape-receipt-note')draft.note=e.target.value;});
+ dialog.addEventListener('change',function(e){if(e.target.id==='ape-status'&&info){draft.status=e.target.value;dialog.querySelector('.ape-selected').textContent=info.choices[e.target.value]||'';}});
+ dialog.addEventListener('keydown',function(e){if(e.key==='Enter'&&e.target.tagName==='INPUT'){e.preventDefault();save();}});
+ dialog.addEventListener('cancel',function(e){e.preventDefault();close();});window.addEventListener('hashchange',close);window.addEventListener('resize',place);
+ if(window.visualViewport){window.visualViewport.addEventListener('resize',function(){place();if(dialog.contains(document.activeElement))document.activeElement.scrollIntoView({block:'nearest'});});window.visualViewport.addEventListener('scroll',place);}
 })();
