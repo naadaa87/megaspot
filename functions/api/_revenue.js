@@ -3,6 +3,7 @@ import {DEFAULT_SPACE,err,isDate,json,kstToday,SPACES} from './_lib.js';
 import {refundAmountSql} from './_payapp_refund_history.js';
 import {legacyPaymentSourceSql} from './_settlement.js';
 import {bookingAmountSql,inquiryAmountSql} from './_amounts.js';
+import {revenueBookingSummary} from './_revenue_bookings.js';
 
 const verificationIds = PRODUCTS.items.filter(p=>p.kind==='verification').map(p=>p.id);
 const spaces = [...Object.keys(SPACES),'unassigned'];
@@ -329,7 +330,8 @@ export async function revenueAdmin({env,url,method,operationalBookingSql=operati
     if(space)upArgs.push(space);
     upcoming=(await env.DB.prepare(upSql).bind(...upArgs).all()).results||[];
   }
-  return json({ok:true,total,branches,daily:[...daily.values()],monthly:[...monthly.values()],
+  const bookingSummary=await revenueBookingSummary({env,from,to,space,operationalBookingSql});
+  return json({ok:true,total,bookingSummary,branches,daily:[...daily.values()],monthly:[...monthly.values()],
     categories:withShares(Object.values(byCategory)),components:withShares(Object.values(byComponent)),channels:channelRows,
     items:details.slice((page-1)*pageSize,page*pageSize),detailCount:details.length,page,pageSize,upcoming},200,{'cache-control':'no-store'});
 }

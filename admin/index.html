@@ -54,7 +54,7 @@
 <link rel="stylesheet" href="/assets/css/admin-parking.css?v=20261118purchase-time">
 <link rel="stylesheet" href="/assets/css/admin-navigation.css?v=286c139e405b">
 <link rel="stylesheet" href="/assets/css/admin-booking-readiness.css?v=20261105readiness1">
-<link rel="stylesheet" href="/assets/css/admin-revenue.css?v=20261118revenueanalysis1">
+<link rel="stylesheet" href="/assets/css/admin-revenue.css?v=20261118bookingsummary1">
 <link rel="stylesheet" href="/assets/css/admin-reservation-search.css?v=20261105inquirysearch1">
 <link rel="stylesheet" href="/assets/css/admin-reception.css?v=20261105cfbudget1">
 <link rel="stylesheet" href="/assets/css/admin-hostplat.css?v=20261114assist1">
@@ -398,20 +398,19 @@
     </section>
 
     <section class="adm-view" id="view-revenue" hidden>
-      <header class="adm-head"><div><h1>매출</h1><p class="small muted">월별 매출과 지점·서비스·결제 채널별 구성을 확인합니다.</p></div></header>
-      <form class="adm-card revenue-filters" id="revenue-form">
-        <div class="revenue-filter-fields">
-          <label for="revenue-month-select">이용월<input class="input" type="month" id="revenue-month-select"></label>
-          <label for="revenue-space">지점<select class="select" id="revenue-space" name="space"><option value="">전체 지점</option><option value="megaspot-gundae">건대 1호점</option><option value="megaspot-gundae-2">건대 2호점</option><option value="unassigned">공통·지점 미지정</option></select></label>
-          <label for="revenue-category">매출 구분<select class="select" id="revenue-category" name="category"><option value="">전체 매출</option><option value="rental">공간대관</option><option value="food">식음료</option><option value="parking">주차</option><option value="addons">부가서비스</option><option value="unclassified">구성 미분류</option></select></label>
-          <label for="revenue-channel">결제 채널<select class="select" id="revenue-channel" name="channel"><option value="">전체 채널</option><option value="spacecloud">온라인 (스페이스클라우드)</option><option value="payapp">온라인 (페이앱)</option><option value="toss_terminal">현장 (토스 터미널)</option><option value="bank_corporate">법인계좌</option><option value="bank_personal">개인계좌</option><option value="unknown">미분류</option></select></label>
-        </div>
-        <input type="hidden" name="component" id="revenue-component">
-        <div class="revenue-filter-actions"><button type="button" class="btn btn-light btn-sm" id="revenue-month-prev" aria-label="이전 달">← 이전 달</button><button type="button" class="btn btn-light btn-sm" id="revenue-month-next" aria-label="다음 달">다음 달 →</button><button type="button" class="btn btn-light btn-sm" id="revenue-month">이번 달</button><button type="submit" class="btn btn-primary btn-sm">조회</button><button type="button" class="btn btn-light btn-sm" id="revenue-clear-component" hidden>세부항목 필터 해제</button></div>
-        <details class="revenue-custom-dates"><summary>기간 직접 선택</summary><div class="revenue-date-fields"><label for="revenue-from">시작일<input class="input" type="date" id="revenue-from" name="from" required></label><label for="revenue-to">종료일<input class="input" type="date" id="revenue-to" name="to" required></label><span class="tiny muted">최대 366일 · 이용일 기준</span></div></details>
-      </form>
+      <header class="adm-head revenue-page-head"><div><h1>매출</h1><p class="small muted">예약금액·수납·잔금과 월별 매출 구성을 확인합니다.</p></div>
+        <form class="revenue-scope-form" id="revenue-form"><div class="revenue-scope-controls">
+          <div class="revenue-period-picker"><label for="revenue-month-select">이용월</label><div class="revenue-month-control"><button type="button" class="btn btn-light btn-sm" id="revenue-month-prev" aria-label="이전 달">‹</button><input class="input" type="month" id="revenue-month-select"><button type="button" class="btn btn-light btn-sm" id="revenue-month-next" aria-label="다음 달">›</button></div></div>
+          <label class="revenue-scope-space" for="revenue-space">지점<select class="select" id="revenue-space" name="space"><option value="">전체 지점</option><option value="megaspot-gundae">건대 1호점</option><option value="megaspot-gundae-2">건대 2호점</option><option value="unassigned">공통·지점 미지정</option></select></label>
+          <button type="button" class="btn btn-light btn-sm" id="revenue-month">이번 달</button><button type="submit" class="btn btn-primary btn-sm">조회</button>
+          <details class="revenue-custom-dates" id="revenue-custom-dates"><summary>기간 직접 선택</summary><div class="revenue-date-fields"><label for="revenue-from">시작일<input class="input" type="date" id="revenue-from" name="from" required></label><label for="revenue-to">종료일<input class="input" type="date" id="revenue-to" name="to" required></label><span class="tiny muted">최대 366일 · 이용일 기준</span></div></details>
+          <input type="hidden" name="component" id="revenue-component">
+        </div></form>
+      </header>
       <p class="small muted" id="revenue-status" role="status"></p>
       <div id="revenue-report" hidden>
+        <section class="revenue-booking-summary" id="revenue-booking-summary" hidden aria-labelledby="revenue-booking-heading"><div class="revenue-section-head"><div><h2 id="revenue-booking-heading">예약금액·수납·잔금</h2><p class="tiny muted" id="revenue-booking-scope"></p></div></div><div class="revenue-booking-kpis" id="revenue-booking-cards"></div><p class="tiny muted" id="revenue-booking-status" role="status"></p></section>
+        <section class="revenue-analysis-heading"><div><h2>수납 내역 분석</h2><p class="tiny muted">구분·채널 조건은 아래 수납 분석에만 적용됩니다. 주차권·미확정 문의 수납 등 예약 외 거래도 포함합니다.</p></div><div class="revenue-analysis-filters"><label for="revenue-category">매출 구분<select class="select" id="revenue-category" name="category" form="revenue-form"><option value="">전체 매출</option><option value="rental">공간대관</option><option value="food">식음료</option><option value="parking">주차</option><option value="addons">부가서비스</option><option value="unclassified">구성 미분류</option></select></label><label for="revenue-channel">결제 채널<select class="select" id="revenue-channel" name="channel" form="revenue-form"><option value="">전체 채널</option><option value="spacecloud">온라인 (스페이스클라우드)</option><option value="payapp">온라인 (페이앱)</option><option value="toss_terminal">현장 (토스 터미널)</option><option value="bank_corporate">법인계좌</option><option value="bank_personal">개인계좌</option><option value="unknown">미분류</option></select></label><button type="submit" class="btn btn-light btn-sm" form="revenue-form">적용</button><button type="button" class="btn btn-light btn-sm" id="revenue-clear-component" hidden>세부항목 필터 해제</button></div></section>
         <div class="revenue-totals" id="revenue-totals" aria-label="기간 합계"></div>
         <div class="revenue-analysis-grid mt-3">
           <div class="revenue-analysis-main"><section class="adm-card revenue-trend-card"><div class="revenue-section-head"><div><h2>월별 매출 추이</h2><p class="tiny muted">순매출 · 현재 지점·서비스·결제 채널 조건 반영</p></div><label class="revenue-year-label" for="revenue-trend-year">연도<input class="input" type="number" id="revenue-trend-year" min="2000" max="2100" step="1"></label></div><p class="tiny muted" id="revenue-trend-status" role="status"></p><div id="revenue-trend" class="revenue-chart" aria-label="월별 순매출 막대 그래프"></div></section>
@@ -741,7 +740,7 @@
 <script src="/assets/js/pages/admin-cancellation.js?v=20261104retry1"></script>
 <script src="/assets/js/pages/admin-booking-notifications.js?v=c6fc7015286c"></script>
 <script src="/assets/js/pages/admin-transaction-notifications.js?v=20261118feedbackdelivery1"></script>
-<script src="/assets/js/pages/admin-revenue.js?v=20261118revenueall1"></script>
+<script src="/assets/js/pages/admin-revenue.js?v=20261118bookingsummary1"></script>
 <script src="/assets/js/pages/admin-hostplat.js?v=20261114assist1"></script>
 <script src="/assets/js/pages/admin-kpi.js?v=20261114kpi1"></script>
 <script src="/assets/js/pages/admin-members.js?v=20261114mbr1"></script>

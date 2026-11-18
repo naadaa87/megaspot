@@ -50,7 +50,32 @@
     $('revenue-channel-shares').innerHTML = (gross ? '<div class="revenue-share-bar" aria-hidden="true">'+ranked.filter(item=>item.received>0).map(item=>'<span style="width:'+share(item)+'%;background:'+(colors[item.id]||colors.unknown)+'"></span>').join('')+'</div>' : '<p class="small muted mt-2">해당 기간에 수납 내역이 없습니다.</p>')
       +'<div class="revenue-channel-list">'+ranked.map(item=>'<div class="revenue-channel-row"><div class="revenue-channel-name"><i style="background:'+(colors[item.id]||colors.unknown)+'" aria-hidden="true"></i><span>'+esc(channelLabels[item.id]||item.label)+'</span><b>'+share(item).toFixed(1)+'%</b></div><div class="revenue-channel-amount"><span>수납 '+won(item.received)+'</span><span>환불 '+won(item.refunded)+'</span></div>'+(item.accounts||[]).filter(account=>account.received||account.refunded).map(account=>'<div class="revenue-account-row"><span>'+esc(account.account||'계좌·사업자 미지정')+'</span><span>순매출 '+won(account.net)+'</span></div>').join('')+'</div>').join('')+'</div>';
   }
+  function renderBookingSummary(summary) {
+    const section=$('revenue-booking-summary');
+    section.hidden=!summary;
+    if(!summary)return;
+    const allUnpriced=summary.bookingCount>0&&summary.amountUnknownCount===summary.bookingCount;
+    const allBalancesUnknown=summary.bookingCount>0&&summary.balanceUnknownCount===summary.bookingCount;
+    const booked=allUnpriced?'금액 미정':won(summary.booked);
+    const balance=allBalancesUnknown?'확인 필요':won(summary.balance);
+    const scope=summary.scope||{};
+    $('revenue-booking-scope').textContent=(scope.from||filters.get('from'))+' ~ '+(scope.to||filters.get('to'))+' · '+(labels[scope.space]||'전체 지점')+' · 확정·이용 완료 예약 · 보증금 제외';
+    $('revenue-booking-cards').innerHTML=[
+      ['booked','전체 예약금액',booked,'예약 '+summary.bookingCount+'건'+(summary.amountUnknownCount?' · 금액 미정 '+summary.amountUnknownCount+'건 별도':'')],
+      ['received','수납 완료 금액',won(summary.netReceived),'누적 수납 '+won(summary.received)+' · 환불 '+won(summary.refunded)],
+      ['balance','앞으로 받을 잔금',balance,'잔금이 남은 예약 '+summary.balanceCount+'건'+(summary.balanceUnknownCount?' · 확인 필요 '+summary.balanceUnknownCount+'건 별도':'')]
+    ].map(([id,label,value,note])=>'<article class="revenue-booking-card revenue-booking-'+id+'"><h3>'+label+'</h3><strong'+(id==='received'&&summary.netReceived<0?' class="revenue-refund"':'')+'>'+value+'</strong><span>'+note+'</span></article>').join('');
+    const notes=[];
+    if(summary.amountUnknownCount)notes.push('금액 미정 '+summary.amountUnknownCount+'건은 예약금액·잔금 합계에서 제외합니다.');
+    const review=Math.max(0,summary.balanceUnknownCount-summary.amountUnknownCount);
+    if(review)notes.push('정산 확인이 필요한 '+review+'건은 잔금 계산을 보류합니다.');
+    if(summary.excessPaid)notes.push('초과 수납 '+won(summary.excessPaid)+' ('+summary.excessPaidCount+'건)은 다른 예약의 잔금에서 빼지 않습니다.');
+    if(summary.overRefunded)notes.push('수납보다 환불이 '+won(summary.overRefunded)+' 많아 기록 확인이 필요합니다.');
+    $('revenue-booking-status').textContent=notes.join(' ');
+    $('revenue-booking-status').hidden=!notes.length;
+  }
   function render(r) {
+    renderBookingSummary(r.bookingSummary);
     const filtered = filters.get('space'), shownBranches = filtered ? [] : columns;
     const cards = [[filtered ? labels[filtered] : '전체 합계',r.total],...shownBranches.map(key=>[labels[key],r.branches[key]])];
     $('revenue-totals').innerHTML = cards.map(([name,t])=>'<div class="adm-card revenue-total"><h2>'+name+'</h2><dl><dt>수납액</dt><dd>'+won(t.received)+'</dd><dt>환불액</dt><dd>'+won(t.refunded)+'</dd><dt>순매출</dt><dd class="'+(t.net<0?'revenue-refund':'')+'">'+won(t.net)+'</dd></dl></div>').join('');
@@ -118,7 +143,7 @@
     }catch(e){if(request!==version)return;report.hidden=true;if(!X.guard(e))status.textContent=e.message||'매출 내역을 불러오지 못했습니다.';}
     finally{if(request===version)report.removeAttribute('aria-busy');}
   }
-  function search(){filters=new URLSearchParams(new FormData(form));selectedDay='';page=1;load();}
+  function search(){filters=new URLSearchParams(new FormData(form));$('revenue-custom-dates').open=false;selectedDay='';page=1;load();}
   function shiftMonth(delta){const current=$('revenue-month-select').value||form.elements.from.value.slice(0,7);const [year,number]=current.split('-').map(Number);month(new Date(Date.UTC(year,number-1+delta,1)).toISOString().slice(0,7));search();}
   detail.querySelector('h2').tabIndex=-1;
   form.addEventListener('submit',e=>{e.preventDefault();search();});

@@ -132,3 +132,77 @@
  .revenue-total dl { font-size:12px; }
  .revenue-analysis-main .revenue-category-grid { grid-template-columns:minmax(0,1fr); }
 }
+
+/* Compact period controls and the three booking figures lead the page. */
+.page-admin #view-revenue .revenue-page-head { align-items:flex-end; flex-wrap:wrap; gap:16px; margin-bottom:10px; }
+.page-admin #view-revenue .revenue-page-head > div:first-child { flex:1 1 260px; }
+.revenue-page-head h1 { margin-bottom:6px; }
+.revenue-page-head p { margin:0; }
+.revenue-scope-form { min-width:0; }
+.revenue-scope-controls { display:flex; flex-wrap:wrap; align-items:flex-end; gap:8px; }
+.revenue-scope-controls label,.revenue-analysis-filters label { display:grid; gap:4px; color:var(--ink-2,#667085); font-size:11px; font-weight:650; }
+.revenue-scope-controls :is(input,select),.revenue-analysis-filters select { height:35px; min-height:35px; padding:5px 9px; font-size:12px; }
+.revenue-scope-controls .btn,.revenue-analysis-filters .btn { min-height:35px; padding:5px 11px; font-size:12px; }
+.revenue-month-control { display:flex; align-items:center; gap:4px; }
+.revenue-month-control .input { width:145px; min-width:0; }
+.revenue-month-control .btn { width:28px; padding:0; font-size:20px; }
+.revenue-scope-space select { width:142px; }
+.revenue-scope-form .revenue-custom-dates { position:relative; border:0; padding:0; margin:0; }
+.revenue-scope-form .revenue-custom-dates > summary { display:flex; align-items:center; min-height:35px; padding:5px 8px; border:1px solid #d9d7d2; border-radius:6px; background:#fff; font-size:11px; list-style:none; }
+.revenue-scope-form .revenue-custom-dates > summary::-webkit-details-marker { display:none; }
+.revenue-scope-form .revenue-custom-dates > summary:after { content:'⌄'; margin-left:7px; }
+.revenue-scope-form .revenue-date-fields { position:absolute; right:0; top:100%; z-index:12; width:370px; max-width:calc(100vw - 36px); margin:8px 0 0; padding:14px; background:#fff; border:1px solid #dddfe5; border-radius:8px; box-shadow:0 10px 35px #16284d1a; gap:10px; }
+.revenue-scope-form .revenue-date-fields label { flex:1 1 140px; min-width:0; }
+.revenue-scope-form .revenue-date-fields input { width:100%; min-width:0; }
+.revenue-scope-form .revenue-date-fields > span { padding:0; }
+#revenue-status { margin:10px 0 18px; font-size:12px; }
+.revenue-booking-summary { margin:0 0 24px; }
+.revenue-booking-summary h2 { font-size:16px; margin:0 0 6px; }
+.revenue-booking-summary .revenue-section-head p { margin:0 0 12px; line-height:1.6; }
+.revenue-booking-kpis { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+.revenue-booking-card { display:grid; align-content:start; gap:10px; min-width:0; min-height:130px; padding:20px; border:1px solid #dfe3ea; border-radius:9px; background:#fff; }
+.revenue-booking-card h3 { margin:0; color:var(--ink-2,#667085); font-size:13px; font-weight:650; }
+.revenue-booking-card strong { font-size:clamp(22px,2.1vw,30px); font-variant-numeric:tabular-nums; font-weight:750; line-height:1.2; letter-spacing:-.045em; overflow-wrap:anywhere; }
+.revenue-booking-card > span { color:var(--ink-2,#667085); font-size:11px; line-height:1.6; }
+.revenue-booking-booked { background:#2454d8; border-color:#2454d8; color:#fff; }
+.revenue-booking-booked :is(h3,span) { color:#e8eeff; }
+.revenue-booking-received strong { color:#16705a; }
+.revenue-booking-balance { background:#fffaf2; border-color:#ecddc1; }
+.revenue-booking-balance strong { color:#94621e; }
+#revenue-booking-status { margin:10px 0 0; line-height:1.8; color:#875b20; }
+.revenue-analysis-heading { display:flex; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:12px; margin:0 0 12px; }
+.revenue-analysis-heading h2 { font-size:16px; margin:0 0 6px; }
+.revenue-analysis-heading p { margin:0; max-width:510px; line-height:1.7; }
+.revenue-analysis-filters { display:flex; flex-wrap:wrap; align-items:flex-end; gap:8px; }
+.revenue-analysis-filters #revenue-category { width:135px; }
+.revenue-analysis-filters #revenue-channel { width:200px; }
+.revenue-total:first-child { border-color:var(--concrete-2,#e1e1df); background:#fff; }
+.revenue-total:first-child dd:last-child { color:var(--ink,#1c2430); }
+@media(max-width:699px) {
+ .page-admin #view-revenue .revenue-page-head { align-items:flex-start; gap:12px; }
+ .page-admin #view-revenue .revenue-page-head > div:first-child { flex-basis:100%; }
+ .revenue-scope-form { position:relative; width:100%; }
+ .revenue-scope-controls { gap:7px; }
+ .revenue-month-control .input { width:145px; }
+ .revenue-scope-space select { width:122px; }
+ .revenue-booking-kpis { grid-template-columns:minmax(0,1fr); gap:8px; }
+ .revenue-booking-card { min-height:0; padding:15px 17px; gap:7px; }
+ .revenue-booking-card strong { font-size:27px; }
+ .revenue-booking-card h3 { font-size:12px; }
+ .revenue-booking-summary { margin-bottom:22px; }
+ .revenue-analysis-filters { width:100%; }
+ .revenue-analysis-filters label { flex:1 1 120px; min-width:0; }
+ .revenue-analysis-filters #revenue-category,.revenue-analysis-filters #revenue-channel { width:100%; min-width:0; }
+ .revenue-scope-form .revenue-custom-dates { position:static; }
+ .revenue-scope-form .revenue-date-fields { top:100%; right:0; left:0; width:auto; }
+}
+@media(max-width:359px) {
+ .revenue-month-control .input { width:145px; }
+ .revenue-month-control .btn { width:25px; }
+ .revenue-scope-space select { width:100px; }
+ .revenue-booking-card strong { font-size:25px; }
+}
+.revenue-booking-received strong.revenue-refund { color:#a52424; }
+@media(max-width:359px) {
+ .revenue-booking-card { padding:12px 15px; gap:5px; }
+}
