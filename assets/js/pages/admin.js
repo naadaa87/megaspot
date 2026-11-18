@@ -982,6 +982,8 @@
     if(quoteSettlement)window.MEGASPOT_SETTLEMENT.rows(quoteSettlement.cancellation?quoteSettlement:Object.assign({},quoteSettlement,{amount:R.total})).forEach(function(r){L.push(r[0]+' '+r[1]);});
     L.push('보증금 '+won(R.deposit)+' 별도 (이용 뒤 확인 후 반환)');
     L.push('견적 유효기간: '+E.kdateY(R.validUntil)+'까지'+(Q.valid===1?' (다음 날까지)':''));
+    var bannerSpec=window.MEGASPOT_QUOTE_POLICY.bannerText(Q.space,Q.opts&&Q.opts.banner);
+    if(bannerSpec){L.push('');L.push(bannerSpec);}
     if(Q.note){ L.push(''); L.push(Q.note); }
     L.push(''); L.push((D.includedShort||'200인치 빔프로젝터·마이크·스피커·강단은 공간료에 포함되어 있습니다.')+' 예약을 원하시면 편하게 말씀해 주세요.');
     return L.join('\n');
@@ -1024,6 +1026,7 @@
       +'<table class="qp-lines"><thead><tr><th>항목</th><th>내용</th><th>금액</th></tr></thead><tbody>'+rows+'</tbody>'
       +'<tfoot><tr><th colspan="2">합계 <small>'+esc(quoteVatNote())+'</small></th><th>'+esc(won(R.total))+'</th></tr><tr><td colspan="2">'+esc(D.deposit.label)+' (별도 · 이용 뒤 확인 후 반환)</td><td>'+esc(won(R.deposit))+'</td></tr></tfoot></table>'
       +quoteSettlementHtml()
+      +window.MEGASPOT_QUOTE_POLICY.bannerHtml(Q.space,Q.opts&&Q.opts.banner)
       +(Q.note?'<ul class="qp-notes"><li>'+esc(Q.note).replace(/\n/g,'<br>')+'</li></ul>':'')
       +'<div class="qp-grid"><div><h3>기본 제공 (무료)</h3><p>'+D.included.map(function(i){ return esc(i.label); }).join(' · ')+'</p><h3>취소 시 환불 기준 (이용일 '+esc(E.kdate(q.date))+' 기준)</h3><p class="qp-refund">'+(refund||'—')+'</p><p class="qp-small">'+esc(D.refundNote)+' '+esc(D.corporate)+'</p></div>'
       +'<div class="qp-contact"><h3>문의</h3><p>전화 '+esc(C.phone||'')+'<br>이메일 '+esc(C.email||'')+'<br>카카오톡 '+esc(String(C.kakaoChannel||'').replace(/^https?:\/\//,''))+'<br>홈페이지 megaspot.kr</p><img src="/assets/img/brand/kakao-qr.svg" alt="카카오톡 문의 채널 QR코드" width="88" height="88"></div></div>'

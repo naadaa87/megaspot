@@ -621,6 +621,7 @@
       + '<table class="qp-lines"><thead><tr><th>항목</th><th>내용</th><th>금액</th></tr></thead><tbody>' + rows + '</tbody>'
       + '<tfoot><tr><th colspan="2">합계 <small>' + esc(D.vatNote) + '</small></th><th>' + esc(won(r.total)) + '</th></tr><tr><td colspan="2">' + esc(D.deposit.label) + ' (별도 · 이용 뒤 확인 후 반환)</td><td>' + esc(won(r.deposit)) + '</td></tr></tfoot></table>'
       + (r.plan ? '<section class="qp-plan"><h3>행사 전체 예상 비용</h3>'+r.plan.html+'</section>' : '')
+      + window.MEGASPOT_QUOTE_POLICY.bannerHtml(SPACE_ID,r.options.some(function(o){return o.id==='banner';}))
       + (notes ? '<ul class="qp-notes">' + notes + '</ul>' : '')
       + '<div class="qp-grid">'
       + '<div><h3>기본 제공 (무료)</h3><p>' + D.included.map(function(i){ return esc(i.label); }).join(' · ') + '</p>' + (D.paidFacilities && D.paidFacilities.length ? '<h3>유료 시설</h3>' + paidFacilitiesHtml() : '') + '<h3>환불 기준</h3><p class="qp-refund">' + refund + '</p><p class="qp-small">' + esc(D.refundNote) + ' ' + esc(D.corporate) + '</p></div>'

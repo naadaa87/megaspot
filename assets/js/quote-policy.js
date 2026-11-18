@@ -31,5 +31,10 @@
       + '<p class="qp-cleanup-note">※ 일반적인 전문 청소 수준이 아닌, <strong>이용 과정에서 발생한 쓰레기와 오염물을 정리하고 시설 및 집기류를 원상복구하는 수준</strong>을 기본 청소 기준으로 합니다.</p>'
       + '</section>';
   }
-  window.MEGASPOT_QUOTE_POLICY = { html: html };
+  function bannerText(space,selected){
+    if(space!=='megaspot-gundae'||!selected)return '';
+    return '건대 1호 현수막 규격\n벽면 · 붙박이 의자 상단: 가로 5,000mm × 높이 2,000mm\n창가 · 붙박이 의자와 이어지는 면: 가로 6,000mm · 높이 최대 2,400mm\n제작 전 설치 위치와 고정 방식을 운영팀과 확인해 주세요.';
+  }
+  function bannerHtml(space,selected){var text=bannerText(space,selected);return text?'<section class="qp-banner-spec qp-small"><h3>현수막 규격 · 건대 1호</h3><p>'+esc(text.split('\n').slice(1).join('\n')).replace(/\n/g,'<br>')+'</p></section>':'';}
+  window.MEGASPOT_QUOTE_POLICY = { html: html, bannerText:bannerText, bannerHtml:bannerHtml };
 })();
