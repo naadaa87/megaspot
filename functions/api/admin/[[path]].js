@@ -11,6 +11,7 @@ import {reconfirmationAdmin,reconfirmBooking} from '../_reconfirmation.js';
 import {bookingReadiness} from '../_booking_readiness.js';
 import {revenueAdmin} from '../_revenue.js';
 import {revenueBookingsAdmin,revenueBookingDetailAdmin} from '../_revenue_bookings.js';
+import {revenueProfitAdmin} from '../_revenue_profit.js';
 import {revenueMetadataAdmin} from '../_revenue_metadata.js';
 import {kpiAdmin} from '../_kpi.js';   // KPI 지표 (본사 관리자 · 읽기 전용)
 import {cancellationAdmin} from '../_cancellation.js';
@@ -180,6 +181,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
   try {
     if(path==='revenue/classifications')return await revenueMetadataAdmin({env,request,url,method});
     if(path==='revenue/bookings')return await revenueBookingsAdmin({env,url,method,operationalBookingSql:OPERATIONAL_BOOKING_SQL});
+    if(path==='revenue/profit')return await revenueProfitAdmin({env,url,method,operationalBookingSql:OPERATIONAL_BOOKING_SQL});
     const revenueBooking=path.match(/^revenue\/bookings\/([A-Z0-9-]+)$/);
     if(revenueBooking)return await revenueBookingDetailAdmin({env,url,method,bookingCode:revenueBooking[1],operationalBookingSql:OPERATIONAL_BOOKING_SQL});
     if(path==='revenue')return await revenueAdmin({env,url,method,operationalBookingSql:OPERATIONAL_BOOKING_SQL,archivedStatus:DELETED});

@@ -1,0 +1,82 @@
+.revenue-profit-card { margin-bottom:24px; min-width:0; }
+.revenue-profit-head { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+.revenue-profit-head h2 { margin:0 0 6px; font-size:16px; }
+.revenue-profit-head p { margin:0; }
+#revenue-profit-scope { margin:12px 0 8px; line-height:1.7; }
+.revenue-profit-disclaimer { margin:8px 0 12px; font-size:12px; line-height:1.8; color:#667085; }
+#revenue-profit-status { margin:10px 0; line-height:1.7; }
+.revenue-profit-metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+.revenue-profit-metrics > article { display:grid; align-content:start; gap:9px; min-width:0; padding:17px; border:1px solid #dfe3ea; border-radius:var(--radius,8px); background:#fff; }
+.revenue-profit-metrics h3 { margin:0; font-size:12px; color:#667085; }
+.revenue-profit-metrics strong { font-size:27px; font-weight:750; font-variant-numeric:tabular-nums; line-height:1.3; letter-spacing:-.04em; overflow-wrap:anywhere; }
+.revenue-profit-metrics span { font-size:11px; color:#667085; line-height:1.8; }
+.revenue-profit-metrics > article:last-child { background:#f3faf7; border-color:#c7e5d9; }
+.revenue-profit-metrics > article:last-child strong { color:#16705a; }
+.revenue-profit-negative,.revenue-profit-metrics > article:last-child strong.revenue-profit-negative { color:#a52424; }
+.revenue-profit-warning { color:#875b20; }
+.revenue-profit-coverage { margin:14px 0 8px; font-size:12px; }
+.revenue-profit-coverage > span { color:#667085; }
+.revenue-profit-coverage-track { height:5px; margin:8px 0; overflow:hidden; border-radius:var(--radius-sm,6px); background:#e8edf2; }
+.revenue-profit-coverage-track i { display:block; height:100%; background:#2b9677; }
+.revenue-profit-coverage p { margin:8px 0; line-height:1.8; }
+.revenue-profit-fold { margin-top:16px; padding-top:14px; border-top:1px solid #e5e9f0; }
+.revenue-profit-fold > summary { font-size:13px; font-weight:650; cursor:pointer; }
+.revenue-profit-fold > p { margin:12px 0; line-height:1.8; }
+.revenue-profit-service-list,.revenue-profit-bookings,.revenue-profit-lines { list-style:none; margin:12px 0 0; padding:0; }
+.revenue-profit-service-row { display:grid; grid-template-columns:minmax(150px,1fr) minmax(0,2fr); align-items:center; gap:18px; padding:15px 0; border-top:1px solid #e5e9f0; }
+.revenue-profit-service-row > div { display:grid; gap:5px; }
+.revenue-profit-service-row strong { font-size:13px; }
+.revenue-profit-service-row small { font-size:11px; }
+.revenue-profit-card dl { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin:0; text-align:right; }
+.revenue-profit-card dl > div { min-width:0; }
+.revenue-profit-card dt { margin:0 0 5px; font-size:11px; color:#667085; }
+.revenue-profit-card dd { margin:0; font-size:14px; font-weight:650; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.revenue-profit-bookings > li { border-top:1px solid #e5e9f0; }
+.revenue-profit-booking > summary { display:grid; grid-template-columns:minmax(180px,1.1fr) minmax(0,2fr); align-items:center; gap:18px; padding:16px 0; cursor:pointer; list-style:none; }
+.revenue-profit-booking > summary::-webkit-details-marker { display:none; }
+.revenue-profit-booking > summary:focus-visible { outline:2px solid #2454d8; outline-offset:3px; }
+.revenue-profit-booking-identity { display:grid; gap:5px; min-width:0; overflow-wrap:anywhere; }
+.revenue-profit-booking-identity strong { font-size:13px; }
+.revenue-profit-booking-identity small,.revenue-profit-booking-identity > span { font-size:11px; color:#667085; }
+.revenue-profit-booking-identity > span.revenue-profit-warning { color:#875b20; }
+.revenue-profit-booking-money { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; text-align:right; }
+.revenue-profit-booking-money > span { display:grid; align-content:start; gap:5px; min-width:0; }
+.revenue-profit-booking-money small { font-size:11px; color:#667085; }
+.revenue-profit-booking-money b { font-size:14px; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.revenue-profit-reasons { margin:0 0 12px; padding-left:20px; color:#875b20; font-size:12px; line-height:1.8; overflow-wrap:anywhere; }
+.revenue-profit-lines { margin:0 0 16px; padding:0 14px; border:1px solid #e5e9f0; border-radius:var(--radius-sm,6px); background:#f8fafc; }
+.revenue-profit-lines > li { display:grid; grid-template-columns:minmax(150px,1fr) minmax(0,2fr); align-items:center; gap:12px 18px; padding:13px 0; }
+.revenue-profit-lines > li + li { border-top:1px solid #e5e9f0; }
+.revenue-profit-lines strong { font-size:12px; }
+.revenue-profit-lines p { margin:5px 0 0; color:#667085; font-size:11px; line-height:1.7; }
+.revenue-profit-lines .revenue-profit-reasons { grid-column:1/-1; margin-bottom:0; }
+.revenue-profit-pagination { display:flex; justify-content:center; align-items:center; flex-wrap:wrap; gap:12px; margin-top:16px; }
+.revenue-profit-empty { padding:20px 0; text-align:center; }
+.revenue-profit-policy-lead { margin:14px 0 8px; font-weight:650; }
+#revenue-profit-policy > p { line-height:1.8; }
+#revenue-profit-policy > h3 { margin:18px 0 8px; font-size:14px; }
+.revenue-profit-rules { margin:12px 0; padding:0; list-style:none; }
+.revenue-profit-rules li { display:grid; grid-template-columns:150px minmax(0,1fr); gap:12px; padding:11px 0; border-top:1px solid #e5e9f0; font-size:12px; line-height:1.8; }
+.revenue-profit-rules strong { font-size:12px; }
+.revenue-profit-cocktails { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr)); gap:10px; }
+.revenue-profit-cocktail { min-width:0; padding:14px; border:1px solid #e5e9f0; border-radius:var(--radius-sm,6px); }
+.revenue-profit-cocktail h4 { margin:0 0 12px; font-size:13px; }
+.revenue-profit-cocktail dl { grid-template-columns:minmax(0,1fr); gap:9px; }
+.revenue-profit-cocktail dl > div { display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
+.revenue-profit-cocktail dt { margin:0; text-align:left; }
+.revenue-profit-cocktail dd { text-align:right; font-size:12px; }
+.revenue-profit-card [hidden] { display:none!important; }
+@media(max-width:699px) {
+ .revenue-profit-metrics { grid-template-columns:minmax(0,1fr); gap:8px; }
+ .revenue-profit-metrics > article { padding:14px 16px; gap:6px; }
+ .revenue-profit-metrics strong { font-size:26px; }
+ .revenue-profit-service-row,.revenue-profit-booking > summary,.revenue-profit-lines > li { grid-template-columns:minmax(0,1fr); gap:12px; }
+ .revenue-profit-card dl,.revenue-profit-booking-money { text-align:left; gap:8px; }
+ .revenue-profit-rules li { grid-template-columns:minmax(0,1fr); gap:4px; }
+}
+@media(max-width:359px) {
+ .revenue-profit-card dl,.revenue-profit-booking-money { grid-template-columns:minmax(0,1fr); gap:7px; }
+ .revenue-profit-card dl > div,.revenue-profit-booking-money > span { display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
+ .revenue-profit-card dt { margin:0; flex-shrink:0; }
+ .revenue-profit-card dd,.revenue-profit-booking-money b { text-align:right; }
+}

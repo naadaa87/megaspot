@@ -27,7 +27,7 @@ function monthTotals(from,to) {
 }
 
 const statuses=['confirmed','completed'];
-async function bookingCohort({env,from,to,space='',bookingCode='',operationalBookingSql='1=1'},identities=false) {
+export async function revenueBookingCohort({env,from,to,space='',bookingCode='',operationalBookingSql='1=1'},identities=false) {
   const where=["b.status IN ('confirmed','completed')",'b.date BETWEEN ? AND ?',`(${operationalBookingSql})`,revenueBookingIncludedSql()];
   const args=[from,to];
   if(space==='unassigned') {
@@ -61,13 +61,13 @@ function summarize(cohort,{from,to,space=''}) {
 // Cards, monthly bars and their reservation lists share one cohort and settlement source.
 // Receipt-analysis filters cannot identify unpaid reservations, so they never narrow it.
 export async function revenueBookingSummary(options) {
-  return summarize(await bookingCohort(options),options);
+  return summarize(await revenueBookingCohort(options),options);
 }
 
 const financialFields=s=>({amount:s.amount,received:s.received,refunded:s.refunded,netReceived:s.net,balance:s.balance,
   review_required:!!s.review_required,excessPaid:s.refund_due,overRefunded:s.over_refunded||0});
 
-function bookingScope(url) {
+export function revenueBookingScope(url) {
   const q=url.searchParams,today=kstToday(),[year,month]=today.slice(0,7).split('-').map(Number);
   const from=q.get('from')??today.slice(0,7)+'-01',to=q.get('to')??new Date(Date.UTC(year,month,0)).toISOString().slice(0,10);
   const space=q.get('space')??'';
@@ -78,11 +78,11 @@ function bookingScope(url) {
 }
 export async function revenueBookingsAdmin({env,url,method,operationalBookingSql='1=1'}) {
   if(method!=='GET')return err('지원하지 않는 요청입니다.',405);
-  const scope=bookingScope(url);if(scope.error)return scope.error;
+  const scope=revenueBookingScope(url);if(scope.error)return scope.error;
   const {from,to,space}=scope,q=url.searchParams,metric=q.get('metric')??'booked',page=Number(q.get('page')??1),pageSize=50;
   if(!['booked','received','balance'].includes(metric)||!Number.isSafeInteger(page)||page<1||page>100000)
     return err('조회 조건을 확인해 주세요.');
-  const options={env,from,to,space,operationalBookingSql},cohort=await bookingCohort(options,true),summary=summarize(cohort,options);
+  const options={env,from,to,space,operationalBookingSql},cohort=await revenueBookingCohort(options,true),summary=summarize(cohort,options);
   const selected=cohort.filter(({settlement:s})=>metric==='booked'||(metric==='received'?(s.received>0||s.refunded>0):s.balance>0));
   const total={count:selected.length,amount:summary[metric==='received'?'netReceived':metric],
     unknownCount:metric==='booked'?summary.amountUnknownCount:metric==='balance'?summary.balanceUnknownCount:0};
@@ -112,9 +112,9 @@ function serviceSnapshot(kind,value,amount) {
 
 export async function revenueBookingDetailAdmin({env,url,method,bookingCode,operationalBookingSql='1=1'}) {
   if(method!=='GET')return err('지원하지 않는 요청입니다.',405);
-  const scope=bookingScope(url);if(scope.error)return scope.error;
+  const scope=revenueBookingScope(url);if(scope.error)return scope.error;
   if(typeof bookingCode!=='string'||!(/^[A-Z0-9-]{1,80}$/).test(bookingCode))return err('예약을 찾을 수 없습니다.',404,'NOT_FOUND');
-  const [row]=await bookingCohort({env,...scope,bookingCode,operationalBookingSql},'detail');
+  const [row]=await revenueBookingCohort({env,...scope,bookingCode,operationalBookingSql},'detail');
   if(!row)return err('예약을 찾을 수 없습니다.',404,'NOT_FOUND');
   const s=row.settlement,ref=row.inquiry_ref||'';
   const inquiryRow=ref?await env.DB.prepare('SELECT ref,space_id,status,email,event_date,data,memo FROM inquiries WHERE ref=?').bind(ref).first():null;

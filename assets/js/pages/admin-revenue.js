@@ -25,6 +25,7 @@
   };
   let bookingSummary=null,bookingMetric='booked',bookingPage=1,bookingVersion=0,bookingQuery=null,bookingOpener=null;
   let bookingRows=new Map(),bookingDetailCode='',bookingDetailVersion=0,bookingDetailOpener=null,bookingListScroll=0,bookingListTitle='';
+  let profitRefresh=true;
 
   function month(value) {
     const current = value || new Date(Date.now()+9*3600e3).toISOString().slice(0,7);
@@ -200,6 +201,11 @@
   for(const [id,delta] of [['prev',-1],['next',1]])$('revenue-booking-list-'+id).addEventListener('click',()=>{if(bookingDialog.open&&$('revenue-booking-list').getAttribute('aria-busy')!=='true'&&!$('revenue-booking-list-'+id).disabled){bookingPage+=delta;loadBookingList();}});
   function render(r) {
     renderBookingSummary(r.bookingSummary);
+    if(r.bookingSummary){
+      const scope=r.bookingSummary.scope||{};
+      X.revenueProfitScope={from:scope.from||filters.get('from'),to:scope.to||filters.get('to'),space:scope.space??filters.get('space')??''};
+      if(X.loadRevenueProfit){X.loadRevenueProfit(X.revenueProfitScope,{force:profitRefresh});profitRefresh=false;}
+    }
     const filtered = filters.get('space'), shownBranches = filtered ? [] : columns;
     const cards = [[filtered ? labels[filtered] : '전체 합계',r.total],...shownBranches.map(key=>[labels[key],r.branches[key]])];
     $('revenue-totals').innerHTML = cards.map(([name,t])=>'<div class="adm-card revenue-total"><h2>'+name+'</h2><dl><dt>수납액</dt><dd>'+won(t.received)+'</dd><dt>환불액</dt><dd>'+won(t.refunded)+'</dd><dt>순매출</dt><dd class="'+(t.net<0?'revenue-refund':'')+'">'+won(t.net)+'</dd></dl></div>').join('');
@@ -306,6 +312,7 @@
     finally {if(request===trendVersion)$('revenue-trend').removeAttribute('aria-busy');}
   }
   async function load({detailOnly=false,focus,trend=!detailOnly}={}) {
+    if(!detailOnly)profitRefresh=true;
     const request=++version, q=new URLSearchParams(filters);q.set('page',page);if(selectedDay)q.set('day',selectedDay);
     if(!detailOnly)report.hidden=true;
     report.setAttribute('aria-busy','true');status.textContent='매출 내역을 불러오는 중입니다.';
@@ -387,6 +394,6 @@
     catch(error){if(!X.guard(error))$('revenue-classify-status').textContent=error.message||'분류를 저장하지 못했습니다.';}
     finally{setEditorBusy(false);}
   });
-  window.addEventListener('admin-settlement-saved',()=>{if(!$('view-revenue').hidden)load({detailOnly:true,trend:true});});
+  window.addEventListener('admin-settlement-saved',()=>{if(!$('view-revenue').hidden){profitRefresh=true;load({detailOnly:true,trend:true});}});
   X.register('revenue',()=>{if(!form.elements.from.value)month();if(!filters)search();else load();});
 })();

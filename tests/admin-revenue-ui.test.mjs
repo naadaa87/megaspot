@@ -25,8 +25,8 @@ function report(amount=120000) {
     detailCount:1,page:1,pageSize:50
   };
 }
-function ui(api,{storedMode=null,blockedStorage=false}={}) {
-  const nodes = new Map(),views = {},events = {},serviceCalls=[];
+function ui(api,{storedMode=null,blockedStorage=false,profitLoader=false}={}) {
+  const nodes = new Map(),views = {},events = {},serviceCalls=[],profitCalls=[];
   const storage=new Map(storedMode==null?[]:[['megaspot.admin.revenue.chart-view.v1',storedMode]]);
   function node(id) {
     if(nodes.has(id)) return nodes.get(id);
@@ -50,11 +50,11 @@ function ui(api,{storedMode=null,blockedStorage=false}={}) {
   }
   const esc = value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const context = vm.createContext({document:{getElementById:node},URLSearchParams,FormData,Date,
-    window:{MEGASPOT_ADMIN:{A:api,esc,guard:()=>false,register:(id,fn)=>views[id]=fn,openRevenueServices:options=>serviceCalls.push(options)},
+    window:{MEGASPOT_ADMIN:{A:api,esc,guard:()=>false,register:(id,fn)=>views[id]=fn,openRevenueServices:options=>serviceCalls.push(options),...(profitLoader?{loadRevenueProfit:(scope,options)=>profitCalls.push({scope,options})}:{})},
       localStorage:{getItem:key=>{if(blockedStorage)throw Error('storage blocked');return storage.get(key);},setItem:(key,value)=>{if(blockedStorage)throw Error('storage blocked');storage.set(key,value);}},
       addEventListener:(name,fn)=>events[name]=fn}});
   vm.runInContext(source,context);
-  return {node,form,open:()=>views.revenue(),submit:()=>form.listeners.submit({preventDefault(){}}),events,storage,serviceCalls,
+  return {node,form,open:()=>views.revenue(),submit:()=>form.listeners.submit({preventDefault(){}}),events,storage,serviceCalls,profitCalls,
     detail:code=>{const button={dataset:{revenueBookingDetail:code},isConnected:true,focus(){button.focused=true;}};node('revenue-booking-list').listeners.click({target:{closest:()=>button}});return button;},
     mode:id=>node('revenue-mode-'+id).listeners.click({}),
     bookings:metric=>{const button={dataset:{revenueBookingMetric:metric},isConnected:true,focus(){button.focused=true;}};node('revenue-booking-cards').listeners.click({target:{closest:()=>button}});return button;}};
@@ -169,6 +169,20 @@ test('서비스 카드와 세부 항목은 현재 페이지 조건을 바꾸지 
   assert.equal(f.serviceCalls.length,2);assert.equal(f.serviceCalls[0].category,'addons');assert.equal(f.serviceCalls[0].component,'');assert.equal(f.serviceCalls[1].component,'cleaning');
   assert.equal(JSON.stringify(Object.entries(f.form.elements).map(([id,node])=>[id,node.value])),snapshot);
   assert.equal(f.node('revenue-totals').innerHTML,before);assert.equal(f.node('revenue-trend').innerHTML,graph);
+});
+
+test('원가·이익 분석은 표시된 예약 요약의 기간·지점만 사용하고 수납 필터를 넘기지 않는다',async()=>{
+  const r=report();r.bookingSummary.scope={from:'2026-11-01',to:'2026-11-30',space:second};
+  const f=ui(async()=>r,{profitLoader:true});
+  f.form.elements.from.value='2026-11-01';f.form.elements.to.value='2026-11-30';f.node('revenue-trend-year').value='2026';
+  f.form.elements.channel.value='payapp';f.form.elements.category.value='food';f.form.elements.component.value='catering';
+  f.open();await tick();
+  const call=f.profitCalls[0];
+  assert.equal(JSON.stringify(call.scope),JSON.stringify({from:'2026-11-01',to:'2026-11-30',space:second}));
+  assert.equal(call.options.force,true);
+  f.node('revenue-daily').listeners.click({target:{closest:()=>({dataset:{revenueDay:'2026-11-20'}})}});await tick();
+  assert.equal(f.profitCalls.at(-1).options.force,false,'명세 날짜 변경은 원가 분석 범위를 줄이지 않는다');
+  assert.equal(JSON.stringify(f.profitCalls.at(-1).scope),JSON.stringify(call.scope));
 });
 
 test('월별 막대 3종은 예약 요약과 같은 금액을 사용하고 Y축 금액 눈금 대신 각 막대 금액을 표시한다',async()=>{
