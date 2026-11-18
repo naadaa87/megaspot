@@ -1587,8 +1587,8 @@
   $('#bk-list').addEventListener('click', changeDeposit);
   $('#bk-list').addEventListener('click', function(e){ var b=e.target.closest('button[data-bk]'); if(!b) return; var s=b.dataset.bk;
     if(s==='cancelled'){window.dispatchEvent(new CustomEvent('admin-cancellation-open',{detail:{codes:[b.dataset.code]}}));return;}
-    if(!confirm(s==='confirmed'?'일정 검토 후 예약을 확정할까요? 최신 일정이 겹치면 확정하지 않습니다. 확정하면 기존 설정에 따른 안내가 이어집니다.':s==='completed'?'이용 완료로 처리할까요? 처리 후 고객이 예약번호로 후기를 쓸 수 있습니다.':'이 예약을 취소할까요? 달력의 마감 표시도 풀립니다.')) return;
-    A('/bookings/'+b.dataset.code,{method:'PATCH', body:{status:s,confirm_review:s==='confirmed'}}).then(function(){ M.toast('변경했습니다.'); loadBookings(); }).catch(function(x){ if(!guard(x)) M.toast(x.message); }); });
+    if(!confirm(s==='confirmed'?'일정 검토 후 예약을 확정할까요? 최신 일정이 겹치면 확정하지 않습니다. 확정하면 기존 설정에 따른 안내가 이어집니다.':s==='completed'?'이용 완료로 처리할까요? 예약자 대표 연락처로 설문 알림톡을 1회 발송합니다. 야간에는 다음 오전 9시부터 발송합니다.':'이 예약을 취소할까요? 달력의 마감 표시도 풀립니다.')) return;
+    A('/bookings/'+b.dataset.code,{method:'PATCH', body:{status:s,confirm_review:s==='confirmed'}}).then(function(){ M.toast(s==='completed'?'이용 완료로 변경했습니다. 설문 알림톡 발송 상태는 이용 의견에서 확인해 주세요.':'변경했습니다.'); loadBookings(); }).catch(function(x){ if(!guard(x)) M.toast(x.message); }); });
   $('#bk-form').addEventListener('submit', function(e){ e.preventDefault(); var f=e.target; if(!M.validate(f)) return; var d=M.formData(f); d.block_calendar=!!f.block_calendar.checked; var button=f.querySelector('[type=submit]'); if(button.disabled) return; button.disabled=true;
     function save(){ return A('/bookings',{method:'POST', body:d}).catch(function(x){ if(x.code==='DATE_HAS_BOOKING' && !d.force && confirm(x.message+'\n\n두 팀을 함께 받기로 확인한 경우에만 계속하세요. 그래도 확정할까요?')){ d.force=true; return save(); } throw x; }); }
     save().then(function(r){ var m=$('#bk-msg'); note(m,'예약을 등록했습니다. 예약번호 '+r.booking_code+' — 고객에게 안내해 주세요. ',true); m.insertAdjacentHTML('beforeend', cdBtn(r.booking_code, false, 'btn-sm')); f.reset(); fillSpaces(); bkTimes(); loadBookings(); })
@@ -1812,8 +1812,8 @@
     var b=e.target.closest('button[data-rsact]');
     if(b){ e.stopPropagation(); var s=b.dataset.rsact;
       if(s==='cancelled'){window.dispatchEvent(new CustomEvent('admin-cancellation-open',{detail:{codes:[b.dataset.code]}}));return;}
-      if(!confirm(s==='confirmed'?'일정 검토 후 예약을 확정할까요? 최신 일정이 겹치면 확정하지 않습니다. 확정하면 기존 설정에 따른 안내가 이어집니다.':s==='completed'?'이용 완료로 처리할까요? 처리 후 고객이 예약번호로 후기를 쓸 수 있습니다.':'이 예약을 취소할까요? 달력의 마감 표시도 풀립니다.')) return;
-      A('/bookings/'+b.dataset.code,{method:'PATCH', body:{status:s}}).then(function(){ M.toast('변경했습니다.'); loadResv(); }).catch(function(x){ if(!guard(x)) M.toast(x.message); }); return; }
+      if(!confirm(s==='confirmed'?'일정 검토 후 예약을 확정할까요? 최신 일정이 겹치면 확정하지 않습니다. 확정하면 기존 설정에 따른 안내가 이어집니다.':s==='completed'?'이용 완료로 처리할까요? 예약자 대표 연락처로 설문 알림톡을 1회 발송합니다. 야간에는 다음 오전 9시부터 발송합니다.':'이 예약을 취소할까요? 달력의 마감 표시도 풀립니다.')) return;
+      A('/bookings/'+b.dataset.code,{method:'PATCH', body:{status:s}}).then(function(){ M.toast(s==='completed'?'이용 완료로 변경했습니다. 설문 알림톡 발송 상태는 이용 의견에서 확인해 주세요.':'변경했습니다.'); loadResv(); }).catch(function(x){ if(!guard(x)) M.toast(x.message); }); return; }
   });
 
   /* =================== 예약 확정 창 (예약 문의 → 예약 확정 한 번에) =================== */

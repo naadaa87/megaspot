@@ -1,3 +1,4 @@
+import {FEEDBACK_TEMPLATE} from './_feedback_template.js';
 import {JOURNEY_TEMPLATES} from './_booking_journey_templates.js';
 // Text and buttons are compared against the exact approved templates before use.
 const parkingButtons=[
@@ -6,6 +7,7 @@ const parkingButtons=[
 ];
 
 export const CUSTOMER_ALIMTALK={
+ booking_feedback:FEEDBACK_TEMPLATE,
  ...JOURNEY_TEMPLATES,
  inquiry:{code:'UN_4761',name:'메가스팟_문의접수_v1',buttons:[],content:`[메가스팟 문의 접수]
 문의번호: #{번호}

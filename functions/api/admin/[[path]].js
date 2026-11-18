@@ -21,7 +21,7 @@ import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, log, hash
 import {readFoodPricing,adminFoodPricing,saveFoodPricing,foodPricingData} from '../_food_pricing.js';
 import {readCocktailPricing,publicCocktailPricing,adminCocktailPricing,saveCocktailPricing} from '../_cocktail_pricing.js';
 import { depositNoticeAdmin } from '../_deposit_notifications.js';
-import {transactionNoticeAdmin} from '../_transaction_notifications.js';
+import {transactionNoticeAdmin,transactionNoticeTick} from '../_transaction_notifications.js';
 import { refundAdmin } from '../_deposit_refunds.js';
 import {paymentScheduleAdmin} from '../_booking_payment_schedule.js';
 import { portalAdmin } from '../_booking_portal.js';
@@ -649,6 +649,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
       await batch(env, [env.DB.prepare('UPDATE inquiries SET ' + sets.join(', ') + ' WHERE ref = ?').bind(...b), ...statusStatements]);
       await log(env, 'inquiry.updated', ref, 'admin', d);
       for (const code of reconfirmed) await confirmedGuide(env, code, waitUntil);
+      if(d.status==='이용 완료'&&typeof waitUntil==='function')waitUntil(transactionNoticeTick(env).catch(()=>{}));
       return json({ ok: true,...(receptionResult||{}),...(d.status===undefined?{}:{wait:await inquiryWait(env,ref)}) });
     }
 
@@ -937,6 +938,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
       await log(env, 'booking.updated', code, 'admin', d);
       if (update.ref) await log(env, 'booking.updated', update.ref, 'admin', { booking_code: code, status: d.status });
       if (d.status === 'confirmed' && update.previous !== 'confirmed') await confirmedGuide(env, code, waitUntil);
+      if(d.status==='completed'&&update.previous==='confirmed'&&typeof waitUntil==='function')waitUntil(transactionNoticeTick(env).catch(()=>{}));
       return json({ ok: true });
     }
 

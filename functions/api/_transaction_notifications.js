@@ -1,10 +1,13 @@
+import {CUSTOMER_ALIMTALK} from './_customer_alimtalk_templates.js';
+import {prepareFeedbackLink,feedbackMessage} from './_feedback.js';
+import {SPACES} from './_lib.js';
 import {saveNotificationContent,noticeButtons} from './_notification_content.js';
 import {noManualArrivalSql} from './_arrival_guard.js';
 import {contactPhones,bookingContacts} from './_contacts.js';
 import {settlementRevisionSql} from './_settlement.js';
 import {bookingPhone2Sql} from './_contacts.js';
 import {journeyKind,journeyContext} from './_booking_journey.js';
-import {approvedCustomerTemplate,customerFallback,customerFallbackResult,customerTemplateStatus} from './_customer_alimtalk.js';
+import {approvedCustomerTemplate,reviewCustomerTemplate,customerFallback,customerFallbackResult,customerTemplateStatus} from './_customer_alimtalk.js';
 import {err,json,now} from './_lib.js';
 import {aligoProvider,guidePhone,guideDelivery} from './_guide_messages.js';
 
@@ -56,7 +59,35 @@ function state(env,id,status,error='',mid=null){
    WHERE id=? AND status IN ('queued','sending','accepted')`).bind(status,error,mid,now(),id).run();
 }
 
+async function dispatchFeedback(env,row){
+ const b=await env.DB.prepare('SELECT * FROM bookings WHERE booking_code=?').bind(row.booking_code).first();
+ const receiver=guidePhone(row.receiver),snapshot=b&&JSON.stringify([b.customer_name,b.phone,b.space_id,b.date]);
+ if(!b||b.status!=='completed'||!Object.hasOwn(SPACES,b.space_id)||row.audience!=='customer'||row.event_key!=='feedback-completed:'+b.booking_code||row.booking_snapshot!==snapshot||receiver!==guidePhone(b.phone))return state(env,row.id,'cancelled','예약 상태 또는 예약자 정보가 변경되었습니다.');
+ if(!receiver)return state(env,row.id,'failed','예약자 대표 연락처의 휴대폰 번호를 확인해 주세요.');
+ if(await env.DB.prepare('SELECT 1 FROM booking_feedback WHERE booking_code=? AND submitted_at IS NOT NULL').bind(b.booking_code).first())return state(env,row.id,'cancelled','이미 설문 응답이 접수되어 안내하지 않습니다.');
+ const provider=(path,data,id)=>aligoProvider(env,path,data,id);
+ // Verify current approval/body/buttons each time. Never rely on an earlier cache for this new flow.
+ const review=await reviewCustomerTemplate(env,provider,'booking_feedback');
+ if(!review.ready){await env.DB.prepare("UPDATE transaction_notifications SET error='승인된 설문 알림톡 본문·버튼 확인 대기',updated_at=? WHERE id=? AND status='queued'").bind(now(),row.id).run();return;}
+ let link;
+ try{link=await prepareFeedbackLink(env,b);}catch{await env.DB.prepare("UPDATE transaction_notifications SET error='설문 전용 링크 준비 확인 필요',updated_at=? WHERE id=? AND status='queued'").bind(now(),row.id).run();return;}
+ const template={...CUSTOMER_ALIMTALK.booking_feedback,content:review.template.templtContent},message=feedbackMessage(b,template),url=(env.SITE_URL||'https://megaspot.kr')+'/feedback/#feedback='+link.token;
+ const buttons=template.buttons.map(button=>({...button,linkMo:url,linkPc:url})),requestId=crypto.randomUUID();
+ if(/#\{/.test(message))return state(env,row.id,'failed','설문 안내 변수 치환을 확인해 주세요.');
+ const claim=await env.DB.prepare("UPDATE transaction_notifications SET status='sending',request_id=?,error='',updated_at=? WHERE id=? AND status='queued' AND EXISTS(SELECT 1 FROM bookings b JOIN booking_feedback f ON f.booking_code=b.booking_code WHERE b.booking_code=? AND b.status='completed' AND json_array(b.customer_name,b.phone,b.space_id,b.date)=? AND f.token_hash=? AND f.recipient_hash=? AND f.expires_at>? AND f.submitted_at IS NULL)").bind(requestId,now(),row.id,b.booking_code,snapshot,link.reference.token_hash,link.reference.recipient_hash,Date.now()).run();
+ if(!Number(claim.meta?.changes??claim.changes))return;
+ try{
+  await saveNotificationContent(env,'transaction',row.id,{receiver,message,buttons,template_code:template.code});
+  const result=await provider('alimtalk/send',{tpl_code:template.code,receiver_1:receiver,subject_1:'메가스팟 이용 후 의견 안내',message_1:message,button_1:JSON.stringify({button:buttons}),failover:'N'},requestId);
+  if(result?.code==null||!/^[-]?\d+$/.test(String(result.code)))return state(env,row.id,'unknown','설문 알림톡 접수 결과 확인 필요');
+  if(Number(result.code)!==0)return state(env,row.id,'failed','알리고 접수 거절 ('+Number(result.code)+')');
+  if(!/^\d{1,30}$/.test(String(result.info?.mid||''))||Number(result.info?.scnt)!==1||Number(result.info?.fcnt||0)!==0)return state(env,row.id,'unknown','설문 알림톡 접수 결과 확인 필요');
+  return state(env,row.id,'accepted','','at:'+template.code+':'+result.info.mid);
+ }catch(error){return state(env,row.id,[400,401,403].includes(error.status)?'failed':'unknown','설문 알림톡 전송 결과를 이력에서 확인해 주세요. 자동 재발송하지 않습니다.');}
+}
+
 async function dispatch(env,row){
+ if(row.kind==='booking_feedback')return dispatchFeedback(env,row);
  if(row.audience==='customer'){
   let contacts=null;
   if(row.booking_code)contacts=await bookingContacts(env,row.booking_code);
@@ -143,6 +174,7 @@ async function reconcile(env,row){
   const status=guideDelivery(detail);
   if(status==='delivered')return state(env,row.id,'delivered');
   if(status==='accepted')return;
+  if(row.kind==='booking_feedback')return state(env,row.id,status,status==='unknown'?'설문 알림톡 수신 결과 확인 필요':'설문 알림톡 전달 실패 · 대체문자 없음');
   const alternate=await customerFallbackResult(provider,detail,match,row.occurred_at);
   return state(env,row.id,alternate.status,alternate.note);
  }
@@ -170,7 +202,7 @@ export async function transactionNoticeTick(env){
  await env.DB.prepare(`UPDATE transaction_notifications SET status='cancelled',error='알림 유효기간 경과',updated_at=datetime('now')
   WHERE status='queued' AND occurred_at<datetime('now','-1 day') AND kind NOT IN ('booking_confirmed','rental_paid')`).run();
  const scheduleHour=new Date(Date.now()+9*3600000).getUTCHours();
- const {results:queued}=await env.DB.prepare("SELECT * FROM transaction_notifications WHERE status='queued' AND (kind NOT IN ('balance_reminder','rental_paid','booking_arrival') OR ?=1) ORDER BY CASE WHEN error LIKE '승인된 알림톡%' THEN 1 ELSE 0 END,updated_at,id LIMIT 12").bind(scheduleHour>=9&&scheduleHour<21?1:0).all();
+ const {results:queued}=await env.DB.prepare("SELECT * FROM transaction_notifications WHERE status='queued' AND (kind NOT IN ('balance_reminder','rental_paid','booking_arrival','booking_feedback') OR ?=1) ORDER BY CASE WHEN error LIKE '승인된 알림톡%' THEN 1 ELSE 0 END,updated_at,id LIMIT 12").bind(scheduleHour>=9&&scheduleHour<21?1:0).all();
  if(!queued?.length)return;
  const ready=await aligoProvider(env,'transaction/status');
  if(!ready?.ready)return;
