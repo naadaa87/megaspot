@@ -32,7 +32,7 @@
 #dr-plan-copy-fallback label{display:block;font-size:12px;line-height:1.6;margin:4px 0 8px}
 #dr-plan-copy-text{min-height:280px;font-size:13px;line-height:1.7}
 
-.dr-plan-saved{padding:12px;background:var(--concrete-1,#f6f5f2);border-radius:8px;font-size:13px;line-height:1.65;overflow-wrap:anywhere}
+.dr-plan-saved{padding:12px;background:var(--concrete-1,#f6f5f2);border-radius:var(--radius,8px);font-size:13px;line-height:1.65;overflow-wrap:anywhere}
 .dr-plan-saved b{display:block;font-size:20px}
 .dr-plan-saved small{display:block;color:var(--ink-3);margin-top:6px}
 .dr-plan [data-food-remove]{min-height:44px;white-space:normal}

@@ -43,7 +43,7 @@
 .cm-notice > div{white-space:pre-line}
 
 /* ---------- 모임 카드 ---------- */
-.cm-pick{position:absolute;right:12px;top:12px;font-size:11.5px;font-weight:800;padding:3px 8px;border-radius:3px;background:var(--cobalt);color:#fff}
+.cm-pick{position:absolute;right:12px;top:12px;font-size:11.5px;font-weight:800;padding:3px 8px;border-radius:var(--radius-sm,6px);background:var(--cobalt);color:#fff}
 .cm-gstate{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:var(--ok)}
 .cm-gstate::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
 .cm-gstate.off{color:var(--ink-3)}
@@ -64,14 +64,14 @@
 .cm-t{grid-area:t;display:flex;align-items:center;gap:6px;min-width:0}
 .cm-t b{font-size:15px;font-weight:600;line-height:1.45;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cm-cn{font-style:normal;font-size:12.5px;font-weight:800;color:var(--rust);flex:none}
-.cm-new{font-style:normal;flex:none;width:16px;height:16px;border-radius:3px;background:var(--cobalt);color:#fff;font-size:10px;font-weight:800;display:inline-grid;place-items:center}
+.cm-new{font-style:normal;flex:none;width:16px;height:16px;border-radius:var(--radius-sm,6px);background:var(--cobalt);color:#fff;font-size:10px;font-weight:800;display:inline-grid;place-items:center}
 .cm-w,.cm-d,.cm-v,.cm-l{font-size:12.5px;color:var(--ink-3)}
 .cm-row > a .cm-w::before,.cm-row > a .cm-d::before,.cm-row > a .cm-v::before,.cm-row > a .cm-l::before{content:"·";margin-right:6px;color:var(--ink-3)}
 .cm-w{grid-area:w;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:12em}
 .cm-d{grid-area:d}.cm-v{grid-area:v}.cm-l{grid-area:l}
 .cm-row.is-pin > a{background:#F6F8FE}
-.cm-row.is-pin .cm-k b{display:inline-block;font-size:12px;padding:1px 7px;border-radius:3px;background:var(--cobalt);color:#fff}
-.cm-off{display:inline-block;margin-left:5px;font-size:11px;font-weight:800;padding:1px 6px;border-radius:3px;background:var(--cobalt-soft);color:var(--cobalt-2);vertical-align:1px}
+.cm-row.is-pin .cm-k b{display:inline-block;font-size:12px;padding:1px 7px;border-radius:var(--radius-sm,6px);background:var(--cobalt);color:#fff}
+.cm-off{display:inline-block;margin-left:5px;font-size:11px;font-weight:800;padding:1px 6px;border-radius:var(--radius-sm,6px);background:var(--cobalt-soft);color:var(--cobalt-2);vertical-align:1px}
 @media (min-width:860px){
   .cm-row > a,.cm-row-h{grid-template-areas:none;grid-template-columns:120px minmax(0,1fr) 140px 84px 64px 56px;align-items:center;gap:12px;padding:13px 18px}
   .cm-row > a > span{grid-area:auto !important}
@@ -162,7 +162,7 @@
 .cm-cm.is-off{background:#F6F8FE;padding-left:12px;padding-right:12px}
 .cm-chead{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13.5px}
 .cm-chead b{color:var(--graphite)}
-.cm-writer{font-size:11px;font-weight:800;padding:1px 6px;border-radius:3px;border:1px solid var(--cobalt);color:var(--cobalt-2)}
+.cm-writer{font-size:11px;font-weight:800;padding:1px 6px;border-radius:var(--radius-sm,6px);border:1px solid var(--cobalt);color:var(--cobalt-2)}
 .cm-cdate{color:var(--ink-3);font-size:12.5px}
 .cm-cact{margin-left:auto}
 .cm-cact button{font-size:12.5px;color:var(--ink-3);padding:4px 6px}

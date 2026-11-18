@@ -4,7 +4,7 @@
 .hub-nav{display:grid;gap:10px;margin-top:28px;padding-top:22px;border-top:1px solid var(--concrete-2)}
 .hub-nav-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .hub-nav-row>b{flex:0 0 auto;min-width:44px;font-size:13px;color:var(--ink-3);font-weight:700}
-.hub-nav a{display:inline-flex;align-items:center;height:34px;padding:0 13px;border:1px solid var(--concrete);border-radius:17px;background:var(--white);font-size:13.5px;font-weight:600;color:var(--ink-2);white-space:nowrap;transition:border-color .15s,color .15s}
+.hub-nav a{display:inline-flex;align-items:center;height:34px;padding:0 13px;border:1px solid var(--concrete);border-radius:var(--radius-dialog,16px);background:var(--white);font-size:13.5px;font-weight:600;color:var(--ink-2);white-space:nowrap;transition:border-color .15s,color .15s}
 .hub-nav a:hover{border-color:var(--graphite);color:var(--graphite)}
 .hub-nav a[aria-current="page"]{background:var(--cobalt);border-color:var(--cobalt);color:#fff}
 
@@ -97,8 +97,8 @@
 
 /* ---------- 수용 인원·평수 계산기 ---------- */
 .cc-box{display:grid;gap:18px;padding:22px;border:1px solid var(--concrete);border-radius:var(--radius-lg);background:var(--white)}
-.cc-tabs{display:inline-flex;justify-self:start;padding:3px;border-radius:20px;background:var(--concrete-2)}
-.cc-tabs button{height:34px;padding:0 16px;border-radius:17px;font-size:14px;font-weight:700;color:var(--ink-2)}
+.cc-tabs{display:inline-flex;justify-self:start;padding:3px;border-radius:var(--radius-dialog,16px);background:var(--concrete-2)}
+.cc-tabs button{height:34px;padding:0 16px;border-radius:var(--radius-dialog,16px);font-size:14px;font-weight:700;color:var(--ink-2)}
 .cc-tabs button[aria-pressed="true"]{background:var(--white);color:var(--graphite);box-shadow:0 1px 2px rgba(0,0,0,.12)}
 .cc-in{display:grid;gap:12px}
 .cc-in label{display:block;font-size:13.5px;font-weight:700;color:var(--ink-2);margin-bottom:6px}

@@ -1,19 +1,19 @@
 /* Start with the choices needed to plan an event. */
 .home-mobile-hall{display:none}
-.page-home .hero-dots button{width:auto;height:auto;min-height:40px;padding:6px 10px;border-radius:4px;background:#202629eb;color:white;font-size:13px;font-weight:700}
+.page-home .hero-dots button{width:auto;height:auto;min-height:40px;padding:6px 10px;border-radius:var(--radius-sm,6px);background:#202629eb;color:white;font-size:13px;font-weight:700}
 .page-home .hero-dots button::before{content:none}
 .page-home .hero-dots button.on{background:white;color:var(--ink)}
 .page-home .hero-dots button:focus-visible{outline:3px solid #fff;outline-offset:2px}
 .page-home .hero-slides .slide{transition-duration:.28s}
 @media(prefers-reduced-motion:reduce){.page-home .hero-slides .slide{transition:none}}
 .page-home .home-section-nav{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
-.home-section-nav a{padding:7px 12px;border:1px solid var(--concrete-2);border-radius:4px;font-size:13px;font-weight:700;background:white}
+.home-section-nav a{padding:7px 12px;border:1px solid var(--concrete-2);border-radius:var(--radius-sm,6px);font-size:13px;font-weight:700;background:white}
 .home-venue-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
 .home-venue-card{min-width:0;background:white;border:1px solid var(--concrete-2);border-radius:var(--radius-lg);overflow:hidden;display:flex;flex-direction:column}
 .home-venue-photo{position:relative;display:block;overflow:hidden;aspect-ratio:16/9;flex:none}
 .home-venue-photo img{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:cover;object-position:center}
 .home-venue-card#gundae2 .home-venue-photo img{object-position:50% 45%}
-.home-venue-photo>span{position:absolute;left:16px;bottom:16px;background:var(--ink);color:white;padding:5px 10px;font-size:12px;border-radius:3px}
+.home-venue-photo>span{position:absolute;left:16px;bottom:16px;background:var(--ink);color:white;padding:5px 10px;font-size:12px;border-radius:var(--radius-sm,6px)}
 .home-venue-content{padding:28px;display:flex;flex-direction:column;flex:1}
 .home-venue-content h3{font-size:28px;line-height:1.35;letter-spacing:-.025em;margin:8px 0 16px}
 .home-venue-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:0;margin:0 0 18px;list-style:none}
@@ -25,7 +25,7 @@
 .home-venue-content>.row .btn{flex:1;white-space:normal;min-height:46px;text-align:center;justify-content:center}
 .home-venue-note{border-top:1px solid var(--concrete-2);margin-top:24px;padding-top:20px;font-size:14px;line-height:1.8;color:var(--ink-2)}
 .home-purpose-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-.home-purpose-links a{border:1px solid var(--concrete-2);background:white;border-radius:4px;font-size:13px;padding:7px 12px;font-weight:700}
+.home-purpose-links a{border:1px solid var(--concrete-2);background:white;border-radius:var(--radius-sm,6px);font-size:13px;padding:7px 12px;font-weight:700}
 .page-home #price .section-head .lead{max-width:58ch}
 .home-gallery-more{margin-top:24px;border:1px solid var(--concrete-2);border-radius:var(--radius-lg);background:white}
 .home-gallery-more>summary{padding:16px 20px;cursor:pointer;font-weight:700;color:var(--cobalt);min-height:52px}

@@ -7,7 +7,7 @@
 .venue-banner-media{display:block;position:relative;aspect-ratio:4/3;overflow:hidden;background:var(--graphite)}
 .venue-banner-media img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .venue-banner-window img{object-position:50% 32%}
-.venue-banner-media>span{position:absolute;right:12px;bottom:12px;padding:6px 10px;border-radius:4px;background:rgba(20,22,24,.8);color:white;font-size:12px;line-height:1.5}
+.venue-banner-media>span{position:absolute;right:12px;bottom:12px;padding:6px 10px;border-radius:var(--radius-sm,6px);background:rgba(20,22,24,.8);color:white;font-size:12px;line-height:1.5}
 .venue-banner-media:focus-visible{outline:3px solid var(--cobalt);outline-offset:-3px}
 .venue-banner-card figcaption{padding:20px 22px}
 .venue-banner-card h4{margin:0;font-size:18px;line-height:1.5;overflow-wrap:anywhere}

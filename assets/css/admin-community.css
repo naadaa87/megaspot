@@ -2,7 +2,7 @@
 .cmd-view{--cm-a:#1F53D5;--cm-line:#E6E2DB;--cm-sub:#5B6168}
 .cmd-head-act{gap:6px;flex-wrap:wrap}
 .cmd-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:12px}
-.cmd-tile{display:grid;gap:2px;padding:12px 14px;text-align:left;background:#fff;border:1px solid var(--cm-line);border-radius:10px;color:inherit;transition:border-color .15s,box-shadow .15s}
+.cmd-tile{display:grid;gap:2px;padding:12px 14px;text-align:left;background:#fff;border:1px solid var(--cm-line);border-radius:var(--radius,8px);color:inherit;transition:border-color .15s,box-shadow .15s}
 .cmd-tile:not(:disabled):hover{border-color:var(--cm-a);box-shadow:0 2px 10px rgba(31,83,213,.08)}
 .cmd-tile:disabled{cursor:default}
 .cmd-tile span{font-size:12px;font-weight:700;color:var(--cm-sub)}
@@ -13,7 +13,7 @@
 .cmd-tabs{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px;border-bottom:1px solid var(--cm-line)}
 .cmd-tabs button{position:relative;padding:10px 14px;font-weight:700;font-size:14px;color:var(--cm-sub);border-bottom:2px solid transparent;margin-bottom:-1px}
 .cmd-tabs button.on{color:#1E2225;border-bottom-color:var(--cm-a)}
-.cmd-tabs em{font-style:normal;display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:9px;background:var(--cm-a);color:#fff;font-size:11px;line-height:18px;text-align:center}
+.cmd-tabs em{font-style:normal;display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:var(--radius,8px);background:var(--cm-a);color:#fff;font-size:11px;line-height:18px;text-align:center}
 .cmd-filter{display:grid;gap:10px;padding:14px 16px;margin-bottom:8px}
 .cmd-f-main{display:flex;gap:6px;flex-wrap:wrap}
 .cmd-f-main .input{flex:1 1 260px;min-width:0;height:38px}
@@ -60,20 +60,20 @@
 .cmd-d-head{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
 .cmd-d-title{font-size:20px;letter-spacing:-.02em;line-height:1.35;margin-bottom:4px}
 .cmd-d-act{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
-.cmd-note{margin:10px 0 0;padding:10px 12px;border-radius:8px;background:#F3F6FE;border:1px solid #BFD0F5;font-size:13px}
+.cmd-note{margin:10px 0 0;padding:10px 12px;border-radius:var(--radius,8px);background:#F3F6FE;border:1px solid #BFD0F5;font-size:13px}
 .cmd-note.warn{background:#FBF1D9;border-color:#EBD39A;color:#6B4A00}
-.cmd-who{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--cm-line);border-radius:8px;background:#fff;font-size:13.5px}
+.cmd-who{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--cm-line);border-radius:var(--radius,8px);background:#fff;font-size:13.5px}
 .cmd-who small{display:block;font-size:12px;color:var(--cm-sub)}
-.cmd-facts{display:grid;grid-template-columns:1fr 1fr;gap:0;margin:12px 0 0;border:1px solid var(--cm-line);border-radius:8px;background:#fff}
+.cmd-facts{display:grid;grid-template-columns:1fr 1fr;gap:0;margin:12px 0 0;border:1px solid var(--cm-line);border-radius:var(--radius,8px);background:#fff}
 .cmd-facts > div{padding:8px 10px;border-bottom:1px solid #F0EDE8;border-right:1px solid #F0EDE8;min-width:0}
 .cmd-facts dt{font-size:11.5px;color:var(--cm-sub);font-weight:700}
 .cmd-facts dd{margin:2px 0 0;font-size:13.5px;word-break:break-all}
 .cmd-facts dd a{color:var(--cm-a);text-decoration:underline}
-.cmd-body{margin-top:12px;padding:14px 16px;border-radius:8px;background:#fff;border:1px solid var(--cm-line);font-size:14.5px;line-height:1.75;white-space:normal;overflow-wrap:anywhere}
+.cmd-body{margin-top:12px;padding:14px 16px;border-radius:var(--radius,8px);background:#fff;border:1px solid var(--cm-line);font-size:14.5px;line-height:1.75;white-space:normal;overflow-wrap:anywhere}
 .cmd-h{font-size:14.5px;margin:18px 0 8px}
 .cmd-replist{display:grid;gap:6px;font-size:13px;list-style:none;padding:0;margin:0}
 .cmd-replist small{color:var(--cm-sub)}
-.cmd-sec{margin-top:12px;border:1px solid var(--cm-line);border-radius:8px;background:#fff;padding:10px 12px}
+.cmd-sec{margin-top:12px;border:1px solid var(--cm-line);border-radius:var(--radius,8px);background:#fff;padding:10px 12px}
 .cmd-sec summary{cursor:pointer;font-weight:700;font-size:14px}
 .cmd-form{display:grid;gap:10px;margin-top:10px}
 .cmd-form label{display:grid;gap:4px;font-size:12.5px;font-weight:700;color:#3B4148}
@@ -86,7 +86,7 @@
 .cmd-when legend{font-size:12.5px;font-weight:700;color:#3B4148;margin-bottom:4px;width:100%}
 .cmd-when .input{max-width:240px}
 .cmd-clist ul,.cmd-clist{list-style:none;margin:0;padding:0;display:grid;gap:6px}
-.cmd-c{padding:10px 12px;border:1px solid var(--cm-line);border-radius:8px;background:#fff;font-size:13.5px}
+.cmd-c{padding:10px 12px;border:1px solid var(--cm-line);border-radius:var(--radius,8px);background:#fff;font-size:13.5px}
 .cmd-c.st-hidden,.cmd-c.st-deleted{background:#F7F5F1;color:#6B7178}
 .cmd-c-head small{color:var(--cm-sub);font-size:12px}
 .cmd-c-body{margin-top:4px;line-height:1.6;overflow-wrap:anywhere}

@@ -2,7 +2,7 @@
 .mbr-view{--mb-a:#1F53D5;--mb-line:#E6E2DB;--mb-sub:#5B6168}
 .mbr-head-act{gap:6px;flex-wrap:wrap}
 .mbr-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:10px}
-.mbr-tile{display:grid;gap:2px;padding:12px 14px;background:#fff;border:1px solid var(--mb-line);border-radius:10px}
+.mbr-tile{display:grid;gap:2px;padding:12px 14px;background:#fff;border:1px solid var(--mb-line);border-radius:var(--radius,8px)}
 .mbr-tile span{font-size:12px;font-weight:700;color:var(--mb-sub)}
 .mbr-tile b{font-size:20px;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 .mbr-tile small{font-size:11.5px;color:var(--mb-sub)}
@@ -53,39 +53,39 @@
 .mbr-msgs span{color:#6B7178;margin-right:6px;font-variant-numeric:tabular-nums}
 .mbr-inq .adm-row{cursor:pointer}
 .mbr-compose{display:grid;gap:12px}
-.mbr-to{display:grid;gap:2px;padding:12px 14px;border-radius:10px;background:#F3F6FE;border:1px solid #BFD0F5}
+.mbr-to{display:grid;gap:2px;padding:12px 14px;border-radius:var(--radius,8px);background:#F3F6FE;border:1px solid #BFD0F5}
 .mbr-to span{font-size:12px;color:#5B6168;font-weight:700}.mbr-to b{font-size:16px}.mbr-to small{font-size:12px;color:#5B6168}
 .mbr-ch,.mbr-purpose{border:0;margin:0;padding:0;display:grid;gap:6px}
 .mbr-ch legend,.mbr-purpose legend{font-size:13px;font-weight:800;margin-bottom:4px}
 .mbr-ch{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media (max-width:640px){.mbr-ch{grid-template-columns:1fr}}
-.mbr-ch-opt{display:flex;gap:8px;align-items:flex-start;padding:10px 12px;border:1px solid #E6E2DB;border-radius:10px;background:#fff;cursor:pointer}
+.mbr-ch-opt{display:flex;gap:8px;align-items:flex-start;padding:10px 12px;border:1px solid #E6E2DB;border-radius:var(--radius,8px);background:#fff;cursor:pointer}
 .mbr-ch-opt input{margin-top:3px}
 .mbr-ch-opt span{display:grid;gap:2px}.mbr-ch-opt b{font-size:14px}.mbr-ch-opt small{font-size:12px;color:#5B6168;line-height:1.5}
 .mbr-ch-opt:has(input:checked){border-color:#1F53D5;background:#F3F6FE}
 .mbr-ch-opt.off b{color:#6B7178}
 .mbr-ch-opt:has(input:disabled){opacity:.55;cursor:not-allowed}
 .mbr-ins{font-size:12px;margin-left:8px}
-.mbr-warn{display:grid;gap:4px;padding:10px 12px;border-radius:10px;background:#FFF4E5;border:1px solid #E8C77A;font-size:12.5px;line-height:1.55}
+.mbr-warn{display:grid;gap:4px;padding:10px 12px;border-radius:var(--radius,8px);background:#FFF4E5;border:1px solid #E8C77A;font-size:12.5px;line-height:1.55}
 .mbr-cf-act{gap:6px}
-.mbr-pv{display:grid;gap:10px;padding:14px;border:1px solid #E6E2DB;border-radius:12px;background:#FBFAF8}
+.mbr-pv{display:grid;gap:10px;padding:14px;border:1px solid #E6E2DB;border-radius:var(--radius-lg,12px);background:#FBFAF8}
 .mbr-pv-n b{font-size:18px;color:#1F53D5}.mbr-pv-n small{display:block;font-size:12px;color:#5B6168;margin-top:2px}
 .mbr-phone{display:grid;gap:6px;justify-items:start}
 .mbr-bubble{max-width:340px;padding:10px 12px;border-radius:14px 14px 14px 4px;background:#fff;border:1px solid #E6E2DB;font-size:13.5px;line-height:1.6;word-break:break-all}
 .mbr-bubble.sms{background:#F1EFEB}
 .mbr-phone small{font-size:11.5px;color:#5B6168}
 .mbr-mail{display:grid;gap:6px}.mbr-mail-subj{font-size:13px;font-weight:700}
-.mbr-mail iframe{width:100%;height:340px;border:1px solid #E6E2DB;border-radius:10px;background:#F4F3F0}
+.mbr-mail iframe{width:100%;height:340px;border:1px solid #E6E2DB;border-radius:var(--radius,8px);background:#F4F3F0}
 .mbr-test summary{cursor:pointer;font-size:13px;font-weight:700;color:#1F53D5}
 .mbr-test .input{flex:1 1 200px;min-width:0}
 .mbr-go{display:grid;gap:6px;padding-top:6px;border-top:1px dashed #D5D0C8}
 .mbr-go .btn{justify-self:start}
-.mbr-progress{display:block;height:6px;border-radius:4px;background:#E6E2DB;overflow:hidden;margin-top:6px;max-width:320px}
+.mbr-progress{display:block;height:6px;border-radius:var(--radius-sm,6px);background:#E6E2DB;overflow:hidden;margin-top:6px;max-width:320px}
 .mbr-progress i{display:block;height:100%;background:#1F53D5;transition:width .3s}
-.mbr-mailapp{display:grid;gap:4px;padding:12px 14px;border:1px dashed #BFD0F5;border-radius:10px;background:#fff}
+.mbr-mailapp{display:grid;gap:4px;padding:12px 14px;border:1px dashed #BFD0F5;border-radius:var(--radius,8px);background:#fff}
 .mbr-camp{cursor:pointer}
 .mbr-chs{display:grid;gap:6px;font-size:13.5px}.mbr-chs small{display:block;font-size:12px;color:#5B6168;margin-top:2px}
-.mbr-tpl{white-space:pre-wrap;font-family:inherit;font-size:13px;line-height:1.6;padding:12px 14px;border-radius:10px;background:#F7F5F1;border:1px solid #E6E2DB;margin:8px 0}
+.mbr-tpl{white-space:pre-wrap;font-family:inherit;font-size:13px;line-height:1.6;padding:12px 14px;border-radius:var(--radius,8px);background:#F7F5F1;border:1px solid #E6E2DB;margin:8px 0}
 .mbr-help{font-size:12.5px;line-height:1.55;margin-top:4px}
 .mbr-mailapp .btn{justify-self:start}
 .mbr-lb{display:none}

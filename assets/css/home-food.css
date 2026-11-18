@@ -5,7 +5,7 @@
 .home-food-card .cat-band-ph img{display:block;position:static;width:100%;height:100%;object-fit:cover;object-position:center}
 .home-food-card#cocktail .cat-band-ph img{object-position:50% 40%}
 .home-food-card .cat-band-txt{display:flex;flex-direction:column;flex:1;min-width:0;padding:26px}
-.home-food-keyword{align-self:flex-start;padding:5px 10px;margin-bottom:16px;border-radius:5px;background:var(--cobalt-soft);color:var(--cobalt);font-size:13px;font-weight:800}
+.home-food-keyword{align-self:flex-start;padding:5px 10px;margin-bottom:16px;border-radius:var(--radius-sm,6px);background:var(--cobalt-soft);color:var(--cobalt);font-size:13px;font-weight:800}
 .home-food-card .eyebrow{font-size:11px;letter-spacing:.1em;line-height:1.6}
 .home-food-card h3.h-l{font-size:28px;line-height:1.4;letter-spacing:-.025em;margin-top:10px}
 .home-food-card .cat-band-txt>p:not(.tiny){font-size:14px;line-height:1.8!important;margin-top:16px}

@@ -1,7 +1,7 @@
 /* 업무 흐름을 따르는 관리자 메뉴와 화면 내 탐색 */
 .page-admin .adm-nav{flex-direction:column;gap:5px;overflow:visible;overflow-anchor:none}
 .page-admin .adm-nav-group{min-width:0;margin:0;padding:0;border:0}
-.adm-nav-group > summary{display:flex;align-items:center;gap:8px;padding:10px 8px;min-height:44px;color:#c9cdd1;font-size:13px;font-weight:750;cursor:pointer;list-style:none;border-radius:6px}
+.adm-nav-group > summary{display:flex;align-items:center;gap:8px;padding:10px 8px;min-height:44px;color:#c9cdd1;font-size:13px;font-weight:750;cursor:pointer;list-style:none;border-radius:var(--radius-sm,6px)}
 .adm-nav-group > summary::-webkit-details-marker{display:none}
 .adm-nav-group > summary:hover{background:rgba(255,255,255,.06);color:#fff}
 .adm-nav-group.has-current > summary{color:#fff}
@@ -20,8 +20,8 @@
 .adm-channel-links .adm-side-cap{display:none}
 .adm-context{color:var(--ink-3);font-size:12px;line-height:1.6;margin:0 0 18px}
 .adm-context strong{color:var(--ink-2);font-weight:650}
-.adm-workspace-tabs{display:flex;flex-wrap:wrap;gap:5px;padding:5px;background:#e7e6e2;border-radius:9px;margin:0 0 20px;width:fit-content;max-width:100%}
-.adm-workspace-tabs a{display:flex;align-items:center;justify-content:center;min-height:40px;padding:8px 16px;color:var(--ink-2);font-size:13px;font-weight:650;border-radius:6px;text-decoration:none;line-height:1.4}
+.adm-workspace-tabs{display:flex;flex-wrap:wrap;gap:5px;padding:5px;background:#e7e6e2;border-radius:var(--radius,8px);margin:0 0 20px;width:fit-content;max-width:100%}
+.adm-workspace-tabs a{display:flex;align-items:center;justify-content:center;min-height:40px;padding:8px 16px;color:var(--ink-2);font-size:13px;font-weight:650;border-radius:var(--radius-sm,6px);text-decoration:none;line-height:1.4}
 .adm-workspace-tabs a:hover{background:#ffffff80}
 .adm-workspace-tabs a.on{color:var(--ink);background:#fff;box-shadow:0 1px 4px #00000012}
 .adm-workspace-tabs a:focus-visible{outline:2px solid var(--cobalt);outline-offset:1px}
@@ -52,7 +52,7 @@
 @media(max-width:999px){
  .page-admin .adm-side{padding:10px 14px;gap:0}
  .page-admin .adm-brand{padding:0;min-height:38px;justify-content:space-between}
- .adm-menu-toggle{display:flex;align-items:center;gap:10px;max-width:60%;min-height:38px;padding:8px 12px;border:1px solid #ffffff35;border-radius:6px;background:#ffffff0d;color:#fff;font:inherit;font-size:12px;cursor:pointer}
+ .adm-menu-toggle{display:flex;align-items:center;gap:10px;max-width:60%;min-height:38px;padding:8px 12px;border:1px solid #ffffff35;border-radius:var(--radius-sm,6px);background:#ffffff0d;color:#fff;font:inherit;font-size:12px;cursor:pointer}
  .adm-menu-toggle:after{content:'☰';font-size:15px}
  .adm-menu-toggle[aria-expanded=true]:after{content:'×';font-size:19px}
  .page-admin .adm-nav{display:none}
@@ -128,12 +128,12 @@
 .page-admin .adm-service-edit{font-family:inherit;cursor:pointer;min-height:28px;text-align:left}
 .page-admin .adm-service-edit::after{content:'⌄';margin-left:5px;text-decoration:none}
 .page-admin .adm-service-edit:focus-visible,.page-admin .cal-food-dot:focus-visible{outline:2px solid var(--cobalt);outline-offset:2px}
-.adm-service-popover,.adm-food-tooltip{position:fixed;z-index:1600;box-sizing:border-box;width:min(340px,calc(100vw - 24px));padding:16px;background:#fff;border:1px solid #d6d3ce;border-radius:12px;box-shadow:0 8px 32px #0003;color:var(--ink);overflow:auto;line-height:1.5}
+.adm-service-popover,.adm-food-tooltip{position:fixed;z-index:1600;box-sizing:border-box;width:min(340px,calc(100vw - 24px));padding:16px;background:#fff;border:1px solid #d6d3ce;border-radius:var(--radius-lg,12px);box-shadow:0 8px 32px #0003;color:var(--ink);overflow:auto;line-height:1.5}
 .adm-service-popover[hidden],.adm-food-tooltip[hidden]{display:none!important}
 .asp-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.asp-head strong{font-size:15px}.asp-head .btn{flex-shrink:0;min-height:36px}
 .asp-customer{margin:8px 0;font-size:13px;overflow-wrap:anywhere}.asp-options{display:flex;gap:8px;margin:12px 0}.asp-options .btn{flex:1;min-width:0;min-height:44px;padding:8px 6px;white-space:normal;font-size:13px}.asp-options .is-current{border-color:var(--cobalt);background:var(--cobalt-soft);color:var(--cobalt)}.asp-message{margin:8px 0 0;color:#924323;overflow-wrap:anywhere}.asp-message:empty{display:none}
 #view-calendar .adm-cal .ev:has(.cal-food-dot){position:relative;padding-right:28px}
-#view-calendar .cal-food-dot{position:absolute;right:0;top:0;width:26px;height:28px;display:flex;align-items:center;justify-content:center;padding:0;border:0;border-radius:5px;background:transparent;cursor:pointer}
+#view-calendar .cal-food-dot{position:absolute;right:0;top:0;width:26px;height:28px;display:flex;align-items:center;justify-content:center;padding:0;border:0;border-radius:var(--radius-sm,6px);background:transparent;cursor:pointer}
 #view-calendar .cal-food-dot>span,.cal-food-legend>span{display:inline-block;width:8px;height:8px;border-radius:50%;background:#d92c35;box-shadow:0 0 0 2px #fff;flex-shrink:0}
 .cal-food-legend{display:inline-flex;align-items:center;gap:6px}.adm-food-tooltip{width:min(280px,calc(100vw - 24px));font-size:13px}.adm-food-tooltip>strong{display:block;overflow-wrap:anywhere;margin-bottom:8px}.adm-food-tooltip>div{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:4px 0}.adm-food-tooltip .cat-st{max-width:100%;white-space:normal}
 @media print{.cal-food-dot,.cal-food-legend,.adm-service-popover,.adm-food-tooltip{display:none!important}}

@@ -7,6 +7,7 @@
 //  · 직영 공간의 면적·최대 인원은 assets/js/data/spaces.js, 입점 이용료는 functions/api/_hostplat.js 의 값을 씁니다.
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
+import {createHash} from 'node:crypto';
 import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import { HUBS, INDEX as HUB_INDEX, NAV, DIRECT_COPY, UPDATED as HUB_UPDATED } from './venues.mjs';
@@ -82,7 +83,7 @@ ${S.naver}
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Black+Han+Sans&display=swap">
 <link rel="stylesheet" href="/assets/css/site.css?v=${S.siteCss}">
 <link rel="stylesheet" href="/assets/css/platform.css?v=${S.platformCss}">
-<link rel="stylesheet" href="/assets/css/hub.css?v=${ASSET_V}">
+<link rel="stylesheet" href="/assets/css/hub.css?v=${createHash('sha256').update(read('assets/css/hub.css')).digest('hex').slice(0,12)}">
 <link rel="stylesheet" href="/assets/css/mobile-viewport.css?v=${S.mobile}">
 <script src="/assets/js/mobile-viewport.js?v=${S.mobile}" defer></script>
 <script type="application/ld+json">${ld({ '@context': 'https://schema.org', '@graph': o.graph })}</script>

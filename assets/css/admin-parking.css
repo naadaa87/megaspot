@@ -1,20 +1,20 @@
-#view-parking .pa-overview{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:12px 16px;background:#fff;border:1px solid var(--concrete-2);border-radius:8px}
+#view-parking .pa-overview{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:12px 16px;background:#fff;border:1px solid var(--concrete-2);border-radius:var(--radius,8px)}
 #view-parking .pa-overview>div{display:flex;align-items:baseline;gap:8px;min-width:0;flex-wrap:wrap}
 #view-parking .pa-overview span{font-size:12px;color:var(--ink-3)}
 #view-parking .pa-overview strong{font-size:16px;font-variant-numeric:tabular-nums}
 #view-parking .pa-day{min-width:0}
 #view-parking .pa-day-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0;padding:12px 2px;min-height:46px;box-sizing:border-box;cursor:pointer;list-style:none}
 #view-parking .pa-day-head::-webkit-details-marker{display:none}
-#view-parking .pa-day-head:focus-visible{outline:2px solid var(--cobalt);outline-offset:2px;border-radius:4px}
+#view-parking .pa-day-head:focus-visible{outline:2px solid var(--cobalt);outline-offset:2px;border-radius:var(--radius-sm,6px)}
 #view-parking .pa-day:not([open])>.pa-day-orders{display:none}
 #view-parking .pa-day-meta{display:flex;align-items:center;gap:12px;white-space:nowrap}
 #view-parking .pa-day-meta i{width:7px;height:7px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(-45deg);margin-right:5px}
 #view-parking .pa-day[open]>.pa-day-head .pa-day-meta i{transform:rotate(45deg);margin-top:-4px}
-#view-parking .pa-day-today{display:inline-block;font-size:11px;font-weight:600;color:var(--cobalt);background:#eaf0ff;padding:2px 6px;border-radius:4px;margin-left:8px}
+#view-parking .pa-day-today{display:inline-block;font-size:11px;font-weight:600;color:var(--cobalt);background:#eaf0ff;padding:2px 6px;border-radius:var(--radius-sm,6px);margin-left:8px}
 #view-parking .pa-day-head h2{font-size:16px;line-height:1.5;margin:0;letter-spacing:0}
 #view-parking .pa-day-head h2 span,#view-parking .pa-day-head>span{font-size:12px;color:var(--ink-3);font-weight:400}
 #view-parking .pa-day-head h2 span{margin-left:5px}
-#view-parking .pa-day-orders{border:1px solid var(--concrete-2);border-radius:9px;background:#fff;min-width:0}
+#view-parking .pa-day-orders{border:1px solid var(--concrete-2);border-radius:var(--radius,8px);background:#fff;min-width:0}
 #view-parking .pa-batch{padding:14px 18px;min-width:0}
 #view-parking .pa-batch+.pa-batch{border-top:1px solid var(--concrete-2)}
 #view-parking .pa-batch-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}
@@ -32,7 +32,7 @@
 #view-parking .pa-vehicle-card{min-width:0}
 #view-parking .pa-vehicle-card+.pa-vehicle-card{border-top:1px solid var(--concrete-2)}
 #view-parking .pa-vehicle-tools{min-width:0}
-#view-parking .pa-vehicle-tools>summary{display:grid;grid-template-columns:minmax(135px,.9fr) minmax(150px,1.6fr) minmax(85px,.6fr) minmax(95px,.7fr) 54px;align-items:center;gap:12px;padding:10px 12px;background:#f7f8fa;border-radius:5px;cursor:pointer;list-style:none;min-height:64px;box-sizing:border-box}
+#view-parking .pa-vehicle-tools>summary{display:grid;grid-template-columns:minmax(135px,.9fr) minmax(150px,1.6fr) minmax(85px,.6fr) minmax(95px,.7fr) 54px;align-items:center;gap:12px;padding:10px 12px;background:#f7f8fa;border-radius:var(--radius-sm,6px);cursor:pointer;list-style:none;min-height:64px;box-sizing:border-box}
 #view-parking .pa-vehicle-tools>summary::-webkit-details-marker{display:none}
 #view-parking .pa-vehicle-tools>summary:hover{background:#f0f2f5}
 #view-parking .pa-vehicle-tools>summary:focus-visible{outline:2px solid var(--cobalt);outline-offset:2px}
@@ -89,3 +89,14 @@
 
 #view-parking .pa-resolution-status{margin:0;min-width:0;overflow-wrap:anywhere}
 #view-parking .pa-resolution [aria-invalid="true"]{border-color:#b42318;outline:2px solid #b4231830;outline-offset:2px}
+
+/* Keep settings in the page header and group search controls in one panel. */
+#view-parking .pa-filter-panel{padding:20px;min-width:0}
+#view-parking .pa-filter-bar{display:grid;grid-template-columns:minmax(160px,.8fr) minmax(160px,.8fr) minmax(220px,1.4fr);gap:16px;align-items:end}
+#view-parking .pa-filter-field{display:grid;gap:8px;min-width:0;font-size:13px;font-weight:650}
+#view-parking .pa-filter-field :is(input,select){width:100%;min-width:0;min-height:44px}
+#view-parking .pa-filter-info{margin-top:16px;padding-top:16px;border-top:1px solid var(--concrete-2);gap:12px}
+#view-parking .pa-filter-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+#view-parking .pa-filter-actions>.btn{min-height:44px;margin:0}
+@media(max-width:1099px){#view-parking .pa-filter-bar{grid-template-columns:repeat(2,minmax(0,1fr))}#view-parking .pa-search-field{grid-column:1/-1}}
+@media(max-width:599px){#view-parking .pa-filter-panel{padding:16px}#view-parking .pa-filter-bar{grid-template-columns:minmax(0,1fr)}#view-parking .pa-filter-actions{width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}#view-parking .pa-filter-actions>.btn{width:100%;padding:10px 8px;font-size:12px}#view-parking #pa-filter-summary{flex-basis:100%}}
