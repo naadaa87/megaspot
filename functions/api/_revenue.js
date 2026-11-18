@@ -134,6 +134,9 @@ function quoteWeights(quote) {
 }
 function defaultWeights(row) {
   if(row.source==='online') {
+    // Batch lines describe vehicles and ticket durations, not distinct revenue services.
+    if(String(row.product_id||'').startsWith('parking-'))
+      return {rows:[{id:'parking',amount:row.order_price||row.amount}],basis:'주문 구성'};
     const order=safe(row.order_data),lines=savedRows(order.lines);
     if(lines.length) {
       const sum=lines.reduce((n,line)=>n+line.amount,0);

@@ -176,3 +176,33 @@ test('여러 번 나눈 온라인 전액환불은 정수 반올림 후에도 원
   assert.equal(filtered.total.refunded,1);
   conserves(result);conserves(filtered);
 });
+
+
+test('주차 통합 주문의 차량별 이용권 항목과 부분 환불은 모두 주차 매출로 집계한다',async t=>{
+  const {db,api}=setup(t);
+  order(db,'PARKING-BATCH',{product:'parking-batch',amount:11000,lines:[
+    {id:'daily',label:'검증차량 A · 일일권',amount:7000},
+    {id:'hour2',label:'검증차량 B · 2시간권',amount:4000}
+  ]});
+  db.prepare('INSERT INTO payapp_refunds(mul_no,oid,amount,created_at) VALUES(?,?,?,?)')
+    .run('BATCH-PARTIAL','PARKING-BATCH',3000,stamp);
+  const report=await api(range);
+  assert.deepEqual([find(report.categories,'parking').received,find(report.categories,'parking').refunded,find(report.categories,'parking').net],[11000,3000,8000]);
+  assert.equal(find(report.categories,'unclassified').received,0);
+  assert.ok(report.items.every(item=>item.components.length===1&&item.components[0].id==='parking'));
+  for(const filter of ['category=parking','component=parking']) {
+    const filtered=await api(range+'&'+filter);
+    assert.deepEqual(filtered.total,report.total);
+    assert.equal(filtered.detailCount,2);
+    conserves(filtered);
+  }
+  assert.equal((await api(range+'&category=unclassified')).detailCount,0);
+  conserves(report);
+  // A deliberate administrator allocation still takes precedence over product defaults.
+  classify(db,'paid:PARKING-BATCH',{components:[{id:'other',amount:11000}]});
+  const explicit=await api(range);
+  assert.equal(find(explicit.categories,'parking').received,0);
+  assert.equal(find(explicit.components,'other').received,11000);
+  assert.equal(find(explicit.components,'other').refunded,3000);
+  conserves(explicit);
+});
