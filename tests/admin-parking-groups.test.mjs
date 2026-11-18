@@ -61,3 +61,18 @@ test('미결제는 주문 생성 시각을 사용하며 같은 시각에는 결�
  update.run(null,'2026-11-03T05:00:00Z',orders[0].oid);update.run('','2026-11-03 04:00:00',orders[1].oid);update.run(null,'2026-11-03 05:00:00',orders[2].oid);
  const tied=[orders[0].oid,orders[2].oid].sort().reverse(),r=await list(f,'filter=all');assert.deepEqual(r.items.map(p=>p.oid),[...tied,orders[1].oid]);
 });
+
+test('구매일 묶음은 한국시간 자정 기준이며 여러 차량 결제와 주문 생성일을 중복 집계하지 않는다',()=>{
+ const base={payment_status:'paid',status:'waiting',price:4000,visit_date:'2026-11-20',plate:'123가4567'};
+ const list=view.groups([
+  {...base,oid:'MSA1',payment_oid:'MSA',paid_at:'2026-11-18 15:00:00',created_at:'2026-11-17 01:00:00'},
+  {...base,oid:'MSA2',payment_oid:'MSA',paid_at:'2026-11-18T15:00:00Z',created_at:'2026-11-17 01:00:00'},
+  {...base,oid:'MSB',paid_at:'2026-11-18T23:59:00+09:00',created_at:'2026-11-17 01:00:00'},
+  {...base,oid:'MSC',paid_at:null,payment_status:'created',created_at:'2026-11-18 15:10:00'},
+  {...base,oid:'MSUNKNOWN'}
+ ],{sort:'newest_desc'}),days=view.dateGroups(list);
+ assert.deepEqual(days.map(d=>d.key),['2026-11-19','2026-11-18','']);
+ assert.equal(days[0].vehicles,3);assert.deepEqual(days[0].items.map(g=>g.oid),['MSA','MSC']);assert.equal(days[1].vehicles,1);assert.equal(days[2].label,'구매일 확인 필요');
+ const html=view.render(list.flatMap(g=>g.items),()=>'<button data-pact="copy">복사</button>',{open:new Set(['MSA2']),sort:'newest_desc'});
+ assert.equal((html.match(/data-payment-oid="MSA"/g)||[]).length,1);assert.ok(html.includes('data-vehicle-tools="MSA2" open'));assert.ok(html.includes('구매 00:00'));assert.ok(html.includes('주문 00:10'));assert.ok(html.includes('data-pact="copy"'));
+});

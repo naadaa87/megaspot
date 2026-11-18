@@ -1,32 +1,51 @@
-#view-parking .pa-overview{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
-#view-parking .pa-overview>div{display:grid;gap:6px;padding:16px 18px;border:1px solid var(--concrete-2);border-radius:9px;background:#fff}
-#view-parking .pa-overview span{font-size:12px;color:var(--ink-3)}#view-parking .pa-overview strong{font-size:25px}
-#view-parking .pa-batch{padding:20px;background:#f6f7fa;border:1px solid var(--concrete-2);border-radius:12px}
-#view-parking .pa-batch-head{display:flex;align-items:start;justify-content:space-between;gap:16px;flex-wrap:wrap}
-#view-parking .pa-batch-kind{font-size:12px;font-weight:800;color:var(--cobalt)}
-#view-parking .pa-batch-head h2{font-size:19px;line-height:1.6;margin:5px 0}
-#view-parking .pa-batch-head h2 small{font-size:13px;color:var(--ink-2);font-weight:500;margin-left:8px}
-#view-parking .pa-batch-head p{font-size:12px;color:var(--ink-3);overflow-wrap:anywhere;margin:0}
-#view-parking .pa-batch-head .pa-purchase-time{margin:0 0 6px;font-size:13px;color:var(--ink-2);font-weight:600;line-height:1.7}
-#view-parking .pa-purchase-time span{font-size:11px;font-weight:400;color:var(--ink-3)}
-#view-parking .pa-batch-money{display:grid;gap:5px;text-align:right}#view-parking .pa-batch-money strong{font-size:24px}#view-parking .pa-batch-money span{font-size:12px;color:#a33a23}
-#view-parking .pa-batch-counts{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0}
-#view-parking .pa-batch-vehicles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:start}
-#view-parking .pa-vehicle-card{min-width:0;border:1px solid var(--concrete-2);background:#fff;border-radius:9px;padding:16px}
-#view-parking .pa-vehicle-top{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
-#view-parking .pa-vehicle-top h3{font-size:20px;letter-spacing:0;margin:0}
-#view-parking .pa-vehicle-meta,#view-parking .pa-vehicle-facts,#view-parking .pa-context{font-size:12px;line-height:1.8;margin:10px 0 0;color:var(--ink-2)}
-#view-parking .pa-context{color:var(--cobalt);font-weight:650}
-#view-parking .pa-vehicle-tools{margin-top:14px;border-top:1px solid var(--concrete-2);padding-top:12px}
-#view-parking .pa-vehicle-tools>summary{font-size:13px;font-weight:700;cursor:pointer}
-#view-parking .pa-vehicle-tools .pa-order{border:0;padding:16px 0 0;background:transparent}
+#view-parking .pa-overview{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:12px 16px;background:#fff;border:1px solid var(--concrete-2);border-radius:8px}
+#view-parking .pa-overview>div{display:flex;align-items:baseline;gap:8px;min-width:0;flex-wrap:wrap}
+#view-parking .pa-overview span{font-size:12px;color:var(--ink-3)}
+#view-parking .pa-overview strong{font-size:16px;font-variant-numeric:tabular-nums}
+#view-parking .pa-day{min-width:0}
+#view-parking .pa-day-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:4px 0 10px;padding:0 2px}
+#view-parking .pa-day-head h2{font-size:16px;line-height:1.5;margin:0;letter-spacing:0}
+#view-parking .pa-day-head h2 span,#view-parking .pa-day-head>span{font-size:12px;color:var(--ink-3);font-weight:400}
+#view-parking .pa-day-head h2 span{margin-left:5px}
+#view-parking .pa-day-orders{border:1px solid var(--concrete-2);border-radius:9px;background:#fff;min-width:0}
+#view-parking .pa-batch{padding:14px 18px;min-width:0}
+#view-parking .pa-batch+.pa-batch{border-top:1px solid var(--concrete-2)}
+#view-parking .pa-batch-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}
+#view-parking .pa-buyer-line{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;line-height:1.5}
+#view-parking .pa-buyer-line h3{font-size:15px;margin:0;line-height:1.5}
+#view-parking .pa-buyer-phone{font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+#view-parking .pa-payment-meta{display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px;margin-top:3px;font-size:12px;line-height:1.6;color:var(--ink-3)}
+#view-parking .pa-purchase-time{color:var(--ink-2);font-variant-numeric:tabular-nums}
+#view-parking .pa-batch-money{display:grid;gap:2px;text-align:right;flex-shrink:0}
+#view-parking .pa-batch-money strong{font-size:17px;line-height:1.5;white-space:nowrap;font-variant-numeric:tabular-nums}
+#view-parking .pa-batch-money>span{font-size:11px;color:#a33a23}
+#view-parking .pa-batch-counts{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
+#view-parking .pa-batch-counts .pk-state{font-size:11px;padding:3px 6px}
+#view-parking .pa-batch-vehicles{display:grid;grid-template-columns:minmax(0,1fr);gap:0;min-width:0}
+#view-parking .pa-vehicle-card{min-width:0}
+#view-parking .pa-vehicle-card+.pa-vehicle-card{border-top:1px solid var(--concrete-2)}
+#view-parking .pa-vehicle-tools{min-width:0}
+#view-parking .pa-vehicle-tools>summary{display:grid;grid-template-columns:minmax(135px,.9fr) minmax(150px,1.6fr) minmax(85px,.6fr) minmax(95px,.7fr) 54px;align-items:center;gap:12px;padding:10px 12px;background:#f7f8fa;border-radius:5px;cursor:pointer;list-style:none;min-height:64px;box-sizing:border-box}
+#view-parking .pa-vehicle-tools>summary::-webkit-details-marker{display:none}
+#view-parking .pa-vehicle-tools>summary:hover{background:#f0f2f5}
+#view-parking .pa-vehicle-tools>summary:focus-visible{outline:2px solid var(--cobalt);outline-offset:2px}
+#view-parking .pa-vehicle-number{display:grid;gap:2px;min-width:0}
+#view-parking .pa-vehicle-number strong{font-size:16px;line-height:1.5;letter-spacing:0}
+#view-parking .pa-vehicle-number small{font-size:11px;color:var(--ink-3);font-weight:400}
+#view-parking .pa-vehicle-ticket{font-size:13px;font-weight:500;line-height:1.6;overflow-wrap:anywhere;min-width:0}
+#view-parking .pa-vehicle-price{font-size:13px;font-weight:500;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+#view-parking .pa-vehicle-state{justify-self:end;font-size:12px;white-space:normal;text-align:center;line-height:1.5}
+#view-parking .pa-detail-toggle{display:flex;align-items:center;justify-content:flex-end;gap:8px;font-size:12px;font-weight:400;color:var(--ink-3)}
+#view-parking .pa-detail-toggle i{display:block;width:6px;height:6px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg);margin-top:-3px;flex-shrink:0}
+#view-parking .pa-vehicle-tools[open]>summary .pa-detail-toggle i{transform:rotate(225deg);margin-top:3px}
+#view-parking .pa-context{display:block;margin-top:3px;color:var(--cobalt);font-size:11px;font-weight:400}
+#view-parking .pa-vehicle-body{padding:14px 12px 18px;min-width:0}
+#view-parking .pa-vehicle-facts{font-size:12px;line-height:1.7;margin:0 0 12px;color:var(--ink-2)}
+#view-parking .pa-vehicle-tools .pa-order{border:0;padding:0;background:transparent}
 #view-parking .pa-vehicle-tools .pa-top h2{font-size:16px}
-@media(max-width:850px){#view-parking .pa-batch-vehicles{grid-template-columns:1fr}}
-@media(max-width:599px){#view-parking .pa-overview{grid-template-columns:repeat(2,minmax(0,1fr))}#view-parking .pa-overview>div{padding:12px}#view-parking .pa-batch{padding:14px}#view-parking .pa-batch-head h2 small{display:block;margin-left:0}#view-parking .pa-batch-money{text-align:left}#view-parking .pa-vehicle-card{padding:14px}}
-
-#view-parking .pa-overview>div:first-child strong{font-size:clamp(17px,2vw,24px)}
 #view-parking .pa-vehicle-tools .pa-fields{grid-template-columns:minmax(0,1fr)}
-@media(max-width:599px){#view-parking .pa-filter-bar{grid-template-columns:repeat(2,minmax(0,1fr))}#view-parking .pa-filter-bar #pa-search{grid-column:auto}#view-parking .pa-filter-bar .input,#view-parking .pa-filter-bar .select{min-width:0}}
+@media(max-width:1099px){#view-parking .pa-vehicle-tools>summary{grid-template-columns:minmax(115px,1fr) minmax(130px,1.5fr) 80px 96px 18px;gap:10px}#view-parking .pa-detail-toggle{font-size:0;gap:0}}
+@media(max-width:699px){#view-parking .pa-overview{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px;padding:12px}#view-parking .pa-overview>div{gap:4px 8px}#view-parking .pa-batch{padding:12px}#view-parking .pa-buyer-line{gap:2px 8px}#view-parking .pa-buyer-phone{font-size:11px}#view-parking .pa-batch-head{gap:8px}#view-parking .pa-batch-money strong{font-size:16px}#view-parking .pa-payment-meta{gap:3px 8px;font-size:11px}#view-parking .pa-vehicle-tools>summary{grid-template-columns:minmax(0,1fr) auto 9px;gap:5px 8px;padding:10px;min-height:76px}#view-parking .pa-vehicle-number{grid-column:1;grid-row:1}#view-parking .pa-vehicle-number strong{font-size:15px}#view-parking .pa-vehicle-number small{font-size:10px}#view-parking .pa-vehicle-ticket{grid-column:1;grid-row:2;font-size:12px}#view-parking .pa-vehicle-price{grid-column:2 / 4;grid-row:2;font-size:12px;align-self:end}#view-parking .pa-vehicle-state{grid-column:2;grid-row:1;font-size:11px}#view-parking .pa-detail-toggle{grid-column:3;grid-row:1}#view-parking .pa-vehicle-body{padding:14px 0}#view-parking .pa-day-head h2{font-size:15px}}
 
 /* Expanded vehicle tools must fit the card as well as the viewport. */
 #view-parking :is(.pa-list,.pa-order,.pa-fields,.pk-label,.pa-settings-panels){min-width:0;grid-template-columns:minmax(0,1fr)}
