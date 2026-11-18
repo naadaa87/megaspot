@@ -3,3 +3,5 @@
 #pa-payment-alerts .adm-notify-head{align-items:flex-start;flex-wrap:wrap;gap:8px}
 #pa-payment-alerts .adm-notify-tools{display:flex;flex-wrap:wrap;gap:6px}
 #pa-payment-alerts #pa-alert-state{margin:0;color:var(--ink-2)}
+#pa-payment-alerts:has(>.adm-notify-panel:not([hidden])){z-index:60}
+@media(max-width:599px){#pa-payment-alerts .adm-notify-head{display:grid;grid-template-columns:minmax(0,1fr)}#pa-payment-alerts .adm-notify-tools{justify-content:flex-start}#pa-payment-alerts .adm-notify-tools .btn{min-height:44px}}
