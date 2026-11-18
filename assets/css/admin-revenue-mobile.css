@@ -13,9 +13,13 @@
  .page-admin #view-revenue :is(.revenue-period-picker,.revenue-custom-dates) { grid-column:1/-1; }
  .page-admin #view-revenue .revenue-scope-space { grid-column:auto; }
  .page-admin #view-revenue .revenue-scope-controls label { gap:6px; font-size:12px; }
- .page-admin #view-revenue .revenue-month-control { display:grid; grid-template-columns:44px minmax(0,1fr) 44px; gap:8px; }
+ .page-admin #view-revenue .revenue-month-control { display:grid; grid-template-columns:44px minmax(0,1fr) 44px; gap:8px; width:min(100%,300px); }
  .page-admin #view-revenue .revenue-scope-controls :is(.input,.select,.btn) { height:44px; min-height:44px; padding:8px 10px; font-size:14px; }
- .page-admin #view-revenue .revenue-month-control .input { width:100%; font-size:16px; }
+ /* iOS can paint native month fields beyond their declared size. Only this shell is visible. */
+ .page-admin #view-revenue .revenue-month-field { position:relative; display:grid; place-items:center; width:100%; min-width:0; min-inline-size:0; height:44px; min-height:44px; max-height:44px; box-sizing:border-box; overflow:hidden; border:1px solid var(--concrete,#d9d7d2); border-radius:var(--radius,8px); background:#fff; }
+ .page-admin #view-revenue .revenue-month-field:focus-within { outline:2px solid #2454d8; outline-offset:2px; }
+ .page-admin #view-revenue .revenue-month-display { display:block; max-width:100%; padding:0 6px; font-size:16px; font-weight:650; line-height:1.4; white-space:nowrap; pointer-events:none; }
+ .page-admin #view-revenue .revenue-month-field .input { position:absolute; inset:0; display:block; width:100%; max-width:100%; min-width:0; min-inline-size:0; height:100%; min-height:0; max-height:44px; margin:0; padding:0; border:0; opacity:0; cursor:pointer; pointer-events:auto; font-size:16px; }
  .page-admin #view-revenue .revenue-month-control .btn { width:44px; padding:0; line-height:1; font-size:22px; }
  .page-admin #view-revenue .revenue-scope-space .select { width:100%; font-size:16px; }
  .page-admin #view-revenue .revenue-custom-dates { padding:0; }
@@ -104,5 +108,4 @@
 @media(max-width:359px) {
  .page-admin #view-revenue .revenue-scope-form { padding:12px; }
  .page-admin #view-revenue .revenue-month-control { gap:4px; }
- .page-admin #view-revenue .revenue-month-control .input { font-weight:400; padding-inline:6px; }
 }

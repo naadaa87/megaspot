@@ -83,6 +83,33 @@ test('매출 첫 진입에서 합계·지점별 예정 예약·거래를 오류 
   assert.match(f.node('revenue-status').textContent,/이용일 기준 · 보증금 제외/);
 });
 
+test('고정 월 표시와 실제 조회 기간은 연도 이동·윤년·직접 기간 선택에서도 일치한다',async()=>{
+  const calls=[];
+  const f=ui(async path=>{calls.push(path);return report();});f.open();await tick();
+  const selected=f.node('revenue-month-select');
+  selected.value='2026-12';selected.listeners.change();await tick();
+  assert.equal(f.node('revenue-month-display').textContent,'2026년 12월');
+  assert.equal(f.form.elements.to.value,'2026-12-31');
+  f.node('revenue-month-next').listeners.click();await tick();
+  assert.equal(selected.value,'2027-01');
+  assert.equal(f.node('revenue-month-display').textContent,'2027년 1월');
+  f.node('revenue-month-prev').listeners.click();await tick();
+  assert.equal(f.node('revenue-month-display').textContent,'2026년 12월');
+  selected.value='2028-02';selected.listeners.change();await tick();
+  assert.equal(f.node('revenue-month-display').textContent,'2028년 2월');
+  assert.equal(f.form.elements.from.value,'2028-02-01');
+  assert.equal(f.form.elements.to.value,'2028-02-29');
+  f.form.elements.from.value='2028-02-10';f.node('revenue-from').listeners.change();
+  assert.equal(selected.value,'');assert.equal(f.node('revenue-month-display').textContent,'기간 직접 선택');
+  f.submit();await tick();
+  const query=new URL(calls.filter(path=>path.startsWith('/revenue?')).at(-1),'https://local.test').searchParams;
+  assert.equal(query.get('from'),'2028-02-10');assert.equal(query.get('to'),'2028-02-29');
+  selected.value='';selected.listeners.change();
+  assert.equal(f.node('revenue-month-display').textContent,'기간 직접 선택');
+  f.node('revenue-month').listeners.click();await tick();
+  assert.equal(f.node('revenue-month-display').textContent,selected.value.slice(0,4)+'년 '+Number(selected.value.slice(5))+'월');
+});
+
 function bookingList(metric='booked',overrides={}) {
   const summary=report().bookingSummary;
   return {ok:true,metric,summary,total:{count:1,amount:metric==='booked'?240000:120000,unknownCount:0},

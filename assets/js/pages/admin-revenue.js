@@ -27,12 +27,17 @@
   let bookingRows=new Map(),bookingDetailCode='',bookingDetailVersion=0,bookingDetailOpener=null,bookingListScroll=0,bookingListTitle='';
   let profitRefresh=true;
 
+  function syncMonthDisplay() {
+    const value=$('revenue-month-select').value;
+    $('revenue-month-display').textContent=value?value.slice(0,4)+'년 '+Number(value.slice(5))+'월':'기간 직접 선택';
+  }
   function month(value) {
     const current = value || new Date(Date.now()+9*3600e3).toISOString().slice(0,7);
     const [year,number] = current.split('-').map(Number);
     form.elements.from.value = current+'-01';
     form.elements.to.value = new Date(Date.UTC(year,number,0)).toISOString().slice(0,10);
     $('revenue-month-select').value = current;
+    syncMonthDisplay();
     $('revenue-trend-year').value = year;
   }
   function money(n) { return '<td class="revenue-num'+(n<0?' revenue-refund':'')+'">'+won(n)+'</td>'; }
@@ -328,12 +333,12 @@
     }catch(e){if(request!==version)return;report.hidden=true;if(!X.guard(e))status.textContent=e.message||'매출 내역을 불러오지 못했습니다.';}
     finally{if(request===version)report.removeAttribute('aria-busy');}
   }
-  function search(){filters=new URLSearchParams(new FormData(form));$('revenue-custom-dates').open=false;selectedDay='';page=1;load();}
+  function search(){syncMonthDisplay();filters=new URLSearchParams(new FormData(form));$('revenue-custom-dates').open=false;selectedDay='';page=1;load();}
   function shiftMonth(delta){const current=$('revenue-month-select').value||form.elements.from.value.slice(0,7);const [year,number]=current.split('-').map(Number);month(new Date(Date.UTC(year,number-1+delta,1)).toISOString().slice(0,7));search();}
   detail.querySelector('h2').tabIndex=-1;
   form.addEventListener('submit',e=>{e.preventDefault();search();});
   $('revenue-month').addEventListener('click',()=>{month();search();});
-  $('revenue-month-select').addEventListener('change',()=>{if($('revenue-month-select').value){month($('revenue-month-select').value);search();}});
+  $('revenue-month-select').addEventListener('change',()=>{syncMonthDisplay();if($('revenue-month-select').value){month($('revenue-month-select').value);search();}});
   $('revenue-month-prev').addEventListener('click',()=>shiftMonth(-1));
   $('revenue-month-next').addEventListener('click',()=>shiftMonth(1));
   $('revenue-trend').addEventListener('click',e=>{const b=e.target.closest('[data-revenue-month]');if(b){month(b.dataset.revenueMonth);search();}});
@@ -343,7 +348,7 @@
   selectTrendMode(trendMode,false);
   if(window.ResizeObserver)new window.ResizeObserver(refreshTrendWidth).observe($('revenue-trend'));
   else window.addEventListener('resize',refreshTrendWidth);
-  ['revenue-from','revenue-to'].forEach(id=>$(id).addEventListener('change',()=>{$('revenue-month-select').value='';$('revenue-trend-year').value=form.elements.from.value.slice(0,4);}));
+  ['revenue-from','revenue-to'].forEach(id=>$(id).addEventListener('change',()=>{$('revenue-month-select').value='';syncMonthDisplay();$('revenue-trend-year').value=form.elements.from.value.slice(0,4);}));
   $('revenue-category').addEventListener('change',()=>{$('revenue-component').value='';});
   $('revenue-show-all').addEventListener('click',()=>{form.elements.category.value='';form.elements.component.value='';form.elements.channel.value='';search();});
   $('revenue-clear-component').addEventListener('click',()=>{$('revenue-component').value='';search();});

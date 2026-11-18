@@ -54,7 +54,7 @@
 <link rel="stylesheet" href="/assets/css/admin-parking.css?v=382ffeda9a7e">
 <link rel="stylesheet" href="/assets/css/admin-navigation.css?v=e23f7184bcaa">
 <link rel="stylesheet" href="/assets/css/admin-booking-readiness.css?v=4a673b636fe6">
-<link rel="stylesheet" href="/assets/css/admin-revenue.css?v=20261118mobile1">
+<link rel="stylesheet" href="/assets/css/admin-revenue.css?v=20261118month3">
 <link rel="stylesheet" href="/assets/css/admin-revenue-services.css?v=20261118bookingdetails1">
 <link rel="stylesheet" href="/assets/css/admin-revenue-profit.css?v=20261118profit1">
 <link rel="stylesheet" href="/assets/css/admin-reservation-search.css?v=6124f3fbd3a3">
@@ -69,7 +69,7 @@
 <link rel="stylesheet" href="/assets/css/admin-mobile.css?v=03f2387edcba">
 <link rel="stylesheet" href="/assets/css/admin-filter-layout.css?v=35e85dd56bb5">
 <link rel="stylesheet" href="/assets/css/admin-action-menus.css?v=4b78b4db6f83">
-<link rel="stylesheet" href="/assets/css/admin-revenue-mobile.css?v=20261118mobile2">
+<link rel="stylesheet" href="/assets/css/admin-revenue-mobile.css?v=20261118month3">
 </head>
 <body class="page-admin">
 <div id="admin-root">
@@ -406,7 +406,7 @@
     <section class="adm-view" id="view-revenue" hidden>
       <header class="adm-head revenue-page-head"><div><h1>매출</h1><p class="small muted">예약금액·수납·잔금과 월별 매출 구성을 확인합니다.</p></div>
         <form class="revenue-scope-form" id="revenue-form"><div class="revenue-scope-controls">
-          <div class="revenue-period-picker"><label for="revenue-month-select">이용월</label><div class="revenue-month-control"><button type="button" class="btn btn-light btn-sm" id="revenue-month-prev" aria-label="이전 달">‹</button><input class="input" type="month" id="revenue-month-select"><button type="button" class="btn btn-light btn-sm" id="revenue-month-next" aria-label="다음 달">›</button></div></div>
+          <div class="revenue-period-picker"><label for="revenue-month-select">이용월</label><div class="revenue-month-control"><button type="button" class="btn btn-light btn-sm" id="revenue-month-prev" aria-label="이전 달">‹</button><div class="revenue-month-field"><span class="revenue-month-display" id="revenue-month-display" aria-hidden="true">월 선택</span><input class="input" type="month" id="revenue-month-select"></div><button type="button" class="btn btn-light btn-sm" id="revenue-month-next" aria-label="다음 달">›</button></div></div>
           <label class="revenue-scope-space" for="revenue-space">지점<select class="select" id="revenue-space" name="space"><option value="">전체 지점</option><option value="megaspot-gundae">건대 1호점</option><option value="megaspot-gundae-2">건대 2호점</option><option value="unassigned">공통·미지정</option></select></label>
           <button type="button" class="btn btn-light btn-sm" id="revenue-month">이번 달</button><button type="submit" class="btn btn-primary btn-sm">조회</button>
           <details class="revenue-custom-dates" id="revenue-custom-dates"><summary>기간 직접 선택</summary><div class="revenue-date-fields"><label for="revenue-from">시작일<input class="input" type="date" id="revenue-from" name="from" required></label><label for="revenue-to">종료일<input class="input" type="date" id="revenue-to" name="to" required></label><span class="tiny muted">최대 366일 · 이용일 기준</span></div></details>
@@ -758,7 +758,7 @@
 <script src="/assets/js/pages/admin-cancellation.js?v=20261104retry1"></script>
 <script src="/assets/js/pages/admin-booking-notifications.js?v=c6fc7015286c"></script>
 <script src="/assets/js/pages/admin-transaction-notifications.js?v=20261118feedbackdelivery1"></script>
-<script src="/assets/js/pages/admin-revenue.js?v=20261118mobile1"></script>
+<script src="/assets/js/pages/admin-revenue.js?v=20261118month3"></script>
 <script src="/assets/js/pages/admin-revenue-services.js?v=20261118bookingdetails1"></script>
 <script src="/assets/js/pages/admin-revenue-profit.js?v=20261118profit1"></script>
 <script src="/assets/js/pages/admin-hostplat.js?v=20261114assist1"></script>
