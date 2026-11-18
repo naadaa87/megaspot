@@ -1,0 +1,82 @@
+/* All top filters use the same 46px controls and 16px field spacing. */
+.page-admin .adm-filter-panel{padding:20px;margin-bottom:20px;min-width:0}
+.page-admin :is(.adm-filter-panel,.adm-booking-filters,.revenue-analysis-filters) :is(.input,.select,.btn){height:46px;min-height:46px;min-width:0;max-width:100%;box-sizing:border-box;margin:0;border-radius:var(--radius);font-size:14px;line-height:1.5}
+.page-admin :is(.adm-filter-field,.adm-booking-filters>label,.revenue-scope-space,.revenue-period-picker,.revenue-analysis-filters>label){display:grid;gap:8px;font-size:13px;font-weight:650;min-width:0;margin:0}
+.page-admin #view-resv .rs-bar{display:grid;grid-template-columns:minmax(160px,1fr) minmax(0,2fr);align-items:end;gap:16px;margin:0 0 20px;padding:0 0 20px;border-bottom:1px solid var(--concrete-2)}
+.page-admin .rs-range{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px}
+.page-admin .rs-range .chip{height:46px;min-height:46px;padding:8px 14px}
+.page-admin .rs-month-choice{font-size:13px;gap:8px}
+.page-admin .rs-dates{display:flex;gap:10px;min-width:0;align-items:center}
+.page-admin .rs-dates .input{flex:1;width:100%;min-width:0}
+.page-admin #view-resv .rs-filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:0;align-items:end}
+.page-admin #rs-tabs{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px;padding:0;background:transparent;border:0}
+.page-admin #rs-tabs>button{min-height:46px;border:1px solid var(--concrete);border-radius:var(--radius);padding:10px 14px}
+.page-admin #rs-search{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 10px;padding:0;border:0;background:transparent;min-width:0}
+.page-admin .adm-filter-search-label{grid-column:1/-1;font-size:13px;font-weight:650}
+.page-admin #rs-search-clear{width:auto;white-space:normal}
+.page-admin .rs-filters>.reservation-filter-reset{justify-self:end;grid-column:1/-1}
+.page-admin .adm-booking-list-head{display:block}
+.page-admin .adm-booking-filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;width:100%;margin:16px 0 0;max-width:none}
+.page-admin .adm-booking-filters :is(input,select){width:100%}
+.page-admin .adm-booking-filters>label:has(#bk-q){grid-column:span 2}
+.page-admin .adm-booking-filters>.reservation-filter-reset{align-self:end}
+.page-admin #view-calendar .adm-calendar-toolbar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr)) auto;gap:16px;margin:0 0 16px;align-items:end}
+.page-admin #view-calendar .adm-calendar-toolbar>.f{max-width:none!important;margin:0;min-width:0;display:grid;gap:8px;font-size:13px}
+.page-admin .adm-calendar-month-controls{grid-column:1/-1;display:flex;justify-content:flex-end;align-items:center;gap:12px;min-width:0}
+.page-admin .adm-calendar-month-controls .cal-title{margin:0;text-align:center;min-width:0}
+.page-admin #view-calendar .adm-calendar-extra-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:0}
+.page-admin .adm-calendar-extra-filters label{display:grid;gap:8px;font-size:13px;min-width:0}
+.page-admin .revenue-scope-form{width:100%;max-width:none;margin:0 0 20px}
+.page-admin .revenue-scope-controls{display:grid;grid-template-columns:minmax(240px,1.4fr) minmax(160px,1fr) auto auto;gap:16px;align-items:end;width:100%}
+.page-admin .revenue-month-control{display:grid;grid-template-columns:46px minmax(0,1fr) 46px;gap:8px;min-width:0}
+.page-admin .revenue-month-control :is(.input,.btn){width:100%;min-width:0;padding:8px}
+.page-admin .revenue-scope-space .select{width:100%}
+.page-admin .revenue-scope-form .revenue-custom-dates{grid-column:1/-1;margin:0;padding-top:16px;position:static}
+.page-admin .revenue-scope-form .revenue-custom-dates summary{display:inline-flex;align-items:center;min-height:44px;padding:8px 12px;border:1px solid var(--concrete);border-radius:var(--radius);font-size:13px;cursor:pointer}
+.page-admin .revenue-scope-form .revenue-date-fields{position:static;display:flex;gap:16px;width:100%;padding:16px 0 0;border:0;background:transparent;box-shadow:none}
+.page-admin .revenue-scope-form .revenue-date-fields label{display:grid;gap:8px;flex:1;max-width:none}
+.page-admin .revenue-analysis-filters{display:flex;flex-wrap:wrap;gap:16px;align-items:end;max-width:100%}
+.page-admin .revenue-analysis-filters :is(#revenue-category,#revenue-channel){width:100%;min-width:0}
+.reservation-action-group{display:grid;gap:8px;min-width:0;text-align:left}
+.reservation-primary-actions{display:flex;flex-wrap:wrap;gap:8px}
+.reservation-action-group .btn{margin:0!important;min-height:36px;white-space:normal;line-height:1.4}
+.reservation-more{min-width:0}
+.reservation-more>summary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:36px;padding:8px 12px;border:1px solid var(--concrete);border-radius:var(--radius);background:#f7f8fa;font-size:12px;font-weight:700;cursor:pointer;list-style:none}
+.reservation-more>summary::after{content:'⌄'}
+.reservation-more[open]>summary::after{content:'⌃'}
+.reservation-more-items{display:grid;gap:8px;margin-top:8px;padding:12px;border:1px solid var(--concrete-2);border-radius:var(--radius);background:#f7f8fa;min-width:0}
+.reservation-more:not([open])>.reservation-more-items{display:none}
+.reservation-more-items>.btn{width:100%;justify-content:flex-start;text-align:left}
+@media(max-width:999px){.page-admin .revenue-scope-controls{grid-template-columns:repeat(2,minmax(0,1fr))}.page-admin .revenue-period-picker{grid-column:1/-1}.page-admin #view-resv .rs-filters,.page-admin .adm-booking-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.page-admin .adm-booking-filters>label:has(#bk-q){grid-column:1/-1}}
+@media(max-width:599px){
+ .page-admin .adm-filter-panel{padding:16px}
+ .page-admin :is(.adm-filter-panel,.adm-booking-filters,.revenue-analysis-filters) :is(.input,.select){font-size:16px}
+ .page-admin #view-resv .rs-bar,.page-admin #view-resv .rs-filters,.page-admin .adm-booking-filters,.page-admin #view-calendar .adm-calendar-toolbar,.page-admin #view-calendar .adm-calendar-extra-filters{grid-template-columns:minmax(0,1fr)}
+ .page-admin .rs-dates{gap:8px}.page-admin .rs-dates .input{font-size:14px;padding:10px 6px}
+ .page-admin .rs-range .chip{flex:1 1 90px}
+ .page-admin #rs-tabs>button{flex:1 1 100px}
+ .page-admin #rs-search{grid-template-columns:minmax(0,1fr)}
+ .page-admin .rs-filters>.reservation-filter-reset{width:100%;justify-self:stretch}
+ .page-admin .adm-calendar-month-controls{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%}
+ .page-admin .adm-calendar-month-controls .cal-title{grid-column:1/-1;grid-row:1}
+ .page-admin #view-calendar #cal-filter-reset{width:100%;margin:0}
+ .page-admin .revenue-scope-controls{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .page-admin .revenue-scope-space{grid-column:1/-1}
+ .page-admin .revenue-date-fields{flex-wrap:wrap}.page-admin .revenue-date-fields>label{flex-basis:100%}
+ .reservation-primary-actions>.btn{flex:1 1 100px}
+ .reservation-action-group :is(.btn,summary){min-height:44px}
+ .reservation-more>summary{width:100%}
+ .reservation-more-items{grid-template-columns:repeat(2,minmax(0,1fr));padding:10px}
+ .reservation-more-items>.btn{justify-content:center;text-align:center;padding:10px 8px}
+}
+
+.page-admin .rs-dates>.adm-filter-field{flex:1;min-width:0}
+@media(min-width:1200px){.page-admin #view-resv .rs-filters{grid-template-columns:repeat(5,minmax(0,1fr))}.page-admin #rs-search{grid-column:span 4}.page-admin .rs-filters>.reservation-filter-reset{grid-column:auto;width:100%}}
+/* Reserve a readable action column instead of squeezing labels into vertical text. */
+.reservation-primary-actions>.btn{flex:1 1 64px;padding:8px}
+.reservation-more>summary{width:100%;white-space:nowrap}
+.reservation-more-items>.btn{word-break:keep-all;overflow-wrap:normal}
+@media(min-width:1101px){
+ .page-admin #view-resv .rs-table th:nth-child(1){width:5%}.page-admin #view-resv .rs-table th:nth-child(2){width:9%}.page-admin #view-resv .rs-table th:nth-child(3){width:12%}.page-admin #view-resv .rs-table th:nth-child(4){width:5%}.page-admin #view-resv .rs-table th:nth-child(5){width:4%}.page-admin #view-resv .rs-table th:nth-child(6){width:9%}.page-admin #view-resv .rs-table th:nth-child(7){width:15%}.page-admin #view-resv .rs-table th:nth-child(8){width:7%}.page-admin #view-resv .rs-table th:nth-child(9){width:8%}.page-admin #view-resv .rs-table th:nth-child(10){width:11%}.page-admin #view-resv .rs-table th:nth-child(11){width:15%}
+ .page-admin #view-resv .reservation-primary-actions .btn{font-size:12px}
+}

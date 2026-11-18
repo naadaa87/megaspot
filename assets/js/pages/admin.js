@@ -1588,7 +1588,7 @@
   function keepReservationScroll(render){
     var x=window.scrollX,y=window.scrollY,root=document.documentElement,anchor=root.style.overflowAnchor;
     root.style.overflowAnchor='none';
-    try{render();window.scrollTo({left:x,top:y,behavior:'instant'});}
+    try{render();if(window.MEGASPOT_RESERVATION_ACTIONS)window.MEGASPOT_RESERVATION_ACTIONS();window.scrollTo({left:x,top:y,behavior:'instant'});}
     finally{root.style.overflowAnchor=anchor;}
   }
   function drawBookings(){keepReservationScroll(drawBookingsContent);}
