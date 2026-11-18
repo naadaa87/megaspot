@@ -8,11 +8,12 @@ export async function onRequest(context) {
   try { await ensureSchema(context.env); } catch {}
   const response=await context.next();
   const path=new URL(context.request.url).pathname;
+  const readOnlyRevenue=/^\/api\/admin\/revenue(?:\/|$)/.test(path);
   const readOnlyPortal=path==='/api/feedback'||path.startsWith('/api/admin/feedback')||/^\/api\/pay\/availability\/?$/.test(path)||/^\/api\/reservation-calendar\/?$/.test(path)||path.startsWith('/api/booking-portal/')||/^\/api\/admin\/bookings\/[^/]+\/portal-link/.test(path)||/^\/api\/admin\/guide-messages\/(portal-preview|portal-test|portal-template|portal-check-template)$/.test(path);
   const readOnlyReadiness=/^\/api\/admin\/booking-readiness\/?$/.test(path);
   const readOnlyMemberInquiries=context.request.method==='GET'&&/^\/api\/auth\/inquiries\/?$/.test(path);
   const siteStats=path==='/api/stats';   // 방문 통계 수집은 페이지마다 들어오므로 예약 알림 확인을 붙이지 않습니다
-  if(typeof context.waitUntil==='function'&&!siteStats&&!path.startsWith('/api/deposit-notifications/')&&path!=='/api/admin/transaction-notifications'&&!readOnlyPortal&&!readOnlyReadiness&&!readOnlyMemberInquiries){
+  if(typeof context.waitUntil==='function'&&!siteStats&&!path.startsWith('/api/deposit-notifications/')&&path!=='/api/admin/transaction-notifications'&&!readOnlyPortal&&!readOnlyReadiness&&!readOnlyMemberInquiries&&!readOnlyRevenue){
     context.waitUntil(depositNoticeTick(context.env).catch(()=>{}));
     context.waitUntil(guideTick(context.env).catch(()=>{}));
     context.waitUntil(parkingAdminSMSTick(context.env).catch(()=>{}));

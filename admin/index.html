@@ -54,7 +54,7 @@
 <link rel="stylesheet" href="/assets/css/admin-parking.css?v=20261116filters">
 <link rel="stylesheet" href="/assets/css/admin-navigation.css?v=286c139e405b">
 <link rel="stylesheet" href="/assets/css/admin-booking-readiness.css?v=20261105readiness1">
-<link rel="stylesheet" href="/assets/css/admin-revenue.css?v=20261110revenue1">
+<link rel="stylesheet" href="/assets/css/admin-revenue.css?v=20261118revenueanalysis1">
 <link rel="stylesheet" href="/assets/css/admin-reservation-search.css?v=20261105inquirysearch1">
 <link rel="stylesheet" href="/assets/css/admin-reception.css?v=20261105cfbudget1">
 <link rel="stylesheet" href="/assets/css/admin-hostplat.css?v=20261114assist1">
@@ -86,7 +86,9 @@
   <aside class="adm-side">
     <div class="adm-brand"><a href="/admin/" class="logo inv"><span class="en">MEGA<b>SPOT</b></span></a><span class="adm-badge">관리자</span></div>
     <nav class="adm-nav" id="adm-nav" aria-label="관리 메뉴">
-      <button type="button" data-view="dash" class="on">대시보드</button>
+      <button type="button" data-view="dash" class="on">오늘 할 일</button>
+      <button type="button" data-view="kpi">KPI 지표</button>
+      <button type="button" data-view="revenue">매출</button>
       <button type="button" data-view="resv">일자별 예약</button>
       <button type="button" data-view="visits">일자별 현장답사<em data-count="visits" hidden></em></button>
       <button type="button" data-view="inq">문의 관리<em data-count="inq" hidden></em></button>
@@ -95,7 +97,6 @@
       <button type="button" data-view="reception">테이블·박스 케이터링</button>
       <button type="button" data-view="cocktail">출장 칵테일</button>
       <button type="button" data-view="orders">주문·결제<em data-count="orders" hidden></em></button>
-      <button type="button" data-view="revenue">매출 현황</button>
       <button type="button" data-view="bookings">예약 관리</button>
       <button type="button" data-view="booking-readiness">미안내·미발급</button>
       <button type="button" data-view="calendar">일정 달력</button>
@@ -397,48 +398,34 @@
     </section>
 
     <section class="adm-view" id="view-revenue" hidden>
-      <header class="adm-head"><div><h1>매출 현황</h1><p class="small muted">수납과 완료된 환불을 지점별·이용일별로 확인합니다.</p></div></header>
+      <header class="adm-head"><div><h1>매출</h1><p class="small muted">월별 매출과 지점·서비스·결제 채널별 구성을 확인합니다.</p></div></header>
       <form class="adm-card revenue-filters" id="revenue-form">
-        <label for="revenue-space">지점<select class="select" id="revenue-space" name="space"><option value="">전체</option><option value="megaspot-gundae">건대 1호점</option><option value="megaspot-gundae-2">건대 2호점</option><option value="unassigned">공통·지점 미지정</option></select></label>
-        <label for="revenue-from">시작일<input class="input" type="date" id="revenue-from" name="from" required></label>
-        <label for="revenue-to">종료일<input class="input" type="date" id="revenue-to" name="to" required></label>
-        <button type="submit" class="btn btn-primary btn-sm">조회</button>
-        <button type="button" class="btn btn-light btn-sm" id="revenue-month">이번 달</button>
+        <div class="revenue-filter-fields">
+          <label for="revenue-month-select">이용월<input class="input" type="month" id="revenue-month-select"></label>
+          <label for="revenue-space">지점<select class="select" id="revenue-space" name="space"><option value="">전체 지점</option><option value="megaspot-gundae">건대 1호점</option><option value="megaspot-gundae-2">건대 2호점</option><option value="unassigned">공통·지점 미지정</option></select></label>
+          <label for="revenue-category">매출 구분<select class="select" id="revenue-category" name="category"><option value="">전체 매출</option><option value="rental">공간대관</option><option value="food">식음료</option><option value="parking">주차</option><option value="addons">부가서비스</option><option value="unclassified">구성 미분류</option></select></label>
+          <label for="revenue-channel">결제 채널<select class="select" id="revenue-channel" name="channel"><option value="">전체 채널</option><option value="spacecloud">온라인 (스페이스클라우드)</option><option value="payapp">온라인 (페이앱)</option><option value="toss_terminal">현장 (토스 터미널)</option><option value="bank_corporate">법인계좌</option><option value="bank_personal">개인계좌</option><option value="unknown">미분류</option></select></label>
+        </div>
+        <input type="hidden" name="component" id="revenue-component">
+        <div class="revenue-filter-actions"><button type="button" class="btn btn-light btn-sm" id="revenue-month-prev" aria-label="이전 달">← 이전 달</button><button type="button" class="btn btn-light btn-sm" id="revenue-month-next" aria-label="다음 달">다음 달 →</button><button type="button" class="btn btn-light btn-sm" id="revenue-month">이번 달</button><button type="submit" class="btn btn-primary btn-sm">조회</button><button type="button" class="btn btn-light btn-sm" id="revenue-clear-component" hidden>세부항목 필터 해제</button></div>
+        <details class="revenue-custom-dates"><summary>기간 직접 선택</summary><div class="revenue-date-fields"><label for="revenue-from">시작일<input class="input" type="date" id="revenue-from" name="from" required></label><label for="revenue-to">종료일<input class="input" type="date" id="revenue-to" name="to" required></label><span class="tiny muted">최대 366일 · 이용일 기준</span></div></details>
       </form>
       <p class="small muted" id="revenue-status" role="status"></p>
       <div id="revenue-report" hidden>
         <div class="revenue-totals" id="revenue-totals" aria-label="기간 합계"></div>
-        <section class="adm-card mt-3" id="revenue-upcoming">
-          <h2>입금 확인 전 예정 예약</h2>
-          <p class="tiny muted">조회 기간과 지점에 해당하는 예정 예약입니다. 이용료 수납을 기록하면 해당 이용월 매출에 반영됩니다.</p>
-          <div id="revenue-upcoming-items"></div>
-        </section>
-        <section class="adm-card mt-3">
-          <h2>날짜별 매출</h2>
-          <p class="tiny muted">날짜를 선택하면 아래 거래 내역에서 해당 날짜만 볼 수 있습니다. 지점별 열에는 순매출을 표시합니다.</p>
-          <div class="revenue-table-wrap" id="revenue-daily"></div>
-        </section>
-        <section class="adm-card mt-3" id="revenue-detail">
-          <div class="revenue-detail-head"><h2>거래 내역</h2><button class="btn btn-light btn-sm" type="button" id="revenue-clear-day" hidden>날짜 필터 해제</button></div>
-          <p class="tiny muted" id="revenue-detail-label" aria-live="polite"></p>
-          <div class="revenue-table-wrap" id="revenue-items"></div>
-          <div class="revenue-pagination" id="revenue-pagination" hidden>
-            <button type="button" class="btn btn-light btn-sm" id="revenue-prev">이전</button>
-            <span id="revenue-page" class="small"></span>
-            <button type="button" class="btn btn-light btn-sm" id="revenue-next">다음</button>
+        <div class="revenue-analysis-grid mt-3">
+          <div class="revenue-analysis-main"><section class="adm-card revenue-trend-card"><div class="revenue-section-head"><div><h2>월별 매출 추이</h2><p class="tiny muted">순매출 · 현재 지점·서비스·결제 채널 조건 반영</p></div><label class="revenue-year-label" for="revenue-trend-year">연도<input class="input" type="number" id="revenue-trend-year" min="2000" max="2100" step="1"></label></div><p class="tiny muted" id="revenue-trend-status" role="status"></p><div id="revenue-trend" class="revenue-chart" aria-label="월별 순매출 막대 그래프"></div></section>
+        <section class="adm-card mt-3"><h2>서비스별 매출</h2><p class="tiny muted">항목을 선택하면 해당 매출만 조회합니다.</p><div id="revenue-categories" class="revenue-category-grid"></div></section>
           </div>
-        </section>
+          <section class="adm-card"><h2>결제 채널별 비중</h2><p class="tiny muted">수납액 기준 · 환불액은 아래에 별도 표시</p><div id="revenue-channel-shares"></div></section>
+        </div>
+        <section class="adm-card mt-3"><h2>매출 세부 구성</h2><p class="tiny muted">공간대관·식음료·청소지원·현수막 등 실제 수납·환불의 항목별 금액입니다.</p><div class="revenue-table-wrap" id="revenue-components"></div><p class="tiny muted mt-2">묶음 수납은 저장된 주문·견적 비율로 배분합니다. 구성 근거가 없으면 ‘구성 미분류’로 남으며, 거래 내역의 ‘분류’에서 직접 지정할 수 있습니다.</p></section>
+        <section class="adm-card mt-3" id="revenue-upcoming"><h2>입금 확인 전 예정 예약</h2><p class="tiny muted">조회 기간과 지점에 해당하는 예정 예약입니다. 수납을 기록하면 해당 이용월 매출에 반영됩니다.</p><div id="revenue-upcoming-items"></div></section>
+        <section class="adm-card mt-3"><h2>날짜별 매출</h2><p class="tiny muted">날짜를 선택하면 아래 거래 내역에서 해당 날짜만 볼 수 있습니다. 지점별 열은 순매출입니다.</p><div class="revenue-table-wrap" id="revenue-daily"></div></section>
+        <section class="adm-card mt-3" id="revenue-detail"><div class="revenue-detail-head"><h2>거래 내역</h2><button class="btn btn-light btn-sm" type="button" id="revenue-clear-day" hidden>날짜 필터 해제</button></div><p class="tiny muted" id="revenue-detail-label" aria-live="polite"></p><div class="revenue-table-wrap" id="revenue-items"></div><div class="revenue-pagination" id="revenue-pagination" hidden><button type="button" class="btn btn-light btn-sm" id="revenue-prev">이전</button><span id="revenue-page" class="small"></span><button type="button" class="btn btn-light btn-sm" id="revenue-next">다음</button></div></section>
       </div>
-      <details class="adm-card mt-3 revenue-rules">
-        <summary>집계 기준</summary>
-        <ul class="small muted">
-          <li>순매출은 수납액에서 완료된 환불액을 뺀 금액입니다. 반환 보증금의 입금과 환급은 제외합니다. 합산 입금은 이용료 부분만 집계합니다.</li>
-          <li>온라인 주문과 관리자 수납·환불 기록을 집계합니다. 견적, 미수금, 테스트 결제, 보관함으로 옮긴 취소 건은 제외합니다.</li>
-          <li>수납과 환불은 해당 예약이나 주문의 이용일에 집계합니다. 이용일이 비어 있는 거래는 날짜별 집계에서 제외합니다. 상세 내역의 수납·환불 기록일은 한국시간입니다.</li>
-          <li>기존 확정서에서 이관된 수납이나 처리일을 확인할 수 없는 이전 거래는 상세 내역에 ‘추정’으로 표시합니다.</li>
-          <li>공용 주차권과 지점 정보가 없는 주문은 ‘공통·지점 미지정’으로 집계합니다.</li>
-        </ul>
-      </details>
+      <details class="adm-card mt-3 revenue-rules"><summary>집계 기준</summary><ul class="small muted"><li>순매출은 수납액에서 완료된 환불액을 뺀 금액입니다. 반환 보증금의 입금과 환급은 제외하며, 합산 입금은 이용료 부분만 집계합니다.</li><li>온라인 주문과 관리자 수납·환불 기록을 이용일 기준으로 집계합니다. 견적·미수금·테스트 결제·보관함의 취소 건은 제외합니다. 기록일은 한국시간입니다.</li><li>결제 채널과 계좌는 확인된 기록만 사용합니다. 문의 유입 경로를 결제 채널로 간주하지 않습니다. ‘분류’는 분석용 정보만 저장합니다.</li><li>묶음 수납과 환불의 항목별 금액은 저장된 구성 비율로 배분하며, 원 단위 차이를 조정해 전체 합계와 일치시킵니다. 직접 분류한 구성은 우선 적용합니다.</li><li>이용일이 없는 거래는 집계에서 제외합니다. 기존 확정서 이관·기록일을 확인할 수 없는 거래는 ‘추정’으로 표시합니다. 공용 주차권은 ‘공통·지점 미지정’으로 집계합니다.</li></ul></details>
+      <dialog id="revenue-classify-dialog" class="revenue-classify-dialog" aria-labelledby="revenue-classify-title"><form id="revenue-classify-form"><div class="revenue-section-head"><h2 id="revenue-classify-title">매출 분류</h2><button type="button" class="btn btn-light btn-sm" id="revenue-classify-close" aria-label="매출 분류 닫기">닫기</button></div><p id="revenue-classify-info" class="small"></p><div class="revenue-classify-fields"><label for="revenue-classify-channel">결제 채널<select id="revenue-classify-channel" class="select" required><option value="unknown">미분류</option><option value="spacecloud">온라인 (스페이스클라우드)</option><option value="payapp">온라인 (페이앱)</option><option value="toss_terminal">현장 (토스 터미널)</option><option value="bank_corporate">법인계좌</option><option value="bank_personal">개인계좌</option></select></label><label for="revenue-classify-account">수납 계좌·사업자 이름<input id="revenue-classify-account" class="input" maxlength="80" list="revenue-account-suggestions" placeholder="예: 블랭크, 지유공간, 최준원개인"><datalist id="revenue-account-suggestions"><option value="블랭크"><option value="지유공간"><option value="최준원개인"></datalist></label></div><label class="revenue-auto-label"><input type="checkbox" id="revenue-classify-auto" checked> 저장된 주문·견적 구성으로 자동 분류</label><div id="revenue-classify-custom" hidden><p class="tiny muted">항목별 금액 합계가 이 거래의 전체 금액과 같아야 합니다.</p><div id="revenue-classify-rows"></div><button type="button" class="btn btn-light btn-sm" id="revenue-classify-add">+ 항목 추가</button><p id="revenue-classify-sum" class="small"></p></div><p class="tiny muted">거래의 수납·환불 금액과 예약 내용은 변경되지 않습니다.</p><p id="revenue-classify-status" class="small" role="status"></p><button type="submit" class="btn btn-primary" id="revenue-classify-save">분류 저장</button></form></dialog>
     </section>
 
     <section class="adm-view" id="view-booking-readiness" hidden></section>
@@ -754,13 +741,13 @@
 <script src="/assets/js/pages/admin-cancellation.js?v=20261104retry1"></script>
 <script src="/assets/js/pages/admin-booking-notifications.js?v=c6fc7015286c"></script>
 <script src="/assets/js/pages/admin-transaction-notifications.js?v=20261118feedbackdelivery1"></script>
-<script src="/assets/js/pages/admin-revenue.js?v=20261110revenue3"></script>
+<script src="/assets/js/pages/admin-revenue.js?v=20261118revenueanalysis1"></script>
 <script src="/assets/js/pages/admin-hostplat.js?v=20261114assist1"></script>
 <script src="/assets/js/pages/admin-kpi.js?v=20261114kpi1"></script>
 <script src="/assets/js/pages/admin-members.js?v=20261114mbr1"></script>
 <script src="/assets/js/pages/admin-community.js?v=20261117cm1"></script>
 <script src="/assets/js/pages/admin-feedback.js?v=20261118feedbackdelivery1"></script>
-<script src="/assets/js/pages/admin-navigation.js?v=20261117feedback1"></script>
+<script src="/assets/js/pages/admin-navigation.js?v=20261118revenueanalysis1"></script>
 <script src="/assets/js/pages/admin-booking-readiness.js?v=20261105readiness1"></script>
 <script src="/assets/js/pages/admin-contacts.js?v=6d34a1d37fb7"></script>
 <script src="/assets/js/pages/admin-payment-editor.js?v=90f10664e2d4"></script>

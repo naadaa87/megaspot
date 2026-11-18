@@ -10,6 +10,7 @@ import Calculation from '../../../assets/js/quote-calculation.js';
 import {reconfirmationAdmin,reconfirmBooking} from '../_reconfirmation.js';
 import {bookingReadiness} from '../_booking_readiness.js';
 import {revenueAdmin} from '../_revenue.js';
+import {revenueMetadataAdmin} from '../_revenue_metadata.js';
 import {kpiAdmin} from '../_kpi.js';   // KPI 지표 (본사 관리자 · 읽기 전용)
 import {cancellationAdmin} from '../_cancellation.js';
 import {refundAmountSql} from '../_payapp_refund_history.js';
@@ -173,6 +174,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
 
   const denied = await requireAdmin(request, env); if (denied) return denied;
   try {
+    if(path==='revenue/classifications')return await revenueMetadataAdmin({env,request,url,method});
     if(path==='revenue')return await revenueAdmin({env,url,method,operationalBookingSql:OPERATIONAL_BOOKING_SQL,archivedStatus:DELETED});
     if(path==='kpi')return await kpiAdmin({env,url,method,operationalBookingSql:OPERATIONAL_BOOKING_SQL,archivedStatus:DELETED});
     if(path==='booking-readiness')return await bookingReadiness({env,url,method});
