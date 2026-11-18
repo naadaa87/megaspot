@@ -1,0 +1,39 @@
+.page-admin.adm-lock .to-top,.page-admin:has(dialog[open]) .to-top{display:none}
+/* Inquiry filters share labels, control height, and one alignment grid at every width. */
+.page-admin #view-inq .inq-filter-panel{display:grid;grid-template-columns:minmax(160px,1.2fr) repeat(2,minmax(130px,1fr));gap:16px;padding:20px;margin-bottom:16px;align-items:end}
+.page-admin .inq-filter-field{display:grid;gap:8px;min-width:0;font-size:13px;font-weight:650}
+.page-admin #view-inq .inq-filter-panel :is(.input,.select,.btn){width:100%;min-width:0;min-height:46px;height:46px;margin:0;box-sizing:border-box;border-radius:var(--radius);line-height:1.5}
+.page-admin #inq-search{grid-column:1/-1;display:grid;gap:8px;padding:0;border:0;background:transparent;min-width:0;border-radius:0}
+.page-admin #inq-search>label{font-size:13px;font-weight:650;line-height:1.5}
+.page-admin .inq-search-controls{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center}
+.page-admin #view-inq #inq-search .btn{width:auto;min-width:84px;padding:10px 16px}
+@media(max-width:599px){.page-admin #view-inq .inq-filter-panel{grid-template-columns:minmax(0,1fr);padding:16px;gap:16px}.page-admin .inq-search-controls{grid-template-columns:repeat(2,minmax(0,1fr))}.page-admin #inq-q{grid-column:1/-1}.page-admin #view-inq #inq-search .btn{width:100%;min-width:0}}
+
+/* Mobile operator forms share touch targets and visible-viewport dialog bounds. */
+@media(max-width:767px),(pointer:coarse) and (max-height:600px){
+ .page-admin :is(.btn,.btn-sm,.btn-xs,.chip,.adm-payment-badge){min-height:44px;height:auto;white-space:normal;line-height:1.5;text-align:center;max-width:100%}
+ .page-admin :is(.input,.select,.textarea),.page-admin .rf-modal :is(.input,.select,.textarea){font-size:16px;min-height:44px;min-width:0;max-width:100%;line-height:1.5}
+ .page-admin .textarea{min-height:104px}
+ .page-admin :is(.dr-actions,.rf-actions,.ape-actions,.gm-actions){gap:10px}
+ .page-admin .dr-actions>.btn{flex:1 1 130px}
+ .page-admin .adm-drawer{top:var(--adm-visible-top,0px);bottom:auto;height:var(--adm-visible-height,100dvh)}
+ .page-admin .adm-drawer-panel{max-height:100%;min-height:0}
+ .page-admin .adm-drawer-head{flex-shrink:0;padding:12px 16px;gap:12px}
+ .page-admin .adm-drawer-head h2{font-size:16px;white-space:normal;line-height:1.4;overflow-wrap:anywhere}
+ .page-admin .adm-drawer-head>.btn{flex-shrink:0}
+ .page-admin .adm-drawer-body{min-height:0;overscroll-behavior:contain;scroll-padding-block:16px 28px;padding:16px 16px calc(24px + env(safe-area-inset-bottom));gap:18px}
+ .page-admin .adm-drawer-body :is(.field-row,.f){min-width:0}
+ .page-admin .adm-drawer-body .row{flex-wrap:wrap;gap:10px!important}
+ .page-admin .adm-drawer-body form>.row>.btn{flex:1 1 120px}
+ .page-admin dialog[open]:not(.adm-payment-editor){position:fixed;top:calc(var(--adm-visible-top,0px) + 12px);bottom:auto;margin:0 auto;width:calc(100% - 24px);max-width:720px;max-height:calc(var(--adm-visible-height,100dvh) - 24px);overflow:auto;overscroll-behavior:contain;scroll-padding-block:80px 24px}
+ .page-admin :is(.rf-modal-head,.revenue-section-head){gap:12px;flex-wrap:wrap}
+ .page-admin dialog :is(.rf-modal-body,.rf-detail){padding:16px}
+ .page-admin :is(.adm-filters,.rs-filters,.rf-toolbar){gap:12px}
+ .page-admin :is(.adm-filters,.rs-filters)>.btn{min-width:0}
+ .page-admin .adm-payment-editor{padding:16px;border-radius:var(--radius-dialog,16px)}
+ .page-admin .ape-actions{bottom:-16px;padding-bottom:calc(12px + env(safe-area-inset-bottom))}
+}
+@media(max-width:399px){
+ .page-admin .adm-drawer-body .field-row{grid-template-columns:minmax(0,1fr);gap:14px}
+ .page-admin .adm-filters>.select{flex:1 1 100%;width:100%}
+}
