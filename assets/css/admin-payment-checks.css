@@ -24,3 +24,18 @@
 .rs-payment-control{min-width:0;flex:1;width:100%}
 .rs-payment-current{display:block;font-size:11px;line-height:1.5;margin-top:4px;overflow-wrap:anywhere;white-space:normal}
 #view-resv .rs-payment-status:is([data-payment-status="partial_paid"],[data-payment-status="needs_review"]){background-color:#fff4e5;border-color:#e5c59b;color:#80450d}
+.adm-payment-badge{max-width:100%;min-height:36px;padding:7px 10px;margin:6px 0;border:1px solid #d6c5a9;border-radius:6px;background:#fff4e5;color:#80450d;font:700 12px/1.5 var(--font-body);text-align:left;white-space:normal;overflow-wrap:anywhere;cursor:pointer}
+.adm-payment-badge[data-payment-status="fully_paid"]{background:#eaf6ee;border-color:#b9dcc5;color:#1d6541}
+.adm-payment-badge:is([data-payment-status="venue_paid"],[data-payment-status="food_paid"],[data-payment-status="reservation_paid"]){background:#eef2ff;border-color:#bfcbeb;color:#2442a3}
+.adm-payment-badge:disabled{opacity:.6;cursor:default}
+.adm-payment-badge:focus-visible{outline:2px solid var(--cobalt);outline-offset:2px}
+#view-calendar .cal-payment-badge{display:block;width:100%;font-size:11px;min-height:36px;padding:5px;margin:5px 0 0;font-style:normal}
+.adm-payment-editor{box-sizing:border-box;width:min(420px,calc(100vw - 24px));max-width:calc(100vw - 24px);max-height:calc(100dvh - 24px);overflow:auto;border:1px solid var(--concrete-2);border-radius:12px;padding:20px;color:var(--ink);background:var(--paper,#fff);box-shadow:0 12px 60px #0003}
+.adm-payment-editor::backdrop{background:#0006}
+.ape-heading{display:flex;justify-content:space-between;align-items:center;gap:12px}.ape-heading h2{font:800 18px/1.5 var(--font-body);margin:0}
+.ape-customer,.ape-message{font-size:13px;line-height:1.6;overflow-wrap:anywhere}.ape-help{font-size:12px;line-height:1.7;color:var(--ink-3)}
+.adm-payment-editor label{display:block;font-size:13px;font-weight:700;margin-bottom:6px}.adm-payment-editor .select{width:100%;min-width:0;min-height:44px}.adm-payment-editor .btn{min-height:44px}.ape-message:empty{display:none}
+@media(max-width:600px){#view-bookings .adm-payment-badge{min-height:44px}}
+@media print{.adm-payment-editor{display:none!important}.adm-payment-badge{border:0;background:none;color:inherit}}
+
+.ape-selected{font-size:13px;font-weight:700;line-height:1.6;overflow-wrap:anywhere;margin:6px 0}

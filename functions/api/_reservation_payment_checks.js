@@ -1,5 +1,6 @@
 // Operator payment checklist. Does not create receipts, refunds, booking confirmations or messages.
 import {json,err,readJson,now} from './_lib.js';
+import {settlementsFor} from './_settlement.js';
 export const PAYMENT_CHECKS={unpaid:"입금 전",reservation_paid:"예약금 입금 완료",venue_paid:"대관비용 입금 완료",food_paid:"식음료 입금 완료",fully_paid:"전체 입금 완료(대관+식음료)",partial_paid:"일부 입금·잔금 확인 필요",needs_review:"입금 범위 확인 필요"};
 const key=(kind,ref)=>kind+':'+ref;
 const changed=r=>Number(r?.meta?.changes??r?.changes??0);
@@ -19,6 +20,13 @@ export async function paymentChecksFor(env,items,settlements={}){
 }
 export async function reservationPaymentAdmin({env,request,path,method}){
  const m=path.match(/^reservation-payment-checks\/(booking|inquiry)\/([A-Z0-9-]{1,40})$/);if(!m)return null;
+ if(method==='GET'){
+  const type=m[1],ref=m[2],item=type==='booking'?await env.DB.prepare('SELECT booking_code AS code,inquiry_ref AS ref,customer_name AS name,status,amount FROM bookings WHERE booking_code=?').bind(ref).first():await env.DB.prepare('SELECT ref,name,status FROM inquiries WHERE ref=?').bind(ref).first();
+  if(!item)return err('예약 또는 문의를 찾을 수 없습니다.',404);
+  item.kind=type==='booking'?'booking':'pending';
+  const settlements=type==='booking'?await settlementsFor(env,[ref]):{},checks=await paymentChecksFor(env,[item],settlements);
+  return json({ok:true,...checks[key(type,ref)],name:item.name||ref,editable:!['cancelled','대기 취소','취소·환불','삭제됨'].includes(item.status),choices:PAYMENT_CHECKS});
+ }
  if(method!=='PUT')return err('지원하지 않는 요청입니다.',405);
  const d=await readJson(request);if(d.status==='balance_paid')d.status='needs_review';const type=m[1],ref=m[2],revision=d.expected_revision;
  if(!Object.hasOwn(PAYMENT_CHECKS,d.status)||!Number.isSafeInteger(revision)||revision<0)return err('결제 상태와 저장 버전을 확인해 주세요.');

@@ -10,7 +10,7 @@ function calendar() {
     $: selector => nodes[selector] ||= { innerHTML: '', textContent: '', attrs: {}, setAttribute(k, v) { this.attrs[k] = v; } },
     A: path => new Promise((resolve, reject) => requests.push({ path, resolve, reject })),
     AList: path => new Promise((resolve, reject) => requests.push({ path, resolve, reject })),
-    M: { pad2: n => String(n).padStart(2, '0') }, E: null,
+    paymentBadge:()=>'',M: { pad2: n => String(n).padStart(2, '0') }, E: null,
     reservationFilterMatch:()=>true,reservationMonth:()=>'',todayIso: () => '2026-10-23', guard: () => false, esc: String
   });
   vm.runInContext(source.slice(source.indexOf('  function reservationFilterMatch('),source.indexOf('  function reservationMonth(')),context);

@@ -42,3 +42,15 @@ test('이전 잔금 기록은 범위 확인 필요로 이관하고 전액 기록
  let item=(await rows(f))[0];assert.equal(item.payment_status,'needs_review');assert.equal(item.payment_revision,3);assert.equal(item.payment_updated_at,'2026-11-12 01:02:03');assert.equal(f.db.prepare("SELECT status FROM reservation_payment_scopes WHERE target_type='inquiry'").get().status,'fully_paid');
  await f.api(path,'PUT',{status:'food_paid',expected_revision:3});f.db.exec(migration);item=(await rows(f))[0];assert.equal(item.payment_status,'food_paid');assert.equal(item.payment_revision,4);assert.equal(f.db.prepare("SELECT status FROM reservation_payment_checks WHERE target_type='booking'").get().status,'balance_paid');
 });
+test('상태 편집을 열 때 최신 값·버전·선택지를 읽으며 읽기 자체는 입금 기록을 변경하지 않는다',async t=>{
+ const f=setup(t),before=f.db.prepare('SELECT COUNT(*) n FROM booking_payment_entries').get().n;
+ let r=await f.api(path);assert.equal(r.payment_status,'unpaid');assert.equal(r.payment_revision,0);assert.equal(r.editable,true);assert.equal(Object.keys(r.choices).length,7);
+ await f.api(path,'PUT',{status:'venue_paid',expected_revision:0});r=await f.api(path);assert.equal(r.payment_status,'venue_paid');assert.equal(r.payment_revision,1);assert.equal(f.db.prepare('SELECT COUNT(*) n FROM booking_payment_entries').get().n,before);
+ await f.api(path,'PUT',{status:'food_paid',expected_revision:0},409);assert.equal((await f.api(path)).payment_status,'venue_paid');
+ f.db.exec("UPDATE bookings SET status='cancelled'");assert.equal((await f.api(path)).editable,false);
+ assert.equal((await f.handle(new Request('https://local.test/api/admin/'+path))).status,401);
+ await f.api('reservation-payment-checks/booking/MISSING','GET',undefined,404);
+});
+test('문의용 상태 편집도 목록과 동일한 예약금 추론과 최신 저장값을 읽는다',async t=>{
+ const f=setup(t,{booking:false});f.db.exec("INSERT INTO inquiry_checks VALUES('MS-TEST','{\"deposit_paid\":true}',datetime('now'))");const path='reservation-payment-checks/inquiry/MS-TEST';assert.equal((await f.api(path)).payment_status,'reservation_paid');await f.api(path,'PUT',{status:'food_paid',expected_revision:0});assert.equal((await f.api(path)).payment_status,'food_paid');
+});
