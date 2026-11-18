@@ -17,8 +17,8 @@ test('등록 이력·무료 예약·차감·결제·환불은 유지하고 원�
  assert.equal((await f.resolve({resolution_type:'manual_registered'})).status,200);const after=f.row();for(const key of ['session_id','free_hours','paid_hours','cost','applied_at'])assert.equal(after[key],old[key]);assert.deepEqual(f.db.prepare('SELECT * FROM parking_sessions').get(),session);assert.equal(JSON.stringify(f.db.prepare('SELECT * FROM orders').all()),before);assert.equal(f.db.prepare('SELECT COUNT(*) n FROM payapp_refunds').get().n,0);
  assert.match(after.memo,/원래 확인 필요 사유/);assert.match(after.memo,/아마노 수동 등록 완료/);const event=f.db.prepare("SELECT * FROM event_log WHERE kind='parking.resolved'").get(),detail=JSON.parse(event.detail);assert.equal(detail.previous.memo,old.memo);assert.equal(detail.previous.status,'issue');assert.equal(detail.type,'manual_registered');assert.equal(event.actor,'admin');
 });
-test('유형·사유·확인 체크·화면 상태·관리자 인증·동일 출처를 검증한다',async t=>{
- const f=await setup(t);for(const invalid of [{resolution_type:'constructor'},{resolution_type:'invalid'},{resolution_memo:''},{resolution_memo:'x'.repeat(501)},{confirm_resolved:false},{expected_status:'waiting'},{expected_updated_at:'old'}])assert.ok((await f.resolve(invalid)).status>=400);
+test('유형·선택 사유 형식·확인 체크·화면 상태·관리자 인증·동일 출처를 검증한다',async t=>{
+ const f=await setup(t);for(const invalid of [{resolution_type:'constructor'},{resolution_type:'invalid'},{resolution_memo:'x'.repeat(501)},{resolution_memo:123},{resolution_memo:{}},{confirm_resolved:false},{expected_status:'waiting'},{expected_updated_at:'old'}])assert.ok((await f.resolve(invalid)).status>=400);
  const path='admin/orders/'+f.p.oid+'/resolve';assert.equal((await f.call(path,'POST',f.input(),null,false)).status,401);assert.equal((await f.call(path,'POST',f.input(),null,true,'https://evil.test')).status,403);assert.equal(f.row().status,'issue');assert.equal(f.db.prepare("SELECT COUNT(*) n FROM event_log WHERE kind='parking.resolved'").get().n,0);
 });
 test('실제 등록 처리 중에는 확인 완료로 바꾸지 않고 취소 문의는 먼저 검토한다',async t=>{
@@ -56,4 +56,10 @@ test('감사 기록 저장 실패 시 확인 완료와 읽음 처리도 함께 �
 });
 test('환불된 건의 관리자 확인 완료는 환불 원장과 고객의 환불 상태를 보존한다',async t=>{
  const f=await setup(t);await f.feedback(f.p,'9');const before=f.db.prepare('SELECT * FROM payapp_refunds').all();assert.equal((await f.resolve()).status,200);assert.deepEqual(f.db.prepare('SELECT * FROM payapp_refunds').all(),before);assert.equal((await f.get(f.p)).payment_status,'refunded');assert.equal(receipt.state(await f.get(f.p)).label,'환불 완료');assert.equal((await f.get(f.p)).status,'resolved');
+});
+test('사유 없이도 처리 구분·확인 체크로 저장하고 감사 기록·알림 집계는 유지한다',async t=>{
+ for(const reason of [undefined,null,'','   '])await t.test(String(reason),async t=>{
+  const f=await setup(t),before=f.row(),payments=f.db.prepare('SELECT * FROM orders').all();assert.equal((await f.resolve({resolution_memo:reason})).status,200);assert.equal(f.row().status,'resolved');assert.equal((await(await f.admin('count')).json()).count,0);assert.equal((await(await f.admin('payment-alerts')).json()).count,0);
+  const event=f.db.prepare("SELECT detail FROM event_log WHERE kind='parking.resolved'").get(),detail=JSON.parse(event.detail);assert.equal(detail.reason,'');assert.equal(detail.type,'exited');assert.match(f.row().memo,/원래 확인 필요 사유/);assert.ok(f.row().memo.endsWith('[관리자 확인 완료 · 등록 전 출차 · 처리 확인]'));assert.deepEqual(f.db.prepare('SELECT * FROM orders').all(),payments);for(const k of ['session_id','free_hours','paid_hours','cost','applied_at'])assert.equal(f.row()[k],before[k]);
+ });
 });
