@@ -1,5 +1,6 @@
 import {SPACES} from './_lib.js';
 import {settlementsFor} from './_settlement.js';
+import {revenueBookingIncludedSql} from './_revenue_exclusions.js';
 
 const totals=()=>({bookingCount:0,booked:0,received:0,refunded:0,netReceived:0,
   balance:0,balanceCount:0,amountUnknownCount:0,balanceUnknownCount:0,
@@ -27,7 +28,7 @@ function monthTotals(from,to) {
 // Cards and monthly bars describe the same booking cohort. Receipt-analysis filters
 // cannot identify unpaid reservations, so category/channel/component/day/page never narrow it.
 export async function revenueBookingSummary({env,from,to,space='',operationalBookingSql='1=1'}) {
-  const statuses=['confirmed','completed'],where=["b.status IN ('confirmed','completed')",'b.date BETWEEN ? AND ?',operationalBookingSql];
+  const statuses=['confirmed','completed'],where=["b.status IN ('confirmed','completed')",'b.date BETWEEN ? AND ?',`(${operationalBookingSql})`,revenueBookingIncludedSql()];
   const args=[from,to];
   if(space==='unassigned') {
     const known=Object.keys(SPACES);

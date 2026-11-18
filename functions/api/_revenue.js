@@ -4,6 +4,7 @@ import {refundAmountSql} from './_payapp_refund_history.js';
 import {legacyPaymentSourceSql} from './_settlement.js';
 import {bookingAmountSql,inquiryAmountSql} from './_amounts.js';
 import {revenueBookingSummary} from './_revenue_bookings.js';
+import {revenueBookingIncludedSql,revenueInquiryIncludedSql} from './_revenue_exclusions.js';
 
 const verificationIds = PRODUCTS.items.filter(p=>p.kind==='verification').map(p=>p.id);
 const spaces = [...Object.keys(SPACES),'unassigned'];
@@ -29,8 +30,13 @@ function add(target,kind,amount) {
 function safe(value,fallback={}) { try { return JSON.parse(value)||fallback; } catch { return fallback; } }
 const positive = n=>Number.isSafeInteger(Number(n))&&Number(n)>0?Number(n):0;
 
-// One source for the report and classification editor; effective revisions and refund caps are shared.
-function movementCtes(operationalBookingSql=operational) {
+// Effective revisions and refund caps are shared with the classification editor.
+// Reservation test exclusions apply only when constructing a revenue report.
+function movementCtes(operationalBookingSql=operational,report=false) {
+  const bookingIncluded=report?revenueBookingIncludedSql():'1=1';
+  const inquiryDate="COALESCE(NULLIF(i.event_date,''),NULLIF(json_extract(i.data,'$.date'),''))";
+  const inquiryIncluded=report?revenueInquiryIncludedSql({date:inquiryDate}):'1=1';
+  const orderInquiryIncluded=report?revenueInquiryIncludedSql({date:`COALESCE(NULLIF(o.event_date,''),${inquiryDate})`}):'1=1';
   return `online AS (
     SELECT o.oid,o.title,o.price,${refundAmountSql('o')} AS refund_total,
       COALESCE(o.paid_at,o.created_at) AS paid_at,o.paid_at IS NULL AS estimated_receipt,
@@ -48,7 +54,9 @@ function movementCtes(operationalBookingSql=operational) {
     LEFT JOIN inquiries i ON i.ref=COALESCE(b.inquiry_ref,o.inquiry_ref)
     WHERE o.test=0 AND o.status IN ('paid','refunded') AND o.price>0
       AND o.product_id NOT IN (${verificationIds.map(()=>'?').join(',')})
-      AND ${operationalBookingSql} AND (b.booking_code IS NOT NULL OR i.status IS NOT ?)
+      AND (${operationalBookingSql}) AND ${bookingIncluded}
+      AND (b.booking_code IS NOT NULL OR ${orderInquiryIncluded})
+      AND (b.booking_code IS NOT NULL OR i.status IS NOT ?)
   ),refund_rows AS (
     SELECT r.mul_no,r.oid,r.amount,r.created_at,
       SUM(r.amount) OVER (PARTITION BY r.oid ORDER BY r.created_at,r.mul_no)-r.amount AS previous
@@ -61,12 +69,14 @@ function movementCtes(operationalBookingSql=operational) {
   ),movements AS (
     SELECT m.id,b.booking_code AS ref,b.booking_code,'이용료 수납·환불' AS title,b.space_id,b.date AS event_date,
       m.created_at AS occurred_at,'manual' AS source,m.kind,m.amount,m.estimated
-    FROM manual m JOIN bookings b ON b.booking_code=m.booking_code WHERE ${operationalBookingSql}
+    FROM manual m JOIN bookings b ON b.booking_code=m.booking_code
+    WHERE (${operationalBookingSql}) AND ${bookingIncluded}
     UNION ALL
     SELECT m.id,i.ref,NULL,'미확정 문의 이용료 수납·환불',i.space_id,
       COALESCE(NULLIF(i.event_date,''),NULLIF(json_extract(i.data,'$.date'),''),date(m.created_at,'+9 hours')) AS event_date,
       m.created_at,'manual',m.kind,m.amount,m.estimated
-    FROM manual m JOIN inquiries i ON m.booking_code='inquiry:'||i.ref WHERE i.status<>'삭제됨'
+    FROM manual m JOIN inquiries i ON m.booking_code='inquiry:'||i.ref
+    WHERE i.status<>'삭제됨' AND ${inquiryIncluded}
     UNION ALL
     SELECT 'paid:'||oid,oid,booking_code,title,space_id,event_date,paid_at,'online','receipt',price,estimated_receipt FROM online
     UNION ALL
@@ -245,7 +255,7 @@ export async function revenueAdmin({env,url,method,operationalBookingSql=operati
     !Number.isSafeInteger(page)||page<1||page>100000||(channel&&!Object.hasOwn(channels,channel))||
     (category&&!Object.hasOwn(categories,category))||(component&&!Object.hasOwn(components,component)))
     return err('조회 조건을 확인해 주세요.');
-  const sql=`WITH ${movementCtes(operationalBookingSql)}
+  const sql=`WITH ${movementCtes(operationalBookingSql,true)}
     SELECT m.*,m.event_date AS day,date(m.occurred_at,'+9 hours') AS recorded_day,
       CASE WHEN m.space_id IN (?,?) THEN m.space_id ELSE 'unassigned' END AS branch,
       o.product_id,o.price AS order_price,
@@ -315,9 +325,10 @@ export async function revenueAdmin({env,url,method,operationalBookingSql=operati
   const details=day?all.filter(item=>item.day===day):all;
   let upcoming=[];
   if(!channel&&!category&&!component) {
-    const upSql=`WITH ${movementCtes(operationalBookingSql)}
+    const upSql=`WITH ${movementCtes(operationalBookingSql,true)}
       SELECT b.booking_code,b.date AS day,b.space_id AS branch,b.customer_name,${bookingAmountSql()} AS amount
       FROM bookings b WHERE b.status='confirmed' AND b.date BETWEEN ? AND ? AND b.space_id IN (?,?)
+      AND (${operationalBookingSql}) AND ${revenueBookingIncludedSql()}
       ${space?'AND b.space_id=?':''}
       AND NOT EXISTS(SELECT 1 FROM manual m WHERE m.booking_code=b.booking_code AND m.kind='receipt' AND m.amount>0)
       AND NOT EXISTS(SELECT 1 FROM online o WHERE o.booking_code=b.booking_code OR (

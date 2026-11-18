@@ -50,19 +50,23 @@
 .revenue-year-label { display:flex; align-items:center; gap:8px; font-size:12px; flex-shrink:0; }
 .revenue-year-label .input { width:90px; min-height:34px; padding:4px 8px; }
 .revenue-chart { min-width:0; max-width:100%; padding-top:12px; }
-.revenue-trend-scroll { overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:thin; }
-.revenue-trend-scroll svg { display:block; width:2184px; height:286px; max-width:none; }
-.revenue-trend-scroll [data-revenue-month] { cursor:pointer; outline:none; }
-.revenue-trend-scroll [data-revenue-month]:hover .revenue-month-hit { fill:#f1f5ff; }
-.revenue-trend-scroll [data-revenue-month]:focus .revenue-month-hit { stroke:#102a68; stroke-width:2; }
-.revenue-trend-scroll:focus-visible { outline:2px solid #2454d8; outline-offset:3px; }
+.revenue-trend-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:8px; }
+.revenue-trend-month { min-width:0; padding:10px 4px 0; border:1px solid #e5e9f0; border-radius:var(--radius,8px); background:#fff; color:#667085; font:inherit; text-align:center; cursor:pointer; }
+.revenue-trend-month[aria-pressed="true"] { background:#f1f5ff; border-color:#98b0ed; color:#2454d8; }
+.revenue-trend-month:hover { border-color:#98b0ed; }
+.revenue-trend-month:focus-visible { outline:2px solid #2454d8; outline-offset:2px; }
+.revenue-trend-month svg { display:block; width:100%; height:150px; }
 .revenue-bar-amount { font-size:11px; font-weight:650; font-variant-numeric:tabular-nums; }
-.revenue-month-label { font-size:13px; font-weight:650; }
+.revenue-month-label { display:block; font-size:12px; font-weight:650; }
 .revenue-trend-legend { display:flex; flex-wrap:wrap; gap:8px 20px; margin:18px 0 10px; font-size:12px; }
 .revenue-trend-legend span { display:flex; align-items:center; gap:7px; }
 .revenue-trend-legend i { width:10px; height:10px; border-radius:var(--radius-sm,6px); flex:none; }
 .revenue-trend-note { margin:8px 0; line-height:1.7; }
-.revenue-trend-card { margin-bottom:24px; min-width:0; }
+.revenue-trend-card { margin-bottom:24px; min-width:0; container-type:inline-size; }
+@container (max-width:1050px) { .revenue-trend-grid { grid-template-columns:repeat(4,minmax(0,1fr)); } }
+@container (max-width:720px) { .revenue-trend-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+@container (max-width:520px) { .revenue-trend-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@container (max-width:285px) { .revenue-trend-grid { grid-template-columns:minmax(0,1fr); } }
 .revenue-share-bar { display:flex; height:13px; overflow:hidden; border-radius:var(--radius-sm,6px); margin:18px 0; background:#eef0f4; }
 .revenue-share-bar span { min-width:0; }
 .revenue-channel-list { display:grid; gap:14px; margin-top:14px; }

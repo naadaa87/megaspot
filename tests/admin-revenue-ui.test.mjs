@@ -91,6 +91,9 @@ test('월별 막대 3종은 예약 요약과 같은 금액을 사용하고 Y축 
   assert.equal((graph.match(/class="revenue-trend-bar"/g)||[]).length,36);
   assert.equal((graph.match(/class="revenue-bar-amount"/g)||[]).length,36);
   assert.equal((graph.match(/data-revenue-month=/g)||[]).length,12);
+  assert.equal((graph.match(/<button type="button" class="revenue-trend-month"/g)||[]).length,12,'1~12월을 가로 스크롤 없이 월별 칸에 배치한다');
+  for(let month=1;month<=12;month++)assert.ok(graph.includes('data-revenue-month="2026-'+String(month).padStart(2,'0')+'"'));
+  assert.doesNotMatch(graph,/revenue-trend-scroll|좌우로 이동|data-chart-center/);
   assert.match(graph,/data-series="booked" data-value="240000"/);
   assert.match(graph,/data-series="netReceived" data-value="120000"/);
   assert.match(graph,/data-series="balance" data-value="120000"/);

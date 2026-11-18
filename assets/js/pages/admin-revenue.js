@@ -116,32 +116,25 @@
     if(row.bookingCount>0&&unknown===row.bookingCount)return id==='booked'?'미정':'확인 필요';
     return (compact?shortMoney(row[id]):won(row[id]))+(unknown?' *':'');
   }
-  function scrollTrendToMonth() {
-    const scroll=$('revenue-trend').querySelector('.revenue-trend-scroll');
-    if(!scroll||!scroll.clientWidth)return;
-    const selected=scroll.querySelector('[aria-pressed="true"]');
-    if(selected)scroll.scrollLeft=Math.max(0,Number(selected.dataset.chartCenter)-scroll.clientWidth/2);
-  }
   function renderTrend(months,year) {
     const empty={bookingCount:0,booked:0,netReceived:0,balance:0,amountUnknownCount:0,balanceUnknownCount:0};
     const rows=Array.from({length:12},(_,i)=>months.find(row=>row.month===year+'-'+String(i+1).padStart(2,'0'))||{month:year+'-'+String(i+1).padStart(2,'0'),...empty});
     const values=rows.flatMap(row=>trendSeries.map(series=>row[series.id]));
     const max=Math.max(10000,...values),min=Math.min(0,...values);
-    // Each month has room for three legible amount labels; the year scrolls within its card.
-    const top=32,height=205,left=12,step=180,chartWidth=2184,right=chartWidth-left,bottom=top+height;
+    // All twelve months wrap within the card and share the same annual amount scale.
+    const top=26,height=108,chartWidth=158;
     const y=n=>top+(max-n)/(max-min)*height,base=y(0);
-    const grid=Array.from({length:5},(_,i)=>min+(max-min)*i/4).map(value=>'<line x1="'+left+'" x2="'+right+'" y1="'+y(value)+'" y2="'+y(value)+'" stroke="#e9ebef"/>').join('');
+    const grid=Array.from({length:3},(_,i)=>min+(max-min)*i/2).map(value=>'<line x1="3" x2="155" y1="'+y(value)+'" y2="'+y(value)+'" stroke="#e9ebef"/>').join('');
     const summary=row=>trendSeries.map(series=>series.label+' '+trendAmount(row,series.id)).join(' · ');
     const notes=row=>[row.amountUnknownCount?'금액 미정 '+row.amountUnknownCount+'건':'',row.balanceUnknownCount?'잔금 확인 '+row.balanceUnknownCount+'건':'',row.excessPaid?'초과 수납 '+won(row.excessPaid):'',row.overRefunded?'초과 환불 '+won(row.overRefunded):''].filter(Boolean).join(' · ');
     const hasUnknown=rows.some(row=>row.amountUnknownCount||row.balanceUnknownCount);
-    $('revenue-trend').innerHTML='<div class="revenue-trend-scroll" tabindex="0" aria-label="월별 비교 그래프 · 좌우로 이동"><svg viewBox="0 0 '+chartWidth+' 286" role="img" aria-labelledby="revenue-chart-title revenue-chart-desc"><title id="revenue-chart-title">'+year+'년 월별 예약금액·수납·잔금 비교</title><desc id="revenue-chart-desc">'+rows.map((row,i)=>(i+1)+'월 · '+summary(row)+(notes(row)?' · '+notes(row):'')).join(', ')+'</desc>'+grid+'<line x1="'+left+'" x2="'+right+'" y1="'+base+'" y2="'+base+'" stroke="#c8ced8"/>'+rows.map((row,i)=>{
-      const selected=filters?.get('from')?.slice(0,7)===row.month,start=left+step*i;
-      return '<g tabindex="0" role="button" data-revenue-month="'+row.month+'" data-chart-center="'+(start+step/2)+'" aria-pressed="'+selected+'" aria-label="'+(i+1)+'월 매출 보기 · '+summary(row)+'"><title>'+(i+1)+'월 · '+summary(row)+' · 누적 수납 '+won(row.received)+' · 환불 '+won(row.refunded)+(notes(row)?' · '+notes(row):'')+'</title><rect class="revenue-month-hit" x="'+(start+3)+'" y="0" width="'+(step-6)+'" height="282" rx="6" fill="'+(selected?'#f1f5ff':'transparent')+'"/>'+trendSeries.map((series,j)=>{
-        const value=row[series.id],center=start+35+j*55,barTop=Math.min(base,y(value));
-        return '<rect class="revenue-trend-bar" data-series="'+series.id+'" data-value="'+value+'" x="'+(center-17)+'" y="'+barTop+'" width="34" height="'+Math.max(1,Math.abs(base-y(value)))+'" rx="3" fill="'+series.color+'"/><text class="revenue-bar-amount" data-series="'+series.id+'" x="'+center+'" y="'+(barTop-9)+'" text-anchor="middle" fill="'+series.color+'">'+trendAmount(row,series.id,true)+'</text>';
-      }).join('')+'<text class="revenue-month-label" x="'+(start+step/2)+'" y="'+(bottom+29)+'" text-anchor="middle" fill="'+(selected?'#2454d8':'#667085')+'">'+(i+1)+'월</text></g>';
-    }).join('')+'</svg></div><p class="tiny muted revenue-trend-note">좌우로 이동해 다른 달을 볼 수 있습니다. 막대 금액은 만·억 단위로 줄여 표시하며, 정확한 금액은 막대에 마우스를 올리거나 아래 표에서 확인할 수 있습니다.'+(hasUnknown?' * 미정·확인 필요 금액은 합계에서 제외합니다.':'')+'</p><details class="revenue-trend-values"><summary>월별 금액 보기</summary><div class="revenue-table-wrap">'+table(['이용월',...trendSeries.map(series=>series.label),'확인 사항'],rows.map(row=>'<tr><td>'+row.month+'</td>'+trendSeries.map(series=>'<td class="revenue-num'+(row[series.id]<0?' revenue-refund':'')+'">'+trendAmount(row,series.id)+'</td>').join('')+'<td>'+esc(notes(row)||'—')+'</td></tr>'),1)+'</div></details>';
-    scrollTrendToMonth();
+    $('revenue-trend').innerHTML='<div class="revenue-trend-grid" role="group" aria-label="'+year+'년 월별 예약금액·수납·잔금 비교">'+rows.map((row,i)=>{
+      const selected=filters?.get('from')?.slice(0,7)===row.month;
+      return '<button type="button" class="revenue-trend-month" data-revenue-month="'+row.month+'" aria-pressed="'+selected+'" aria-label="'+(i+1)+'월 매출 보기 · '+summary(row)+'" title="'+(i+1)+'월 · '+summary(row)+' · 누적 수납 '+won(row.received)+' · 환불 '+won(row.refunded)+(notes(row)?' · '+notes(row):'')+'"><span class="revenue-month-label">'+(i+1)+'월</span><svg viewBox="0 0 '+chartWidth+' 150" aria-hidden="true" focusable="false">'+grid+'<line x1="3" x2="155" y1="'+base+'" y2="'+base+'" stroke="#c8ced8"/>'+trendSeries.map((series,j)=>{
+        const value=row[series.id],center=26+j*53,barTop=Math.min(base,y(value));
+        return '<rect class="revenue-trend-bar" data-series="'+series.id+'" data-value="'+value+'" x="'+(center-15)+'" y="'+barTop+'" width="30" height="'+Math.max(1,Math.abs(base-y(value)))+'" rx="3" fill="'+series.color+'"/><text class="revenue-bar-amount" data-series="'+series.id+'" x="'+center+'" y="'+(barTop-8)+'" text-anchor="middle" fill="'+series.color+'">'+trendAmount(row,series.id,true)+'</text>';
+      }).join('')+'</svg></button>';
+    }).join('')+'</div><p class="tiny muted revenue-trend-note">모든 달에 같은 금액 눈금을 적용합니다. 막대 금액은 만·억 단위로 줄여 표시하며, 정확한 금액은 막대에 마우스를 올리거나 아래 표에서 확인할 수 있습니다.'+(hasUnknown?' * 미정·확인 필요 금액은 합계에서 제외합니다.':'')+'</p><details class="revenue-trend-values"><summary>월별 금액 보기</summary><div class="revenue-table-wrap">'+table(['이용월',...trendSeries.map(series=>series.label),'확인 사항'],rows.map(row=>'<tr><td>'+row.month+'</td>'+trendSeries.map(series=>'<td class="revenue-num'+(row[series.id]<0?' revenue-refund':'')+'">'+trendAmount(row,series.id)+'</td>').join('')+'<td>'+esc(notes(row)||'—')+'</td></tr>'),1)+'</div></details>';
   }
   async function loadTrend() {
     const year=Number($('revenue-trend-year').value), request=++trendVersion;
@@ -169,7 +162,7 @@
       const r=await X.A('/revenue?'+q);if(request!==version)return;
       const lastPage=Math.max(1,Math.ceil(r.detailCount/r.pageSize));
       if(page>lastPage){page=lastPage;return load({detailOnly,focus,trend:false});}
-      render(r);report.hidden=false;scrollTrendToMonth();
+      render(r);report.hidden=false;
       status.textContent=filters.get('from')+' ~ '+filters.get('to')+' · 이용일 기준 · 보증금 제외'+(filters.get('component')?' · '+(componentLabels[filters.get('component')]||'세부 항목'):'');
       if(focus&&!$('view-revenue').hidden){const target=detail.querySelector(focus);if(target&&!target.hidden&&!target.disabled)target.focus();else detail.querySelector('h2').focus();}
     }catch(e){if(request!==version)return;report.hidden=true;if(!X.guard(e))status.textContent=e.message||'매출 내역을 불러오지 못했습니다.';}
