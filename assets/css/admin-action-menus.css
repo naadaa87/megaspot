@@ -1,0 +1,27 @@
+.page-admin .compact-more{min-width:0;max-width:100%}
+.page-admin .compact-more>summary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:8px 14px;border:1px solid var(--concrete);border-radius:var(--radius);background:#f7f8fa;font-size:13px;font-weight:700;line-height:1.5;cursor:pointer;list-style:none}
+.page-admin .compact-more>summary::-webkit-details-marker{display:none}
+.page-admin .compact-more>summary::after{content:'⌄'}
+.page-admin .compact-more[open]>summary::after{content:'⌃'}
+.page-admin .compact-more>summary:focus-visible{outline:2px solid var(--cobalt);outline-offset:3px}
+.page-admin .compact-more-body{display:grid;gap:10px;padding:14px;margin-top:10px;border:1px solid var(--concrete-2);border-radius:var(--radius-lg);background:#f7f8fa;min-width:0}
+.page-admin .compact-more:not([open])>.compact-more-body{display:none}
+.page-admin .dr-actions.compact-action-set{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.page-admin .dr-actions.compact-action-set>.btn{width:100%;min-width:0;white-space:normal;text-align:center;min-height:44px;line-height:1.5;padding:10px 12px}
+.page-admin .dr-actions>.compact-more{grid-column:1/-1;width:100%}
+.page-admin .dr-actions>.compact-more>summary{width:100%}
+.page-admin .dr-actions .compact-more-body{grid-template-columns:repeat(2,minmax(0,1fr))}
+.page-admin .dr-actions .compact-more-body>.btn{min-height:44px;min-width:0;white-space:normal;text-align:center;margin:0;line-height:1.5;padding:10px}
+.page-admin .inq-bulk>.compact-more .compact-more-body{display:flex;flex-wrap:wrap;gap:10px}
+.page-admin #view-parking .pa-more-actions{margin-top:8px}
+.page-admin #view-parking .pa-more-actions>summary{width:100%}
+.page-admin #view-parking .pa-more-actions .compact-more-body>.btn{justify-self:start;min-height:44px}
+.page-admin #view-parking .pa-more-actions .pa-resolution{margin:0;padding:0;border:0}
+.page-admin #view-parking .pa-more-actions .compact-more-body>details>summary{min-height:44px;display:flex;align-items:center;font-size:13px;font-weight:650;line-height:1.5}
+@media(max-width:599px){
+ .page-admin .compact-more>summary{min-height:44px}
+ .page-admin .inq-bulk>.compact-more{flex:1 1 100%}
+ .page-admin .inq-bulk>.compact-more>summary{width:100%}
+ .page-admin #view-parking .pa-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+ .page-admin #view-parking .pa-controls>.btn{width:100%;min-width:0;min-height:44px;font-size:12px;padding:10px 8px}
+}
