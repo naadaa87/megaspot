@@ -250,32 +250,58 @@
 #revenue-booking-list-note { line-height:1.8; margin:0 0 12px; }
 .revenue-booking-list { padding:0; margin:0; list-style:none; }
 .revenue-booking-row { display:grid; grid-template-columns:minmax(180px,1.2fr) minmax(0,2fr); align-items:center; gap:20px; padding:17px 0; border-top:1px solid #e5e9f0; }
+.revenue-booking-row { width:100%; border-right:0; border-bottom:0; border-left:0; background:#fff; font:inherit; color:inherit; text-align:left; cursor:pointer; }
+.revenue-booking-row:hover { background:#f6f8ff; }
+.revenue-booking-row:focus-visible { outline:2px solid #2454d8; outline-offset:-2px; }
+.revenue-booking-identity .revenue-booking-open-label { display:inline-block; margin-left:8px; color:#2454d8; font-size:11px; font-weight:500; }
 .revenue-booking-identity { display:grid; gap:5px; min-width:0; overflow-wrap:anywhere; }
 .revenue-booking-identity strong { font-size:14px; }
 .revenue-booking-identity span { font-size:12px; color:#667085; }
 .revenue-booking-identity small { font-size:11px; color:#667085; }
 .revenue-booking-identity small.revenue-refund { color:#a52424; }
-.revenue-booking-row dl { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin:0; text-align:right; }
-.revenue-booking-row dl > div { min-width:0; }
-.revenue-booking-row dt { margin:0 0 6px; font-size:11px; color:#667085; }
-.revenue-booking-row dd { margin:0; font-size:15px; font-weight:650; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
-.revenue-booking-active-amount dd { color:#2454d8; }
-.revenue-booking-row dd.revenue-refund { color:#a52424; }
+.revenue-booking-row-amounts { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin:0; text-align:right; }
+.revenue-booking-row-amounts > span { min-width:0; }
+.revenue-booking-amount-label { display:block; margin:0 0 6px; font-size:11px; color:#667085; }
+.revenue-booking-amount { display:block; margin:0; font-size:15px; font-weight:650; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.revenue-booking-active-amount .revenue-booking-amount { color:#2454d8; }
+.revenue-booking-amount.revenue-refund { color:#a52424; }
 .revenue-booking-empty { padding:28px 0; text-align:center; }
 .revenue-booking-dialog [hidden] { display:none!important; }
+.revenue-booking-dialog-heading { display:flex; align-items:center; flex-wrap:wrap; gap:8px; min-width:0; flex:1; }
+.revenue-booking-dialog-heading h2 { overflow-wrap:anywhere; }
+.revenue-booking-dialog-head > button { flex-shrink:0; }
+.revenue-booking-detail-section { padding:18px 0; border-bottom:1px solid #e5e9f0; }
+.revenue-booking-detail-section h3 { margin:0 0 14px; font-size:15px; }
+.revenue-booking-detail-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px 20px; margin:0; }
+.revenue-booking-detail-fields > div { display:grid; grid-template-columns:90px minmax(0,1fr); gap:8px; align-items:baseline; }
+.revenue-booking-detail-fields dt { color:#667085; font-size:12px; }
+.revenue-booking-detail-fields dd { margin:0; font-size:13px; overflow-wrap:anywhere; }
+.revenue-booking-detail-money { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+.revenue-booking-detail-money > div { display:grid; gap:8px; padding:14px; border:1px solid #e5e9f0; border-radius:var(--radius,8px); }
+.revenue-booking-detail-money span { color:#667085; font-size:12px; }
+.revenue-booking-detail-money strong { font-size:20px; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
+.revenue-booking-detail-text { white-space:pre-wrap; overflow-wrap:anywhere; font:inherit; font-size:13px; line-height:1.8; }
+.revenue-booking-detail-section table { min-width:0; }
+.revenue-booking-detail-section :is(td,th) { min-width:0; font-size:12px; }
+.revenue-booking-service { display:grid; gap:6px; padding:12px 0; }
+.revenue-booking-service span { color:#667085; font-size:12px; overflow-wrap:anywhere; }
 @media(max-width:699px) {
  .revenue-booking-dialog { padding:16px; }
  .revenue-booking-dialog-head { top:-16px; margin:-16px -16px 0; padding:14px 16px 12px; }
  .revenue-booking-dialog-head h2 { font-size:16px; }
  .revenue-booking-tabs button { min-height:40px; }
  .revenue-booking-row { grid-template-columns:minmax(0,1fr); gap:14px; padding:16px 0; }
- .revenue-booking-row dl { gap:8px; text-align:left; }
- .revenue-booking-row dd { font-size:14px; }
+ .revenue-booking-row-amounts { gap:8px; text-align:left; }
+ .revenue-booking-amount { font-size:14px; }
  .revenue-booking-list-total { font-size:17px; }
+ .revenue-booking-detail-fields { grid-template-columns:minmax(0,1fr); }
+ .revenue-booking-detail-money { grid-template-columns:minmax(0,1fr); }
+ .revenue-booking-detail-money > div { display:flex; align-items:baseline; justify-content:space-between; gap:10px; padding:12px; }
+ .revenue-booking-detail-money strong { font-size:18px; text-align:right; }
 }
 @media(max-width:359px) {
- .revenue-booking-row dl { grid-template-columns:minmax(0,1fr); gap:7px; }
- .revenue-booking-row dl > div { display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
- .revenue-booking-row dt { margin:0; flex-shrink:0; }
- .revenue-booking-row dd { text-align:right; }
+ .revenue-booking-row-amounts { grid-template-columns:minmax(0,1fr); gap:7px; }
+ .revenue-booking-row-amounts > span { display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+ .revenue-booking-amount-label { margin:0; flex-shrink:0; }
+ .revenue-booking-amount { text-align:right; }
 }

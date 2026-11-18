@@ -24,6 +24,7 @@
     balance:{title:'잔금이 남은 예약',label:'앞으로 받을 잔금',note:'잔금이 확정되어 남아 있는 예약입니다. 금액 미정·정산 확인이 필요한 예약은 잔금 합계에서 제외합니다.'}
   };
   let bookingSummary=null,bookingMetric='booked',bookingPage=1,bookingVersion=0,bookingQuery=null,bookingOpener=null;
+  let bookingRows=new Map(),bookingDetailCode='',bookingDetailVersion=0,bookingDetailOpener=null,bookingListScroll=0,bookingListTitle='';
 
   function month(value) {
     const current = value || new Date(Date.now()+9*3600e3).toISOString().slice(0,7);
@@ -50,7 +51,7 @@
   }
   function renderBreakdown(r) {
     const categories = r.categories || [], components = r.components || [], channels = r.channels || [];
-    $('revenue-categories').innerHTML = categories.map(item=>'<button type="button" class="revenue-category'+(filters.get('category')===item.id?' on':'')+'" data-revenue-category="'+esc(item.id)+'" aria-pressed="'+(filters.get('category')===item.id)+'"><span>'+esc(categoryLabels[item.id]||item.label)+'</span><strong>'+won(item.net)+'</strong><small>수납 '+won(item.received)+'<br>환불 '+won(item.refunded)+'</small></button>').join('');
+    $('revenue-categories').innerHTML = categories.map(item=>'<button type="button" class="revenue-category'+(filters.get('category')===item.id?' on':'')+'" data-revenue-category="'+esc(item.id)+'" aria-haspopup="dialog" aria-controls="revenue-services-dialog"><span>'+esc(categoryLabels[item.id]||item.label)+'</span><strong>'+won(item.net)+'</strong><small>수납 '+won(item.received)+'<br>환불 '+won(item.refunded)+'<br>내역 보기 ›</small></button>').join('');
     const active = components.filter(item=>item.received||item.refunded);
     $('revenue-components').innerHTML = active.length ? table(['구분','세부 항목','수납액','환불액','순매출'],active.map(item=>'<tr><td>'+esc(categoryLabels[item.category]||item.category)+'</td><td><button type="button" class="revenue-text-button" data-revenue-component="'+esc(item.id)+'" data-category="'+esc(item.category)+'">'+esc(componentLabels[item.id]||item.label)+'</button></td>'+money(item.received)+money(item.refunded)+money(item.net)+'</tr>'),2) : '<p class="small muted">선택한 조건에 해당하는 매출 구성이 없습니다.</p>';
     const ranked = channels.slice().sort((a,b)=>b.received-a.received);
@@ -89,6 +90,7 @@
     return row.start_h!=null&&row.end_h!=null?hour(row.start_h)+' ~ '+hour(row.end_h):row.slot||'';
   }
   function renderBookingList(r) {
+    bookingRows=new Map(r.items.map(row=>[row.booking_code,row]));
     const s=r.summary,total=r.total,view=bookingViews[bookingMetric],allUnknown=s.bookingCount>0&&s.amountUnknownCount===s.bookingCount;
     const amount=bookingMetric==='booked'&&allUnknown?'금액 미정':bookingMetric==='balance'&&s.bookingCount>0&&s.balanceUnknownCount===s.bookingCount?'확인 필요':won(total.amount);
     $('revenue-booking-list-total').textContent=total.count.toLocaleString('ko-KR')+'건 · '+view.label+' '+amount;
@@ -98,13 +100,63 @@
     $('revenue-booking-list-note').textContent=notes.join(' ');
     $('revenue-booking-list').innerHTML=r.items.length?'<ul class="revenue-booking-list">'+r.items.map(row=>{
       const warning=[row.review_required?'정산 확인 필요':'',row.excessPaid?'초과 수납 '+won(row.excessPaid):'',row.overRefunded?'초과 환불 '+won(row.overRefunded):''].filter(Boolean).join(' · ');
-      return '<li class="revenue-booking-row" data-booking-code="'+esc(row.booking_code)+'"><div class="revenue-booking-identity"><strong>'+esc(row.customer_name||'예약자 미지정')+'</strong><span>'+esc(row.date)+' '+esc(bookingHours(row))+' · '+esc(labels[row.space_id]||labels.unassigned)+'</span><small>'+esc(row.booking_code)+' · '+(row.status==='completed'?'이용 완료':'예약 확정')+'</small>'+(warning?'<small class="revenue-refund">'+esc(warning)+'</small>':'')+'</div><dl>'+[['booked','예약금액',row.amount],['received','수납 완료',row.netReceived],['balance','남은 잔금',row.balance]].map(([id,label,value])=>'<div'+(id===bookingMetric?' class="revenue-booking-active-amount"':'')+'><dt>'+label+'</dt><dd'+(value<0?' class="revenue-refund"':'')+'>'+(value==null?(id==='booked'?'금액 미정':'확인 필요'):won(value))+'</dd></div>').join('')+'</dl></li>';
+      return '<li data-booking-code="'+esc(row.booking_code)+'"><button type="button" class="revenue-booking-row" data-revenue-booking-detail="'+esc(row.booking_code)+'" aria-label="'+esc(row.customer_name||'예약자 미지정')+' · '+esc(row.date)+' · '+esc(row.booking_code)+' 예약 상세 보기"><span class="revenue-booking-identity"><strong>'+esc(row.customer_name||'예약자 미지정')+'<small class="revenue-booking-open-label" aria-hidden="true">상세 보기 ›</small></strong><span>'+esc(row.date)+' '+esc(bookingHours(row))+' · '+esc(labels[row.space_id]||labels.unassigned)+'</span><small>'+esc(row.booking_code)+' · '+(row.status==='completed'?'이용 완료':'예약 확정')+'</small>'+(warning?'<small class="revenue-refund">'+esc(warning)+'</small>':'')+'</span><span class="revenue-booking-row-amounts">'+[['booked','예약금액',row.amount],['received','수납 완료',row.netReceived],['balance','남은 잔금',row.balance]].map(([id,label,value])=>'<span'+(id===bookingMetric?' class="revenue-booking-active-amount"':'')+'><span class="revenue-booking-amount-label">'+label+'</span><strong class="revenue-booking-amount'+(value<0?' revenue-refund':'')+'">'+(value==null?(id==='booked'?'금액 미정':'확인 필요'):won(value))+'</strong></span>').join('')+'</span></button></li>';
     }).join('')+'</ul>':'<p class="small muted revenue-booking-empty">'+(bookingMetric==='balance'?'잔금이 확정되어 남아 있는 예약이 없습니다.':bookingMetric==='received'?'수납·환불 내역이 있는 예약이 없습니다.':'해당 기간·지점에 포함된 예약이 없습니다.')+'</p>';
     const pages=Math.max(1,Math.ceil(r.detailCount/r.pageSize));
     $('revenue-booking-list-pagination').hidden=pages<=1;
     $('revenue-booking-list-prev').disabled=r.page<=1;
     $('revenue-booking-list-next').disabled=r.page>=pages;
     $('revenue-booking-list-page').textContent=r.page+' / '+pages;
+  }
+  function detailFields(items) {
+    return '<dl class="revenue-booking-detail-fields">'+items.map(([label,value])=>'<div><dt>'+label+'</dt><dd>'+esc(value==null||value===''?'—':value)+'</dd></div>').join('')+'</dl>';
+  }
+  function renderBookingDetail(r) {
+    const b=r.booking,s=r.settlement,inq=r.inquiry,q=r.quote;
+    $('revenue-booking-list-title').textContent='예약 상세 · '+(b.customer_name||b.booking_code);
+    const amounts=[['전체 예약금액',s.amount],['수납 완료 금액',s.netReceived],['앞으로 받을 잔금',s.balance]];
+    let html='<section class="revenue-booking-detail-section"><h3>예약 정보</h3>'+detailFields([
+      ['예약번호',b.booking_code],['상태',({confirmed:'예약 확정',completed:'이용 완료',cancelled:'취소',payment_review:'일정 확인 필요'})[b.status]||b.status],
+      ['예약자',b.customer_name],['지점',labels[b.space_id]||labels.unassigned],['이용일',b.date],['이용시간',bookingHours(b)],['이용 인원',b.headcount==null?'미정':b.headcount+'명'],
+      ['연락처',b.phone],['추가 연락처',b.phone2],['단체명',inq?.org],['이메일',inq?.email],['연결 문의',b.inquiry_ref||'연결된 문의 없음']
+    ])+'</section><section class="revenue-booking-detail-section"><h3>예약금액·수납·잔금</h3><div class="revenue-booking-detail-money">'+amounts.map(([label,value])=>'<div><span>'+label+'</span><strong'+(value<0?' class="revenue-refund"':'')+'>'+(value==null?(label==='전체 예약금액'?'금액 미정':'확인 필요'):won(value))+'</strong></div>').join('')+'</div><p class="tiny muted">누적 수납 '+won(s.received)+' · 완료 환불 '+won(s.refunded)+' · 반환 보증금 별도</p>';
+    const warnings=[s.review_required?'정산 기록 확인이 필요합니다.':'',s.excessPaid?'초과 수납 '+won(s.excessPaid):'',s.overRefunded?'초과 환불 '+won(s.overRefunded):''].filter(Boolean);
+    if(warnings.length)html+='<p class="small revenue-refund">'+esc(warnings.join(' · '))+'</p>';
+    html+='</section>';
+    const selections=[...(inq?.needs||[]),...(inq?.options||[])];
+    if(inq?.purpose||selections.length)html+='<section class="revenue-booking-detail-section"><h3>연결 문의의 행사·선택 옵션</h3>'+detailFields([['행사 목적',inq?.purpose],['선택 항목',selections.join(' · ')]])+'</section>';
+    if(r.services?.length)html+='<section class="revenue-booking-detail-section"><h3>식음료 서비스</h3>'+r.services.map(service=>'<div class="revenue-booking-service"><strong>'+esc(service.label)+'</strong><span>'+esc([service.status,service.summary].filter(Boolean).join(' · '))+'</span>'+(service.amount==null?'': '<b>'+won(service.amount)+'</b>')+'</div>').join('')+'</section>';
+    html+='<section class="revenue-booking-detail-section"><h3>저장된 견적 구성</h3>';
+    if(q){
+      html+='<p class="small muted">'+esc(q.quote_no)+' · '+esc(q.created_at||'')+'</p><div class="revenue-table-wrap">'+table(['항목','저장 금액'],[...(q.lines||[]),...(q.extras||[])].map(line=>'<tr><td>'+esc(line.label)+'</td>'+(line.amount==null?'<td class="revenue-num muted">금액 미정</td>':money(line.amount))+'</tr>'),1)+'</div><p class="small">저장 견적 합계 '+(q.total==null?'금액 미정':won(q.total))+(q.discount?' · 할인 '+won(q.discount):'')+'</p><p class="tiny muted">저장 당시의 견적입니다. 위 예약금액·수납액과 다를 수 있습니다.</p>';
+    }else html+='<p class="small muted">이 예약에 대응하는 저장 견적이 없습니다.</p>';
+    if(inq?.estimate)html+='<details><summary>문의에 저장된 요금 계산 내역</summary><pre class="revenue-booking-detail-text">'+esc(inq.estimate)+'</pre></details>';
+    html+='</section>';
+    for(const [title,text] of [['예약 메모',b.memo],['문의 내용',inq?.message],['문의 운영 메모',inq?.memo]])if(text)html+='<section class="revenue-booking-detail-section"><h3>'+title+'</h3><p class="revenue-booking-detail-text">'+esc(text)+'</p></section>';
+    $('revenue-booking-detail-body').innerHTML=html;
+  }
+  async function loadBookingDetail() {
+    const request=++bookingDetailVersion,code=bookingDetailCode;
+    $('revenue-booking-detail-status').textContent='예약 상세를 불러오는 중입니다.';$('revenue-booking-detail-body').innerHTML='';$('revenue-booking-detail-retry').hidden=true;
+    $('revenue-booking-detail-body').setAttribute('aria-busy','true');
+    try {
+      const r=await X.A('/revenue/bookings/'+encodeURIComponent(code)+'?'+bookingQuery);
+      if(request!==bookingDetailVersion||!bookingDialog.open||bookingDetailCode!==code)return;
+      renderBookingDetail(r);$('revenue-booking-detail-status').textContent='';
+    }catch(e){if(request===bookingDetailVersion&&bookingDialog.open&&bookingDetailCode===code&&!X.guard(e)){$('revenue-booking-detail-status').textContent=e.message||'예약 상세를 불러오지 못했습니다.';$('revenue-booking-detail-retry').hidden=false;}}
+    finally{if(request===bookingDetailVersion)$('revenue-booking-detail-body').removeAttribute('aria-busy');}
+  }
+  function openBookingDetail(code,opener) {
+    if(!bookingDialog.open||!bookingRows.has(code))return;
+    bookingListScroll=bookingDialog.scrollTop;bookingListTitle=$('revenue-booking-list-title').textContent;bookingDetailOpener=opener;bookingDetailCode=code;
+    $('revenue-booking-list-pane').hidden=true;$('revenue-booking-detail-pane').hidden=false;$('revenue-booking-detail-back').hidden=false;
+    $('revenue-booking-list-title').textContent='예약 상세 · '+code;bookingDialog.scrollTop=0;$('revenue-booking-detail-back').focus();loadBookingDetail();
+  }
+  function backBookingList() {
+    if(!bookingDetailCode)return;
+    bookingDetailVersion++;bookingDetailCode='';$('revenue-booking-detail-body').removeAttribute('aria-busy');
+    $('revenue-booking-detail-pane').hidden=true;$('revenue-booking-list-pane').hidden=false;$('revenue-booking-detail-back').hidden=true;$('revenue-booking-list-title').textContent=bookingListTitle;
+    if(bookingDetailOpener?.isConnected)bookingDetailOpener.focus({preventScroll:true});bookingDialog.scrollTop=bookingListScroll;bookingDetailOpener=null;
   }
   async function loadBookingList() {
     const request=++bookingVersion,q=new URLSearchParams(bookingQuery),view=bookingViews[bookingMetric];
@@ -127,6 +179,7 @@
   }
   function openBookingList(metric,opener) {
     if(!bookingViews[metric]||!bookingSummary)return;
+    if(bookingDetailCode)backBookingList();
     if(!bookingDialog.open){
       const scope=bookingSummary.scope||{};
       bookingQuery=new URLSearchParams({from:scope.from||filters.get('from'),to:scope.to||filters.get('to'),space:scope.space??filters.get('space')??''});
@@ -138,7 +191,11 @@
   $('revenue-booking-cards').addEventListener('click',bookingMetricClick);
   bookingDialog.addEventListener('click',bookingMetricClick);
   $('revenue-booking-list-close').addEventListener('click',()=>bookingDialog.close());
-  bookingDialog.addEventListener('close',()=>{bookingVersion++;bookingQuery=null;if(bookingOpener?.isConnected)bookingOpener.focus();bookingOpener=null;});
+  bookingDialog.addEventListener('close',()=>{if(bookingDetailCode)backBookingList();bookingDetailVersion++;bookingVersion++;bookingQuery=null;if(bookingOpener?.isConnected)bookingOpener.focus();bookingOpener=null;});
+  $('revenue-booking-list').addEventListener('click',e=>{const button=e.target.closest('[data-revenue-booking-detail]');if(button)openBookingDetail(button.dataset.revenueBookingDetail,button);});
+  $('revenue-booking-detail-back').addEventListener('click',backBookingList);
+  $('revenue-booking-detail-retry').addEventListener('click',()=>{if(bookingDialog.open&&bookingDetailCode)loadBookingDetail();});
+  bookingDialog.addEventListener('cancel',e=>{if(bookingDetailCode){e.preventDefault();backBookingList();}});
   $('revenue-booking-list-retry').addEventListener('click',()=>{if(bookingDialog.open)loadBookingList();});
   for(const [id,delta] of [['prev',-1],['next',1]])$('revenue-booking-list-'+id).addEventListener('click',()=>{if(bookingDialog.open&&$('revenue-booking-list').getAttribute('aria-busy')!=='true'&&!$('revenue-booking-list-'+id).disabled){bookingPage+=delta;loadBookingList();}});
   function render(r) {
@@ -282,8 +339,12 @@
   $('revenue-category').addEventListener('change',()=>{$('revenue-component').value='';});
   $('revenue-show-all').addEventListener('click',()=>{form.elements.category.value='';form.elements.component.value='';form.elements.channel.value='';search();});
   $('revenue-clear-component').addEventListener('click',()=>{$('revenue-component').value='';search();});
-  $('revenue-categories').addEventListener('click',e=>{const b=e.target.closest('[data-revenue-category]');if(b){form.elements.category.value=filters.get('category')===b.dataset.revenueCategory?'':b.dataset.revenueCategory;$('revenue-component').value='';search();}});
-  $('revenue-components').addEventListener('click',e=>{const b=e.target.closest('[data-revenue-component]');if(b){form.elements.category.value=b.dataset.category;$('revenue-component').value=b.dataset.revenueComponent;search();}});
+  function openRevenueServices(category,component='') {
+    if(!X.openRevenueServices){status.textContent='내역 화면을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.';return;}
+    X.openRevenueServices({from:filters.get('from'),to:filters.get('to'),space:filters.get('space')||'',channel:filters.get('channel')||'',category,component});
+  }
+  $('revenue-categories').addEventListener('click',e=>{const b=e.target.closest('[data-revenue-category]');if(b)openRevenueServices(b.dataset.revenueCategory);});
+  $('revenue-components').addEventListener('click',e=>{const b=e.target.closest('[data-revenue-component]');if(b)openRevenueServices(b.dataset.category,b.dataset.revenueComponent);});
   dayList.addEventListener('click',e=>{const b=e.target.closest('[data-revenue-day]');if(!b||report.getAttribute('aria-busy')==='true')return;selectedDay=b.dataset.revenueDay;page=1;load({detailOnly:true,focus:'#revenue-clear-day'});});
   $('revenue-clear-day').addEventListener('click',()=>{selectedDay='';page=1;load({detailOnly:true,focus:'h2'});});
   $('revenue-prev').addEventListener('click',()=>{if(report.getAttribute('aria-busy')!=='true'){page--;load({detailOnly:true,focus:'#revenue-prev'});}});

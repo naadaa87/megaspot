@@ -26,7 +26,7 @@ function report(amount=120000) {
   };
 }
 function ui(api,{storedMode=null,blockedStorage=false}={}) {
-  const nodes = new Map(),views = {},events = {};
+  const nodes = new Map(),views = {},events = {},serviceCalls=[];
   const storage=new Map(storedMode==null?[]:[['megaspot.admin.revenue.chart-view.v1',storedMode]]);
   function node(id) {
     if(nodes.has(id)) return nodes.get(id);
@@ -50,11 +50,12 @@ function ui(api,{storedMode=null,blockedStorage=false}={}) {
   }
   const esc = value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const context = vm.createContext({document:{getElementById:node},URLSearchParams,FormData,Date,
-    window:{MEGASPOT_ADMIN:{A:api,esc,guard:()=>false,register:(id,fn)=>views[id]=fn},
+    window:{MEGASPOT_ADMIN:{A:api,esc,guard:()=>false,register:(id,fn)=>views[id]=fn,openRevenueServices:options=>serviceCalls.push(options)},
       localStorage:{getItem:key=>{if(blockedStorage)throw Error('storage blocked');return storage.get(key);},setItem:(key,value)=>{if(blockedStorage)throw Error('storage blocked');storage.set(key,value);}},
       addEventListener:(name,fn)=>events[name]=fn}});
   vm.runInContext(source,context);
-  return {node,form,open:()=>views.revenue(),submit:()=>form.listeners.submit({preventDefault(){}}),events,storage,
+  return {node,form,open:()=>views.revenue(),submit:()=>form.listeners.submit({preventDefault(){}}),events,storage,serviceCalls,
+    detail:code=>{const button={dataset:{revenueBookingDetail:code},isConnected:true,focus(){button.focused=true;}};node('revenue-booking-list').listeners.click({target:{closest:()=>button}});return button;},
     mode:id=>node('revenue-mode-'+id).listeners.click({}),
     bookings:metric=>{const button={dataset:{revenueBookingMetric:metric},isConnected:true,focus(){button.focused=true;}};node('revenue-booking-cards').listeners.click({target:{closest:()=>button}});return button;}};
 }
@@ -120,6 +121,54 @@ test('예약 목록의 늦은 응답·닫힌 창의 응답을 무시하며 조�
   assert.equal(f.node('revenue-booking-list-status').textContent,'');assert.equal(f.node('revenue-booking-list-retry').hidden,true);
   f.bookings('booked');f.node('revenue-booking-dialog').close();pending[4].resolve(bookingList('booked',{items:[]}));await tick();
   assert.equal(f.node('revenue-booking-dialog').open,false);assert.equal(f.node('revenue-booking-list').innerHTML,'');
+});
+
+function bookingDetail() {
+  const row=bookingList().items[0];
+  return {ok:true,booking:{...row,phone:'01012345678',phone2:'',headcount:30,inquiry_ref:'MS-ONE',memo:'<예약 메모>'},
+    settlement:{...row},inquiry:{ref:'MS-ONE',org:'검증 단체',email:'qa@example.test',purpose:'행사',options:['청소지원'],needs:[],estimate:'저장한 계산',message:'<문의 내용>',memo:'메모'},
+    quote:{quote_no:'Q-ONE',created_at:'2026-11-01',total:240000,discount:0,lines:[{label:'공간대관',amount:200000}],extras:[{label:'청소지원',amount:40000}]},services:[]};
+}
+
+test('예약 상세를 조회하고 목록으로 돌아오면 원래 목록·페이지·스크롤과 초점을 복원한다',async()=>{
+  const calls=[];
+  const f=ui(async path=>{calls.push(path);return path.startsWith('/revenue/bookings/BK-LIST?')?bookingDetail():path.startsWith('/revenue/bookings?')?bookingList():report();});
+  f.open();await tick();f.bookings('booked');await tick();
+  const list=f.node('revenue-booking-list').innerHTML;f.node('revenue-booking-dialog').scrollTop=321;
+  const row=f.detail('BK-LIST');await tick();
+  assert.match(calls.at(-1),/^\/revenue\/bookings\/BK-LIST\?/);
+  assert.equal(f.node('revenue-booking-list-pane').hidden,true);assert.equal(f.node('revenue-booking-detail-pane').hidden,false);
+  assert.match(f.node('revenue-booking-detail-body').innerHTML,/01012345678|&lt;예약 메모&gt;/);
+  assert.match(f.node('revenue-booking-detail-body').innerHTML,/Q-ONE|240,000원|40,000원/);
+  assert.doesNotMatch(f.node('revenue-booking-detail-body').innerHTML,/<예약 메모>|<문의 내용>/);
+  const requests=calls.length;f.node('revenue-booking-detail-back').listeners.click();
+  assert.equal(calls.length,requests,'돌아갈 때 목록을 새로 조회하지 않는다');
+  assert.equal(f.node('revenue-booking-list').innerHTML,list);assert.equal(f.node('revenue-booking-dialog').scrollTop,321);
+  assert.equal(f.node('revenue-booking-list-pane').hidden,false);assert.equal(f.node('revenue-booking-detail-pane').hidden,true);assert.equal(row.focused,true);
+});
+
+test('상세 오류는 재시도로 복구하고 목록으로 돌아간 뒤의 늦은 상세 응답은 무시한다',async()=>{
+  const pending=[];
+  const f=ui(path=>path.startsWith('/revenue/bookings/BK-LIST?')?new Promise((resolve,reject)=>pending.push({resolve,reject})):Promise.resolve(path.startsWith('/revenue/bookings?')?bookingList():report()));
+  f.open();await tick();f.bookings('booked');await tick();f.detail('BK-LIST');
+  pending[0].reject(Error('상세 조회 오류'));await tick();assert.equal(f.node('revenue-booking-detail-retry').hidden,false);
+  f.node('revenue-booking-detail-retry').listeners.click();pending[1].resolve(bookingDetail());await tick();assert.equal(f.node('revenue-booking-detail-status').textContent,'');
+  f.node('revenue-booking-detail-back').listeners.click();f.detail('BK-LIST');
+  let cancelled=false;f.node('revenue-booking-dialog').listeners.cancel({preventDefault(){cancelled=true;}});
+  assert.equal(cancelled,true);assert.equal(f.node('revenue-booking-dialog').open,true);assert.equal(f.node('revenue-booking-list-pane').hidden,false);
+  pending[2].resolve(bookingDetail());await tick();assert.equal(f.node('revenue-booking-detail-body').innerHTML,'');
+});
+
+test('서비스 카드와 세부 항목은 현재 페이지 조건을 바꾸지 않고 내역 모달을 요청한다',async()=>{
+  const f=ui(async()=>report());f.open();await tick();
+  const before=f.node('revenue-totals').innerHTML,graph=f.node('revenue-trend').innerHTML;
+  f.form.elements.category.value='food';f.form.elements.component.value='catering';
+  const snapshot=JSON.stringify(Object.entries(f.form.elements).map(([id,node])=>[id,node.value]));
+  f.node('revenue-categories').listeners.click({target:{closest:()=>({dataset:{revenueCategory:'addons'}})}});
+  f.node('revenue-components').listeners.click({target:{closest:()=>({dataset:{category:'addons',revenueComponent:'cleaning'}})}});
+  assert.equal(f.serviceCalls.length,2);assert.equal(f.serviceCalls[0].category,'addons');assert.equal(f.serviceCalls[0].component,'');assert.equal(f.serviceCalls[1].component,'cleaning');
+  assert.equal(JSON.stringify(Object.entries(f.form.elements).map(([id,node])=>[id,node.value])),snapshot);
+  assert.equal(f.node('revenue-totals').innerHTML,before);assert.equal(f.node('revenue-trend').innerHTML,graph);
 });
 
 test('월별 막대 3종은 예약 요약과 같은 금액을 사용하고 Y축 금액 눈금 대신 각 막대 금액을 표시한다',async()=>{
