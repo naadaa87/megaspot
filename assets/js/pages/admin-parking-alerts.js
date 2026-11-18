@@ -1,9 +1,9 @@
 (function(){
  'use strict';
  var M=window.MEGASPOT,X=window.MEGASPOT_ADMIN;if(!M||!X)return;
- var V=window.MEGASPOT_ADMIN_PARKING_VIEW,groups=[],esc=M.esc,busy=false,started=false,seen=new Set(),initialized=false;
+ var V=window.MEGASPOT_ADMIN_PARKING_VIEW,groups=[],esc=M.esc,busy=false,started=false,seen=new Set(),initialized=false,unread=[],readingAll=false,loadAgain=false,loadPromise=null;
  var top=document.createElement('div');top.className='adm-notify';top.id='pa-payment-alerts';
- top.innerHTML='<button type="button" class="adm-notify-btn" id="pa-alert-btn" aria-expanded="false" aria-controls="pa-alert-panel">주차 결제 <em id="pa-alert-count" hidden></em></button><div class="adm-notify-panel" id="pa-alert-panel" hidden><div class="adm-notify-head"><strong>확인하지 않은 주차 결제</strong><div class="adm-notify-tools"><button class="btn btn-light btn-xs" id="pa-alert-reload" type="button">새로고침</button><button class="btn btn-light btn-xs" id="pa-alert-close" type="button" aria-label="주차 결제 알림 닫기">닫기 ×</button></div></div><div class="adm-notify-list" id="pa-alert-list"></div><p class="small muted pa-alert-help">관리자 화면이 열려 있으면 약 10초마다 확인합니다. 주문을 열면 확인 처리됩니다.</p></div>';
+ top.innerHTML='<button type="button" class="adm-notify-btn" id="pa-alert-btn" aria-expanded="false" aria-controls="pa-alert-panel">주차 결제 <em id="pa-alert-count" hidden></em></button><div class="adm-notify-panel" id="pa-alert-panel" hidden><div class="adm-notify-head"><strong>확인하지 않은 주차 결제</strong><div class="adm-notify-tools"><button class="btn btn-light btn-xs" id="pa-alert-read-all" type="button" disabled>모두 읽음</button><button class="btn btn-light btn-xs" id="pa-alert-reload" type="button">새로고침</button><button class="btn btn-light btn-xs" id="pa-alert-close" type="button" aria-label="주차 결제 알림 닫기">닫기 ×</button></div></div><div class="adm-notify-list" id="pa-alert-list"></div><p class="small pa-alert-help" id="pa-alert-state" role="status" hidden></p><p class="small muted pa-alert-help">주문을 열거나 모두 읽음을 누르면 결제 알림이 사라집니다. 차량 등록 상태는 바뀌지 않습니다.</p></div>';
  document.querySelector('.adm-notify-bar').prepend(top);
  var box=document.createElement('details');box.className='adm-card mt-3';box.id='pa-admin-sms';
  box.innerHTML='<summary><b>관리자 결제 문자 알림</b></summary><p class="small muted mt-2">새 주차권 결제 완료 시 관리자에게 장문 문자(LMS)를 보냅니다. 문자 요금은 기존 알리고 계정에서 차감됩니다. 고객 알림톡 설정과 별도로 동작하며, 기존 결제는 소급 발송하지 않습니다.</p><label class="pk-label mt-2">수신 관리자 휴대폰 번호<textarea class="textarea" id="pa-sms-phones" rows="2" placeholder="한 줄에 한 번호"></textarea></label><label class="chk mt-2"><input type="checkbox" id="pa-sms-enabled">새 결제 완료 시 관리자 문자 발송</label><p class="small muted mt-2">번호 변경은 서버 수신 허용 목록 등록과 각 번호의 시험 수신 확인이 필요합니다. 아마노 서버 자동 처리 상태와 차량별 적용 완료를 함께 확인해 주세요.</p><label class="chk mt-2"><input type="checkbox" id="pa-sms-test-confirm">저장된 번호마다 시험 장문 문자 1건 발송과 문자 요금 차감에 동의합니다.</label><div class="pk-actions mt-2"><button class="btn btn-primary btn-sm" id="pa-sms-save" type="button">관리자 문자 설정 저장</button><button class="btn btn-light btn-sm" id="pa-sms-test" type="button">저장된 번호에 시험 문자 보내기</button><button class="btn btn-light btn-sm" id="pa-sms-refresh" type="button">문자 도착 결과 확인</button></div><p class="small mt-2" id="pa-sms-state" role="status"></p><div id="pa-sms-history" class="mt-2"></div>';
@@ -12,6 +12,7 @@
  function $(s){return document.querySelector(s);}
  function api(path,method,body){return fetch('/api/parking/admin/payment-alerts'+path,{method:method||'GET',headers:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)}).then(function(r){return r.json().then(function(j){if(!r.ok)throw Error(j.error||'알림을 확인하지 못했습니다.');return j;});});}
  function draw(r){
+  unread=Array.isArray(r.unread_oids)?r.unread_oids:r.items.map(function(p){return p.oid;});$('#pa-alert-read-all').disabled=readingAll||!unread.length;
   groups=V.groups(r.items);var count=$('#pa-alert-count'),payments=r.payment_count==null?groups.length:r.payment_count;count.textContent=payments>99?'99+':payments;count.hidden=!payments;
   $('#pa-alert-list').innerHTML=groups.length?groups.map(function(g){return '<button type="button" class="adm-notify-item" data-pa-read="'+esc(g.oid)+'"><span class="adm-notify-item-top"><b>'+g.items.length+'대 함께 결제</b><small>'+(g.total==null?'총액 확인 필요':Number(g.total).toLocaleString('ko-KR')+'원')+'</small></span><span>'+g.items.map(function(p){return esc(p.plate);}).join(' · ')+'</span><small>'+esc(g.oid)+' · 결제 묶음 확인 →</small></button>';}).join(''):'<p class="small muted pa-alert-help">확인하지 않은 결제가 없습니다.</p>';
   var fresh=groups.filter(function(g){return !seen.has(g.oid);});groups.forEach(function(g){seen.add(g.oid);});if(started&&fresh.length)M.toast('주차권 결제 완료 '+fresh.length+'건이 들어왔습니다.');started=true;
@@ -19,7 +20,14 @@
   $('#pa-sms-state').textContent=(s.enabled?'관리자 문자 발송 켜짐':'관리자 문자 발송 꺼짐')+' · '+(s.test_delivered?'모든 번호 시험 도착 확인 완료':'각 번호 시험 문자 도착 확인 필요');
   $('#pa-sms-history').innerHTML=s.history.map(function(e){return '<p class="small">'+esc(e.mode==='test'?'시험':'결제')+' · '+esc(e.receiver)+' · <b>'+esc(status[e.status]||e.status)+'</b>'+(e.oid?' · '+esc(e.oid):'')+(e.error?' · '+esc(e.error):'')+'</p>';}).join('');
  }
- function load(){if(busy||!document.body.classList.contains('adm-on'))return Promise.resolve();busy=true;return api('').then(draw).catch(function(e){$('#pa-sms-state').textContent=e.message;}).finally(function(){busy=false;});}
+ function load(){
+  if(!document.body.classList.contains('adm-on'))return Promise.resolve();if(busy){loadAgain=true;return loadPromise;}
+  busy=true;loadPromise=api('').then(draw).catch(function(e){$('#pa-sms-state').textContent=e.message;}).finally(function(){busy=false;loadPromise=null;if(loadAgain){loadAgain=false;return load();}});return loadPromise;
+ }
+ $('#pa-alert-read-all').onclick=function(){
+  if(readingAll||!unread.length)return;var button=this,snapshot=unread.slice(),state=$('#pa-alert-state');readingAll=true;button.disabled=true;button.textContent='처리 중…';state.hidden=true;
+  return api('/read-all','POST',{oids:snapshot}).then(function(){state.hidden=false;state.textContent='기존 주차 결제 알림을 모두 읽음 처리했습니다.';M.toast('주차 결제 알림을 모두 읽음 처리했습니다.');return load();}).catch(function(e){state.hidden=false;state.textContent=e.message;}).finally(function(){readingAll=false;button.textContent='모두 읽음';button.disabled=!unread.length;});
+ };
  $('#pa-alert-btn').onclick=function(){var p=$('#pa-alert-panel');p.hidden=!p.hidden;this.setAttribute('aria-expanded',String(!p.hidden));if(!p.hidden)load();};
  $('#pa-alert-reload').onclick=load;
  $('#pa-alert-close').onclick=function(){$('#pa-alert-panel').hidden=true;$('#pa-alert-btn').setAttribute('aria-expanded','false');$('#pa-alert-btn').focus();};

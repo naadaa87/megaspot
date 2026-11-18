@@ -47,7 +47,11 @@
  function render(items,tools,options){
   options=options||{};var list=groups(items,options),done=items.filter(function(p){return ['applied','resolved'].includes(p.status);}).length,waiting=items.filter(function(p){return ['waiting','requested','processing'].includes(receipt.state(p).key);}).length;
   var html='<div class="pa-overview" aria-label="검색 결과 요약"><div><span>결제 · 차량</span><strong>'+list.length+'건 · '+items.length+'대</strong></div><div><span>처리 완료</span><strong>'+done+'대</strong></div><div><span>대기·등록 중</span><strong>'+waiting+'대</strong></div><div><span>확인·기타</span><strong>'+(items.length-done-waiting)+'대</strong></div></div>';
-  return html+dateGroups(list).map(function(day){return '<section class="pa-day" aria-label="'+esc(day.label)+' 구매 내역"><header class="pa-day-head"><h2>'+esc(day.label)+' <span>'+esc(day.weekday)+'</span></h2><span>'+day.items.length+'건 · '+day.vehicles+'대</span></header><div class="pa-day-orders">'+day.items.map(function(g){return payment(g,tools,options);}).join('')+'</div></section>';}).join('');
+  var today=new Date(Date.now()).toLocaleDateString('sv-SE',{timeZone:'Asia/Seoul'});
+  return html+dateGroups(list).map(function(day){
+   var isToday=day.key===today,isOpen=options.dayStates&&options.dayStates.has(day.key)?options.dayStates.get(day.key):isToday;
+   return '<details class="pa-day" data-parking-day="'+esc(day.key)+'" aria-label="'+esc(day.label)+' 구매 내역"'+(isOpen?' open':'')+'><summary class="pa-day-head"><h2>'+esc(day.label)+' <span>'+esc(day.weekday)+'</span>'+(isToday?'<b class="pa-day-today">오늘</b>':'')+'</h2><span class="pa-day-meta">'+day.items.length+'건 · '+day.vehicles+'대 <i aria-hidden="true"></i></span></summary><div class="pa-day-orders">'+day.items.map(function(g){return payment(g,tools,options);}).join('')+'</div></details>';
+  }).join('');
  }
  return {groups:groups,dateGroups:dateGroups,render:render,counts:counts};
 });

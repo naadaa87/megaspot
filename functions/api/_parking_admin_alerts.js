@@ -58,11 +58,18 @@ async function tested(env,phones,fingerprint){for(const phone of phones){if(!awa
 export async function parkingAdminAlerts(request,env,path){
  const method=request.method;
  if(path==='admin/payment-alerts'&&method==='GET'){
-  const s=await config(env),count=await env.DB.prepare('SELECT COUNT(*) AS n '+FEED).first();
+  const s=await config(env),{results:unread}=await env.DB.prepare('SELECT p.oid,p.payment_id '+FEED).all();
   const {results}=await env.DB.prepare('SELECT p.oid,p.payment_id AS payment_oid,p.payment_total,p.payment_status,p.status,p.plate,p.visit_date,p.ticket,p.price,p.paid_at '+FEED+' ORDER BY p.paid_at DESC,p.oid DESC LIMIT 50').all();
-  const paymentCount=await env.DB.prepare('SELECT COUNT(DISTINCT p.payment_id) AS n '+FEED).first();
   const {results:history}=await env.DB.prepare('SELECT id,oid,receiver,mode,status,error,occurred_at,updated_at FROM parking_admin_sms ORDER BY id DESC LIMIT 20').all();
-  return json({ok:true,count:count?.n||0,payment_count:paymentCount?.n||0,items:results||[],sms:{enabled:s.enabled,phones:s.phones,configured:configured(env),test_delivered:await tested(env,s.phones,s.hash),history:history||[]}});
+  return json({ok:true,count:unread.length,payment_count:new Set(unread.map(p=>p.payment_id)).size,unread_oids:unread.map(p=>p.oid),items:results||[],sms:{enabled:s.enabled,phones:s.phones,configured:configured(env),test_delivered:await tested(env,s.phones,s.hash),history:history||[]}});
+ }
+ if(path==='admin/payment-alerts/read-all'&&method==='POST'){
+  const d=await readJson(request);
+  if(!Array.isArray(d.oids)||d.oids.some(oid=>typeof oid!=='string'||!/^MS[A-Z0-9]{1,78}$/.test(oid)))return err('알림을 새로고침한 뒤 다시 읽음 처리해 주세요.');
+  const ids=[...new Set(d.oids)],stmts=[],time=now();
+  // Read only this snapshot. Payments arriving after it remain unread.
+  for(let i=0;i<ids.length;i+=80){const slice=ids.slice(i,i+80);stmts.push(env.DB.prepare('INSERT OR IGNORE INTO admin_parking_payment_reads(oid,read_at) SELECT p.oid,? '+FEED+' AND p.oid IN ('+slice.map(()=>'?').join(',')+')').bind(time,...slice));}
+  const results=stmts.length?await env.DB.batch(stmts):[];return json({ok:true,read_count:results.reduce((n,r)=>n+changed(r),0)});
  }
  const read=path.match(/^admin\/payment-alerts\/([A-Z0-9]+)\/read$/);
  const readGroup=path.match(/^admin\/payment-alerts\/([A-Z0-9]+)\/read-group$/);

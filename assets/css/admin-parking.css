@@ -3,7 +3,14 @@
 #view-parking .pa-overview span{font-size:12px;color:var(--ink-3)}
 #view-parking .pa-overview strong{font-size:16px;font-variant-numeric:tabular-nums}
 #view-parking .pa-day{min-width:0}
-#view-parking .pa-day-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:4px 0 10px;padding:0 2px}
+#view-parking .pa-day-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0;padding:12px 2px;min-height:46px;box-sizing:border-box;cursor:pointer;list-style:none}
+#view-parking .pa-day-head::-webkit-details-marker{display:none}
+#view-parking .pa-day-head:focus-visible{outline:2px solid var(--cobalt);outline-offset:2px;border-radius:4px}
+#view-parking .pa-day:not([open])>.pa-day-orders{display:none}
+#view-parking .pa-day-meta{display:flex;align-items:center;gap:12px;white-space:nowrap}
+#view-parking .pa-day-meta i{width:7px;height:7px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(-45deg);margin-right:5px}
+#view-parking .pa-day[open]>.pa-day-head .pa-day-meta i{transform:rotate(45deg);margin-top:-4px}
+#view-parking .pa-day-today{display:inline-block;font-size:11px;font-weight:600;color:var(--cobalt);background:#eaf0ff;padding:2px 6px;border-radius:4px;margin-left:8px}
 #view-parking .pa-day-head h2{font-size:16px;line-height:1.5;margin:0;letter-spacing:0}
 #view-parking .pa-day-head h2 span,#view-parking .pa-day-head>span{font-size:12px;color:var(--ink-3);font-weight:400}
 #view-parking .pa-day-head h2 span{margin-left:5px}

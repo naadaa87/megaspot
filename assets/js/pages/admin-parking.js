@@ -61,7 +61,11 @@
    +(['processing','issue'].includes(p.status)?'<details><summary>오류 복구 · 적용 여부 확인</summary><p class="small muted">아마노에 일부라도 적용되었거나 결과가 불확실하면 대기로 되돌리지 마세요. 무료 배정을 유지한 채 확인해야 중복 등록을 막을 수 있습니다.</p><label class="chk"><input name="confirm_not_applied" type="checkbox">아마노에 무료·유료 할인이 전혀 적용되지 않았음을 확인했습니다.</label><button class="btn btn-light btn-sm" data-pact="reset">무료 배정 해제 · 대기로 복구</button></details>':'')
    +(pending?'<button class="btn btn-light btn-sm" data-pact="refund-reviewed">취소 문의 검토 완료 기록 (메모 필수)</button>':'')+'</article>';
  }
- function draw(){var open=new Set(Array.from($('#pa-list').querySelectorAll('[data-vehicle-tools][open]')).map(function(d){return d.dataset.vehicleTools;}));dirty=false;$('#pa-list').innerHTML=items.length?V.render(items,row,{open:open,sort:listSort}):'<div class="empty">표시할 주차 주문이 없습니다.</div>';}
+ function draw(){
+  var list=$('#pa-list'),open=new Set(Array.from(list.querySelectorAll('[data-vehicle-tools][open]')).map(function(d){return d.dataset.vehicleTools;})),today=new Date(Date.now()).toLocaleDateString('sv-SE',{timeZone:'Asia/Seoul'}),dayStates=new Map();
+  if(list.dataset.purchaseDay===today)list.querySelectorAll('[data-parking-day]').forEach(function(day){dayStates.set(day.dataset.parkingDay,day.open);});
+  dirty=false;list.dataset.purchaseDay=today;list.innerHTML=items.length?V.render(items,row,{open:open,sort:listSort,dayStates:dayStates}):'<div class="empty">표시할 주차 주문이 없습니다.</div>';
+ }
  $('#pa-list').addEventListener('click',function(e){var b=e.target.closest('[data-pact]');if(!b)return;var card=b.closest('[data-poid]'),p=items.find(function(x){return x.oid===card.dataset.poid;}),act=b.dataset.pact;
   if(act==='copy'){M.copy(p.plate).then(function(ok){M.toast(ok?'차량번호를 복사했습니다.':'복사하지 못했습니다.');});return;}
   var data={};card.querySelectorAll('input[name],select[name],textarea[name]').forEach(function(x){data[x.name]=x.type==='checkbox'?x.checked:x.value;});

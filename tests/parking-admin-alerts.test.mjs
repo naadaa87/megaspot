@@ -60,3 +60,14 @@ test('결제 통보 응답 이후 waitUntil에서 즉시 관리자 문자를 전
  const jobs=[];const response=await middleware({env:f.env,request:new Request('https://megaspot.test/api/parking/feedback',{method:'POST'}),waitUntil:p=>jobs.push(p),next:async()=>{f.paid('MSBACKGROUND');return new Response('SUCCESS');}});
  assert.equal(await response.text(),'SUCCESS');await Promise.all(jobs);assert.equal(f.sent.length,2);assert.ok(f.sent.every(x=>x.data.msg.includes('MSBACKGROUND')));
 });
+
+test('모두 읽음은 50건 목록 밖의 알림도 처리하며 결제·등록·문자 내역을 바꾸지 않는다',async t=>{
+ const f=fixture(t);for(let i=0;i<85;i++){f.order('MSBULK'+i);f.paid('MSBULK'+i);}
+ f.order('MSUNPAID');f.order('MSTEST',{test:1});f.paid('MSTEST');
+ const snapshot=(await f.api()).body;assert.equal(snapshot.items.length,50);assert.equal(snapshot.unread_oids.length,85);
+ const before=JSON.stringify({orders:f.db.prepare('SELECT * FROM orders').all(),parking:f.db.prepare('SELECT * FROM parking_orders').all(),sms:f.db.prepare('SELECT * FROM parking_admin_sms').all()});
+ const body={oids:snapshot.unread_oids};assert.equal((await f.api('/read-all','POST',body,false)).status,401);assert.equal((await f.api('/read-all','POST',body,true,'https://evil.test')).status,403);assert.equal((await f.api('/read-all','POST',{oids:['invalid']})).status,400);
+ const result=await f.api('/read-all','POST',body);assert.equal(result.status,200);assert.equal(result.body.read_count,85);assert.equal((await f.api()).body.payment_count,0);assert.equal((await f.api('/read-all','POST',body)).body.read_count,0);
+ assert.equal(JSON.stringify({orders:f.db.prepare('SELECT * FROM orders').all(),parking:f.db.prepare('SELECT * FROM parking_orders').all(),sms:f.db.prepare('SELECT * FROM parking_admin_sms').all()}),before);assert.equal(f.sent.length,0);
+ f.order('MSNEWAFTER');f.paid('MSNEWAFTER');assert.equal((await f.api()).body.payment_count,1);
+});

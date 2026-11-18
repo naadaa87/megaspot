@@ -76,3 +76,21 @@ test('구매일 묶음은 한국시간 자정 기준이며 여러 차량 결제�
  const html=view.render(list.flatMap(g=>g.items),()=>'<button data-pact="copy">복사</button>',{open:new Set(['MSA2']),sort:'newest_desc'});
  assert.equal((html.match(/data-payment-oid="MSA"/g)||[]).length,1);assert.ok(html.includes('data-vehicle-tools="MSA2" open'));assert.ok(html.includes('구매 00:00'));assert.ok(html.includes('주문 00:10'));assert.ok(html.includes('data-pact="copy"'));
 });
+
+test('한국시간 오늘 구매만 기본으로 펼치고 사용자가 바꾼 날짜 상태를 유지한다',t=>{
+ t.mock.method(Date,'now',()=>Date.parse('2026-11-18T14:59:00Z'));
+ const base={status:'waiting',payment_status:'paid',price:4000,plate:'123가4567'};
+ const items=[{...base,oid:'MSTODAY',paid_at:'2026-11-18 14:00:00'},{...base,oid:'MSPAST',paid_at:'2026-11-17 14:00:00'},{...base,oid:'MSNEXT',paid_at:'2026-11-18 15:00:00'}];
+ function state(html,key){return new RegExp('<details class="pa-day" data-parking-day="'+key+'"[^>]* open>').test(html);}
+ const html=view.render(items,()=> '');assert.equal(state(html,'2026-11-18'),true);assert.equal(state(html,'2026-11-17'),false);assert.equal(state(html,'2026-11-19'),false);
+ const changed=view.render(items,()=>'',{dayStates:new Map([['2026-11-18',false],['2026-11-17',true]])});assert.equal(state(changed,'2026-11-18'),false);assert.equal(state(changed,'2026-11-17'),true);
+ t.mock.method(Date,'now',()=>Date.parse('2026-11-18T15:00:00Z'));const midnight=view.render(items,()=> '');assert.equal(state(midnight,'2026-11-19'),true);assert.equal(state(midnight,'2026-11-18'),false);
+});
+test('모두 읽음은 통합 결제의 모든 차량을 읽고 이후 들어온 새 결제는 남긴다',async t=>{
+ const f=fixture(t),batch=await buy(f),snapshot=await(await f.call('admin/payment-alerts','GET',undefined,null,true)).json();
+ assert.equal(snapshot.payment_count,1);assert.equal(snapshot.unread_oids.length,2);
+ const next=await f.buy({plate:'345다6789',plate_confirm:'345다6789'});await f.feedback(next);
+ assert.equal((await f.call('admin/payment-alerts/read-all','POST',{oids:snapshot.unread_oids},null,true)).status,200);
+ const after=await(await f.call('admin/payment-alerts','GET',undefined,null,true)).json();assert.equal(after.payment_count,1);assert.deepEqual(after.unread_oids,[next.oid]);assert.equal(f.db.prepare('SELECT COUNT(*) n FROM admin_parking_payment_reads').get().n,2);
+ assert.ok(f.db.prepare('SELECT status FROM parking_orders WHERE payment_oid=?').all(batch.oid).every(p=>p.status==='waiting'));
+});
