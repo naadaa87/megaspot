@@ -101,3 +101,8 @@
  .page-admin #view-revenue .revenue-date-fields { grid-template-columns:minmax(0,1fr); }
  .page-admin #view-revenue .revenue-scope-controls > .btn { padding-inline:9px; font-size:13px; }
 }
+@media(max-width:359px) {
+ .page-admin #view-revenue .revenue-scope-form { padding:12px; }
+ .page-admin #view-revenue .revenue-month-control { gap:4px; }
+ .page-admin #view-revenue .revenue-month-control .input { font-weight:400; padding-inline:6px; }
+}
