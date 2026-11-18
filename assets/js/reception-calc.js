@@ -104,6 +104,7 @@
   }
   function fromInquiry(data){
     data=data||{};
+    if(data.reception&&data.reception.removed)return null;
     if(data.reception){var saved=data.reception,normalized=selection(saved);if(!normalized)return null;var result=Object.assign(normalized,saved);if(saved.total!=null&&saved.vat_excluded!==true)Object.assign(result,{vat_excluded:false,tax_pending:true,supply:null,vat:null,pricing_version:null});return result;}
     var text=String(data.message||'')+'\n'+String(data.summary||'');
     var header=text.match(/\[출장 케이터링 (라이트|클래식|프리미엄|시그니처) 상담\][\s\S]*?(?=\n\s*\n|$)/);
@@ -121,7 +122,7 @@
   function syncQuote(input,data,include){
     var copy=JSON.parse(JSON.stringify(input||{})),rec=fromInquiry(data);
     copy.reception_revision=revision(data);copy.receptionRequested=!!(include&&rec);copy.reception_request=include&&rec?forDocument(rec):null;
-    if(!rec)return copy;
+    if(!rec){if(data&&data.reception&&data.reception.removed){copy.extras=(copy.extras||[]).filter(function(x){return x.kind!=='reception';});copy.receptionExcluded=true;copy.note=String(copy.note||'').split('\n').filter(function(line){return line.indexOf('케이터링 상태: ')!==0&&line.indexOf('케이터링 상담 필요: ')!==0;}).join('\n');}return copy;}
     copy.extras=(copy.extras||[]).filter(function(x){return x.kind!=='reception';});
     copy.note=String(copy.note||'').split('\n').filter(function(line){return line.indexOf('케이터링 상태: ')!==0&&line.indexOf('케이터링 상담 필요: ')!==0;}).join('\n');
     if(rec.status==='cancelled')copy.note+=(copy.note?'\n':'')+'케이터링 상태: 취소 · 합계 제외 ('+rec.courseName+' '+rec.people+'명 · '+rec.formatName+')';

@@ -440,6 +440,15 @@
     $('#dr-memo-save').addEventListener('click', function(){ var v=$('#dr-memo').value; A('/inquiries/'+it.ref,{method:'PATCH', body:{memo:v}}).then(function(){ it.memo=v; drawerDirty['adm-drawer']=false; refreshLists(); M.toast('메모를 저장했습니다.'); }).catch(function(e){ if(!guard(e)) M.toast(e.message); }); });
     $$('#dr-body [data-chk]').forEach(function(cb){ cb.addEventListener('change', function(){ var o={}, controls=$$('#dr-body [data-chk]'), previous=!!(cur.checks||{})[cb.dataset.chk]; controls.forEach(function(x){ o[x.dataset.chk]=x.checked; x.disabled=true; }); A('/inquiries/'+it.ref+'/checks',{method:'PUT', body:{checks:o,changed_check:cb.dataset.chk}}).then(function(r){ cur.checks=r.checks; M.toast('체크리스트를 저장했습니다.'); if(!$('#view-resv').hidden) loadResv(); if(!$('#view-bookings').hidden) loadBookings(); }).catch(function(e){ cb.checked=previous; if(!guard(e)) M.toast(e.message); }).finally(function(){ controls.forEach(function(x){ x.disabled=false; }); }); }); });
     $('#dr-quote').addEventListener('click', function(){ if(!quoteFromInquiry(cur.item)) return; if(!closeDrawer($('#adm-drawer'))) return; go('quote'); });
+    $$('#dr-body [data-food-remove]').forEach(function(button){button.addEventListener('click',function(){
+      var kind=button.dataset.foodRemove,names={catering:'출장뷔페',reception:'케이터링',cocktail:'칵테일'};
+      if(!names[kind]||!confirm(names[kind]+' 구성을 삭제할까요?\n견적 요약·계산기에서 제외하고, 견적에 포함됐던 금액만 예약 금액에서 차감합니다. 수납·환불 기록은 유지되며 변경된 확정서는 다시 발급해야 합니다.'))return;
+      var body={reception_revision:Number(d.reception_revision)||0};body[kind]=null;
+      $$('#dr-body [data-food-remove]').forEach(function(b){b.disabled=true;});
+      A('/inquiries/'+encodeURIComponent(it.ref),{method:'PATCH',body:body}).then(function(){
+        M.toast(names[kind]+' 구성을 삭제했습니다.');window.dispatchEvent(new CustomEvent('admin-food-saved',{detail:{ref:it.ref}}));openInquiry(it.ref);refreshLists();
+      }).catch(function(e){if(!guard(e))M.toast(e.message);$$('#dr-body [data-food-remove]').forEach(function(b){b.disabled=false;});});
+    });});
     var planCopy=$('#dr-plan-copy');
     if(planCopy)planCopy.addEventListener('click',function(){
       var text=window.MEGASPOT_INQUIRY_OVERVIEW.customerText(inquiryOverviewModel(cur.item,cur.item.data||{}));
@@ -501,7 +510,7 @@
   }
   function inquiryListAmount(it,d){
     var amount=currentAmount(it),overview=window.MEGASPOT_INQUIRY_OVERVIEW;
-    if(d.catering&&overview){
+    if(d.catering&&!d.catering.removed&&overview){
       var model=overview.build(it,{roomAmount:inquiryRoomAmount(it,d)});
       var buffet=model.rows[1];
       if(model.hasAmount){
@@ -515,7 +524,7 @@
   }
   function inquiryOverviewModel(it,d){
     var overview=window.MEGASPOT_INQUIRY_OVERVIEW,names=window.MEGASPOT_COCKTAIL_CALC;
-    return overview.build(it,{roomAmount:inquiryRoomAmount(it,d,(cur.quotes||[])[0]),spaceName:d.listing&&d.listing.name?d.listing.name:spaceName(it.space_id||d.space_id||DEFAULT_SPACE),conditions:[d.date?kd(d.date):'행사일 미정',timeText(d,' – '),d.headcount?d.headcount+'명':'',optText(d.options)].filter(Boolean).join(' · '),roomNote:d.amount_override||d.amount_mode==='manual'?'운영자 수정 금액 · 식음료 별도':'현재 공간 금액 기준 · 식음료 별도',cocktailNames:names?names.names:{}});
+    return overview.build(it,{editable:['삭제됨','대기 취소','취소·환불'].indexOf(it.status)<0,savedAmount:currentAmount(it,(cur.quotes||[])[0]),roomAmount:inquiryRoomAmount(it,d,(cur.quotes||[])[0]),spaceName:d.listing&&d.listing.name?d.listing.name:spaceName(it.space_id||d.space_id||DEFAULT_SPACE),conditions:[d.date?kd(d.date):'행사일 미정',timeText(d,' – '),d.headcount?d.headcount+'명':'',optText(d.options)].filter(Boolean).join(' · '),roomNote:d.amount_override||d.amount_mode==='manual'?'운영자 수정 금액 · 식음료 별도':'현재 공간 금액 기준 · 식음료 별도',cocktailNames:names?names.names:{}});
   }
   function amountSection(it, d){
     var lastQ=(cur.quotes||[])[0], amount=currentAmount(it,lastQ), src='';

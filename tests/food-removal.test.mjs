@@ -1,0 +1,52 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {fixture,saveQuote,quoteInput} from './helpers/admin-fixture.mjs';
+import C from '../assets/js/reception-calc.js';
+import F from '../assets/js/food-services.js';
+import O from '../assets/js/inquiry-overview.js';
+const configs={catering:{course:'classic',people:60},reception:{course:'classic',people:90,format:'table'},cocktail:{cups:100,menus:['mojito']}};
+for(const kind of Object.keys(configs))test(kind+' 삭제는 포함 금액만 차감하고 다른 서비스·수납·이전 견적을 보존한다',async t=>{
+ const f=fixture({booking:true});t.after(()=>f.db.close());
+ for(const [k,v] of Object.entries(configs))await f.api('inquiries/MS-TEST','PATCH',{[k]:v});
+ let it=(await f.api('inquiries/MS-TEST')).item;
+ const input=C.syncQuote(F.syncQuote(quoteInput(),it.data,true),it.data,true);
+ const total=500000+input.extras.reduce((s,x)=>s+x.amount,0);
+ await saveQuote(f.api,{total,input,extras:input.extras});it=(await f.api('inquiries/MS-TEST')).item;
+ const oldQuote=(await f.api('inquiries/MS-TEST')).quotes[0];
+ await f.api('bookings/BK-TEST/confirm-doc','PUT',{doc:{amount:total},reception_revision:it.data.reception_revision});
+ await f.api('inquiries/MS-TEST','PATCH',{[kind]:null,reception_revision:it.data.reception_revision});
+ let next=(await f.api('inquiries/MS-TEST')).item;
+ const removedAmount=kind==='reception'?it.data.reception.total:F.amount(kind,it.data[kind]);
+ assert.equal(next.effective_amount,total-removedAmount);
+ assert.equal(next.data[kind].removed,true);assert(next.data.reception_revision>it.data.reception_revision);
+ assert.equal((await f.api('bookings')).items[0].amount,total-removedAmount);
+ assert.equal((await f.api('bookings/BK-TEST/confirm-doc')).doc,null);
+ assert(!next.data.quote_input.extras.some(x=>x.kind===kind));
+ const model=O.build(next,{roomAmount:500000,editable:true});
+ assert.equal(model.total,total-removedAmount);assert(!model.rows.some(x=>x.kind===kind));assert(!O.customerText(model).includes({catering:'출장뷔페',reception:'도시락·핑거푸드',cocktail:'출장 칵테일'}[kind]));
+ assert.equal((await f.api('inquiries/MS-TEST')).quotes.find(x=>x.quote_no===oldQuote.quote_no).total,oldQuote.total);
+ await f.api('inquiries/MS-TEST','PATCH',{[kind]:{...configs[kind],status:"pending"},reception_revision:it.data.reception_revision},409);
+ await f.api('inquiries/MS-TEST','PATCH',{[kind]:{...configs[kind],status:"pending"},reception_revision:next.data.reception_revision});
+ next=(await f.api('inquiries/MS-TEST')).item;assert(!next.data[kind].removed);assert.equal(next.effective_amount,total);
+});
+test('견적에 미포함된 옛 케이터링 삭제는 499만원을 그대로 유지하고 요약에서 제외한다',async t=>{
+ const f=fixture({booking:true});t.after(()=>f.db.close());
+ await f.api('inquiries/MS-TEST','PATCH',{reception:configs.reception});
+ await saveQuote(f.api,{total:4990000,input:quoteInput({receptionExcluded:true}),extras:[]});
+ const it=(await f.api('inquiries/MS-TEST')).item;
+ await f.api('inquiries/MS-TEST','PATCH',{reception:null,reception_revision:it.data.reception_revision});
+ const next=(await f.api('inquiries/MS-TEST')).item;
+ assert.equal(next.effective_amount,4990000);assert.equal((await f.api('bookings')).items[0].amount,4990000);
+ assert.equal(O.build(next,{roomAmount:4990000}).total,4990000);assert.equal(C.fromInquiry(next.data),null);
+});
+test('원문에 남은 예전 케이터링도 삭제 표식이 있으면 다시 살아나지 않는다',()=>{
+ const data={message:C.inquiryText(50,'table'),reception:{removed:true,status:'cancelled'}};
+ assert.equal(C.fromInquiry(data),null);assert.equal(O.reception(data),null);
+ assert.deepEqual(C.syncQuote({extras:[{kind:'reception',amount:100}]},data,true).extras,[]);
+ const m=O.build({data:{catering:{removed:true,total:100},reception:data.reception,cocktail:{removed:true,price:100}}},{roomAmount:0});assert.equal(m.rows.length,1);assert.equal(m.total,0);
+});
+test('상세에는 실제 저장 금액과 별도 상담 예상 합계를 구분하고 삭제 버튼을 제공한다',()=>{
+ const m=O.build({data:{reception:{total:3795000,people:90}}},{roomAmount:4990000,savedAmount:4990000,editable:true});
+ const html=O.render(m);assert.match(html,/현재 저장 견적·예약 기준/);assert.match(html,/4,990,000원/);assert.match(html,/상담 구성도 포함/);assert.match(html,/data-food-remove="reception"/);
+ assert(!O.render(O.build({data:{reception:{total:100}}},{roomAmount:0})).includes('data-food-remove'));
+});

@@ -9,7 +9,7 @@ export function receptionAdmin(value,data,previous) {
   if (!['pending', 'confirmed', 'cancelled'].includes(status)) return null;
   if(calc.isActive(value.course)&&!calc.compatible(value.course,value.format)){
     // Existing mixed-format quotes retain their agreed amount, but cannot be newly constructed.
-    if(previous&&previous.course===value.course&&previous.format===value.format&&(status==='cancelled'||Number(previous.people)===Number(value.people))){const preferences=calc.selection(value);if(!preferences)return null;return {...previous,menu_ids:preferences.menu_ids,menuNames:preferences.menuNames,budget_per_person:preferences.budget_per_person,request_note:preferences.request_note,status,by:'admin',note:str(value.note,500)};}
+    if(previous&&previous.course===value.course&&previous.format===value.format&&(status==='cancelled'||Number(previous.people)===Number(value.people))){const preferences=calc.selection(value);if(!preferences)return null;return {...previous,removed:false,menu_ids:preferences.menu_ids,menuNames:preferences.menuNames,budget_per_person:preferences.budget_per_person,request_note:preferences.request_note,status,by:'admin',note:str(value.note,500)};}
     return null;
   }
   const q = status === 'confirmed' ? calc.quote(value.people,value.format,value.course,value.unit_price) : calc.selection({...value,course:value.course===undefined?'classic':value.course});
@@ -48,7 +48,7 @@ export function receptionDocument(data, amount) {
 }
 export function receptionChanged(data, next) {
   const previous = C.fromInquiry(data);
-  const keys = ['course', 'unit_price', 'people', 'format', 'total', 'unitPrice', 'food', 'fee', 'supply', 'vat', 'vat_excluded', 'status', 'note', 'provider', 'menu_ids', 'budget_per_person', 'request_note'];
+  const keys = ['removed', 'course', 'unit_price', 'people', 'format', 'total', 'unitPrice', 'food', 'fee', 'supply', 'vat', 'vat_excluded', 'status', 'note', 'provider', 'menu_ids', 'budget_per_person', 'request_note'];
   return !previous || keys.some(key => String(previous[key] ?? '') !== String(next[key] ?? ''));
 }
 export function withoutReceptionItems(items) {
