@@ -2,7 +2,7 @@ import {PRODUCTS} from './_catalog.js';
 import {DEFAULT_SPACE,err,isDate,json,kstToday,SPACES} from './_lib.js';
 import {refundAmountSql} from './_payapp_refund_history.js';
 import {legacyPaymentSourceSql} from './_settlement.js';
-import {bookingAmountSql} from './_amounts.js';
+import {bookingAmountSql,inquiryAmountSql} from './_amounts.js';
 
 const verificationIds = PRODUCTS.items.filter(p=>p.kind==='verification').map(p=>p.id);
 const spaces = [...Object.keys(SPACES),'unassigned'];
@@ -61,6 +61,11 @@ function movementCtes(operationalBookingSql=operational) {
     SELECT m.id,b.booking_code AS ref,b.booking_code,'이용료 수납·환불' AS title,b.space_id,b.date AS event_date,
       m.created_at AS occurred_at,'manual' AS source,m.kind,m.amount,m.estimated
     FROM manual m JOIN bookings b ON b.booking_code=m.booking_code WHERE ${operationalBookingSql}
+    UNION ALL
+    SELECT m.id,i.ref,NULL,'미확정 문의 이용료 수납·환불',i.space_id,
+      COALESCE(NULLIF(i.event_date,''),NULLIF(json_extract(i.data,'$.date'),''),date(m.created_at,'+9 hours')) AS event_date,
+      m.created_at,'manual',m.kind,m.amount,m.estimated
+    FROM manual m JOIN inquiries i ON m.booking_code='inquiry:'||i.ref WHERE i.status<>'삭제됨'
     UNION ALL
     SELECT 'paid:'||oid,oid,booking_code,title,space_id,event_date,paid_at,'online','receipt',price,estimated_receipt FROM online
     UNION ALL
@@ -248,7 +253,7 @@ export async function revenueAdmin({env,url,method,operationalBookingSql=operati
       json_object('included_catering_amount',json_extract(i.data,'$.included_catering_amount'),
         'included_reception_amount',json_extract(i.data,'$.included_reception_amount'),
         'included_cocktail_amount',json_extract(i.data,'$.included_cocktail_amount')) AS inquiry_data,
-      ${bookingAmountSql()} AS booking_amount,
+      COALESCE(${bookingAmountSql()},${inquiryAmountSql()}) AS booking_amount,
       (SELECT json_object('lines',json_extract(q.data,'$.lines'),'extras',json_extract(q.data,'$.extras'),
         'subtotal',json_extract(q.data,'$.subtotal'),'discount',json_extract(q.data,'$.discount'),
         'total',COALESCE(json_extract(q.data,'$.total'),q.total))
@@ -264,7 +269,7 @@ export async function revenueAdmin({env,url,method,operationalBookingSql=operati
     LEFT JOIN orders o ON m.source='online' AND o.oid=m.ref
     LEFT JOIN payapp_payments p ON p.oid=o.oid
     LEFT JOIN bookings b ON b.booking_code=m.booking_code
-    LEFT JOIN inquiries i ON i.ref=COALESCE(b.inquiry_ref,o.inquiry_ref)
+    LEFT JOIN inquiries i ON i.ref=COALESCE(b.inquiry_ref,o.inquiry_ref,CASE WHEN m.source='manual' AND m.booking_code IS NULL THEN m.ref END)
     LEFT JOIN revenue_payment_metadata meta ON meta.movement_id=m.id
     LEFT JOIN revenue_payment_metadata inherited ON inherited.movement_id=CASE
       WHEN m.source='online' AND m.kind='refund' THEN 'paid:'||m.ref

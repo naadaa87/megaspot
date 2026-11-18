@@ -108,8 +108,10 @@ async function deleteInquiry(env, ref) {
   if (bk0) return { ref, ok: false, code: 'HAS_BOOKING', reason: '확정 예약(' + bk0.booking_code + ')이 연결되어 있습니다. 예약 관리에서 예약을 먼저 취소해 주세요.' };
   const od0 = await env.DB.prepare("SELECT oid FROM orders WHERE inquiry_ref = ? AND status = 'paid' LIMIT 1").bind(ref).first();
   if (od0) return { ref, ok: false, code: 'HAS_ORDER', reason: '결제 완료된 주문(' + od0.oid + ')이 연결되어 있습니다. 주문·결제 탭에서 환불 기록을 먼저 남겨 주세요.' };
+  if(await env.DB.prepare("SELECT 1 FROM booking_payment_entries WHERE booking_code=? LIMIT 1").bind('inquiry:'+ref).first())return {ref,ok:false,code:'HAS_RECEIPTS',reason:'문의에 실제 수납 기록이 있습니다. 예약에 연결해 수납·정산 기록을 보존해 주세요.'};
   const t = now();
-  await env.DB.prepare("UPDATE inquiries SET status = ?, data = json_set(COALESCE(data, '{}'), '$.deleted_at', ?, '$.deleted_from', ?), updated_at = ? WHERE ref = ?").bind(DELETED, t, row.status, t, ref).run();
+  const deleted=await env.DB.prepare("UPDATE inquiries SET status = ?, data = json_set(COALESCE(data, '{}'), '$.deleted_at', ?, '$.deleted_from', ?), updated_at = ? WHERE ref = ? AND NOT EXISTS(SELECT 1 FROM booking_payment_entries WHERE booking_code='inquiry:'||inquiries.ref)").bind(DELETED, t, row.status, t, ref).run();
+  if((deleted?.meta?.changes??deleted?.changes)===0)return {ref,ok:false,code:'HAS_RECEIPTS',reason:'수납 또는 문의 상태가 바뀌었습니다. 실제 입금 기록을 확인해 주세요.'};
   await log(env, 'inquiry.deleted', ref, 'admin', { status: row.status });
   return { ref, ok: true };
 }
@@ -132,6 +134,7 @@ async function purgeInquiry(env, ref) {
   if (bk) return { ref, ok: false, code: 'HAS_BOOKING', reason: '확정 예약(' + bk.booking_code + ')이 연결되어 있습니다. 예약 관리에서 예약을 먼저 취소해 주세요.' };
   const od = await env.DB.prepare("SELECT oid FROM orders WHERE inquiry_ref = ? AND status = 'paid' LIMIT 1").bind(ref).first();
   if (od) return { ref, ok: false, code: 'HAS_ORDER', reason: '결제 완료된 주문(' + od.oid + ')이 연결되어 있습니다. 주문·결제 탭에서 환불 기록을 먼저 남겨 주세요.' };
+  if(await env.DB.prepare("SELECT 1 FROM booking_payment_entries WHERE booking_code=? LIMIT 1").bind('inquiry:'+ref).first())return {ref,ok:false,code:'HAS_RECEIPTS',reason:'실제 수납 기록이 남은 문의는 완전히 삭제할 수 없습니다.'};
   const stmts = [
     env.DB.prepare('UPDATE bookings SET inquiry_ref = NULL WHERE inquiry_ref = ?').bind(ref),
     env.DB.prepare('UPDATE quotes SET inquiry_ref = NULL WHERE inquiry_ref = ?').bind(ref),

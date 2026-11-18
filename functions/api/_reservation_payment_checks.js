@@ -3,6 +3,7 @@ import {json,err,readJson,now} from './_lib.js';
 import {completionScopeSql} from './_payment_completion_scope.js';
 import {settlementsFor} from './_settlement.js';
 import {paymentReceiptAdmin} from './_reservation_payment_receipt.js';
+import {inquiryReceiptAdmin,inquiryReceiptBooking,inquirySettlement,inquiryReceiptHistory} from './_inquiry_receipts.js';
 export const PAYMENT_CHECKS={unpaid:"입금 전",reservation_paid:"예약금 입금 완료",venue_paid:"대관비용 입금 완료",food_paid:"식음료 입금 완료",venue_fully_paid:"전체 입금 완료(대관)",fully_paid:"전체 입금 완료(대관+식음료)",partial_paid:"일부 입금·잔금 확인 필요",needs_review:"입금 범위 확인 필요"};
 const key=(kind,ref)=>kind+':'+ref;
 const changed=r=>Number(r?.meta?.changes??r?.changes??0);
@@ -28,19 +29,20 @@ export async function paymentChecksFor(env,items,settlements={}){
 }
 export async function reservationPaymentAdmin({env,request,path,method}){
  const m=path.match(/^reservation-payment-checks\/(booking|inquiry)\/([A-Z0-9-]{1,40})$/);if(!m)return null;
+ if(m[1]==='inquiry'){const code=await inquiryReceiptBooking(env,m[2]);if(code){m[1]='booking';m[2]=code;}}
  if(method==='GET'){
   const type=m[1],ref=m[2],item=type==='booking'?await env.DB.prepare('SELECT booking_code AS code,inquiry_ref AS ref,customer_name AS name,status,amount FROM bookings WHERE booking_code=?').bind(ref).first():await env.DB.prepare('SELECT ref,name,status FROM inquiries WHERE ref=?').bind(ref).first();
   if(!item)return err('예약 또는 문의를 찾을 수 없습니다.',404);
   item.kind=type==='booking'?'booking':'pending';
   const settlements=type==='booking'?await settlementsFor(env,[ref]):{},checks=await paymentChecksFor(env,[item],settlements);
-  return json({ok:true,...checks[key(type,ref)],name:item.name||ref,settlement:type==='booking'?settlements[ref]:null,receipt_available:type==='booking',editable:!['cancelled','대기 취소','취소·환불','삭제됨'].includes(item.status),choices:PAYMENT_CHECKS});
+  return json({ok:true,...checks[key(type,ref)],name:item.name||ref,settlement:type==='booking'?settlements[ref]:await inquirySettlement(env,ref),receipt_available:true,receipt_target:type+'/'+ref,entries:type==='inquiry'?await inquiryReceiptHistory(env,ref):(await env.DB.prepare('SELECT id,kind,amount,note,state,created_at,version FROM booking_payment_current WHERE booking_code=? ORDER BY id DESC LIMIT 30').bind(ref).all()).results||[],editable:type==='booking'?['confirmed','completed','payment_review'].includes(item.status):['문의 접수','조건 확인','견적 발송','결제 대기'].includes(item.status),choices:PAYMENT_CHECKS});
  }
  if(method!=='PUT')return err('지원하지 않는 요청입니다.',405);
  const d=await readJson(request);if(d.status==='balance_paid')d.status='needs_review';const type=m[1],ref=m[2],revision=d.expected_revision;
  if(!Object.hasOwn(PAYMENT_CHECKS,d.status)||!Number.isSafeInteger(revision)||revision<0)return err('결제 상태와 저장 버전을 확인해 주세요.');
  const table=type==='booking'?'bookings':'inquiries',column=type==='booking'?'booking_code':'ref',allowed=type==='booking'?"status IN ('confirmed','completed','payment_review')":"status NOT IN ('취소·환불','대기 취소','삭제됨')";
  const target=await env.DB.prepare(`SELECT status FROM ${table} WHERE ${column}=?`).bind(ref).first();if(!target)return err('예약 또는 문의를 찾을 수 없습니다.',404);
- if(d.received_total!==undefined){if(type!=='booking')return err('실제 수납은 예약 확정 후 예약별로 등록해 주세요.');return paymentReceiptAdmin(env,ref,d);}
+ if(d.received_total!==undefined){return type==='booking'?paymentReceiptAdmin(env,ref,d):inquiryReceiptAdmin(env,ref,d);}
  const t=now();
  const write=env.DB.prepare(`INSERT INTO reservation_payment_scopes_v2(target_type,target_ref,status,version,updated_at)
   SELECT ?,?,?,1,? FROM ${table} WHERE ${column}=? AND ${allowed}

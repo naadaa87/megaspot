@@ -62,7 +62,7 @@
 <link rel="stylesheet" href="/assets/css/admin-members.css?v=20261114mbr1">
 <link rel="stylesheet" href="/assets/css/admin-community.css?v=20261117cm1">
 <link rel="stylesheet" href="/assets/css/admin-contacts.css?v=88bab903cfa1">
-<link rel="stylesheet" href="/assets/css/admin-payment-checks.css?v=bd21698babbe">
+<link rel="stylesheet" href="/assets/css/admin-payment-checks.css?v=6424dcf37397">
 <link rel="stylesheet" href="/assets/css/admin-booking-notifications.css?v=73f02e96c2d2">
 </head>
 <body class="page-admin">
@@ -424,7 +424,7 @@
         <section class="adm-card mt-3"><h2>날짜별 매출</h2><p class="tiny muted">날짜를 선택하면 아래 거래 내역에서 해당 날짜만 볼 수 있습니다. 지점별 열은 순매출입니다.</p><div class="revenue-table-wrap" id="revenue-daily"></div></section>
         <section class="adm-card mt-3" id="revenue-detail"><div class="revenue-detail-head"><h2>거래 내역</h2><button class="btn btn-light btn-sm" type="button" id="revenue-clear-day" hidden>날짜 필터 해제</button></div><p class="tiny muted" id="revenue-detail-label" aria-live="polite"></p><div class="revenue-table-wrap" id="revenue-items"></div><div class="revenue-pagination" id="revenue-pagination" hidden><button type="button" class="btn btn-light btn-sm" id="revenue-prev">이전</button><span id="revenue-page" class="small"></span><button type="button" class="btn btn-light btn-sm" id="revenue-next">다음</button></div></section>
       </div>
-      <details class="adm-card mt-3 revenue-rules"><summary>집계 기준</summary><ul class="small muted"><li>순매출은 수납액에서 완료된 환불액을 뺀 금액입니다. 반환 보증금의 입금과 환급은 제외하며, 합산 입금은 이용료 부분만 집계합니다.</li><li>온라인 주문과 관리자 수납·환불 기록을 이용일 기준으로 집계합니다. 견적·미수금·테스트 결제·보관함의 취소 건은 제외합니다. 기록일은 한국시간입니다.</li><li>결제 채널과 계좌는 확인된 기록만 사용합니다. 문의 유입 경로를 결제 채널로 간주하지 않습니다. ‘분류’는 분석용 정보만 저장합니다.</li><li>묶음 수납과 환불의 항목별 금액은 저장된 구성 비율로 배분하며, 원 단위 차이를 조정해 전체 합계와 일치시킵니다. 직접 분류한 구성은 우선 적용합니다.</li><li>이용일이 없는 거래는 집계에서 제외합니다. 기존 확정서 이관·기록일을 확인할 수 없는 거래는 ‘추정’으로 표시합니다. 공용 주차권은 ‘공통·지점 미지정’으로 집계합니다.</li></ul></details>
+      <details class="adm-card mt-3 revenue-rules"><summary>집계 기준</summary><ul class="small muted"><li>순매출은 수납액에서 완료된 환불액을 뺀 금액입니다. 반환 보증금의 입금과 환급은 제외하며, 합산 입금은 이용료 부분만 집계합니다.</li><li>온라인 주문과 관리자 수납·환불 기록을 이용일 기준으로 집계합니다. 견적·미수금·테스트 결제·보관함의 취소 건은 제외합니다. 기록일은 한국시간입니다.</li><li>결제 채널과 계좌는 확인된 기록만 사용합니다. 문의 유입 경로를 결제 채널로 간주하지 않습니다. ‘분류’는 분석용 정보만 저장합니다.</li><li>묶음 수납과 환불의 항목별 금액은 저장된 구성 비율로 배분하며, 원 단위 차이를 조정해 전체 합계와 일치시킵니다. 직접 분류한 구성은 우선 적용합니다.</li><li>미확정 문의의 실제 수납도 포함합니다. 문의 이용일이 미정이면 수납일 기준으로 집계하며 예약 확정 후 이용일 기준으로 연결됩니다. 그 밖의 이용일이 없는 거래는 집계에서 제외합니다. 기존 확정서 이관·기록일을 확인할 수 없는 거래는 ‘추정’으로 표시합니다. 공용 주차권은 ‘공통·지점 미지정’으로 집계합니다.</li></ul></details>
       <dialog id="revenue-classify-dialog" class="revenue-classify-dialog" aria-labelledby="revenue-classify-title"><form id="revenue-classify-form"><div class="revenue-section-head"><h2 id="revenue-classify-title">매출 분류</h2><button type="button" class="btn btn-light btn-sm" id="revenue-classify-close" aria-label="매출 분류 닫기">닫기</button></div><p id="revenue-classify-info" class="small"></p><div class="revenue-classify-fields"><label for="revenue-classify-channel">결제 채널<select id="revenue-classify-channel" class="select" required><option value="unknown">미분류</option><option value="spacecloud">온라인 (스페이스클라우드)</option><option value="payapp">온라인 (페이앱)</option><option value="toss_terminal">현장 (토스 터미널)</option><option value="bank_corporate">법인계좌</option><option value="bank_personal">개인계좌</option></select></label><label for="revenue-classify-account">수납 계좌·사업자 이름<input id="revenue-classify-account" class="input" maxlength="80" list="revenue-account-suggestions" placeholder="예: 블랭크, 지유공간, 최준원개인"><datalist id="revenue-account-suggestions"><option value="블랭크"><option value="지유공간"><option value="최준원개인"></datalist></label></div><label class="revenue-auto-label"><input type="checkbox" id="revenue-classify-auto" checked> 저장된 주문·견적 구성으로 자동 분류</label><div id="revenue-classify-custom" hidden><p class="tiny muted">항목별 금액 합계가 이 거래의 전체 금액과 같아야 합니다.</p><div id="revenue-classify-rows"></div><button type="button" class="btn btn-light btn-sm" id="revenue-classify-add">+ 항목 추가</button><p id="revenue-classify-sum" class="small"></p></div><p class="tiny muted">거래의 수납·환불 금액과 예약 내용은 변경되지 않습니다.</p><p id="revenue-classify-status" class="small" role="status"></p><button type="submit" class="btn btn-primary" id="revenue-classify-save">분류 저장</button></form></dialog>
     </section>
 
@@ -720,7 +720,7 @@
 <script src="/assets/js/quote-policy.js?v=292941d5ba14"></script>
 <script src="/assets/js/pages/admin-food-filter.js?v=e6689c0f6f74"></script>
 <script src="/assets/js/pages/admin-reservation-period.js?v=d19a2c8a0701"></script>
-<script src="/assets/js/pages/admin.js?v=d8dc56b3e685"></script>
+<script src="/assets/js/pages/admin.js?v=51b0e035cc73"></script>
 <script src="/assets/js/pages/admin-service-status.js?v=6f085e2a9a83"></script>
 <script src="/assets/js/pages/admin-platform.js?v=20261102adminux1"></script>
 <script src="/assets/js/pages/admin-cocktail.js?v=20261104foodprices3"></script>
@@ -750,6 +750,6 @@
 <script src="/assets/js/pages/admin-navigation.js?v=20261118revenueanalysis1"></script>
 <script src="/assets/js/pages/admin-booking-readiness.js?v=20261105readiness1"></script>
 <script src="/assets/js/pages/admin-contacts.js?v=6d34a1d37fb7"></script>
-<script src="/assets/js/pages/admin-payment-editor.js?v=e851382f9246"></script>
+<script src="/assets/js/pages/admin-payment-editor.js?v=16b445ae9107"></script>
 </body>
 </html>

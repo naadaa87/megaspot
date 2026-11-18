@@ -39,8 +39,8 @@ test('외부 수납이나 결제 상태가 바뀌면 이전 화면의 입금은 
  const f=setup(t),d=await form(f,100000);await f.api(path,'PUT',{status:'reservation_paid',expected_revision:0});await f.api(path,'PUT',d,409);assert.equal(count(f),0);
  const next=await form(f,100000,'partial_paid','scope-stale-ledger');f.db.exec("INSERT INTO booking_payment_entries(booking_code,request_id,kind,amount,created_at) VALUES('BK-TEST','other-payment','receipt',100000,datetime('now'))");await f.api(path,'PUT',next,409);assert.equal(count(f),1);
 });
-test('미확정 문의는 입금을 가짜 예약에 넣지 않고 취소 예약의 입금도 거절한다',async t=>{
- const f=setup(t);assert.equal((await f.api('reservation-payment-checks/inquiry/MS-TEST')).receipt_available,false);await f.api('reservation-payment-checks/inquiry/MS-TEST','PUT',{status:'reservation_paid',expected_revision:0,received_total:100000},400);
+test('연결된 문의는 예약 수납을 열고 취소 예약의 입금은 거절한다',async t=>{
+ const f=setup(t);assert.equal((await f.api('reservation-payment-checks/inquiry/MS-TEST')).receipt_available,true);await f.api('reservation-payment-checks/inquiry/MS-TEST','PUT',{status:'reservation_paid',expected_revision:0,received_total:100000},400);
  const d=await form(f,100000);f.db.exec("UPDATE bookings SET status='cancelled'");await f.api(path,'PUT',d,409);assert.equal(count(f),0);
 });
 test('실제 수납 저장은 보증금이나 고객 알림을 만들지 않고 현재 확정서를 갱신한다',async t=>{
