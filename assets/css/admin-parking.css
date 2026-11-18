@@ -58,3 +58,6 @@
 #view-parking .pa-filter-info{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:12px}
 #view-parking #pa-filter-summary{margin:0;min-width:0;overflow-wrap:anywhere;flex:1 1 220px}
 #view-parking #pa-clear-filters{flex-shrink:0}
+
+#view-parking .pa-resolution-status{margin:0;min-width:0;overflow-wrap:anywhere}
+#view-parking .pa-resolution [aria-invalid="true"]{border-color:#b42318;outline:2px solid #b4231830;outline-offset:2px}

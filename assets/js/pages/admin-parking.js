@@ -11,6 +11,17 @@
  var $=function(s){return view.querySelector(s);},won=function(n){return Number(n).toLocaleString('ko-KR')+'원';};
  function api(path,body,method){return fetch('/api/parking/admin/'+path,{method:method||(body?'POST':'GET'),headers:{'Accept':'application/json','Content-Type':'application/json'},body:body?JSON.stringify(body):undefined}).then(function(r){return r.json().then(function(j){if(!r.ok){var e=Error(j.error||'처리하지 못했습니다.');e.status=r.status;throw e;}return j;});});}
  function failure(e){$('#pa-error').hidden=false;$('#pa-error').textContent=e.message;}
+ function resolutionError(card,message,field){
+  var status=card.querySelector('[data-resolution-status]');status.hidden=false;status.textContent=message;
+  if(field){field.setAttribute('aria-invalid','true');field.focus();}else status.focus();
+ }
+ function validateResolution(card,data){
+  var fields=[['resolution_type',!!data.resolution_type,'처리 구분을 선택해 주세요.'],['resolution_memo',!!String(data.resolution_memo||'').trim(),'확인 사유를 입력해 주세요.'],['confirm_resolved',data.confirm_resolved===true,'처리 결과 확인에 체크해 주세요.']];
+  card.querySelectorAll('.pa-resolution [aria-invalid]').forEach(function(field){field.removeAttribute('aria-invalid');});
+  for(var i=0;i<fields.length;i++){if(!fields[i][1]){resolutionError(card,fields[i][2],card.querySelector('[name="'+fields[i][0]+'"]'));return false;}}
+  card.querySelector('[data-resolution-status]').hidden=true;return true;
+ }
+
  function count(){if(!document.body.classList.contains('adm-on'))return;return api('count').then(function(r){var badge=document.querySelector('#pa-nav-count');badge.hidden=!r.count;badge.textContent=r.count;top.hidden=!r.count;document.querySelector('#pa-top-count').textContent=r.count;}).catch(function(){});}
  function selection(){return 'filter='+encodeURIComponent($('#pa-filter').value)+'&date='+encodeURIComponent($('#pa-date').value)+'&q='+encodeURIComponent($('#pa-search').value.trim());}
  function filterSummary(r){
@@ -46,7 +57,7 @@
    +(eligible&&['waiting','requested'].includes(p.status)&&!pending?'<details><summary>입차 확인 · 등록 구성 배정</summary><div class="pa-fields"><label>아마노 입차ID<input class="input" name="entry_id" maxlength="80" required></label><label>아마노 입차시각<input class="input" name="entry_at" type="datetime-local" required></label><label class="pa-wide">전체 차량번호 재입력<input class="input" name="plate_confirm" maxlength="15" autocomplete="off"></label><label class="chk pa-wide"><input name="free_used" type="checkbox">아마노에서 이미 무료 1시간이 사용된 입차 건입니다.</label><label class="chk pa-wide"><input name="confirm_overnight" type="checkbox">입차일보다 이용일이 늦은 익일 추가 구매 건입니다. 연속 주차와 해당 이용일분의 아마노 등록 가능 여부를 확인했습니다.</label><label class="chk pa-wide"><input name="confirm_entry" type="checkbox">아마노의 입차ID·차량번호·입차시각을 대조했습니다.</label><button class="btn btn-primary pa-wide" data-pact="claim">등록 구성 배정 · 처리 시작</button></div></details>':'')
    +(eligible&&p.status==='processing'?'<div class="pa-fields"><label>실제 아마노 차감 원가(원)<input class="input" name="cost" type="number" min="0" max="1000000" step="1"'+(p.free_hours===1&&p.paid_hours===0?' value="0"':'')+'></label><label class="chk"><input name="confirm_applied" type="checkbox">아마노에서 위 구성의 등록 성공을 확인했습니다.</label><button class="btn btn-primary pa-wide" data-pact="complete">아마노 등록 완료 처리</button></div>':'')
    +(['waiting','requested','processing'].includes(p.status)?'<button class="btn btn-light btn-sm" data-pact="issue">확인 필요로 보류</button>':'')
-   +(['waiting','requested','issue'].includes(p.status)&&['paid','refunded'].includes(p.payment_status)&&!pending?'<details class="pa-resolution"><summary>관리자 확인 완료 처리</summary><div class="pa-resolution-body"><p class="small muted">수동 등록, 등록 전 출차 등 처리 결과를 확인한 건을 종료합니다. 결제·환불이나 아마노 할인을 실행하지 않습니다.</p><label class="pk-label">처리 구분<select class="select" name="resolution_type"><option value="">선택해 주세요</option><option value="manual_registered">아마노 수동 등록 완료</option><option value="exited">등록 전 출차 · 처리 확인</option><option value="other">기타 처리 완료</option></select></label><label class="pk-label">확인 사유<textarea class="textarea" name="resolution_memo" maxlength="500" placeholder="예: 등록 전 출차 확인, 고객과 정산 안내 완료"></textarea></label><label class="chk"><input type="checkbox" name="confirm_resolved">처리 결과를 확인했으며 추가 자동 등록을 종료합니다.</label><button class="btn btn-primary" data-pact="resolve">관리자 확인 완료</button></div></details>':'')
+   +(['waiting','requested','issue'].includes(p.status)&&['paid','refunded'].includes(p.payment_status)&&!pending?'<details class="pa-resolution"><summary>관리자 확인 완료 처리</summary><div class="pa-resolution-body"><p class="small muted">수동 등록, 등록 전 출차 등 처리 결과를 확인한 건을 종료합니다. 결제·환불이나 아마노 할인을 실행하지 않습니다.</p><label class="pk-label">처리 구분 (필수)<select class="select" name="resolution_type" required aria-describedby="pa-resolution-status-'+esc(p.oid)+'"><option value="">선택해 주세요</option><option value="manual_registered">아마노 수동 등록 완료</option><option value="exited">등록 전 출차 · 처리 확인</option><option value="other">기타 처리 완료</option></select></label><label class="pk-label">확인 사유 (필수)<textarea class="textarea" name="resolution_memo" maxlength="500" required aria-describedby="pa-resolution-status-'+esc(p.oid)+'" placeholder="예: 아마노에서 수동 등록 완료를 확인했습니다."></textarea></label><label class="chk"><input type="checkbox" name="confirm_resolved" required aria-describedby="pa-resolution-status-'+esc(p.oid)+'">처리 결과를 확인했으며 추가 자동 등록을 종료합니다.</label><button class="btn btn-primary" type="button" data-pact="resolve">관리자 확인 완료</button><p class="pk-error pa-resolution-status" id="pa-resolution-status-'+esc(p.oid)+'" data-resolution-status role="alert" tabindex="-1" hidden></p></div></details>':'')
    +(['processing','issue'].includes(p.status)?'<details><summary>오류 복구 · 적용 여부 확인</summary><p class="small muted">아마노에 일부라도 적용되었거나 결과가 불확실하면 대기로 되돌리지 마세요. 무료 배정을 유지한 채 확인해야 중복 등록을 막을 수 있습니다.</p><label class="chk"><input name="confirm_not_applied" type="checkbox">아마노에 무료·유료 할인이 전혀 적용되지 않았음을 확인했습니다.</label><button class="btn btn-light btn-sm" data-pact="reset">무료 배정 해제 · 대기로 복구</button></details>':'')
    +(pending?'<button class="btn btn-light btn-sm" data-pact="refund-reviewed">취소 문의 검토 완료 기록 (메모 필수)</button>':'')+'</article>';
  }
@@ -54,13 +65,17 @@
  $('#pa-list').addEventListener('click',function(e){var b=e.target.closest('[data-pact]');if(!b)return;var card=b.closest('[data-poid]'),p=items.find(function(x){return x.oid===card.dataset.poid;}),act=b.dataset.pact;
   if(act==='copy'){M.copy(p.plate).then(function(ok){M.toast(ok?'차량번호를 복사했습니다.':'복사하지 못했습니다.');});return;}
   var data={};card.querySelectorAll('input[name],select[name],textarea[name]').forEach(function(x){data[x.name]=x.type==='checkbox'?x.checked:x.value;});
-  if(act==='resolve'){data.expected_status=p.status;data.expected_updated_at=p.updated_at;}
-  b.disabled=true;api('orders/'+p.oid+'/'+act,data).then(function(){M.toast(act==='claim'?'아마노 등록 구성을 확인하고 직접 등록해 주세요.':act==='resolve'?'관리자 확인 완료로 처리했습니다.':'처리 결과를 저장했습니다.');load();document.dispatchEvent(new CustomEvent('megaspot:parking-updated'));}).catch(failure).finally(function(){b.disabled=false;});
+  if(act==='resolve'){if(!validateResolution(card,data))return;data.expected_status=p.status;data.expected_updated_at=p.updated_at;}
+  var label=b.textContent;b.disabled=true;b.textContent='저장 중…';
+  return api('orders/'+p.oid+'/'+act,data).then(function(){
+   dirty=false;M.toast(act==='claim'?'아마노 등록 구성을 확인하고 직접 등록해 주세요.':act==='resolve'?'관리자 확인 완료로 처리했습니다. 처리 완료 목록에서 확인할 수 있습니다.':'처리 결과를 저장했습니다.');
+   document.dispatchEvent(new CustomEvent('megaspot:parking-updated'));return load();
+  }).catch(function(error){if(act==='resolve')resolutionError(card,error.message);else failure(error);}).finally(function(){b.disabled=false;b.textContent=label;});
  });
  $('#pa-clear-filters').onclick=clearFilters;
  $('#pa-refresh').onclick=load;$('#pa-filter').onchange=load;$('#pa-date').onchange=load;$('#pa-search').onkeydown=function(e){if(e.key==='Enter')load();};
  X.register('parking',function(){load();settings();});
  if(location.hash==='#parking'&&document.body.classList.contains('adm-on'))X.go('parking');
- view.addEventListener('input',function(e){if(e.target.closest('.pa-order'))dirty=true;});
+ view.addEventListener('input',function(e){if(e.target.closest('.pa-order'))dirty=true;if(e.target.closest('.pa-resolution'))e.target.removeAttribute('aria-invalid');});
  setTimeout(count,1500);setInterval(function(){count();if(!view.hidden&&!document.hidden&&!dirty&&!view.querySelector('.pa-vehicle-tools[open],.pa-order details[open],.pa-order input:focus,.pa-order textarea:focus'))load();},60000);
 })();
