@@ -56,8 +56,17 @@
 .revenue-trend-month:hover { border-color:#98b0ed; }
 .revenue-trend-month:focus-visible { outline:2px solid #2454d8; outline-offset:2px; }
 .revenue-trend-month svg { display:block; width:100%; height:150px; }
+.revenue-trend-single { display:block; width:100%; height:auto; }
+.revenue-single-month { cursor:pointer; outline:none; }
+.revenue-single-month:hover .revenue-month-hit { fill:#2454d80b; }
+.revenue-single-month:focus .revenue-month-hit { stroke:#2454d8; stroke-width:1.5; }
+.revenue-single-month-label { font-weight:650; }
 .revenue-bar-amount { font-size:11px; font-weight:650; font-variant-numeric:tabular-nums; }
 .revenue-month-label { display:block; font-size:12px; font-weight:650; }
+.revenue-trend-view-options { display:inline-flex; flex-wrap:wrap; gap:3px; max-width:100%; margin-top:16px; padding:3px; border:1px solid #dfe3eb; border-radius:var(--radius,8px); background:#f4f6fa; }
+.revenue-trend-view-options button { padding:7px 12px; border:0; border-radius:var(--radius-sm,6px); background:transparent; color:#667085; font:inherit; font-size:12px; cursor:pointer; }
+.revenue-trend-view-options [aria-pressed="true"] { background:#2454d8; color:#fff; }
+.revenue-trend-view-options button:focus-visible { outline:2px solid #2454d8; outline-offset:2px; }
 .revenue-trend-legend { display:flex; flex-wrap:wrap; gap:8px 20px; margin:18px 0 10px; font-size:12px; }
 .revenue-trend-legend span { display:flex; align-items:center; gap:7px; }
 .revenue-trend-legend i { width:10px; height:10px; border-radius:var(--radius-sm,6px); flex:none; }

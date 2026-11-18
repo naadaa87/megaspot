@@ -25,8 +25,9 @@ function report(amount=120000) {
     detailCount:1,page:1,pageSize:50
   };
 }
-function ui(api) {
+function ui(api,{storedMode=null,blockedStorage=false}={}) {
   const nodes = new Map(),views = {},events = {};
+  const storage=new Map(storedMode==null?[]:[['megaspot.admin.revenue.chart-view.v1',storedMode]]);
   function node(id) {
     if(nodes.has(id)) return nodes.get(id);
     assert.ok(id==='detail-heading'||html.includes('id="'+id+'"'),'매출 화면에 필요한 요소: '+id);
@@ -49,9 +50,11 @@ function ui(api) {
   const esc = value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const context = vm.createContext({document:{getElementById:node},URLSearchParams,FormData,Date,
     window:{MEGASPOT_ADMIN:{A:api,esc,guard:()=>false,register:(id,fn)=>views[id]=fn},
+      localStorage:{getItem:key=>{if(blockedStorage)throw Error('storage blocked');return storage.get(key);},setItem:(key,value)=>{if(blockedStorage)throw Error('storage blocked');storage.set(key,value);}},
       addEventListener:(name,fn)=>events[name]=fn}});
   vm.runInContext(source,context);
-  return {node,form,open:()=>views.revenue(),submit:()=>form.listeners.submit({preventDefault(){}}),events};
+  return {node,form,open:()=>views.revenue(),submit:()=>form.listeners.submit({preventDefault(){}}),events,storage,
+    mode:id=>node('revenue-mode-'+id).listeners.click({})};
 }
 
 test('매출 첫 진입에서 합계·지점별 예정 예약·거래를 오류 없이 표시한다',async()=>{
@@ -91,7 +94,7 @@ test('월별 막대 3종은 예약 요약과 같은 금액을 사용하고 Y축 
   assert.equal((graph.match(/class="revenue-trend-bar"/g)||[]).length,36);
   assert.equal((graph.match(/class="revenue-bar-amount"/g)||[]).length,36);
   assert.equal((graph.match(/data-revenue-month=/g)||[]).length,12);
-  assert.equal((graph.match(/<button type="button" class="revenue-trend-month"/g)||[]).length,12,'1~12월을 가로 스크롤 없이 월별 칸에 배치한다');
+  assert.equal((graph.match(/<svg /g)||[]).length,1,'기본 보기에서는 하나의 그래프에 1~12월을 배치한다');
   for(let month=1;month<=12;month++)assert.ok(graph.includes('data-revenue-month="2026-'+String(month).padStart(2,'0')+'"'));
   assert.doesNotMatch(graph,/revenue-trend-scroll|좌우로 이동|data-chart-center/);
   assert.match(graph,/data-series="booked" data-value="240000"/);
@@ -104,6 +107,45 @@ test('월별 막대 3종은 예약 요약과 같은 금액을 사용하고 Y축 
   assert.match(graph,/<th[^>]*>수납 완료 금액<\/th>/);
   assert.match(graph,/<th[^>]*>앞으로 받을 잔금<\/th>/);
   assert.match(graph,/240,000원/);
+});
+
+test('그래프 보기를 즉시 바꾸고 선택한 보기를 조회와 새 진입에서도 유지한다',async()=>{
+  let calls=0;
+  const f=ui(async()=>{calls++;return report();});f.open();await tick();
+  assert.equal(f.node('revenue-trend').getAttribute('data-mode'),'single');
+  assert.equal(f.node('revenue-mode-single').getAttribute('aria-pressed'),'true');
+  const before=calls;
+  f.mode('grid');
+  assert.equal(calls,before,'보기 변경은 다시 API를 조회하지 않는다');
+  assert.equal(f.node('revenue-trend').getAttribute('data-mode'),'grid');
+  assert.equal(f.node('revenue-mode-grid').getAttribute('aria-pressed'),'true');
+  assert.equal(f.node('revenue-mode-single').getAttribute('aria-pressed'),'false');
+  assert.equal((f.node('revenue-trend').innerHTML.match(/<button type="button" class="revenue-trend-month"/g)||[]).length,12);
+  const key='megaspot.admin.revenue.chart-view.v1';assert.equal(f.storage.get(key),'grid');
+  f.form.elements.space.value=second;f.submit();await tick();
+  assert.equal(f.node('revenue-trend').getAttribute('data-mode'),'grid');
+  const reopened=ui(async()=>report(),{storedMode:f.storage.get(key)});reopened.open();await tick();
+  assert.equal(reopened.node('revenue-trend').getAttribute('data-mode'),'grid');
+  reopened.mode('single');
+  assert.equal((reopened.node('revenue-trend').innerHTML.match(/<svg /g)||[]).length,1);
+  assert.equal(reopened.storage.get(key),'single');
+  const blocked=ui(async()=>report(),{blockedStorage:true});blocked.open();await tick();blocked.mode('grid');
+  assert.equal(blocked.node('revenue-trend').getAttribute('data-mode'),'grid','저장소를 쓸 수 없어도 보기 변경은 동작한다');
+});
+
+test('연간 조회 실패나 잘못된 연도 후 보기 전환으로 이전 그래프가 다시 나타나지 않는다',async()=>{
+  let fail=false;
+  const f=ui(async path=>{if(fail&&new URL(path,'https://local.test').searchParams.get('to')==='2026-12-31')throw Error('연간 조회 오류');return report();});
+  f.form.elements.from.value='2026-11-01';f.form.elements.to.value='2026-11-30';f.node('revenue-trend-year').value='2026';
+  f.open();await tick();assert.match(f.node('revenue-trend').innerHTML,/revenue-trend-bar/);
+  fail=true;f.submit();await tick();
+  assert.equal(f.node('revenue-trend').innerHTML,'');f.mode('grid');
+  assert.equal(f.node('revenue-trend').innerHTML,'');
+  assert.equal(f.node('revenue-trend-status').textContent,'연간 조회 오류');
+  fail=false;f.submit();await tick();assert.match(f.node('revenue-trend').innerHTML,/revenue-trend-bar/);
+  f.node('revenue-trend-year').value='1900';f.node('revenue-trend-year').listeners.change();
+  f.mode('single');assert.equal(f.node('revenue-trend').innerHTML,'');
+  assert.equal(f.node('revenue-trend').getAttribute('aria-busy'),undefined);
 });
 
 test('월별 미정·잔금 확인 금액을 0원으로 확정하지 않고 환불 후 음수 수납액을 유지한다',async()=>{

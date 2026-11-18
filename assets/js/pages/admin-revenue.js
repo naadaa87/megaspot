@@ -13,6 +13,9 @@
   const won = n => Number(n||0).toLocaleString('ko-KR')+'원', esc = X.esc;
   let filters, selectedDay = '', page = 1, version = 0, trendVersion = 0, records = new Map();
   let editor = null, editorBusy = false, editorVersion = 0;
+  const trendPreference='megaspot.admin.revenue.chart-view.v1';
+  let trendMode='single',trendData=null,trendWidth=0;
+  try {if(window.localStorage.getItem(trendPreference)==='grid')trendMode='grid';} catch(e) {}
   const dialog = $('revenue-classify-dialog');
 
   function month(value) {
@@ -116,7 +119,33 @@
     if(row.bookingCount>0&&unknown===row.bookingCount)return id==='booked'?'미정':'확인 필요';
     return (compact?shortMoney(row[id]):won(row[id]))+(unknown?' *':'');
   }
+  function singleTrend(rows,year,max,min,summary,notes) {
+    const width=Math.max(240,$('revenue-trend').clientWidth||1000),compact=width<800;
+    trendWidth=width;
+    const top=compact?238:82,height=190,bottom=top+height,chartHeight=bottom+42,left=8,right=width-8,step=(right-left)/12;
+    const y=n=>top+(max-n)/(max-min)*height,base=y(0);
+    const grid=Array.from({length:5},(_,i)=>min+(max-min)*i/4).map(value=>'<line x1="'+left+'" x2="'+right+'" y1="'+y(value)+'" y2="'+y(value)+'" stroke="#e9ebef"/>').join('');
+    return '<svg class="revenue-trend-single" viewBox="0 0 '+width+' '+chartHeight+'" role="group" aria-label="'+year+'년 월별 예약금액·수납·잔금 비교">'+grid+'<line x1="'+left+'" x2="'+right+'" y1="'+base+'" y2="'+base+'" stroke="#c8ced8"/>'+rows.map((row,i)=>{
+      const start=left+i*step,center=start+step/2,selected=filters?.get('from')?.slice(0,7)===row.month;
+      return '<g class="revenue-single-month" tabindex="0" role="button" data-revenue-month="'+row.month+'" aria-pressed="'+selected+'" aria-label="'+(i+1)+'월 매출 보기 · '+summary(row)+'"><title>'+(i+1)+'월 · '+summary(row)+' · 누적 수납 '+won(row.received)+' · 환불 '+won(row.refunded)+(notes(row)?' · '+notes(row):'')+'</title><rect class="revenue-month-hit" x="'+(start+1)+'" y="0" width="'+(step-2)+'" height="'+(chartHeight-4)+'" rx="4" fill="'+(selected?'#2454d80b':'transparent')+'"/>'+trendSeries.map((series,j)=>{
+        const value=row[series.id],barCenter=start+step*(j+1)/4,barWidth=Math.min(22,step*.2),barTop=Math.min(base,y(value)),labelY=compact?72+j*73:18+j*18;
+        return '<rect class="revenue-trend-bar" data-series="'+series.id+'" data-value="'+value+'" x="'+(barCenter-barWidth/2)+'" y="'+barTop+'" width="'+barWidth+'" height="'+Math.max(1,Math.abs(base-y(value)))+'" rx="2" fill="'+series.color+'"/><text class="revenue-bar-amount" data-series="'+series.id+'" x="'+center+'" y="'+labelY+'" text-anchor="'+(compact?'start':'middle')+'"'+(compact?' transform="rotate(-90 '+center+' '+labelY+')"':'')+' fill="'+series.color+'">'+trendAmount(row,series.id,true)+'</text>';
+      }).join('')+'<text class="revenue-single-month-label" x="'+center+'" y="'+(bottom+24)+'" text-anchor="middle" font-size="'+(width<360?9:11)+'" fill="'+(selected?'#2454d8':'#667085')+'">'+(i+1)+'월</text></g>';
+    }).join('')+'</svg>';
+  }
+  function refreshTrendWidth() {
+    const width=$('revenue-trend').clientWidth;
+    if(trendMode==='single'&&trendData&&width>0&&Math.abs(width-trendWidth)>=1)renderTrend(trendData.months,trendData.year);
+  }
+  function selectTrendMode(mode,persist=true) {
+    trendMode=mode;
+    for(const id of ['single','grid'])$('revenue-mode-'+id).setAttribute('aria-pressed',String(id===mode));
+    if(persist)try {window.localStorage.setItem(trendPreference,mode);} catch(e) {}
+    if(trendData)renderTrend(trendData.months,trendData.year);
+  }
   function renderTrend(months,year) {
+    trendData={months,year};
+    $('revenue-trend').setAttribute('data-mode',trendMode);
     const empty={bookingCount:0,booked:0,netReceived:0,balance:0,amountUnknownCount:0,balanceUnknownCount:0};
     const rows=Array.from({length:12},(_,i)=>months.find(row=>row.month===year+'-'+String(i+1).padStart(2,'0'))||{month:year+'-'+String(i+1).padStart(2,'0'),...empty});
     const values=rows.flatMap(row=>trendSeries.map(series=>row[series.id]));
@@ -128,17 +157,18 @@
     const summary=row=>trendSeries.map(series=>series.label+' '+trendAmount(row,series.id)).join(' · ');
     const notes=row=>[row.amountUnknownCount?'금액 미정 '+row.amountUnknownCount+'건':'',row.balanceUnknownCount?'잔금 확인 '+row.balanceUnknownCount+'건':'',row.excessPaid?'초과 수납 '+won(row.excessPaid):'',row.overRefunded?'초과 환불 '+won(row.overRefunded):''].filter(Boolean).join(' · ');
     const hasUnknown=rows.some(row=>row.amountUnknownCount||row.balanceUnknownCount);
-    $('revenue-trend').innerHTML='<div class="revenue-trend-grid" role="group" aria-label="'+year+'년 월별 예약금액·수납·잔금 비교">'+rows.map((row,i)=>{
+    const chart=trendMode==='single'?singleTrend(rows,year,max,min,summary,notes):'<div class="revenue-trend-grid" role="group" aria-label="'+year+'년 월별 예약금액·수납·잔금 비교">'+rows.map((row,i)=>{
       const selected=filters?.get('from')?.slice(0,7)===row.month;
       return '<button type="button" class="revenue-trend-month" data-revenue-month="'+row.month+'" aria-pressed="'+selected+'" aria-label="'+(i+1)+'월 매출 보기 · '+summary(row)+'" title="'+(i+1)+'월 · '+summary(row)+' · 누적 수납 '+won(row.received)+' · 환불 '+won(row.refunded)+(notes(row)?' · '+notes(row):'')+'"><span class="revenue-month-label">'+(i+1)+'월</span><svg viewBox="0 0 '+chartWidth+' 150" aria-hidden="true" focusable="false">'+grid+'<line x1="3" x2="155" y1="'+base+'" y2="'+base+'" stroke="#c8ced8"/>'+trendSeries.map((series,j)=>{
         const value=row[series.id],center=26+j*53,barTop=Math.min(base,y(value));
         return '<rect class="revenue-trend-bar" data-series="'+series.id+'" data-value="'+value+'" x="'+(center-15)+'" y="'+barTop+'" width="30" height="'+Math.max(1,Math.abs(base-y(value)))+'" rx="3" fill="'+series.color+'"/><text class="revenue-bar-amount" data-series="'+series.id+'" x="'+center+'" y="'+(barTop-8)+'" text-anchor="middle" fill="'+series.color+'">'+trendAmount(row,series.id,true)+'</text>';
       }).join('')+'</svg></button>';
-    }).join('')+'</div><p class="tiny muted revenue-trend-note">모든 달에 같은 금액 눈금을 적용합니다. 막대 금액은 만·억 단위로 줄여 표시하며, 정확한 금액은 막대에 마우스를 올리거나 아래 표에서 확인할 수 있습니다.'+(hasUnknown?' * 미정·확인 필요 금액은 합계에서 제외합니다.':'')+'</p><details class="revenue-trend-values"><summary>월별 금액 보기</summary><div class="revenue-table-wrap">'+table(['이용월',...trendSeries.map(series=>series.label),'확인 사항'],rows.map(row=>'<tr><td>'+row.month+'</td>'+trendSeries.map(series=>'<td class="revenue-num'+(row[series.id]<0?' revenue-refund':'')+'">'+trendAmount(row,series.id)+'</td>').join('')+'<td>'+esc(notes(row)||'—')+'</td></tr>'),1)+'</div></details>';
+    }).join('')+'</div>';
+    $('revenue-trend').innerHTML=chart+'<p class="tiny muted revenue-trend-note">'+(trendMode==='single'?'금액은 막대 위에 예약금액·수납·잔금 순서로 표시합니다. ':'')+'모든 달에 같은 금액 눈금을 적용합니다. 금액은 만·억 단위로 줄여 표시하며, 정확한 금액은 막대에 마우스를 올리거나 아래 표에서 확인할 수 있습니다.'+(hasUnknown?' * 미정·확인 필요 금액은 합계에서 제외합니다.':'')+'</p><details class="revenue-trend-values"><summary>월별 금액 보기</summary><div class="revenue-table-wrap">'+table(['이용월',...trendSeries.map(series=>series.label),'확인 사항'],rows.map(row=>'<tr><td>'+row.month+'</td>'+trendSeries.map(series=>'<td class="revenue-num'+(row[series.id]<0?' revenue-refund':'')+'">'+trendAmount(row,series.id)+'</td>').join('')+'<td>'+esc(notes(row)||'—')+'</td></tr>'),1)+'</div></details>';
   }
   async function loadTrend() {
     const year=Number($('revenue-trend-year').value), request=++trendVersion;
-    if(!Number.isInteger(year)||year<2000||year>2100) {$('revenue-trend-status').textContent='2000~2100년 사이의 연도를 입력해 주세요.';return;}
+    if(!Number.isInteger(year)||year<2000||year>2100) {trendData=null;$('revenue-trend').innerHTML='';$('revenue-trend').removeAttribute('aria-busy');$('revenue-trend-status').textContent='2000~2100년 사이의 연도를 입력해 주세요.';return;}
     const q=new URLSearchParams(filters);
     q.set('from',year+'-01-01');q.set('to',year+'-12-31');
     ['day','page','category','component','channel'].forEach(key=>q.delete(key));
@@ -150,7 +180,7 @@
       if(!Array.isArray(r.bookingSummary?.monthly))throw Error('월별 예약 요약을 불러오지 못했습니다. 다시 조회해 주세요.');
       renderTrend(r.bookingSummary.monthly,year);
       $('revenue-trend-status').textContent=year+'년 1~12월 · 막대를 선택하면 해당 월을 조회합니다.';
-    } catch(e) {if(request===trendVersion&&!X.guard(e)){$('revenue-trend').innerHTML='';$('revenue-trend-status').textContent=e.message||'월별 추이를 불러오지 못했습니다.';}}
+    } catch(e) {if(request===trendVersion){trendData=null;$('revenue-trend').innerHTML='';if(!X.guard(e))$('revenue-trend-status').textContent=e.message||'월별 추이를 불러오지 못했습니다.';}}
     finally {if(request===trendVersion)$('revenue-trend').removeAttribute('aria-busy');}
   }
   async function load({detailOnly=false,focus,trend=!detailOnly}={}) {
@@ -162,7 +192,7 @@
       const r=await X.A('/revenue?'+q);if(request!==version)return;
       const lastPage=Math.max(1,Math.ceil(r.detailCount/r.pageSize));
       if(page>lastPage){page=lastPage;return load({detailOnly,focus,trend:false});}
-      render(r);report.hidden=false;
+      render(r);report.hidden=false;refreshTrendWidth();
       status.textContent=filters.get('from')+' ~ '+filters.get('to')+' · 이용일 기준 · 보증금 제외'+(filters.get('component')?' · '+(componentLabels[filters.get('component')]||'세부 항목'):'');
       if(focus&&!$('view-revenue').hidden){const target=detail.querySelector(focus);if(target&&!target.hidden&&!target.disabled)target.focus();else detail.querySelector('h2').focus();}
     }catch(e){if(request!==version)return;report.hidden=true;if(!X.guard(e))status.textContent=e.message||'매출 내역을 불러오지 못했습니다.';}
@@ -179,6 +209,10 @@
   $('revenue-trend').addEventListener('click',e=>{const b=e.target.closest('[data-revenue-month]');if(b){month(b.dataset.revenueMonth);search();}});
   $('revenue-trend').addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches('[data-revenue-month]')){e.preventDefault();month(e.target.dataset.revenueMonth);search();}});
   $('revenue-trend-year').addEventListener('change',()=>{if(filters)loadTrend();});
+  for(const mode of ['single','grid'])$('revenue-mode-'+mode).addEventListener('click',()=>selectTrendMode(mode));
+  selectTrendMode(trendMode,false);
+  if(window.ResizeObserver)new window.ResizeObserver(refreshTrendWidth).observe($('revenue-trend'));
+  else window.addEventListener('resize',refreshTrendWidth);
   ['revenue-from','revenue-to'].forEach(id=>$(id).addEventListener('change',()=>{$('revenue-month-select').value='';$('revenue-trend-year').value=form.elements.from.value.slice(0,4);}));
   $('revenue-category').addEventListener('change',()=>{$('revenue-component').value='';});
   $('revenue-show-all').addEventListener('click',()=>{form.elements.category.value='';form.elements.component.value='';form.elements.channel.value='';search();});
