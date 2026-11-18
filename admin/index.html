@@ -54,7 +54,7 @@
 <link rel="stylesheet" href="/assets/css/admin-parking.css?v=382ffeda9a7e">
 <link rel="stylesheet" href="/assets/css/admin-navigation.css?v=e23f7184bcaa">
 <link rel="stylesheet" href="/assets/css/admin-booking-readiness.css?v=4a673b636fe6">
-<link rel="stylesheet" href="/assets/css/admin-revenue.css?v=20261118chartviews1">
+<link rel="stylesheet" href="/assets/css/admin-revenue.css?v=20261118bookinglists1">
 <link rel="stylesheet" href="/assets/css/admin-reservation-search.css?v=6124f3fbd3a3">
 <link rel="stylesheet" href="/assets/css/admin-reception.css?v=20261105cfbudget1">
 <link rel="stylesheet" href="/assets/css/admin-hostplat.css?v=210a5b1a82a8">
@@ -426,6 +426,15 @@
         <section class="adm-card mt-3" id="revenue-detail"><div class="revenue-detail-head"><h2>거래 내역</h2><button class="btn btn-light btn-sm" type="button" id="revenue-clear-day" hidden>날짜 필터 해제</button></div><p class="tiny muted" id="revenue-detail-label" aria-live="polite"></p><div class="revenue-table-wrap" id="revenue-items"></div><div class="revenue-pagination" id="revenue-pagination" hidden><button type="button" class="btn btn-light btn-sm" id="revenue-prev">이전</button><span id="revenue-page" class="small"></span><button type="button" class="btn btn-light btn-sm" id="revenue-next">다음</button></div></section>
       </div>
       <details class="adm-card mt-3 revenue-rules"><summary>집계 기준</summary><ul class="small muted"><li>2026년 11월 최준원·최시준 명의의 테스트 예약과 연결 거래는 예약금액·수납·잔금 및 수납 내역 분석에서 제외합니다.</li><li>순매출은 수납액에서 완료된 환불액을 뺀 금액입니다. 반환 보증금의 입금과 환급은 제외하며, 합산 입금은 이용료 부분만 집계합니다.</li><li>온라인 주문과 관리자 수납·환불 기록을 이용일 기준으로 집계합니다. 견적·미수금·테스트 결제·보관함의 취소 건은 제외합니다. 기록일은 한국시간입니다.</li><li>결제 채널과 계좌는 확인된 기록만 사용합니다. 문의 유입 경로를 결제 채널로 간주하지 않습니다. ‘분류’는 분석용 정보만 저장합니다.</li><li>묶음 수납과 환불의 항목별 금액은 저장된 구성 비율로 배분하며, 원 단위 차이를 조정해 전체 합계와 일치시킵니다. 직접 분류한 구성은 우선 적용합니다.</li><li>미확정 문의의 실제 수납도 포함합니다. 문의 이용일이 미정이면 수납일 기준으로 집계하며 예약 확정 후 이용일 기준으로 연결됩니다. 그 밖의 이용일이 없는 거래는 집계에서 제외합니다. 기존 확정서 이관·기록일을 확인할 수 없는 거래는 ‘추정’으로 표시합니다. 공용 주차권은 ‘공통·지점 미지정’으로 집계합니다.</li></ul></details>
+      <dialog id="revenue-booking-dialog" class="revenue-booking-dialog" aria-labelledby="revenue-booking-list-title">
+        <div class="revenue-section-head revenue-booking-dialog-head"><h2 id="revenue-booking-list-title">예약 목록</h2><button type="button" class="btn btn-light btn-sm" id="revenue-booking-list-close">닫기</button></div>
+        <p class="tiny muted" id="revenue-booking-list-scope"></p>
+        <div class="revenue-booking-tabs" role="group" aria-label="예약 목록 구분"><button type="button" id="revenue-booking-tab-booked" data-revenue-booking-metric="booked" aria-pressed="true">전체 예약</button><button type="button" id="revenue-booking-tab-received" data-revenue-booking-metric="received" aria-pressed="false">수납 내역</button><button type="button" id="revenue-booking-tab-balance" data-revenue-booking-metric="balance" aria-pressed="false">남은 잔금</button></div>
+        <p class="revenue-booking-list-total" id="revenue-booking-list-total"></p><p class="tiny muted" id="revenue-booking-list-note"></p>
+        <p class="small muted" id="revenue-booking-list-status" role="status"></p><button type="button" class="btn btn-light btn-sm" id="revenue-booking-list-retry" hidden>다시 불러오기</button>
+        <div id="revenue-booking-list" aria-live="polite"></div>
+        <div class="revenue-pagination" id="revenue-booking-list-pagination" hidden><button type="button" class="btn btn-light btn-sm" id="revenue-booking-list-prev">이전</button><span class="small" id="revenue-booking-list-page"></span><button type="button" class="btn btn-light btn-sm" id="revenue-booking-list-next">다음</button></div>
+      </dialog>
       <dialog id="revenue-classify-dialog" class="revenue-classify-dialog" aria-labelledby="revenue-classify-title"><form id="revenue-classify-form"><div class="revenue-section-head"><h2 id="revenue-classify-title">매출 분류</h2><button type="button" class="btn btn-light btn-sm" id="revenue-classify-close" aria-label="매출 분류 닫기">닫기</button></div><p id="revenue-classify-info" class="small"></p><div class="revenue-classify-fields"><label for="revenue-classify-channel">결제 채널<select id="revenue-classify-channel" class="select" required><option value="unknown">미분류</option><option value="spacecloud">온라인 (스페이스클라우드)</option><option value="payapp">온라인 (페이앱)</option><option value="toss_terminal">현장 (토스 터미널)</option><option value="bank_corporate">법인계좌</option><option value="bank_personal">개인계좌</option></select></label><label for="revenue-classify-account">수납 계좌·사업자 이름<input id="revenue-classify-account" class="input" maxlength="80" list="revenue-account-suggestions" placeholder="예: 블랭크, 지유공간, 최준원개인"><datalist id="revenue-account-suggestions"><option value="블랭크"><option value="지유공간"><option value="최준원개인"></datalist></label></div><label class="revenue-auto-label"><input type="checkbox" id="revenue-classify-auto" checked> 저장된 주문·견적 구성으로 자동 분류</label><div id="revenue-classify-custom" hidden><p class="tiny muted">항목별 금액 합계가 이 거래의 전체 금액과 같아야 합니다.</p><div id="revenue-classify-rows"></div><button type="button" class="btn btn-light btn-sm" id="revenue-classify-add">+ 항목 추가</button><p id="revenue-classify-sum" class="small"></p></div><p class="tiny muted">거래의 수납·환불 금액과 예약 내용은 변경되지 않습니다.</p><p id="revenue-classify-status" class="small" role="status"></p><button type="submit" class="btn btn-primary" id="revenue-classify-save">분류 저장</button></form></dialog>
     </section>
 
@@ -742,7 +751,7 @@
 <script src="/assets/js/pages/admin-cancellation.js?v=20261104retry1"></script>
 <script src="/assets/js/pages/admin-booking-notifications.js?v=c6fc7015286c"></script>
 <script src="/assets/js/pages/admin-transaction-notifications.js?v=20261118feedbackdelivery1"></script>
-<script src="/assets/js/pages/admin-revenue.js?v=20261118chartviews1"></script>
+<script src="/assets/js/pages/admin-revenue.js?v=20261118bookinglists1"></script>
 <script src="/assets/js/pages/admin-hostplat.js?v=20261114assist1"></script>
 <script src="/assets/js/pages/admin-kpi.js?v=20261114kpi1"></script>
 <script src="/assets/js/pages/admin-members.js?v=20261114mbr1"></script>

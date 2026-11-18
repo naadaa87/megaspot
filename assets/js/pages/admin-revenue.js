@@ -17,6 +17,13 @@
   let trendMode='single',trendData=null,trendWidth=0;
   try {if(window.localStorage.getItem(trendPreference)==='grid')trendMode='grid';} catch(e) {}
   const dialog = $('revenue-classify-dialog');
+  const bookingDialog=$('revenue-booking-dialog');
+  const bookingViews={
+    booked:{title:'전체 예약 목록',label:'전체 예약금액',note:'확정·이용 완료 예약입니다. 금액 미정 예약도 표시하며 합계에서는 제외합니다.'},
+    received:{title:'수납 내역이 있는 예약',label:'수납 완료 금액',note:'일부 수납과 환불 내역이 있는 예약도 포함합니다. 수납 완료 금액은 완료된 환불을 뺀 금액입니다.'},
+    balance:{title:'잔금이 남은 예약',label:'앞으로 받을 잔금',note:'잔금이 확정되어 남아 있는 예약입니다. 금액 미정·정산 확인이 필요한 예약은 잔금 합계에서 제외합니다.'}
+  };
+  let bookingSummary=null,bookingMetric='booked',bookingPage=1,bookingVersion=0,bookingQuery=null,bookingOpener=null;
 
   function month(value) {
     const current = value || new Date(Date.now()+9*3600e3).toISOString().slice(0,7);
@@ -53,6 +60,7 @@
       +'<div class="revenue-channel-list">'+ranked.map(item=>'<div class="revenue-channel-row"><div class="revenue-channel-name"><i style="background:'+(colors[item.id]||colors.unknown)+'" aria-hidden="true"></i><span>'+esc(channelLabels[item.id]||item.label)+'</span><b>'+share(item).toFixed(1)+'%</b></div><div class="revenue-channel-amount"><span>수납 '+won(item.received)+'</span><span>환불 '+won(item.refunded)+'</span></div>'+(item.accounts||[]).filter(account=>account.received||account.refunded).map(account=>'<div class="revenue-account-row"><span>'+esc(account.account||'계좌·사업자 미지정')+'</span><span>순매출 '+won(account.net)+'</span></div>').join('')+'</div>').join('')+'</div>';
   }
   function renderBookingSummary(summary) {
+    bookingSummary=summary||null;
     const section=$('revenue-booking-summary');
     section.hidden=!summary;
     if(!summary)return;
@@ -66,7 +74,7 @@
       ['booked','전체 예약금액',booked,'예약 '+summary.bookingCount+'건'+(summary.amountUnknownCount?' · 금액 미정 '+summary.amountUnknownCount+'건 별도':'')],
       ['received','수납 완료 금액',won(summary.netReceived),'누적 수납 '+won(summary.received)+' · 환불 '+won(summary.refunded)],
       ['balance','앞으로 받을 잔금',balance,'잔금이 남은 예약 '+summary.balanceCount+'건'+(summary.balanceUnknownCount?' · 확인 필요 '+summary.balanceUnknownCount+'건 별도':'')]
-    ].map(([id,label,value,note])=>'<article class="revenue-booking-card revenue-booking-'+id+'"><h3>'+label+'</h3><strong'+(id==='received'&&summary.netReceived<0?' class="revenue-refund"':'')+'>'+value+'</strong><span>'+note+'</span></article>').join('');
+    ].map(([id,label,value,note])=>'<button type="button" class="revenue-booking-card revenue-booking-'+id+'" data-revenue-booking-metric="'+id+'" aria-haspopup="dialog" aria-controls="revenue-booking-dialog" aria-label="'+label+' '+value+' · 예약 목록 보기"><span class="revenue-booking-card-title">'+label+'<small aria-hidden="true">예약 목록 ›</small></span><strong'+(id==='received'&&summary.netReceived<0?' class="revenue-refund"':'')+'>'+value+'</strong><span>'+note+'</span></button>').join('');
     const notes=[];
     if(summary.amountUnknownCount)notes.push('금액 미정 '+summary.amountUnknownCount+'건은 예약금액·잔금 합계에서 제외합니다.');
     const review=Math.max(0,summary.balanceUnknownCount-summary.amountUnknownCount);
@@ -76,6 +84,63 @@
     $('revenue-booking-status').textContent=notes.join(' ');
     $('revenue-booking-status').hidden=!notes.length;
   }
+  function bookingHours(row) {
+    const hour=value=>{const minutes=Math.round(Number(value)*60);return String(Math.floor(minutes/60)).padStart(2,'0')+':'+String(minutes%60).padStart(2,'0');};
+    return row.start_h!=null&&row.end_h!=null?hour(row.start_h)+' ~ '+hour(row.end_h):row.slot||'';
+  }
+  function renderBookingList(r) {
+    const s=r.summary,total=r.total,view=bookingViews[bookingMetric],allUnknown=s.bookingCount>0&&s.amountUnknownCount===s.bookingCount;
+    const amount=bookingMetric==='booked'&&allUnknown?'금액 미정':bookingMetric==='balance'&&s.bookingCount>0&&s.balanceUnknownCount===s.bookingCount?'확인 필요':won(total.amount);
+    $('revenue-booking-list-total').textContent=total.count.toLocaleString('ko-KR')+'건 · '+view.label+' '+amount;
+    const notes=[view.note];
+    if(total.unknownCount)notes.push((bookingMetric==='booked'?'금액 미정 ':'잔금 확인 필요 ')+total.unknownCount+'건은 합계에서 제외합니다.');
+    if(s.excessPaid)notes.push('초과 수납 '+won(s.excessPaid)+'은 다른 예약의 잔금과 상계하지 않습니다.');
+    $('revenue-booking-list-note').textContent=notes.join(' ');
+    $('revenue-booking-list').innerHTML=r.items.length?'<ul class="revenue-booking-list">'+r.items.map(row=>{
+      const warning=[row.review_required?'정산 확인 필요':'',row.excessPaid?'초과 수납 '+won(row.excessPaid):'',row.overRefunded?'초과 환불 '+won(row.overRefunded):''].filter(Boolean).join(' · ');
+      return '<li class="revenue-booking-row" data-booking-code="'+esc(row.booking_code)+'"><div class="revenue-booking-identity"><strong>'+esc(row.customer_name||'예약자 미지정')+'</strong><span>'+esc(row.date)+' '+esc(bookingHours(row))+' · '+esc(labels[row.space_id]||labels.unassigned)+'</span><small>'+esc(row.booking_code)+' · '+(row.status==='completed'?'이용 완료':'예약 확정')+'</small>'+(warning?'<small class="revenue-refund">'+esc(warning)+'</small>':'')+'</div><dl>'+[['booked','예약금액',row.amount],['received','수납 완료',row.netReceived],['balance','남은 잔금',row.balance]].map(([id,label,value])=>'<div'+(id===bookingMetric?' class="revenue-booking-active-amount"':'')+'><dt>'+label+'</dt><dd'+(value<0?' class="revenue-refund"':'')+'>'+(value==null?(id==='booked'?'금액 미정':'확인 필요'):won(value))+'</dd></div>').join('')+'</dl></li>';
+    }).join('')+'</ul>':'<p class="small muted revenue-booking-empty">'+(bookingMetric==='balance'?'잔금이 확정되어 남아 있는 예약이 없습니다.':bookingMetric==='received'?'수납·환불 내역이 있는 예약이 없습니다.':'해당 기간·지점에 포함된 예약이 없습니다.')+'</p>';
+    const pages=Math.max(1,Math.ceil(r.detailCount/r.pageSize));
+    $('revenue-booking-list-pagination').hidden=pages<=1;
+    $('revenue-booking-list-prev').disabled=r.page<=1;
+    $('revenue-booking-list-next').disabled=r.page>=pages;
+    $('revenue-booking-list-page').textContent=r.page+' / '+pages;
+  }
+  async function loadBookingList() {
+    const request=++bookingVersion,q=new URLSearchParams(bookingQuery),view=bookingViews[bookingMetric];
+    q.set('metric',bookingMetric);q.set('page',bookingPage);
+    $('revenue-booking-list-title').textContent=view.title;
+    $('revenue-booking-list-scope').textContent=q.get('from')+' ~ '+q.get('to')+' · '+(labels[q.get('space')]||'전체 지점')+' · 이용일 기준 · 보증금 제외';
+    for(const metric of Object.keys(bookingViews))$('revenue-booking-tab-'+metric).setAttribute('aria-pressed',String(metric===bookingMetric));
+    $('revenue-booking-list-status').textContent='예약 목록을 불러오는 중입니다.';
+    $('revenue-booking-list-total').textContent='';$('revenue-booking-list-note').textContent='';$('revenue-booking-list').innerHTML='';
+    $('revenue-booking-list').setAttribute('aria-busy','true');$('revenue-booking-list-retry').hidden=true;$('revenue-booking-list-pagination').hidden=true;
+    try {
+      const r=await X.A('/revenue/bookings?'+q);
+      if(request!==bookingVersion||!bookingDialog.open)return;
+      const last=Math.max(1,Math.ceil(r.detailCount/r.pageSize));
+      if(bookingPage>last){bookingPage=last;return loadBookingList();}
+      renderBookingList(r);$('revenue-booking-list-status').textContent='';
+    } catch(e) {
+      if(request===bookingVersion&&bookingDialog.open&&!X.guard(e)){$('revenue-booking-list-status').textContent=e.message||'예약 목록을 불러오지 못했습니다.';$('revenue-booking-list-retry').hidden=false;}
+    } finally {if(request===bookingVersion)$('revenue-booking-list').removeAttribute('aria-busy');}
+  }
+  function openBookingList(metric,opener) {
+    if(!bookingViews[metric]||!bookingSummary)return;
+    if(!bookingDialog.open){
+      const scope=bookingSummary.scope||{};
+      bookingQuery=new URLSearchParams({from:scope.from||filters.get('from'),to:scope.to||filters.get('to'),space:scope.space??filters.get('space')??''});
+      bookingOpener=opener;bookingDialog.showModal();
+    }
+    bookingMetric=metric;bookingPage=1;loadBookingList();
+  }
+  function bookingMetricClick(e) {const button=e.target.closest('[data-revenue-booking-metric]');if(button)openBookingList(button.dataset.revenueBookingMetric,button);}
+  $('revenue-booking-cards').addEventListener('click',bookingMetricClick);
+  bookingDialog.addEventListener('click',bookingMetricClick);
+  $('revenue-booking-list-close').addEventListener('click',()=>bookingDialog.close());
+  bookingDialog.addEventListener('close',()=>{bookingVersion++;bookingQuery=null;if(bookingOpener?.isConnected)bookingOpener.focus();bookingOpener=null;});
+  $('revenue-booking-list-retry').addEventListener('click',()=>{if(bookingDialog.open)loadBookingList();});
+  for(const [id,delta] of [['prev',-1],['next',1]])$('revenue-booking-list-'+id).addEventListener('click',()=>{if(bookingDialog.open&&$('revenue-booking-list').getAttribute('aria-busy')!=='true'&&!$('revenue-booking-list-'+id).disabled){bookingPage+=delta;loadBookingList();}});
   function render(r) {
     renderBookingSummary(r.bookingSummary);
     const filtered = filters.get('space'), shownBranches = filtered ? [] : columns;

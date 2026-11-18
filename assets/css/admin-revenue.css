@@ -185,9 +185,15 @@
 .revenue-booking-summary .revenue-section-head p { margin:0 0 12px; line-height:1.6; }
 .revenue-booking-kpis { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
 .revenue-booking-card { display:grid; align-content:start; gap:10px; min-width:0; min-height:130px; padding:20px; border:1px solid #dfe3ea; border-radius:var(--radius,8px); background:#fff; }
+.revenue-booking-card { width:100%; font:inherit; text-align:left; cursor:pointer; }
+.revenue-booking-card:hover { box-shadow:0 3px 12px #16284d12; }
+.revenue-booking-card:focus-visible { outline:2px solid #2454d8; outline-offset:3px; }
+.revenue-booking-card-title { display:flex; align-items:center; justify-content:space-between; gap:8px; color:var(--ink-2,#667085); font-size:13px; font-weight:650; }
+.revenue-booking-card-title small { flex-shrink:0; font-size:10px; font-weight:500; }
 .revenue-booking-card h3 { margin:0; color:var(--ink-2,#667085); font-size:13px; font-weight:650; }
 .revenue-booking-card strong { font-size:clamp(22px,2.1vw,30px); font-variant-numeric:tabular-nums; font-weight:750; line-height:1.2; letter-spacing:-.045em; overflow-wrap:anywhere; }
 .revenue-booking-card > span { color:var(--ink-2,#667085); font-size:11px; line-height:1.6; }
+.revenue-booking-card > .revenue-booking-card-title { font-size:13px; font-weight:650; }
 .revenue-booking-booked { background:#2454d8; border-color:#2454d8; color:#fff; }
 .revenue-booking-booked :is(h3,span) { color:#e8eeff; }
 .revenue-booking-received strong { color:#16705a; }
@@ -229,4 +235,47 @@
 .revenue-booking-received strong.revenue-refund { color:#a52424; }
 @media(max-width:359px) {
  .revenue-booking-card { padding:12px 15px; gap:5px; }
+}
+
+.revenue-booking-dialog { width:min(1100px,calc(100% - 24px)); max-height:calc(100dvh - 40px); padding:24px; border:1px solid #dce1e9; border-radius:var(--radius-lg,12px); background:#fff; color:var(--ink,#1c2430); box-shadow:0 24px 90px #16284d33; overflow-y:auto; }
+.revenue-booking-dialog::backdrop { background:#10182880; }
+.revenue-booking-dialog-head { position:sticky; top:-24px; z-index:1; margin:-24px -24px 0; padding:20px 24px 12px; background:#fff; border-bottom:1px solid #e5e9f0; align-items:center; }
+.revenue-booking-dialog-head h2 { margin:0; font-size:18px; }
+#revenue-booking-list-scope { margin:14px 0; line-height:1.7; }
+.revenue-booking-tabs { display:flex; flex-wrap:wrap; gap:6px; margin:12px 0 16px; }
+.revenue-booking-tabs button { padding:8px 13px; border:1px solid #dfe3eb; border-radius:var(--radius-sm,6px); background:#fff; color:#667085; font:inherit; font-size:12px; cursor:pointer; }
+.revenue-booking-tabs [aria-pressed="true"] { border-color:#2454d8; background:#eef3ff; color:#2454d8; font-weight:650; }
+.revenue-booking-tabs button:focus-visible { outline:2px solid #2454d8; outline-offset:2px; }
+.revenue-booking-list-total { margin:12px 0 8px; font-size:18px; font-weight:700; font-variant-numeric:tabular-nums; }
+#revenue-booking-list-note { line-height:1.8; margin:0 0 12px; }
+.revenue-booking-list { padding:0; margin:0; list-style:none; }
+.revenue-booking-row { display:grid; grid-template-columns:minmax(180px,1.2fr) minmax(0,2fr); align-items:center; gap:20px; padding:17px 0; border-top:1px solid #e5e9f0; }
+.revenue-booking-identity { display:grid; gap:5px; min-width:0; overflow-wrap:anywhere; }
+.revenue-booking-identity strong { font-size:14px; }
+.revenue-booking-identity span { font-size:12px; color:#667085; }
+.revenue-booking-identity small { font-size:11px; color:#667085; }
+.revenue-booking-identity small.revenue-refund { color:#a52424; }
+.revenue-booking-row dl { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin:0; text-align:right; }
+.revenue-booking-row dl > div { min-width:0; }
+.revenue-booking-row dt { margin:0 0 6px; font-size:11px; color:#667085; }
+.revenue-booking-row dd { margin:0; font-size:15px; font-weight:650; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.revenue-booking-active-amount dd { color:#2454d8; }
+.revenue-booking-row dd.revenue-refund { color:#a52424; }
+.revenue-booking-empty { padding:28px 0; text-align:center; }
+.revenue-booking-dialog [hidden] { display:none!important; }
+@media(max-width:699px) {
+ .revenue-booking-dialog { padding:16px; }
+ .revenue-booking-dialog-head { top:-16px; margin:-16px -16px 0; padding:14px 16px 12px; }
+ .revenue-booking-dialog-head h2 { font-size:16px; }
+ .revenue-booking-tabs button { min-height:40px; }
+ .revenue-booking-row { grid-template-columns:minmax(0,1fr); gap:14px; padding:16px 0; }
+ .revenue-booking-row dl { gap:8px; text-align:left; }
+ .revenue-booking-row dd { font-size:14px; }
+ .revenue-booking-list-total { font-size:17px; }
+}
+@media(max-width:359px) {
+ .revenue-booking-row dl { grid-template-columns:minmax(0,1fr); gap:7px; }
+ .revenue-booking-row dl > div { display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+ .revenue-booking-row dt { margin:0; flex-shrink:0; }
+ .revenue-booking-row dd { text-align:right; }
 }

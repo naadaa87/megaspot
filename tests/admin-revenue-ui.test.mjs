@@ -32,10 +32,11 @@ function ui(api,{storedMode=null,blockedStorage=false}={}) {
     if(nodes.has(id)) return nodes.get(id);
     assert.ok(id==='detail-heading'||html.includes('id="'+id+'"'),'매출 화면에 필요한 요소: '+id);
     const attributes = new Map(),listeners = {};
-    const value = {id,innerHTML:'',textContent:'',hidden:false,disabled:false,value:'',listeners,
+    const value = {id,innerHTML:'',textContent:'',hidden:false,disabled:false,value:'',listeners,open:false,isConnected:true,
       addEventListener:(event,callback)=>{listeners[event]=callback;},
       setAttribute:(key,value)=>attributes.set(key,value),getAttribute:key=>attributes.get(key),
       removeAttribute:key=>attributes.delete(key),focus(){value.focused=true;},
+      showModal(){value.open=true;},close(){value.open=false;listeners.close?.();},
       querySelector:selector=>selector==='h2'?node('detail-heading'):selector.startsWith('#')?node(selector.slice(1)):null};
     nodes.set(id,value);
     return value;
@@ -54,7 +55,8 @@ function ui(api,{storedMode=null,blockedStorage=false}={}) {
       addEventListener:(name,fn)=>events[name]=fn}});
   vm.runInContext(source,context);
   return {node,form,open:()=>views.revenue(),submit:()=>form.listeners.submit({preventDefault(){}}),events,storage,
-    mode:id=>node('revenue-mode-'+id).listeners.click({})};
+    mode:id=>node('revenue-mode-'+id).listeners.click({}),
+    bookings:metric=>{const button={dataset:{revenueBookingMetric:metric},isConnected:true,focus(){button.focused=true;}};node('revenue-booking-cards').listeners.click({target:{closest:()=>button}});return button;}};
 }
 
 test('매출 첫 진입에서 합계·지점별 예정 예약·거래를 오류 없이 표시한다',async()=>{
@@ -77,6 +79,47 @@ test('매출 첫 진입에서 합계·지점별 예정 예약·거래를 오류 
   assert.match(f.node('revenue-channel-shares').innerHTML,/지유공간개발/);
   assert.match(f.node('revenue-trend').innerHTML,/월별 예약금액·수납·잔금 비교/);
   assert.match(f.node('revenue-status').textContent,/이용일 기준 · 보증금 제외/);
+});
+
+function bookingList(metric='booked',overrides={}) {
+  const summary=report().bookingSummary;
+  return {ok:true,metric,summary,total:{count:1,amount:metric==='booked'?240000:120000,unknownCount:0},
+    items:[{booking_code:'BK-LIST',customer_name:'<고객 & 단체>',date:'2026-11-20',space_id:first,status:'confirmed',start_h:9.5,end_h:18,
+      amount:240000,received:130000,refunded:10000,netReceived:120000,balance:120000,review_required:false,excessPaid:0,overRefunded:0}],
+    detailCount:1,page:1,pageSize:50,...overrides};
+}
+
+test('요약 카드 클릭은 기간·지점만 적용한 예약 목록을 열고 이름·예약별 금액을 안전하게 표시한다',async()=>{
+  const calls=[];
+  const f=ui(async path=>{calls.push(path);return path.startsWith('/revenue/bookings?')?bookingList(new URL(path,'https://local.test').searchParams.get('metric')):report();});
+  f.form.elements.from.value='2026-11-01';f.form.elements.to.value='2026-11-30';f.node('revenue-trend-year').value='2026';
+  f.form.elements.channel.value='payapp';f.form.elements.category.value='food';f.form.elements.component.value='catering';
+  f.open();await tick();
+  for(const metric of ['booked','received','balance'])assert.match(f.node('revenue-booking-cards').innerHTML,new RegExp('data-revenue-booking-metric="'+metric+'"'));
+  const opener=f.bookings('received');await tick();
+  assert.equal(f.node('revenue-booking-dialog').open,true);
+  const query=new URL(calls.at(-1),'https://local.test').searchParams;
+  assert.equal(query.get('metric'),'received');assert.equal(query.get('from'),'2026-11-01');assert.equal(query.get('to'),'2026-11-30');
+  for(const key of ['channel','category','component','day'])assert.equal(query.has(key),false);
+  assert.match(f.node('revenue-booking-list').innerHTML,/&lt;고객 &amp; 단체&gt;/);
+  assert.match(f.node('revenue-booking-list').innerHTML,/09:30 ~ 18:00/);
+  assert.match(f.node('revenue-booking-list-total').textContent,/1건 · 수납 완료 금액 120,000원/);
+  assert.match(f.node('revenue-booking-list-note').textContent,/일부 수납/);
+  f.node('revenue-booking-list-close').listeners.click();assert.equal(f.node('revenue-booking-dialog').open,false);assert.equal(opener.focused,true);
+});
+
+test('예약 목록의 늦은 응답·닫힌 창의 응답을 무시하며 조회 오류는 재시도로 복구한다',async()=>{
+  const pending=[];
+  const f=ui(path=>path.startsWith('/revenue/bookings?')?new Promise((resolve,reject)=>pending.push({resolve,reject})):Promise.resolve(report()));
+  f.open();await tick();f.bookings('booked');f.bookings('balance');
+  pending[1].resolve(bookingList('balance'));await tick();const latest=f.node('revenue-booking-list').innerHTML;
+  pending[0].resolve(bookingList('booked',{items:[]}));await tick();assert.equal(f.node('revenue-booking-list').innerHTML,latest);
+  f.bookings('received');pending[2].reject(Error('목록 조회 오류'));await tick();
+  assert.equal(f.node('revenue-booking-list-status').textContent,'목록 조회 오류');assert.equal(f.node('revenue-booking-list-retry').hidden,false);
+  f.node('revenue-booking-list-retry').listeners.click();pending[3].resolve(bookingList('received'));await tick();
+  assert.equal(f.node('revenue-booking-list-status').textContent,'');assert.equal(f.node('revenue-booking-list-retry').hidden,true);
+  f.bookings('booked');f.node('revenue-booking-dialog').close();pending[4].resolve(bookingList('booked',{items:[]}));await tick();
+  assert.equal(f.node('revenue-booking-dialog').open,false);assert.equal(f.node('revenue-booking-list').innerHTML,'');
 });
 
 test('월별 막대 3종은 예약 요약과 같은 금액을 사용하고 Y축 금액 눈금 대신 각 막대 금액을 표시한다',async()=>{
