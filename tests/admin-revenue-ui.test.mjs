@@ -25,7 +25,7 @@ function report(amount=120000) {
     detailCount:1,page:1,pageSize:50
   };
 }
-function ui(api,{storedMode=null,blockedStorage=false,profitLoader=false}={}) {
+function ui(api,{storedMode=null,blockedStorage=false,profitLoader=false,chartWidth=0}={}) {
   const nodes = new Map(),views = {},events = {},serviceCalls=[],profitCalls=[];
   const storage=new Map(storedMode==null?[]:[['megaspot.admin.revenue.chart-view.v1',storedMode]]);
   function node(id) {
@@ -48,6 +48,7 @@ function ui(api,{storedMode=null,blockedStorage=false,profitLoader=false}={}) {
     constructor(form) { this.values=Object.entries(form.elements).map(([name,input])=>[name,input.value]); }
     [Symbol.iterator]() { return this.values[Symbol.iterator](); }
   }
+  node('revenue-trend').clientWidth=chartWidth;
   const esc = value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const context = vm.createContext({document:{getElementById:node},URLSearchParams,FormData,Date,
     window:{MEGASPOT_ADMIN:{A:api,esc,guard:()=>false,register:(id,fn)=>views[id]=fn,openRevenueServices:options=>serviceCalls.push(options),...(profitLoader?{loadRevenueProfit:(scope,options)=>profitCalls.push({scope,options})}:{})},
@@ -213,6 +214,23 @@ test('월별 막대 3종은 예약 요약과 같은 금액을 사용하고 Y축 
   assert.match(graph,/<th[^>]*>수납 완료 금액<\/th>/);
   assert.match(graph,/<th[^>]*>앞으로 받을 잔금<\/th>/);
   assert.match(graph,/240,000원/);
+});
+
+test('모바일은 하나의 12개월 그래프와 회전하지 않은 월별 금액 표를 함께 표시한다',async()=>{
+  const f=ui(async()=>report(),{chartWidth:280});
+  f.form.elements.from.value='2026-11-01';f.form.elements.to.value='2026-11-30';f.node('revenue-trend-year').value='2026';
+  f.open();await tick();const graph=f.node('revenue-trend').innerHTML;
+  assert.equal((graph.match(/<svg /g)||[]).length,1);
+  assert.equal((graph.match(/data-revenue-month=/g)||[]).length,12);
+  assert.equal((graph.match(/class="revenue-trend-bar"/g)||[]).length,36);
+  assert.equal((graph.match(/<td class="revenue-bar-amount"/g)||[]).length,36);
+  assert.match(graph,/class="revenue-chart-month-values"/);
+  assert.match(graph,/>24만<\/td>/);
+  assert.match(graph,/title="전체 예약금액 240,000원"/);
+  assert.doesNotMatch(graph,/rotate\(|revenue-trend-scroll/);
+  assert.match(f.node('revenue-components').innerHTML,/data-label="수납액"/);
+  assert.match(f.node('revenue-components').innerHTML,/class="revenue-cell-label" aria-hidden="true"/);
+  assert.match(f.node('revenue-components').innerHTML,/class="revenue-cell-value"/);
 });
 
 test('그래프 보기를 즉시 바꾸고 선택한 보기를 조회와 새 진입에서도 유지한다',async()=>{

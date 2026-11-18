@@ -1,0 +1,103 @@
+/* Revenue controls, financial rows and dialogs share one readable phone layout. */
+@media(max-width:767px) {
+ .page-admin:has(#view-revenue:not([hidden])) .to-top { display:none; }
+ .page-admin #view-revenue { --revenue-mobile-gap:16px; }
+ .page-admin #view-revenue #revenue-report:not([hidden]) { display:grid; gap:var(--revenue-mobile-gap); }
+ .page-admin #view-revenue #revenue-report > :is(section,div) { margin:0; min-width:0; }
+ .page-admin #view-revenue .adm-card { padding:16px; }
+ .page-admin #view-revenue .revenue-profit-card { margin:0; }
+ .page-admin #view-revenue .revenue-analysis-grid { gap:16px; }
+ .page-admin #view-revenue .revenue-page-head { margin:0; gap:14px; }
+ .page-admin #view-revenue .revenue-scope-form { margin:0; }
+ .page-admin #view-revenue .revenue-scope-controls { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:10px; align-items:end; }
+ .page-admin #view-revenue :is(.revenue-period-picker,.revenue-custom-dates) { grid-column:1/-1; }
+ .page-admin #view-revenue .revenue-scope-space { grid-column:auto; }
+ .page-admin #view-revenue .revenue-scope-controls label { gap:6px; font-size:12px; }
+ .page-admin #view-revenue .revenue-month-control { display:grid; grid-template-columns:44px minmax(0,1fr) 44px; gap:8px; }
+ .page-admin #view-revenue .revenue-scope-controls :is(.input,.select,.btn) { height:44px; min-height:44px; padding:8px 10px; font-size:14px; }
+ .page-admin #view-revenue .revenue-month-control .input { width:100%; font-size:16px; }
+ .page-admin #view-revenue .revenue-month-control .btn { width:44px; padding:0; line-height:1; font-size:22px; }
+ .page-admin #view-revenue .revenue-scope-space .select { width:100%; font-size:16px; }
+ .page-admin #view-revenue .revenue-custom-dates { padding:0; }
+ .page-admin #view-revenue .revenue-custom-dates > summary { min-height:44px; padding:8px 12px; font-size:12px; }
+ .page-admin #view-revenue .revenue-date-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:0; padding:12px 0 0; }
+ .page-admin #view-revenue .revenue-date-fields label { max-width:none; }
+ .page-admin #view-revenue .revenue-date-fields input { width:100%; font-size:16px; }
+ .page-admin #view-revenue .revenue-date-fields > span { grid-column:1/-1; }
+ .page-admin #view-revenue #revenue-status { margin:12px 0 16px; }
+ .page-admin #view-revenue .revenue-section-head { gap:12px; }
+ .page-admin #view-revenue .revenue-section-head > div { min-width:0; }
+ .page-admin #view-revenue .revenue-year-label .input { width:82px; height:44px; min-height:44px; font-size:16px; }
+ .page-admin #view-revenue .revenue-booking-kpis,
+ .page-admin #view-revenue .revenue-profit-metrics { grid-template-columns:minmax(0,1fr); gap:12px; }
+ .page-admin #view-revenue .revenue-booking-card,
+ .page-admin #view-revenue .revenue-profit-metrics > article { padding:16px; gap:8px; }
+ .page-admin #view-revenue .revenue-booking-card > strong,
+ .page-admin #view-revenue .revenue-profit-metrics strong { font-size:clamp(23px,6.6vw,28px); white-space:nowrap; overflow-wrap:normal; }
+ .page-admin #view-revenue .revenue-booking-card-title { font-size:13px; }
+ .page-admin #view-revenue :is(.revenue-booking-card > span,.revenue-profit-metrics span) { line-height:1.7; }
+ .page-admin #view-revenue .revenue-totals { grid-template-columns:minmax(0,1fr); gap:12px; }
+ .page-admin #view-revenue .revenue-total h2 { margin-bottom:12px; }
+ .page-admin #view-revenue .revenue-total dl { grid-template-columns:minmax(0,1fr) auto; gap:8px 12px; font-size:12px; }
+ .page-admin #view-revenue .revenue-total dd { white-space:nowrap; overflow-wrap:normal; }
+ .page-admin #view-revenue .revenue-total dd:last-child { font-size:20px; }
+ .page-admin #view-revenue .revenue-trend-view-options { margin-top:12px; }
+ .page-admin #view-revenue .revenue-trend-view-options button { min-height:44px; padding:8px 12px; }
+ .page-admin #view-revenue .revenue-trend-grid { grid-template-columns:repeat(auto-fit,minmax(min(100%,168px),1fr)); }
+ .page-admin #view-revenue .revenue-trend-legend { gap:8px 14px; margin:14px 0 10px; }
+ .page-admin #view-revenue .revenue-trend-note { line-height:1.8; }
+ .page-admin #view-revenue .revenue-analysis-heading { gap:14px; }
+ .page-admin #view-revenue .revenue-analysis-filters { gap:10px; }
+ .page-admin #view-revenue .revenue-analysis-filters label { gap:6px; }
+ .page-admin #view-revenue .revenue-analysis-filters :is(.select,.btn) { min-height:44px; height:44px; }
+ .page-admin #view-revenue .revenue-category-grid { grid-template-columns:minmax(0,1fr); gap:12px; }
+ .page-admin #view-revenue .revenue-category { padding:16px; gap:8px; }
+ .page-admin #view-revenue .revenue-category strong { white-space:nowrap; overflow-wrap:normal; }
+ .page-admin #view-revenue .revenue-share-bar { margin:16px 0; }
+ .page-admin #view-revenue .revenue-channel-list { gap:16px; }
+ .page-admin #view-revenue .revenue-channel-name { flex-wrap:wrap; line-height:1.6; }
+ .page-admin #view-revenue :is(.revenue-channel-amount,.revenue-account-row) { gap:6px 12px; line-height:1.7; }
+ .page-admin #view-revenue .revenue-channel-amount span { white-space:nowrap; }
+
+ /* Stack financial fields before keeping each amount on one line. */
+ .page-admin #view-revenue :is(.revenue-profit-card dl,.revenue-profit-booking-money,.revenue-booking-row-amounts) { grid-template-columns:minmax(0,1fr); gap:10px; text-align:left; }
+ .page-admin #view-revenue :is(.revenue-profit-card dl > div,.revenue-profit-booking-money > span,.revenue-booking-row-amounts > span) { display:flex; align-items:baseline; justify-content:space-between; gap:10px; min-width:0; }
+ .page-admin #view-revenue :is(.revenue-profit-card dt,.revenue-profit-booking-money small,.revenue-booking-amount-label) { flex:1; min-width:0; margin:0; line-height:1.6; }
+ .page-admin #view-revenue :is(.revenue-profit-card dd,.revenue-profit-booking-money b,.revenue-booking-amount) { flex-shrink:0; margin:0; text-align:right; white-space:nowrap; overflow-wrap:normal; line-height:1.6; }
+ .page-admin #view-revenue :is(.revenue-profit-service-row,.revenue-profit-booking > summary,.revenue-profit-lines > li) { grid-template-columns:minmax(0,1fr); gap:12px; padding-block:16px; }
+ .page-admin #view-revenue .revenue-profit-lines { padding-inline:12px; }
+ .page-admin #view-revenue .revenue-profit-fold { margin-top:16px; padding-top:16px; }
+ .page-admin #view-revenue .revenue-profit-cocktails { gap:12px; }
+
+ /* Full records stay in the phone width instead of requiring a wide table. */
+ .page-admin #view-revenue :is(#revenue-components,#revenue-daily,#revenue-items,#revenue-upcoming-items,.revenue-trend-values) table { display:block; width:100%; min-width:0; }
+ .page-admin #view-revenue :is(#revenue-components,#revenue-daily,#revenue-items,#revenue-upcoming-items,.revenue-trend-values) thead { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+ .page-admin #view-revenue :is(#revenue-components,#revenue-daily,#revenue-items,#revenue-upcoming-items,.revenue-trend-values) tbody { display:grid; gap:12px; width:100%; }
+ .page-admin #view-revenue :is(#revenue-components,#revenue-daily,#revenue-items,#revenue-upcoming-items,.revenue-trend-values) tbody tr { display:grid; gap:10px; padding:14px; border:1px solid #e3e8ef; border-radius:var(--radius,8px); }
+ .page-admin #view-revenue :is(#revenue-components,#revenue-daily,#revenue-items,#revenue-upcoming-items,.revenue-trend-values) td { display:grid; grid-template-columns:minmax(65px,.8fr) minmax(0,1.5fr); align-items:baseline; gap:10px; min-width:0; max-width:none; padding:0; border:0; white-space:normal; font-size:12px; line-height:1.7; }
+ .page-admin #view-revenue :is(#revenue-components,#revenue-daily,#revenue-items,#revenue-upcoming-items,.revenue-trend-values) .revenue-cell-label { display:block; color:#667085; text-align:left; font-size:11px; font-weight:500; }
+ .page-admin #view-revenue .revenue-cell-value { min-width:0; overflow-wrap:anywhere; }
+ .page-admin #view-revenue .revenue-num .revenue-cell-value { text-align:right; white-space:nowrap; overflow-wrap:normal; font-variant-numeric:tabular-nums; }
+ .page-admin #view-revenue .revenue-cell-value > .revenue-ref { white-space:normal; }
+ .page-admin #view-revenue .revenue-text-button { min-height:36px; line-height:1.6; }
+
+ .page-admin #view-revenue :is(.revenue-booking-dialog,.revenue-services-dialog,.revenue-classify-dialog) { padding:16px; max-height:calc(var(--adm-visible-height,100dvh) - 24px); }
+ .page-admin #view-revenue :is(.revenue-booking-dialog-head,.revenue-services-head) { display:flex; flex-wrap:nowrap; align-items:center; gap:12px; margin:-16px -16px 0; padding:14px 16px 12px; top:-16px; }
+ .page-admin #view-revenue :is(.revenue-booking-dialog-head h2,.revenue-services-head h2) { min-width:0; overflow-wrap:anywhere; font-size:16px; line-height:1.5; }
+ .page-admin #view-revenue :is(.revenue-booking-dialog-head > button,.revenue-services-head > button) { flex-shrink:0; min-height:44px; }
+ .page-admin #view-revenue .revenue-booking-row { gap:14px; padding:16px 0; }
+ .page-admin #view-revenue .revenue-booking-tabs { gap:8px; margin:12px 0 16px; }
+ .page-admin #view-revenue .revenue-booking-tabs button { min-height:44px; }
+ .page-admin #view-revenue :is(.revenue-booking-detail-money strong,.revenue-services-totals strong,.revenue-services-amount strong,.revenue-services-parts b) { white-space:nowrap; overflow-wrap:normal; }
+ .page-admin #view-revenue :is(.revenue-booking-detail-money > div,.revenue-services-totals > div) { gap:10px; padding:12px; }
+ .page-admin #view-revenue :is(.revenue-booking-list-total,#revenue-booking-list-note,.revenue-services-note) { line-height:1.8; }
+ .page-admin #view-revenue .revenue-services-note { padding:12px; margin:12px 0 16px; }
+ .page-admin #view-revenue .revenue-services-row { gap:12px; padding:16px 0; }
+ .page-admin #view-revenue .revenue-allocation-row { grid-template-columns:minmax(0,1fr) auto; gap:8px; padding:12px 0; border-bottom:1px solid #e5e9f0; }
+ .page-admin #view-revenue .revenue-allocation-row > select { grid-column:1/-1; }
+ .page-admin #view-revenue .revenue-allocation-row :is(input,select,button) { min-height:44px; font-size:16px; }
+}
+@media(max-width:399px) {
+ .page-admin #view-revenue .revenue-date-fields { grid-template-columns:minmax(0,1fr); }
+ .page-admin #view-revenue .revenue-scope-controls > .btn { padding-inline:9px; font-size:13px; }
+}

@@ -12,6 +12,7 @@
 .revenue-table-wrap th, .revenue-table-wrap td { padding:.55rem .65rem; border-bottom:1px solid #e3e3e3; vertical-align:top; }
 .revenue-table-wrap th { font-size:.8rem; background:#f4f4f4; }
 .revenue-table-wrap td { font-size:.9rem; }
+.revenue-cell-label { display:none; }
 .revenue-table-wrap :is(th,td).revenue-num { text-align:right; }
 .revenue-table-wrap [aria-pressed="true"] { border-color:#1f4cd2; color:#15399c; background:#eef2ff; }
 .revenue-num, .revenue-date { white-space:nowrap; font-variant-numeric:tabular-nums; }
@@ -57,6 +58,13 @@
 .revenue-trend-month:focus-visible { outline:2px solid #2454d8; outline-offset:2px; }
 .revenue-trend-month svg { display:block; width:100%; height:150px; }
 .revenue-trend-single { display:block; width:100%; height:auto; }
+.revenue-chart-month-values { width:100%; min-width:0; table-layout:fixed; border-collapse:collapse; margin:8px 0 0; font-size:11px; }
+.revenue-chart-month-values caption { margin:0 0 8px; text-align:left; color:#667085; font-size:11px; }
+.revenue-chart-month-values :is(th,td) { padding:5px 2px; border-bottom:1px solid #edf0f4; text-align:right; line-height:1.5; white-space:nowrap; }
+.revenue-chart-month-values tr > :first-child { width:13%; text-align:left; }
+.revenue-chart-month-values thead th { font-size:11px; font-weight:650; color:#667085; }
+.revenue-chart-month-values .is-selected { background:#f1f5ff; }
+.revenue-chart-month-values .revenue-bar-amount { font-size:11px; overflow-wrap:normal; font-variant-numeric:tabular-nums; }
 .revenue-single-month { cursor:pointer; outline:none; }
 .revenue-single-month:hover .revenue-month-hit { fill:#2454d80b; }
 .revenue-single-month:focus .revenue-month-hit { stroke:#2454d8; stroke-width:1.5; }
