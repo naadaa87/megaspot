@@ -11,7 +11,7 @@
   options=options||{};
   var map=new Map();items.forEach(function(p){var id=p.payment_oid||p.oid,g=map.get(id);if(!g){g={oid:id,total:p.payment_total!=null?Number(p.payment_total):id===p.oid?Number(p.price):null,status:p.payment_status,name:p.name||'',phone:p.phone||'',paid_at:p.paid_at,refunded_amount:p.payment_refund_amount||p.refunded_amount||0,items:[]};map.set(id,g);}g.items.push(p);});
   var priority={hold:0,cancel:0,issue:0,unknown:0,processing:1,requested:2,waiting:3,applied:4,resolved:4};
-  return Array.from(map.values()).map(function(g){g.items.sort(function(a,b){return Number(b.matched!==false)-Number(a.matched!==false)||(options.sort==='applied_desc'?0:(priority[receipt.state(a).key]??5)-(priority[receipt.state(b).key]??5));});g.counts=counts(g.items);return g;});
+  return Array.from(map.values()).map(function(g){g.items.sort(function(a,b){return Number(b.matched!==false)-Number(a.matched!==false)||(['applied_desc','newest_desc'].includes(options.sort)?0:(priority[receipt.state(a).key]??5)-(priority[receipt.state(b).key]??5));});g.counts=counts(g.items);return g;});
  }
  function badges(list){return list.map(function(s){return '<span class="pk-state pk-tone-'+s.tone+'">'+s.label+' '+s.n+'대</span>';}).join('');}
  function facts(p){

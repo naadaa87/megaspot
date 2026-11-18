@@ -29,21 +29,35 @@ test('관리자 요약은 여러 차량의 결제 총액을 중복 합산하지 
 });
 test('검색된 차량만으로 합계를 추정하지 않고 부모 총액이 없으면 확인 필요로 표시한다',()=>{const g=view.groups([{oid:'MSCHILD',payment_oid:'MSPARENT',price:4000}])[0];assert.equal(g.total,null);});
 
-test('적용 완료는 구매·입차·취소 문의 순서가 아니라 최근 적용 시각부터 조회한다',async t=>{
+test('모든 관리자 필터는 입차·취소·적용 시각보다 최신 결제순을 우선한다',async t=>{
  const f=fixture(t),orders=[];
  for(const plate of ['123가4567','234나5678','345다6789']){const p=await f.buy({plate,plate_confirm:plate});await f.feedback(p);orders.push(p);}
- const update=f.db.prepare("UPDATE parking_orders SET status='applied',applied_at=?,updated_at=?,created_at=?,refund_requested_at=? WHERE oid=?");
- update.run('2026-11-03 15:00:00','2026-11-05 15:00:00','2026-11-01 09:00:00',null,orders[0].oid);
- update.run('2026-11-03T14:00:00Z','2026-11-06 12:00:00','2026-11-03 13:00:00','2026-11-03 16:00:00',orders[1].oid);
- update.run(null,'2026-11-04 11:00:00','2026-11-02 09:00:00',null,orders[2].oid);
- const r=await list(f,'filter=applied');assert.equal(r.sort,'applied_desc');assert.deepEqual(r.items.map(p=>p.oid),[orders[2].oid,orders[0].oid,orders[1].oid]);
- const queue=await list(f,'filter=queue');assert.deepEqual(queue.items.map(p=>p.oid),[orders[1].oid]);
+ const payment=f.db.prepare('UPDATE orders SET paid_at=?,created_at=? WHERE oid=?');
+ payment.run('2026-11-03T04:00:00Z','2026-11-03 03:00:00',orders[0].oid);
+ payment.run('2026-11-03 03:00:00','2026-11-03 02:00:00',orders[1].oid);
+ payment.run('2026-11-03 05:00:00','2026-11-03 01:00:00',orders[2].oid);
+ f.db.prepare("UPDATE parking_orders SET status='applied',arrival_at='2026-11-03 02:00:00',applied_at='2026-11-03 15:00:00',refund_requested_at='2026-11-03 16:00:00' WHERE oid=?").run(orders[0].oid);
+ f.db.prepare("UPDATE parking_orders SET status='resolved',arrival_at='2026-11-03 03:00:00',updated_at='2026-11-04 15:00:00',refund_requested_at='2026-11-03 17:00:00' WHERE oid=?").run(orders[1].oid);
+ f.db.prepare("UPDATE parking_orders SET status='applied',arrival_at='2026-11-03 01:00:00',applied_at='2026-11-03 13:00:00',refund_requested_at='2026-11-03 18:00:00' WHERE oid=?").run(orders[2].oid);
+ const expected=[orders[2].oid,orders[0].oid,orders[1].oid];
+ for(const filter of ['all','applied','queue']){const r=await list(f,'filter='+filter);assert.equal(r.sort,'newest_desc');assert.deepEqual(view.groups(r.items,{sort:r.sort}).map(g=>g.oid),expected);}
+ f.db.exec("UPDATE parking_orders SET status='requested'");
+ const arrived=await list(f,'filter=arrived');assert.deepEqual(arrived.items.map(p=>p.oid),expected);
 });
-test('통합 결제는 가장 최근 적용 차량 기준으로 정렬하고 묶음 안에서도 완료 차량의 최신순을 유지한다',async t=>{
+test('최신 통합 결제는 차량 상태와 관계없이 먼저 표시하고 검색해도 형제 차량을 유지한다',async t=>{
  const f=fixture(t),batch=await buy(f),single=await f.buy({plate:'345다6789',plate_confirm:'345다6789'});await f.feedback(single);
- f.db.prepare("UPDATE parking_orders SET status='applied',applied_at='2026-11-03 10:00:00',refund_requested_at='2026-11-03 16:00:00' WHERE plate='123가4567'").run();
- f.db.prepare("UPDATE parking_orders SET status='applied',applied_at='2026-11-03 15:00:00' WHERE plate='234나5678'").run();
- f.db.prepare("UPDATE parking_orders SET status='applied',applied_at='2026-11-03 12:00:00' WHERE oid=?").run(single.oid);
- const r=await list(f,'filter=applied'),g=view.groups(r.items,{sort:r.sort});assert.equal(g[0].oid,batch.oid);assert.equal(g[1].oid,single.oid);assert.deepEqual(g[0].items.map(p=>p.plate),['234나5678','123가4567']);
- const html=view.render(r.items,()=>'',{sort:r.sort});assert.ok(html.indexOf('234나5678')<html.indexOf('123가4567'));assert.ok(html.indexOf(batch.oid)<html.indexOf(single.oid));
+ f.db.prepare("UPDATE orders SET paid_at='2026-11-03 04:00:00' WHERE oid=?").run(single.oid);
+ f.db.prepare("UPDATE orders SET paid_at='2026-11-03 05:00:00' WHERE oid=?").run(batch.oid);
+ f.db.prepare("UPDATE parking_orders SET status='applied',applied_at='2026-11-03 10:00:00',created_at='2026-11-03 01:00:00' WHERE plate='123가4567'").run();
+ f.db.prepare("UPDATE parking_orders SET status='resolved',updated_at='2026-11-03 15:00:00',created_at='2026-11-03 02:00:00' WHERE plate='234나5678'").run();
+ f.db.prepare("UPDATE parking_orders SET status='applied',applied_at='2026-11-03 18:00:00' WHERE oid=?").run(single.oid);
+ const r=await list(f,'filter=applied'),g=view.groups(r.items,{sort:r.sort});assert.equal(g[0].oid,batch.oid);assert.equal(g[1].oid,single.oid);assert.deepEqual(g[0].items.map(p=>p.plate),['123가4567','234나5678']);
+ const html=view.render(r.items,()=>'',{sort:r.sort});assert.ok(html.indexOf(batch.oid)<html.indexOf(single.oid));
+ const search=await list(f,'filter=all&q=234나5678');assert.equal(search.items.length,2);assert.equal(search.matched_count,1);assert.equal(view.groups(search.items,{sort:search.sort})[0].items[0].plate,'234나5678');
+});
+test('미결제는 주문 생성 시각을 사용하며 같은 시각에는 결제번호로 순서를 고정한다',async t=>{
+ const f=fixture(t),orders=[];for(const plate of ['123가4567','234나5678','345다6789'])orders.push(await f.buy({plate,plate_confirm:plate}));
+ const update=f.db.prepare('UPDATE orders SET paid_at=?,created_at=? WHERE oid=?');
+ update.run(null,'2026-11-03T05:00:00Z',orders[0].oid);update.run('','2026-11-03 04:00:00',orders[1].oid);update.run(null,'2026-11-03 05:00:00',orders[2].oid);
+ const tied=[orders[0].oid,orders[2].oid].sort().reverse(),r=await list(f,'filter=all');assert.deepEqual(r.items.map(p=>p.oid),[...tied,orders[1].oid]);
 });
