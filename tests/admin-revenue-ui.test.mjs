@@ -9,7 +9,9 @@ const first = 'megaspot-gundae', second = 'megaspot-gundae-2';
 const tick = () => new Promise(resolve=>setImmediate(resolve));
 const total = amount => ({count:amount?1:0,received:amount,refunded:0,net:amount});
 function report(amount=120000) {
+  const booking={bookingCount:1,booked:amount*2,received:amount+10000,refunded:10000,netReceived:amount,balance:amount,balanceCount:1,amountUnknownCount:0,balanceUnknownCount:0,excessPaid:0,excessPaidCount:0,reviewRequiredCount:0,overRefunded:0};
   return {
+    bookingSummary:{...booking,scope:{from:'2026-11-01',to:'2026-11-30'},monthly:[{month:'2026-11',...booking}]},
     total:total(amount),branches:{[first]:total(amount),[second]:total(0),unassigned:total(0)},
     daily:[{day:'2026-11-20',...total(amount),branches:{[first]:total(amount)}}],
     upcoming:[{branch:second,day:'2026-11-21',customer_name:'<고객>',booking_code:'BK-NEXT',amount:null}],
@@ -33,7 +35,7 @@ function ui(api) {
       addEventListener:(event,callback)=>{listeners[event]=callback;},
       setAttribute:(key,value)=>attributes.set(key,value),getAttribute:key=>attributes.get(key),
       removeAttribute:key=>attributes.delete(key),focus(){value.focused=true;},
-      querySelector:selector=>selector==='h2'?node('detail-heading'):node(selector.slice(1))};
+      querySelector:selector=>selector==='h2'?node('detail-heading'):selector.startsWith('#')?node(selector.slice(1)):null};
     nodes.set(id,value);
     return value;
   }
@@ -70,8 +72,51 @@ test('매출 첫 진입에서 합계·지점별 예정 예약·거래를 오류 
   assert.match(f.node('revenue-items').innerHTML,/data-revenue-classify="entry:1"/);
   assert.match(f.node('revenue-categories').innerHTML,/공간대관/);
   assert.match(f.node('revenue-channel-shares').innerHTML,/지유공간개발/);
-  assert.match(f.node('revenue-trend').innerHTML,/월별 순매출/);
+  assert.match(f.node('revenue-trend').innerHTML,/월별 예약금액·수납·잔금 비교/);
   assert.match(f.node('revenue-status').textContent,/이용일 기준 · 보증금 제외/);
+});
+
+test('월별 막대 3종은 예약 요약과 같은 금액을 사용하고 Y축 금액 눈금 대신 각 막대 금액을 표시한다',async()=>{
+  const calls=[];
+  const f=ui(async path=>{calls.push(path);return report();});
+  f.form.elements.from.value='2026-11-01';f.form.elements.to.value='2026-11-30';
+  f.node('revenue-trend-year').value='2026';
+  f.form.elements.space.value=second;
+  f.form.elements.category.value='food';f.form.elements.component.value='catering';f.form.elements.channel.value='payapp';
+  f.open();await tick();
+  const annual=new URL(calls.find(path=>path.includes('to=2026-12-31')),'https://local.test').searchParams;
+  assert.equal(annual.get('space'),second);
+  for(const key of ['category','component','channel','day','page'])assert.equal(annual.has(key),false);
+  const graph=f.node('revenue-trend').innerHTML;
+  assert.equal((graph.match(/class="revenue-trend-bar"/g)||[]).length,36);
+  assert.equal((graph.match(/class="revenue-bar-amount"/g)||[]).length,36);
+  assert.equal((graph.match(/data-revenue-month=/g)||[]).length,12);
+  assert.match(graph,/data-series="booked" data-value="240000"/);
+  assert.match(graph,/data-series="netReceived" data-value="120000"/);
+  assert.match(graph,/data-series="balance" data-value="120000"/);
+  assert.match(graph,/>24만<\/text>/);
+  assert.match(graph,/>12만<\/text>/);
+  assert.doesNotMatch(graph,/text-anchor="end"|월별 순매출/);
+  assert.match(graph,/<th[^>]*>전체 예약금액<\/th>/);
+  assert.match(graph,/<th[^>]*>수납 완료 금액<\/th>/);
+  assert.match(graph,/<th[^>]*>앞으로 받을 잔금<\/th>/);
+  assert.match(graph,/240,000원/);
+});
+
+test('월별 미정·잔금 확인 금액을 0원으로 확정하지 않고 환불 후 음수 수납액을 유지한다',async()=>{
+  const r=report();
+  const unknown={...r.bookingSummary.monthly[0],booked:0,balance:0,amountUnknownCount:1,balanceUnknownCount:1,netReceived:-1000,received:0,refunded:1000,reviewRequiredCount:1,overRefunded:1000};
+  r.bookingSummary.monthly=[unknown];
+  const f=ui(async()=>r);
+  f.form.elements.from.value='2026-11-01';f.form.elements.to.value='2026-11-30';f.node('revenue-trend-year').value='2026';
+  f.open();await tick();
+  const graph=f.node('revenue-trend').innerHTML;
+  assert.match(graph,/data-series="netReceived" data-value="-1000"/);
+  assert.match(graph,/>미정<\/text>/);
+  assert.match(graph,/>확인 필요<\/text>/);
+  assert.match(graph,/>-1,000원<\/text>/);
+  assert.match(graph,/금액 미정 1건/);
+  assert.match(graph,/초과 환불 1,000원/);
 });
 
 test('지점 조건을 바꾸는 동안 이전 응답이 도착해도 최신 지점의 매출을 유지한다',async()=>{

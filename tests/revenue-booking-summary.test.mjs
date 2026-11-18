@@ -109,3 +109,55 @@ test('예약이 90건을 넘어도 정산 조회를 나눠 빠짐없이 합산�
   assert.ok(!JSON.stringify(s).includes('01012345678'));
   assert.ok(!Object.hasOwn(s,'items'));
 });
+
+test('월별 예약금액·순수납·예약별 잔금은 이용월로 묶이고 모든 월의 합계가 상단 요약과 일치한다',async t=>{
+  const {db,api}=setup(t);db.prepare('UPDATE bookings SET amount=1000000').run();payment(db,'BK-TEST',300000);
+  // Receipt timestamps are all October; usage month alone places each movement in these bars.
+  booking(db,'BK-FEB-OVER-REFUNDED',{date:'2026-02-15',amount:100000});payment(db,'BK-FEB-OVER-REFUNDED',50000,'refund');
+  booking(db,'BK-OCT',{date:'2026-10-12',amount:200000,status:'completed'});payment(db,'BK-OCT',250000);
+  booking(db,'BK-OCT-UNPAID',{date:'2026-10-20',amount:100000});
+  booking(db,'BK-DEC',{date:'2026-12-01',space:second,amount:500000});payment(db,'BK-DEC',200000);payment(db,'BK-DEC',50000,'refund');
+  booking(db,'BK-DEC-UNKNOWN',{date:'2026-12-02',space:second,amount:null});payment(db,'BK-DEC-UNKNOWN',10000);
+  booking(db,'BK-DEC-FREE',{date:'2026-12-03',space:second,amount:0});
+  booking(db,'BK-DEC-REVIEW',{date:'2026-12-04',space:second,amount:100000});payment(db,'BK-DEC-REVIEW',20000,'refund');
+  booking(db,'BK-CANCELLED-MONTH',{date:'2026-12-05',amount:900000,status:'cancelled'});payment(db,'BK-CANCELLED-MONTH',900000);
+  booking(db,'BK-PAYMENT-REVIEW-MONTH',{date:'2026-12-06',amount:800000,status:'payment_review'});payment(db,'BK-PAYMENT-REVIEW-MONTH',800000);
+  booking(db,'BK-NEXT-YEAR',{date:'2027-01-01',amount:700000});payment(db,'BK-NEXT-YEAR',700000);
+  order(db,'PARK-MONTH',{code:null,product:'parking-batch',amount:30000});
+  const query='revenue?from=2026-01-01&to=2026-12-31',s=(await api(query)).bookingSummary;
+  assert.deepEqual(s.monthly.map(m=>m.month),Array.from({length:12},(_,i)=>'2026-'+String(i+1).padStart(2,'0')));
+  const zero=s.monthly[0];assert.equal(zero.month,'2026-01');
+  for(const key of Object.keys(zero).filter(key=>key!=='month'))assert.equal(zero[key],0,'empty month '+key);
+  assert.deepEqual(values(s.monthly[1]),{bookings:1,booked:100000,received:0,refunded:50000,net:-50000,balance:0,balanceCount:0});
+  assert.equal(s.monthly[1].balanceUnknownCount,1);assert.equal(s.monthly[1].reviewRequiredCount,1);
+  assert.equal(s.monthly[1].overRefunded,50000,'음수 순수납과 확인 필요 잔금은 0으로 대체하지 않는다');
+  assert.deepEqual(values(s.monthly[9]),{bookings:2,booked:300000,received:250000,refunded:0,net:250000,balance:100000,balanceCount:1});
+  assert.equal(s.monthly[9].excessPaid,50000);
+  assert.notEqual(s.monthly[9].balance,Math.max(0,s.monthly[9].booked-s.monthly[9].netReceived));
+  assert.deepEqual(values(s.monthly[10]),{bookings:1,booked:1000000,received:300000,refunded:0,net:300000,balance:700000,balanceCount:1});
+  assert.deepEqual(values(s.monthly[11]),{bookings:4,booked:600000,received:210000,refunded:70000,net:140000,balance:350000,balanceCount:1});
+  assert.equal(s.monthly[11].amountUnknownCount,1);assert.equal(s.monthly[11].balanceUnknownCount,2);
+  assert.equal(s.monthly[11].reviewRequiredCount,1);assert.equal(s.monthly[11].overRefunded,20000);
+  for(const key of Object.keys(zero).filter(key=>key!=='month'))assert.equal(s.monthly.reduce((sum,m)=>sum+m[key],0),s[key],key+' monthly/top reconciliation');
+  const filtered=(await api(query+'&category=parking&channel=payapp&component=parking&day=2026-11-01&page=2')).bookingSummary;
+  assert.deepEqual(filtered,s,'수납 분석과 상세 보기 조건은 세 가지 월별 예약 지표에 영향을 주지 않는다');
+  const branch=(await api(query+'&space='+second)).bookingSummary;
+  assert.deepEqual(branch.monthly[11],s.monthly[11]);
+  assert.equal(branch.monthly.slice(0,11).every(m=>m.bookingCount===0),true);
+  for(const key of Object.keys(zero).filter(key=>key!=='month'))assert.equal(branch.monthly.reduce((sum,m)=>sum+m[key],0),branch[key]);
+});
+
+test('월별 집계는 연도 경계·부분 월 범위를 유지하고 정산 조회를 월마다 반복하지 않는다',async t=>{
+  const {db,env}=setup(t);db.prepare('DELETE FROM bookings').run();
+  booking(db,'BK-BEFORE',{date:'2026-12-19',amount:90000});
+  booking(db,'BK-DEC-LAST',{date:'2026-12-31',amount:100000});payment(db,'BK-DEC-LAST',30000);
+  booking(db,'BK-JAN-FIRST',{date:'2027-01-01',amount:200000});payment(db,'BK-JAN-FIRST',50000);
+  booking(db,'BK-AFTER',{date:'2027-01-11',amount:80000});
+  let queries=0;
+  const wrapped={...env,DB:{...env.DB,prepare(sql){queries++;return env.DB.prepare(sql);}}};
+  const s=await revenueBookingSummary({env:wrapped,from:'2026-12-20',to:'2027-01-10'});
+  assert.equal(queries,2,'예약 집합 조회 한 번과 공통 정산 배치 한 번으로 두 달을 계산한다');
+  assert.deepEqual(s.monthly.map(m=>m.month),['2026-12','2027-01']);
+  assert.deepEqual(s.monthly.map(m=>[m.booked,m.netReceived,m.balance]),[[100000,30000,70000],[200000,50000,150000]]);
+  assert.equal(s.bookingCount,2);assert.equal(s.booked,300000);assert.equal(s.balance,220000);
+});
