@@ -353,7 +353,7 @@
     if(!force && drawerDirty[d.id] && !confirm('저장하지 않은 내용이 있습니다. 변경 내용을 버리고 닫을까요?')) return false;
     d.hidden=true; drawerDirty[d.id]=false; drawerStack=drawerStack.filter(function(x){ return x!==d; });
     if(!$$('.adm-drawer').some(function(x){ return !x.hidden; })) document.body.classList.remove('adm-lock');
-    var back=returnFocus[d.id]; if(back && back.isConnected) back.focus(); return true;
+    var back=returnFocus[d.id]; if(back && back.isConnected) back.focus({preventScroll:true}); return true;
   }
   document.addEventListener('input',function(e){ var d=e.target.closest('.adm-drawer'); if(d && (e.target.closest('form') || ['dr-memo','dr-amt','dr-amt-note','dr-ch-note'].indexOf(e.target.id)>=0)) drawerDirty[d.id]=true; });
   document.addEventListener('change',function(e){ var d=e.target.closest('.adm-drawer'); if(d && e.target.closest('form')) drawerDirty[d.id]=true; });
@@ -1579,7 +1579,15 @@
     if(month){var range=window.MEGASPOT_RESERVATION_PERIOD.bounds(month);params+=(params?'&':'?')+'from='+range.from+'&to='+range.to;}
     AList('/bookings'+params).then(function(r){ if(request!==bkRequest) return; bkCache=r.items||[]; drawBookings(); }).catch(function(e){ if(request===bkRequest) fail(box)(e); });
   }
-  function drawBookings(){
+  // Keep the current viewport when refreshed rows change height or disappear.
+  function keepReservationScroll(render){
+    var x=window.scrollX,y=window.scrollY,root=document.documentElement,anchor=root.style.overflowAnchor;
+    root.style.overflowAnchor='none';
+    try{render();window.scrollTo({left:x,top:y,behavior:'instant'});}
+    finally{root.style.overflowAnchor=anchor;}
+  }
+  function drawBookings(){keepReservationScroll(drawBookingsContent);}
+  function drawBookingsContent(){
     var f=$('#bk-filter').value, service=$('#bk-service-filter').value, space=$('#bk-space-filter').value, month=reservationMonth(), query=$('#bk-q')?$('#bk-q').value:'', payment=$('#bk-payment-filter')?$('#bk-payment-filter').value:'', channel=$('#bk-channel-filter')?$('#bk-channel-filter').value:'', t=todayIso();
     var list=bkCache.filter(function(b){ return (!month||String(b.date).slice(0,7)===month)&&(!space||spKey(b.space_id)===space)&&matchesConfirmedService(b,service)&&reservationChannelMatch(b,channel)&&reservationPaymentMatch(b,payment)&&reservationFilterMatch(b,f==='upcoming'?'confirmed':f,query)&&(f!=='upcoming'||month||b.date>=t); });
     var summary=$('#bk-service-summary');summary.hidden=!service;summary.textContent=service?$('#bk-service-filter').selectedOptions[0].textContent+' · '+list.length+'건':'';
@@ -1623,18 +1631,20 @@
     if(!$('#rs-from').value && !$('#rs-to').value) setRange(RS.range);
     var box=$('#rs-list'), request=++RS.request;
     RS.loading=true;
-    box.innerHTML='<div class="empty small">불러오는 중…</div>';
+    // Retain rendered rows during refresh so the page cannot collapse to the top.
+    if(!box.children.length) box.innerHTML='<div class="empty small">불러오는 중…</div>';
+    box.setAttribute('aria-busy','true');
     AList('/reservations?from='+encodeURIComponent($('#rs-from').value)+'&to='+encodeURIComponent($('#rs-to').value)).then(function(r){
       if(request!==RS.request) return;
       RS.loading=false;
-      RS.items=r.items||[]; RS.visits=r.visits||[]; RS.today=r.today||todayIso(); RS.undated=r.undated||0; drawResv();
+      RS.items=r.items||[]; RS.visits=r.visits||[]; RS.today=r.today||todayIso(); RS.undated=r.undated||0; box.setAttribute('aria-busy','false'); drawResv();
       if(typeof focusRef==='string'&&!$('#view-resv').hidden){
         var grip=$$('#rs-list tr[data-ref]').find(function(row){ return row.dataset.ref===focusRef; });
-        if(grip){ var control=$('.rs-grip',grip); if(control) control.focus(); }
+        if(grip){ var control=$('.rs-grip',grip); if(control) control.focus({preventScroll:true}); }
       }
     }).catch(function(error){
       if(request!==RS.request) return;
-      RS.loading=false; RS.items=[]; RS.visits=[]; RS.undated=0; fail(box)(error);
+      RS.loading=false; box.setAttribute('aria-busy','false'); if(RS.items.length){if(!guard(error)) M.toast(error.message||'예약 현황을 새로 불러오지 못했습니다.');}else fail(box)(error);
     });
   }
   var BST={confirmed:['예약 확정','st-ok'],completed:['이용 완료','st-done'],payment_review:['결제 완료 · 일정 확인 필요','st-quote'],cancelled:['취소','st-cancel']};
@@ -1679,7 +1689,8 @@
     status.hidden=!active;
     $('#rs-search-summary').textContent=active?'검색 적용 중 · “'+query+'” · 결과 '+count+'건':'';
   }
-  function drawResv(){
+  function drawResv(){keepReservationScroll(drawResvContent);}
+  function drawResvContent(){
     if(RS.loading) return;
     var base=resvBase(), list=resvFiltered(), box=$('#rs-list'), day=dayStats(base);
     updateResvSearch(list.length);
@@ -2107,11 +2118,11 @@
     var services=item.services||['catering','reception','cocktail'].filter(function(k){var v=(item.data||{})[k];return v&&typeof v==='object'&&!v.removed;}).map(function(k){return {kind:k,status:item.data[k].status};});
     return services.some(function(s){return s.status==='confirmed'&&['catering','reception','cocktail'].includes(s.kind)&&(filter==='confirmed'||s.kind===filter);});
   }
-  var calMonth=reservationMonth()||todayIso().slice(0,7), calRequest=0;
+  var calMonth=reservationMonth()||todayIso().slice(0,7), calRequest=0, calRenderedMonth='';
   function loadCalendar(){
     calMonth=reservationMonth()||calMonth;if(typeof window!=='undefined'&&window.MEGASPOT_RESERVATION_PERIOD)window.MEGASPOT_RESERVATION_PERIOD.set(calMonth);
     var grid=$('#cal-grid'), request=++calRequest;
-    drawCalendar([], [], [], true);
+    if(calRenderedMonth!==calMonth){drawCalendar([], [], [], true);calRenderedMonth=calMonth;}
     grid.setAttribute('aria-busy', 'true');
     $('#cal-status').textContent=$('#cal-title').textContent+' 일정을 불러오는 중입니다.';
     var end=calMonth+'-'+M.pad2(new Date(+calMonth.slice(0,4),+calMonth.slice(5,7),0).getDate());
@@ -2128,7 +2139,8 @@
       $('#cal-status').textContent='일정을 불러오지 못했습니다.';
     }).finally(function(){ if(request===calRequest) grid.setAttribute('aria-busy', 'false'); });
   }
-  function drawCalendar(blocks, bookings, inqs, loading){
+  function drawCalendar(blocks, bookings, inqs, loading){keepReservationScroll(function(){drawCalendarContent(blocks,bookings,inqs,loading);});}
+  function drawCalendarContent(blocks, bookings, inqs, loading){
     var foodFilter=$('#cal-service-filter').value,summary=$('#cal-service-summary');
     var status=$('#cal-status-filter').value||'',query=$('#cal-q').value||'',payment=$('#cal-payment-filter').value||'',channel=$('#cal-channel-filter').value||'';
     if(status||query||payment||channel){blocks=[];bookings=bookings.filter(function(b){return reservationFilterMatch(b,status,query)&&reservationPaymentMatch(b,payment)&&reservationChannelMatch(b,channel);});inqs=inqs.filter(function(i){return reservationFilterMatch(i,status,query)&&reservationPaymentMatch(i,payment)&&reservationChannelMatch(i,channel);});}

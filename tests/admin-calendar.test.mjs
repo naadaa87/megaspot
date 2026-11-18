@@ -6,7 +6,7 @@ import vm from 'node:vm';
 const source = readFileSync(new URL('../assets/js/pages/admin.js', import.meta.url), 'utf8');
 function calendar() {
   const nodes = {}, requests = [];
-  const context = vm.createContext({
+  const context = vm.createContext({keepReservationScroll:render=>render(),
     $: selector => nodes[selector] ||= { innerHTML: '', textContent: '', attrs: {}, setAttribute(k, v) { this.attrs[k] = v; } },
     A: path => new Promise((resolve, reject) => requests.push({ path, resolve, reject })),
     AList: path => new Promise((resolve, reject) => requests.push({ path, resolve, reject })),

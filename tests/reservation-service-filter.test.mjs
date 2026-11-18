@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import vm from 'node:vm';import {readFileSync} from 'node:fs';
 const source=readFileSync(new URL('../assets/js/pages/admin.js',import.meta.url),'utf8');
-function context(extra={}){const c=vm.createContext({esc:String,...extra});vm.runInContext(source.slice(source.indexOf('  function serviceChips('),source.indexOf('  var bkCache=')),c);return c;}
+function context(extra={}){const c=vm.createContext({keepReservationScroll:render=>render(),esc:String,...extra});vm.runInContext(source.slice(source.indexOf('  function serviceChips('),source.indexOf('  var bkCache=')),c);return c;}
 const rows=[
  {customer_name:'뷔페확정',status:'confirmed',date:'2026-12-01',services:[{kind:'catering',status:'confirmed'}]},
  {customer_name:'칵테일확정',status:'confirmed',date:'2026-12-02',services:[{kind:'cocktail',status:'confirmed'},{kind:'reception',status:'pending'}]},
