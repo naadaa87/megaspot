@@ -253,6 +253,22 @@
   /* =================== 문의 목록 =================== */
   var inqCache=[], inqRequest=0;
   var inqSearch={query:'',phase:'ready',count:0};
+  var inqFilterKey='megaspot.admin.inquiry.filters.v1';
+  function inquiryFilterValues(){return {status:$('#inq-status').value,type:$('#inq-type').value,channel:$('#inq-ch').value,query:$('#inq-q').value.slice(0,120)};}
+  function saveInquiryFilters(){
+    var value=inquiryFilterValues();
+    $('#inq-filter-reset').disabled=!Object.keys(value).some(function(key){return value[key].trim()!=='';});
+    try{localStorage.setItem(inqFilterKey,JSON.stringify(value));}catch(e){}
+  }
+  function restoreInquiryFilters(){
+    var saved;try{saved=JSON.parse(localStorage.getItem(inqFilterKey)||'null');}catch(e){}
+    if(saved&&typeof saved==='object'&&!Array.isArray(saved)){
+      [['status','#inq-status'],['type','#inq-type'],['channel','#inq-ch']].forEach(function(pair){var el=$(pair[1]),value=saved[pair[0]];if(typeof value==='string'&&Array.from(el.options).some(function(option){return option.value===value;}))el.value=value;});
+      if(typeof saved.query==='string')$('#inq-q').value=saved.query.slice(0,120);
+    }
+    saveInquiryFilters();updateInqSearch();
+  }
+
   function updateInqSearch(){
     var draft=$('#inq-q').value.trim(), query=inqSearch.query, active=!!(draft||query), summary='', hint='검색어에 맞는 문의만 표시 중입니다.';
     $('#inq-search').classList.toggle('is-active',active);
@@ -267,6 +283,7 @@
     $('#inq-search-hint').textContent=hint;
   }
   function loadInq(){
+    saveInquiryFilters();
     var box=$('#inq-list'); box.innerHTML='<div class="empty small">불러오는 중…</div>';
     var request=++inqRequest, query=$('#inq-q').value.trim();
     inqSearch={query:query,phase:'loading',count:0}; updateInqSearch();
@@ -334,10 +351,12 @@
     }).catch(function(e){ if(!guard(e)) M.toast(e.message); }).finally(function(){ btn.disabled=false; });
   });
   $('#inq-ch').innerHTML=chOptions('', '모든 경로');
+  restoreInquiryFilters();
   $('#inq-reload').addEventListener('click', loadInq); $('#inq-status').addEventListener('change', loadInq); $('#inq-type').addEventListener('change', loadInq); $('#inq-ch').addEventListener('change', loadInq);
   $('#inq-q').addEventListener('keydown', function(e){ if(e.key==='Enter') loadInq(); });
-  $('#inq-q').addEventListener('input', updateInqSearch);
+  $('#inq-q').addEventListener('input', function(){saveInquiryFilters();updateInqSearch();});
   $('#inq-search-clear').addEventListener('click', function(){ $('#inq-q').value=''; loadInq(); $('#inq-q').focus(); });
+  $('#inq-filter-reset').addEventListener('click',function(){['#inq-status','#inq-type','#inq-ch','#inq-q'].forEach(function(selector){$(selector).value='';});loadInq();});
   $('#inq-csv').addEventListener('click', function(){
     if(!inqCache.length){ M.toast('내려받을 문의가 없습니다. 먼저 목록을 불러오세요.'); return; }
     var cols=['문의번호','접수일시','상태','구분','유형','경로','유입','함께 알아보기','출장뷔페','이름','연락처','이메일','행사일','시작','종료','인원','목적','금액(원)','저장 견적(원)','회원','운영 메모'];

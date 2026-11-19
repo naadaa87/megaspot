@@ -37,3 +37,7 @@
  .page-admin .adm-drawer-body .field-row{grid-template-columns:minmax(0,1fr);gap:14px}
  .page-admin .adm-filters>.select{flex:1 1 100%;width:100%}
 }
+
+.page-admin .inq-filter-footer{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding-top:14px;border-top:1px solid var(--concrete-2)}
+.page-admin #view-inq .inq-filter-panel #inq-filter-reset{width:auto;min-width:120px}
+@media(max-width:599px){.page-admin #view-inq .inq-filter-panel #inq-filter-reset{width:100%}}
