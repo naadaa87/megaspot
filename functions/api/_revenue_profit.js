@@ -1,6 +1,7 @@
 import {err,json} from './_lib.js';
 import {revenueBookingCohort,revenueBookingScope} from './_revenue_bookings.js';
 import {readCocktailPricing,cocktailPricing} from './_cocktail_pricing.js';
+import {savedCleaningEstimateQuote} from './_revenue_estimate.js';
 
 const names={rental:'공간 대관·인원',catering:'출장뷔페',reception:'테이블·박스 케이터링',cocktail:'출장 칵테일',cleaning:'청소 지원',manager:'현장 매니저',banner:'현수막',other:'기타·확인 필요'};
 const foodKinds=['catering','reception','cocktail'];
@@ -34,15 +35,17 @@ const projectedExtras=expr=>`(SELECT json_group_array(json_object('label',json_e
   'amount',json_extract(extra.value,'$.amount'),${foodKinds.flatMap(kind=>[`'${kind}'`,serviceSql('extra.value',kind)]).join(',')})) FROM json_each(${expr},'$.extras') extra)`;
 
 // One projected context query per 90 reservations. No current selling price is used
-// to reconstruct saved sales, and no customer inquiry text enters this cost model.
+// to reconstruct saved sales. Only the generated pricing estimate is projected;
+// customer messages and contact fields never enter this cost model.
 export async function profitSourcesFor(env,codes) {
   const out={};
   for(let offset=0;offset<codes.length;offset+=90) {
     const batch=codes.slice(offset,offset+90),idata=safeSql('i.data'),qdata=safeSql('q.data'),cdata=safeSql('co.data');
-    const {results}=await env.DB.prepare(`SELECT b.booking_code,b.inquiry_ref,i.event_date AS inquiry_date,i.space_id AS inquiry_space,
+    const {results}=await env.DB.prepare(`SELECT b.booking_code,b.inquiry_ref,b.headcount AS booking_headcount,i.event_date AS inquiry_date,i.space_id AS inquiry_space,
       (SELECT COUNT(*) FROM bookings other WHERE other.inquiry_ref=b.inquiry_ref AND other.status<>'cancelled') AS sibling_count,
       (SELECT COUNT(*) FROM bookings other WHERE other.inquiry_ref=b.inquiry_ref AND other.status<>'cancelled' AND other.date=b.date AND other.space_id=b.space_id) AS event_sibling_count,
-      json_object(${foodKinds.flatMap(kind=>[`'${kind}'`,serviceSql(idata,kind),`'included_${kind}_amount'`,`json_extract(${idata},'$.included_${kind}_amount')`,`'${kind}_in_quote'`,`json_extract(${idata},'$.${kind}_in_quote')`]).join(',')},'options',json_extract(${idata},'$.options')) AS inquiry_data,
+      json_object(${foodKinds.flatMap(kind=>[`'${kind}'`,serviceSql(idata,kind),`'included_${kind}_amount'`,`json_extract(${idata},'$.included_${kind}_amount')`,`'${kind}_in_quote'`,`json_extract(${idata},'$.${kind}_in_quote')`]).join(',')},'options',json_extract(${idata},'$.options'),
+        'estimate',json_extract(${idata},'$.estimate'),'total',json_extract(${idata},'$.total')) AS inquiry_data,
       (SELECT json_object('total',q.total,'subtotal',json_extract(${qdata},'$.subtotal'),'discount',json_extract(${qdata},'$.discount'),
         'lines',${projectedLines(qdata)},'extras',${projectedExtras(qdata)},'options',json_extract(${qdata},'$.input.opts'))
        FROM quotes q WHERE q.inquiry_ref=b.inquiry_ref AND (q.event_date=b.date OR (q.event_date IS NULL AND NOT EXISTS
@@ -131,12 +134,19 @@ function discountedCore(rows,discount) {
 }
 
 export function calculateBookingProfit(booking,context,policy) {
-  const amount=booking.settlement.amount,d=context?.inquiry_data||{},quote=context?.quote_data,direct=context?.catering_data;
+  const amount=booking.settlement.amount,d=context?.inquiry_data||{},direct=context?.catering_data;
   const lines=[],reasons=[],snapshots={};
   if(!context)reasons.push(issue('booking_context_missing','예약의 서비스 구성 정보를 다시 확인해야 합니다.'));
   const inquirySafe=context?.sibling_count===1||(context?.inquiry_date===booking.event_date&&context?.inquiry_space===booking.space_id&&context?.event_sibling_count===1);
   if(inquirySafe)for(const kind of foodKinds)if(d[kind])snapshots[kind]=d[kind];
   if(direct)snapshots.catering={...direct.data,status:direct.status,total:direct.total};
+  // A rental-only saved estimate cannot settle an active food service's inclusion.
+  const unresolvedFood=foodKinds.some(kind=>{
+    const snapshot=snapshots[kind],included=kind==='catering'&&direct?money(direct.data?.included_amount):money(d['included_'+kind+'_amount']);
+    const flag=kind==='catering'&&direct?direct.data?.include_in_booking:d[kind+'_in_quote'];
+    return included>0||snapshot&&!snapshot.removed&&snapshot.status!=='cancelled'&&included!==0&&flag!==false&&flag!==0;
+  });
+  const quote=context?.quote_data||(!unresolvedFood?savedCleaningEstimateQuote(booking,context):null);
   const quoteMatches=quote&&money(quote.total)===amount;
   const extras=quoteMatches&&Array.isArray(quote.extras)?quote.extras:[];
   const manager=quoteMatches&&Object.hasOwn(quote.options||{},'manager')?quote.options.manager:inquirySafe?d.options?.manager:null;
@@ -190,6 +200,7 @@ export function calculateBookingProfit(booking,context,policy) {
     lines.unshift(rentalLine(amount==null||ambiguous?null:amount-included));
   }
   if(amount==null)reasons.push(issue('contract_amount_unknown','확정 예약금액이 미정입니다.'));
+  if(quote?.source==='inquiry-estimate')for(const line of lines)line.basis+=' · 문의에 저장된 요금 계산 내역';
   for(const line of lines)reasons.push(...line.reasons);
   const unique=[...new Map(reasons.map(reason=>[reason.code,reason])).values()],complete=amount!=null&&!unique.length&&lines.every(line=>line.cost!=null&&line.profit!=null);
   return {booking_code:booking.booking_code,customer_name:booking.customer_name,date:booking.event_date,space_id:booking.space_id,
