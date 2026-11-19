@@ -1,3 +1,4 @@
+import {overdueBalancePrefix} from './_overdue_balance_operation.js';
 import {unpaidAdminTitles,currentUnpaidAdminNotice,unpaidAdminTrial,unpaidAdminPhones} from './_unpaid_admin_notices.js';
 import {CUSTOMER_ALIMTALK} from './_customer_alimtalk_templates.js';
 import {prepareFeedbackLink,feedbackMessage} from './_feedback.js';
@@ -101,7 +102,7 @@ async function dispatch(env,row){
   if(!contacts&&['inquiry','reservation_request'].includes(row.kind))contacts=await env.DB.prepare("SELECT phone,json_extract(data,'$.phone2') AS phone2 FROM inquiries WHERE ref=?").bind(row.ref).first();
   if(!contacts){const order=await env.DB.prepare('SELECT booking_code,buyer_phone FROM orders WHERE oid=?').bind(row.ref).first();if(order)contacts=order.booking_code?await bookingContacts(env,order.booking_code):{phone:order.buyer_phone};}
   if(contacts){
-   if(guidePhone(row.receiver)===guidePhone(contacts.phone))for(const phone of contactPhones(contacts).filter(p=>p!==guidePhone(contacts.phone)))await env.DB.prepare(`INSERT OR IGNORE INTO transaction_notifications(event_key,kind,audience,ref,booking_code,receiver,amount,occurred_at) VALUES(?,?,?,?,?,?,?,?)`).bind(row.event_key,row.kind,'customer',row.ref,row.booking_code,phone,row.amount,row.occurred_at).run();
+   if(!row.event_key.startsWith(overdueBalancePrefix)&&guidePhone(row.receiver)===guidePhone(contacts.phone))for(const phone of contactPhones(contacts).filter(p=>p!==guidePhone(contacts.phone)))await env.DB.prepare(`INSERT OR IGNORE INTO transaction_notifications(event_key,kind,audience,ref,booking_code,receiver,amount,occurred_at) VALUES(?,?,?,?,?,?,?,?)`).bind(row.event_key,row.kind,'customer',row.ref,row.booking_code,phone,row.amount,row.occurred_at).run();
    if(!contactPhones(contacts).includes(guidePhone(row.receiver)))return state(env,row.id,'cancelled','수신 연락처가 변경되었습니다.');
   }
  }

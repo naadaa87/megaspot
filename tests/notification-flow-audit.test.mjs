@@ -94,3 +94,20 @@ test('미납 시험 문자는 지정된 관리자에게 2건만 발송하고 예
  const listed=await f.api('booking-notifications/operator-tests');assert.equal(listed.items[0].ref,check.ref);
  assert.equal(f.db.prepare('SELECT COUNT(*) n FROM bookings').get().n,1);
 });
+
+test('기한 지난 잔금 안내는 해당 오전에 선택한 미발송 예약만 1회 요청한다',async t=>{
+ const f=setup(t);
+ f.db.prepare('UPDATE bookings SET date=?').run(shiftDay(f.today,1));
+ f.db.prepare("INSERT INTO booking_payment_schedule(booking_code,due_date,version,updated_at) VALUES('BK-TEST',?,1,CURRENT_TIMESTAMP)").run(shiftDay(f.today,-1));
+ const query={action:'audit_overdue_balance',date:f.today};
+ const enqueue={action:'queue_overdue_balance',date:f.today,codes:['BK-TEST'],confirm_send:true};
+ assert.equal((await f.op({...enqueue,date:shiftDay(f.today,1)})).status,409);
+ t.mock.method(Date,'now',()=>Date.parse(f.today+'T10:00:00+09:00'));
+ const candidates=await f.op(query);assert.equal(candidates.items.length,1);
+ assert.equal(f.db.prepare("SELECT COUNT(*) n FROM transaction_notifications WHERE kind='balance_reminder'").get().n,0);
+ assert.equal((await f.op(enqueue)).items[0].queued,1);
+ assert.deepEqual((await f.op(enqueue)).items,[]);
+ await transactionNoticeTick(f.env);
+ assert.equal(f.sent.length,1);assert.equal(f.sent[0].tpl_code,'UN_6619');
+ assert.match(f.sent[0].message_1,/납부 기한/);
+});

@@ -1,3 +1,4 @@
+import {overdueBalanceEvent,overdueBalancePrefix} from './_overdue_balance_operation.js';
 import {queueUnpaidAdminNotices,unpaidAdminPhones} from './_unpaid_admin_notices.js';
 import {eventTime} from './_deposit_refunds.js';
 import {noManualArrivalSql} from './_arrival_guard.js';
@@ -26,8 +27,16 @@ export async function journeyContext(env,row,{preview=false}={}){
  const s=await settlementFor(env,b.booking_code),schedule=await paymentSchedule(env,b);
  const hidden=b.amount_visible===0||(b.confirm_doc&&JSON.parse(b.confirm_doc).show_amount===false);
  if(['balance_reminder','rental_paid'].includes(row.kind)&&(hidden||s.amount==null))return {hold:'금액 공개 및 이용료 확정 확인 필요'};
- if(row.kind==='balance_reminder'&&(!(s.balance>0)||schedule.due_date<today||today<schedule.reminder_date||b.confirmed_at?.slice(0,10)>=today||!row.event_key.endsWith(':'+schedule.due_date)))return {cancel:'잔금 또는 납부 기한이 변경되었습니다.'};
- if(row.kind==='balance_reminder'&&await env.DB.prepare("SELECT 1 FROM transaction_notifications WHERE booking_code=? AND kind='balance_reminder' AND receiver=? AND event_key LIKE ? AND event_key<>? AND status IN ('sending','accepted','unknown','delivered')").bind(b.booking_code,row.receiver,'journey-balance:'+b.booking_code+':'+b.confirm_version+':%',row.event_key).first())return {cancel:'이 예약의 잔금 안내를 이미 발송했거나 결과를 확인 중입니다.'};
+ if(row.kind==='balance_reminder'){
+  const overdue=row.event_key.startsWith(overdueBalancePrefix);
+  const valid=overdue?schedule.due_date<today&&row.event_key===overdueBalanceEvent(b,today,schedule.due_date):
+   schedule.due_date>=today&&today>=schedule.reminder_date&&b.confirmed_at?.slice(0,10)<today&&row.event_key.endsWith(':'+schedule.due_date);
+  if(!(s.balance>0)||!valid)return {cancel:'잔금 또는 납부 기한이 변경되었습니다.'};
+  const old=await env.DB.prepare(`SELECT 1 FROM transaction_notifications WHERE booking_code=? AND kind='balance_reminder'
+   AND replace(receiver,'-','')=? AND event_key<>? AND (event_key LIKE ? OR ?=1) AND status IN ('sending','accepted','unknown','delivered')`)
+   .bind(b.booking_code,row.receiver,row.event_key,'journey-balance:'+b.booking_code+':'+b.confirm_version+':%',overdue?1:0).first();
+  if(old)return {cancel:'이 예약의 잔금 안내를 이미 발송했거나 결과를 확인 중입니다.'};
+ }
  if(row.kind==='rental_paid'&&(s.balance!==0||s.net<=0||s.over_refunded))return {cancel:'이용료 수납 상태가 변경되었습니다.'};
  if(row.kind==='booking_arrival'&&(b.date!==shiftDay(today,1)||b.confirmed_at?.slice(0,10)>=today||!row.event_key.endsWith(':'+b.date)))return {cancel:'방문 전날 안내 대상이 아닙니다.'};
  if(row.kind==='booking_arrival'&&!await env.DB.prepare(`SELECT 1 FROM bookings b WHERE booking_code=? AND ${noManualArrivalSql()}`).bind(b.booking_code,String(row.receiver).replace(/\D/g,'')).first())return {cancel:'현재 예약의 입실 안내가 수동 발송되어 자동 안내를 생략합니다.'};
@@ -50,7 +59,7 @@ export async function bookingJourneyTick(env){
  const claimed=await env.DB.prepare("INSERT INTO booking_guide_lease(name,until_at) VALUES('journey',?) ON CONFLICT(name) DO UPDATE SET until_at=excluded.until_at WHERE booking_guide_lease.until_at<?").bind(lease,Date.now()).run();
  if(!Number(claimed.meta?.changes??claimed.changes))return;
  try{
- await env.DB.prepare(`INSERT OR IGNORE INTO transaction_notifications(event_key,kind,audience,ref,booking_code,receiver,amount,occurred_at) SELECT n.event_key,n.kind,'customer',n.ref,n.booking_code,${bookingPhone2Sql()},n.amount,n.occurred_at FROM transaction_notifications n JOIN bookings b ON b.booking_code=n.booking_code WHERE n.kind IN ('booking_confirmed','balance_reminder','rental_paid','booking_arrival') AND n.status='queued' AND b.status='confirmed' AND (${bookingPhone2Sql()})<>''`).run();
+ await env.DB.prepare(`INSERT OR IGNORE INTO transaction_notifications(event_key,kind,audience,ref,booking_code,receiver,amount,occurred_at) SELECT n.event_key,n.kind,'customer',n.ref,n.booking_code,${bookingPhone2Sql()},n.amount,n.occurred_at FROM transaction_notifications n JOIN bookings b ON b.booking_code=n.booking_code WHERE n.kind IN ('booking_confirmed','balance_reminder','rental_paid','booking_arrival') AND n.event_key NOT LIKE 'overdue-balance:%' AND n.status='queued' AND b.status='confirmed' AND (${bookingPhone2Sql()})<>''`).run();
  const today=dayAt(Date.now()),hourKST=new Date(Date.now()+9*3600000).getUTCHours();
  const {results:rows}=await env.DB.prepare(`SELECT b.*,j.paid_state,j.paid_cycle,j.confirmed_at,j.confirm_version,(SELECT COUNT(*) FROM booking_payment_current e WHERE e.booking_code=b.booking_code AND e.state='active' AND e.kind='receipt')+(SELECT COUNT(*) FROM orders o WHERE o.booking_code=b.booking_code AND o.test=0 AND o.status IN ('paid','refunded')) AS receipt_count FROM bookings b JOIN booking_journey_state j ON j.booking_code=b.booking_code WHERE b.status='confirmed' AND b.date>=? ORDER BY j.checked_at,b.booking_code LIMIT 40`).bind(today).all();
  const staff=hourKST>=9&&hourKST<21?await unpaidAdminPhones(env):[];

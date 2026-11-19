@@ -1,3 +1,4 @@
+import {overdueBalanceOperation} from './_overdue_balance_operation.js';
 import {bookingNotificationsAdmin} from './_booking_notifications.js';
 import {unpaidAdminTrialStatus} from './_transaction_notifications.js';
 import {unpaidAdminPhones} from './_unpaid_admin_notices.js';
@@ -18,6 +19,7 @@ export async function notificationAudit(env){
  return {manual_guide:{enabled:s.enabled,automatic:s.automatic,code:s.template_code,spaces:s.spaces,test_delivered:s.test_delivered},legacy_queued:legacyPending?.n||0,transaction_counts:transactions,deposit_counts:deposits};
 }
 export async function notificationOperations(env,d){
+ if(['audit_overdue_balance','queue_overdue_balance'].includes(d?.action))return overdueBalanceOperation(env,d);
  if(['send_unpaid_admin_test','check_unpaid_admin_test'].includes(d?.action)){
   const receiver=guidePhone(d.phone),id=String(d.test_id||'').toUpperCase();
   if(!/^[A-F0-9]{32}$/.test(id)||!receiver||!(await unpaidAdminPhones(env)).includes(receiver))return err('등록 관리자 번호와 시험 요청을 확인해 주세요.',403);
