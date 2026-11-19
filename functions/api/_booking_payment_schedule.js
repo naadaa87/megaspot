@@ -3,13 +3,14 @@ export const dayAt=at=>new Date(at+9*3600000).toISOString().slice(0,10);
 export const shiftDay=(date,n)=>new Date(Date.parse(date+'T00:00:00Z')+n*86400000).toISOString().slice(0,10);
 export function defaultBalanceDue(b){
  const created=String(b.confirmed_at||b.created_at||'').slice(0,10);
- const nominal=shiftDay(b.date,-3);
+ const nominal=shiftDay(b.date,-15);
  return /^\d{4}-\d{2}-\d{2}$/.test(created)&&created>nominal?created:nominal;
 }
 export async function paymentSchedule(env,b){
  const row=await env.DB.prepare('SELECT * FROM booking_payment_schedule WHERE booking_code=?').bind(b.booking_code).first();
  const state=await env.DB.prepare('SELECT confirmed_at FROM booking_journey_state WHERE booking_code=?').bind(b.booking_code).first();
- return {due_date:row?.due_date||defaultBalanceDue({...b,confirmed_at:state?.confirmed_at||b.confirmed_at}),custom:!!row?.due_date,version:row?.version||0};
+ const due_date=row?.due_date||defaultBalanceDue({...b,confirmed_at:state?.confirmed_at||b.confirmed_at});
+ return {due_date,reminder_date:row?.due_date?shiftDay(due_date,-7):shiftDay(b.date,-22),custom:!!row?.due_date,version:row?.version||0};
 }
 export async function paymentScheduleAdmin({env,request,path,method}){
  const code=path.split('/')[1],b=await env.DB.prepare('SELECT * FROM bookings WHERE booking_code=?').bind(code).first();

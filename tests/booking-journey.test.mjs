@@ -48,9 +48,19 @@ test('잔금 완납만 1회 기록하고 보증금 미납 상태는 별도로 �
 test('처음부터 전액 납부한 확정에 확정·완납 알림을 중복하지 않는다',async t=>{
  const f=setup(t);f.create();f.receipt('BK-NEW',500000,'full');await f.tick();assert.ok(f.row());assert.equal(f.row('rental_paid'),undefined);
 });
+test('잔금 안내는 이용 22일 전 09시부터 요청하고 기한은 이용 15일 전이다',async t=>{
+ const f=setup(t),today=dayAt(Date.now()),date=shiftDay(today,22);
+ f.create(date);f.receipt('BK-NEW',100000,'deposit-only');
+ f.db.exec("UPDATE booking_journey_state SET confirmed_at='2020-01-01'");
+ const schedule=await f.api('bookings/BK-NEW/payment-schedule');
+ assert.equal(schedule.due_date,shiftDay(date,-15));assert.equal(schedule.reminder_date,today);
+ t.mock.method(Date,'now',()=>Date.parse(today+'T08:59:00+09:00'));await f.tick();assert.equal(f.row('balance_reminder'),undefined);
+ t.mock.method(Date,'now',()=>Date.parse(today+'T09:00:00+09:00'));await f.tick();await f.tick();
+ assert.equal(f.db.prepare("SELECT COUNT(*) n FROM transaction_notifications WHERE kind='balance_reminder'").get().n,1);
+});
 test('잔금 기한을 수정하고 납부·기한 변경 시 과거 안내를 취소한다',async t=>{
  const f=setup(t);f.create();f.receipt('BK-NEW',100000,'part');
- const initial=await f.api('bookings/BK-NEW/payment-schedule');assert.equal(initial.due_date,shiftDay(DAY,-3));
+ const initial=await f.api('bookings/BK-NEW/payment-schedule');assert.equal(initial.due_date,shiftDay(DAY,-15));
  const due=shiftDay(dayAt(Date.now()),1);let saved=await f.api('bookings/BK-NEW/payment-schedule','PUT',{due_date:due,version:0});assert.equal(saved.version,1);
  f.db.exec("UPDATE booking_journey_state SET confirmed_at='2020-01-01' WHERE booking_code='BK-NEW'");await f.tick();assert.ok(f.row('balance_reminder'));
  await f.api('bookings/BK-NEW/payment-schedule','PUT',{due_date:DAY,version:0},409);

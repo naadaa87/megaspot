@@ -1,5 +1,5 @@
 import {saveNotificationContent,noticeButtons} from './_notification_content.js';
-import {depositDueDate,depositPaymentWindow,depositConfirmedSql,depositDueSql} from './_deposit_due.js';
+import {depositDueDate,depositPaymentWindow,depositConfirmedSql,depositDueSql,depositReminderSql} from './_deposit_due.js';
 import {contactPhones,bookingPhone2Sql} from './_contacts.js';
 import {customerFallback,customerFallbackResult} from './_customer_alimtalk.js';
 // Information-only notices. DB triggers create an outbox in the booking transaction.
@@ -137,9 +137,9 @@ export async function depositNoticeTick(env,send=true){
   if(active&&send&&h>=9&&h<21){
    const readyKinds=[];for(const kind of kinds)if(s.types[kind]&&await tested(env,kind,hashes))readyKinds.push(kind);
    const scheduled=(await env.DB.prepare("SELECT json_extract(value,'$.enabled') AS enabled FROM settings WHERE key='booking_journey'").first())?.enabled===1;
-   const today=new Date(Date.now()+9*36e5).toISOString().slice(0,10),tomorrow=new Date(Date.parse(today+'T00:00:00Z')+86400000).toISOString().slice(0,10);
+   const today=new Date(Date.now()+9*36e5).toISOString().slice(0,10);
    if(scheduled)await env.DB.prepare(`UPDATE deposit_notifications SET status='cancelled',error='납부 기한 경과 또는 예약·보증금 입금 상태 변경',updated_at=? WHERE kind='payment' AND mode='live' AND status='queued' AND request_id IS NULL AND provider_mid IS NULL AND EXISTS(SELECT 1 FROM bookings b WHERE b.booking_code=deposit_notifications.booking_code AND (b.status<>'confirmed' OR ${depositDueSql()}<? OR CASE WHEN b.inquiry_ref IS NOT NULL THEN COALESCE((SELECT json_extract(checks,'$.guarantee_paid') FROM inquiry_checks WHERE ref=b.inquiry_ref),0) ELSE COALESCE((SELECT paid FROM booking_deposit_checks WHERE booking_code=b.booking_code),0) END<>0))`).bind(now(),today).run();
-   const {results}=readyKinds.length?await env.DB.prepare(`SELECT n.* FROM deposit_notifications n WHERE n.status='queued' AND n.mode='live' AND n.kind IN (${readyKinds.map(()=>'?').join(',')}) AND (?=0 OR n.kind<>'payment' OR EXISTS(SELECT 1 FROM bookings b WHERE b.booking_code=n.booking_code AND ${depositDueSql()} BETWEEN ? AND ? AND COALESCE(${depositConfirmedSql()},'')<?)) AND (?=0 OR n.kind<>'account' OR n.event_key<>n.booking_code||':account' OR NOT EXISTS(${initialConfirmationSql('n',"('queued','sending','unknown')")})) ORDER BY n.id LIMIT 3`).bind(...readyKinds,scheduled?1:0,today,tomorrow,today,scheduled?1:0).all():{results:[]};
+   const {results}=readyKinds.length?await env.DB.prepare(`SELECT n.* FROM deposit_notifications n WHERE n.status='queued' AND n.mode='live' AND n.kind IN (${readyKinds.map(()=>'?').join(',')}) AND (?=0 OR n.kind<>'payment' OR EXISTS(SELECT 1 FROM bookings b WHERE b.booking_code=n.booking_code AND ${depositReminderSql()}<=? AND ${depositDueSql()}>=? AND COALESCE(${depositConfirmedSql()},'')<?)) AND (?=0 OR n.kind<>'account' OR n.event_key<>n.booking_code||':account' OR NOT EXISTS(${initialConfirmationSql('n',"('queued','sending','unknown')")})) ORDER BY n.id LIMIT 3`).bind(...readyKinds,scheduled?1:0,today,today,today,scheduled?1:0).all():{results:[]};
    for(const e of results||[])try{await dispatch(env,e);}catch{}
   }
   return {ok:true,enabled:active};
@@ -154,7 +154,7 @@ export async function depositNoticeCron(request,env,readOnly=false){
   const proofs=Object.fromEntries(await Promise.all(kinds.map(async kind=>[kind,await tested(env,kind,hashes)])));
   const ready=Object.fromEntries(kinds.map(kind=>[kind,live&&s.enabled&&s.types[kind]&&match&&proofs[kind]]));
   const scheduled=(await env.DB.prepare("SELECT json_extract(value,'$.enabled') AS enabled FROM settings WHERE key='booking_journey'").first())?.enabled===1;
-  return json({ok:true,configured:true,enabled:s.enabled,live_allowed:live,types:s.types,payment_schedule:scheduled?'day_before_due':'on_confirmation',send_hours:'09:00–21:00',settings_match:match,codes:s.codes,tested:proofs,ready});
+  return json({ok:true,configured:true,enabled:s.enabled,live_allowed:live,types:s.types,payment_schedule:scheduled?'seven_days_before_visit':'on_confirmation',send_hours:'09:00–21:00',settings_match:match,codes:s.codes,tested:proofs,ready});
  }
  return json(await depositNoticeTick(env));
 }

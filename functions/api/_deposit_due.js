@@ -10,9 +10,13 @@ export function depositDueDate(b){
  if(!/^\d{4}-\d{2}-\d{2}$/.test(b?.date||'')||!Number.isFinite(Date.parse(b.date+'T00:00:00Z')))return null;
  const due=shifted(b.date,-3),confirmed=depositConfirmedDay(b);return confirmed&&confirmed>due?confirmed:due;
 }
+export function depositReminderDate(b){
+ return depositDueDate(b)?shifted(b.date,-7):null;
+}
 export function depositPaymentWindow(b,at=Date.now()){
  const due=depositDueDate(b),today=day(at),confirmed=depositConfirmedDay(b);
- return !!due&&(!confirmed||confirmed<today)&&today>=shifted(due,-1)&&today<=due;
+ return !!due&&(!confirmed||confirmed<today)&&today>=depositReminderDate(b)&&today<=due;
 }
 export const depositConfirmedSql=(alias='b')=>`COALESCE((SELECT CASE WHEN j.confirm_version>0 THEN substr(j.confirmed_at,1,10) ELSE date(j.confirmed_at,'+9 hours') END FROM booking_journey_state j WHERE j.booking_code=${alias}.booking_code),date(${alias}.created_at,'+9 hours'))`;
 export const depositDueSql=(alias='b')=>`max(date(${alias}.date,'-3 days'),COALESCE(${depositConfirmedSql(alias)},date(${alias}.date,'-3 days')))`;
+export const depositReminderSql=(alias='b')=>`date(${alias}.date,'-7 days')`;

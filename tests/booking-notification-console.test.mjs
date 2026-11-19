@@ -52,7 +52,7 @@ test('수신번호 2개 중 이미 받은 번호는 제외하고 미발송 번�
  const p=await f.api(path+'/preview','POST',{kind:'booking_confirmed'});assert.deepEqual(p.items.map(x=>x.phone),['01088887777']);
 });
 test('예약금·전액 납부·방문 전날·보증금 기한 전 시나리오에 맞게 수동 발송 가능 여부를 구분한다',async t=>{
- const f=setup(t);let r=await f.api(path);assert.match(r.steps.find(x=>x.kind==='balance_reminder').reason,/전날/);assert.equal(r.steps.find(x=>x.kind==='booking_arrival').can_send,false);assert.equal(r.steps.find(x=>x.kind==='payment').can_send,false);
+ const f=setup(t);f.db.prepare('UPDATE bookings SET date=?').run(shiftDay(f.today,30));let r=await f.api(path);assert.match(r.steps.find(x=>x.kind==='balance_reminder').reason,/안내 예정일/);assert.equal(r.steps.find(x=>x.kind==='booking_arrival').can_send,false);assert.equal(r.steps.find(x=>x.kind==='payment').can_send,false);
  f.db.exec("INSERT INTO booking_payment_entries(booking_code,request_id,kind,amount,note,created_at) VALUES('BK-TEST','full','receipt',500000,'전액',datetime('now'))");
  r=await f.api(path);assert.match(r.steps.find(x=>x.kind==='balance_reminder').reason,/남은 이용료/);assert.match(r.steps.find(x=>x.kind==='rental_paid').reason,/처음부터/);
  f.db.prepare("UPDATE bookings SET date=? WHERE booking_code='BK-TEST'").run(shiftDay(f.today,1));r=await f.api(path);assert.equal(r.steps.find(x=>x.kind==='booking_arrival').can_send,true);

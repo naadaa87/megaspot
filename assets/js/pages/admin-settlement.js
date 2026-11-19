@@ -5,7 +5,7 @@
  var dialog=document.createElement('dialog');dialog.className='rf-modal';dialog.id='payment-dialog';
  dialog.innerHTML=`<div class="rf-modal-head"><h2 id="payment-title">이용료 수납·정산</h2><button class="btn btn-light btn-sm" type="button" id="payment-close">닫기</button></div>
  <div class="rf-modal-body"><div id="payment-overview" class="payment-overview"></div>
- <section class="payment-details"><h3>이용료 잔금 기한</h3><div class="field-row"><div class="f"><label for="payment-due">잔금 납부일</label><input class="input" type="date" id="payment-due"></div><button class="btn btn-light" id="payment-due-save" type="button">기한 저장</button></div><p class="small muted">기본은 이용 3일 전이며 임박 예약은 확정일입니다. 보증금과 별도입니다. 잔금이 남아 있으면 기한 전날 안내하며, 입금 내역을 기록하면 잔금이 갱신됩니다.</p><p id="payment-due-status" role="status"></p></section>
+ <section class="payment-details"><h3>이용료 잔금 기한</h3><div class="field-row"><div class="f"><label for="payment-due">잔금 납부일</label><input class="input" type="date" id="payment-due"></div><button class="btn btn-light" id="payment-due-save" type="button">기한 저장</button></div><p class="small muted">기본은 이용일 15일 전이며 그 이후에 확정되면 확정일입니다. 미납 안내는 이용일 22일 전부터 발송합니다. 별도로 지정한 잔금 기한은 7일 전부터 안내합니다.</p><p id="payment-due-status" role="status"></p></section>
  <section id="payment-result" class="payment-result" tabindex="-1" aria-label="합산 입금 처리 결과" hidden>
   <h3>합산 입금 처리 완료</h3><p id="payment-result-summary" aria-live="polite"></p>
   <div class="payment-result-stage"><b>예약확정서</b><span id="payment-document-state"></span><button class="btn btn-light" type="button" id="payment-document">최신 확정서 보기</button></div>
