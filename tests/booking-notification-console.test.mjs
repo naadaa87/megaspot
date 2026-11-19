@@ -15,7 +15,20 @@ const path='booking-notifications/BK-TEST';
 test('예약별 조회는 기존 이용 안내와 통합 확정 안내를 구분하고 고객·관리자 이력을 함께 표시한다',async t=>{
  const f=setup(t);const list=await f.api('booking-notifications');assert.equal(list.items[0].booking_code,'BK-TEST');
  f.db.exec("INSERT INTO transaction_notifications(event_key,kind,audience,ref,booking_code,receiver,status,occurred_at) VALUES('a','inquiry','admin','MS-TEST',NULL,'01099998888','delivered',datetime('now'))");
- const r=await f.api(path);assert.equal(r.steps.length,7);assert.equal(r.history[0].audience,'admin');assert.equal(r.steps.find(x=>x.kind==='booking_confirmed').can_send,true);assert.equal(f.sends(),0);
+ const r=await f.api(path);assert.equal(r.steps.length,8);assert.equal(r.steps.find(x=>x.kind==='booking_feedback').recipients[0].status,'scheduled');assert.equal(r.history[0].audience,'admin');assert.equal(r.steps.find(x=>x.kind==='booking_confirmed').can_send,true);assert.equal(f.sends(),0);
+});
+test('이용 완료 후 설문 카드는 실제 자동 발송 이력과 예시를 표시한다',async t=>{
+ const f=setup(t);
+ f.db.exec("UPDATE bookings SET status='completed' WHERE booking_code='BK-TEST'");
+ const r=await f.api(path),stage=r.steps.find(x=>x.kind==='booking_feedback');
+ assert.equal(stage.recipients[0].status,'queued');
+ assert.equal(stage.can_send,false);
+ assert.equal(r.history.filter(x=>x.kind==='booking_feedback').length,1);
+ const content=await f.api(path+'/content?kind=booking_feedback');
+ assert.match(content.current.message,/즐거운 시간 보내셨나요/);
+ assert.equal(content.current.buttons[0].name,'이용 의견 남기기');
+ assert.equal(content.current.buttons[0].linkMo,'');
+ assert.equal(f.sends(),0);
 });
 test('미리보기는 발송하지 않고 확인한 단건 요청은 반복 실행해도 중복 큐를 만들지 않는다',async t=>{
  const f=setup(t),p=await f.api(path+'/preview','POST',{kind:'booking_confirmed'});assert.equal(f.sends(),0);assert.match(p.items[0].message,/검증 고객/);assert.equal(p.items[0].buttons.length,2);

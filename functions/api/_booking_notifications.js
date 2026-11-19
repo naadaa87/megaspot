@@ -55,6 +55,19 @@ async function steps(env,c){
   const can=recipients.filter(r=>r.can_send);
   result.push({action_key:kind,kind,engine,label:labels[kind],event_key:key||'',due:kind==='balance_reminder'?schedule.due_date:kind==='payment'?depositDueDate(db):kind==='booking_arrival'?shiftDay(b.date,-1):'',reason:phones.length?reason:'알림톡을 받을 휴대폰 번호를 등록해 주세요.',recipients,can_send:can.length>0});
  }
+ const feedbackRows=history.filter(r=>r.kind==='booking_feedback'&&r.engine==='transaction'&&r.booking_code===b.booking_code&&r.audience==='customer');
+ const primary=guidePhone(b.phone);
+ const latest=feedbackRows[0];
+ const feedbackReason=b.status==='completed'
+  ?'자동 발송 이력이 없습니다. 기존 이용 완료 예약에는 소급 발송하지 않습니다.'
+  :b.status==='confirmed'?'이용 완료로 처리하면 대표 연락처로 자동 발송합니다.':'확정 후 이용 완료 처리한 예약이 발송 대상입니다.';
+ result.push({
+  action_key:'booking_feedback',kind:'booking_feedback',engine:'transaction',label:labels.booking_feedback,
+  reason:primary?feedbackReason:'예약자 대표 휴대폰 번호를 확인해 주세요.',
+  recipients:latest?[{phone:latest.receiver,status:latest.status,at:latest.updated_at,reason:latest.error||'',can_send:false}]
+   :primary?[{phone:primary,status:b.status==='confirmed'?'scheduled':b.status==='completed'?'unsent':'not_required',reason:feedbackReason,can_send:false}]:[],
+  can_send:false
+ });
  for(const row of history.filter(r=>r.engine==='transaction'&&r.audience==='customer'&&r.status==='failed'&&r.kind!=='booking_feedback'&&!Object.hasOwn(keys,r.kind)&&CUSTOMER_ALIMTALK[r.kind])){
   let reason=phones.includes(guidePhone(row.receiver))?'':'수신번호가 변경되어 재발송할 수 없습니다.';
   if(!reason&&!c.enabled)reason='고객 알림 발송 설정을 확인해 주세요.';
