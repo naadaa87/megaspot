@@ -13,10 +13,12 @@ function setup(t){
  f.db.prepare("INSERT INTO settings VALUES('booking_journey','{\"enabled\":true}',datetime('now'))").run();
  f.db.prepare("INSERT INTO settings VALUES('parking_admin_alerts',?,datetime('now'))").run(JSON.stringify({phones:['01011112222']}));
  f.db.prepare("INSERT INTO settings VALUES('reservation_guide',?,datetime('now'))").run(JSON.stringify({variant:'legacy',enabled:true,automatic:false,template_code:'UN_3115',spaces:['megaspot-gundae']}));
- const sent=[];
+ const sent=[],sms=[];
  t.mock.method(globalThis,'fetch',async(url,init)=>{assert.equal(url,f.env.ALIGO_RELAY_URL);const {path,data:d}=JSON.parse(init.body);
   if(path==='transaction/status')return Response.json({ready:true});
   if(path==='template/list'){const template=Object.values(T).find(t=>t.code===d.tpl_code);assert.ok(template,'supported approved template '+d.tpl_code);return Response.json({code:0,list:[{templtCode:template.code,senderKey:f.env.ALIGO_SENDER_KEY,inspStatus:'APR',status:'A',templtContent:template.content,buttons:template.buttons}]});}
+  if(path==='transaction/admin/send'){sms.push(d);return Response.json({result_code:1,msg_id:String(sms.length),success_cnt:1,error_cnt:0});}
+  if(path==='sms/detail'){const item=sms[Number(d.mid)-1];return Response.json({result_code:1,list:[{receiver:item.receiver,send_date:'2026-11-19 09:00:00',sms_state:'발송완료'}]});}
   if(path==='alimtalk/send'){sent.push(d);return Response.json({code:0,info:{mid:String(sent.length),scnt:1,fcnt:0}});}
   if(path==='history/detail'){const item=sent[Number(d.mid)-1];return Response.json({code:0,list:[{type:'AT',phone:item.receiver_1,tpl_code:item.tpl_code,senderKey:f.env.ALIGO_SENDER_KEY,msgid:'fixture',rsltdate:new Date().toISOString().slice(0,19).replace('T',' '),rslt:'0'}]});}
   throw Error('unexpected '+path);
@@ -26,7 +28,7 @@ function setup(t){
  const priorDayBooking=()=>{f.db.prepare("UPDATE bookings SET date=? WHERE booking_code='BK-TEST'").run(shiftDay(today,1));f.db.prepare("UPDATE booking_journey_state SET confirmed_at=? WHERE booking_code='BK-TEST'").run(shiftDay(today,-1)+' 12:00:00');f.db.exec("UPDATE booking_guide_state SET needs_review=0");};
  const plan=async()=>{f.db.exec('DELETE FROM booking_guide_lease');await bookingJourneyTick(f.env);};
  const manual=async()=>{const p=await f.api('guide-messages/preview','POST',{codes:['BK-TEST']});assert.equal(p.excluded.length,0);return f.api('guide-messages/send','POST',{preview_id:p.preview_id,confirm_send:true});};
- return {...f,op,activate,priorDayBooking,plan,manual,sent,today};
+ return {...f,op,activate,priorDayBooking,plan,manual,sent,sms,today};
 }
 test('운영 전환은 승인된 공통 템플릿을 연결하고 수동 안내도 두 버튼으로 바꾸며 이전 자동·세 버튼 경로를 재활성화하지 못한다',async t=>{
  const f=setup(t),r=await f.activate();assert.equal(r.connected.length,Object.keys(T).length);assert.equal(r.manual_guide.code,'UN_7028');assert.equal(r.manual_guide.automatic,false);assert.equal(r.manual_guide.test_delivered,true);
@@ -76,4 +78,17 @@ test('실제 전송 함수는 개인화된 확정 알림 본문·버튼과 대�
  await transactionNoticeTick(f.env);assert.equal(f.sent.length,1);const row=f.db.prepare("SELECT id,status FROM transaction_notifications WHERE kind='booking_confirmed'").get();assert.equal(row.status,'accepted');
  const {readNotificationContent}=await import('../functions/api/_notification_content.js');const content=await readNotificationContent(f.env,'transaction',row.id);assert.equal(content.message,f.sent[0].message_1);assert.deepEqual(content.buttons,JSON.parse(f.sent[0].button_1).button);assert.equal(content.fallback_message,f.sent[0].fmessage_1);
  const cipher=f.db.prepare("SELECT value FROM settings WHERE key=?").get('notification_content:transaction:'+row.id).value;assert.ok(!cipher.includes('booking='));
+});
+
+test('미납 시험 문자는 지정된 관리자에게 2건만 발송하고 예약별 페이지에서 원문과 수신 성공을 읽는다',async t=>{
+ const f=setup(t),phone='01011112222',test_id='A'.repeat(32);
+ const send={action:'send_unpaid_admin_test',phone,test_id,confirm_test:true};
+ assert.equal((await f.op({...send,phone:'01099999999'})).status,403);
+ const r=await f.op(send);assert.ok(r.items.every(item=>item.status==='accepted'));
+ await f.op(send);assert.equal(f.sms.length,2);assert.ok(f.sms.every(item=>item.receiver===phone));
+ const check=await f.op({action:'check_unpaid_admin_test',phone,test_id});
+ assert.equal(check.operator_history,true);
+ assert.ok(check.items.every(item=>item.history_status==='delivered'&&item.message.includes('운영자 시험 · 가상 예약')));
+ const listed=await f.api('booking-notifications/operator-tests');assert.equal(listed.items[0].ref,check.ref);
+ assert.equal(f.db.prepare('SELECT COUNT(*) n FROM bookings').get().n,1);
 });

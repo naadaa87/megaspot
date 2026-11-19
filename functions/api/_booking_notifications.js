@@ -1,4 +1,4 @@
-import {unpaidAdminTitles} from './_unpaid_admin_notices.js';
+import {unpaidAdminTitles,unpaidAdminTrial} from './_unpaid_admin_notices.js';
 import {json,err,now,readJson,sha256,SPACES,log} from './_lib.js';
 import {bookingPhone2Sql,contactPhones} from './_contacts.js';
 import {guidePhone,aligoProvider} from './_guide_messages.js';
@@ -122,7 +122,23 @@ export async function bookingNotificationsAdmin({env,request,url,path,method}){
   for(let i=0;i<codes.length;i+=30){const group=codes.slice(i,i+30);counts.push(...((await env.DB.prepare(`SELECT booking_code,status,COUNT(*) AS n FROM (SELECT booking_code,status FROM transaction_notifications WHERE audience='customer' AND booking_code IN (${placeholders(group)}) UNION ALL SELECT booking_code,status FROM deposit_notifications WHERE mode='live' AND booking_code IN (${placeholders(group)}) UNION ALL SELECT booking_code,status FROM booking_guide_messages WHERE mode='live' AND booking_code IN (${placeholders(group)})) GROUP BY booking_code,status`).bind(...group,...group,...group).all()).results||[]));}
   return json({ok:true,month:calendar?month:null,items:items.map(b=>({...b,space:SPACES[b.space_id]||b.space_id,counts:Object.fromEntries(counts.filter(r=>r.booking_code===b.booking_code).map(r=>[r.status,r.n]))})),page,has_more:rows.length>limit});
  }
- const match=path.match(/^booking-notifications\/([A-Z0-9-]{1,40})(?:\/(preview|send|content))?$/);if(!match)return err('경로를 찾을 수 없습니다.',404);
+ if(path==='booking-notifications/operator-tests'&&method==='GET'){
+  const {results}=await env.DB.prepare("SELECT ref,MAX(occurred_at) AS occurred_at FROM transaction_notifications WHERE booking_code IS NULL AND audience='admin' AND ref LIKE 'TEST-UNPAID-%' GROUP BY ref ORDER BY occurred_at DESC LIMIT 5").all();
+  return json({ok:true,items:results||[]});
+ }
+ const match=path.match(/^booking-notifications\/([A-Z0-9-]{1,44})(?:\/(preview|send|content))?$/);if(!match)return err('경로를 찾을 수 없습니다.',404);
+ if(/^TEST-UNPAID-[A-F0-9]{32}$/.test(match[1])&&method==='GET'){
+  const {results}=await env.DB.prepare('SELECT * FROM transaction_notifications WHERE ref=? ORDER BY id DESC').bind(match[1]).all();
+  const rows=(results||[]).filter(unpaidAdminTrial).map(row=>({...row,engine:'transaction'}));
+  if(!rows.length)return err('시험 이력을 찾을 수 없습니다.',404);
+  const booking={booking_code:match[1],name:'운영자 문자 시험',space:'가상 예약',date:String(rows[0].occurred_at).slice(0,10),phones:[...new Set(rows.map(row=>row.receiver))]};
+  if(match[2]==='content'){
+   const row=rows.find(x=>x.kind===url.searchParams.get('kind')&&String(x.id)===url.searchParams.get('id')&&url.searchParams.get('engine')==='transaction');
+   if(!row)return err('시험 문자 이력을 찾을 수 없습니다.',404);
+   return json({ok:true,label:labels[row.kind],booking,records:[summary(row)],record:summary(row),content:await historicalContent(env,row),current:null});
+  }
+  if(!match[2])return json({ok:true,booking,steps:[],history:rows.map(summary),operator_test:true});
+ }
  const c=await context(env,match[1]);if(!c)return err('예약을 찾을 수 없습니다.',404);
  if(match[2]==='content'&&method==='GET'){
   const kind=url.searchParams.get('kind')||'',id=url.searchParams.get('id'),engine=url.searchParams.get('engine'),records=c.history.filter(r=>r.kind===kind).sort((a,b)=>String(b.occurred_at||b.created_at).localeCompare(String(a.occurred_at||a.created_at)));

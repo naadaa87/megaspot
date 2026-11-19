@@ -1,3 +1,6 @@
+import {bookingNotificationsAdmin} from './_booking_notifications.js';
+import {unpaidAdminTrialStatus} from './_transaction_notifications.js';
+import {unpaidAdminPhones} from './_unpaid_admin_notices.js';
 import {depositMessageConfig,depositMessageHash,depositTemplateMatches} from './_deposit_notifications.js';
 import {parkingNoticeCron,parkingSign} from './_parking_notifications.js';
 // HMAC-authenticated operations; booking confirmation sends require an exact current recipient and booking match.
@@ -15,6 +18,34 @@ export async function notificationAudit(env){
  return {manual_guide:{enabled:s.enabled,automatic:s.automatic,code:s.template_code,spaces:s.spaces,test_delivered:s.test_delivered},legacy_queued:legacyPending?.n||0,transaction_counts:transactions,deposit_counts:deposits};
 }
 export async function notificationOperations(env,d){
+ if(['send_unpaid_admin_test','check_unpaid_admin_test'].includes(d?.action)){
+  const receiver=guidePhone(d.phone),id=String(d.test_id||'').toUpperCase();
+  if(!/^[A-F0-9]{32}$/.test(id)||!receiver||!(await unpaidAdminPhones(env)).includes(receiver))return err('등록 관리자 번호와 시험 요청을 확인해 주세요.',403);
+  const ref='TEST-UNPAID-'+id,send=d.action==='send_unpaid_admin_test';
+  if(send){
+   if(d.confirm_test!==true)return err('실제 시험 발송을 확인해 주세요.');
+   await env.DB.batch([['balance_overdue_admin',400000],['deposit_unpaid_admin',150000]].map(([kind,amount])=>env.DB.prepare(`INSERT OR IGNORE INTO transaction_notifications
+    (event_key,kind,audience,ref,receiver,amount,occurred_at) VALUES(?,?,'admin',?,?,?,?)`).bind('operator-test:'+ref+':'+kind,kind,ref,receiver,amount,now())));
+  }
+  const status=await unpaidAdminTrialStatus(env,ref,receiver,send);
+  if(send||!status.ok)return status;
+  const result=await status.json();
+  const path='booking-notifications/'+ref;
+  const url=new URL('https://megaspot.kr/api/admin/'+path);
+  const panel=await bookingNotificationsAdmin({env,url,path,method:'GET'});
+  if(!panel.ok)return json({...result,operator_history:false});
+  const history=(await panel.json()).history;
+  const items=await Promise.all(result.items.map(async row=>{
+   const record=history.find(h=>h.id===row.id);
+   if(!record)return row;
+   url.search=new URLSearchParams({kind:row.kind,id:String(row.id),engine:'transaction'}).toString();
+   const detail=await bookingNotificationsAdmin({env,url,path:path+'/content',method:'GET'});
+   const content=detail.ok?(await detail.json()).content:null;
+   return {...row,history_status:record.status,message:content?.message};
+  }));
+  return json({...result,operator_history:true,items});
+ }
+
  if(['queue_existing_confirmation','existing_confirmation_status'].includes(d?.action)){
   if(!/^[A-Z0-9-]{1,40}$/.test(d.booking_code||''))return err('예약번호를 확인해 주세요.');
   const b=await env.DB.prepare('SELECT b.booking_code,b.status,b.space_id,b.date,b.phone,j.confirm_version FROM bookings b JOIN booking_journey_state j ON j.booking_code=b.booking_code WHERE b.booking_code=?').bind(d.booking_code).first();

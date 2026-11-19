@@ -59,3 +59,8 @@ export async function currentUnpaidAdminNotice(env,row,receiver){
  const notice=notices.find(x=>x.kind===row.kind&&eventKey(b,x)===row.event_key);
  return notice?{...notice,visit_date:b.date}:null;
 }
+
+export function unpaidAdminTrial(row){
+ return row.booking_code==null&&row.audience==='admin'&&/^TEST-UNPAID-[A-F0-9]{32}$/.test(row.ref||'')
+  &&row.event_key==='operator-test:'+row.ref+':'+row.kind&&Object.hasOwn(unpaidAdminTitles,row.kind);
+}

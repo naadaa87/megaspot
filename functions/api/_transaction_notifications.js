@@ -1,6 +1,7 @@
-import {unpaidAdminTitles,currentUnpaidAdminNotice} from './_unpaid_admin_notices.js';
+import {unpaidAdminTitles,currentUnpaidAdminNotice,unpaidAdminTrial,unpaidAdminPhones} from './_unpaid_admin_notices.js';
 import {CUSTOMER_ALIMTALK} from './_customer_alimtalk_templates.js';
 import {prepareFeedbackLink,feedbackMessage} from './_feedback.js';
+import {dayAt,shiftDay} from './_booking_payment_schedule.js';
 import {SPACES} from './_lib.js';
 import {saveNotificationContent,noticeButtons} from './_notification_content.js';
 import {noManualArrivalSql} from './_arrival_guard.js';
@@ -43,7 +44,7 @@ export function transactionMessage(row){
    break;
   case 'balance_overdue_admin':
   case 'deposit_unpaid_admin':
-   body='이용일: '+row.visit_date+'\n미납 확인 금액: '+amount+'\n'+(row.kind==='balance_overdue_admin'?'잔금 납부 기한: '+row.basis+'\n':'')+'입금 내역을 확인해 주세요.';
+   body=(unpaidAdminTrial(row)?'운영자 시험 · 가상 예약\n':'')+'이용일: '+row.visit_date+'\n미납 확인 금액: '+amount+'\n'+(row.kind==='balance_overdue_admin'?'잔금 납부 기한: '+row.basis+'\n':'')+'입금 내역을 확인해 주세요.';
    break;
   case 'booking_cancelled':
    body='공간 예약이 취소되었습니다. 이용료 환불이 진행되는 경우 완료 시 별도로 안내드립니다.';
@@ -107,8 +108,12 @@ async function dispatch(env,row){
  const receiver=guidePhone(row.receiver);
  if(!receiver)return state(env,row.id,'failed',row.audience==='admin'?'관리자 문자 수신 번호를 확인해 주세요.':'문자 수신 가능한 휴대폰 번호를 확인해 주세요.');
  if(Object.hasOwn(unpaidAdminTitles,row.kind)){
-  const h=new Date(Date.now()+9*3600000).getUTCHours();if(h<9||h>=21)return;
-  const notice=await currentUnpaidAdminNotice(env,row,receiver);
+  const trial=unpaidAdminTrial(row);
+  const h=new Date(Date.now()+9*3600000).getUTCHours();if(!trial&&(h<9||h>=21))return;
+  const today=dayAt(Date.now());
+  const notice=trial
+   ?(await unpaidAdminPhones(env)).includes(receiver)&&{visit_date:shiftDay(today,1),basis:shiftDay(today,-1),amount:row.amount}
+   :await currentUnpaidAdminNotice(env,row,receiver);
   if(!notice)return state(env,row.id,'cancelled','미납 상태, 일정 또는 관리자 수신번호가 변경되었습니다.');
   row={...row,...notice};
  }
@@ -250,4 +255,15 @@ export async function transactionNoticeAdmin(env,request){
    FROM transaction_notifications WHERE id<? AND ${where} ORDER BY id DESC LIMIT 51`).bind(before).all();
  const items=(results||[]).slice(0,50);
  return json({ok:true,enabled:env.ALIGO_LIVE_ENABLED==='true'&&configured(env),items,next_before:results?.length>50?items.at(-1).id:null});
+}
+
+export async function unpaidAdminTrialStatus(env,ref,receiver,send=false){
+ if(!configured(env)||env.ALIGO_LIVE_ENABLED!=='true')return err('운영 문자 발송 연결을 확인해 주세요.',409);
+ const query=env.DB.prepare("SELECT * FROM transaction_notifications WHERE ref=? AND receiver=? AND booking_code IS NULL AND audience='admin' AND kind IN ('balance_overdue_admin','deposit_unpaid_admin') ORDER BY id").bind(ref,receiver);
+ for(const row of (await query.all()).results||[]){
+  if(!unpaidAdminTrial(row))continue;
+  if(send&&row.status==='queued')await dispatch(env,row);
+  if(!send&&row.status==='accepted')await reconcile(env,row);
+ }
+ return json({ok:true,ref,items:((await query.all()).results||[]).filter(unpaidAdminTrial).map(row=>({id:row.id,kind:row.kind,status:row.status,error:row.error}))});
 }
