@@ -89,6 +89,8 @@ test('미납 시험 문자는 지정된 관리자에게 2건만 발송하고 예
  const check=await f.op({action:'check_unpaid_admin_test',phone,test_id});
  assert.equal(check.operator_history,true);
  assert.ok(check.items.every(item=>item.history_status==='delivered'&&item.message.includes('운영자 시험 · 가상 예약')));
+ assert.match(check.items[0].message,/잔금 미납 확인[\s\S]*400,000원/);
+ assert.match(check.items[1].message,/보증금 미납 확인[\s\S]*150,000원/);
  const listed=await f.api('booking-notifications/operator-tests');assert.equal(listed.items[0].ref,check.ref);
  assert.equal(f.db.prepare('SELECT COUNT(*) n FROM bookings').get().n,1);
 });

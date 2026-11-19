@@ -38,8 +38,9 @@ export async function notificationOperations(env,d){
   const items=await Promise.all(result.items.map(async row=>{
    const record=history.find(h=>h.id===row.id);
    if(!record)return row;
-   url.search=new URLSearchParams({kind:row.kind,id:String(row.id),engine:'transaction'}).toString();
-   const detail=await bookingNotificationsAdmin({env,url,path:path+'/content',method:'GET'});
+   const detailUrl=new URL(url.href+'/content');
+   detailUrl.search=new URLSearchParams({kind:row.kind,id:String(row.id),engine:'transaction'}).toString();
+   const detail=await bookingNotificationsAdmin({env,url:detailUrl,path:path+'/content',method:'GET'});
    const content=detail.ok?(await detail.json()).content:null;
    return {...row,history_status:record.status,message:content?.message};
   }));
