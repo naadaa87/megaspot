@@ -15,6 +15,7 @@ Disallow: /spaces/booking/
 Disallow: /planning/status/
 Disallow: /docs/
 Allow: /api/venues/photo/
+Disallow: /cdn-cgi/
 
 User-agent: Yeti
 Allow: /
