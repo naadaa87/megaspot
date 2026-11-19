@@ -1,3 +1,4 @@
+import {unpaidAdminTitles} from './_unpaid_admin_notices.js';
 import {json,err,now,readJson,sha256,SPACES,log} from './_lib.js';
 import {bookingPhone2Sql,contactPhones} from './_contacts.js';
 import {guidePhone,aligoProvider} from './_guide_messages.js';
@@ -13,7 +14,7 @@ import {depositConsoleContext,noticeObsolete,depositNoticeVariables,depositNotic
 import {DEPOSIT_TEMPLATES} from './_deposit_templates.js';
 import {depositPaymentWindow,depositDueDate,depositReminderDate} from './_deposit_due.js';
 const active=['queued','sending','accepted','unknown','review'];
-const labels={booking_feedback:'이용 후 설문 안내',booking_confirmed:'예약 확정 · 통합 안내',balance_reminder:'이용료 잔금 안내',rental_paid:'잔금 납부 완료',booking_arrival:'입실·주차 안내',payment:'보증금 입금 안내',account:'환급 계좌 등록 안내',refunded:'보증금 환급 완료',inquiry:'문의 접수',reservation_request:'예약 신청 접수',payment_review:'결제 후 확정 보류',booking_cancelled:'예약 취소',rental_refund:'이용료 환불',parking_partial_refund:'주차권 부분 환불',parking_paid:'주차권 결제 완료',parking_arrival_received:'주차권 입차 요청 접수',parking_applied:'주차권 등록 완료',parking_issue:'주차권 등록 확인 필요',parking_cancel_requested:'주차권 취소 문의 접수',parking_refunded:'주차권 전체 환불',parking_partially_refunded:'주차권 부분 환불'};
+const labels={...unpaidAdminTitles,booking_feedback:'이용 후 설문 안내',booking_confirmed:'예약 확정 · 통합 안내',balance_reminder:'이용료 잔금 안내',rental_paid:'잔금 납부 완료',booking_arrival:'입실·주차 안내',payment:'보증금 입금 안내',account:'환급 계좌 등록 안내',refunded:'보증금 환급 완료',inquiry:'문의 접수',reservation_request:'예약 신청 접수',payment_review:'결제 후 확정 보류',booking_cancelled:'예약 취소',rental_refund:'이용료 환불',parking_partial_refund:'주차권 부분 환불',parking_paid:'주차권 결제 완료',parking_arrival_received:'주차권 입차 요청 접수',parking_applied:'주차권 등록 완료',parking_issue:'주차권 등록 확인 필요',parking_cancel_requested:'주차권 취소 문의 접수',parking_refunded:'주차권 전체 환불',parking_partially_refunded:'주차권 부분 환불'};
 const parse=s=>{try{return JSON.parse(s||'{}');}catch{return {};}};
 const placeholders=items=>items.map(()=>'?').join(',');
 const summary=r=>({id:r.id,engine:r.engine,kind:r.kind,label:labels[r.kind]||r.kind,audience:r.audience||'customer',receiver:r.receiver||'',status:r.status,error:r.error||'',occurred_at:r.occurred_at||r.created_at,updated_at:r.updated_at,channel:/대체 문자.*(성공|완료)|문자 대체.*(성공|완료)/.test(r.error||'')?'sms':r.provider_mid?.startsWith('at:')||r.engine!=='transaction'?'alimtalk':r.provider_mid?'sms':''});

@@ -78,7 +78,7 @@ export async function relayRequest(request,env,ledger,upstream=fetch){
   if(transactionSMS){
     const validReceiver=transactionAdmin?adminReceivers.includes(data.receiver):/^01[016789]\d{7,8}$/.test(data.receiver||'');
     const heading=transactionAdmin
-      ? /^\[메가스팟 (?:문의 접수|예약 신청 접수|결제 완료 · 예약 확정 보류)\]\n/
+      ? /^\[메가스팟 (?:문의 접수|예약 신청 접수|결제 완료 · 예약 확정 보류|잔금 미납 확인|보증금 미납 확인)\]\n/
       : /^\[메가스팟 (?:문의 접수|예약 신청 접수|결제 완료 · 예약 확정 보류|공간 예약 취소|이용료 환불 완료|주차권 부분 환불 완료)\]\n/;
     const end=transactionAdmin?'\nhttps://megaspot.kr/admin/#transaction-notifications':'\n문의: https://pf.kakao.com/_LnxbmX/chat';
     if(!validReceiver||!heading.test(data.msg||'')||!data.msg.endsWith(end)||data.msg.length>600)

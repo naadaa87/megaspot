@@ -1,3 +1,4 @@
+import {unpaidAdminTitles,currentUnpaidAdminNotice} from './_unpaid_admin_notices.js';
 import {CUSTOMER_ALIMTALK} from './_customer_alimtalk_templates.js';
 import {prepareFeedbackLink,feedbackMessage} from './_feedback.js';
 import {SPACES} from './_lib.js';
@@ -15,6 +16,7 @@ const RELAY='https://relay.naranhistory.com/megaspot/aligo';
 const ADMIN_URL='https://megaspot.kr/admin/#transaction-notifications';
 const HELP_URL='https://pf.kakao.com/_LnxbmX/chat';
 const TITLES={
+ ...unpaidAdminTitles,
  booking_confirmed:'예약 확정 안내',balance_reminder:'이용료 잔금 안내',rental_paid:'이용료 납부 완료',booking_arrival:'방문 전 안내',
  inquiry:'문의 접수',reservation_request:'예약 신청 접수',payment_review:'결제 완료 · 예약 확정 보류',
  booking_cancelled:'공간 예약 취소',rental_refund:'이용료 환불 완료',parking_partial_refund:'주차권 부분 환불 완료'
@@ -38,6 +40,10 @@ export function transactionMessage(row){
   case 'payment_review':
    body='결제 승인 금액: '+amount+'\n예약 확정은 일정 확인 후 진행됩니다.\n'+
     (row.audience==='admin'?'결제 건과 예약 일정을 확인해 주세요.':'담당자가 확인 후 안내드리겠습니다. 다시 결제하지 않으셔도 됩니다.');
+   break;
+  case 'balance_overdue_admin':
+  case 'deposit_unpaid_admin':
+   body='이용일: '+row.visit_date+'\n미납 확인 금액: '+amount+'\n'+(row.kind==='balance_overdue_admin'?'잔금 납부 기한: '+row.basis+'\n':'')+'입금 내역을 확인해 주세요.';
    break;
   case 'booking_cancelled':
    body='공간 예약이 취소되었습니다. 이용료 환불이 진행되는 경우 완료 시 별도로 안내드립니다.';
@@ -100,6 +106,12 @@ async function dispatch(env,row){
  }
  const receiver=guidePhone(row.receiver);
  if(!receiver)return state(env,row.id,'failed',row.audience==='admin'?'관리자 문자 수신 번호를 확인해 주세요.':'문자 수신 가능한 휴대폰 번호를 확인해 주세요.');
+ if(Object.hasOwn(unpaidAdminTitles,row.kind)){
+  const h=new Date(Date.now()+9*3600000).getUTCHours();if(h<9||h>=21)return;
+  const notice=await currentUnpaidAdminNotice(env,row,receiver);
+  if(!notice)return state(env,row.id,'cancelled','미납 상태, 일정 또는 관리자 수신번호가 변경되었습니다.');
+  row={...row,...notice};
+ }
  if(row.kind==='payment_review'){
   const pending=await env.DB.prepare(`SELECT 1 FROM orders o JOIN bookings b ON b.booking_code=o.booking_code
    WHERE o.oid=? AND o.status='paid' AND b.status='payment_review'`).bind(row.ref).first();
@@ -202,7 +214,7 @@ export async function transactionNoticeTick(env){
  await env.DB.prepare(`UPDATE transaction_notifications SET status='cancelled',error='알림 유효기간 경과',updated_at=datetime('now')
   WHERE status='queued' AND occurred_at<datetime('now','-1 day') AND kind NOT IN ('booking_confirmed','rental_paid')`).run();
  const scheduleHour=new Date(Date.now()+9*3600000).getUTCHours();
- const {results:queued}=await env.DB.prepare("SELECT * FROM transaction_notifications WHERE status='queued' AND (kind NOT IN ('balance_reminder','rental_paid','booking_arrival','booking_feedback') OR ?=1) ORDER BY CASE WHEN error LIKE '승인된 알림톡%' THEN 1 ELSE 0 END,updated_at,id LIMIT 12").bind(scheduleHour>=9&&scheduleHour<21?1:0).all();
+ const {results:queued}=await env.DB.prepare("SELECT * FROM transaction_notifications WHERE status='queued' AND (kind NOT IN ('balance_reminder','rental_paid','booking_arrival','booking_feedback','balance_overdue_admin','deposit_unpaid_admin') OR ?=1) ORDER BY CASE WHEN error LIKE '승인된 알림톡%' THEN 1 ELSE 0 END,updated_at,id LIMIT 12").bind(scheduleHour>=9&&scheduleHour<21?1:0).all();
  if(!queued?.length)return;
  const ready=await aligoProvider(env,'transaction/status');
  if(!ready?.ready)return;

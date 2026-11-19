@@ -1,3 +1,4 @@
+import {queueUnpaidAdminNotices,unpaidAdminPhones} from './_unpaid_admin_notices.js';
 import {eventTime} from './_deposit_refunds.js';
 import {noManualArrivalSql} from './_arrival_guard.js';
 import {bookingPhone2Sql,contactPhones} from './_contacts.js';
@@ -52,6 +53,7 @@ export async function bookingJourneyTick(env){
  await env.DB.prepare(`INSERT OR IGNORE INTO transaction_notifications(event_key,kind,audience,ref,booking_code,receiver,amount,occurred_at) SELECT n.event_key,n.kind,'customer',n.ref,n.booking_code,${bookingPhone2Sql()},n.amount,n.occurred_at FROM transaction_notifications n JOIN bookings b ON b.booking_code=n.booking_code WHERE n.kind IN ('booking_confirmed','balance_reminder','rental_paid','booking_arrival') AND n.status='queued' AND b.status='confirmed' AND (${bookingPhone2Sql()})<>''`).run();
  const today=dayAt(Date.now()),hourKST=new Date(Date.now()+9*3600000).getUTCHours();
  const {results:rows}=await env.DB.prepare(`SELECT b.*,j.paid_state,j.paid_cycle,j.confirmed_at,j.confirm_version,(SELECT COUNT(*) FROM booking_payment_current e WHERE e.booking_code=b.booking_code AND e.state='active' AND e.kind='receipt')+(SELECT COUNT(*) FROM orders o WHERE o.booking_code=b.booking_code AND o.test=0 AND o.status IN ('paid','refunded')) AS receipt_count FROM bookings b JOIN booking_journey_state j ON j.booking_code=b.booking_code WHERE b.status='confirmed' AND b.date>=? ORDER BY j.checked_at,b.booking_code LIMIT 40`).bind(today).all();
+ const staff=hourKST>=9&&hourKST<21?await unpaidAdminPhones(env):[];
  const settlements=await settlementsFor(env,(rows||[]).map(b=>b.booking_code));
  for(const b of rows||[]){
  const s=settlements[b.booking_code],full=s?.amount!=null&&s.balance===0&&s.net>0&&!s.over_refunded;
@@ -69,6 +71,7 @@ export async function bookingJourneyTick(env){
  const enqueue=async(kind,key)=>env.DB.prepare(`INSERT OR IGNORE INTO transaction_notifications(event_key,kind,audience,ref,booking_code,receiver,occurred_at) VALUES(?,?,'customer',?,?,?,?)`).bind(key,kind,b.booking_code,b.booking_code,b.phone||'',updated).run();
  if(hourKST<9||hourKST>=21)continue;
  const schedule=await paymentSchedule(env,b);
+ await queueUnpaidAdminNotices(env,b,s,schedule,today,staff);
  if(s?.balance>0&&today>=schedule.reminder_date&&today<=schedule.due_date&&b.confirmed_at?.slice(0,10)<today)await enqueue('balance_reminder','journey-balance:'+b.booking_code+':'+b.confirm_version+':'+schedule.due_date);
  if(b.date===shiftDay(today,1)&&b.confirmed_at?.slice(0,10)<today)await enqueue('booking_arrival','journey-arrival:'+b.booking_code+':'+b.confirm_version+':'+b.date);
  }

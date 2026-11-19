@@ -144,3 +144,26 @@ test('2호 운영자 시험은 실제 입실 템플릿과 2호 링크를 보내�
  const view=await (await portal({env:f.env,params:{path:['view']},request:new Request('https://local.test/api/booking-portal/view',{headers:{Authorization:'Bearer '+j.url.split('#booking=')[1]}})})).json();assert.equal(view.arrival.door_code,'0105#');assert.equal(view.arrival.equipment_url,buttons[0].linkMo);assert.equal(view.arrival.wifi_name,'설치 예정');
  const repeat=await (await bookingJourneyTrial(f.env,d)).json();assert.equal(repeat.duplicate,true);assert.equal(f.sends.length,1);
 });
+
+test('미납 관리자 안내는 기한 다음 날과 이용 전날에 번호별로 한 번 기록하고 입금 후 발송을 취소한다',async t=>{
+ const f=setup(t),today=dayAt(Date.now());
+ f.create(shiftDay(today,1));f.receipt('BK-NEW',100000,'prepayment');
+ f.db.prepare('INSERT INTO booking_payment_schedule(booking_code,due_date,version,updated_at) VALUES(?,?,1,CURRENT_TIMESTAMP)').run('BK-NEW',shiftDay(today,-1));
+ f.db.prepare("INSERT INTO settings VALUES('parking_admin_alerts',?,datetime('now'))").run(JSON.stringify({phones:['01011112222','01033334444','010-1111-2222']}));
+ const notices=()=>f.db.prepare("SELECT kind,receiver,amount FROM transaction_notifications WHERE kind IN ('balance_overdue_admin','deposit_unpaid_admin') ORDER BY kind,receiver").all();
+ t.mock.method(Date,'now',()=>Date.parse(today+'T08:59:00+09:00'));await f.tick();assert.equal(notices().length,0);
+ t.mock.method(Date,'now',()=>Date.parse(today+'T09:00:00+09:00'));await f.tick();await f.tick();
+ assert.deepEqual(notices().map(r=>[r.kind,r.receiver,r.amount]),[
+  ['balance_overdue_admin','01011112222',400000],['balance_overdue_admin','01033334444',400000],
+  ['deposit_unpaid_admin','01011112222',150000],['deposit_unpaid_admin','01033334444',150000]
+ ]);
+ const {currentUnpaidAdminNotice}=await import('../functions/api/_unpaid_admin_notices.js');
+ const balance=f.row('balance_overdue_admin'),deposit=f.row('deposit_unpaid_admin');
+ assert.equal((await currentUnpaidAdminNotice(f.env,balance,balance.receiver)).amount,400000);
+ assert.equal((await currentUnpaidAdminNotice(f.env,deposit,deposit.receiver)).amount,150000);
+ f.receipt('BK-NEW',400000,'final');
+ f.db.prepare("INSERT INTO inquiry_checks(ref,checks,updated_at) VALUES('MS-TEST','{\"guarantee_paid\":true}',datetime('now')) ON CONFLICT(ref) DO UPDATE SET checks=excluded.checks").run();
+ assert.equal(await currentUnpaidAdminNotice(f.env,balance,balance.receiver),null);
+ assert.equal(await currentUnpaidAdminNotice(f.env,deposit,deposit.receiver),null);
+ assert.equal(f.db.prepare("SELECT status FROM bookings WHERE booking_code='BK-NEW'").get().status,'confirmed');
+});

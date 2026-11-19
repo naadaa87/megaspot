@@ -23,7 +23,7 @@ export function eventTime(b){
  return {end,end_date:new Date(end+9*3600000).toISOString().slice(0,10),hours:h};
 }
 export function refundDate(b){const e=eventTime(b);if(!e)return null;const d=new Date(e.end_date+'T00:00:00Z'),day=(d.getUTCDay()+6)%7;d.setUTCDate(d.getUTCDate()-day+9);return d.toISOString().slice(0,10);}
-function initialAmount(b){const doc=parse(b.confirm_doc),q=parse(b.quote_data);return money(doc.deposit)?doc.deposit:money(q.deposit)?q.deposit:150000;}
+export function initialDepositAmount(b){const doc=parse(b.confirm_doc),q=parse(b.quote_data);return money(doc.deposit)?doc.deposit:money(q.deposit)?q.deposit:150000;}
 const SELECT=`SELECT b.*,r.booking_code AS refund_code,r.token_hash,r.link_cipher,r.link_expires_at,r.account_cipher,r.account_mask,r.bank_code,r.account_version,r.submitted_at,r.account_updated_at,r.state,r.amount AS deposit_amount,r.deduction,r.deduction_reason,r.deduction_notified,r.inspected,r.operator,r.note,r.revision,r.claimed_by,r.claimed_at,r.settlement_snapshot,r.completed_at,r.paid_amount,r.refund_date AS settled_refund_date,r.account_expires_at,r.purged_at,
  CASE WHEN b.inquiry_ref IS NOT NULL THEN COALESCE(json_extract(ic.checks,'$.guarantee_paid'),0) ELSE COALESCE(dc.paid,0) END AS deposit_paid,
  COALESCE(json_extract(ic.checks,'$.guarantee_returned'),0) AS legacy_returned,
@@ -34,7 +34,7 @@ export async function purgeAccounts(env){return env.DB.prepare("UPDATE booking_r
 function available(b){return b&&Object.hasOwn(SPACES,b.space_id)&&['confirmed','completed'].includes(b.status);}
 function publicItem(b,admin=false){
  const expired=b.account_expires_at&&b.account_expires_at<=Date.now();const exists=!!b.account_cipher&&!expired;
- const state=b.state||'pending',amount=b.deposit_amount??initialAmount(b);
+ const state=b.state||'pending',amount=b.deposit_amount??initialDepositAmount(b);
  const out={code:b.booking_code,date:b.date,space:SPACES[b.space_id]||b.space_id,refund_date:b.settled_refund_date||refundDate(b),state,registered:exists,account_mask:exists?b.account_mask:'',bank:exists?(BANKS.find(x=>x[0]===b.bank_code)?.[1]||''):'',account_version:b.account_version||0,submitted_at:b.submitted_at||null,account_updated_at:b.account_updated_at||null,editable:available(b)&&state==='pending'&&!b.legacy_returned&&!b.purged_at&&!expired,completed_at:b.completed_at||null,purged:!!b.purged_at||!!expired};
  if(admin)Object.assign(out,{name:b.customer_name,phone:b.phone,booking_status:b.status,inquiry_ref:b.inquiry_ref||'',paid:!!b.deposit_paid,legacy_returned:!!b.legacy_returned,amount,deduction:b.deduction||0,deduction_reason:b.deduction_reason||'',deduction_notified:!!b.deduction_notified,refund_amount:b.paid_amount??amount-(b.deduction||0),inspected:!!b.inspected,operator:b.operator||'',note:b.note||'',revision:b.revision??0,has_record:!!b.refund_code,claimed_at:b.claimed_at||null,can_resume:!!b.settlement_snapshot,account_expires_at:b.account_expires_at||null,ended:!!eventTime(b)&&eventTime(b).end<=Date.now()});
  else out.name=String(b.customer_name||'').slice(0,1)+'○'.repeat(Math.max(1,Math.min(3,String(b.customer_name||'').length-1)));
@@ -58,7 +58,7 @@ function snapshot(b){return JSON.stringify({date:b.date,start_h:b.start_h,end_h:
 async function initialize(env,b){
  if(!available(b))return err('취소되었거나 지원하지 않는 예약입니다.',409,'BOOKING_UNAVAILABLE');
  if(b.legacy_returned&&!b.refund_code)return err('기존 체크리스트에서 보증금 반환이 완료된 예약입니다. 중복 환급 여부를 확인해 주세요.',409,'ALREADY_RETURNED');
- if(!b.refund_code){const t=now();await env.DB.prepare('INSERT INTO booking_refunds(booking_code,amount,created_at,updated_at) VALUES(?,?,?,?) ON CONFLICT(booking_code) DO NOTHING').bind(b.booking_code,initialAmount(b),t,t).run();}
+ if(!b.refund_code){const t=now();await env.DB.prepare('INSERT INTO booking_refunds(booking_code,amount,created_at,updated_at) VALUES(?,?,?,?) ON CONFLICT(booking_code) DO NOTHING').bind(b.booking_code,initialDepositAmount(b),t,t).run();}
  return null;
 }
 const stale=()=>err('다른 화면에서 내용이 변경되었습니다. 새로고침 후 다시 확인해 주세요.',409,'STALE');
