@@ -57,3 +57,12 @@ test('missing times show a review row and keep any old block held without assumi
   assert.equal(result.items[0].action,'hold');
   assert.deepEqual(result.review.map(x=>x.code),['BK-TEST']);
 });
+test('verified pre-existing coverage is tracked without claiming permission to release it',async t=>{
+  const f=fixture({booking:true}); t.after(()=>f.db.close());
+  const id=(await f.api('spacecloud-blocks')).items[0].id;
+  await f.api('spacecloud-blocks','POST',{id,action:'cover'});
+  assert.equal((await f.api('spacecloud-blocks')).items[0].action,'covered');
+  f.db.prepare("UPDATE bookings SET status='cancelled' WHERE booking_code=?").run('BK-TEST');
+  assert.deepEqual((await f.api('spacecloud-blocks')).items,[]);
+  await f.api('spacecloud-blocks','POST',{id,action:'release'},409);
+});

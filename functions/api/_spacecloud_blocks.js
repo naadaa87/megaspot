@@ -45,7 +45,7 @@ async function listing(env, instant) {
       AND b.date >= ? AND b.status IN ('confirmed','completed','payment_review')
     ORDER BY b.date,b.start_h,b.booking_code`).bind(kstToday(-2)).all();
   const tracked = await env.DB.prepare(`SELECT key,value,updated_at FROM settings
-    WHERE key GLOB 'spacecloud_block:*' AND json_valid(value) AND json_extract(value,'$.state')='blocked'`).all();
+    WHERE key GLOB 'spacecloud_block:*' AND json_valid(value) AND json_extract(value,'$.state') IN ('blocked','covered')`).all();
   const blocked = new Map();
   for (const record of tracked.results || []) {
     const entry = JSON.parse(record.value);
@@ -77,10 +77,10 @@ async function listing(env, instant) {
   for (const entry of wanted.values()) {
     const previous = blocked.get(entry.id);
     if (!previous) pending.add(entry.code);
-    items.push({...entry, action:previous?'linked':'block', checked_at:previous?.checked_at});
+    items.push({...entry, action:previous?(previous.state==='covered'?'covered':'linked'):'block', checked_at:previous?.checked_at});
   }
   for (const entry of blocked.values()) {
-    if (wanted.has(entry.id)) continue;
+    if (wanted.has(entry.id) || entry.state==='covered') continue;
     // Keep the original slot until the replacement has been checked.
     items.push({...entry, action:pending.has(entry.code)||preserve.has(entry.code)?'hold':'release'});
   }
@@ -92,12 +92,13 @@ export async function spacecloudBlocksAdmin({env, request, method}) {
   if (method === 'GET') return json({ok:true,...await listing(env, Date.now())});
   if (method !== 'POST') return err('지원하지 않는 방식입니다.',405);
   const {id, action} = await readJson(request,2048);
-  if (typeof id !== 'string' || id.length > 100 || !['block','release'].includes(action)) return err('확인할 일정과 상태를 선택해 주세요.');
+  if (typeof id !== 'string' || id.length > 100 || !['block','cover','release'].includes(action)) return err('확인할 일정과 상태를 선택해 주세요.');
   const {items} = await listing(env,Date.now());
   const entry = items.find(row => row.id === id);
-  if (entry?.action === 'linked' && action === 'block') return json({ok:true});
-  if (!entry || entry.action !== action) return err('예약 일정 또는 확인 상태가 바뀌었습니다. 목록을 다시 확인해 주세요.',409,'SLOT_CHANGED');
-  const state = action === 'block' ? 'blocked' : 'released';
+  if ((entry?.action === 'linked' && action === 'block') || (entry?.action === 'covered' && action === 'cover')) return json({ok:true});
+  const expected = action === 'cover' ? 'block' : action;
+  if (!entry || entry.action !== expected) return err('예약 일정 또는 확인 상태가 바뀌었습니다. 목록을 다시 확인해 주세요.',409,'SLOT_CHANGED');
+  const state = action === 'block' ? 'blocked' : action === 'cover' ? 'covered' : 'released';
   const {action: previousAction, checked_at, ...snapshot} = entry;
   const result = await env.DB.prepare(`INSERT INTO settings(key,value,updated_at) VALUES(?,?,?)
     ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at
