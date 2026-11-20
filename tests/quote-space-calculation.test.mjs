@@ -6,7 +6,7 @@ import Calculation from '../assets/js/quote-calculation.js';
 import {fixture,quoteInput} from './helpers/admin-fixture.mjs';
 import {quoteUi} from './helpers/admin-quote-fixture.mjs';
 const ctx=vm.createContext({window:{}});
-for(const file of ['data/holidays-kr.js','data/pricing-gundae.js','data/pricing-gundae2.js','pricing-engine.js'])vm.runInContext(readFileSync(new URL('../assets/js/'+file,import.meta.url),'utf8'),ctx);
+for(const file of ['data/holidays-kr.js','data/pricing-gundae.js','data/pricing-gundae2.js','pricing-engine-v3.2.js'])vm.runInContext(readFileSync(new URL('../assets/js/'+file,import.meta.url),'utf8'),ctx);
 const money=n=>Math.round(n).toLocaleString('ko-KR')+'원';
 function calculated(space,{date='2026-11-18',start=13,end=17,people=60,discount=true,extras=[{label:'추가 장비',amount:30000}]}={}){
  const E=ctx.window.MEGASPOT_PRICE.forSpace(space),D=E.data(),input=quoteInput({space,date,start,end,people,discType:discount?'pct':'none',discVal:discount?10:0,extras,opts:{manager:{on:true,count:2,hours:3},cleaning:true}});

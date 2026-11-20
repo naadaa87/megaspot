@@ -59,7 +59,7 @@ function retrySelection(row, data) {
   return {product_id:row.product_id,date:row.event_date || '',people:row.people,qty:Math.max(1,Math.min(10,num(data.qty)||1)),addons};
 }
 
-// 요일 구분 — pricing-engine.js 의 dayInfo 와 같은 규칙 (당일·다음 날이 쉬는 날인지로 월–목/금/토/일)
+// 요일 구분 — pricing-engine-v3.2.js 의 dayInfo 와 같은 규칙 (당일·다음 날이 쉬는 날인지로 월–목/금/토/일)
 function addDays(iso, n) { const [y, m, d] = iso.split('-').map(Number); const dt = new Date(Date.UTC(y, m - 1, d + n)); return dt.toISOString().slice(0, 10); }
 function isOff(iso) { const [y, m, d] = iso.split('-').map(Number); const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay(); return dow === 0 || dow === 6 || !!HOLIDAYS[iso]; }
 export function dayCol(iso) { const off = isOff(iso), next = isOff(addDays(iso, 1)); return !off ? (next ? 'fri' : 'wd') : (next ? 'sat' : 'sun'); }

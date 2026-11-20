@@ -5,7 +5,7 @@ import vm from 'node:vm';
 const source = readFileSync(new URL('../assets/js/pages/admin.js', import.meta.url), 'utf8');
 function pricing() {
   const ctx = vm.createContext({window:{}});
-  for (const file of ['data/holidays-kr.js','data/pricing-gundae.js','pricing-engine.js']) vm.runInContext(readFileSync(new URL('../assets/js/' + file, import.meta.url),'utf8'),ctx);
+  for (const file of ['data/holidays-kr.js','data/pricing-gundae.js','pricing-engine-v3.2.js']) vm.runInContext(readFileSync(new URL('../assets/js/' + file, import.meta.url),'utf8'),ctx);
   return ctx.window.MEGASPOT_PRICE;
 }
 test('관리자 견적은 0~23시와 익일 07시 이후를 자르지 않고 계산', () => {

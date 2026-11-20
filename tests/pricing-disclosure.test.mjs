@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync,readdirSync} from 'node:fs';
+import {createHash} from 'node:crypto';
 import vm from 'node:vm';
 import {PRODUCTS,PRICING_ALL} from '../functions/api/_catalog.js';
 
@@ -11,7 +12,7 @@ function publicUi(){
  const escape=value=>String(value??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
  const M={esc:escape,$:()=>null,$$:()=>[],CONFIG:{},fmtNum:n=>Number(n).toLocaleString('ko-KR'),imgSrc:()=>'',tagHtml:()=>''};
  const ctx=vm.createContext({window:{MEGASPOT:M},document,location:{pathname:'/spaces/megaspot-gundae-2/pricing/',search:''},URLSearchParams});
- for(const path of ['quote-policy','data/products','data/spaces','data/pricing-gundae','data/pricing-gundae2','data/holidays-kr','pricing-engine','pricing-ui','cards'])vm.runInContext(read('assets/js/'+path+'.js'),ctx);
+ for(const path of ['quote-policy','data/products','data/spaces','data/pricing-gundae','data/pricing-gundae2','data/holidays-kr','pricing-engine-v3.2','pricing-ui','cards'])vm.runInContext(read('assets/js/'+path+'.js'),ctx);
  return {M,window:ctx.window,print};
 }
 
@@ -47,6 +48,18 @@ test('두 호점은 50명을 포함하고 시간 단가와 기본료를 함께 �
   const card=home.match(new RegExp('<article class="home-venue-card" id="'+id+'">[\\s\\S]*?<\/article>'))[0];
   assert.match(card,/<strong>1시간 총 34만 원부터<\/strong>/);
   assert.match(card,/기준 인원 50명/);
+ }
+});
+
+test('요금표·예약·어드민·결제 화면이 새 경로의 요금 계산기를 참조한다',()=>{
+ const script='assets/js/pricing-engine-v3.2.js';
+ const hash=createHash('sha256').update(read(script)).digest('hex').slice(0,12);
+ const pages=['index.html','admin/index.html','inquiry/index.html','guide/index.html','purpose/index.html','order/index.html','order/complete/index.html'];
+ for(const id of ['megaspot-gundae','megaspot-gundae-2'])pages.push('spaces/'+id+'/index.html','spaces/'+id+'/pricing/index.html');
+ for(const page of pages){
+  const html=read(page);
+  assert.ok(html.includes('src="/'+script+'?v='+hash+'"'),page);
+  assert.doesNotMatch(html,/src="\/assets\/js\/pricing-engine\.js(?:[?"])/,page);
  }
 });
 

@@ -6,7 +6,7 @@ import vm from 'node:vm';
 const source=readFileSync(new URL('../assets/js/pages/admin.js',import.meta.url),'utf8');
 function bookingForm(){
   const pricing=vm.createContext({window:{}});
-  for(const file of ['data/holidays-kr.js','data/pricing-gundae.js','data/pricing-gundae2.js','pricing-engine.js'])
+  for(const file of ['data/holidays-kr.js','data/pricing-gundae.js','data/pricing-gundae2.js','pricing-engine-v3.2.js'])
     vm.runInContext(readFileSync(new URL('../assets/js/'+file,import.meta.url),'utf8'),pricing);
   const engine=pricing.window.MEGASPOT_PRICE,elements={};
   function element(){return {value:'',innerHTML:'',connected:true,events:{},classList:{toggle(){}},addEventListener(type,fn){this.events[type]=fn;}};}

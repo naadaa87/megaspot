@@ -7,7 +7,7 @@ import {fixture,DAY} from './helpers/admin-fixture.mjs';
 import Calculation from '../assets/js/quote-calculation.js';
 const source=readFileSync(new URL('../assets/js/pages/admin.js',import.meta.url),'utf8');
 const pricing=vm.createContext({window:{}});
-for(const file of ['data/holidays-kr.js','data/pricing-gundae.js','data/pricing-gundae2.js','pricing-engine.js'])vm.runInContext(readFileSync(new URL('../assets/js/'+file,import.meta.url),'utf8'),pricing);
+for(const file of ['data/holidays-kr.js','data/pricing-gundae.js','data/pricing-gundae2.js','pricing-engine-v3.2.js'])vm.runInContext(readFileSync(new URL('../assets/js/'+file,import.meta.url),'utf8'),pricing);
 const engine=pricing.window.MEGASPOT_PRICE;
 function inquiryForm(){
  const elements={},state={mode:'keep'};
@@ -91,7 +91,7 @@ test('2호점 300명 자동 계산 문의의 등록·수정 저장과 다시 조
 });
 test('어드민 요금 데이터와 계산기는 내용에 맞는 캐시 버전으로 최신 파일을 요청',()=>{
  const html=readFileSync(new URL('../admin/index.html',import.meta.url),'utf8');
- for(const file of ['data/pricing-gundae.js','data/pricing-gundae2.js','pricing-engine.js']){
+ for(const file of ['data/pricing-gundae.js','data/pricing-gundae2.js','pricing-engine-v3.2.js']){
   const hash=createHash('sha256').update(readFileSync(new URL('../assets/js/'+file,import.meta.url))).digest('hex').slice(0,12);
   assert.ok(html.includes('/assets/js/'+file+'?v='+hash),file+'의 오래된 캐시를 사용하지 않음');
  }

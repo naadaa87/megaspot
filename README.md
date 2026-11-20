@@ -54,7 +54,7 @@
 │   ├─ js/data/pricing-gundae.js ★ 건대 요금표 v3.2 (시간당 요금·패키지·인원·옵션·보증금·환불)
 │   ├─ js/data/products.js ★ 온라인 결제 상품 15개 (요금표와 같은 가격 · 제공·환불 문구)
 │   ├─ js/data/holidays-kr.js    공휴일 목록 (요금의 공휴일 규칙 계산용, 2028년 6월까지)
-│   ├─ js/pricing-engine.js      요금 계산 (요일 구분 → 시간 요금/패키지 → 인원 → 옵션)
+│   ├─ js/pricing-engine-v3.2.js      요금 계산 (요일 구분 → 시간 요금/패키지 → 인원 → 옵션)
 │   ├─ js/pricing-ui.js          요금표·패키지·옵션·계산기·견적서(PDF 인쇄) 화면
 │   ├─ js/data/scenes.js  활용 장면 22컷 목록
 │   ├─ js/data/visuals.js 공간 전경 11컷·조감도 7컷 목록과 안내 문구
@@ -367,7 +367,7 @@ QR 이미지는 `assets/img/brand/kakao-qr.svg` 입니다. **채널 주소를 �
 ### 메가스팟 건대 2호 (`/spaces/megaspot-gundae-2/`, 2026-10-23 · 2026-11-13 정식 오픈)
 - 기존 공간은 **메가스팟 건대 1호**(id `megaspot-gundae`, 주소는 그대로 `/spaces/megaspot-gundae/`), 새 공간은 **메가스팟 건대 2호**(id `megaspot-gundae-2`)로 표시합니다. 메뉴·푸터·모바일 메뉴·공간 찾기·홈(2호 소개 띠)·이용 안내 FAQ·패밀리 사이트(층별 안내)·주차 안내·1호 상세('같은 건물에 있는 공간')에 2호가 들어 있고, 홈 첫 화면과 사진은 1호를 먼저 보여 줍니다.
 - 사진: `assets/img/gundae2/r28.jpg`(6인용 연회 배치 대표 이미지), `r22~r27.jpg`와 `m/`·`t/`의 7장. 갤러리는 연회 배치 예시 3장 → 빈 홀 전경 3장 → 출입구·리셉션 순서입니다. 가구·장식 제공 조건은 예약 전 상담하며, 기존 r01~r12 및 r21 파일은 이전 자료 호환용으로 보존합니다.
-- 요금: `assets/js/data/pricing-gundae2.js`(요금표 v3.2 · 1호와 시간당 단가·예약당 기본료·낮·올데이·올나잇 패키지 공통). 기준 인원 50명(모든 날), 51명째부터 1만 원, 최대 350명, 성수기는 12월·1월이며 해당하는 날짜에는 해당일 시간제 기본료를 적용합니다. 옵션·보증금·환불은 1호와 같습니다. 계산기는 `pricing-engine.js`가 공간마다 하나씩 만듭니다 — `MEGASPOT_PRICE`는 1호, `MEGASPOT_PRICE.forSpace('megaspot-gundae-2')`가 2호. 요금 화면(`pricing-ui.js`)은 `<body data-space>` 또는 자리의 `data-space`로 어느 공간인지 정하고, `/inquiry/`의 1호·2호 선택(`?space=`)은 계산기를 그 공간 요금표로 다시 그립니다. 오픈일 전 날짜는 계산기·서버(`BEFORE_OPENING`) 모두 2호 예약 신청을 받지 않습니다.
+- 요금: `assets/js/data/pricing-gundae2.js`(요금표 v3.2 · 1호와 시간당 단가·예약당 기본료·낮·올데이·올나잇 패키지 공통). 기준 인원 50명(모든 날), 51명째부터 1만 원, 최대 350명, 성수기는 12월·1월이며 해당하는 날짜에는 해당일 시간제 기본료를 적용합니다. 옵션·보증금·환불은 1호와 같습니다. 계산기는 `pricing-engine-v3.2.js`가 공간마다 하나씩 만듭니다 — `MEGASPOT_PRICE`는 1호, `MEGASPOT_PRICE.forSpace('megaspot-gundae-2')`가 2호. 요금 화면(`pricing-ui.js`)은 `<body data-space>` 또는 자리의 `data-space`로 어느 공간인지 정하고, `/inquiry/`의 1호·2호 선택(`?space=`)은 계산기를 그 공간 요금표로 다시 그립니다. 오픈일 전 날짜는 계산기·서버(`BEFORE_OPENING`) 모두 2호 예약 신청을 받지 않습니다.
 - 온라인 이용권(`/products/`, 결제)은 아직 1호만 있습니다. 2호 패키지는 예약 신청 뒤 담당자가 결제를 안내합니다(2호 이용권을 팔려면 `products.js`에 상품을 추가하고 `pay/[[path]].js`가 2호 요금표를 보도록 바꿔야 합니다).
 - 관리자: 문의·예약·일자별 예약·대시보드 목록에 **건대 2호** 표시, 일자별 예약의 공간 필터, 문의 직접 등록·견적 계산·예약 등록의 공간 선택(견적·확정 금액은 그 공간 요금표로 계산), 예약 확정·일정 겹침·예약 대기 순번은 공간별로 따로 봅니다. 예약확정서·견적서·고객 안내문에는 예약한 공간 이름이 들어갑니다. 서버는 `functions/api/_lib.js`의 `SPACES`·`spaceOk()`·`SPACE_OPENING`으로 공간 값을 정리합니다.
 - 공사 뒤 확정해서 채울 것: 기본 제공 장비(`pricing-gundae2.js`의 `included`·`includedShort`, `spaces.js`의 `rules` 장비 항목), 천장고(`ceiling.mm`), 배치별 인원, 실측 도면·3D, 실제 사진, 400평이 전용·계약 어느 기준인지(`area.note`).
@@ -512,7 +512,7 @@ QR 이미지는 `assets/img/brand/kakao-qr.svg` 입니다. **채널 주소를 �
 - [x] 카카오톡 문의 채널 연결 (https://pf.kakao.com/_LnxbmX/chat, 메가스팟 전용 채널 — 2026-10-17 변경, QR코드도 새 주소로 교체) — 채널에서 1:1 채팅이 켜져 있는지 확인
 - [ ] 표시 요금의 부가세 포함 여부 확정 (가격구조도에 표기가 없어 '부가세 포함'으로 두었습니다)
 - [ ] 패키지 시간 표기 확인 — 가격구조도에는 올데이 '16시간', 올나잇 '14시간'으로 적혀 있지만 10–24시는 14시간, 18–07시는 13시간이라 실제 시간으로 표기했습니다 (금액은 시트 그대로)
-- [ ] 인원 추가 요금(1명당 1만 원)은 예약 1건당 한 번 더하는 것으로 계산했습니다. 시간당 더하는 방식이면 `pricing-engine.js`의 `peopleFee` 계산을 바꿔야 합니다
+- [ ] 인원 추가 요금(1명당 1만 원)은 예약 1건당 한 번 더하는 것으로 계산했습니다. 시간당 더하는 방식이면 `pricing-engine-v3.2.js`의 `peopleFee` 계산을 바꿔야 합니다
 - [ ] 주차 대수·요금, 마이크 수량, 음식 반입 범위 등 '확인 필요' 항목을 확정하는 대로 `spaces.js`·`facilities.js` 갱신
 - [ ] 배치별 인원이 확정되면 `spaces.js`의 `layouts[].capacityNote` 를 실제 수치로 교체
 - [ ] 도메인 확정 후 `tools/build_site.py`의 `SITE_URL` 교체(또는 sitemap·robots·canonical·og:url·구조화 데이터의 주소를 직접 바꾸기)
