@@ -7,7 +7,7 @@ Cloudflare의 예약 실행이 매분 메가스팟 확정 예약의 처리 대�
 ## 운영 배포
 
 1. 메가스팟 운영 Cloudflare 계정에서 전용 D1을 만들고 `wrangler.toml`의 `STATE_DB`에 연결합니다. 전용 Worker 이름은 `megaspot-spacecloud`입니다. 상태 테이블은 처음 사용할 때 생성됩니다.
-2. Worker에 무작위 32자 이상 비밀값 세 개를 설정합니다. `SPACECLOUD_WORKER_TOKEN`은 메가스팟 Pages의 같은 이름과, `CLOUD_ADMIN_TOKEN`은 Pages의 `SPACECLOUD_CONTROL_TOKEN`과 일치시킵니다. `SESSION_ENCRYPTION_KEY`는 Worker에만 보관합니다. Pages의 `SPACECLOUD_RUNNER_ORIGIN`은 이 Worker의 HTTPS 원점입니다.
+2. Worker에 무작위 32자 이상 비밀값 세 개를 설정합니다. `SPACECLOUD_WORKER_TOKEN`은 메가스팟 Pages의 같은 이름과, `CLOUD_ADMIN_TOKEN`은 Pages의 `SPACECLOUD_CONTROL_TOKEN`과 일치시킵니다. `SESSION_ENCRYPTION_KEY`는 Worker에만 보관합니다. Pages의 `SPACECLOUD_RUNNER` 서비스 바인딩은 `megaspot-spacecloud` Worker를 가리킵니다.
 3. 해당 계정의 Browser Run 요금제와 포함 사용량을 확인합니다. 무료 계정은 `CLOUD_PLAN_CONFIRMED_FREE=true`를 사용합니다. 포함 사용량을 확인한 기존 유료 계정은 `CLOUD_PLAN_MODE=paid-included`와 `INCLUDED_BUDGET_CONFIRMED=true`를 사용합니다. 사용량은 전용 저장소에 기록됩니다. 계정 전체 사용량은 Cloudflare 대시보드에서 확인합니다.
 4. 자동 쓰기를 끈 상태로 배포합니다. **어드민 → 예약·일정 → 스페이스클라우드 외부예약 → 전용 호스트 로그인**에서 로그인 창을 엽니다. 사용자가 호스트 로그인을 완료하면 같은 화면에서 **로그인 확인**을 누릅니다. 네 상품을 읽어서 접근을 확인한 뒤 스페이스클라우드 도메인의 로그인 상태를 암호화해 저장합니다.
 5. 운영 전 별도로 확보한 시험 일정으로 네 상품의 등록·해제, 자정 경계, 고객 화면 차단을 확인합니다. 확인을 마치면 `ENABLED=true`와 `ALLOW_WRITES=true`를 사용하고, 어드민의 자동 처리와 확인 기록을 대조합니다.
