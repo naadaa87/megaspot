@@ -515,6 +515,20 @@
       </form>
     </section>
 
+
+    <section class="adm-view" id="view-spacecloud-blocks" hidden>
+      <header class="adm-head">
+        <div><h1>스페이스클라우드 외부예약</h1><p class="small muted">메가스팟 확정 예약의 시간을 호스트센터에서 등록하고 고객 화면을 대조한 뒤 확인 상태를 기록합니다.</p></div>
+        <button class="btn btn-light btn-sm" type="button" id="sc-blocks-reload">새로고침</button>
+      </header>
+      <div class="adm-filters">
+        <label>호점<select class="select" id="sc-blocks-space"><option value="">전체</option><option value="megaspot-gundae">건대 1호</option><option value="megaspot-gundae-2">건대 2호</option></select></label>
+        <label>확인 상태<select class="select" id="sc-blocks-filter"><option value="open">확인할 일정</option><option value="">전체</option><option value="linked">등록 확인</option></select></label>
+      </div>
+      <p class="small muted" id="sc-blocks-status" role="status"></p>
+      <div id="sc-blocks-list" class="adm-list"></div>
+    </section>
+
     <!-- 후기 -->
     <section class="adm-view" id="view-reviews" hidden>
       <header class="adm-head"><div><h1>후기 관리</h1><p class="small muted">승인한 후기만 상세 페이지에 게시됩니다.</p></div><div class="row" style="gap:8px"><select class="select" id="rv-filter" style="width:auto"><option value="pending">승인 대기</option><option value="approved">게시 중</option><option value="hidden">숨김</option><option value="">전체</option></select><button class="btn btn-light btn-sm" type="button" id="rv-reload">새로고침</button></div></header>
@@ -774,7 +788,8 @@
 <script src="/assets/js/pages/admin-members.js?v=20261114mbr1"></script>
 <script src="/assets/js/pages/admin-community.js?v=20261117cm1"></script>
 <script src="/assets/js/pages/admin-feedback.js?v=20261118feedbackdelivery1"></script>
-<script src="/assets/js/pages/admin-navigation.js?v=20261118revenueanalysis1"></script>
+<script src="/assets/js/pages/admin-spacecloud-blocks.js?v=f3950710009a"></script>
+<script src="/assets/js/pages/admin-navigation.js?v=b1e11119cbdb"></script>
 <script src="/assets/js/pages/admin-booking-readiness.js?v=20261105readiness1"></script>
 <script src="/assets/js/pages/admin-contacts.js?v=6d34a1d37fb7"></script>
 <script src="/assets/js/pages/admin-payment-editor.js?v=16b445ae9107"></script>

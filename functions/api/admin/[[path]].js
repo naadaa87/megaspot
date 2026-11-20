@@ -1,3 +1,4 @@
+import {spacecloudBlocksAdmin} from '../_spacecloud_blocks.js';
 import {feedbackAdmin} from '../_feedback.js';
 import {reservationServiceStatus} from '../_reservation_service_status.js';
 import {SERVICE_DATA_SQL,reservationServices} from '../_reservation_services.js';
@@ -202,6 +203,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
     if(revenueBooking)return await revenueBookingDetailAdmin({env,url,method,bookingCode:revenueBooking[1],operationalBookingSql:OPERATIONAL_BOOKING_SQL});
     if(path==='revenue')return await revenueAdmin({env,url,method,operationalBookingSql:OPERATIONAL_BOOKING_SQL,archivedStatus:DELETED});
     if(path==='kpi')return await kpiAdmin({env,url,method,operationalBookingSql:OPERATIONAL_BOOKING_SQL,archivedStatus:DELETED});
+    if(path==='spacecloud-blocks')return await spacecloudBlocksAdmin({env,request,method});
     if(path==='booking-readiness')return await bookingReadiness({env,url,method});
     if(/^bookings\/[A-Z0-9-]+\/portal-link(?:\/rotate)?$/.test(path))return await portalAdmin({env,request,url,path,method});
     if(method==='PATCH'&&/^inquiries\/[A-Z0-9-]+$/.test(path)){const v=await readJson(request.clone());if(v.total!==undefined&&v.total!==null&&v.total!==''&&amountOk(v.total)===null)return err('금액을 확인해 주세요.');}
