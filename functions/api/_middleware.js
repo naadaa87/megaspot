@@ -14,7 +14,8 @@ export async function onRequest(context) {
   const readOnlyReadiness=/^\/api\/admin\/booking-readiness\/?$/.test(path);
   const readOnlyMemberInquiries=context.request.method==='GET'&&/^\/api\/auth\/inquiries\/?$/.test(path);
   const siteStats=path==='/api/stats';   // 방문 통계 수집은 페이지마다 들어오므로 예약 알림 확인을 붙이지 않습니다
-  if(typeof context.waitUntil==='function'&&!siteStats&&!path.startsWith('/api/deposit-notifications/')&&path!=='/api/admin/transaction-notifications'&&!readOnlyPortal&&!readOnlyReadiness&&!readOnlyMemberInquiries&&!readOnlyRevenue){
+  const kit=path.startsWith('/api/invites/');   // 모임 키트 초대장은 참석자 여러 명이 열어 보므로 예약 알림 확인을 붙이지 않습니다
+  if(typeof context.waitUntil==='function'&&!siteStats&&!kit&&!path.startsWith('/api/deposit-notifications/')&&path!=='/api/admin/transaction-notifications'&&!readOnlyPortal&&!readOnlyReadiness&&!readOnlyMemberInquiries&&!readOnlyRevenue){
     context.waitUntil(depositNoticeTick(context.env).catch(()=>{}));
     context.waitUntil(guideTick(context.env).catch(()=>{}));
     context.waitUntil(parkingAdminSMSTick(context.env).catch(()=>{}));

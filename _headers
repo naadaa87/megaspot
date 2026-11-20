@@ -79,3 +79,11 @@
   X-Robots-Tag: noindex, nofollow, noarchive
   Referrer-Policy: no-referrer
   Cache-Control: no-store
+
+/invite/*
+  X-Robots-Tag: noindex, nofollow
+  Referrer-Policy: no-referrer
+  Cache-Control: no-cache
+
+/play/bingo/card/*
+  X-Robots-Tag: noindex, nofollow

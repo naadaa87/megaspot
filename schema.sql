@@ -1165,6 +1165,34 @@ CREATE TABLE IF NOT EXISTS community_reports (   -- 글·댓글 신고 (회원 �
 );
 CREATE INDEX IF NOT EXISTS idx_community_reports_status ON community_reports(status, created_at);
 
+CREATE TABLE IF NOT EXISTS invites (   -- 모임 키트 초대장: 예약 1건에 1장 (2026-11-21) · 행사일로부터 90일 뒤 자동 삭제
+  id TEXT PRIMARY KEY,                 -- IV-YYMM-XXXX
+  code TEXT NOT NULL UNIQUE,           -- 참석자용 주소 /invite/?c=코드 (추측하기 어려운 무작위 값)
+  booking_code TEXT NOT NULL UNIQUE,   -- 연결된 확정 예약 (일시·공간은 예약에서 다시 읽음)
+  space_id TEXT NOT NULL,
+  event_date TEXT NOT NULL,            -- 이용일 (보관 기간 계산용)
+  data TEXT NOT NULL,                  -- 행사 이름·주최 표시명·인사말·식순·공지·문의처·응답 설정 JSON
+  play TEXT,                           -- 웰컴 스크린·게임·추첨 준비 내용 JSON
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TEXT NOT NULL,
+  updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_invites_date ON invites(event_date);
+CREATE TABLE IF NOT EXISTS invite_rsvps (   -- 초대장 참석 응답 · 행사일로부터 30일 뒤 자동 삭제 (휴대폰 번호는 받지 않음)
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  invite_id TEXT NOT NULL,
+  token_hash TEXT NOT NULL,            -- 응답한 브라우저가 보관하는 무작위 키의 해시 (내 응답 고치기용)
+  name TEXT NOT NULL,
+  status TEXT NOT NULL,                -- yes 참석 | maybe 미정 | no 불참
+  party INTEGER NOT NULL DEFAULT 1,    -- 본인 포함 인원
+  cars INTEGER NOT NULL DEFAULT 0,     -- 가져오는 차량 수
+  answer TEXT,                         -- 주최자 질문 답변
+  created_at TEXT NOT NULL,
+  updated_at TEXT,
+  UNIQUE(invite_id, token_hash)
+);
+CREATE INDEX IF NOT EXISTS idx_invite_rsvps ON invite_rsvps(invite_id, status, created_at);
+
 -- Existing bookings are baselines; installation never sends old confirmation/paid notices.
 CREATE TABLE IF NOT EXISTS booking_payment_schedule (
  booking_code TEXT PRIMARY KEY,

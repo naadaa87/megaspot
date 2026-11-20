@@ -175,4 +175,15 @@
   <url><loc>https://megaspot.kr/event-guide/space-platform-fee/</loc><lastmod>2026-11-13</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
   <url><loc>https://megaspot.kr/event-guide/space-listing-checklist/</loc><lastmod>2026-11-13</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
   <!-- seo-pages:end -->
+  <!-- kit-pages:start · tools/kit-pages/build.mjs 가 만드는 구간입니다. 손으로 고치지 마세요 -->
+  <url><loc>https://megaspot.kr/kit/</loc><lastmod>2026-11-21</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://megaspot.kr/play/</loc><lastmod>2026-11-21</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://megaspot.kr/play/welcome/</loc><lastmod>2026-11-21</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://megaspot.kr/play/draw/</loc><lastmod>2026-11-21</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://megaspot.kr/play/teams/</loc><lastmod>2026-11-21</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://megaspot.kr/play/quiz/</loc><lastmod>2026-11-21</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://megaspot.kr/play/bingo/</loc><lastmod>2026-11-21</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://megaspot.kr/play/balance/</loc><lastmod>2026-11-21</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://megaspot.kr/play/wheel/</loc><lastmod>2026-11-21</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <!-- kit-pages:end -->
 </urlset>

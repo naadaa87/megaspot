@@ -3024,3 +3024,5 @@ body :is(.card,.space-card,.prod-card,.purpose-card,.gq-card,.food-compare a,.ho
 .page-admin :is(.adm-filters,.adm-toolbar){gap:12px;align-items:end}
 .page-admin :is(.adm-card,.adm-row){min-width:0}
 @media(max-width:599px){.page-admin :is(.btn-sm,.btn-xs){min-height:40px}.page-admin .adm-head>.row{width:100%}.page-admin .adm-head>.row>.btn{flex:1 1 auto;white-space:normal;text-align:center}}
+/* 머리말 '모임 키트' 메뉴: 자리가 넉넉한 넓은 화면(1600px 이상)에서만 바로 보이고, 그보다 좁으면 전체 메뉴(⋮⋮⋮) 안에 있습니다 */
+@media (min-width:900px) and (max-width:1599px){.site-header .nav > .nav-kit{display:none}}
