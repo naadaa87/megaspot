@@ -122,31 +122,32 @@ test('서버 카탈로그는 두 호점의 표시 요금과 일치하고 옵션 
  assert.deepEqual(second.surcharge,first.surcharge);
  assert.equal(first.surcharge.amount,300000);
  assert.deepEqual(second.hourly,first.hourly);
- const baseRules=d=>d.packages.filter(p=>p.id!=='allday');
- assert.deepEqual(baseRules(second),baseRules(first));
+ assert.deepEqual(second.packages,first.packages);
+ assert.equal(first.people.defaultPick,50);assert.equal(second.people.defaultPick,50);
  assert.equal(second.fullDayOffer,first.fullDayOffer);
  for(const [day,rate] of Object.entries(second.peak.types)){
   assert.deepEqual(rate.hourly,first.peak.types[day].hourly);
   assert.equal(rate.surcharge,first.peak.types[day].surcharge);
+  assert.deepEqual(rate.pkg,first.peak.types[day].pkg,day);
   assert.equal(rate.people,50);
  }
 });
 
-test('올데이는 지점별 11월 19일 판매가와 할인 비교 기준을 복원하고 종일 대관과 구분한다',()=>{
+test('두 호점의 올데이는 1호의 11월 19일 판매가와 할인 비교 기준을 공유하고 종일 대관과 구분한다',()=>{
  const {M}=publicUi();
  const ids=['megaspot-gundae','megaspot-gundae-2'];
- const expected=[{wd:800000,fri:1000000,sat:1600000,sun:1350000},{wd:935000,fri:1105000,sat:1615000,sun:1403000}];
- const refs=[{wd:1080000,fri:1470000,sat:2310000,sun:2000000},{wd:1173000,fri:1508000,sat:2221000,sun:1961000}];
+ const expected={wd:800000,fri:1000000,sat:1600000,sun:1350000};
+ const refs={wd:1080000,fri:1470000,sat:2310000,sun:2000000};
  for(const [i,id] of ids.entries()){
   const {E,R}=M.pricing.forSpace(id);
   const pkg=E.findPkg('allday');
-  assert.deepEqual({...pkg.price},expected[i]);
-  assert.deepEqual({...pkg.referenceRegular},refs[i]);
+  assert.deepEqual({...pkg.price},expected);
+  assert.deepEqual({...pkg.referenceRegular},refs);
   const box={innerHTML:'',addEventListener(){}};R.packages(box);
-  assert.match(box.innerHTML,/올데이 할인율은 11\/19 요금표 기준/);
+  assert.match(box.innerHTML,/올데이 할인율은 1호점 11\/19 요금표 기준/);
   for(const [col,date] of Object.entries({wd:'2026-11-23',fri:'2026-11-27',sat:'2026-11-28',sun:'2026-11-29'})){
    const q=E.quote({date,start:10,end:24,people:50});
-   assert.equal(q.total,expected[i][col]);assert.equal(q.pkg.regular,q.time.total);assert.equal(q.peopleBase,50);
+   assert.equal(q.total,expected[col]);assert.equal(q.pkg.regular,q.time.total);assert.equal(q.peopleBase,50);
    if(i===0){
     const id='pass-allday-'+col,product=PRODUCTS.get(id);
     assert.equal(product.price,q.total);
@@ -154,11 +155,31 @@ test('올데이는 지점별 11월 19일 판매가와 할인 비교 기준을 �
     assert.equal(Number(schema['@graph'].find(x=>x['@type']==='Product').offers.price),q.total);
    }
   }
-  assert.equal(E.quote({date:'2026-12-07',start:10,end:24,people:50}).total,i===0?960000:1071000);
-  assert.equal(E.quote({date:'2026-12-25',start:10,end:24,people:50}).total,i===0?3800000:3230000);
-  assert.equal(E.quote({date:'2027-01-04',start:10,end:24,people:50}).total,i===0?880000:1003000);
+  assert.equal(E.quote({date:'2026-12-07',start:10,end:24,people:50}).total,960000);
+  assert.equal(E.quote({date:'2026-12-25',start:10,end:24,people:50}).total,3800000);
+  assert.equal(E.quote({date:'2027-01-04',start:10,end:24,people:50}).total,880000);
  }
  assert.equal(PRODUCTS.items.some(p=>p.pkg==='full-day'),false);
+});
+
+test('평소·성수기·지정일의 세 패키지 견적과 공개 검색 요금은 두 호점에서 일치한다',()=>{
+ const {M}=publicUi();
+ const one=M.pricing.forSpace('megaspot-gundae'),two=M.pricing.forSpace('megaspot-gundae-2');
+ const dates=['2026-11-23','2026-11-27','2026-11-28','2026-11-29','2026-12-07','2026-12-04','2026-12-05','2026-12-06','2026-12-24','2026-12-25','2026-12-31','2027-01-01','2027-01-04','2027-01-08','2027-01-02','2027-01-03'];
+ for(const date of dates)for(const {id,start,end} of one.D.packages){
+  const args={date,start,end,people:80};
+  const a=one.E.quote(args),b=two.E.quote(args);
+  assert.equal(b.pkg.id,id);
+  assert.equal(b.total,a.total,date+' '+id);
+  assert.equal(b.peopleBase,50);
+ }
+ for(const page of ['index.html',...['megaspot-gundae','megaspot-gundae-2'].flatMap(id=>['spaces/'+id+'/index.html','spaces/'+id+'/pricing/index.html'])]){
+  const listings=[...read(page).matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)]
+    .flatMap(m=>JSON.parse(m[1])['@graph']||[]).filter(e=>e.makesOffer);
+  for(const venue of listings)for(const [label,price] of [['낮 패키지',600000],['올데이 패키지',800000],['올나잇 패키지',1000000]]){
+   assert.equal(Number(venue.makesOffer.find(o=>o.name.startsWith(label))?.price),price,page+' '+label);
+  }
+ }
 });
 
 test('옵션 5종은 본문·검색·공유·구조화 데이터·RSS에서 주문번호와 별도 공간 예약을 안내한다',()=>{

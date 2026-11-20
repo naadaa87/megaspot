@@ -8,7 +8,7 @@
 // =====================================================================
 window.MEGASPOT_PRICING = window.MEGASPOT_PRICING || {};
 window.MEGASPOT_PRICING['megaspot-gundae'] = {
-  version: '요금표 v3.1 · 2026년 11월 20일 기준',
+  version: '요금표 v3.2 · 2026년 11월 20일 기준',
   effectiveFrom: '2026-11-20',
   vatNote: '표시 금액은 부가세 포함 기준입니다.',   // 가격구조도에 부가세 표기가 없어 이전 기준(부가세 포함)을 유지했습니다. 다르면 이 문장과 FAQ를 고쳐 주세요.
 

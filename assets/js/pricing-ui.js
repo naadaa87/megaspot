@@ -93,7 +93,7 @@
       return '<article class="pkg-card"><div class="pkg-head"><div class="eyebrow">' + esc(p.en) + '</div><h4>' + esc(p.label) + '</h4><span class="pkg-when">' + esc(p.time) + ' · ' + p.hours + '시간 · ' + esc(p.fit) + '</span></div>'
         + '<div class="pkg-price">' + esc(man(p.price.wd)).replace('만 원', '') + '<small>만 원</small><span>월–목 기준</span></div>'
         + '<ul class="pkg-cols">' + rows + '</ul>'
-        + (referenceRegular ? '<p class="tiny muted mt-2">올데이 할인율은 11/19 요금표 기준입니다.</p>' : '')
+        + (referenceRegular ? '<p class="tiny muted mt-2">올데이 할인율은 1호점 11/19 요금표 기준입니다.</p>' : '')
         + '<button type="button" class="btn btn-light btn-sm pkg-use" data-pkg="' + p.id + '">이 패키지로 예약 신청</button></article>';
     }).join('') + '</div>'
       + '<p class="tiny muted mt-2">패키지 금액은 기준 인원 ' + D.people.base + '명의 공간료입니다. 인원 추가와 옵션은 따로 더해집니다. 계산기에서 같은 시간을 고르면 자동으로 패키지 할인가가 적용됩니다.' + (D.peak ? ' <b>' + esc(peakRangeText()) + '</b>은 성수기 패키지 금액이 적용됩니다. <a href="' + (location.pathname === PAGE ? '#peak' : PAGE + '#peak') + '" style="text-decoration:underline;font-weight:700;color:var(--cobalt)">성수기 요금 보기</a>' : '') + '</p>';
