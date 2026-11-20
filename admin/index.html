@@ -518,9 +518,19 @@
 
     <section class="adm-view" id="view-spacecloud-blocks" hidden>
       <header class="adm-head">
-        <div><h1>스페이스클라우드 외부예약</h1><p class="small muted">메가스팟 확정 예약의 시간을 호스트센터에서 등록하고 고객 화면을 대조한 뒤 확인 상태를 기록합니다.</p></div>
+        <div><h1>스페이스클라우드 외부예약</h1><p class="small muted">메가스팟 확정 예약의 시간과 스페이스클라우드 차단 상태를 확인합니다.</p></div>
         <button class="btn btn-light btn-sm" type="button" id="sc-blocks-reload">새로고침</button>
       </header>
+      <div class="adm-card mb-3" id="sc-auto">
+        <p class="small" id="sc-auto-status" role="status"></p>
+        <div class="row" id="sc-auto-controls" style="gap:6px;flex-wrap:wrap" hidden>
+          <button class="btn btn-light btn-sm" type="button" id="sc-auto-login">전용 호스트 로그인</button>
+          <a class="btn btn-light btn-sm" id="sc-auto-view" target="_blank" rel="noopener noreferrer" hidden>로그인 창 열기 ↗</a>
+          <button class="btn btn-primary btn-sm" type="button" id="sc-auto-save" hidden>로그인 확인</button>
+          <button class="btn btn-light btn-sm" type="button" id="sc-auto-cancel" hidden>로그인 취소</button>
+        </div>
+        <p class="small muted" id="sc-auto-note" role="status"></p>
+      </div>
       <div class="adm-filters">
         <label>호점<select class="select" id="sc-blocks-space"><option value="">전체</option><option value="megaspot-gundae">건대 1호</option><option value="megaspot-gundae-2">건대 2호</option></select></label>
         <label>확인 상태<select class="select" id="sc-blocks-filter"><option value="open">확인할 일정</option><option value="">전체</option><option value="linked">등록 확인</option></select></label>
@@ -788,7 +798,7 @@
 <script src="/assets/js/pages/admin-members.js?v=20261114mbr1"></script>
 <script src="/assets/js/pages/admin-community.js?v=20261117cm1"></script>
 <script src="/assets/js/pages/admin-feedback.js?v=20261118feedbackdelivery1"></script>
-<script src="/assets/js/pages/admin-spacecloud-blocks.js?v=6fe13fcabd8c"></script>
+<script src="/assets/js/pages/admin-spacecloud-blocks.js?v=e8818c1d6201"></script>
 <script src="/assets/js/pages/admin-navigation.js?v=b1e11119cbdb"></script>
 <script src="/assets/js/pages/admin-booking-readiness.js?v=20261105readiness1"></script>
 <script src="/assets/js/pages/admin-contacts.js?v=6d34a1d37fb7"></script>

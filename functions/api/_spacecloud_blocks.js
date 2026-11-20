@@ -1,3 +1,4 @@
+import {spacecloudControlReady} from './_spacecloud_control.js';
 import { bookingHourSql } from './_booking_availability.js';
 import { err, isDate, json, kstToday, log, now, readJson, sha256, SPACES } from './_lib.js';
 
@@ -10,6 +11,9 @@ const products = {
   ] },
 };
 const prefix = 'spacecloud_block:';
+export const spacecloudLeaseKey = 'spacecloud_auto:lease';
+export const spacecloudReviewPrefix = 'spacecloud_auto:review:';
+export const spacecloudStatusKey = 'spacecloud_auto:status';
 const addDay = (date, offset) => new Date(Date.parse(date + 'T00:00:00Z') + offset * 86400000).toISOString().slice(0, 10);
 const endsAt = (date, hour) => Date.parse(date + 'T00:00:00+09:00') + hour * 3600000;
 const clock = hour => String(hour).padStart(2, '0') + ':00';
@@ -36,7 +40,7 @@ async function productBlock(booking, segment, product, productName) {
     public_url: `https://www.spacecloud.kr/space/${productSpace}` };
 }
 
-async function listing(env, instant) {
+export async function spacecloudWorklist(env, instant) {
   const upcoming = await env.DB.prepare(`SELECT b.booking_code,b.space_id,b.status,b.date,
     ${bookingHourSql('b','i','start_h')} AS start_h,${bookingHourSql('b','i','end_h')} AS end_h,
     ${channel} AS channel
@@ -85,27 +89,53 @@ async function listing(env, instant) {
     items.push({...entry, action:pending.has(entry.code)||preserve.has(entry.code)?'hold':'release'});
   }
   items.sort((a,b) => a.date.localeCompare(b.date) || a.start-b.start || a.product-b.product);
-  return {items, review};
+  const automatic = await env.DB.prepare(
+    "SELECT key,value FROM settings WHERE key GLOB 'spacecloud_auto:*' AND json_valid(value)"
+  ).all();
+  const state = new Map((automatic.results || []).map(row=>[row.key, JSON.parse(row.value)]));
+  const lease = state.get(spacecloudLeaseKey);
+  for (const entry of items) {
+    const noted = state.get(spacecloudReviewPrefix+entry.id+':'+entry.action);
+    if (noted) entry.automation_review = noted.reason;
+    if (lease?.entry?.id === entry.id && lease.expires > instant) entry.automatic_processing = true;
+  }
+  const status = state.get(spacecloudStatusKey);
+  const configured = String(env.SPACECLOUD_WORKER_TOKEN || '').length >= 32;
+  return {items, review, automation:{
+    configured, login_available:spacecloudControlReady(env), status: configured && status?.at > instant - 180000 ? status.phase : 'offline'
+  }};
 }
 
+export function spacecloudRecord(env, entry, state, leaseToken) {
+  const {action, checked_at, automatic_processing, automation_review, ...snapshot} = entry;
+  const compare = "SELECT 1 FROM settings WHERE key=? AND json_extract(value,'$.token')=?";
+  const guard = leaseToken ? `EXISTS(${compare})` : `NOT EXISTS(SELECT 1 FROM settings WHERE key=? AND json_extract(value,'$.entry.id')=? AND json_extract(value,'$.expires')>?)`;
+  const binds = leaseToken ? [spacecloudLeaseKey,leaseToken] : [spacecloudLeaseKey,entry.id,Date.now()];
+  return env.DB.prepare(`INSERT INTO settings(key,value,updated_at) SELECT ?,?,? WHERE ${guard}
+    ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at
+    WHERE json_extract(settings.value,'$.state')<>json_extract(excluded.value,'$.state')`)
+    .bind(prefix+entry.id,JSON.stringify({...snapshot,state}),now(),...binds);
+}
+
+
 export async function spacecloudBlocksAdmin({env, request, method}) {
-  if (method === 'GET') return json({ok:true,...await listing(env, Date.now())});
+  if (method === 'GET') return json({ok:true,...await spacecloudWorklist(env, Date.now())});
   if (method !== 'POST') return err('지원하지 않는 방식입니다.',405);
   const {id, action} = await readJson(request,2048);
   if (typeof id !== 'string' || id.length > 100 || !['block','cover','release'].includes(action)) return err('확인할 일정과 상태를 선택해 주세요.');
-  const {items} = await listing(env,Date.now());
+  const {items} = await spacecloudWorklist(env,Date.now());
   const entry = items.find(row => row.id === id);
   if ((entry?.action === 'linked' && action === 'block') || (entry?.action === 'covered' && action === 'cover')) return json({ok:true});
   const expected = action === 'cover' ? 'block' : action;
   if (!entry || entry.action !== expected) return err('예약 일정 또는 확인 상태가 바뀌었습니다. 목록을 다시 확인해 주세요.',409,'SLOT_CHANGED');
   const state = action === 'block' ? 'blocked' : action === 'cover' ? 'covered' : 'released';
-  const {action: previousAction, checked_at, ...snapshot} = entry;
-  const result = await env.DB.prepare(`INSERT INTO settings(key,value,updated_at) VALUES(?,?,?)
-    ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at
-    WHERE json_extract(settings.value,'$.state')<>json_extract(excluded.value,'$.state')`)
-    .bind(prefix+id,JSON.stringify({...snapshot,state}),now()).run();
-  if (result.meta?.changes ?? result.changes) {
-    await log(env,'spacecloud.'+state,entry.code,'admin',{product:entry.product,date:entry.date,start:clock(entry.start),end:clock(entry.end)});
+  if (entry.automatic_processing) return err('자동 작업이 끝난 뒤 확인해 주세요.',409,'AUTOMATION_RUNNING');
+  const result = await spacecloudRecord(env,entry,state).run();
+  if (!(result.meta?.changes ?? result.changes)) {
+    return err('예약 또는 자동 작업 상태가 바뀌었습니다. 다시 확인해 주세요.',409,'SLOT_CHANGED');
   }
+  await env.DB.prepare('DELETE FROM settings WHERE key IN (?,?)')
+    .bind(spacecloudReviewPrefix+id+':block',spacecloudReviewPrefix+id+':release').run();
+  await log(env,'spacecloud.'+state,entry.code,'admin',{product:entry.product,date:entry.date,start:clock(entry.start),end:clock(entry.end)});
   return json({ok:true});
 }

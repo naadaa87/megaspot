@@ -1,0 +1,23 @@
+name = "megaspot-spacecloud"
+main = "index.mjs"
+compatibility_date = "2026-11-20"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+[browser]
+binding = "BROWSER"
+
+# Bind a dedicated encrypted login-state database on the MegaSpot account.
+# [[d1_databases]]
+# binding = "STATE_DB"
+# database_name = "megaspot-spacecloud-state"
+# database_id = "..."
+
+[triggers]
+crons = ["* * * * *"]
+
+[vars]
+ENABLED = "false"
+ALLOW_WRITES = "false"
+CLOUD_PLAN_CONFIRMED_FREE = "false"
+INCLUDED_BUDGET_CONFIRMED = "false"
