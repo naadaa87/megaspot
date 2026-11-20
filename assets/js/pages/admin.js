@@ -70,6 +70,7 @@
     return '<button class="btn btn-light btn-xs gm-inline" type="button" data-guide-code="'+esc(code)+'">이용 안내'+(status?'<small>'+esc(labels[status]||status)+'</small>':'')+'</button>';
   }
   function depositControl(it){
+    if(it.deposit_refunded===1||it.deposit_refunded===true)return '<span class="deposit-state is-paid">보증금 환급 완료</span>';
     if(it.status==='payment_review')return '<span class="tiny muted">예약 확정 후 확인</span>';
     var paid=it.deposit_paid===1||it.deposit_paid===true, known=it.deposit_paid!=null;
     var label=paid?'보증금 입금 완료':known?'보증금 미입금':'보증금 확인 전';
@@ -1797,8 +1798,8 @@
   $('#rs-print').addEventListener('click', function(){ document.body.classList.add('print-resv'); window.print(); setTimeout(function(){ document.body.classList.remove('print-resv'); }, 800); });
   $('#rs-csv').addEventListener('click', function(){
     var list=resvFiltered(); if(!list.length){ M.toast('내려받을 예약이 없습니다.'); return; }
-    var cols=['이용일','요일','시간','구분','대기 순번','진행 상태','예약자','연락처','문의 경로','인원','금액(원)','금액 기준','결제','보증금 입금','예약번호','문의번호','목적','메모'];
-    var rows=list.map(function(it){ var dow=DOWK[new Date(it.date+'T12:00:00').getDay()]; return [it.date,dow,resvTime(it),it.kind==='booking'?(it.status==='payment_review'?'일정 확인 필요':'예약 확정'):(it.reserve?'예약 문의(홈페이지 예약 신청)':'예약 문의'),it.wait?.no??'',it.kind==='booking'?(BST[it.status]||[it.status])[0]:it.status,it.name,it.phone,it.channel==='online'?'온라인 결제':(it.channel?chLabel(it.channel,it.channel_note):''),it.headcount||'',it.amount!=null?it.amount:'',SRC[it.amount_src]||'',PAYMENT_CHECKS[it.payment_status]||PAYMENT_CHECKS.unpaid,it.deposit_paid==null?'확인 전':it.deposit_paid?'입금 완료':'미입금',it.code||'',it.ref||'',PUR[it.purpose]||it.purpose||'',it.memo||'']; });
+    var cols=['이용일','요일','시간','구분','대기 순번','진행 상태','예약자','연락처','문의 경로','인원','금액(원)','금액 기준','결제','보증금 상태','예약번호','문의번호','목적','메모'];
+    var rows=list.map(function(it){ var dow=DOWK[new Date(it.date+'T12:00:00').getDay()]; return [it.date,dow,resvTime(it),it.kind==='booking'?(it.status==='payment_review'?'일정 확인 필요':'예약 확정'):(it.reserve?'예약 문의(홈페이지 예약 신청)':'예약 문의'),it.wait?.no??'',it.kind==='booking'?(BST[it.status]||[it.status])[0]:it.status,it.name,it.phone,it.channel==='online'?'온라인 결제':(it.channel?chLabel(it.channel,it.channel_note):''),it.headcount||'',it.amount!=null?it.amount:'',SRC[it.amount_src]||'',PAYMENT_CHECKS[it.payment_status]||PAYMENT_CHECKS.unpaid,it.deposit_refunded?'환급 완료':it.deposit_paid==null?'확인 전':it.deposit_paid?'입금 완료':'미입금',it.code||'',it.ref||'',PUR[it.purpose]||it.purpose||'',it.memo||'']; });
     var csv='﻿'+[cols].concat(rows).map(function(r){ return r.map(function(v){ v=String(v==null?'':v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }).join(','); }).join('\r\n');
     var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})); a.download='메가스팟_일자별예약_'+($('#rs-from').value||'처음')+'_'+($('#rs-to').value||'이후')+'.csv'; document.body.appendChild(a); a.click(); a.remove();
   });

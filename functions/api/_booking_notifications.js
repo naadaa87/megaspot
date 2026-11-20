@@ -85,7 +85,7 @@ async function steps(env,c){
  return result;
 }
 async function fingerprint(c,kind){return sha256(JSON.stringify([kind,{...c.b,confirm_doc:undefined},c.settlement,c.schedule,c.deposit.hash,c.deposit.ready,c.enabled,JOURNEY_TEMPLATES,c.history.map(r=>[r.engine,r.id,r.kind,r.status,r.receiver,r.updated_at,r.error,r.event_key])]));}
-function brief(c){const b=c.b;return {booking_code:b.booking_code,name:b.customer_name,space_id:b.space_id,space:SPACES[b.space_id]||b.space_id,date:b.date,status:b.status,phones:c.phones,balance:c.settlement.balance,deposit_paid:!!c.deposit.b?.deposit_paid};}
+function brief(c){const b=c.b;return {booking_code:b.booking_code,name:b.customer_name,space_id:b.space_id,space:SPACES[b.space_id]||b.space_id,date:b.date,status:b.status,phones:c.phones,balance:c.settlement.balance,deposit_paid:!!c.deposit.b?.deposit_paid,deposit_refunded:c.deposit.b?.refund_state==='completed'||!!c.deposit.b?.returned};}
 function currentContent(c,kind){
  if(kind.startsWith('parking_'))return null;
  const template=JOURNEY_TEMPLATES[kind]||DEPOSIT_TEMPLATES[kind]||CUSTOMER_ALIMTALK[kind];if(!template)return null;

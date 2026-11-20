@@ -72,6 +72,10 @@ test('환급 완료는 송금액 재확인·시설 변경 재검사·기존 체�
  await f.api(PATH+'/complete','POST',{revision:b.revision,paid_amount:1,confirm_transfer:true,confirm_payee:true},400);
  f.db.exec("UPDATE bookings SET end_h=18");await f.api(PATH+'/complete','POST',{revision:b.revision,paid_amount:150000,confirm_transfer:true,confirm_payee:true},409);f.db.exec('UPDATE bookings SET end_h=17');
  await f.complete();b=await f.item();assert.equal(b.state,'completed');assert.equal(b.refund_amount,150000);const checks=JSON.parse(f.db.prepare('SELECT checks FROM inquiry_checks').get().checks);assert.ok(checks.guarantee_paid);assert.ok(checks.guarantee_returned);
+ const list=await f.api('bookings'),daily=await f.api('reservations');
+ assert.equal(list.items.find(x=>x.booking_code==='BK-TEST').deposit_refunded,1);
+ assert.equal(daily.items.find(x=>x.code==='BK-TEST').deposit_refunded,1);
+ assert.equal((await f.api('booking-notifications/BK-TEST')).booking.deposit_refunded,true);
  await f.api(PATH+'/complete','POST',{revision:b.revision,paid_amount:150000,confirm_transfer:true,confirm_payee:true},409);await f.api('inquiries/MS-TEST/checks','PUT',{checks:{guarantee_returned:false}},409);
 });
 test('보류 상태 잠금·미송금 확인 없는 복구 거부·복구 후 시설 재확인',async t=>{
