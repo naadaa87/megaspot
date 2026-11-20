@@ -1,6 +1,6 @@
 /* =====================================================================
    MEGASPOT · 판매 상품 (온라인 결제용)
-   - 가격은 요금표 v2.0(pricing-gundae.js)과 같은 숫자입니다. 요금표를 바꾸면 여기도 함께 맞춰 주세요.
+   - 가격은 건대 1호 요금표(pricing-gundae.js)와 같은 숫자입니다. 요금표를 바꾸면 여기도 함께 맞춰 주세요.
    - 서버(functions/api/pay)도 이 파일을 읽어 금액을 검증합니다 (빌드 때 functions/api/_catalog.js 로 복사).
    - 표시 금액은 부가세 포함입니다.
    ===================================================================== */
@@ -52,13 +52,13 @@
       { id: 'pass-day-satsun',  kind: 'pass', pkg: 'day',      group: 'satsun', name: '낮 패키지 이용권 · 토·일·공휴일', price: 1000000, start: 10, end: 17, hours: 7,
         summary: '토·일·공휴일 10시부터 17시까지 7시간, 기준 50명. 주말 세미나·클래스·가족 행사에 맞습니다.', cover: 's11' },
       // 올데이 10–24시 (14시간)
-      { id: 'pass-allday-wd',   kind: 'pass', pkg: 'allday',   group: 'wd',     name: '올데이 패키지 이용권 · 월–목',  price: 1100000,  start: 10, end: 24, hours: 14,
-        summary: '월–목 10시부터 24시까지 14시간, 기준 50명. 하루 종일 쓰는 워크숍·행사에 맞습니다.', cover: 's05' },
-      { id: 'pass-allday-fri',  kind: 'pass', pkg: 'allday',   group: 'fri',    name: '올데이 패키지 이용권 · 금요일',  price: 1300000, start: 10, end: 24, hours: 14,
+      { id: 'pass-allday-wd',   kind: 'pass', pkg: 'allday',   group: 'wd',     name: '올데이 패키지 이용권 · 월–목',  price: 800000,  start: 10, end: 24, hours: 14,
+        summary: '월–목 10시부터 24시까지 14시간, 기준 50명. 워크숍과 저녁 행사를 함께 진행할 수 있습니다.', cover: 's05' },
+      { id: 'pass-allday-fri',  kind: 'pass', pkg: 'allday',   group: 'fri',    name: '올데이 패키지 이용권 · 금요일',  price: 1000000, start: 10, end: 24, hours: 14,
         summary: '금요일 10시부터 24시까지 14시간, 기준 50명. 낮 행사와 저녁 뒤풀이를 한 번에.', cover: 's04' },
-      { id: 'pass-allday-sat',  kind: 'pass', pkg: 'allday',   group: 'sat',    name: '올데이 패키지 이용권 · 토요일',  price: 1900000, start: 10, end: 24, hours: 14,
-        summary: '토요일 10시부터 24시까지 14시간, 기준 50명. 하루 종일 쓰는 주말 행사에 맞습니다.', cover: 's02' },
-      { id: 'pass-allday-sun',  kind: 'pass', pkg: 'allday',   group: 'sun',    name: '올데이 패키지 이용권 · 일요일',  price: 1650000, start: 10, end: 24, hours: 14,
+      { id: 'pass-allday-sat',  kind: 'pass', pkg: 'allday',   group: 'sat',    name: '올데이 패키지 이용권 · 토요일',  price: 1600000, start: 10, end: 24, hours: 14,
+        summary: '토요일 10시부터 24시까지 14시간, 기준 50명. 주말 낮과 저녁 행사에 맞습니다.', cover: 's02' },
+      { id: 'pass-allday-sun',  kind: 'pass', pkg: 'allday',   group: 'sun',    name: '올데이 패키지 이용권 · 일요일',  price: 1350000, start: 10, end: 24, hours: 14,
         summary: '일요일 10시부터 24시까지 14시간, 기준 50명.', cover: 's13' },
       // 올나잇 18–다음 날 07시 (13시간)
       { id: 'pass-allnight-wd', kind: 'pass', pkg: 'allnight', group: 'wd',     name: '올나잇 패키지 이용권 · 월–목',  price: 1000000,  start: 18, end: 31, hours: 13,

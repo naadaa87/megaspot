@@ -8,7 +8,7 @@
 // =====================================================================
 window.MEGASPOT_PRICING = window.MEGASPOT_PRICING || {};
 window.MEGASPOT_PRICING['megaspot-gundae'] = {
-  version: '요금표 v3.0 · 2026년 11월 20일 기준',
+  version: '요금표 v3.1 · 2026년 11월 20일 기준',
   effectiveFrom: '2026-11-20',
   vatNote: '표시 금액은 부가세 포함 기준입니다.',   // 가격구조도에 부가세 표기가 없어 이전 기준(부가세 포함)을 유지했습니다. 다르면 이 문장과 FAQ를 고쳐 주세요.
 
@@ -69,14 +69,35 @@ window.MEGASPOT_PRICING['megaspot-gundae'] = {
       regular: { wd: 680000, fri: 720000,  sat: 1210000,  sun: 1250000 },
       fit: '세미나·클래스·워크숍·낮 모임' },
     { id: 'allday',   label: '올데이 패키지', en: 'ALL DAY',   start: 10, end: 24, hours: 14, time: '10시–24시',
-      price:   { wd: 1100000, fri: 1300000, sat: 1900000, sun: 1650000 },
+      price:   { wd: 800000, fri: 1000000, sat: 1600000, sun: 1350000 },
       regular: { wd: 1380000, fri: 1770000, sat: 2610000, sun: 2300000 },
-      fit: '하루 종일 쓰는 행사·행사 준비가 긴 모임' },
+      referenceRegular: { wd: 1080000, fri: 1470000, sat: 2310000, sun: 2000000 },
+      fit: '오전 10시부터 자정까지 이용하는 행사' },
     { id: 'allnight', label: '올나잇 패키지', en: 'ALL NIGHT', start: 18, end: 31, hours: 13, time: '18시–다음 날 07시',
       price:   { wd: 1000000, fri: 1400000, sat: 1800000, sun: 1300000 },
       regular: { wd: 1180000, fri: 1760000, sat: 2200000, sun: 1620000 },
       fit: '저녁부터 밤새 이어지는 파티·MT·동아리 모임' }
   ],
+
+  /* ---------- 24시간 종일 대관 (한시적 별도 상품, 기준 50명) ---------- */
+  fullDayOffer: {
+    id: 'full-day', label: '종일 대관', en: '24 HOURS', start: 0, end: 24, hours: 24, time: '00:00–24:00',
+    prices: {
+      '2026-12': { wd: 1260000, fri: 1700000, sat: 3800000, sun: 2480000 },
+      '2027-01': { wd: 1180000, fri: 1500000, sat: 2850000, sun: 2150000 },
+      '2027-02': { wd: 1100000, fri: 1300000, sat: 1900000, sun: 1650000 }
+    },
+    priceOn: function(date, holidays, specialDates){
+      var rates = this.prices[date.slice(0, 7)];
+      if (!rates || holidays[date] || specialDates[date]) return null;
+      var day = new Date(date + 'T00:00:00Z');
+      if (isNaN(day) || day.toISOString().slice(0, 10) !== date) return null;
+      var dow = day.getUTCDay();
+      day.setUTCDate(day.getUTCDate() + 1);
+      if (holidays[day.toISOString().slice(0, 10)]) return null;
+      return rates[dow === 0 ? 'sun' : dow === 6 ? 'sat' : dow === 5 ? 'fri' : 'wd'];
+    }
+  },
 
   /* ---------- 옵션 (원하면 추가) ---------- */
   options: [
@@ -127,17 +148,17 @@ window.MEGASPOT_PRICING['megaspot-gundae'] = {
     months: { '2026-12': { wd: 'dec_wd', fri: 'dec_fri', sat: 'dec_sat', sun: 'dec_sun' }, '2027-01': { wd: 'jan_wd', fri: 'jan_fri', sat: 'jan_sat', sun: 'jan_sun' } },
     // base: 비교 기준이 된 평소 요일 구분 · people: 포함 인원 · pct: 목표 인상률(%) · surcharge: 시간제 1건당 가산액
     types: {
-      oct30:   { label: '10월 30일',  short: '10/30(금)',  period: 'oct', base: 'fri', people: 50, pct: 20,  surcharge: 300000, hourly: { morning: 70000,  day: 70000,  evening: 180000, night: 95000  }, pkg: { day: 660000,  allday: 1500000, allnight: 1620000 } },
+      oct30:   { label: '10월 30일',  short: '10/30(금)',  period: 'oct', base: 'fri', people: 50, pct: 20,  surcharge: 300000, hourly: { morning: 70000,  day: 70000,  evening: 180000, night: 95000  }, pkg: { day: 660000,  allday: 1200000, allnight: 1620000 } },
       oct31:   { label: '10월 31일',  short: '10/31(토)',  period: 'oct', base: 'sat', people: 50, pct: 50,  surcharge: 450000, hourly: { morning: 120000, day: 225000, evening: 300000, night: 150000 }, pkg: { day: 1500000, allday: 2850000, allnight: 2700000 } },
-      dec_wd:  { label: '12월 월–목', short: '월–목',      period: 'dec', base: 'wd',  people: 50, pct: 20,  surcharge: 300000, hourly: { morning: 50000,  day: 70000,  evening: 120000, night: 50000  }, pkg: { day: 660000,  allday: 1260000,  allnight: 1140000  } },
-      dec_fri: { label: '12월 금요일', short: '금',        period: 'dec', base: 'fri', people: 50, pct: 40,  surcharge: 300000, hourly: { morning: 85000,  day: 85000,  evening: 210000, night: 110000 }, pkg: { day: 720000,  allday: 1700000, allnight: 1840000 } },
+      dec_wd:  { label: '12월 월–목', short: '월–목',      period: 'dec', base: 'wd',  people: 50, pct: 20,  surcharge: 300000, hourly: { morning: 50000,  day: 70000,  evening: 120000, night: 50000  }, pkg: { day: 660000,  allday: 960000,  allnight: 1140000  } },
+      dec_fri: { label: '12월 금요일', short: '금',        period: 'dec', base: 'fri', people: 50, pct: 40,  surcharge: 300000, hourly: { morning: 85000,  day: 85000,  evening: 210000, night: 110000 }, pkg: { day: 720000,  allday: 1400000, allnight: 1840000 } },
       dec_sat: { label: '12월 토요일', short: '토',        period: 'dec', base: 'sat', people: 50, pct: 100, surcharge: 600000, hourly: { morning: 160000, day: 300000, evening: 400000, night: 200000 }, pkg: { day: 2000000, allday: 3800000, allnight: 3600000 } },
       dec_sun: { label: '12월 일요일', short: '일',        period: 'dec', base: 'sun', people: 50, pct: 50,  surcharge: 450000, hourly: { morning: 150000, day: 225000, evening: 225000, night: 90000  }, pkg: { day: 1500000, allday: 2480000, allnight: 1950000 } },
       dec24:   { label: '12월 24일',  short: '12/24',      period: 'dec', base: 'sun', people: 50, pct: 50,  surcharge: 450000, hourly: { morning: 150000, day: 225000, evening: 225000, night: 90000  }, pkg: { day: 1500000, allday: 2480000, allnight: 1950000 }, same: 'dec_sun' },
       dec25:   { label: '12월 25일',  short: '12/25',      period: 'dec', base: 'sat', people: 50, pct: 100, surcharge: 600000, hourly: { morning: 160000, day: 300000, evening: 400000, night: 200000 }, pkg: { day: 2000000, allday: 3800000, allnight: 3600000 }, same: 'dec_sat' },
       dec31:   { label: '12월 31일',  short: '12/31',      period: 'dec', base: 'sat', people: 50, pct: 100, surcharge: 600000, hourly: { morning: 160000, day: 300000, evening: 400000, night: 200000 }, pkg: { day: 2000000, allday: 3800000, allnight: 3600000 }, same: 'dec_sat' },
-      jan_wd:  { label: '1월 월–목',  short: '월–목',      period: 'jan', base: 'wd',  people: 50, pct: 10,  surcharge: 300000, hourly: { morning: 45000,  day: 65000,  evening: 110000, night: 45000  }, pkg: { day: 630000,  allday: 1180000,  allnight: 1070000  } },
-      jan_fri: { label: '1월 금요일', short: '금',         period: 'jan', base: 'fri', people: 50, pct: 20,  surcharge: 300000, hourly: { morning: 70000,  day: 70000,  evening: 180000, night: 95000  }, pkg: { day: 660000,  allday: 1500000, allnight: 1620000 } },
+      jan_wd:  { label: '1월 월–목',  short: '월–목',      period: 'jan', base: 'wd',  people: 50, pct: 10,  surcharge: 300000, hourly: { morning: 45000,  day: 65000,  evening: 110000, night: 45000  }, pkg: { day: 630000,  allday: 880000,  allnight: 1070000  } },
+      jan_fri: { label: '1월 금요일', short: '금',         period: 'jan', base: 'fri', people: 50, pct: 20,  surcharge: 300000, hourly: { morning: 70000,  day: 70000,  evening: 180000, night: 95000  }, pkg: { day: 660000,  allday: 1200000, allnight: 1620000 } },
       jan_sat: { label: '1월 토요일', short: '토',         period: 'jan', base: 'sat', people: 50, pct: 50,  surcharge: 450000, hourly: { morning: 120000, day: 225000, evening: 300000, night: 150000 }, pkg: { day: 1500000, allday: 2850000, allnight: 2700000 } },
       jan_sun: { label: '1월 일요일', short: '일',         period: 'jan', base: 'sun', people: 50, pct: 30,  surcharge: 390000, hourly: { morning: 130000, day: 195000, evening: 195000, night: 80000  }, pkg: { day: 1300000, allday: 2150000, allnight: 1690000 } },
       jan1:    { label: '1월 1일',    short: '1/1',        period: 'jan', base: 'fri', people: 50, pct: 30,  surcharge: 390000, hourly: { morning: 80000,  day: 80000,  evening: 195000, night: 105000 }, pkg: { day: 780000,  allday: 1690000, allnight: 1820000 } }

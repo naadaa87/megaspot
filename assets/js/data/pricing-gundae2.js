@@ -1,6 +1,11 @@
-// 건대 2호는 1호의 시간대별 요금과 패키지를 사용하고 포함 인원과 공간 정보는 따로 정합니다.
+// 시간제와 낮·올나잇 및 종일 대관은 양쪽 공통입니다. 올데이는 지점별 기존 판매가입니다.
 (function(first){
 'use strict';
+var allDayPeakPrice = {
+  dec_wd: 1071000, dec_fri: 1445000, dec_sat: 3230000, dec_sun: 2108000,
+  dec24: 2108000, dec25: 3230000, dec31: 3230000,
+  jan_wd: 1003000, jan_fri: 1275000, jan_sat: 2423000, jan_sun: 1828000, jan1: 1437000
+};
 window.MEGASPOT_PRICING['megaspot-gundae-2'] = {
   version: first.version,
   effectiveFrom: first.effectiveFrom,
@@ -51,7 +56,13 @@ window.MEGASPOT_PRICING['megaspot-gundae-2'] = {
   minHours: 1,
 
   /* ---------- 패키지 (기준 인원 50명) ---------- */
-  packages: first.packages,
+  packages: first.packages.map(function(pkg){
+    return pkg.id === 'allday' ? Object.assign({}, pkg, {
+      price: { wd: 935000,  fri: 1105000, sat: 1615000, sun: 1403000 },
+      referenceRegular: { wd: 1173000, fri: 1508000, sat: 2221000, sun: 1961000 }
+    }) : pkg;
+  }),
+  fullDayOffer: first.fullDayOffer,
 
   /* ---------- 옵션 (1호와 같음) ---------- */
   options: [
@@ -90,7 +101,12 @@ window.MEGASPOT_PRICING['megaspot-gundae-2'] = {
     periods: first.peak.periods.filter(function(period){ return period.to >= '2026-11-13'; }),
     dates: Object.fromEntries(Object.entries(first.peak.dates).filter(function(entry){ return entry[0] >= '2026-11-13'; })),
     months: first.peak.months,
-    types: Object.fromEntries(Object.entries(first.peak.types).filter(function(entry){ return entry[1].period !== 'oct'; })),
+    types: Object.fromEntries(Object.entries(first.peak.types).filter(function(entry){
+      return entry[1].period !== 'oct';
+    }).map(function(entry){
+      var rate = entry[1];
+      return [entry[0], Object.assign({}, rate, { pkg: Object.assign({}, rate.pkg, { allday: allDayPeakPrice[entry[0]] }) })];
+    })),
     order: { dec: first.peak.order.dec, jan: first.peak.order.jan },
     peopleNote: '성수기에도 기준 인원 50명이 포함됩니다. 51명째부터 1명당 1만 원을 더합니다.',
     notes: [

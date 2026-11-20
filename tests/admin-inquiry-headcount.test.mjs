@@ -19,6 +19,7 @@ function inquiryForm(){
  Object.defineProperty($('#nw-form input[name=amount_mode][value=auto]'),'checked',{set(on){if(on)state.mode='auto';}});
  const ctx=vm.createContext({$,$$:selector=>selector==='#nw-opts [data-nwopt]'?options:[],NW:{last:null,edit:'MS-TEST',repriceAdjustment:{}},E:engine,D:engine.data(),ADMIN_HOURS:{from:0,to:47},nwMode:()=>state.mode,nwOptions:()=>({}),nwHourOpts:()=>'',esc:String,spaceShort:id=>id,won:n=>n.toLocaleString('ko-KR')+'원'});
  ctx.useSpace=id=>{ctx.E=engine.forSpace(id);ctx.D=ctx.E.data();};
+ vm.runInContext(source.slice(source.indexOf('  function fullDayForDate('),source.indexOf('  function nwHourOpts(')),ctx);
  vm.runInContext(source.slice(source.indexOf('  function nwCalc('),source.indexOf('  function nwModeUi(')),ctx);
  vm.runInContext(source.slice(source.indexOf('  function nwOptions('),source.indexOf('  function nwMode(')),ctx);
  const priceInputStart=source.indexOf('  function nwPriceInput(');

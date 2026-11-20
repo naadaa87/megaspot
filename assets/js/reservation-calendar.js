@@ -20,9 +20,10 @@
   var controller=new AbortController(),timeout=setTimeout(function(){controller.abort();},12000);
   return fetch('/api/reservation-calendar?'+new URLSearchParams({from:from,to:to}),{cache:'no-store',credentials:'omit',headers:{Accept:'application/json'},signal:controller.signal}).then(function(r){if(!r.ok)throw Error('예약 현황을 불러오지 못했습니다. 다시 확인하거나 카카오톡으로 문의해 주세요.');return r.json();}).then(function(j){if(!validPayload(j))throw Error('예약 현황을 확인할 수 없습니다. 다시 확인해 주세요.');cache.set(key,{at:Date.now(),data:j});if(cache.size>20)cache.delete(cache.keys().next().value);return j;}).catch(function(e){if(e.name==='AbortError')throw Error('예약 현황 조회 시간이 초과됐습니다. 새로고침해 주세요.');if(e instanceof TypeError)throw Error('네트워크 연결을 확인하고 다시 시도해 주세요.');throw e;}).finally(function(){clearTimeout(timeout);});
  }
+ function isFullDay(c){return c.packageId==='full-day'&&c.start===0&&c.end===24;}
  function selection(data,c){
   var room=rooms.find(function(x){return x.id===c.space;}),start=dayMs(c.date)+c.start*HOUR,end=dayMs(c.date)+c.end*HOUR;
-  var closed=!room||c.date<today()||!!(room.opensOn&&c.date<room.opensOn),bad=!validDate(c.date)||!Number.isInteger(c.start)||!Number.isInteger(c.end)||c.start<OPEN||c.end>CLOSE||c.end<=c.start;
+  var closed=!room||c.date<today()||!!(room.opensOn&&c.date<room.opensOn),bad=!validDate(c.date)||!Number.isInteger(c.start)||!Number.isInteger(c.end)||(c.packageId==='full-day'?!isFullDay(c):c.start<OPEN||c.end>CLOSE||c.end<=c.start);
   return {closed:closed,invalid:bad,conflict:data.intervals.some(function(it){return it.space===c.space&&start<Date.parse(it.end)&&Date.parse(it.start)<end;}),unknown:data.unknownDates.some(function(it){return it.space===c.space&&dayMs(it.date)<end&&dayMs(add(it.date,1))>start;})};
  }
  function checkRange(c,fresh){if(!validDate(c.date))return Promise.reject(Error('날짜를 확인해 주세요.'));return loadRange(add(c.date,-1),add(c.date,2),fresh).then(function(data){return selection(data,c);});}
@@ -35,7 +36,7 @@
     var other=rooms.find(function(r){return r.id!==c.space;}),otherChoice=Object.assign({},c,{space:other.id}),v=selection(data,otherChoice);
     if(!v.closed&&!v.invalid&&!v.conflict&&!v.unknown)suggestions.push(otherChoice);
     var candidates=[];
-    for(var h=OPEN;!status.unknown&&h+duration<=CLOSE;h++){
+    for(var h=OPEN;!isFullDay(c)&&!status.unknown&&h+duration<=CLOSE;h++){
      if(h===c.start)continue;
      var candidate=Object.assign({},c,{start:h,end:h+duration}),check=selection(data,candidate);
      if(!check.closed&&!check.invalid&&!check.conflict&&!check.unknown)candidates.push(candidate);
@@ -47,9 +48,9 @@
   });
  }
  // Build the display from the same hourly overlap checks used to accept a selection.
- function timelineSegments(data,space,date){
+ function timelineSegments(data,space,date,from,to){
   var segments=[];
-  for(var start=OPEN;start<CLOSE;start++){
+  for(var start=from;start<to;start++){
    var state=selection(data,{space:space,date:date,start:start,end:start+1});
    var kind=state.conflict?'confirmed':state.unknown?'unknown':'free';
    var last=segments[segments.length-1];
@@ -58,26 +59,28 @@
   }
   return segments;
  }
- function timeline(room,date,data,loading){
-  var segments=timelineSegments(data,room.id,date), scale=CLOSE-OPEN;
-  var axis=[[5,'05시'],[12,'12시'],[18,'18시'],[24,'자정'],[31,'익일 07시']];
+ function timeline(room,date,data,loading,fullDay){
+  var from=fullDay?0:OPEN,to=fullDay?24:CLOSE,scale=to-from;
+  var segments=timelineSegments(data,room.id,date,from,to);
+  var axis=fullDay?[[0,'00시'],[6,'06시'],[12,'12시'],[18,'18시'],[24,'24시']]:[[5,'05시'],[12,'12시'],[18,'18시'],[24,'자정'],[31,'익일 07시']];
   var legend='<div class="rc-slot-legend"><span class="rc-slot-confirmed">예약 확정</span><span class="rc-slot-free">문의 가능</span>'+(segments.some(function(slot){return slot.kind==='unknown';})?'<span class="rc-slot-unknown">시간 확인 필요</span>':'')+'</div>';
-  var ticks=axis.map(function(tick){return '<span style="left:'+((tick[0]-OPEN)/scale*100)+'%">'+tick[1]+'</span>';}).join('');
-  var bars=segments.map(function(slot){return '<span class="rc-slot-'+slot.kind+'" style="left:'+((slot.start-OPEN)/scale*100)+'%;width:'+((slot.end-slot.start)/scale*100)+'%"></span>';}).join('');
+  var ticks=axis.map(function(tick){return '<span style="left:'+((tick[0]-from)/scale*100)+'%">'+tick[1]+'</span>';}).join('');
+  var bars=segments.map(function(slot){return '<span class="rc-slot-'+slot.kind+'" style="left:'+((slot.start-from)/scale*100)+'%;width:'+((slot.end-slot.start)/scale*100)+'%"></span>';}).join('');
   var items=segments.map(function(slot){
-   var time=hour(slot.start)+'–'+hour(slot.end);
+   var time=hour(slot.start)+'–'+(fullDay&&slot.end===24?'24:00':hour(slot.end));
    var title={confirmed:'예약 확정',unknown:'시간 확인 필요',free:'문의 가능'}[slot.kind];
    return '<li><div class="rc-slot-info"><span>'+esc(time)+'</span><small class="rc-slot-'+slot.kind+'">'+title+'</small></div>'+
-    (slot.kind==='free'&&segments.length>1?'<button type="button" class="rc-slot-pick" data-use-room="'+room.id+'" data-start="'+slot.start+'" data-end="'+slot.end+'" aria-label="'+esc(room.name+' '+time+' 선택')+'"'+(loading?' disabled':'')+'>선택 →</button>':'')+'</li>';
+    (!fullDay&&slot.kind==='free'&&segments.length>1?'<button type="button" class="rc-slot-pick" data-use-room="'+room.id+'" data-start="'+slot.start+'" data-end="'+slot.end+'" aria-label="'+esc(room.name+' '+time+' 선택')+'"'+(loading?' disabled':'')+'>선택 →</button>':'')+'</li>';
   }).join('');
   return legend+'<div class="rc-time-axis" aria-hidden="true">'+ticks+'</div><div class="rc-timeline" aria-hidden="true">'+bars+'</div><ul class="rc-times">'+items+'</ul>';
  }
- function inquiryUrl(c){return '/inquiry/?'+new URLSearchParams({space:c.space,date:c.date,start:c.start,end:c.end})+'#reserve';}
+ function inquiryUrl(c){var q=new URLSearchParams({space:c.space,date:c.date,start:c.start,end:c.end});if(isFullDay(c))q.set('pkg',c.packageId);return '/inquiry/?'+q+'#reserve';}
  function mount(root,options){
   options=options||{};var inEstimate=!!options.embedded,applyLabel=inEstimate?'선택한 일정을 견적에 적용 →':'이 일정으로 견적 계산 →';var date=validDate(options.date)&&options.date>=today()?options.date:today(),maxMonth=shiftMonth(month(today()),11);
   if(month(date)>maxMonth)date=today();
   var st={date:date,month:month(date),space:knownRoom(options.space)?options.space:rooms[0].id,filter:'all',start:Number.isInteger(+options.start)?+options.start:13,end:Number.isInteger(+options.end)?+options.end:17,data:null,loading:true,error:'',busy:false},seq=0,destroyed=false;
-  if(st.start<5||st.start>30)st.start=13;if(st.end<=st.start||st.end>31)st.end=Math.min(st.start+4,31);
+  var fullDay=isFullDay({packageId:options.packageId,start:st.start,end:st.end});
+  if(!fullDay&&(st.start<OPEN||st.start>=CLOSE))st.start=13;if(st.end<=st.start||st.end>CLOSE)st.end=Math.min(st.start+4,CLOSE);
   var uid='rc-'+Math.random().toString(36).slice(2,8),timer;
   function opts(a,b,pick){var s='';for(var h=a;h<=b;h++)s+='<option value="'+h+'"'+(h===pick?' selected':'')+'>'+hour(h)+'</option>';return s;}
   root.classList.add('reservation-calendar');root.innerHTML='<p class="rc-intro">날짜를 고르면 두 공간의 예약 확정 시간과 문의 가능한 시간이 나뉘어 보입니다. 준비·정리 시간까지 포함해 선택해 주세요. 최종 이용 가능 여부는 담당자가 확인합니다.</p>'
@@ -85,17 +88,26 @@
    +'<p class="rc-updated" role="status" aria-live="polite"></p><div class="rc-error" role="alert" hidden></div>'
    +'<div class="rc-layout"><section class="rc-month" aria-label="월별 확정 예약"><div class="rc-month-head"><button type="button" data-rc="prev" aria-label="이전 달">‹</button><h3 class="rc-month-title"></h3><button type="button" data-rc="next" aria-label="다음 달">›</button></div><div class="rc-weekdays" aria-hidden="true"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div><div class="rc-grid" role="group" aria-label="날짜 선택"></div><p class="rc-legend"><span class="rc-room-one">1호 확정 예약</span><span class="rc-room-two">2호 확정 예약</span></p></section>'
    +'<section class="rc-details" aria-label="선택한 날짜의 공간별 시간표"><div class="rc-details-head"><h3 class="rc-day-title"></h3><button type="button" data-rc="dates">날짜 다시 선택 ↑</button></div><div class="rc-day-detail"></div></section></div>'
-   +'<section class="rc-choice" aria-label="견적에 반영할 공간과 시간 선택"><h3>'+(inEstimate?'견적에 반영할 일정':'선택한 일정으로 견적 확인')+'</h3><p class="rc-choice-note">'+(inEstimate?'공간·날짜·시간만 반영합니다. 입력한 인원·식음료·연락처는 유지됩니다.':'원하는 공간과 시간을 고르면 견적 계산 화면으로 이어집니다.')+'</p><div class="rc-choice-fields"><label for="'+uid+'-room">공간<select id="'+uid+'-room" class="select" data-rc="room">'+rooms.map(function(r){return '<option value="'+r.id+'">'+r.name+'</option>';}).join('')+'</select></label><label for="'+uid+'-start">시작<select id="'+uid+'-start" class="select" data-rc="start">'+opts(5,30,st.start)+'</select></label><label for="'+uid+'-end">종료<select id="'+uid+'-end" class="select" data-rc="end">'+opts(6,31,st.end)+'</select></label></div><p class="rc-selected-date"></p><p class="rc-selection-status" role="status" aria-live="polite"></p><button type="button" class="btn btn-primary" data-rc="apply" disabled>'+applyLabel+'</button><a class="rc-help" href="https://pf.kakao.com/_LnxbmX/chat" target="_blank" rel="noopener">시간 조율이 필요하면 카카오톡 문의 ↗</a></section>';
+   +'<section class="rc-choice" aria-label="견적에 반영할 공간과 시간 선택"><h3>'+(inEstimate?'견적에 반영할 일정':'선택한 일정으로 견적 확인')+'</h3><p class="rc-choice-note">'+(inEstimate?'공간·날짜·시간만 반영합니다. 입력한 인원·식음료·연락처는 유지됩니다.':'원하는 공간과 시간을 고르면 견적 계산 화면으로 이어집니다.')+'</p><div class="rc-choice-fields"><label for="'+uid+'-room">공간<select id="'+uid+'-room" class="select" data-rc="room">'+rooms.map(function(r){return '<option value="'+r.id+'">'+r.name+'</option>';}).join('')+'</select></label>'+(fullDay?'':'<label for="'+uid+'-start">시작<select id="'+uid+'-start" class="select" data-rc="start">'+opts(OPEN,CLOSE-1,st.start)+'</select></label><label for="'+uid+'-end">종료<select id="'+uid+'-end" class="select" data-rc="end">'+opts(OPEN+1,CLOSE,st.end)+'</select></label>')+'</div><p class="rc-selected-date"></p><p class="rc-selection-status" role="status" aria-live="polite"></p><button type="button" class="btn btn-primary" data-rc="apply" disabled>'+applyLabel+'</button><a class="rc-help" href="https://pf.kakao.com/_LnxbmX/chat" target="_blank" rel="noopener">시간 조율이 필요하면 카카오톡 문의 ↗</a></section>';
   var $=function(s){return root.querySelector(s);};
-  function choice(){return {space:st.space,date:st.date,start:st.start,end:st.end};}
+  function choice(){var c={space:st.space,date:st.date,start:st.start,end:st.end};if(fullDay)c.packageId='full-day';return c;}
+  function offerAvailable(c){
+   if(!fullDay)return true;
+   var engine=window.MEGASPOT_PRICE&&window.MEGASPOT_PRICE.forSpace(c.space);
+   return !!engine&&engine.pkgPrice(engine.dayInfo(c.date),c.packageId)!=null;
+  }
   function paintChoice(){
-   $('[data-rc=room]').value=st.space;$('[data-rc=start]').value=st.start;$('[data-rc=end]').value=st.end;
+   $('[data-rc=room]').value=st.space;
+   if(!fullDay){
+    $('[data-rc=start]').value=st.start;$('[data-rc=end]').value=st.end;
+    $('[data-rc=end]').querySelectorAll('option').forEach(function(o){o.disabled=+o.value<=st.start;});
+   }
    $('[data-rc=room]').querySelectorAll('option').forEach(function(o){var r=rooms.find(function(x){return x.id===o.value;});o.disabled=!!(r.opensOn&&st.date<r.opensOn);});
-   $('[data-rc=end]').querySelectorAll('option').forEach(function(o){o.disabled=+o.value<=st.start;});
-   $('.rc-selected-date').textContent=label(st.date)+' · '+hour(st.start)+'–'+hour(st.end);
-   var v=st.data?selection(st.data,choice()):null,text=st.loading?'예약 현황을 확인하고 있습니다.':!st.data?'예약 현황을 확인한 후 일정을 선택해 주세요.':v.closed?'선택한 공간은 이 날짜에 신청할 수 없습니다. 오픈일 이후 날짜를 골라 주세요.':v.invalid?'시작·종료 시간을 확인해 주세요.':v.conflict?'선택한 시간과 겹치는 확정 예약이 있습니다. 다른 시간이나 다른 호점을 확인해 주세요.':v.unknown?'이 날짜에 확정 예약이 있어 시간 확인이 필요합니다. 카카오톡으로 문의해 주세요.':'선택한 시간과 겹치는 확정 예약은 표시되지 않습니다. 최종 이용 가능 여부는 상담 시 확인합니다.';
-   $('.rc-selection-status').textContent=text;$('.rc-selection-status').classList.toggle('rc-attention',!!(v&&(v.closed||v.invalid||v.conflict||v.unknown)));
-   $('[data-rc=apply]').disabled=st.loading||st.busy||!v||v.closed||v.invalid||v.conflict||v.unknown;
+   $('.rc-selected-date').textContent=label(st.date)+' · '+(fullDay?'종일 대관 00:00–24:00':hour(st.start)+'–'+hour(st.end));
+   var selected=choice(),applies=offerAvailable(selected);
+   var v=st.data?selection(st.data,selected):null,text=st.loading?'예약 현황을 확인하고 있습니다.':!st.data?'예약 현황을 확인한 후 일정을 선택해 주세요.':v.closed?'선택한 공간은 이 날짜에 신청할 수 없습니다. 오픈일 이후 날짜를 골라 주세요.':!applies?'종일 대관 할인 적용일을 골라 주세요.':v.invalid?'시작·종료 시간을 확인해 주세요.':v.conflict?'선택한 시간과 겹치는 확정 예약이 있습니다. 다른 시간이나 다른 호점을 확인해 주세요.':v.unknown?'이 날짜에 확정 예약이 있어 시간 확인이 필요합니다. 카카오톡으로 문의해 주세요.':'선택한 시간과 겹치는 확정 예약은 표시되지 않습니다. 최종 이용 가능 여부는 상담 시 확인합니다.';
+   $('.rc-selection-status').textContent=text;$('.rc-selection-status').classList.toggle('rc-attention',!!(v&&(!applies||v.closed||v.invalid||v.conflict||v.unknown)));
+   $('[data-rc=apply]').disabled=st.loading||st.busy||!v||!applies||v.closed||v.invalid||v.conflict||v.unknown;
    $('[data-rc=apply]').textContent=st.busy?'최신 일정 확인 중…':applyLabel;
   }
   function paint(){
@@ -108,15 +120,15 @@
    var grid='',first=monthStart(st.month),end=monthEnd(st.month),lead=new Date(dayMs(first)+9*HOUR).getUTCDay();
    for(var i=0;i<lead;i++)grid+='<span class="rc-blank" aria-hidden="true"></span>';
    for(var d=first;d<=end;d=add(d,1)){
-    var tags='',spoken='';rooms.forEach(function(r,index){if(st.filter!=='all'&&st.filter!==r.id)return;var status=st.data&&selection(st.data,{space:r.id,date:d,start:OPEN,end:CLOSE});if(status&&(status.conflict||status.unknown)){tags+='<span class="rc-dot rc-'+index+'">'+(index+1)+'호</span>';spoken+=' '+r.name+' 확정 예약 있음';}});
+    var tags='',spoken='';rooms.forEach(function(r,index){if(st.filter!=='all'&&st.filter!==r.id)return;var status=st.data&&selection(st.data,{space:r.id,date:d,start:fullDay?0:OPEN,end:fullDay?24:CLOSE});if(status&&(status.conflict||status.unknown)){tags+='<span class="rc-dot rc-'+index+'">'+(index+1)+'호</span>';spoken+=' '+r.name+' 확정 예약 있음';}});
     grid+='<button type="button" class="rc-day'+(d===st.date?' is-selected':'')+'" data-day="'+d+'" aria-pressed="'+(d===st.date)+'" aria-label="'+label(d)+esc(st.data?spoken||' 확정 예약 표시 없음':' 예약 현황 확인 필요')+'"'+(d<today()?' disabled':'')+'><b>'+ +d.slice(8,10)+'</b>'+tags+'</button>';
    }
    $('.rc-grid').innerHTML=grid;$('.rc-day-title').textContent=label(st.date)+' 시간대별 예약 현황';
    $('.rc-day-detail').innerHTML=!st.data?'<p class="rc-empty">'+(st.loading?'예약 현황을 확인하고 있습니다.':'예약 현황을 불러오지 못했습니다. 새로고침하거나 카카오톡으로 문의해 주세요.')+'</p>':rooms.filter(function(r){return st.filter==='all'||st.filter===r.id;}).map(function(r,index){
     var closed=r.opensOn&&st.date<r.opensOn;
-    var details=closed?'<p class="rc-empty">'+label(r.opensOn)+' 오픈 전</p>':timeline(r,st.date,st.data,st.loading);
+    var details=closed?'<p class="rc-empty">'+label(r.opensOn)+' 오픈 전</p>':timeline(r,st.date,st.data,st.loading,fullDay);
     return '<article class="rc-room-card '+(r.id===rooms[0].id?'rc-one':'rc-two')+'"><h4>'+r.name+'</h4>'+details+
-     (closed?'':'<button type="button" class="rc-room-use" data-use-room="'+r.id+'">'+r.name+' 시간 직접 선택 ↓</button>')+'</article>';
+     (closed?'':'<button type="button" class="rc-room-use" data-use-room="'+r.id+'">'+r.name+(fullDay?' 종일 대관 선택 ↓':' 시간 직접 선택 ↓')+'</button>')+'</article>';
    }).join('');paintChoice();
   }
   function load(fresh){
@@ -127,13 +139,13 @@
    var b=e.target.closest('button');if(!b||!root.contains(b))return;
    if(b.dataset.day){st.date=b.dataset.day;paint();if(matchMedia('(max-width:719px)').matches)$('.rc-details').scrollIntoView({block:'start',behavior:'smooth'});return;}
    if(b.dataset.filter){st.filter=b.dataset.filter;if(knownRoom(st.filter))st.space=st.filter;paint();return;}
-   if(b.dataset.useRoom){st.space=b.dataset.useRoom;if(b.dataset.start){st.start=+b.dataset.start;st.end=+b.dataset.end;}paintChoice();$('.rc-choice').scrollIntoView({block:'nearest',behavior:'smooth'});$('[data-rc=room]').focus({preventScroll:true});return;}
+   if(b.dataset.useRoom){st.space=b.dataset.useRoom;if(!fullDay&&b.dataset.start){st.start=+b.dataset.start;st.end=+b.dataset.end;}paintChoice();$('.rc-choice').scrollIntoView({block:'nearest',behavior:'smooth'});$('[data-rc=room]').focus({preventScroll:true});return;}
    var action=b.dataset.rc;
    if(action==='dates'){$('.rc-month').scrollIntoView({block:'start',behavior:'smooth'});return;}
    if(action==='refresh'){load(true);return;}
    if(action==='prev'||action==='next'){var next=shiftMonth(st.month,action==='prev'?-1:1);if(next<month(today())||next>maxMonth)return;st.month=next;st.date=next===month(today())?today():monthStart(next);st.data=null;load(true);return;}
    if(action==='apply'){
-    var picked=choice(),key=JSON.stringify(picked);st.busy=true;paintChoice();
+    var picked=choice(),key=JSON.stringify(picked);if(!offerAvailable(picked))return;st.busy=true;paintChoice();
     checkRange(picked,true).then(function(v){if(destroyed)return;if(JSON.stringify(choice())!==key)throw Error('선택한 일정이 바뀌었습니다. 시간을 다시 확인해 주세요.');if(v.closed||v.invalid||v.conflict||v.unknown){load(true);throw Error(v.conflict?'방금 확정된 예약과 시간이 겹칩니다. 다른 시간을 골라 주세요.':'이 일정은 담당자의 시간 확인이 필요합니다. 날짜를 다시 고르거나 카카오톡으로 문의해 주세요.');}if(options.onSelect)options.onSelect(picked);else location.assign(inquiryUrl(picked));}).catch(function(ex){if(!destroyed){st.error=ex.message;$('.rc-error').textContent=st.error;$('.rc-error').hidden=false;}}).finally(function(){if(!destroyed){st.busy=false;paintChoice();}});
    }
   });

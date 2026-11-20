@@ -1,5 +1,5 @@
 /* =====================================================================
-   메가스팟 · 요금 계산 (건대 1호 요금표 v2.1 · 건대 2호 요금표 v1.1 · 성수기 포함)
+   메가스팟 · 건대 1·2호 요금 계산 (시간제·패키지·성수기)
    - 데이터는 data/pricing-gundae.js(1호), data/pricing-gundae2.js(2호), 공휴일은 data/holidays-kr.js 에 있습니다.
    - 계산 순서: 날짜 → (성수기면 적용 구분) → 요일 구분 → 시간당 요금 합계(+1건당 가산액) → 패키지와 같으면 패키지 금액
                 → 포함 인원을 넘는 만큼 인원 추가 → 옵션 → 합계. 보증금은 따로.
@@ -103,11 +103,17 @@
     }
     return { total: total, lines: lines };
   }
-  function findPkg(id){ return (P().packages || []).filter(function(p){ return p.id === id; })[0] || null; }
+  function findPkg(id){
+    var D = P(), offer = D.fullDayOffer;
+    if (offer && id === offer.id) return offer;
+    return (D.packages || []).find(function(p){ return p.id === id; }) || null;
+  }
   function matchPackage(start, end){ return (P().packages || []).filter(function(p){ return p.start === start && p.end === end; })[0] || null; }
   // 그날의 패키지 금액 (성수기면 성수기 패키지)
   function pkgPrice(day, pkg){
     if (typeof pkg === 'string') pkg = findPkg(pkg); if (!pkg || !day) return null;
+    var D = P(), offer = D.fullDayOffer;
+    if (offer && pkg.id === offer.id) return offer.priceOn(day.iso, HOL(), (D.peak && D.peak.dates) || {});
     return day.peak ? pkg_(day.peak, pkg.id) : pkg.price[day.col];
   }
   function pkg_(pk, id){ return pk.pkg && pk.pkg[id] != null ? pk.pkg[id] : null; }
@@ -146,20 +152,22 @@
   }
 
   /* ---------- 견적 ---------- */
-  // input: { date, start, end, people, purpose, options:{manager:{count,hours}, cleaning:true, disposable:true, banner:true, xbanner:true}, regular:bool }
+  // input: { date, start, end, packageId, people, purpose, options:{manager:{count,hours}, cleaning:true, disposable:true, banner:true, xbanner:true}, regular:bool }
   function quote(input){
     var D = P(); if (!D) return null;
     var date = input.date || todayIso(), day = dayInfo(date); if (!day) return null;
-    var from = input.adminHours === true ? 0 : D.openFrom, to = input.adminHours === true ? 47 : D.openTo;
+    var offer = D.fullDayOffer;
+    var fullDay = offer && input.packageId === offer.id && String(input.start) === String(offer.start) && String(input.end) === String(offer.end) && pkgPrice(day, offer) != null;
+    var from = input.adminHours === true || fullDay ? 0 : D.openFrom, to = input.adminHours === true ? 47 : D.openTo;
     var start = clampInt(input.start, from, to - 1, 13), end = clampInt(input.end, start + D.minHours, to, Math.min(start + 4, to));
     var people = clampInt(input.people, 1, D.people.max, D.people.base);
     var pk = day.peak, col = day.col, hours = end - start;
     var hf = hoursFee(day, start, end);
     var surcharge = surchargeFor(day), hourlyTotal = hf.total + surcharge;
-    var pkg = matchPackage(start, end), pkgInfo = null, spaceFee = hourlyTotal;
+    var pkg = fullDay ? offer : matchPackage(start, end), pkgInfo = null, spaceFee = hourlyTotal;
     if (pkg){
       var price = pkgPrice(day, pkg);
-      if (price != null){ pkgInfo = { id: pkg.id, label: pkg.label, time: pkg.time, hours: pkg.hours, regular: hourlyTotal, price: price, saving: Math.max(0, hourlyTotal - price), pct: hourlyTotal > price ? Math.round((1 - price / hourlyTotal) * 100) : 0 }; spaceFee = price; }
+      if (price != null){ pkgInfo = { id: pkg.id, label: pkg.label, time: pkg.time, hours: pkg.hours, regular: hourlyTotal, price: price, saving: Math.max(0, hourlyTotal - price), pct: !fullDay && hourlyTotal > price ? Math.round((1 - price / hourlyTotal) * 100) : 0 }; spaceFee = price; }
     }
     var suggest = pkgInfo ? null : suggestPackage(day, start, end, hourlyTotal);
     var peopleBase = day.peopleBase;
@@ -167,10 +175,11 @@
     var opts = optionLines(input.options, { hours: hours, people: people });
     var optFee = opts.reduce(function(a, o){ return a + o.amount; }, 0);
     var total = spaceFee + peopleFee + optFee;
-    var breakfast = D.breakfastUntil ? start < D.breakfastUntil : false;
+    var breakfast = !fullDay && !!D.breakfastUntil && start < D.breakfastUntil;
     var dawnHours = hf.lines.filter(function(l){ return l.dawn; }).reduce(function(a, l){ return a + l.hours; }, 0);
     var notes = [], warns = [];
-    if (pk) notes.push(pk.seasonLabel + ' 요금(' + pk.label + ' 기준)으로 계산했습니다. 기준 인원 ' + pk.people + '명이 공간료에 들어 있고' + (pk.people > D.people.base ? ' 그보다 적게 오셔도 공간료는 같습니다.' : ' ' + (pk.people + 1) + '명째부터 1명당 ' + man(D.people.extra) + '을 더합니다.') + (surcharge && !pkgInfo ? ' 시간제에는 1건당 가산액 ' + man(surcharge) + '이 더해져 있습니다.' : ''));
+    if (fullDay) notes.push('종일 대관 할인가를 적용했습니다. 00:00부터 이용일이 끝나는 24:00까지 24시간 이용합니다.');
+    else if (pk) notes.push(pk.seasonLabel + ' 요금(' + pk.label + ' 기준)으로 계산했습니다. 기준 인원 ' + pk.people + '명이 공간료에 들어 있고' + (pk.people > D.people.base ? ' 그보다 적게 오셔도 공간료는 같습니다.' : ' ' + (pk.people + 1) + '명째부터 1명당 ' + man(D.people.extra) + '을 더합니다.') + (surcharge && !pkgInfo ? ' 시간제에는 1건당 가산액 ' + man(surcharge) + '이 더해져 있습니다.' : ''));
     else if (day.why) notes.push(day.why);
     if (!pk && surcharge && !pkgInfo) notes.push((D.surcharge && D.surcharge.note) || ('시간제 예약은 1건당 가산액 ' + man(surcharge) + '을 한 번 더합니다. 패키지 금액에는 이미 들어 있습니다.'));
     if (breakfast) notes.push('조찬 모임은 따로 연락 주시면 추가 협찬과 할인을 안내해 드립니다.' + (dawnHours ? ' 새벽 05–07시는 심야 시간대 요금으로 계산했습니다.' : ''));
@@ -179,9 +188,9 @@
     if (suggest) notes.push(suggest.pkg.label + '(' + suggest.pkg.time + ')로 잡으면 ' + man(suggest.saving) + ' 더 저렴합니다. 시간이 더 길어도 같은 금액입니다.');
     if (end > 24) notes.push(input.adminHours === true ? '자정을 넘긴 시간도 시작한 이용일의 요일·성수기 요금으로 각 시간대를 계산합니다.' : '자정을 넘기는 시간은 이용일 기준 심야 요금(24–07시)으로 계산합니다.' + (pk ? ' 성수기에도 시작한 이용일의 요금만 적용됩니다.' : ''));
     return {
-      date: date, day: day, col: col, colLabel: day.colLabel, start: start, end: end, hours: hours, range: rangeLabel(start, end),
+      date: date, day: day, col: col, colLabel: day.colLabel, start: start, end: end, hours: hours, range: fullDay ? offer.time + ' (24시간)' : rangeLabel(start, end),
       people: people, peopleBase: peopleBase, purpose: input.purpose || '', regular: !!input.regular, breakfast: breakfast,
-      peak: pk, surcharge: surcharge,
+      peak: fullDay ? null : pk, surcharge: surcharge,
       time: { fee: hf.total, lines: hf.lines, total: hourlyTotal }, pkg: pkgInfo, suggest: suggest,
       spaceFee: spaceFee, peopleExtra: extraPeople, peopleFee: peopleFee, options: opts, optionFee: optFee,
       total: total, deposit: D.deposit.amount, notes: notes, warnings: warns, version: D.version, space: SPACE, spaceName: D.spaceName || ''

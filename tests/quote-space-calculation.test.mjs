@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import Calculation from '../assets/js/quote-calculation.js';
 import {fixture,quoteInput} from './helpers/admin-fixture.mjs';
+import {quoteUi} from './helpers/admin-quote-fixture.mjs';
 const ctx=vm.createContext({window:{}});
 for(const file of ['data/holidays-kr.js','data/pricing-gundae.js','data/pricing-gundae2.js','pricing-engine.js'])vm.runInContext(readFileSync(new URL('../assets/js/'+file,import.meta.url),'utf8'),ctx);
 const money=n=>Math.round(n).toLocaleString('ko-KR')+'원';
@@ -79,10 +80,53 @@ test('견적 호점 전환은 선택 옵션·매니저 수량을 보존하면서
  const $=selector=>elements[selector]||(elements[selector]={innerHTML:'',textContent:'',value:''});
  const context=vm.createContext({$,$$:selector=>selector==='#q-opts [data-opt]'?checked:[],esc:String,won:money,todayIso:()=> '2026-11-18',spaceOk:id=>id,Q:{space:'megaspot-gundae',quoteNo:'Q-OLD',opts:{manager:{on:false,count:1,hours:4}},extras:[]}});
  context.useSpace=id=>{context.E=ctx.window.MEGASPOT_PRICE.forSpace(id);context.D=context.E.data();};context.useSpace('megaspot-gundae');
- for(const [start,end]of [['  function qSpaceHint(', '  function fillForm('],['  function renderQuoteRates(', '  function renderExtras('],['  function readForm(', '  function compute(']])vm.runInContext(source.slice(source.indexOf(start),source.indexOf(end,source.indexOf(start))),context);
+ for(const [start,end]of [['  function fullDayForDate(', '  function nwHourOpts('],['  function qSpaceHint(', '  function fillForm('],['  function renderQuoteRates(', '  function renderExtras('],['  function readForm(', '  function compute(']])vm.runInContext(source.slice(source.indexOf(start),source.indexOf(end,source.indexOf(start))),context);
  context.readForm();const two=ctx.window.MEGASPOT_PRICE.forSpace('megaspot-gundae-2').data();
  assert.equal(context.Q.space,'megaspot-gundae-2');assert.equal(context.Q.quoteNo,'');assert.equal(elements['#q-people'].max,350);assert.equal(context.Q.people,300);
  assert.ok(elements['#q-opts'].innerHTML.includes(money(two.options.find(o=>o.id==='cleaning').price)));assert.ok(elements['#q-space-hint'].textContent.includes(two.version));
  assert.equal(context.Q.opts.manager.on,true);assert.equal(context.Q.opts.manager.count,2);assert.equal(context.Q.opts.manager.hours,6);assert.equal(context.Q.opts.cleaning,true);assert.equal(context.Q.note,'입력 유지');
  elements['#q-space'].value='megaspot-gundae';context.readForm();assert.equal(context.Q.space,'megaspot-gundae');assert.equal(elements['#q-people'].max,200);assert.equal(Number(elements['#q-people'].value),200);assert.equal(context.Q.opts.cleaning,true);
+});
+
+
+test('종일 대관의 0시 시작·패키지 금액을 문의·견적 원본·예약에 유지',async t=>{
+ const f=fixture();t.after(()=>f.db.close());
+ const date='2027-02-01',venue='megaspot-gundae-2',E=ctx.window.MEGASPOT_PRICE.forSpace(venue);
+ const settings={date,start:0,end:24,people:150,packageId:'full-day',adminHours:true};
+ const promo=E.quote(settings),hourly=E.quote({...settings,packageId:''});
+ assert.equal(promo.total,2100000);assert.equal(promo.start,0);assert.equal(hourly.pkg,null);
+ const draft={name:'종일 대관 검증',phone:'010-1234-5678',space_id:venue,channel:'phone',date,start_h:0,end_h:24,headcount:150,
+  pkg:'full-day',amount_mode:'auto',total:promo.total,estimate:E.summaryText(promo,'')};
+ const wrong=await f.api('inquiries','POST',{...draft,start_h:10},400);assert.equal(wrong.code,'FULL_DAY_CONDITIONS');
+ const {ref}=await f.api('inquiries','POST',draft);
+ const inquiry=async()=>(await f.api('inquiries/'+ref)).item;
+ let item=await inquiry();
+ assert.equal(item.data.start_h,0);assert.equal(item.data.pkg,'full-day');
+ const view=quoteUi();view.open(item);
+ assert.equal(view.ctx.R.total,promo.total);
+ assert.match(view.documents().html,/종일 대관/);
+ const promoQuote=await f.api('quotes','POST',view.ctx.payload());
+ item=await inquiry();
+ assert.equal(item.data.quote_input.packageId,'full-day');
+ assert.equal(item.data.pkg,'full-day');
+ const stored=(await f.api('inquiries/'+ref)).quotes.find(q=>q.quote_no===promoQuote.quote_no);
+ assert.ok(view.ctx.quoteMatchesInquiry(stored,item));
+
+ // Changing the package choice without changing the hours creates a separate current quote.
+ view.open(item);view.ctx.Q.packageId='';view.ctx.calc();
+ assert.equal(view.ctx.R.total,hourly.total);
+ await f.api('quotes','POST',view.ctx.payload());
+ item=await inquiry();
+ assert.equal(item.data.start_h,0);assert.equal(item.data.pkg,'');
+ assert.equal(view.ctx.quoteMatchesInquiry(stored,item),false);
+ view.ctx.loadSavedQuote(stored,ref,{outdated:true,item});
+ assert.equal(view.documents().total,promo.total);
+
+ await f.api('inquiries/'+ref,'PATCH',{...draft,edit:true});
+ const reservations=await f.api('reservations?from='+date+'&to='+date);
+ assert.equal(reservations.items.find(x=>x.ref===ref).pkg,'full-day');
+ const {booking_code}=await f.api('inquiries/'+ref+'/confirm','POST',{date,start_h:0,end_h:24,headcount:150,amount:promo.total});
+ const row=f.db.prepare('SELECT start_h,end_h,amount FROM bookings WHERE booking_code=?').get(booking_code);
+ assert.deepEqual({...row},{start_h:0,end_h:24,amount:promo.total});
+ assert.equal((await inquiry()).data.pkg,'full-day');
 });

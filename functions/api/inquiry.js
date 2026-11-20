@@ -1,7 +1,8 @@
 // 문의·예약 신청 접수 — 행사 대관(event) · 정기·반복 모임(regular) · 제휴·협력·파트너(partner)
 // reserve:true 이면 '예약 신청'(금액 확인 → 신청)으로 들어온 건입니다. 모임 유형은 선택 사항입니다.
 import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, log, getMember, clientIp, tooMany, hit, kstToday, spaceOk, SPACE_OPENING } from './_lib.js';
-import { PRICING_ALL } from './_catalog.js';
+import { HOLIDAYS, PRICING_ALL } from './_catalog.js';
+import { confirmedOccupancyFreeSql } from './_booking_availability.js';
 import {readFoodPricing,foodPricingData} from './_food_pricing.js';
 import { cateringFrom } from './_catering.js';
 import { receptionCustomer } from './_reception.js';
@@ -9,6 +10,7 @@ import {readCocktailPricing,publicCocktailPricing} from './_cocktail_pricing.js'
 import { cocktailFrom } from './_cocktail.js';
 import { createVisit, timeOk } from './_visits.js';
 const TYPES = ['event', 'regular', 'partner'];
+const fullDayAvailable = confirmedOccupancyFreeSql({ space: 'slot.space', date: 'slot.date', start: 'slot.start_h', end: 'slot.end_h' });
 // '함께 알아보기'로 받을 수 있는 패밀리 공간 (assets/js/site.js의 FAMILY_ASK와 같은 id)
 export const FAMILY_ASK = ['socialfactory', 'playtion'];
 // 홈페이지로 들어오기 직전 어디에 있었는지(검색·SNS·광고 링크)를 분류합니다. 브라우저가 보낸 referrer·utm 값만 쓰고 개인 식별 정보는 받지 않습니다.
@@ -49,7 +51,7 @@ export async function onRequestPost({ request, env }) {
   const purpose = str(d.purpose, 40), date = str(d.date, 10), message = str(d.message, 2000), org = str(d.org, 120);
   const headcount = num(d.headcount);
   const reserve = !!d.reserve;
-  const estimate = str(d.estimate, 3000);
+  const estimate = str(d.estimate, 3000), packageId = str(d.pkg, 20);
   if (!name || !phone) return err('이름과 연락처는 필수입니다.');
   if (phone.replace(/\D/g, '').length < 9) return err('연락처 형식을 확인해 주세요.');
   // 예약 신청은 이용일이 꼭 있어야 하고, 간단 문의는 이름·연락처만 있으면 받습니다(날짜·모임 유형은 선택).
@@ -64,8 +66,22 @@ export async function onRequestPost({ request, env }) {
   if (!d.agree_privacy) return err('개인정보 수집·이용 동의가 필요합니다.');
   // 이미 열어 둔 견적 계산기의 이전 요금이 신규 문의로 들어가는 것을 방지합니다.
   const estimateVersion = estimate.match(/^\[[^\r\n]+ 예상 금액\][ \t]+([^\r\n]+)/)?.[1];
-  if (reserve && PRICING_ALL[space_id] && estimateVersion && estimateVersion !== PRICING_ALL[space_id].version)
+  const pricing = PRICING_ALL[space_id];
+  if (reserve && pricing && estimateVersion && estimateVersion !== pricing.version)
     return err('대관 요금이 갱신되었습니다. 화면을 새로고침하고 예상 금액을 다시 확인해 주세요.', 409, 'PRICE_CHANGED');
+  if (packageId === 'full-day') {
+    const offer = pricing?.fullDayOffer;
+    if (!reserve || !offer || String(d.start_h) !== String(offer.start) || String(d.end_h) !== String(offer.end)
+        || offer.priceOn(date, HOLIDAYS, pricing.peak?.dates || {}) === null)
+      return err('종일 대관은 할인 적용일에 00:00–24:00으로 신청해 주세요.', 400, 'FULL_DAY_CONDITIONS');
+    try {
+      const slot = await env.DB.prepare(`SELECT ${fullDayAvailable} AS available
+        FROM (SELECT ? AS space, ? AS date, ? AS start_h, ? AS end_h) slot`).bind(space_id, date, offer.start, offer.end).first();
+      if (!slot?.available) return err('종일 대관 시간과 겹치는 확정 예약이 있습니다. 다른 날짜나 호점을 골라 주세요.', 409, 'DATE_TAKEN');
+    } catch {
+      return err('예약 가능 시간을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.', 503, 'CALENDAR_UNAVAILABLE');
+    }
+  }
   // '현장답사 먼저 하고 싶어요' — 희망 날짜·시간은 운영자가 연락해 확정합니다
   const vw = d.visit_wish && typeof d.visit_wish === 'object' && d.visit_wish.want ? d.visit_wish : null;
   const visit_wish = vw ? { date: str(vw.date, 10), time: timeOk(vw.time), people: num(vw.people), note: str(vw.note, 200) } : null;
@@ -74,7 +90,7 @@ export async function onRequestPost({ request, env }) {
   if(d.reception != null && !reception) return err('케이터링 코스·인원·제공 방식을 확인해 주세요.');
   const data = {
     inquiry_type, reserve, channel: 'web', came_from: cameFrom(d.came_from), space_id, purpose, date: isDate(date) ? date : '', date_alt: str(d.date_alt, 10), slot: str(d.slot, 10),
-    start_h: num(d.start_h), end_h: num(d.end_h), pkg: str(d.pkg, 20), total: num(d.total),
+    start_h: num(d.start_h), end_h: num(d.end_h), pkg: packageId, total: num(d.total),
     options: (d.options && typeof d.options === 'object' && !Array.isArray(d.options)) ? Object.fromEntries(Object.entries(d.options).slice(0, 10).map(([k, v]) => [str(k, 20), (v && typeof v === 'object') ? { count: num(v.count), hours: num(v.hours) } : !!v])) : {},
     t_setup: str(d.t_setup, 5), t_start: str(d.t_start, 5), t_end: str(d.t_end, 5), t_out: str(d.t_out, 5),
     headcount, staff: num(d.staff), layout: str(d.layout, 20), needs: Array.isArray(d.needs) ? d.needs.map(x => str(x, 20)).slice(0, 20) : [],

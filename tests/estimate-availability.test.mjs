@@ -45,3 +45,20 @@ test('fresh revalidation detects changed occupancy and server failures reject in
   intervals.push(interval(ONE,'13:00','17:00'));assert.equal((await f.inspect(choice,true)).status.conflict,true);assert.equal(f.calls(),2);
   f.fail(true);await assert.rejects(f.inspect(choice,true));
 });
+
+test('종일 대관 00~24시는 전날 야간 예약도 충돌하고 24시에 시작하는 예약과는 맞닿을 수 있다',async()=>{
+  const d='2026-12-07',previous='2026-12-06',next='2026-12-08';
+  const full={space:ONE,date:d,start:0,end:24,packageId:'full-day'};
+  const f=setup([
+    {space:ONE,start:previous+'T18:00:00+09:00',end:d+'T02:00:00+09:00'},
+    interval(TWO,'00:00','07:00',next)
+  ]);
+  assert.equal((await f.check({...full,packageId:undefined})).invalid,true);
+  assert.equal((await f.check({...full,start:1})).invalid,true);
+  const blocked=await f.inspect(full);
+  assert.equal(blocked.status.conflict,true);
+  assert.equal(blocked.suggestions.length,1);
+  assert.equal(blocked.suggestions[0].space,TWO);
+  assert.equal(blocked.suggestions[0].packageId,'full-day');
+  assert.equal((await f.check(blocked.suggestions[0])).conflict,false);
+});

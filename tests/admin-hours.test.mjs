@@ -28,7 +28,7 @@ test('공개 예약 화면의 기존 선택 범위와 현재 패키지 요금 �
   const E=pricing();
   const publicQuote=E.quote({date:'2026-10-26',start:0,end:47,people:20});
   assert.equal(publicQuote.start,5); assert.equal(publicQuote.end,31);
-  for(const [start,end,price] of [[10,17,600000],[10,24,1100000],[18,31,1000000]]) {
+  for(const [start,end,price] of [[10,17,600000],[10,24,800000],[18,31,1000000]]) {
     const q=E.quote({date:'2026-10-26',start,end,people:20,adminHours:true});
     assert.equal(q.total,price);
   }
