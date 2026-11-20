@@ -39,8 +39,8 @@ export class SpacecloudReadiness {
 
 export class SpacecloudUI {
   constructor(context) {this.context=context;this.readiness=new WeakMap();}
-  async initialize() {
-    this.host=await this.context.newPage();
+  async initialize(page) {
+    this.host=page||await this.context.newPage();
     this.host.setDefaultTimeout(6500);
     this.observe(this.host);
   }
@@ -59,23 +59,25 @@ export class SpacecloudUI {
     // First-party calendar requests and visible DOM are authoritative; analytics are unrelated.
     return this.observe(page).settle();
   }
-  async openHost(entry) {
+  async openHost(entry,{accessOnly=false}={}) {
     this.entry=validatedEntry(entry);
     this.observe(this.host).navigate();
-    await this.host.goto(this.entry.host_url,{waitUntil:'domcontentloaded'});
+    await this.host.goto(this.entry.host_url,{waitUntil:'domcontentloaded',...(accessOnly?{timeout:9500}:{})});
     if (!new URL(this.host.url()).pathname.startsWith('/reservation-calendar')) {
       throw new ReviewRequired('login_required');
     }
     try {
-      await this.host.getByRole('heading',{name:this.entry.heading,exact:true}).waitFor({state:'visible'});
-      await this.host.locator('.booking_wrap').first().waitFor({state:'visible'});
+      const wait={state:'visible',...(accessOnly?{timeout:8500}:{})};
+      await this.host.getByRole('heading',{name:this.entry.heading,exact:true}).waitFor(wait);
+      await this.host.locator('.booking_wrap').first().waitFor(wait);
     } catch (error) {
       if (/로그인|sign in/i.test(await this.host.title()) || new URL(this.host.url()).pathname.includes('login')) {
         throw new ReviewRequired('login_required');
       }
       throw error;
     }
-    await this.settle(this.host);
+    // Login only verifies product access. Automation still requires a settled calendar before working.
+    if(!accessOnly)await this.settle(this.host);
     await this.checkSelectedProduct();
   }
   async checkSelectedProduct() {

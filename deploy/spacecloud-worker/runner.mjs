@@ -11,6 +11,8 @@ const firstProduct=140188;
 const response=(body,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store','Referrer-Policy':'no-referrer','X-Content-Type-Options':'nosniff'}});
 const errorMessage={
   'login-required':'스페이스클라우드 호스트 로그인을 완료해 주세요.',
+  'host-access':'호스트 달력에서 메가스팟 상품 조회를 완료하지 못했습니다. 잠시 후 로그인 확인을 다시 눌러 주세요.',
+  'session-save':'호스트 로그인 상태를 저장하지 못했습니다. 잠시 후 로그인 확인을 다시 눌러 주세요.',
   'browser-timeout':'전용 브라우저 응답 시간이 지났습니다.',
   'runner-busy':'다른 자동 작업이나 로그인이 진행 중입니다.',
   'login-expired':'로그인 시간이 지났습니다. 로그인 창을 다시 열어 주세요.',
@@ -86,11 +88,23 @@ export function createRunner({launch,connect,clock=Date.now}){
   }
   async function checkedState(context){
     const host=new SpacecloudUI(context);
-    await host.initialize();
+    // Continue in the tab that completed authentication so its page session is available.
+    const loginPage=context.pages().find(page=>page.url().startsWith('https://partner.spacecloud.kr/'));
+    await host.initialize(loginPage);
     try{
-      for(const product of Object.keys(targets))await host.openHost(probeEntry(Number(product)));
-      return context.storageState({indexedDB:true});
-    }finally{await host.host.close();}
+      for(const product of [firstProduct,...Object.keys(targets).map(Number).filter(id=>id!==firstProduct)]){
+        try{await host.openHost(probeEntry(product),{accessOnly:true});}
+        catch(error){
+          const code=error.message==='login_required'?'login-required':'host-access';
+          console.warn('megaspot-spacecloud login product check',{code,product});
+          throw fail(code,409);
+        }
+      }
+      try{return await context.storageState({indexedDB:true});}
+      catch{throw fail('session-save');}
+    }finally{
+      if(!loginPage)await host.host.close();
+    }
   }
   async function startLogin(env){
     readyConfig(env);await maintenance(env);
@@ -147,13 +161,17 @@ export function createRunner({launch,connect,clock=Date.now}){
         const context=browser.contexts()[0];
         if(!context)throw fail('login-required',409);
         return checkedState(context);
-      })(),Math.min(35000,row.expires_at-clock()),()=>{expired=true;});
+      })(),Math.min(38000,row.expires_at-clock()),()=>{expired=true;});
       await assertLock(env,row.lock_token,clock());
       await saveState(env,state,{guard:()=>{if(expired||row.expires_at<=clock())throw fail('login-expired',409);}});
       saved=true;
       return {ok:true,saved:true};
-    }catch{throw fail('login-required',409);}
-    finally{
+    }catch(error){
+      const known=['login-required','host-access','session-save','browser-timeout','login-expired'];
+      const code=known.includes(error.code)?error.code:'session-save';
+      console.warn('megaspot-spacecloud login verification',{code});
+      throw fail(code,code==='login-required'||code==='host-access'||code==='login-expired'?409:503);
+    }finally{
       if(saved||row.expires_at<=clock())await finish(env,'cloud_login',row,browser,saved?'saved':'expired');
       else{
         if(browser)await deadline(browser.close(),2500).catch(()=>{});
