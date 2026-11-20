@@ -28,8 +28,8 @@ function bookingForm(){
   return {ctx,$,engine,input(people){$('#bk-people').value=String(people);const handler=$('#bk-people').events.input;assert.equal(typeof handler,'function','인원 입력 중에도 재계산해야 함');handler();},hint(){return $('#bk-amount-hint').innerHTML;},apply(){const target=$('#bk-use-calc');assert.equal(typeof target.events.click,'function');/* 포인터 클릭은 입력칸 blur/change 뒤에 전달됩니다. */$('#bk-people').events.change?.();if(target.connected)target.events.click();return $('#bk-amount').value;}};
 }
 test('2호점 200명 → 300명 입력 즉시 금액을 갱신하고 넣기도 300명 금액을 적용',()=>{
-  const f=bookingForm(),old=f.hint();assert.match(old,/1,959,000원/);
-  f.input(300);assert.match(f.hint(),/2,959,000원/);assert.match(f.hint(),/300명 기준/);assert.notEqual(f.hint(),old);assert.equal(f.apply(),2959000);
+  const f=bookingForm(),old=f.hint();assert.match(old,/2,040,000원/);
+  f.input(300);assert.match(f.hint(),/3,040,000원/);assert.match(f.hint(),/300명 기준/);assert.notEqual(f.hint(),old);assert.equal(f.apply(),3040000);
 });
 test('2호점 201·250·300·350명은 각 인원 요금으로 계산하고 다른 화면의 1호점 계산기 상태를 사용하지 않음',()=>{
   const f=bookingForm();
@@ -45,5 +45,5 @@ test('1호점으로 바꾸면 200명 한도로, 다시 2호점이면 300명으�
   const one=f.engine.quote({date:'2026-11-18',start:13,end:17,people:300,adminHours:true});
   assert.equal(one.people,200);assert.match(f.hint(),/200명 기준/);assert.equal(f.apply(),one.total);
   f.$('#bk-space').value='megaspot-gundae-2';f.$('#bk-space').events.change.call(f.$('#bk-space'));
-  assert.match(f.hint(),/300명 기준/);assert.equal(f.apply(),2959000);
+  assert.match(f.hint(),/300명 기준/);assert.equal(f.apply(),3040000);
 });

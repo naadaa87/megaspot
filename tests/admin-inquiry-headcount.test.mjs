@@ -30,13 +30,13 @@ function inquiryForm(){
 }
 test('문의 수정에서 200→300명 입력 즉시 자동 계산으로 전환하고 저장 예정 금액을 갱신',()=>{
  const f=inquiryForm();assert.equal(f.state.mode,'keep');f.people(300);
- assert.equal(f.state.mode,'auto');assert.equal(f.ctx.NW.last.people,300);assert.equal(f.ctx.NW.last.total,2959000);assert.match(f.$('#nw-auto').innerHTML,/인원 300명/);
- assert.equal(f.$('#nw-auto').hidden,false);assert.equal(f.$('#nw-keep-reprice').hidden,true);assert.match(f.$('#nw-discount-result').textContent,/2,959,000원/);
+ assert.equal(f.state.mode,'auto');assert.equal(f.ctx.NW.last.people,300);assert.equal(f.ctx.NW.last.total,3040000);assert.match(f.$('#nw-auto').innerHTML,/인원 300명/);
+ assert.equal(f.$('#nw-auto').hidden,false);assert.equal(f.$('#nw-keep-reprice').hidden,true);assert.match(f.$('#nw-discount-result').textContent,/3,040,000원/);
 });
 test('문의 수정에서 호점을 바꾸면 해당 요금표로 자동 계산하며 2호점에서는 300명 유지',()=>{
  const f=inquiryForm();f.$('#nw-people').value='300';f.space('megaspot-gundae');
  assert.equal(f.state.mode,'auto');assert.equal(f.ctx.NW.last.people,200);assert.equal(f.ctx.NW.last.total,2040000);
- f.space('megaspot-gundae-2');assert.equal(f.ctx.NW.last.people,300);assert.equal(f.ctx.NW.last.total,2959000);
+ f.space('megaspot-gundae-2');assert.equal(f.ctx.NW.last.people,300);assert.equal(f.ctx.NW.last.total,3040000);
 });
 test('이름·운영 메모만 바꾸면 현재 금액 유지 선택과 저장 금액을 그대로 보존',()=>{
  const f=inquiryForm();
@@ -46,7 +46,7 @@ test('이름·운영 메모만 바꾸면 현재 금액 유지 선택과 저장 �
 test('자동 재계산은 저장된 할인 비율을 새 원금에 적용하고 이후 직접 조정한 할인도 보존',()=>{
  const f=inquiryForm();f.ctx.NW.repriceAdjustment={type:'pct',value:10,reason:'정기 할인'};f.people(300);
  assert.equal(f.$('#nw-disc-type').value,'pct');assert.equal(f.$('#nw-disc-val').value,10);assert.equal(f.$('#nw-disc-why').value,'정기 할인');
- assert.match(f.$('#nw-discount-result').textContent,/2,663,100원/);
+ assert.match(f.$('#nw-discount-result').textContent,/2,736,000원/);
  f.$('#nw-disc-val').value='20';f.space('megaspot-gundae');assert.equal(f.$('#nw-disc-val').value,'20');assert.match(f.$('#nw-discount-result').textContent,/1,632,000원/);
 });
 test('날짜·시작·종료 변경은 현재 금액 유지에서 버튼 없이 자동 계산으로 전환',()=>{

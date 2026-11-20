@@ -15,33 +15,69 @@ function publicUi(){
  return {M,window:ctx.window,print};
 }
 
-test('호점별 대표 가격은 시간당 요금이며 기준 인원과 2호 필수 가산액·총액을 함께 표시한다',()=>{
- const {M,window}=publicUi(),space=window.MEGASPOT_SPACES.find(s=>s.id==='megaspot-gundae-2'),ui=M.pricing.forSpace(space.id);
- const quote=ui.E.quote({date:'2026-11-16',start:7,end:8,people:50});
- assert.equal(quote.total,289000);
- assert.equal(space.price.minTotal,quote.total);
- assert.equal(space.price.minTotal,space.price.from+space.price.surcharge);
- const card=M.spaceCard(space);
- assert.match(card,/시간당 <b>3\.4<\/b>만 원부터/);
- assert.match(card,/기준 인원 <b>50<\/b>명 포함/);
- assert.match(card,/1시간 총 289,000원부터/);
- assert.match(card,/시간당 34,000원 \+ 1건당 기본 인원 가산액 255,000원/);
- const facts={classList:{add(){}},innerHTML:''};ui.R.facts(facts);
- assert.match(facts.innerHTML,/<small>시간당<\/small>3\.4만 원/);assert.match(facts.innerHTML,/기준 인원 50명/);assert.match(facts.innerHTML,/255,000원 별도/);assert.match(facts.innerHTML,/1시간 총 289,000원부터/);
- const one=M.spaceCard(window.MEGASPOT_SPACES.find(s=>s.id==='megaspot-gundae'));
- assert.match(one,/시간당 <b>4<\/b>만 원부터/);
- assert.match(one,/기준 인원 <b>20<\/b>명 포함/);
- for(const page of ['spaces/megaspot-gundae-2/index.html','spaces/megaspot-gundae-2/pricing/index.html']){
-  const html=read(page),graphs=[...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(m=>JSON.parse(m[1]));
-  const venue=graphs.flatMap(x=>x['@graph']||[x]).find(x=>x['@id']==='https://megaspot.kr/spaces/megaspot-gundae-2/#venue');
-  const offer=venue.makesOffer.find(x=>x.name.startsWith('1시간 공간료'));
-  assert.equal(Number(offer.price),quote.total,page);assert.match(offer.description,/255,000원/);assert.match(venue.priceRange,/289,000/);
-  assert(!html.includes('기준 50명 포함 시간당 3만 4천 원부터'),page);
+test('두 호점은 50명을 포함하고 시간 단가와 기본료를 함께 표시한다',()=>{
+ const {M,window}=publicUi();
+ for(const id of ['megaspot-gundae','megaspot-gundae-2']){
+  const space=window.MEGASPOT_SPACES.find(s=>s.id===id),ui=M.pricing.forSpace(id);
+  const quote=ui.E.quote({date:'2026-11-23',start:7,end:8,people:50});
+  assert.equal(quote.total,340000);
+  assert.equal(space.price.from,quote.time.fee);
+  assert.equal(space.price.minTotal,quote.total);
+  assert.equal(quote.surcharge,300000);
+  assert.equal(quote.peopleBase,50);
+  const card=M.spaceCard(space);
+  assert.match(card,/시간당 <b>4<\/b>만 원부터/);
+  assert.match(card,/기준 인원 <b>50<\/b>명 포함/);
+  assert.match(card,/1건당 기본료 300,000원.*1시간 총 340,000원/);
+  const facts={classList:{add(){}},innerHTML:''};ui.R.facts(facts);
+  assert.match(facts.innerHTML,/<small>시간당<\/small>4만 원/);
+  assert.match(facts.innerHTML,/기준 인원 50명.*1건당 기본료 300,000원.*1시간 총 340,000원/);
+  for(const page of ['spaces/'+id+'/index.html','spaces/'+id+'/pricing/index.html']){
+   const html=read(page),graphs=[...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(m=>JSON.parse(m[1]));
+   const venue=graphs.flatMap(x=>x['@graph']||[x]).find(x=>x['@id']==='https://megaspot.kr/spaces/'+id+'/#venue');
+   assert.match(venue.priceRange,/340,000/);
+   for(const offer of venue.makesOffer||[]){
+    if(offer.name.startsWith('1시간 공간료'))assert.equal(Number(offer.price),quote.total,page);
+   }
+   assert.doesNotMatch(html,/3만 4천 원부터|289,000원|255,000원/,page);
+  }
  }
- const home=read('index.html').match(/<article class="home-venue-card" id="gundae2">[\s\S]*?<\/article>/)[0];
- assert.match(home,/<strong>시간당 3만 4천 원부터<\/strong>/);assert.match(home,/기준 인원 50명/);assert.match(home,/1시간 총 289,000원부터/);assert.match(home,/255,000원/);
- const homeOne=read('index.html').match(/<article class="home-venue-card" id="gundae">[\s\S]*?<\/article>/)[0];
- assert.match(homeOne,/<strong>시간당 4만 원부터<\/strong>/);assert.match(homeOne,/기준 인원 20명/);
+ const home=read('index.html');
+ for(const id of ['gundae','gundae2']){
+  const card=home.match(new RegExp('<article class="home-venue-card" id="'+id+'">[\\s\\S]*?<\/article>'))[0];
+  assert.match(card,/<strong>1시간 총 34만 원부터<\/strong>/);
+  assert.match(card,/기준 인원 50명/);
+ }
+});
+
+test('두 호점 모두 일반 시간제 기본료를 한 번 부과하고 1일 대관 표와 계산 금액이 일치한다',()=>{
+ const {M}=publicUi();
+ const dayRates=[
+  ['2026-12-07',2260000],['2026-12-04',2700000],['2026-12-05',4800000],['2026-12-06',3480000],
+  ['2027-01-04',2180000],['2027-01-08',2500000],['2027-01-02',3850000],['2027-01-03',3150000],
+  ['2027-02-01',2100000],['2027-02-19',2300000],['2027-02-20',2900000],['2027-02-21',2650000],
+ ];
+ for(const id of ['megaspot-gundae','megaspot-gundae-2']){
+  const {D,E,R}=M.pricing.forSpace(id);
+  const quote=(date,start,end,people)=>E.quote({date,start,end,people});
+  assert.equal(quote('2026-11-23',7,10,50).total,420000);
+  assert.equal(quote('2026-11-23',7,10,51).total,430000);
+  assert.equal(quote('2026-12-05',7,10,50).surcharge,600000);
+  assert.equal(quote('2026-11-23',10,17,50).total,600000);
+  for(const [date,total] of dayRates){
+   assert.equal(quote(date,10,24,150).total,total,date+' '+id);
+   assert.equal(quote(date,10,24,200).total,total+500000,date+' '+id);
+  }
+  for(const date of ['2026-12-24','2026-12-25','2026-12-31','2027-01-01'])
+   assert.equal(quote(date,10,24,150).peak.id,D.peak.dates[date]);
+  if(E.todayIso()<='2027-02-28'){
+   const box={innerHTML:''};R['all-day-offer'](box);
+   assert.match(box.innerHTML,/1일 대관 할인가/);
+   assert.match(box.innerHTML,/기준 50명 포함/);
+   for(const total of dayRates.flatMap(([,x])=>[x,x+500000]))
+    assert.ok(box.innerHTML.includes(total.toLocaleString('ko-KR')+'원'),String(total));
+  }
+ }
 });
 
 test('2호 주차는 무료 시설 목록과 견적서에서 분리되어 유료로 안내된다',()=>{
@@ -65,13 +101,21 @@ test('제작 예외는 2시간 전액 환불을 유지하고 제작 상품에만
  assert.match(read('terms/index.html'),/결제 후 2시간 이내 전액 환불 기준은 제작 상품에도 먼저 적용/);
 });
 
-test('서버 카탈로그는 변경한 표시 조건과 동일하고 실제 상품·공간 가격을 보존한다',()=>{
+test('서버 카탈로그는 두 호점의 표시 요금과 일치하고 옵션 가격을 보존한다',()=>{
  const {window}=publicUi();
  assert.equal(JSON.stringify(PRODUCTS),JSON.stringify(window.MEGASPOT_PRODUCTS));
  assert.equal(JSON.stringify(PRICING_ALL),JSON.stringify(window.MEGASPOT_PRICING));
  assert.equal(PRODUCTS.get('addon-banner').price,120000);assert.equal(PRODUCTS.get('addon-xbanner').price,70000);
- assert.equal(PRICING_ALL['megaspot-gundae-2'].surcharge.amount,255000);
- assert.equal(PRICING_ALL['megaspot-gundae-2'].hourly.wd.morning,34000);
+ const first=PRICING_ALL['megaspot-gundae'],second=PRICING_ALL['megaspot-gundae-2'];
+ assert.deepEqual(second.surcharge,first.surcharge);
+ assert.equal(first.surcharge.amount,300000);
+ assert.deepEqual(second.hourly,first.hourly);
+ assert.deepEqual(second.packages,first.packages);
+ for(const [day,rate] of Object.entries(second.peak.types)){
+  assert.deepEqual(rate.hourly,first.peak.types[day].hourly);
+  assert.equal(rate.surcharge,first.peak.types[day].surcharge);
+  assert.equal(rate.people,50);
+ }
 });
 
 test('옵션 5종은 본문·검색·공유·구조화 데이터·RSS에서 주문번호와 별도 공간 예약을 안내한다',()=>{

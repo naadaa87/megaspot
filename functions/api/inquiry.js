@@ -1,6 +1,7 @@
 // 문의·예약 신청 접수 — 행사 대관(event) · 정기·반복 모임(regular) · 제휴·협력·파트너(partner)
 // reserve:true 이면 '예약 신청'(금액 확인 → 신청)으로 들어온 건입니다. 모임 유형은 선택 사항입니다.
 import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, log, getMember, clientIp, tooMany, hit, kstToday, spaceOk, SPACE_OPENING } from './_lib.js';
+import { PRICING_ALL } from './_catalog.js';
 import {readFoodPricing,foodPricingData} from './_food_pricing.js';
 import { cateringFrom } from './_catering.js';
 import { receptionCustomer } from './_reception.js';
@@ -48,6 +49,7 @@ export async function onRequestPost({ request, env }) {
   const purpose = str(d.purpose, 40), date = str(d.date, 10), message = str(d.message, 2000), org = str(d.org, 120);
   const headcount = num(d.headcount);
   const reserve = !!d.reserve;
+  const estimate = str(d.estimate, 3000);
   if (!name || !phone) return err('이름과 연락처는 필수입니다.');
   if (phone.replace(/\D/g, '').length < 9) return err('연락처 형식을 확인해 주세요.');
   // 예약 신청은 이용일이 꼭 있어야 하고, 간단 문의는 이름·연락처만 있으면 받습니다(날짜·모임 유형은 선택).
@@ -60,6 +62,10 @@ export async function onRequestPost({ request, env }) {
     if (!message) return err('제안 내용을 적어 주세요.');
   }
   if (!d.agree_privacy) return err('개인정보 수집·이용 동의가 필요합니다.');
+  // 이미 열어 둔 견적 계산기의 이전 요금이 신규 문의로 들어가는 것을 방지합니다.
+  const estimateVersion = estimate.match(/^\[[^\r\n]+ 예상 금액\][ \t]+([^\r\n]+)/)?.[1];
+  if (reserve && PRICING_ALL[space_id] && estimateVersion && estimateVersion !== PRICING_ALL[space_id].version)
+    return err('대관 요금이 갱신되었습니다. 화면을 새로고침하고 예상 금액을 다시 확인해 주세요.', 409, 'PRICE_CHANGED');
   // '현장답사 먼저 하고 싶어요' — 희망 날짜·시간은 운영자가 연락해 확정합니다
   const vw = d.visit_wish && typeof d.visit_wish === 'object' && d.visit_wish.want ? d.visit_wish : null;
   const visit_wish = vw ? { date: str(vw.date, 10), time: timeOk(vw.time), people: num(vw.people), note: str(vw.note, 200) } : null;
@@ -74,7 +80,7 @@ export async function onRequestPost({ request, env }) {
     headcount, staff: num(d.staff), layout: str(d.layout, 20), needs: Array.isArray(d.needs) ? d.needs.map(x => str(x, 20)).slice(0, 20) : [],
     food_fx: str(d.food_fx, 300), theme: str(d.theme, 200), region: str(d.region, 30), budget: str(d.budget, 20),
     repeat_cycle: str(d.repeat_cycle, 30), repeat_period: str(d.repeat_period, 30), repeat_days: str(d.repeat_days, 100),
-    org, partner_kind: str(d.partner_kind, 40), estimate: str(d.estimate, 3000),
+    org, partner_kind: str(d.partner_kind, 40), estimate,
     docs: Array.isArray(d.docs) ? d.docs.map(x => str(x, 20)).slice(0, 5) : [], name, phone, email, contact_pref: str(d.contact_pref, 10),
     family: [].concat(d.family || []).map(x => str(x, 20)).filter((x, i, a) => FAMILY_ASK.includes(x) && a.indexOf(x) === i).slice(0, 4),
     reception,

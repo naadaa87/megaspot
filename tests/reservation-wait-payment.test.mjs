@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
 import {payappFixture} from './helpers/payapp-refund-fixture.mjs';
-import {onRequest as pay,dayCol,peakOf} from '../functions/api/pay/[[path]].js';
+import {onRequest as pay,buildOrder,dayCol,peakOf} from '../functions/api/pay/[[path]].js';
 import {onRequestPost as inquire} from '../functions/api/inquiry.js';
 import {onRequest as auth} from '../functions/api/auth/[[path]].js';
 import {onRequestGet as calendar} from '../functions/api/reservation-calendar.js';
@@ -24,7 +24,7 @@ function setup(t){
  async function api(path,method='GET',body,cookie=''){
   const r=await pay({env:f.env,params:{path:path.split('?')[0].split('/')},request:new Request('https://local.test/api/pay/'+path,{method,headers:{origin:'https://local.test','content-type':'application/json',...(cookie?{cookie}:{})},...(body?{body:JSON.stringify(body)}:{})})});return {status:r.status,body:await r.json()};
  }
- const order=input=>api('prepare','POST',{buyer:{name:'검증 고객',phone:'01012345678'},agree_terms:true,agree_privacy:true,agree_refund:true,...input});
+ const order=input=>api('prepare','POST',{buyer:{name:'검증 고객',phone:'01012345678'},agree_terms:true,agree_privacy:true,agree_refund:true,expected_total:buildOrder(input).total,...input});
  function pending({ref='MS-WAIT-'+(++count),date=DAY,space=SPACE,status='문의 접수',data={},created='2026-11-01 10:00:00'}={}){f.db.prepare('INSERT INTO inquiries(ref,space_id,status,name,phone,email,event_date,headcount,data,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)').run(ref,space,status,'PRIVATE CUSTOMER','01099998888','private@example.invalid',date,30,JSON.stringify({date,start_h:18,end_h:31,...data}),created);return ref;}
  function booking(ref,{date=DAY,space=SPACE,status='confirmed',code='BK-'+(++count),start=10,end=17,people=30}={}){f.db.prepare('INSERT INTO bookings(booking_code,space_id,inquiry_ref,customer_name,phone,phone_last4,date,start_h,end_h,headcount,status,amount,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)').run(code,space,ref,'검증 고객','01012345678','5678',date,start,end,people,status,500000,'fixture');return code;}
  async function paid(oid){const row=f.db.prepare('SELECT o.*,p.nonce,p.mul_no FROM orders o JOIN payapp_payments p ON p.oid=o.oid WHERE o.oid=?').get(oid);await f.feedback(await f.form(row,'4'));return f.db.prepare('SELECT o.*,b.status AS booking_status FROM orders o LEFT JOIN bookings b ON b.booking_code=o.booking_code WHERE o.oid=?').get(oid);}

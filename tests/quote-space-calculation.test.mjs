@@ -22,11 +22,11 @@ function seedEstimate(f,{source='admin',text='[메가스팟 건대 1호 예상 �
 }
 test('1호 견적 → 2호 견적 저장 시 문의의 호점·금액·계산 행·할인·추가 금액을 함께 갱신',async t=>{
  const f=fixture();t.after(()=>f.db.close());seedEstimate(f);
- const one=calculated('megaspot-gundae'),two=calculated('megaspot-gundae-2');assert.notEqual(one.total,two.total);
+ const one=calculated('megaspot-gundae'),two=calculated('megaspot-gundae-2');assert.equal(one.total,two.total);
  const first=await f.api('quotes','POST',one),original=f.db.prepare('SELECT data FROM quotes WHERE quote_no=?').get(first.quote_no).data;
  const saved=await f.api('quotes','POST',two),result=await f.api('inquiries/MS-TEST'),d=result.item.data;
  assert.equal(result.item.space_id,'megaspot-gundae-2');assert.equal(result.item.effective_amount,two.total);assert.equal(d.estimate_admin,true);assert.equal(d.estimate_quote_no,saved.quote_no);
- assert.match(d.estimate,/메가스팟 건대 2호/);assert.doesNotMatch(d.estimate,/메가스팟 건대 1호|옛 1호점/);assert.match(d.estimate,/기본 인원 가산액/);
+ assert.match(d.estimate,/메가스팟 건대 2호/);assert.doesNotMatch(d.estimate,/메가스팟 건대 1호|옛 1호점/);assert.match(d.estimate,/기본 인원 가산액/);assert.match(d.estimate,/기준 50명 포함/);
  for(const row of two.data.lines){assert.ok(d.estimate.includes(row.label));assert.ok(d.estimate.includes(money(row.amount)));}
  assert.ok(d.estimate.includes('10% 할인 −'+money(two.data.discount)));assert.ok(d.estimate.includes('추가 장비 30,000원'));assert.ok(d.estimate.includes('합계 '+money(two.total)));
  assert.equal(f.db.prepare('SELECT data FROM quotes WHERE quote_no=?').get(first.quote_no).data,original,'기존 발행 견적 원본 보존');

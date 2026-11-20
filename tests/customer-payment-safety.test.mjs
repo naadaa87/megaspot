@@ -23,11 +23,27 @@ function setup(t,{booking=false}={}){
  f.env.DB.prepare=sql=>{const statement=prepare(sql),run=statement.run;statement.run=async()=>{const r=await run.call(statement);return {...r,meta:{changes:r.changes}};};return statement;};
  t.mock.method(globalThis,'fetch',async url=>{assert.equal(url,'https://api.payapp.kr/oapi/v2');calls++;return new Response('state=1&mul_no='+(700000+calls)+'&payurl=https%3A%2F%2Fpayapp.kr%2Flocal-fixture');});
  async function call(path,method='GET',body){const response=await pay({env:f.env,params:{path:path.split('/')},request:new Request('https://local.test/api/pay/'+path,{method,headers:{origin:'https://local.test','content-type':'application/json'},...(body?{body:JSON.stringify(body)}:{})})});return {status:response.status,body:await response.json()};}
- const order=input=>call('prepare','POST',{buyer:{name:'검증 고객',phone:'01012345678'},agree_terms:true,agree_privacy:true,agree_refund:true,...input});
+ const order=input=>call('prepare','POST',{buyer:{name:'검증 고객',phone:'01012345678'},agree_terms:true,agree_privacy:true,agree_refund:true,expected_total:buildOrder(input).total,...input});
  async function paid(oid){const row=f.db.prepare('SELECT o.oid,o.price,p.nonce,p.mul_no FROM orders o JOIN payapp_payments p ON p.oid=o.oid WHERE o.oid=?').get(oid);await f.feedback(await f.form(row,'4'));return f.db.prepare('SELECT o.*,b.status AS booking_status FROM orders o LEFT JOIN bookings b ON b.booking_code=o.booking_code WHERE o.oid=?').get(oid);}
  function occupied({code='BK-OCCUPIED',date,start=10,end=17,people=30,space='megaspot-gundae',ref=null}={}){f.db.prepare('INSERT INTO bookings(booking_code,space_id,inquiry_ref,customer_name,phone,phone_last4,date,start_h,end_h,headcount,status,amount,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)').run(code,space,ref,'검증 고객','010-1234-5678','5678',date,start,end,people,'confirmed',500000,'fixture');}
  return {...f,call,order,paid,occupied,calls:()=>calls};
 }
+
+test('공간 이용권 화면의 합계가 없거나 바뀌면 주문과 결제를 생성하지 않는다',async t=>{
+ const f=setup(t),input=pass(),current=buildOrder(input).total;
+ for(const expected_total of [undefined,current-300000,String(current)]){
+  const denied=await f.order({...input,expected_total});
+  assert.equal(denied.status,409);
+  assert.equal(denied.body.code,'PRICE_CHANGED');
+  assert.equal(f.calls(),0);
+  assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM orders').get().n,0);
+  assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM payapp_payments').get().n,0);
+ }
+ const accepted=await f.order({...input,expected_total:current});
+ assert.equal(accepted.status,200);
+ assert.equal(accepted.body.total,current);
+ assert.equal(f.calls(),1);
+});
 
 test('KST 패키지 시작 전에는 결제 가능하고 시작 시각부터 차단한다',t=>{
  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-11-09T09:59:00+09:00')});

@@ -17,18 +17,18 @@ test('관리자 견적은 0~23시와 익일 07시 이후를 자르지 않고 계
       assert.ok(q.total>0); assert.equal(q.time.lines.reduce((n,l)=>n+l.hours,0),1);
     }
   }
-  assert.equal(E.quote({date:'2026-10-26',start:0,end:2,people:20,adminHours:true}).total,80000);
-  assert.equal(E.quote({date:'2026-10-26',start:31,end:34,people:20,adminHours:true}).total,120000);
-  assert.equal(E.quote({date:'2026-10-26',start:23,end:26,people:20,adminHours:true}).total,180000);
+  assert.equal(E.quote({date:'2026-10-26',start:0,end:2,people:20,adminHours:true}).total,380000);
+  assert.equal(E.quote({date:'2026-10-26',start:31,end:34,people:20,adminHours:true}).total,420000);
+  assert.equal(E.quote({date:'2026-10-26',start:23,end:26,people:20,adminHours:true}).total,480000);
   const overnight=E.quote({date:'2026-10-26',start:18,end:40,people:20,adminHours:true});
   assert.equal(overnight.end,40); assert.equal(overnight.hours,22);
   assert.match(overnight.range,/다음 날 16:00/);
 });
-test('공개 예약 화면의 기존 선택 범위와 패키지 가격 유지',()=>{
+test('공개 예약 화면의 기존 선택 범위와 현재 패키지 요금 적용',()=>{
   const E=pricing();
   const publicQuote=E.quote({date:'2026-10-26',start:0,end:47,people:20});
   assert.equal(publicQuote.start,5); assert.equal(publicQuote.end,31);
-  for(const [start,end,price] of [[10,17,300000],[10,24,800000],[18,31,700000]]) {
+  for(const [start,end,price] of [[10,17,600000],[10,24,1100000],[18,31,1000000]]) {
     const q=E.quote({date:'2026-10-26',start,end,people:20,adminHours:true});
     assert.equal(q.total,price);
   }

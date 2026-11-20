@@ -31,8 +31,8 @@ function fixture() {
 
 test('공간 목록·요금표: 1호·2호가 서버 카탈로그와 확정서 목록에 모두 있음', () => {
   assert.deepEqual(Object.keys(PRICING_ALL), ['megaspot-gundae', 'megaspot-gundae-2']);
-  assert.equal(PRICING.people.base, 20); assert.equal(PRICING_ALL['megaspot-gundae-2'].people.base, 50);
-  assert.equal(PRICING_ALL['megaspot-gundae-2'].surcharge.amount, 255000);
+  assert.equal(PRICING.people.base, 50); assert.equal(PRICING_ALL['megaspot-gundae-2'].people.base, 50);
+  assert.deepEqual(PRICING_ALL['megaspot-gundae-2'].hourly, PRICING.hourly);
   assert.equal(SPACES['megaspot-gundae-2'].name, '메가스팟 건대 2호'); assert.equal(SPACES['megaspot-gundae'].name, '메가스팟 건대 1호');
   assert.equal(spaceOk('megaspot-gundae-2'), 'megaspot-gundae-2'); assert.equal(spaceOk('evil'), 'megaspot-gundae'); assert.equal(spaceOk(''), 'megaspot-gundae');
   assert.equal(SPACE_OPENING['megaspot-gundae-2'], '2026-11-13');
@@ -52,6 +52,19 @@ test('홈페이지 문의: 2호 예약 신청은 저장되고, 모르는 공간�
   const items = (await admin('inquiries')).json.items;
   const by = Object.fromEntries(items.map(i => [i.ref, i.space_id]));
   assert.equal(by[a.json.ref], 'megaspot-gundae-2'); assert.equal(by[b.json.ref], 'megaspot-gundae'); assert.equal(by[d.json.ref], 'request');
+});
+
+test('새 요금표로 바뀐 뒤 열려 있던 계산기의 이전 견적은 저장하지 않는다', async t => {
+  t.mock.method(Date, 'now', () => Date.parse('2026-11-20T12:00:00+09:00'));
+  const { db, inquiry } = fixture();
+  for (const [space_id, pricing] of Object.entries(PRICING_ALL)) {
+    const args = { space_id, reserve: true, date: '2026-11-23', start_h: 7, end_h: 10, headcount: 50 };
+    const old = await inquiry({ ...args, estimate: '[' + pricing.spaceName + ' 예상 금액] 이전 요금표\n합계 120,000원', total: 120000 });
+    assert.equal(old.status, 409); assert.equal(old.json.code, 'PRICE_CHANGED');
+    const current = await inquiry({ ...args, estimate: '[' + pricing.spaceName + ' 예상 금액] ' + pricing.version + '\n합계 420,000원', total: 420000 });
+    assert.equal(current.status, 200); assert.ok(current.json.ref);
+  }
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM inquiries').get().count, 2);
 });
 
 test('관리자 직접 등록·수정: 공간을 고를 수 있고, 확정 예약이 생기면 공간을 바꿀 수 없음', async () => {

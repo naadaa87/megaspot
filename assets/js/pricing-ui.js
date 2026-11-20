@@ -25,7 +25,7 @@
   var D = E.data(), won = E.won, man = E.man;
   var PAGE = D.page || '/spaces/megaspot-gundae/pricing/';
   var SPACE_ID = E.space || DEFAULT_SPACE, NAME = D.spaceName || '메가스팟 건대 1호', ADDR = D.address || '서울 광진구 화양동 10-1 한아름건물 2층';
-  var BASE_SUR = E.surcharge ? E.surcharge() : 0;   // 평소에도 시간제 1건당 더하는 가산액 (2호)
+  var BASE_SUR = E.surcharge ? E.surcharge() : 0;   // 평소에도 시간제 1건당 더하는 기본료
   function minPkgPct(){ var m = 100; D.packages.forEach(function(p){ D.cols.forEach(function(c){ m = Math.min(m, pct(p, c.id)); }); }); return m; }
   function peakBig(){ var pk = D.peak; if (!pk) return false; return Object.keys(pk.types).some(function(k){ return pk.types[k].people > D.people.base; }); }
 
@@ -43,9 +43,9 @@
     var minRate = Math.min.apply(null, D.cols.map(function(c){ return Math.min.apply(null, D.bands.map(function(b){ return D.hourly[c.id][b.id]; })); }));
     var minPkg = Math.min.apply(null, D.cols.map(function(c){ return D.packages[0].price[c.id]; }));
     el.innerHTML = [
-      ['<small>시간당</small>' + esc(man(minRate)) + '<small>부터</small>', '평소 월–목 아침 기준 · 기준 인원 ' + D.people.base + '명' + (BASE_SUR ? ' · 1건당 기본 인원 가산액 ' + won(BASE_SUR) + ' 별도 · 1시간 총 ' + won(minRate + BASE_SUR) + '부터' : ' · 요일·시간대별로 다릅니다')],
+      ['<small>시간당</small>' + esc(man(minRate)) + '<small>부터</small>', '평소 월–목 아침 기준 · 기준 인원 ' + D.people.base + '명' + (BASE_SUR ? ' · 1건당 기본료 ' + won(BASE_SUR) + ' 별도 · 1시간 총 ' + won(minRate + BASE_SUR) + '부터' : ' · 요일·시간대별로 다릅니다')],
       ['<small>낮 7시간</small>' + esc(man(minPkg)), '낮 패키지(10–17시) 월–금 · 시간 요금보다 ' + Math.floor(Math.min.apply(null, D.cols.map(function(c){ return pct(D.packages[0], c.id); }))) + '% 이상 저렴'],
-      ['<small>기준</small>' + D.people.base + '명<small>포함</small>', (D.people.base + 1) + '명째부터 1명당 ' + esc(man(D.people.extra)) + ' · 최대 ' + D.people.max + '명' + (peakBig() ? ' · 성수기 주말·특정일은 50명 포함' : (BASE_SUR ? ' · 시간제는 1건당 가산액 ' + esc(man(BASE_SUR)) : ''))],
+      ['<small>기준</small>' + D.people.base + '명<small>포함</small>', (D.people.base + 1) + '명째부터 1명당 ' + esc(man(D.people.extra)) + ' · 최대 ' + D.people.max + '명' + (peakBig() ? ' · 성수기 주말·특정일은 50명 포함' : (BASE_SUR ? ' · 시간제 1건당 기본료 ' + esc(man(BASE_SUR)) : ''))],
       ['<small>보증금</small>' + esc(man(D.deposit.amount)), '이용료와 따로 받고, 이용 뒤 확인 후 돌려 드립니다']
     ].map(function(f){ return '<div><b>' + f[0] + '</b><span>' + f[1] + '</span></div>'; }).join('');
     el.classList.add('facts-4');
@@ -80,6 +80,30 @@
     }).join('') + '</div>'
       + '<p class="tiny muted mt-2">패키지 금액은 기준 인원 ' + D.people.base + '명의 공간료입니다. 인원 추가와 옵션은 따로 더해집니다. 계산기에서 같은 시간을 고르면 자동으로 패키지 할인가가 적용됩니다.' + (D.peak ? ' <b>' + esc(peakRangeText()) + '</b>은 성수기 패키지 금액이 적용됩니다. <a href="' + (location.pathname === PAGE ? '#peak' : PAGE + '#peak') + '" style="text-decoration:underline;font-weight:700;color:var(--cobalt)">성수기 요금 보기</a>' : '') + '</p>';
     el.addEventListener('click', function(e){ var b = e.target.closest('.pkg-use'); if (!b) return; if (M.pricing.estimator){ M.pricing.estimator.setPackage(b.dataset.pkg); var est = document.querySelector('[data-price=estimator]'); if (est) est.scrollIntoView({ behavior: 'smooth', block: 'start' }); } else { location.href = '/inquiry/?space=' + SPACE_ID + '&pkg=' + b.dataset.pkg; } });
+  };
+
+  R['all-day-offer'] = function(el){
+    var pkg = E.findPkg('allday');
+    if (!pkg || E.todayIso() > '2027-02-28'){ el.hidden = true; return; }
+    var months = [['2026-12','2026년 12월'],['2027-01','2027년 1월'],['2027-02','2027년 2월']];
+    var groups = [['월–목','wd',[1,2,3,4]],['금','fri',[5]],['토','sat',[6]],['일','sun',[0]]];
+    var people = [150,200];
+    el.innerHTML = '<div class="card pad-s mt-3" id="all-day-offer"><h3 class="h-m">1일 대관 할인가</h3>'
+      + '<p class="small muted mt-1">2026년 12월~2027년 2월 · 10:00–24:00 · 기준 50명 포함 · 부가세 포함</p>'
+      + months.map(function(month,index){
+        var days = E.monthDays(month[0]);
+        var rows = groups.map(function(group){
+          var day = days.find(function(d){ return d.col === group[1] && group[2].includes(d.dow) && !d.holiday && !(d.peak && D.peak.dates[d.iso]); });
+          return [esc(group[0])].concat(people.map(function(n){
+            var q = E.quote({ date: day.iso, start: pkg.start, end: pkg.end, people: n });
+            return '<b>' + esc(won(q.total)) + '</b><br><small class="muted">1인 ' + esc(won(q.total / n)) + '</small>';
+          }));
+        });
+        return '<details class="mt-2"' + (index === 0 ? ' open' : '') + '><summary><b>' + esc(month[1]) + '</b></summary>'
+          + tbl(['일반 요일','150명','200명'],rows,'tbl-fit')+'</details>';
+      }).join('')
+      + '<p class="tiny muted mt-2">12/24·25·31, 1/1과 공휴일 전후에는 별도 요금이 적용될 수 있습니다. 이용일을 선택하면 실제 요금을 확인할 수 있습니다. 옵션·보증금 별도.</p>'
+      + '<a class="btn btn-light btn-sm mt-2" href="/inquiry/?space=' + esc(SPACE_ID) + '&amp;pkg=allday#reserve">이용일과 인원으로 금액 확인 →</a></div>';
   };
 
   /* ---------- 인원 ---------- */
@@ -210,7 +234,7 @@
     if (peakFri) ex.push({ t: '성수기 금요일 저녁 네트워킹 ' + mid + '명', d: peakFri, s: 19, e: 23, p: mid, pu: 'networking', peak: true });
     ex = ex.map(function(x){
       var q = E.quote({ date: x.d, start: x.s, end: x.e, people: x.p, purpose: x.pu, options: x.o, regular: x.regular });
-      var parts = [q.pkg ? q.pkg.label + ' ' + man(q.pkg.price) : '공간료 ' + man(q.time.fee)];
+      var parts = [q.pkg ? q.pkg.label + ' ' + man(q.pkg.price) : '공간료 ' + man(q.spaceFee)];
       if (q.peopleFee) parts.push('인원 추가 ' + man(q.peopleFee)); q.options.forEach(function(o){ parts.push(o.label + ' ' + man(o.amount)); });
       return '<button type="button" class="ex-card' + (x.peak ? ' is-peak' : '') + '" data-d="' + x.d + '" data-s="' + x.s + '" data-e="' + x.e + '" data-p="' + x.p + '" data-pu="' + x.pu + '" data-o="' + esc(Object.keys(x.o || {}).join(',')) + '" data-regular="' + (x.regular ? 1 : 0) + '"><div class="eyebrow">' + esc(E.kdate(x.d)) + ' · ' + esc(q.colLabel) + ' 요금' + (q.peak && q.peopleBase > D.people.base ? ' · ' + q.peopleBase + '명 포함' : '') + '</div><b>' + esc(x.t) + '</b><span class="ex-when">' + esc(q.range) + '</span><ul>' + parts.map(function(p){ return '<li>' + esc(p) + '</li>'; }).join('') + '</ul><div class="ex-total">' + esc(man(q.total)) + '<small>' + (x.regular ? ' 1회 기준 · 정기 할인 별도' : '') + '</small></div><span class="go">이 조건으로 금액 확인 →</span></button>';
     }).join('');

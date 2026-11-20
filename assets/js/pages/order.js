@@ -14,7 +14,7 @@
     var q=new URLSearchParams(location.search), prod=P.get(q.get('product')||'');
     if(!prod){ app.hidden=false; $('#od-form').innerHTML='<div class="empty"><b>상품을 찾을 수 없습니다</b><p class="small muted mt-1">이용권 목록에서 다시 골라 주세요.</p><a class="btn btn-primary btn-sm mt-2" href="/products/">이용권 보기</a></div>'; $('.order-side').hidden=true; return; }
     var isPass=prod.kind==='pass', isVerification=prod.kind==='verification', addons=P.items.filter(function(x){ return x.kind==='addon'; }), retryOid=q.get('retry')||'';
-    var WAIT_REFRESH_MS=20000;
+    var WAIT_REFRESH_MS=20000, displayedTotal=null;
     var waitState='idle',waitKey='',waitAt=0,waitSeq=0,waitTimer,waitRefreshTimer,waitStartedAt=0,waitChecking=false,checkoutWarn='',payBusy=false;
     M.checkApi().then(function(live){
       if(!live){ $('#od-offline').hidden=false; return; }
@@ -34,7 +34,7 @@
       }).catch(function(e){ $('#od-offline').hidden=false;if(retryOid)$('#od-offline').textContent=e.message||'주문 구성을 불러오지 못했습니다. 주문 내역에서 다시 시도해 주세요.'; });
     });
     function renderProduct(){
-      $('#od-product').innerHTML='<div class="eyebrow">'+(isPass?'공간 이용권':'옵션 상품')+'</div><div class="row between" style="align-items:flex-start;gap:12px"><div><h2 class="h-m">'+esc(prod.name)+'</h2><p class="small muted mt-1">'+esc(isPass?PKG[prod.pkg]+' · 기준 20명':prod.unit)+'</p></div><div class="prod-price small"><b>'+esc(won(prod.price))+'</b><span>부가세 포함</span></div></div><p class="small mt-2" style="color:var(--ink-2)">'+esc(prod.summary)+'</p><a class="small" href="/products/'+prod.id+'/" style="color:var(--cobalt);font-weight:700">상품 상세·환불 기준 보기 →</a>';
+      $('#od-product').innerHTML='<div class="eyebrow">'+(isPass?'공간 이용권':'옵션 상품')+'</div><div class="row between" style="align-items:flex-start;gap:12px"><div><h2 class="h-m">'+esc(prod.name)+'</h2><p class="small muted mt-1">'+esc(isPass?PKG[prod.pkg]+' · 기준 '+P.people.base+'명':prod.unit)+'</p></div><div class="prod-price small"><b>'+esc(won(prod.price))+'</b><span>부가세 포함</span></div></div><p class="small mt-2" style="color:var(--ink-2)">'+esc(prod.summary)+'</p><a class="small" href="/products/'+prod.id+'/" style="color:var(--cobalt);font-weight:700">상품 상세·환불 기준 보기 →</a>';
     }
     function optionRate(id){ var r=E&&E.data&&E.data().options.filter(function(x){return x.id===id;})[0]; return r?r.price:(id==='manager'?25000:5000); }
     function init(){
@@ -215,8 +215,8 @@
     function calc(){
       var s=state(), lines=[], warn='';
       if(isPass){
-        lines.push({label:prod.name, desc:PKG[prod.pkg]+' · 기준 20명', amount:prod.price});
-        var extra=Math.max(0, Math.min(200, s.people)-20); if(extra) lines.push({label:'인원 추가', desc:extra+'명 × 10,000원', amount:extra*10000});
+        lines.push({label:prod.name, desc:PKG[prod.pkg]+' · 기준 '+P.people.base+'명', amount:prod.price});
+        var extra=Math.max(0, Math.min(P.people.max, s.people)-P.people.base); if(extra) lines.push({label:'인원 추가', desc:extra+'명 × '+won(P.people.extra), amount:extra*P.people.extra});
         addons.forEach(function(a){ var n=s.addons[a.opt]; if(!n)return;
           if(a.opt==='manager') lines.push({label:'현장 매니저',desc:n.count+'명 × '+n.hours+'시간 × '+won(optionRate('manager')),amount:optionRate('manager')*n.count*n.hours});
           else if(a.opt==='disposable') lines.push({label:'1회용 세트',desc:n.people+'명 × '+won(optionRate('disposable')),amount:optionRate('disposable')*n.people});
@@ -232,6 +232,7 @@
       if(isPass) warn=optionError(s)||warn;
       warn=dateError(s)||warn;refundNotice(s);
       var total=lines.reduce(function(a,l){ return a+l.amount; },0);
+      displayedTotal=total;
       $('#od-lines').innerHTML='<tbody>'+lines.map(function(l){ return '<tr><td>'+esc(l.label)+'<small>'+esc(l.desc)+'</small></td><td>'+esc(won(l.amount))+'</td></tr>'; }).join('')+'</tbody><tfoot><tr class="sum"><td>합계 <small>부가세 포함</small></td><td>'+esc(won(total))+'</td></tr></tfoot>';
       var er=$('#od-error'); if(warn){ er.innerHTML=warn; er.hidden=false; } else if(er.dataset.sticky!=='1'){ er.hidden=true; }
       checkoutWarn=warn;scheduleWait(s);
@@ -242,6 +243,7 @@
       var f=$('#od-form'), er=$('#od-error'); er.dataset.sticky='';er.dataset.waitError='';er.hidden=true;
       if(!M.validate(f)){ er.textContent='필수 항목과 동의 여부를 확인해 주세요.'; er.hidden=false; er.dataset.sticky='1'; return; }
       var s=state(),invalid=dateError(s)||(isPass?optionError(s):'');if(invalid){er.textContent=invalid;er.hidden=false;return;}
+      var expectedTotal=displayedTotal;
       var btn=$('#od-pay');payBusy=true;btn.disabled=true;btn.textContent=isPass?'결제 전 예약 현황 확인 중…':'결제창을 여는 중…';
       var gate=isPass?requestWait(s).then(function(j){
         if(!j)throw Error('선택한 일정이 바뀌었습니다. 내용을 확인하고 다시 시도해 주세요.');
@@ -249,7 +251,12 @@
         if(mode==='blocked')throw Object.assign(Error('선택한 일정은 담당자 확인이 필요합니다. 예약 상담을 남겨 주시면 이용 가능 여부와 결제 방법을 안내드립니다.'),{code:'RESERVATION_PENDING'});
         if(mode==='occupied')throw Object.assign(Error('선택한 시간은 이미 예약되었거나 임시 확보 중입니다. 다른 일정을 선택해 주세요.'),{code:'DATE_TAKEN'});
       }):Promise.resolve();
-      gate.then(function(){if(JSON.stringify(state())!==JSON.stringify(s))throw Error('확인 중 주문 내용이 변경되었습니다. 현재 구성과 금액을 확인하고 다시 눌러 주세요.');btn.textContent='결제창을 여는 중…';return M.api('/pay/prepare',{method:'POST', body:s});}).then(function(r){
+      gate.then(function(){
+        if(JSON.stringify(state())!==JSON.stringify(s))throw Error('확인 중 주문 내용이 변경되었습니다. 현재 구성과 금액을 확인하고 다시 눌러 주세요.');
+        btn.textContent='결제창을 여는 중…';
+        if(isPass) s.expected_total=expectedTotal;
+        return M.api('/pay/prepare',{method:'POST',body:s});
+      }).then(function(r){
         var target=new URL(r.payurl);
         if(target.protocol!=='https:' || !/(^|\.)payapp\.kr$/.test(target.hostname)) throw new Error('결제창 주소를 확인하지 못했습니다.');
         location.assign(target.href);

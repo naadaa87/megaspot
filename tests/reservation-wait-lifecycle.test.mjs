@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { payappFixture } from './helpers/payapp-refund-fixture.mjs';
 import { onRequest as auth } from '../functions/api/auth/[[path]].js';
-import { onRequest as pay, dayCol, peakOf } from '../functions/api/pay/[[path]].js';
+import { onRequest as pay, buildOrder, dayCol, peakOf } from '../functions/api/pay/[[path]].js';
 import { onRequestGet as calendar } from '../functions/api/reservation-calendar.js';
 import { onRequest as middleware } from '../functions/api/_middleware.js';
 import { PRODUCTS } from '../functions/api/_catalog.js';
@@ -67,10 +67,11 @@ async function fixture(t){
     return {status:response.status,body:await response.json()};
   }
   const availability=(pkg='day')=>payRequest('availability',{date,space:SPACE,product_id:passFor(date,pkg)});
-  const prepare=()=>payRequest('prepare',{},{
-    product_id:passFor(date),date,people:30,buyer:{name:'검증 고객',phone:'01012345678'},
-    agree_terms:true,agree_privacy:true,agree_refund:true
-  });
+  const prepare=()=>{
+    const input={product_id:passFor(date),date,people:30};
+    return payRequest('prepare',{},{...input,expected_total:buildOrder(input).total,buyer:{name:'검증 고객',phone:'01012345678'},
+      agree_terms:true,agree_privacy:true,agree_refund:true});
+  };
   const adminRows=async()=> (await f.api('reservations?from='+date+'&to='+date)).items;
   const confirm=ref=>f.api('inquiries/'+ref+'/confirm','POST',{date,start_h:10,end_h:17,headcount:30,amount:500000});
   const getCalendar=async()=>await (await calendar({env:f.env,request:new Request('https://local.test/api/reservation-calendar?'+new URLSearchParams({from:date,to:date}))})).json();

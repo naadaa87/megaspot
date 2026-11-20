@@ -190,6 +190,8 @@ export async function onRequest({ request, env, params, waitUntil }) {
       if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return err('이메일 주소를 확인해 주세요.');
       if (!d.agree_terms || !d.agree_privacy || !d.agree_refund) return err('이용약관·개인정보·환불 기준에 동의해 주세요.');
       const o = buildOrder(d); if (o.error) return err(o.error, 400, o.code || 'BAD_ORDER');
+      if (o.product.kind === 'pass' && d.expected_total !== o.total)
+        return err('화면의 금액과 현재 요금이 다릅니다. 주문 화면을 새로고침하고 금액을 다시 확인해 주세요.', 409, 'PRICE_CHANGED');
       if (o.total < 1000) return err('결제 금액은 1,000원 이상이어야 합니다.');
       let member = null; try { member = await getMember(request, env); } catch {}
       const oid = makeOid(), t = now();

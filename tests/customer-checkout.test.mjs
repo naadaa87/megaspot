@@ -18,7 +18,7 @@ function passInput(){
 const rate=id=>PRICING.options.find(x=>x.id===id).price;
 test('견적의 매니저 인원·시간과 일회용품 인원을 서버 단가로 정확히 결제한다',()=>{
   const input={...passInput(),price:1,addons:{manager:{count:2,hours:7,price:1},disposable:{people:30,price:1}}};
-  const o=buildOrder(input),base=PRODUCTS.get(input.product_id).price+10*PRODUCTS.people.extra;
+  const o=buildOrder(input),base=PRODUCTS.get(input.product_id).price+Math.max(0,input.people-PRODUCTS.people.base)*PRODUCTS.people.extra;
   assert.equal(o.error,undefined);assert.equal(o.total,base+rate('manager')*14+rate('disposable')*30);
   const manager=o.lines.find(x=>x.id==='addon-manager'),disposable=o.lines.find(x=>x.id==='addon-disposable');
   assert.equal(manager.qty,14);assert.equal(manager.amount,350000);assert.match(manager.desc,/2명.*7시간/);

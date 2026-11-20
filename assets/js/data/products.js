@@ -30,7 +30,7 @@
     },
     included: '200인치 레이저 빔프로젝터 · 무선마이크 2대 · 4웨이 앰프·스피커 · 강단 · 스모그머신 · 레이저 미러볼 · 와인잔 · 행사용품·레크리에이션 물품',
     deposit: { amount: 150000, note: '이용 보증금 15만 원은 이용권 금액과 별도로 이용일 전에 안내해 드리며, 이용 뒤 정리·파손 여부를 확인한 다음 돌려 드립니다.' },
-    people: { base: 20, extra: 10000, max: 200 },
+    people: { base: 50, extra: 10000, max: 200 },
     // 요일 그룹: 요금표의 요일 구분(월–목/금/토/일)과 같은 규칙. 공휴일은 당일·다음 날이 쉬는 날인지로 정해집니다.
     dayGroups: {
       'wd':  { label: '월–목', cols: ['wd'] },
@@ -41,34 +41,34 @@
       'satsun': { label: '토·일·공휴일', cols: ['sat', 'sun'] }
     },
     // ---------- 상품 ----------
-    // kind: 'pass'(공간 이용권) | 'addon'(옵션). pass 는 이용일 선택 + 인원(기준 20명, 1명당 1만 원) 이 붙고, addon 은 단독 또는 이용권과 함께 구매.
+    // kind: 'pass'(공간 이용권) | 'addon'(옵션). pass 는 이용일 선택 + 인원(기준 50명, 1명당 1만 원) 이 붙고, addon 은 단독 또는 이용권과 함께 구매.
     items: [
       // 운영자 결제·취소 확인용: 일반 이용권·옵션 목록에는 노출하지 않습니다. 실제 승인됩니다.
       { id: 'payapp-check-1000', kind: 'verification', hidden: true, name: '메가스팟 결제·취소 확인 (1,000원)', price: 1000, unit: '1건',
         summary: '페이앱 연동 확인을 위한 1,000원 실결제입니다. 공간 예약이나 서비스 제공은 없으며, 결제 확인 후 페이앱 판매자 관리자에서 전액 취소해 주세요.' },
       // 낮 패키지 10–17시 (7시간)
-      { id: 'pass-day-wdfri',   kind: 'pass', pkg: 'day',      group: 'wdfri',  name: '낮 패키지 이용권 · 월–금',     price: 300000,  start: 10, end: 17, hours: 7,
-        summary: '월–금 10시부터 17시까지 7시간, 기준 20명. 세미나·클래스·워크숍·낮 모임에 맞습니다.', cover: 's01' },
-      { id: 'pass-day-satsun',  kind: 'pass', pkg: 'day',      group: 'satsun', name: '낮 패키지 이용권 · 토·일·공휴일', price: 700000, start: 10, end: 17, hours: 7,
-        summary: '토·일·공휴일 10시부터 17시까지 7시간, 기준 20명. 주말 세미나·클래스·가족 행사에 맞습니다.', cover: 's11' },
+      { id: 'pass-day-wdfri',   kind: 'pass', pkg: 'day',      group: 'wdfri',  name: '낮 패키지 이용권 · 월–금',     price: 600000,  start: 10, end: 17, hours: 7,
+        summary: '월–금 10시부터 17시까지 7시간, 기준 50명. 세미나·클래스·워크숍·낮 모임에 맞습니다.', cover: 's01' },
+      { id: 'pass-day-satsun',  kind: 'pass', pkg: 'day',      group: 'satsun', name: '낮 패키지 이용권 · 토·일·공휴일', price: 1000000, start: 10, end: 17, hours: 7,
+        summary: '토·일·공휴일 10시부터 17시까지 7시간, 기준 50명. 주말 세미나·클래스·가족 행사에 맞습니다.', cover: 's11' },
       // 올데이 10–24시 (14시간)
-      { id: 'pass-allday-wd',   kind: 'pass', pkg: 'allday',   group: 'wd',     name: '올데이 패키지 이용권 · 월–목',  price: 800000,  start: 10, end: 24, hours: 14,
-        summary: '월–목 10시부터 24시까지 14시간, 기준 20명. 하루 종일 쓰는 워크숍·행사에 맞습니다.', cover: 's05' },
-      { id: 'pass-allday-fri',  kind: 'pass', pkg: 'allday',   group: 'fri',    name: '올데이 패키지 이용권 · 금요일',  price: 1000000, start: 10, end: 24, hours: 14,
-        summary: '금요일 10시부터 24시까지 14시간, 기준 20명. 낮 행사와 저녁 뒤풀이를 한 번에.', cover: 's04' },
-      { id: 'pass-allday-sat',  kind: 'pass', pkg: 'allday',   group: 'sat',    name: '올데이 패키지 이용권 · 토요일',  price: 1600000, start: 10, end: 24, hours: 14,
-        summary: '토요일 10시부터 24시까지 14시간, 기준 20명. 하루 종일 쓰는 주말 행사에 맞습니다.', cover: 's02' },
-      { id: 'pass-allday-sun',  kind: 'pass', pkg: 'allday',   group: 'sun',    name: '올데이 패키지 이용권 · 일요일',  price: 1350000, start: 10, end: 24, hours: 14,
-        summary: '일요일 10시부터 24시까지 14시간, 기준 20명.', cover: 's13' },
+      { id: 'pass-allday-wd',   kind: 'pass', pkg: 'allday',   group: 'wd',     name: '올데이 패키지 이용권 · 월–목',  price: 1100000,  start: 10, end: 24, hours: 14,
+        summary: '월–목 10시부터 24시까지 14시간, 기준 50명. 하루 종일 쓰는 워크숍·행사에 맞습니다.', cover: 's05' },
+      { id: 'pass-allday-fri',  kind: 'pass', pkg: 'allday',   group: 'fri',    name: '올데이 패키지 이용권 · 금요일',  price: 1300000, start: 10, end: 24, hours: 14,
+        summary: '금요일 10시부터 24시까지 14시간, 기준 50명. 낮 행사와 저녁 뒤풀이를 한 번에.', cover: 's04' },
+      { id: 'pass-allday-sat',  kind: 'pass', pkg: 'allday',   group: 'sat',    name: '올데이 패키지 이용권 · 토요일',  price: 1900000, start: 10, end: 24, hours: 14,
+        summary: '토요일 10시부터 24시까지 14시간, 기준 50명. 하루 종일 쓰는 주말 행사에 맞습니다.', cover: 's02' },
+      { id: 'pass-allday-sun',  kind: 'pass', pkg: 'allday',   group: 'sun',    name: '올데이 패키지 이용권 · 일요일',  price: 1650000, start: 10, end: 24, hours: 14,
+        summary: '일요일 10시부터 24시까지 14시간, 기준 50명.', cover: 's13' },
       // 올나잇 18–다음 날 07시 (13시간)
-      { id: 'pass-allnight-wd', kind: 'pass', pkg: 'allnight', group: 'wd',     name: '올나잇 패키지 이용권 · 월–목',  price: 700000,  start: 18, end: 31, hours: 13,
-        summary: '월–목 18시부터 다음 날 07시까지 13시간, 기준 20명. 저녁 파티·네트워킹·심야 촬영에 맞습니다.', cover: 's14' },
-      { id: 'pass-allnight-fri',kind: 'pass', pkg: 'allnight', group: 'fri',    name: '올나잇 패키지 이용권 · 금요일',  price: 1100000, start: 18, end: 31, hours: 13,
-        summary: '금요일 18시부터 다음 날 07시까지 13시간, 기준 20명. 송년회·단체 파티에 가장 많이 찾는 시간입니다.', cover: 's22' },
-      { id: 'pass-allnight-sat',kind: 'pass', pkg: 'allnight', group: 'sat',    name: '올나잇 패키지 이용권 · 토요일',  price: 1500000, start: 18, end: 31, hours: 13,
-        summary: '토요일 18시부터 다음 날 07시까지 13시간, 기준 20명.', cover: 's17' },
-      { id: 'pass-allnight-sun',kind: 'pass', pkg: 'allnight', group: 'sun',    name: '올나잇 패키지 이용권 · 일요일',  price: 1000000, start: 18, end: 31, hours: 13,
-        summary: '일요일 18시부터 다음 날 07시까지 13시간, 기준 20명.', cover: 's15' },
+      { id: 'pass-allnight-wd', kind: 'pass', pkg: 'allnight', group: 'wd',     name: '올나잇 패키지 이용권 · 월–목',  price: 1000000,  start: 18, end: 31, hours: 13,
+        summary: '월–목 18시부터 다음 날 07시까지 13시간, 기준 50명. 저녁 파티·네트워킹·심야 촬영에 맞습니다.', cover: 's14' },
+      { id: 'pass-allnight-fri',kind: 'pass', pkg: 'allnight', group: 'fri',    name: '올나잇 패키지 이용권 · 금요일',  price: 1400000, start: 18, end: 31, hours: 13,
+        summary: '금요일 18시부터 다음 날 07시까지 13시간, 기준 50명. 송년회·단체 파티에 가장 많이 찾는 시간입니다.', cover: 's22' },
+      { id: 'pass-allnight-sat',kind: 'pass', pkg: 'allnight', group: 'sat',    name: '올나잇 패키지 이용권 · 토요일',  price: 1800000, start: 18, end: 31, hours: 13,
+        summary: '토요일 18시부터 다음 날 07시까지 13시간, 기준 50명.', cover: 's17' },
+      { id: 'pass-allnight-sun',kind: 'pass', pkg: 'allnight', group: 'sun',    name: '올나잇 패키지 이용권 · 일요일',  price: 1300000, start: 18, end: 31, hours: 13,
+        summary: '일요일 18시부터 다음 날 07시까지 13시간, 기준 50명.', cover: 's15' },
       // 옵션
       { id: 'addon-cleaning',   kind: 'addon', opt: 'cleaning',   name: '뒷정리·청소 지원',  price: 200000, unit: '1회',
         summary: '행사가 끝난 뒤 정리와 청소를 맡기고 바로 퇴실할 수 있습니다. 기본 정리(쓰레기 분리·집기 제자리)는 보증금 반환 기준에서 제외됩니다.', cover: 'v10' },

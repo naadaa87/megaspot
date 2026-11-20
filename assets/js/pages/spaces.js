@@ -29,7 +29,7 @@
 
   var LST=[], HOST={ items:[], by_region:{}, ok:false }, DAY={}, seq=0;
   function state(){ var e=form.elements; return { region:e.region.value, people:+e.people.value||0, date:e.date.value, type:$('#f-type').value, sort:$('#f-sort').value, fav:$('#f-fav').checked }; }
-  function direct(s){ return { kind:'direct', id:s.id, name:s.name, area:areaOf(s.region), cap:s.capacity.max, size:s.area.pyeong, types:typesOf(s.purposes), price:s.price?s.price.from:null, rank:s.status==='open'?4:s.status==='opening'?3:0, src:s }; }
+  function direct(s){ return { kind:'direct', id:s.id, name:s.name, area:areaOf(s.region), cap:s.capacity.max, size:s.area.pyeong, types:typesOf(s.purposes), price:s.price?(s.price.minTotal??s.price.from):null, rank:s.status==='open'?4:s.status==='opening'?3:0, src:s }; }
   function legacy(l){ return { kind:'listing', id:l.id, name:l.name, area:areaOf(l.region), cap:+l.capacity||0, size:+l.area||0, types:typesOf(l.purposes), price:null, rank:1, src:l }; }
   function hosted(c, i){ return { kind:'host', id:c.id, name:c.name, area:c.region, cap:c.capacity||0, size:c.area||0, types:c.types||[], price:c.price_from, rank:2, order:i, src:c }; }
   function ok(s, st){

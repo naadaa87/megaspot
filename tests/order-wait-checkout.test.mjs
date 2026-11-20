@@ -20,7 +20,7 @@ function fixture(kind='pass'){
  function node(selector){if(!nodes.has(selector))nodes.set(selector,{...eventTarget(),hidden:false,disabled:false,textContent:'',innerHTML:'',href:'',dataset:{}});return nodes.get(selector);}
  const ctx=vm.createContext({
   isPass:kind==='pass',isVerification:kind==='verification',prod:{id:kind==='pass'?'pass-day-wdfri':kind==='verification'?'payapp-check-1000':'addon-cleaning',pkg:'day'},
-  WAIT_REFRESH_MS:20000,waitState:'idle',waitKey:'',waitAt:0,waitSeq:0,waitTimer:null,waitRefreshTimer:null,waitStartedAt:0,waitChecking:false,checkoutWarn:'',payBusy:false,
+  WAIT_REFRESH_MS:20000,waitState:'idle',waitKey:'',waitAt:0,waitSeq:0,waitTimer:null,waitRefreshTimer:null,waitStartedAt:0,waitChecking:false,checkoutWarn:'',payBusy:false,displayedTotal:600000,
   selection:{product_id:kind==='pass'?'pass-day-wdfri':kind==='verification'?'payapp-check-1000':'addon-cleaning',date:'2026-11-16',people:20,qty:1,addons:{},inquiry_ref:'',buyer:{name:'모의 고객',phone:'01012345678'},agree_terms:true,agree_privacy:true,agree_refund:true},
   $:node,esc:String,URL,URLSearchParams,todayIso:()=> '2026-11-07',dateError:()=>'',optionError:()=>'',
   location:{assign:url=>redirects.push(url)},document:{...eventTarget(),hidden:false},window:eventTarget(),Date:{now:()=>now},
@@ -138,7 +138,7 @@ test('예약 연결과 실패 주문 재결제는 개인정보를 공개 조회�
  for(const selection of [{inquiry_ref:'MS-TEST'},{retry_oid:'MS-FAILED'}]){
   const f=fixture();Object.assign(f.ctx.selection,selection);f.queue(occupied);await f.request();
   assert.equal(f.ctx.waitState,'linked');assert.equal(f.node('#od-pay').disabled,false);assert.match(f.node('#od-availability-message').textContent,/기존 확정 예약과 일치/);
-  f.queue(occupied);f.pay();await f.flush();const order=f.calls.find(x=>x.path==='/pay/prepare');assert.ok(order);
+  f.queue(occupied);f.pay();await f.flush();const order=f.calls.find(x=>x.path==='/pay/prepare');assert.ok(order);assert.equal(order.options.body.expected_total,600000);
   for(const [key,value] of Object.entries(selection))assert.equal(order.options.body[key],value);
   const query=new URL(f.calls[0].path,'https://megaspot.test').searchParams;
   assert.equal(query.get('product_id'),'pass-day-wdfri');assert.equal(query.has('ref'),false);

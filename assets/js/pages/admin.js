@@ -738,7 +738,7 @@
   /* =================== 견적 계산 =================== */
   var quoteSettlement=null,Q, savedQuoteSnapshot=null, savedQuoteCreatedAt='', quoteDirty=false, quoteHistorical=false;
   function invalidateQuote(reprice,roomChanged){ Q.quoteNo=''; if(reprice!==false){savedQuoteSnapshot=null;if(roomChanged)delete Q.roomAgreement;} savedQuoteCreatedAt=''; quoteDirty=true; }
-  function blankQ(){ useSpace(DEFAULT_SPACE); return { space:DEFAULT_SPACE, ref:'', customer:'', phone:'', email:'', date:todayIso(), start:13, end:17, people:20, purpose:'', regular:false,
+  function blankQ(){ useSpace(DEFAULT_SPACE); return { space:DEFAULT_SPACE, ref:'', customer:'', phone:'', email:'', date:todayIso(), start:13, end:17, people:D.people.base, purpose:'', regular:false,
     opts:{ manager:{on:false,count:1,hours:4}, cleaning:false, disposable:false, banner:false, xbanner:false },
     discType:'none', discVal:0, discWhy:'', extras:[], reception_revision:0, receptionExcluded:false, deposit:(D?D.deposit.amount:150000), valid:1, note:'', quoteNo:'' }; }
   Q=blankQ();

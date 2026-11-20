@@ -313,7 +313,7 @@
       { title:'400평 메가스팟 건대 2호, 지금 예약할 수 있습니다', sub:'최대 350명 · 200인치 레이저 빔프로젝터 2대 · 기준 50명 포함. 날짜·시간·인원을 넣으면 금액이 바로 나옵니다.', cta:'2호 보기', href:'/spaces/megaspot-gundae-2/', image:'/assets/img/gundae2/m/r28.jpg', theme:'graphite' },
       { title:'대관을 정했다면, 참가자 모집도 메가스팟에서', sub:'모임 소개와 참가 신청·대기 신청을 받는 페이지를 무료로 만들 수 있습니다. 신청자 명단은 주최자 관리 화면에서 봅니다.', cta:'모임 등록하기', href:'/meetups/new/', image:'/assets/img/scenes/m/s04.jpg', theme:'cobalt' }],
     'list-top':[
-      { title:'바로 쓸 수 있는 190평, 메가스팟 건대 1호', sub:'최대 200명 · 시간당 4만 원부터 · 200인치 빔프로젝터와 음향 무료', cta:'1호 보기', href:'/spaces/megaspot-gundae/', theme:'light' },
+      { title:'바로 쓸 수 있는 190평, 메가스팟 건대 1호', sub:'최대 200명 · 기준 50명 포함 · 1시간 총 34만 원부터 · 200인치 빔프로젝터와 음향 무료', cta:'1호 보기', href:'/spaces/megaspot-gundae/', theme:'light' },
       { title:'100명이 넘는 행사라면 400평 건대 2호', sub:'최대 350명 · 기준 50명 포함 · 1호와 같은 층', cta:'2호 보기', href:'/spaces/megaspot-gundae-2/', theme:'light' }],
     'list-card':[
       { title:'우리 공간도 여기에 올리고 싶다면', sub:'50명 이상 모일 수 있거나 50평 이상인 공간이면 입점할 수 있습니다. 결제 수수료는 없습니다.', cta:'입점 안내 보기', href:'/host/', image:'/assets/img/gundae2/m/r24.jpg', theme:'rust' },
