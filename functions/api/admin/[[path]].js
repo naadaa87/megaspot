@@ -205,7 +205,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
     if(path==='booking-readiness')return await bookingReadiness({env,url,method});
     if(/^bookings\/[A-Z0-9-]+\/portal-link(?:\/rotate)?$/.test(path))return await portalAdmin({env,request,url,path,method});
     if(method==='PATCH'&&/^inquiries\/[A-Z0-9-]+$/.test(path)){const v=await readJson(request.clone());if(v.total!==undefined&&v.total!==null&&v.total!==''&&amountOk(v.total)===null)return err('금액을 확인해 주세요.');}
-    if(method!=='GET'&&/^(quotes$|inquiries\/|bookings(?:\/|$)|reservation-services\/|reservation-payment-checks\/|catering\/orders)/.test(path))await preserveLegacyPayments(env);
+    if(method!=='GET'&&/^(inquiries\/|bookings(?:\/|$)|reservation-services\/|reservation-payment-checks\/|catering\/orders)/.test(path))await preserveLegacyPayments(env);
     if(path.startsWith('reservation-services/')){const result=await reservationServiceStatus({env,request,path,method});if(result)return result;}
     if(/^bookings\/[A-Z0-9-]+\/reconfirm$/.test(path))return await reconfirmationAdmin({env,request,path,method,waitUntil});
     if(/^bookings\/[A-Z0-9-]+\/cancellation(?:\/document)?$/.test(path))return await cancellationAdmin({env,request,path,method,url});
@@ -386,11 +386,18 @@ export async function onRequest({ request, env, params, waitUntil }) {
       const d = await readJson(request, 128 * 1024);
       const total = amountOk(d.total); if (total == null) return err('견적 합계를 확인해 주세요.');
       const ref = str(d.inquiry_ref, 20).toUpperCase();
+      const data = d.data && typeof d.data === 'object' ? d.data : {};
+      const foodOnly = data.input?.foodOnly === true;
+      if (foodOnly && ref) return err('식음료 단독 견적은 문의를 연결하지 않고 저장해 주세요.');
+      if (!foodOnly) await preserveLegacyPayments(env);
       const inquiry = ref ? await env.DB.prepare('SELECT * FROM inquiries WHERE ref = ?').bind(ref).first() : null;
       if (ref && !inquiry) return err('연결할 문의번호를 찾을 수 없습니다.');
       if (inquiry && [DELETED, '대기 취소'].includes(inquiry.status)) return err('삭제·대기 취소된 문의는 복원한 뒤 견적을 저장해 주세요.');
       const quote_no = await uniqueRef(env, 'quotes', 'quote_no', 'Q');
-      const data = d.data && typeof d.data === 'object' ? d.data : {};
+      if (foodOnly && (!Array.isArray(data.extras) || !data.extras.length ||
+        data.extras.some(row => !row || !['catering', 'reception', 'cocktail'].includes(row.kind) || !row[row.kind] || !(Number(row.amount) > 0)))) {
+        return err('금액이 계산된 식음료 구성을 하나 이상 추가해 주세요.');
+      }
       const related=ref?(await env.DB.prepare('SELECT booking_code,status FROM bookings WHERE inquiry_ref=?').bind(ref).all()).results||[]:[];
       const cancelledQuote=related.length===1&&related[0].status==='cancelled'?(await settlementFor(env,related[0].booking_code)):null;
       if(cancelledQuote?.cancellation){
@@ -412,6 +419,21 @@ export async function onRequest({ request, env, params, waitUntil }) {
       if(rec.reception){
         data.extras=data.extras.map(x=>x.kind==='reception'?{...x,reception:rec.reception}:x);
         if(Array.isArray(input?.extras))input.extras=input.extras.map(x=>x.kind==='reception'?{...x,amount:rec.amount,reception:rec.reception}:x);
+      }
+      if (foodOnly) {
+        if (total !== rec.amount + food.amount) return err('식음료 항목의 합계와 견적 합계가 달라 저장할 수 없습니다.');
+        const location = str(input.location, 200);
+        const date = isDate(str(d.event_date, 10)) ? str(d.event_date, 10) : '';
+        const headcount = Number(input.people);
+        const people = Number.isInteger(headcount) && headcount >= 1 && headcount <= 999 ? headcount : null;
+        input.location = location;
+        input.date = date;
+        input.people = people;
+        input.ref = '';
+        input.deposit = 0;
+        data.extras = data.extras.map(row => ({...row, amount: Number(row.amount)}));
+        input.extras = data.extras;
+        Object.assign(data, { location, date, people, total, lines: [], deposit: 0, refund: [], settlement: null });
       }
       let invalidated = false, reception_revision = null;
       if (inquiry) {

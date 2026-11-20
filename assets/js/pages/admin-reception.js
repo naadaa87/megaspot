@@ -3,14 +3,14 @@
   'use strict';
   var X=window.MEGASPOT_ADMIN,M=window.MEGASPOT,C=window.MEGASPOT_RECEPTION_CALC;
   if(!X||!M||!C||!window.MEGASPOT_RECEPTION_CHOICES)return;
-  var $=M.$,esc=M.esc,state={target:null,dirty:false,busy:false,request:0,initialized:false};
+  var $=M.$,esc=M.esc,state={target:null,dirty:false,busy:false,request:0,initialized:false,foodQuote:null};
   function config(){return {course:$('#ar-course').value,unit_price:C.isManual($('#ar-course').value)?$('#ar-unit-price').value:undefined,format:$('#ar-format').value,people:$('#ar-people').value,status:$('#ar-status').value,note:$('#ar-note').value.trim(),menu_ids:Array.from(document.querySelectorAll('#ar-menu-choices input:checked')).map(function(x){return x.value;}),budget_per_person:$('#ar-budget').value,request_note:$('#ar-request-note').value};}
   function quoteConfig(){
     var cfg=config(),q=C.quote(cfg.people,cfg.format,cfg.course,cfg.unit_price),saved=state.target&&C.fromInquiry(state.target.data);
     if(!q.ok&&saved&&saved.total!=null&&!C.compatible(saved.course,saved.format)&&saved.course===cfg.course&&saved.format===cfg.format&&Number(saved.people)===Number(cfg.people))return Object.assign({ok:true},saved);
     return q;
   }
-  function target(){return {ref:state.target?state.target.ref:'',customer:$('#ar-customer').value.trim(),phone:$('#ar-phone').value.trim(),date:$('#ar-date').value,space:$('#ar-space').value};}
+  function target(){return {ref:state.target?state.target.ref:'',customer:$('#ar-customer').value.trim(),phone:$('#ar-phone').value.trim(),date:$('#ar-date').value,space:$('#ar-space').value,foodQuote:state.foodQuote};}
   function validTarget(){return !!state.target && $('#ar-ref').value.trim().toUpperCase()===state.target.ref && ['삭제됨','대기 취소','취소·환불'].indexOf(state.target.status)<0;}
   function error(e){if(!X.guard(e))X.note($('#ar-msg'),e.message||'처리하지 못했습니다.');}
   function busy(on){state.busy=on;$('#ar-form').querySelectorAll('input,select,textarea,button').forEach(function(el){el.disabled=on;});paint();}
@@ -21,10 +21,13 @@
     if(manual)$('#ar-budget-group').hidden=true;
     var q=quoteConfig(), cancelled=$('#ar-status').value==='cancelled', box=$('#ar-result');
     ['#ar-customer','#ar-phone','#ar-date','#ar-space'].forEach(function(s){$(s).disabled=state.busy||!!state.target;});
+    ['#ar-link-heading','#ar-link-fields','#ar-customer-fields','#ar-event-fields','#ar-status-field','#ar-save'].forEach(function(id){$(id).hidden=!!state.foodQuote;});
+    var actionLabel=state.foodQuote?'식음료 견적에 반영 →':'대관 견적에 넣기 →';
+    if($('#ar-to-quote').textContent!==actionLabel)$('#ar-to-quote').textContent=actionLabel;
     var rec=C.selection(config());$('#ar-save').disabled=state.busy||!validTarget()||!rec||(!q.ok&&$('#ar-status').value==='confirmed');
     $('#ar-to-quote').disabled=state.busy||!rec||cancelled||!q.ok&&!validTarget();
     $('#ar-copy').disabled=!rec||cancelled;$('#ar-open').hidden=!state.target;
-    $('#ar-target').textContent=state.target?state.target.ref+' · '+(state.target.name||'')+' · '+X.spaceName(state.target.space_id)+(state.dirty?' · 변경 내용 미저장':'')+' — 고객·행사 정보 수정은 문의 상세에서 해 주세요.':'문의 없이 계산하거나, 문의를 불러와 그 건에 저장할 수 있습니다.';
+    $('#ar-target').textContent=state.foodQuote?'식음료 단독 견적의 케이터링 구성입니다.':state.target?state.target.ref+' · '+(state.target.name||'')+' · '+X.spaceName(state.target.space_id)+(state.dirty?' · 변경 내용 미저장':'')+' — 고객·행사 정보 수정은 문의 상세에서 해 주세요.':'문의 없이 계산하거나, 문의를 불러와 그 건에 저장할 수 있습니다.';
     var menuCourse=C.course($('#ar-course').value);$('#ar-menu').textContent=manual?'직접 입력한 1인 금액 기준입니다. 희망 메뉴를 선택하거나 요청란에 협의한 구성을 적어 주세요.':C.isBudget($('#ar-course').value)?'선택한 예산을 기준으로 메뉴를 상담합니다. 확정 메뉴 목록이 아닙니다.':(menuCourse?menuCourse.menus.join(' · '):'참고 코스를 선택하면 메뉴를 표시합니다.')+'\n\n'+C.data.activeCatalog.referenceNote;
     if(!q.ok){box.innerHTML='<h2>케이터링 구성 상담</h2><p role="status">'+esc(cancelled?'취소 · 합계 제외':rec?'상담 후 견적 · 미확정 금액은 합계 미포함':q.message)+'</p>'+(rec?'<p class="small mt-2">'+esc(rec.summary)+'</p>'+(rec.budget_per_person?'<p class="small">희망 1인 예산 '+C.won(rec.budget_per_person)+' (확정 가격 아님)</p>':''):'');return;}
     box.innerHTML='<h2>'+esc(q.formatName)+'</h2><div class="cc-total"><span>'+(cancelled?'취소 구성 · 합계 제외':esc(q.courseName)+' 예상 금액')+'<small>'+(C.isBudget(q.course)?'예산 기준 예상 금액 · ':'')+'부가세 10% 포함</small></span><b>'+C.won(q.total)+'</b></div>'
@@ -38,7 +41,7 @@
     var request=++state.request;$('#ar-load').disabled=true;
     return X.A('/inquiries/'+encodeURIComponent(ref)).then(function(r){
       if(request!==state.request)return false;
-      var it=r.item,d=it.data||{},saved=C.fromInquiry(d);state.target=it;state.dirty=false;
+      var it=r.item,d=it.data||{},saved=C.fromInquiry(d);state.target=it;state.dirty=false;state.foodQuote=null;
       $('#ar-ref').value=it.ref;$('#ar-customer').value=d.name||it.name||'';$('#ar-phone').value=d.phone||it.phone||'';$('#ar-date').value=d.date||it.event_date||'';$('#ar-space').value=it.space_id==='megaspot-gundae-2'?it.space_id:'megaspot-gundae';
       $('#ar-format').value=saved?saved.format:'table';courseOptions(saved&&saved.course);$('#ar-people').value=saved?(saved.people||''):(it.headcount||50);$('#ar-status').value=saved&&saved.status||'pending';$('#ar-note').value=saved&&saved.note||'';fillPreferences(saved||{});
       $('#ar-msg').hidden=true;paint();return true;
@@ -66,7 +69,7 @@
     if(!q.ok&&!validTarget()){X.note($('#ar-msg'),'상담 중인 구성은 문의를 불러와 저장한 뒤 견적에 연결해 주세요.');return;}
     var context=target();busy(true);
     var save=state.target?X.A('/inquiries/'+encodeURIComponent(state.target.ref),{method:'PATCH',body:{reception:input,reception_revision:C.revision(state.target.data)}}).then(function(r){state.target.data=Object.assign({},state.target.data,{reception:r.reception,reception_revision:r.reception_revision});context.reception_revision=r.reception_revision;rec=r.reception;return r;}):Promise.resolve();
-    save.then(function(){return X.receptionToQuote(context,input,q.ok?Object.assign(q,rec):rec);}).then(function(added){if(added)state.dirty=false;}).catch(error).finally(function(){busy(false);});
+    save.then(function(){return X.receptionToQuote(context,input,q.ok?Object.assign(q,rec):rec);}).then(function(added){if(added){state.dirty=false;state.foodQuote=null;}}).catch(error).finally(function(){busy(false);});
   });
   $('#ar-copy').addEventListener('click',function(){var cfg=config();M.copy((C.isActive(cfg.course)?C.customerReply(cfg):C.customerText(cfg.people,cfg.format,cfg.course))+(cfg.note?'\n\n요청·안내: '+cfg.note:'')).then(function(ok){M.toast(ok?'고객 안내문을 복사했습니다.':'복사하지 못했습니다.');});});
   $('#ar-open').addEventListener('click',function(){if(state.target)X.openInquiry(state.target.ref);});
@@ -75,7 +78,7 @@
     if(state.busy){M.toast('케이터링 저장이 끝난 뒤 다시 열어 주세요.');return;}
     if(!ref){
       if(state.dirty&&!confirm('작성 중인 케이터링을 바꾸고 이 견적 조건을 불러올까요?'))return;
-      context=context||{};var saved=context.reception||{};state.target=null;state.dirty=false;++state.request;$('#ar-ref').value='';
+      context=context||{};var saved=context.reception||{};state.target=null;state.foodQuote=context.foodQuote||null;state.dirty=false;++state.request;$('#ar-ref').value='';
       $('#ar-customer').value=context.customer||'';$('#ar-phone').value=context.phone||'';$('#ar-date').value=context.date||'';$('#ar-space').value=context.space||'megaspot-gundae';$('#ar-people').value=saved.people||context.people||50;$('#ar-format').value=saved.format||'table';courseOptions(saved.course);fillPreferences(saved);$('#ar-status').value=saved.status||'pending';$('#ar-note').value=saved.note||'';$('#ar-msg').hidden=true;
     }
     state.initialized=true;state.opening=true;X.go('reception');state.opening=false;if(ref)load(ref);

@@ -221,7 +221,7 @@
 
     <!-- 견적 계산 -->
     <section class="adm-view" id="view-quote" hidden>
-      <header class="adm-head"><div><h1>견적 계산</h1><p class="small muted">요금표(성수기 포함)로 계산하고 할인·추가 항목을 더해 견적서를 만듭니다. 문의 상세에서 '이 문의로 견적 계산'을 누르면 조건이 채워집니다.</p></div><button class="btn btn-light btn-sm" type="button" id="q-reset">새 견적</button></header>
+      <header class="adm-head"><div><h1>견적 계산</h1><p class="small muted" id="q-rental-intro">요금표(성수기 포함)로 계산하고 할인·추가 항목을 더해 견적서를 만듭니다. 문의 상세에서 '이 문의로 견적 계산'을 누르면 조건이 채워집니다.</p><p class="small muted" id="q-food-intro" hidden>행사 장소를 입력하고 필요한 식음료를 골라 견적서를 만듭니다.</p></div><div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-light btn-sm" type="button" id="q-reset">새 대관 견적</button><button class="btn btn-primary btn-sm" type="button" id="q-food-new">+ 식음료 단독 견적</button></div></header>
       <div class="adm-quote">
         <form class="adm-card q-form" id="q-form" novalidate>
           <div class="q-link" id="q-link"></div>
@@ -232,29 +232,36 @@
             <div class="f"><label for="q-email">이메일</label><input class="input" id="q-email" type="email"></div>
           </div>
           <h3>이용 조건</h3>
-          <div class="f"><label for="q-space">공간</label><select class="select" id="q-space"></select><span class="hint" id="q-space-hint"></span></div>
+          <div class="f" id="q-location-field" hidden><label for="q-location">행사 장소</label><input class="input" id="q-location" maxlength="200" placeholder="예: 성수 컨퍼런스홀 · 서울 성동구 …"><span class="hint">장소가 정해지지 않았다면 비워 두세요.</span></div>
+          <div class="f" data-q-rental><label for="q-space">공간</label><select class="select" id="q-space"></select><span class="hint" id="q-space-hint"></span></div>
           <div class="field-row three">
             <div class="f"><label for="q-date">이용일</label><input class="input" type="date" id="q-date"></div>
-            <div class="f"><label for="q-start">시작</label><select class="select" id="q-start"></select></div>
-            <div class="f"><label for="q-end">종료</label><select class="select" id="q-end"></select></div>
+            <div class="f" data-q-rental><label for="q-start">시작</label><select class="select" id="q-start"></select></div>
+            <div class="f" data-q-rental><label for="q-end">종료</label><select class="select" id="q-end"></select></div>
           </div>
-          <div class="q-pkgs" id="q-pkgs"></div>
+          <div class="q-pkgs" id="q-pkgs" data-q-rental></div>
           <div class="field-row three">
             <div class="f"><label for="q-people">인원</label><input class="input" id="q-people" type="number" min="1" max="200" value="50"></div>
-            <div class="f"><label for="q-purpose">모임 목적</label><select class="select" id="q-purpose"></select></div>
-            <div class="f"><span class="lbl">정기 이용</span><label class="chk"><input type="checkbox" id="q-regular"> 4회 이상 예정</label></div>
+            <div class="f" data-q-rental><label for="q-purpose">모임 목적</label><select class="select" id="q-purpose"></select></div>
+            <div class="f" data-q-rental><span class="lbl">정기 이용</span><label class="chk"><input type="checkbox" id="q-regular"> 4회 이상 예정</label></div>
           </div>
-          <h3>옵션</h3>
-          <div class="q-opts" id="q-opts"></div>
-          <h3>조정</h3>
-          <div class="field-row three">
+          <h3 data-q-rental>옵션</h3>
+          <div class="q-opts" id="q-opts" data-q-rental></div>
+          <h3 data-q-rental>조정</h3>
+          <div class="field-row three" data-q-rental>
             <div class="f"><label for="q-disc-type">할인</label><select class="select" id="q-disc-type"><option value="none">없음</option><option value="pct">비율 (%)</option><option value="won">금액 (원)</option></select></div>
             <div class="f"><label for="q-disc-val">할인 값</label><input class="input" id="q-disc-val" type="number" min="0" value="0"></div>
             <div class="f"><label for="q-disc-why">할인 사유</label><input class="input" id="q-disc-why" placeholder="예: 정기 이용 4회, 오픈 할인"></div>
           </div>
-          <div class="f"><span class="lbl">추가 항목 <span class="tiny muted">(케이터링·장비 대여·성수기 할증 등, 빼는 금액은 앞에 -)</span></span><div id="q-extras" class="q-extras"></div><button class="btn btn-light btn-sm mt-1" type="button" id="q-extra-add">+ 항목 추가</button></div>
+          <h3 id="q-food-heading" hidden>식음료 구성</h3>
+          <div class="q-btns" id="q-food-services" hidden>
+            <button class="btn btn-light" type="button" id="q-food-buffet">출장뷔페 추가</button>
+            <button class="btn btn-light" type="button" id="q-food-reception">케이터링 추가</button>
+            <button class="btn btn-light" type="button" id="q-food-cocktail">출장 칵테일 추가</button>
+          </div>
+          <div class="f"><span class="lbl" data-q-rental>추가 항목 <span class="tiny muted">(케이터링·장비 대여·성수기 할증 등, 빼는 금액은 앞에 -)</span></span><div id="q-extras" class="q-extras"></div><button class="btn btn-light btn-sm mt-1" type="button" id="q-extra-add" data-q-rental>+ 항목 추가</button></div>
           <div class="field-row three">
-            <div class="f"><label for="q-deposit">보증금 (별도)</label><input class="input" id="q-deposit" type="number" min="0" step="10000"></div>
+            <div class="f" data-q-rental><label for="q-deposit">보증금 (별도)</label><input class="input" id="q-deposit" type="number" min="0" step="10000"></div>
             <div class="f"><label for="q-valid">견적 유효기간</label><select class="select" id="q-valid"><option value="1" selected>다음 날까지 (1일)</option><option value="3">3일</option><option value="7">7일</option><option value="14">14일</option><option value="30">30일</option></select></div>
             <div class="f"></div>
           </div>
@@ -379,9 +386,9 @@
       <header class="adm-head"><div><h1>출장 칵테일</h1><p class="small muted">문의의 패키지·메뉴·진행 상태를 저장합니다. 견적에 포함한 구성은 예약 금액에도 반영됩니다.</p></div></header>
       <section class="adm-card ak-economics" aria-labelledby="ak-pricing-heading"><h2 id="ak-pricing-heading">패키지별 공급가·판매가·마진</h2><p class="small muted">공급가·판매가·마진은 부가세 제외 기준입니다. 마진은 인건비·카드 수수료 등 운영비 차감 전 금액입니다.</p><form id="ak-pricing-form"><div id="ak-pricing" aria-live="polite"><p class="small muted">관리자 가격표를 불러오는 중입니다.</p></div><p class="small muted" id="ak-pricing-state"></p><div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-primary" type="submit" id="ak-pricing-save" disabled>가격표 저장·전체 반영</button><button class="btn btn-light" type="button" id="ak-pricing-reload">변경 취소·다시 불러오기</button><a class="btn btn-light" href="/assets/docs/megaspot-cocktail-service-guide.pdf" target="_blank" rel="noopener">최신 소개서 PDF 보기</a></div><div class="form-note" id="ak-pricing-msg" hidden></div><p class="tiny muted">저장하면 홈페이지·PDF·견적 계산기에 반영됩니다. 기존 저장·발행 견적은 당시 금액을 유지합니다.</p></form></section>
       <form class="adm-card" id="ak-form">
-        <div class="field-row"><div class="f"><label for="ak-ref">문의번호</label><input class="input" id="ak-ref" placeholder="MS-…"></div><div class="f"><span class="lbl">문의 연결</span><button class="btn btn-light" type="button" id="ak-load">문의 불러오기</button></div></div>
+        <div class="field-row" id="ak-link-fields"><div class="f"><label for="ak-ref">문의번호</label><input class="input" id="ak-ref" placeholder="MS-…"></div><div class="f"><span class="lbl">문의 연결</span><button class="btn btn-light" type="button" id="ak-load">문의 불러오기</button></div></div>
         <p class="small muted" id="ak-target">문의관리에서 칵테일 계산·변경을 눌러도 연결됩니다.</p>
-        <div class="field-row"><div class="f"><label for="ak-cups">패키지</label><select class="select" id="ak-cups"></select></div><div class="f"><label for="ak-status">진행 상태</label><select class="select" id="ak-status"><option value="pending">대기</option><option value="confirmed">확정</option><option value="cancelled">취소 · 합계 제외</option></select></div></div>
+        <div class="field-row"><div class="f"><label for="ak-cups">패키지</label><select class="select" id="ak-cups"></select></div><div class="f" id="ak-status-field"><label for="ak-status">진행 상태</label><select class="select" id="ak-status"><option value="pending">대기</option><option value="confirmed">확정</option><option value="cancelled">취소 · 합계 제외</option></select></div></div>
         <div class="f"><label for="ak-menus">희망 메뉴 (최대 8개 · 여러 개 선택 가능)</label><select class="select" id="ak-menus" multiple size="8"></select></div>
         <label class="chk"><input type="checkbox" id="ak-nonalcohol"> 논알코올 구성 상담</label>
         <div class="f"><label for="ak-note">요청·안내</label><textarea class="textarea" id="ak-note" maxlength="300"></textarea></div>
@@ -474,14 +481,14 @@
       <div class="adm-card mb-3" id="reception-pricing"></div>
       <div class="adm-quote">
         <form class="adm-card form" id="ar-form" novalidate>
-          <h2>연결 문의</h2><div class="field-row"><div class="f"><label for="ar-ref">문의번호 (선택)</label><input class="input" id="ar-ref" placeholder="MS-2611-XXXX" maxlength="20"></div><button class="btn btn-light" id="ar-load" type="button">문의 불러오기</button></div>
+          <h2 id="ar-link-heading">연결 문의</h2><div class="field-row" id="ar-link-fields"><div class="f"><label for="ar-ref">문의번호 (선택)</label><input class="input" id="ar-ref" placeholder="MS-2611-XXXX" maxlength="20"></div><button class="btn btn-light" id="ar-load" type="button">문의 불러오기</button></div>
           <p class="small muted" id="ar-target">문의 없이 계산하거나, 문의를 불러와 그 건에 저장할 수 있습니다.</p>
-          <div class="field-row"><div class="f"><label for="ar-customer">고객 이름</label><input class="input" id="ar-customer"></div><div class="f"><label for="ar-phone">연락처</label><input class="input" id="ar-phone" type="tel"></div></div>
-          <div class="field-row"><div class="f"><label for="ar-date">행사일</label><input class="input" id="ar-date" type="date"></div><div class="f"><label for="ar-space">공간</label><select class="select" id="ar-space"><option value="megaspot-gundae">건대 1호</option><option value="megaspot-gundae-2">건대 2호</option></select></div></div>
+          <div class="field-row" id="ar-customer-fields"><div class="f"><label for="ar-customer">고객 이름</label><input class="input" id="ar-customer"></div><div class="f"><label for="ar-phone">연락처</label><input class="input" id="ar-phone" type="tel"></div></div>
+          <div class="field-row" id="ar-event-fields"><div class="f"><label for="ar-date">행사일</label><input class="input" id="ar-date" type="date"></div><div class="f"><label for="ar-space">공간</label><select class="select" id="ar-space"><option value="megaspot-gundae">건대 1호</option><option value="megaspot-gundae-2">건대 2호</option></select></div></div>
           <h2>희망 구성</h2><div class="f"><label id="ar-choice-label" for="ar-course">희망 구성 · 참고 코스</label><select class="select" id="ar-course"><option value="cf-light">라이트 · 1인 25,000원</option><option value="cf-classic">클래식 · 1인 35,000원</option><option value="cf-premium">프리미엄 · 1인 45,000원</option><option value="cf-signature">시그니처 · 1인 55,000원</option><option value="cf-custom" selected>맞춤 구성 상담</option></select><p class="hint" id="ar-choice-hint"></p></div>
           <div class="f" id="ar-unit-price-group" hidden><label for="ar-unit-price">1인 금액 직접 입력 (원, 부가세 별도)</label><input class="input" id="ar-unit-price" type="number" min="1" max="10000000" step="1" inputmode="numeric" placeholder="예: 17000 또는 20000"><p class="hint">입력 금액 × 인원에 출장세팅비 또는 배송비를 더하고 부가세 10%를 계산합니다.</p></div>
           <div class="field-row"><div class="f"><label for="ar-format">제공 방식</label><select class="select" id="ar-format"><option value="">상담 후 결정</option><option value="table" selected>테이블 세팅</option><option value="box">박스 케이터링</option><option value="snackbox">다과박스</option><option value="sandwichbox">샌드위치 도시락</option><option value="fusionbox">퓨전 도시락</option></select></div><div class="f"><label for="ar-people">식사 인원</label><input class="input" id="ar-people" type="number" min="1" max="100000" step="1" value="50"></div></div>
-          <div class="f"><label for="ar-status">진행 상태</label><select class="select" id="ar-status"><option value="pending">대기</option><option value="confirmed">확정</option><option value="cancelled">취소 · 합계 제외</option></select></div>
+          <div class="f" id="ar-status-field"><label for="ar-status">진행 상태</label><select class="select" id="ar-status"><option value="pending">대기</option><option value="confirmed">확정</option><option value="cancelled">취소 · 합계 제외</option></select></div>
           <div class="f"><label for="ar-note">고객 안내·요청 메모</label><textarea class="textarea" id="ar-note" maxlength="500" placeholder="예: 희망 메뉴 변경, 알레르기, 세팅 위치"></textarea></div>
 
           <div class="f" id="ar-budget-group"><label for="ar-budget">희망 1인 예산 (원, 상담 참고)</label><input class="input" id="ar-budget" type="number" min="1" max="10000000" placeholder="확정 판매가 아님"></div><details><summary>희망 메뉴 선택 · 변경</summary><div id="ar-menu-choices" class="plan-food-menu-grid"></div></details><div class="f"><label for="ar-request-note">고객 추가 요청</label><textarea class="textarea" id="ar-request-note" maxlength="500"></textarea></div><details><summary>참고 메뉴 예시</summary><div id="ar-menu" class="small" style="white-space:pre-line"></div></details>
@@ -738,12 +745,12 @@
 <script src="/assets/js/quote-policy.js?v=e29d1c2305b4"></script>
 <script src="/assets/js/pages/admin-food-filter.js?v=e6689c0f6f74"></script>
 <script src="/assets/js/pages/admin-reservation-period.js?v=d19a2c8a0701"></script>
-<script src="/assets/js/pages/admin.js?v=30746d36bb39"></script>
+<script src="/assets/js/pages/admin.js?v=2b945fefe022"></script>
 <script src="/assets/js/pages/admin-service-status.js?v=6f085e2a9a83"></script>
 <script src="/assets/js/pages/admin-platform.js?v=20261102adminux1"></script>
-<script src="/assets/js/pages/admin-cocktail.js?v=20261104foodprices3"></script>
+<script src="/assets/js/pages/admin-cocktail.js?v=c0a30f26741b"></script>
 <script src="/assets/js/pages/admin-food-pricing.js?v=7ecc71034ca4"></script>
-<script src="/assets/js/pages/admin-reception.js?v=83fadb65473d"></script>
+<script src="/assets/js/pages/admin-reception.js?v=43b7cac46de0"></script>
 <script src="/assets/js/pages/parking-receipt.js?v=20261117allhours"></script>
 <script src="/assets/js/pages/admin-parking-view.js?v=20261118day-fold-readall"></script>
 <script src="/assets/js/pages/admin-parking.js?v=bf9053340446"></script>

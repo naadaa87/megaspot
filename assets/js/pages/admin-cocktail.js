@@ -3,7 +3,7 @@
   'use strict';
   var X=window.MEGASPOT_ADMIN,M=window.MEGASPOT,C=window.MEGASPOT_COCKTAIL_CALC;
   if(!X||!M||!C)return;
-  var $=M.$,state={target:null,dirty:false,busy:false,request:0,opening:false,pricing:null,loadingPricing:false,pricingDraft:null,pricingRevision:0,pricingDirty:false,savingPricing:false};
+  var $=M.$,state={target:null,foodQuote:null,dirty:false,busy:false,request:0,opening:false,pricing:null,loadingPricing:false,pricingDraft:null,pricingRevision:0,pricingDirty:false,savingPricing:false};
   function config(){var q=C.quote({cups:$('#ak-cups').value,menus:Array.from($('#ak-menus').selectedOptions).map(function(o){return o.value;}),nonalcohol:$('#ak-nonalcohol').checked,note:$('#ak-note').value.trim()});q.status=$('#ak-status').value;q.summary=C.summary(q);q.menu_names=q.menus.map(function(k){return C.names[k];});return q;}
   function valid(){return state.target&&$('#ak-ref').value.trim().toUpperCase()===state.target.ref&&['삭제됨','대기 취소','취소·환불'].indexOf(state.target.status)<0;}
   function priceNumber(v){return v===''?NaN:Number(v);}
@@ -33,11 +33,30 @@
     state.savingPricing=true;pricingPreview();paint();var packages=state.pricingDraft.map(function(row){return {cups:row.cups,vendor_supply:priceNumber(row.vendor_supply),sale_price:priceNumber(row.sale_price)};});
     X.A('/cocktail/pricing',{method:'PUT',body:{revision:state.pricingRevision,packages:packages}}).then(function(r){acceptPricing(r);X.note($('#ak-pricing-msg'),'가격표를 저장했습니다. 홈페이지·PDF·계산기에 적용됩니다. 기존 저장·발행 견적의 금액은 유지됩니다.',true);M.toast('칵테일 가격표를 저장했습니다.');}).catch(function(e){if(!X.guard(e))X.note($('#ak-pricing-msg'),e.message||'가격표를 저장하지 못했습니다.');}).finally(function(){state.savingPricing=false;pricingPreview();paint();});
   }
-  function paint(){var q=config(),tooMany=$('#ak-menus').selectedOptions.length>8;$('#ak-result').textContent=tooMany?'희망 메뉴는 최대 8개까지 선택해 주세요.':q.status==='cancelled'?'취소 · 합계 제외':C.summary(q);$('#ak-save').disabled=state.busy||state.savingPricing||!valid()||tooMany;$('#ak-to-quote').disabled=state.busy||state.savingPricing||!valid()||tooMany||q.status==='cancelled';$('#ak-open').hidden=!state.target;pricingTable();var saved=state.target&&state.target.data.cocktail;$('#ak-saved-price').textContent=saved&&(!saved.vat_excluded||saved.price!==C.prices[saved.cups])?'기존 저장 금액: '+C.won(saved.vat_excluded?saved.total:saved.price)+' · 구성을 저장하면 현재 판매가와 부가세 기준으로 변경됩니다.':'';$('#ak-target').textContent=state.target?state.target.ref+' · '+(state.target.name||'')+(state.dirty?' · 변경 내용 미저장':''):'문의관리에서 칵테일 계산·변경을 눌러도 연결됩니다.';}
+  function paint(){
+    var q=config(),tooMany=$('#ak-menus').selectedOptions.length>8,foodQuote=!!state.foodQuote;
+    $('#ak-result').textContent=tooMany?'희망 메뉴는 최대 8개까지 선택해 주세요.':q.status==='cancelled'?'취소 · 합계 제외':C.summary(q);
+    $('#ak-link-fields').hidden=$('#ak-save').hidden=$('#ak-status-field').hidden=foodQuote;
+    var actionLabel=foodQuote?'식음료 견적에 반영 →':'대관 견적에 넣기 →';
+    if($('#ak-to-quote').textContent!==actionLabel)$('#ak-to-quote').textContent=actionLabel;
+    $('#ak-save').disabled=state.busy||state.savingPricing||!valid()||tooMany;
+    $('#ak-to-quote').disabled=state.busy||state.savingPricing||!(foodQuote?state.pricing:valid())||tooMany||q.status==='cancelled';
+    $('#ak-open').hidden=!state.target;
+    pricingTable();
+    var saved=state.target&&state.target.data.cocktail;
+    $('#ak-saved-price').textContent=saved&&(!saved.vat_excluded||saved.price!==C.prices[saved.cups])?'기존 저장 금액: '+C.won(saved.vat_excluded?saved.total:saved.price)+' · 구성을 저장하면 현재 판매가와 부가세 기준으로 변경됩니다.':'';
+    $('#ak-target').textContent=foodQuote?'식음료 단독 견적의 출장 칵테일 구성입니다.':state.target?state.target.ref+' · '+(state.target.name||'')+(state.dirty?' · 변경 내용 미저장':''):'문의관리에서 칵테일 계산·변경을 눌러도 연결됩니다.';
+  }
+  function fill(q){
+    $('#ak-cups').value=q.cups||100;$('#ak-status').value=q.status||'pending';
+    $('#ak-note').value=q.note||'';$('#ak-nonalcohol').checked=!!q.nonalcohol;
+    Array.from($('#ak-menus').options).forEach(function(o){o.selected=(q.menus||[]).indexOf(o.value)>=0;});
+    $('#ak-msg').hidden=true;paint();
+  }
   function busy(on){state.busy=on;$('#ak-form').querySelectorAll('input,select,textarea,button').forEach(function(el){el.disabled=on;});paint();}
   function error(e){if(!X.guard(e))X.note($('#ak-msg'),e.message||'처리하지 못했습니다.');}
   function load(ref){ref=String(ref||'').trim().toUpperCase();if(!/^[A-Z0-9-]{4,20}$/.test(ref)){X.note($('#ak-msg'),'문의번호를 확인해 주세요.');return Promise.resolve(false);}if(state.busy)return Promise.resolve(false);if(state.dirty&&!confirm('저장하지 않은 칵테일 변경 내용을 바꾸고 문의를 불러올까요?'))return Promise.resolve(false);var request=++state.request;busy(true);
-    return X.A('/inquiries/'+encodeURIComponent(ref)).then(function(r){if(request!==state.request)return false;state.target=r.item;state.dirty=false;var q=r.item.data.cocktail||{};$('#ak-ref').value=ref;$('#ak-cups').value=q.cups||100;$('#ak-status').value=q.status||'pending';$('#ak-note').value=q.note||'';$('#ak-nonalcohol').checked=!!q.nonalcohol;Array.from($('#ak-menus').options).forEach(function(o){o.selected=(q.menus||[]).indexOf(o.value)>=0;});$('#ak-msg').hidden=true;paint();return true;}).catch(function(e){if(request===state.request)error(e);return false;}).finally(function(){if(request===state.request)busy(false);});
+    return X.A('/inquiries/'+encodeURIComponent(ref)).then(function(r){if(request!==state.request)return false;state.target=r.item;state.foodQuote=null;state.dirty=false;$('#ak-ref').value=ref;fill(r.item.data.cocktail||{});return true;}).catch(function(e){if(request===state.request)error(e);return false;}).finally(function(){if(request===state.request)busy(false);});
   }
   function save(){if(!valid()||state.busy||$('#ak-menus').selectedOptions.length>8)return Promise.resolve(false);var body=config(),ref=state.target.ref;busy(true);return X.A('/inquiries/'+encodeURIComponent(ref),{method:'PATCH',body:{cocktail:body,reception_revision:Number(state.target.data.reception_revision)||0}}).then(function(r){state.target.data=Object.assign({},state.target.data,{cocktail:r.cocktail,reception_revision:r.reception_revision});state.dirty=false;X.note($('#ak-msg'),'칵테일을 저장했습니다. 견적에 포함한 구성은 예약 금액에도 반영됩니다. 구성이 바뀐 예약은 확정서를 다시 발급해 주세요.',true);M.toast('칵테일 구성을 저장했습니다.');return true;}).catch(function(e){error(e);return false;}).finally(function(){busy(false);});}
   $('#ak-cups').innerHTML=Object.keys(C.prices).map(function(n){return '<option value="'+n+'">'+n+'잔 · '+C.won(C.prices[n])+'</option>';}).join('');$('#ak-menus').innerHTML=Object.keys(C.names).map(function(k){return '<option value="'+k+'">'+M.esc(C.names[k])+'</option>';}).join('');
@@ -45,7 +64,19 @@
   $('#ak-pricing-reload').addEventListener('click',function(){loadPricing(true);});
   $('#ak-pricing').addEventListener('input',function(e){var input=e.target.closest('[data-price-field]');if(!input)return;var cups=Number(input.closest('[data-package]').dataset.package),row=state.pricingDraft.find(function(x){return x.cups===cups;});row[input.dataset.priceField]=input.value;state.pricingDirty=true;pricingPreview();});
   $('#ak-form').addEventListener('submit',function(e){e.preventDefault();});['input','change'].forEach(function(name){$('#ak-form').addEventListener(name,function(e){if(e.target.id!=='ak-ref')state.dirty=true;paint();});});$('#ak-ref').addEventListener('input',function(){++state.request;$('#ak-load').disabled=false;if(state.target&&this.value.trim().toUpperCase()!==state.target.ref)state.target=null;paint();});$('#ak-ref').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();load(this.value);}});$('#ak-load').addEventListener('click',function(){load($('#ak-ref').value);});$('#ak-save').addEventListener('click',save);$('#ak-open').addEventListener('click',function(){if(state.target)X.openInquiry(state.target.ref);});
-  $('#ak-to-quote').addEventListener('click',function(){if(!valid()||state.busy)return;var next=state.dirty?save():Promise.resolve(true);next.then(function(ok){if(ok)return X.foodToQuote(state.target.ref,'cocktail',state.target.data.cocktail||config(),state.target.data.reception_revision||0);}).catch(error);});
+  $('#ak-to-quote').addEventListener('click',function(){
+    if(state.foodQuote){
+      if(!state.pricing||state.busy||state.savingPricing||$('#ak-menus').selectedOptions.length>8)return;
+      var q=config();if(q.status==='cancelled')return;
+      if(X.setFoodQuoteItem(state.foodQuote,window.MEGASPOT_FOOD_SERVICES.extra('cocktail',q))){state.dirty=false;state.foodQuote=null;paint();}
+      return;
+    }
+    if(!valid()||state.busy)return;var next=state.dirty?save():Promise.resolve(true);next.then(function(ok){if(ok)return X.foodToQuote(state.target.ref,'cocktail',state.target.data.cocktail||config(),state.target.data.reception_revision||0);}).catch(error);});
   window.addEventListener('beforeunload',function(e){if(state.dirty||state.pricingDirty){e.preventDefault();e.returnValue='';}});window.addEventListener('admin-food-saved',function(e){if(state.target&&e.detail.ref===state.target.ref&&!state.dirty)load(state.target.ref);});
-  X.openCocktail=function(ref){if(state.busy)return;state.opening=true;X.go('cocktail');state.opening=false;load(ref);};X.register('prices-cocktail',function(){loadPricing();});X.register('cocktail',function(){loadPricing();paint();if(state.opening||state.busy||state.dirty)return;var ref=state.target?state.target.ref:X.quoteInquiryRef();if(ref)load(ref);});paint();if(X.visible()&&X.current()==='cocktail')X.go('cocktail');
+  X.openCocktailQuote=function(draft,value){
+    if(state.busy||state.dirty&&!confirm('작성 중인 칵테일을 바꾸고 이 견적 조건을 불러올까요?'))return;
+    state.foodQuote=draft;state.target=null;state.dirty=false;$('#ak-ref').value='';fill(value||{});
+    X.go('cocktail');
+  };
+  X.openCocktail=function(ref){if(state.busy)return;state.opening=true;X.go('cocktail');state.opening=false;load(ref);};X.register('prices-cocktail',function(){loadPricing();});X.register('cocktail',function(){loadPricing();paint();if(state.opening||state.busy||state.dirty||state.foodQuote)return;var ref=state.target?state.target.ref:X.quoteInquiryRef();if(ref)load(ref);});paint();if(X.visible()&&X.current()==='cocktail')X.go('cocktail');
 })();
