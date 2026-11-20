@@ -157,6 +157,15 @@ async function purgeInquiry(env, ref) {
   return { ref, ok: true };
 }
 
+// Saved quotes are immutable rows. Keep the original admin estimate as well
+// when replacing an amount that was entered before there was an issued quote.
+function rememberPreviousEstimate(updated,previous,nextText){
+  if(updated.estimate_before_requote||previous.estimate_quote_no||previous.estimate===nextText)return;
+  if(previous.source!=='admin'&&!previous.estimate_admin)return; // customer originals are kept separately
+  const text=str(previous.estimate,3000),total=amountOk(previous.total);
+  if(text||total!==null)updated.estimate_before_requote={text,total};
+}
+
 export async function onRequest({ request, env, params, waitUntil }) {
   if (!hasDb(env)) return err('데이터베이스가 연결되어 있지 않습니다.', 503, 'NO_DB');
   const path = (params.path || []).join('/');
@@ -424,6 +433,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
         const calculation=Calculation.text({...data,space,date,people,total},{space,spaceName:SPACES[space]});
         if(calculation){
           if(old.estimate&&old.source!=='admin'&&!old.estimate_admin&&!old.estimate_customer)updated.estimate_customer=old.estimate;
+          rememberPreviousEstimate(updated,old,calculation);
           updated.estimate=calculation;updated.estimate_admin=true;updated.estimate_quote_no=quote_no;
         }
         updated.included_cocktail_amount=cocktail;
@@ -574,6 +584,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
         if (mode === 'auto' || mode === 'manual') {
           const t = amountOk(d.total); if (t === null) return err('금액을 확인해 주세요.');
           if (data.estimate && data.source !== 'admin' && !data.estimate_admin && !data.estimate_customer) data.estimate_customer = data.estimate;
+          if(d.estimate!==undefined)rememberPreviousEstimate(data,data,str(d.estimate,3000));
           Object.assign(data, { total: t, amount_override: true, amount_mode: mode, amount_note: str(d.amount_note, 200), included_catering_amount: 0, catering_in_quote: false, included_reception_amount: 0, reception_in_quote: false, included_cocktail_amount:0,cocktail_in_quote:false,price_adjustment: d.price_adjustment || null });
           if (d.estimate !== undefined) { data.estimate = str(d.estimate, 3000); data.estimate_admin = true; data.pkg = str(d.pkg, 20); }
         } else if (mode === 'none') {

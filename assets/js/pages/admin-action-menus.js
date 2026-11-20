@@ -5,7 +5,7 @@
  function inquiry(){
   var actions=document.querySelector('#dr-body .dr-actions');
   if(actions&&!actions.classList.contains('compact-action-set')){
-   var secondary=Array.from(actions.children).filter(function(el){return !el.matches('#dr-quote,[data-payment-editor],#dr-book,a[href^="tel:"]');});
+   var secondary=Array.from(actions.children).filter(function(el){return !el.matches('#dr-quote,#dr-saved-quote,[data-payment-editor],#dr-book,a[href^="tel:"]');});
    if(secondary.length){var more=menu('문의 추가 작업 더보기');secondary.forEach(function(el){more.lastElementChild.appendChild(el);});actions.appendChild(more);actions.classList.add('compact-action-set');}
   }
   var bulk=document.getElementById('inq-bulk');

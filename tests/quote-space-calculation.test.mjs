@@ -45,6 +45,19 @@ test('고객 최초 예상 금액은 한 번만 보관하고 최신 관리자 �
  const r=await f.api('inquiries/MS-TEST'),view=Calculation.inquiry(r.item,r.quotes);
  assert.equal(r.item.data.estimate_customer,original);assert.equal(view.customerOriginal,original);assert.equal(view.admin,true);assert.equal(view.fromQuote,true);assert.match(view.text,/메가스팟 건대 1호/);
 });
+test('기존 관리자 예상 금액과 계산 내역을 새 견적 저장 뒤에도 보존',async t=>{
+ const f=fixture();t.after(()=>f.db.close());
+ const estimate='[기존 오픈 할인 안내]\n합계 450,000원';
+ f.db.prepare('UPDATE inquiries SET data=? WHERE ref=?').run(JSON.stringify({...f.data,source:'admin',amount_mode:'auto',estimate,total:450000}),'MS-TEST');
+ const quote=calculated('megaspot-gundae-2');
+ await f.api('quotes','POST',quote);
+ await f.api('quotes','POST',calculated('megaspot-gundae'));
+ const response=await f.api('inquiries/MS-TEST');
+ assert.deepEqual(response.item.data.estimate_before_requote,{total:450000,text:estimate});
+ assert.equal(response.quotes.length,2);
+ assert.match(response.item.data.estimate,/메가스팟 건대 1호/);
+});
+
 test('이미 저장된 2호 견적에 1호 계산 문구가 남아 있어도 상세 화면은 저장된 2호 행을 표시',async t=>{
  const f=fixture();t.after(()=>f.db.close());seedEstimate(f,{source:'web'});await f.api('quotes','POST',calculated('megaspot-gundae-2'));
  const old='[메가스팟 건대 1호 고객 원문]';f.db.prepare("UPDATE inquiries SET data=json_set(data,'$.estimate',?,'$.estimate_admin',json('false')) WHERE ref=?").run(old,'MS-TEST');
