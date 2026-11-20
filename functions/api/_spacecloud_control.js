@@ -26,7 +26,7 @@ export async function spacecloudControl({env,request,method,path}) {
   if(action!=='start'&&(typeof login_id!=='string'||!/^[\da-f-]{36}$/.test(login_id)))return err('로그인 창을 먼저 열어 주세요.');
   try{
     const remote=await config.send(new Request(config.origin+'/login/'+action,{
-      method:'POST',redirect:'error',signal:AbortSignal.timeout(45000),
+      method:'POST',redirect:'manual',signal:AbortSignal.timeout(45000),
       headers:{Authorization:'Bearer '+config.token,'Content-Type':'application/json'},
       body:JSON.stringify(action==='start'?{}:{login_id})
     }));

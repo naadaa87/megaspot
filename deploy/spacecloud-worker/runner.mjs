@@ -39,7 +39,7 @@ async function queue(env,body){
   const secret=String(env.SPACECLOUD_WORKER_TOKEN||'');
   if(secret.length<32)throw fail('queue-configuration');
   const result=await fetch(origin+'/api/internal/spacecloud-auto',{
-    method:'POST',redirect:'error',signal:AbortSignal.timeout(8500),
+    method:'POST',redirect:'manual',signal:AbortSignal.timeout(8500),
     headers:{Authorization:'Bearer '+secret,'Content-Type':'application/json'},body:JSON.stringify(body)
   });
   if(!result.ok)throw fail(result.status===409?'booking_changed':'queue-connection',result.status);
