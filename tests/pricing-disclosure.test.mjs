@@ -12,7 +12,7 @@ function publicUi(){
  const escape=value=>String(value??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
  const M={esc:escape,$:()=>null,$$:()=>[],CONFIG:{},fmtNum:n=>Number(n).toLocaleString('ko-KR'),imgSrc:()=>'',tagHtml:()=>''};
  const ctx=vm.createContext({window:{MEGASPOT:M},document,location:{pathname:'/spaces/megaspot-gundae-2/pricing/',search:''},URLSearchParams});
- for(const path of ['quote-policy','data/products','data/spaces','data/pricing-gundae','data/pricing-gundae2','data/holidays-kr','pricing-engine-v3.2','pricing-ui','cards'])vm.runInContext(read('assets/js/'+path+'.js'),ctx);
+ for(const path of ['quote-policy','data/products','data/spaces','data/pricing-gundae','data/pricing-gundae2','data/holidays-kr','pricing-engine-v3.2','pricing-ui-v3.2','cards'])vm.runInContext(read('assets/js/'+path+'.js'),ctx);
  return {M,window:ctx.window,print};
 }
 
@@ -63,7 +63,7 @@ test('요금표·예약·어드민·결제 화면이 새 경로의 요금 계산
  }
 });
 
-test('일반 시간제 기본료를 한 번 부과하고 별도 종일 대관은 양 호점 모두 행사 요금표와 일치한다',()=>{
+test('일반 시간제 기본료를 한 번 부과하고 이전 종일 대관은 양 호점 모두 발행 당시 요금표로 조회한다',()=>{
  const {M}=publicUi();
  const dayRates=[
   ['2026-12-07',2260000],['2026-12-04',2700000],['2026-12-05',4800000],['2026-12-06',3480000],
@@ -93,15 +93,7 @@ test('일반 시간제 기본료를 한 번 부과하고 별도 종일 대관은
    assert.equal(E.pkgPrice(E.dayInfo(date),'full-day'),null,date);
    assert.notEqual(quote(date,0,24,150,'full-day').pkg?.id,'full-day');
   }
-  if(E.todayIso()<='2027-02-28'){
-   const box={innerHTML:''};R['all-day-offer'](box);
-   assert.match(box.innerHTML,/종일 대관 할인가/);
-   assert.match(box.innerHTML,/기준 50명 포함/);
-   assert.match(box.innerHTML,/00:00–24:00/);
-   assert.match(box.innerHTML,/pkg=full-day/);
-   for(const total of dayRates.flatMap(([,x])=>[x,x+500000]))
-    assert.ok(box.innerHTML.includes(total.toLocaleString('ko-KR')+'원'),String(total));
-  }
+  assert.equal(R['all-day-offer'], undefined);
  }
 });
 

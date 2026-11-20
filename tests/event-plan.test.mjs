@@ -36,7 +36,7 @@ test('뷔페만 새로 고르면 다른 서비스 선택을 덮어쓰지 않는�
 });
 test('통합 식음료 UI를 쓰는 모든 페이지는 칵테일 계산기를 먼저 불러온다',()=>{
  const pages=['index.html','guide/index.html','inquiry/index.html','spaces/megaspot-gundae/index.html','spaces/megaspot-gundae/pricing/index.html','spaces/megaspot-gundae-2/index.html','spaces/megaspot-gundae-2/pricing/index.html'];
- for(const page of pages){const html=readFileSync(new URL('../'+page,import.meta.url),'utf8');const cocktail=html.indexOf('/assets/js/cocktail-calc.js?');const plan=html.indexOf('/assets/js/event-plan.js?');const pricing=html.indexOf('/assets/js/pricing-ui.js?');assert.ok(cocktail>=0&&cocktail<plan&&plan<pricing,page);}
+ for(const page of pages){const html=readFileSync(new URL('../'+page,import.meta.url),'utf8');const cocktail=html.indexOf('/assets/js/cocktail-calc.js?');const plan=html.indexOf('/assets/js/event-plan.js?');const pricing=html.indexOf('/assets/js/pricing-ui-v3.2.js?');assert.ok(cocktail>=0&&cocktail<plan&&plan<pricing,page);}
 });
 
 test('통합 견적 소계와 접수 요약이 선택한 케이터링 방식별 출장·세팅비를 사용한다',()=>{

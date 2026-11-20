@@ -23,7 +23,7 @@ for(const space of ['megaspot-gundae','megaspot-gundae-2']){
 test('every quote entry point loads the policy before its renderer with current asset versions',()=>{
  const pages=['index.html','guide/index.html','inquiry/index.html','spaces/megaspot-gundae/index.html','spaces/megaspot-gundae/pricing/index.html','spaces/megaspot-gundae-2/index.html','spaces/megaspot-gundae-2/pricing/index.html','admin/index.html'];
  const hash=file=>createHash('sha256').update(readFileSync(new URL('../'+file,import.meta.url))).digest('hex').slice(0,12);
- for(const page of pages){const html=readFileSync(new URL('../'+page,import.meta.url),'utf8'),renderer=page==='admin/index.html'?'assets/js/pages/admin.js':'assets/js/pricing-ui.js';assert.ok(html.indexOf('/assets/js/quote-policy.js?')<html.indexOf('/'+renderer+'?'),page);for(const file of [renderer,'assets/js/quote-policy.js','assets/css/quote-print.css'])assert.ok(html.includes('/'+file+'?v='+hash(file)),`${page}: ${file}`);}
+ for(const page of pages){const html=readFileSync(new URL('../'+page,import.meta.url),'utf8'),renderer=page==='admin/index.html'?'assets/js/pages/admin.js':'assets/js/pricing-ui-v3.2.js';assert.ok(html.indexOf('/assets/js/quote-policy.js?')<html.indexOf('/'+renderer+'?'),page);for(const file of [renderer,'assets/js/quote-policy.js','assets/css/quote-print.css'])assert.ok(html.includes('/'+file+'?v='+hash(file)),`${page}: ${file}`);}
 });
 test('policy escapes caller-provided space names',()=>{
  const ctx={window:{}};vm.runInNewContext(readFileSync(new URL('../assets/js/quote-policy.js',import.meta.url),'utf8'),ctx);const html=ctx.window.MEGASPOT_QUOTE_POLICY.html('<img src=x onerror=alert(1)>');assert.ok(html.includes('&lt;img'));assert.ok(!html.includes('<img'));

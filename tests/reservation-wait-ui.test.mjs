@@ -51,7 +51,7 @@ test('an overnight booking leaves the daytime range selectable and covers early 
  assert.match(detail.innerHTML,/data-use-room="megaspot-gundae" data-start="7" data-end="31"/);
  f.panel.destroy();
 });
-function pricingFunctions(names,ctx){const code=read('assets/js/pricing-ui.js');vm.createContext(ctx);for(const name of names){const start=code.indexOf('    function '+name+'('),end=code.indexOf('\n    function ',start+1);assert(start>=0,name);vm.runInContext(code.slice(start,end),ctx);}return ctx;}
+function pricingFunctions(names,ctx){const code=read('assets/js/pricing-ui-v3.2.js');vm.createContext(ctx);for(const name of names){const start=code.indexOf('    function '+name+'('),end=code.indexOf('\n    function ',start+1);assert(start>=0,name);vm.runInContext(code.slice(start,end),ctx);}return ctx;}
 function receipt({wait={no:1,total:1,date,space_id:ONE},unknown=false,live=true}={}){
  const nodes={result:element(),mini:element()},r={date,range:'10:00–17:00',people:30,total:400000,deposit:150000,pkg:{label:'낮 패키지'},...(unknown?{plan:{unknownDate:true,html:'일정 상담'}}:{})};
  const ctx={done:{wait,live,ref:'MS-OWN-REF',r,who:{name:'본인',phone:'010-1234-5678'},purpose:''},SPACE_ID:ONE,NAME:'건대 1호',D:{deposit:{label:'이용 보증금'}},KAKAO:'https://pf.kakao.com/_LnxbmX/chat',esc:escape,won:v=>Number(v).toLocaleString('ko-KR')+'원',E:{kdateY:v=>v,summaryText:()=> '공간 견적'},purLabel:()=>'',out:key=>nodes[key],syncMiniClass(){},paintAvailability(){},M:{},PLAN:null};

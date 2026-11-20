@@ -67,23 +67,16 @@ test('새 요금표로 바뀐 뒤 열려 있던 계산기의 이전 견적은 �
   assert.equal(db.prepare('SELECT COUNT(*) AS count FROM inquiries').get().count, 2);
 });
 
-test('종일 대관은 할인 기간의 명시적 00~24시로만 접수되고 전날 야간 확정 예약이 있으면 제한한다', async t => {
+test('판매를 종료한 종일 대관 링크로 신규 문의를 접수할 수 없다', async t => {
   t.mock.method(Date, 'now', () => Date.parse('2026-11-20T12:00:00+09:00'));
   const { db, inquiry } = fixture();
   t.after(()=>db.close());
-  const one='megaspot-gundae',two='megaspot-gundae-2';
-  const standard={space_id:one,reserve:true,date:'2026-12-07',start_h:0,end_h:24,headcount:150,pkg:'full-day',total:2260000};
-  db.prepare('INSERT INTO bookings(booking_code,space_id,customer_name,phone,phone_last4,date,start_h,end_h,status,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)')
-    .run('BK-overnight',one,'이전 날 예약','01000000001','0001','2026-12-06',18,26,'confirmed','2026-11-20');
-  const blocked=await inquiry(standard);
-  assert.equal(blocked.status,409);assert.equal(blocked.json.code,'DATE_TAKEN');
-  for(const input of [{...standard,date:'2026-12-24'},{...standard,start_h:10},{...standard,start_h:null}]){
-    const b=await inquiry(input);assert.equal(b.status,400);assert.equal(b.json.code,'FULL_DAY_CONDITIONS');
+  for (const space_id of ['megaspot-gundae','megaspot-gundae-2']){
+    const retired=await inquiry({space_id,reserve:true,date:'2026-12-07',start_h:0,end_h:24,headcount:150,pkg:'full-day',total:2260000});
+    assert.equal(retired.status,410);
+    assert.equal(retired.json.code,'PACKAGE_RETIRED');
   }
-  const accepted=await inquiry({...standard,space_id:two});
-  assert.equal(accepted.status,200);
-  const saved=JSON.parse(db.prepare('SELECT data FROM inquiries WHERE ref=?').get(accepted.json.ref).data);
-  assert.equal(saved.pkg,'full-day');assert.equal(saved.start_h,0);assert.equal(saved.end_h,24);assert.equal(saved.total,2260000);
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM inquiries').get().count,0);
 });
 
 test('관리자 직접 등록·수정: 공간을 고를 수 있고, 확정 예약이 생기면 공간을 바꿀 수 없음', async () => {

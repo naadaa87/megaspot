@@ -1,8 +1,7 @@
 // 문의·예약 신청 접수 — 행사 대관(event) · 정기·반복 모임(regular) · 제휴·협력·파트너(partner)
 // reserve:true 이면 '예약 신청'(금액 확인 → 신청)으로 들어온 건입니다. 모임 유형은 선택 사항입니다.
 import { json, err, hasDb, readJson, str, num, isDate, now, uniqueRef, log, getMember, clientIp, tooMany, hit, kstToday, spaceOk, SPACE_OPENING } from './_lib.js';
-import { HOLIDAYS, PRICING_ALL } from './_catalog.js';
-import { confirmedOccupancyFreeSql } from './_booking_availability.js';
+import { PRICING_ALL } from './_catalog.js';
 import {readFoodPricing,foodPricingData} from './_food_pricing.js';
 import { cateringFrom } from './_catering.js';
 import { receptionCustomer } from './_reception.js';
@@ -10,7 +9,6 @@ import {readCocktailPricing,publicCocktailPricing} from './_cocktail_pricing.js'
 import { cocktailFrom } from './_cocktail.js';
 import { createVisit, timeOk } from './_visits.js';
 const TYPES = ['event', 'regular', 'partner'];
-const fullDayAvailable = confirmedOccupancyFreeSql({ space: 'slot.space', date: 'slot.date', start: 'slot.start_h', end: 'slot.end_h' });
 // '함께 알아보기'로 받을 수 있는 패밀리 공간 (assets/js/site.js의 FAMILY_ASK와 같은 id)
 export const FAMILY_ASK = ['socialfactory', 'playtion'];
 // 홈페이지로 들어오기 직전 어디에 있었는지(검색·SNS·광고 링크)를 분류합니다. 브라우저가 보낸 referrer·utm 값만 쓰고 개인 식별 정보는 받지 않습니다.
@@ -69,19 +67,8 @@ export async function onRequestPost({ request, env }) {
   const pricing = PRICING_ALL[space_id];
   if (reserve && pricing && estimateVersion && estimateVersion !== pricing.version)
     return err('대관 요금이 갱신되었습니다. 화면을 새로고침하고 예상 금액을 다시 확인해 주세요.', 409, 'PRICE_CHANGED');
-  if (packageId === 'full-day') {
-    const offer = pricing?.fullDayOffer;
-    if (!reserve || !offer || String(d.start_h) !== String(offer.start) || String(d.end_h) !== String(offer.end)
-        || offer.priceOn(date, HOLIDAYS, pricing.peak?.dates || {}) === null)
-      return err('종일 대관은 할인 적용일에 00:00–24:00으로 신청해 주세요.', 400, 'FULL_DAY_CONDITIONS');
-    try {
-      const slot = await env.DB.prepare(`SELECT ${fullDayAvailable} AS available
-        FROM (SELECT ? AS space, ? AS date, ? AS start_h, ? AS end_h) slot`).bind(space_id, date, offer.start, offer.end).first();
-      if (!slot?.available) return err('종일 대관 시간과 겹치는 확정 예약이 있습니다. 다른 날짜나 호점을 골라 주세요.', 409, 'DATE_TAKEN');
-    } catch {
-      return err('예약 가능 시간을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.', 503, 'CALENDAR_UNAVAILABLE');
-    }
-  }
+  if (packageId === 'full-day')
+    return err('종일 대관 할인 접수가 종료되었습니다. 새로고침하여 현재 신청 가능한 요금과 일정을 확인해 주세요.', 410, 'PACKAGE_RETIRED');
   // '현장답사 먼저 하고 싶어요' — 희망 날짜·시간은 운영자가 연락해 확정합니다
   const vw = d.visit_wish && typeof d.visit_wish === 'object' && d.visit_wish.want ? d.visit_wish : null;
   const visit_wish = vw ? { date: str(vw.date, 10), time: timeOk(vw.time), people: num(vw.people), note: str(vw.note, 200) } : null;

@@ -1,13 +1,13 @@
 /* 예약 신청 · 금액 확인 페이지
-   - 위쪽: 계산기 + 예약 신청(pricing-ui.js 가 [data-price=estimator] 를 그립니다)
-     ?date= ?start= ?end= ?pkg=day|allday|allnight|full-day ?people= ?purpose= ?reserve=1 로 값을 미리 넣을 수 있습니다.
+   - 위쪽: 계산기 + 예약 신청(pricing-ui-v3.2.js 가 [data-price=estimator] 를 그립니다)
+     ?date= ?start= ?end= ?pkg=day|allday|allnight ?people= ?purpose= ?reserve=1 로 값을 미리 넣을 수 있습니다.
    - 아래쪽: 정기·반복 모임 / 제휴·협력 / 조건에 맞는 공간 찾기 간단 문의 (?type=regular|partner, ?mode=request 로 열면 그쪽으로 이동) */
 (function(){
   var M=window.MEGASPOT, $=M.$;
   var q=new URLSearchParams(location.search);
   var mode=q.get('mode')==='request'?'request':'space';
   var type=['event','regular','partner'].indexOf(q.get('type'))>=0 ? q.get('type') : 'event';
-  // 공간 선택: ?space=megaspot-gundae-2 로 열면 2호 계산기부터 보여 줍니다 (pricing-ui.js 가 data-space-query 자리를 보고 고릅니다)
+  // 공간 선택: ?space=megaspot-gundae-2 로 열면 2호 계산기부터 보여 줍니다 (pricing-ui-v3.2.js 가 data-space-query 자리를 보고 고릅니다)
   var SPACES=(window.MEGASPOT_PRICING||{}); var space=SPACES[q.get('space')] ? q.get('space') : (M.eventPlan&&SPACES[M.eventPlan.space()]?M.eventPlan.space():'megaspot-gundae');
   var sw=$('#space-switch'), est=$('#estimator');
   function markSpace(id){ if(!sw) return; sw.querySelectorAll('[data-space]').forEach(function(b){ var on=b.dataset.space===id; b.setAttribute('aria-selected',String(on)); b.classList.toggle('on',on); }); var hid=document.querySelector('#inquiry-form [name=space_id]'); if(hid && hid.value!=='request'){hid.value=id;hid.dispatchEvent(new Event('change',{bubbles:true}));} }
@@ -26,7 +26,7 @@
     if(c.space!==space){space=c.space;markSpace(space);if(M.pricing&&M.pricing.rerender){var fresh=M.pricing.rerender(est,space);if(fresh)est=fresh;}}
     var unknown=est&&est.querySelector('[name=event_date_unknown]');if(unknown&&unknown.checked){unknown.checked=false;unknown.dispatchEvent(new Event('change',{bubbles:true}));}
     if(M.pricing&&M.pricing.estimator)M.pricing.estimator.set(c);
-    var u=new URL(location.href);u.searchParams.set('space',space);u.searchParams.set('date',c.date);u.searchParams.set('start',c.start);u.searchParams.set('end',c.end);if(c.packageId==='full-day')u.searchParams.set('pkg',c.packageId);else u.searchParams.delete('pkg');history.replaceState(null,'',u.pathname+u.search+u.hash);
+    var u=new URL(location.href);u.searchParams.set('space',space);u.searchParams.set('date',c.date);u.searchParams.set('start',c.start);u.searchParams.set('end',c.end);u.searchParams.delete('pkg');history.replaceState(null,'',u.pathname+u.search+u.hash);
     M.toast('선택한 공간·날짜·시간을 신청서에 반영했습니다.');
   });
   var root=$('#inquiry-root');

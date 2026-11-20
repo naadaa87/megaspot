@@ -36,19 +36,6 @@
   function mn(n){ var m = n / 10000; return '<b class="mn">' + (Number.isInteger(m) ? m : Math.round(m * 10) / 10) + '</b><span class="mu">만 원</span>'; }
   function pct(p, col){ return Math.round((1 - p.price[col] / p.regular[col]) * 100); }
   var R = {};
-  var offer = D.fullDayOffer;
-  var offerMonths = offer ? Object.keys(offer.prices).sort() : [];
-  function offerPrice(date){ return offer && date >= minDate() ? E.pkgPrice(E.dayInfo(date), offer) : null; }
-  function offerFirstDate(){
-    for (var i = 0; i < offerMonths.length; i++){
-      var day = E.monthDays(offerMonths[i]).find(function(day){ return day.iso >= minDate() && E.pkgPrice(day, offer) != null; });
-      if (day) return day.iso;
-    }
-    return '';
-  }
-  var firstOfferDate = offerFirstDate();
-  function isOfferQuote(r){ return !!(offer && r.pkg && r.pkg.id === offer.id); }
-
   /* ---------- 요약 ---------- */
   R.version = function(el){ el.textContent = D.version + ' · ' + D.vatNote; };
   R.facts = function(el){
@@ -98,32 +85,6 @@
     }).join('') + '</div>'
       + '<p class="tiny muted mt-2">패키지 금액은 기준 인원 ' + D.people.base + '명의 공간료입니다. 인원 추가와 옵션은 따로 더해집니다. 계산기에서 같은 시간을 고르면 자동으로 패키지 할인가가 적용됩니다.' + (D.peak ? ' <b>' + esc(peakRangeText()) + '</b>은 성수기 패키지 금액이 적용됩니다. <a href="' + (location.pathname === PAGE ? '#peak' : PAGE + '#peak') + '" style="text-decoration:underline;font-weight:700;color:var(--cobalt)">성수기 요금 보기</a>' : '') + '</p>';
     el.addEventListener('click', function(e){ var b = e.target.closest('.pkg-use'); if (!b) return; if (M.pricing.estimator){ M.pricing.estimator.setPackage(b.dataset.pkg); var est = document.querySelector('[data-price=estimator]'); if (est) est.scrollIntoView({ behavior: 'smooth', block: 'start' }); } else { location.href = '/inquiry/?space=' + SPACE_ID + '&pkg=' + b.dataset.pkg; } });
-  };
-
-  R['all-day-offer'] = function(el){
-    if (!firstOfferDate){ el.hidden = true; return; }
-    var months = offerMonths.filter(function(ym){ return ym >= firstOfferDate.slice(0, 7); });
-    var groups = [['월–목',[1,2,3,4]],['금',[5]],['토',[6]],['일',[0]]];
-    var people = [150,200];
-    var firstMonthLabel = offerMonths[0].split('-');
-    var lastMonthLabel = offerMonths[offerMonths.length - 1].split('-');
-    el.innerHTML = '<div class="card pad-s mt-3" id="all-day-offer"><h3 class="h-m">' + esc(offer.label) + ' 할인가</h3>'
-      + '<p class="small muted mt-1">' + firstMonthLabel[0] + '년 ' + (+firstMonthLabel[1]) + '월~' + lastMonthLabel[0] + '년 ' + (+lastMonthLabel[1]) + '월 · ' + esc(offer.time) + ' · 기준 ' + D.people.base + '명 포함 · 부가세 포함</p>'
-      + months.map(function(ym,index){
-        var days = E.monthDays(ym), parts = ym.split('-');
-        var rows = groups.map(function(group){
-          var day = days.find(function(d){ return group[1].includes(d.dow) && E.pkgPrice(d, offer) != null; });
-          return [esc(group[0])].concat(people.map(function(n){
-            if (!day) return '–';
-            var q = E.quote({ date: day.iso, start: offer.start, end: offer.end, people: n, packageId: offer.id });
-            return '<b>' + esc(won(q.total)) + '</b><br><small class="muted">1인 ' + esc(won(q.total / n)) + '</small>';
-          }));
-        });
-        return '<details class="mt-2"' + (index === 0 ? ' open' : '') + '><summary><b>' + parts[0] + '년 ' + (+parts[1]) + '월</b></summary>'
-          + tbl(['일반 요일','150명','200명'], rows, 'tbl-fit') + '</details>';
-      }).join('')
-      + '<p class="tiny muted mt-2">12월 24·25·31일, 1월 1일, 공휴일과 공휴일 전날은 할인 대상에서 제외됩니다. 이용일을 선택하면 해당 날짜의 요금을 확인할 수 있습니다. 옵션·보증금 별도.</p>'
-      + '<a class="btn btn-light btn-sm mt-2" href="/inquiry/?space=' + esc(SPACE_ID) + '&amp;date=' + esc(firstOfferDate) + '&amp;pkg=' + esc(offer.id) + '#reserve">' + esc(offer.label) + ' 견적 확인 →</a></div>';
   };
 
   /* ---------- 인원 ---------- */
@@ -198,17 +159,15 @@
     var today = E.todayIso(), ym = today.slice(0, 7), pkgId = 'allday';
     var minYm = ym, maxYm = (function(){ var d = E.parse(today); d.setMonth(d.getMonth() + 12); return E.iso(d).slice(0, 7); })();
     var DOWS = ['일', '월', '화', '수', '목', '금', '토'];
-    var offerTiers = ['sun', 'wd', 'wd', 'wd', 'wd', 'fri', 'sat'];
     function shift(y, n){ var p = y.split('-'); var d = new Date(+p[0], +p[1] - 1 + n, 1, 12); return E.iso(d).slice(0, 7); }
     function tier(di){ if (di.peak) return 'peak'; return di.col; }
     function draw(){
       var pkg = E.findPkg(pkgId), days = E.monthPrices(ym, pkgId), first = days[0].day.dow;
-      var full = offer && pkg.id === offer.id;
       var cells = '';
       for (var i = 0; i < first; i++) cells += '<span class="pc-cell empty"></span>';
       days.forEach(function(x){
-        var di = x.day, unavailable = x.iso < today || x.price == null, t = full ? offerTiers[di.dow] : tier(di);
-        var tag = di.peak && !full ? (di.peak.people > D.people.base ? '<small>' + di.peak.people + '명 포함</small>' : '<small>성수기</small>') : (di.holiday ? '<small>' + esc(di.holiday.replace(/\(.*\)/, '')) + '</small>' : '');
+        var di = x.day, unavailable = x.iso < today || x.price == null, t = tier(di);
+        var tag = di.peak ? (di.peak.people > D.people.base ? '<small>' + di.peak.people + '명 포함</small>' : '<small>성수기</small>') : (di.holiday ? '<small>' + esc(di.holiday.replace(/\(.*\)/, '')) + '</small>' : '');
         cells += '<button type="button" class="pc-cell t-' + t + (unavailable ? ' past' : '') + (x.iso === today ? ' today' : '') + '" data-d="' + x.iso + '"' + (unavailable ? ' disabled' : '') + ' aria-label="' + esc(E.kdateY(x.iso)) + ' ' + esc(pkg.label) + ' ' + esc(x.price == null ? '예약 불가' : won(x.price)) + '"><i>' + (+x.iso.slice(8)) + '</i><b>' + (x.price != null ? esc(man(x.price)).replace(' 원', '').replace('만 원', '만').replace(/만$/, '<span class="pc-unit">만</span>') : '–') + '</b>' + tag + '</button>';
       });
       var p = ym.split('-');
@@ -216,12 +175,12 @@
       el.querySelector('[data-out="pc-grid"]').innerHTML = DOWS.map(function(d, i){ return '<span class="pc-dow' + (i === 0 ? ' sun' : i === 6 ? ' sat' : '') + '">' + d + '</span>'; }).join('') + cells;
       el.querySelector('[data-nav="prev"]').disabled = ym <= minYm; el.querySelector('[data-nav="next"]').disabled = ym >= maxYm;
       $$('[data-pc-pkg]', el).forEach(function(b){ b.classList.toggle('on', b.dataset.pcPkg === pkgId); b.setAttribute('aria-pressed', String(b.dataset.pcPkg === pkgId)); });
-      var peakDays = full ? 0 : days.filter(function(x){ return x.peak; }).length;
+      var peakDays = days.filter(function(x){ return x.peak; }).length;
       el.querySelector('[data-out="pc-note"]').innerHTML = (peakDays ? '<span class="badge badge-season">이달 성수기 ' + peakDays + '일</span> ' : '') + esc(pkg.label) + ' ' + esc(pkg.time) + ' · ' + pkg.hours + '시간 공간료 · 기준 인원 포함 · 인원 추가와 옵션은 별도';
     }
     el.innerHTML = '<div class="pcal' + (compact ? ' compact' : '') + '">'
       + '<div class="pc-top"><div class="pc-nav"><button type="button" class="btn btn-light btn-sm" data-nav="prev" aria-label="이전 달">‹</button><b data-out="pc-title"></b><button type="button" class="btn btn-light btn-sm" data-nav="next" aria-label="다음 달">›</button></div>'
-      + '<div class="pc-pkgs" role="group" aria-label="패키지 선택">' + (firstOfferDate ? D.packages.concat(offer) : D.packages).map(function(p){ return '<button type="button" data-pc-pkg="' + p.id + '" aria-pressed="false">' + esc(p.label.replace(' 패키지', '')) + '<small>' + esc(p.time) + '</small></button>'; }).join('') + '</div></div>'
+      + '<div class="pc-pkgs" role="group" aria-label="패키지 선택">' + D.packages.map(function(p){ return '<button type="button" data-pc-pkg="' + p.id + '" aria-pressed="false">' + esc(p.label.replace(' 패키지', '')) + '<small>' + esc(p.time) + '</small></button>'; }).join('') + '</div></div>'
       + '<div class="pc-grid" data-out="pc-grid"></div>'
       + '<div class="pc-legend"><span class="t-wd">월–목</span><span class="t-fri">금</span><span class="t-sat">토</span><span class="t-sun">일·공휴일</span><span class="t-peak">성수기</span></div>'
       + '<p class="tiny muted mt-2" data-out="pc-note"></p>'
@@ -230,7 +189,6 @@
       var n = e.target.closest('[data-nav]'); if (n){ ym = shift(ym, n.dataset.nav === 'prev' ? -1 : 1); draw(); return; }
       var k = e.target.closest('[data-pc-pkg]'); if (k){
         pkgId = k.dataset.pcPkg;
-        if (offer && pkgId === offer.id && !offer.prices[ym]) ym = firstOfferDate.slice(0, 7);
         draw(); return;
       }
       var c = e.target.closest('.pc-cell[data-d]'); if (!c || c.disabled) return;
@@ -290,30 +248,23 @@
   function renderEstimator(el, cfg){
     cfg = cfg || {};
     var q0 = {}; try { q0 = Object.fromEntries(new URLSearchParams(location.search)); } catch (_) {}
-    var linkedOffer = !!(offer && q0.pkg === offer.id);
-    var linkedDate = !!q0.date;
+    var retiredLink = q0.pkg === 'full-day';
+    var linkedPackage = !!q0.pkg, linkedHours = q0.start != null && q0.end != null;
+    if (retiredLink){
+      var url = new URL(location.href);
+      ['pkg', 'start', 'end', 'reserve'].forEach(function(k){ url.searchParams.delete(k); delete q0[k]; });
+      history.replaceState(null, '', url.pathname + url.search + url.hash);
+    }
     if(PLAN) q0=PLAN.initial(q0, SPACE_ID);
     var requestedPeople = E.clampInt(q0.requestedPeople || q0.people, 1, 350, D.people.defaultPick || 30);
     var st = { date: cfg.date || q0.date || defaultDate(), start: 13, end: 17, requestedPeople: requestedPeople, people: E.clampInt(requestedPeople, 1, D.people.max, D.people.defaultPick || 30), purpose: cfg.purpose || q0.purpose || '', regular: q0.type === 'regular',
-               packageId: '', opt: { manager: false, managerCount: 1, managerHours: 0, cleaning: false, disposable: false, banner: false, xbanner: false } };
+               opt: { manager: false, managerCount: 1, managerHours: 0, cleaning: false, disposable: false, banner: false, xbanner: false } };
     var initialPackage = q0.pkg || q0.packageId;
-    var offerNotice = '';
-    if (offer && initialPackage === offer.id){
-      if (linkedOffer && !linkedDate && !cfg.date && firstOfferDate && offerPrice(st.date) == null) st.date = firstOfferDate;
-      if (offerPrice(st.date) != null){
-        st.packageId = offer.id;
-        st.start = offer.start;
-        st.end = offer.end;
-      } else {
-        offerNotice = '이용일에 종일 대관 할인가가 적용되지 않아 일반 시간제로 표시합니다.';
-      }
-    } else {
-      var pk0 = E.findPkg(initialPackage);
-      if (pk0){ st.start = pk0.start; st.end = pk0.end; }
-      if (q0.start && q0.end){
-        st.start = E.clampInt(q0.start, D.openFrom, D.openTo - 1, 13);
-        st.end = E.clampInt(q0.end, st.start + 1, D.openTo, st.start + 4);
-      }
+    var pk0 = D.packages.find(function(p){ return p.id === initialPackage; });
+    if (pk0){ st.start = pk0.start; st.end = pk0.end; }
+    if (!retiredLink && (linkedHours || (!linkedPackage && initialPackage !== 'full-day')) && q0.start && q0.end){
+      st.start = E.clampInt(q0.start, D.openFrom, D.openTo - 1, 13);
+      st.end = E.clampInt(q0.end, st.start + 1, D.openTo, st.start + 4);
     }
     if(PLAN && q0.opt) st.opt=Object.assign(st.opt,q0.opt);
     var pid = 'rv' + Math.random().toString(36).slice(2, 6);
@@ -321,6 +272,7 @@
     el.innerHTML = ''
       + '<div class="rv"><div class="rv-form">'
       + '<div class="rv-head"><div><div class="eyebrow">Reserve</div><h3>예약 신청 · 금액 확인</h3></div><p class="small muted">시간 · 날짜 · 인원만 고르면 금액이 바로 나옵니다. 그대로 예약을 신청하면 담당자가 일정을 확인하고 결제를 안내해 드립니다.</p></div>'
+      + (retiredLink ? '<p class="plan-attention hint" role="status">종일 대관 할인 접수가 종료되었습니다. 현재 이용 가능한 시간이나 패키지를 선택해 주세요.</p>' : '')
       + (PLAN?'<nav class="plan-service-links" aria-label="행사 준비 단계"><a href="#event-food">식음료 더하기 ↓</a><a href="#event-visit">답사 신청 ↓</a></nav>':'')
       // ① 시간
       + '<section class="rv-step"><h4><span>1</span>이용 시간</h4>'
@@ -330,8 +282,6 @@
       + '<div class="rv-hours" data-out="hours"></div></div>'
       + '<div class="rv-pkg-head"><b>패키지도 가능합니다.</b> <span class="muted">시간을 묶으면 ' + Math.floor(minPkgPct()) + '% 이상 저렴합니다. 누르면 시간이 자동으로 들어갑니다.</span></div>'
       + '<div class="slot-pick" data-out="pkgs">' + D.packages.map(function(p){ return '<button type="button" class="slot-btn" data-pkg="' + p.id + '" aria-pressed="false"><b>' + esc(p.label) + '</b><span>' + esc(p.time) + ' · ' + p.hours + '시간</span><em data-out="pkg-' + p.id + '"></em></button>'; }).join('') + '</div>'
-      + (firstOfferDate ? '<div class="rv-pkg-head"><b>기간 한정 종일 대관</b></div><button type="button" class="slot-btn" data-act="full-day" aria-pressed="false"><b>' + esc(offer.label) + '</b><span>' + esc(offer.time) + ' · ' + offer.hours + '시간</span><em data-out="full-day-price"></em></button><button type="button" class="btn btn-light btn-sm mt-2" data-act="clear-full-day" hidden>시간 직접 선택</button>' : '')
-      + '<p class="hint mt-1" data-out="full-day-hint" role="status" hidden></p>'
       + '<p class="hint mt-1">준비·정리 시간까지 넣어 잡아 주세요. 새벽 ' + esc(E.hourLabel(D.openFrom)) + '부터 다음 날 ' + esc(E.hourLabel(D.openTo).replace('다음 날 ', '')) + '까지 1시간 단위입니다.' + (D.dawn ? ' ' + esc(D.dawn.note) : '') + ' 조찬 모임은 따로 연락 주시면 추가 협찬·할인을 안내해 드립니다.</p></section>'
       // ② 날짜
       + '<section class="rv-step"><h4><span>2</span>이용일</h4>'
@@ -379,65 +329,11 @@
     }
 
     function setHours(start, end){
-      var startField = f('start'), endField = f('end');
-      var active = !!st.packageId;
-      var early = startField.querySelector('[data-offer-start]');
-      if (active && !early && offer.start < D.openFrom){
-        early = document.createElement('option');
-        early.value = offer.start;
-        early.textContent = E.hourLabel(offer.start);
-        early.dataset.offerStart = '1';
-        startField.prepend(early);
-      }
-      if (!active && early) early.remove();
-      var endOption = Array.from(endField.options).find(function(o){ return offer && +o.value === offer.end; });
-      if (endOption) endOption.textContent = active ? offer.time.split('–').pop() : E.hourLabel(offer.end);
-      startField.disabled = endField.disabled = active;
-      startField.value = start;
-      endField.value = end;
-    }
-    function syncOfferUrl(date){
-      var url = new URL(location.href);
-      if (!offer || (!date && url.searchParams.get('pkg') !== offer.id)) return;
-      if (date){
-        url.searchParams.set('pkg', offer.id);
-        url.searchParams.set('date', date);
-      } else {
-        url.searchParams.delete('pkg');
-        if (f('date').value) url.searchParams.set('date', f('date').value);
-      }
-      url.searchParams.delete('start');
-      url.searchParams.delete('end');
-      var path = url.pathname + url.search + url.hash;
-      if (path !== location.pathname + location.search + location.hash) history.replaceState(null, '', path);
-    }
-    function clearOffer(notice){
-      if (st.packageId){
-        st.packageId = '';
-        setHours(13, 17);
-      }
-      offerNotice = notice || '';
-      syncOfferUrl('');
-    }
-    function chooseOffer(date, allowNextDate){
-      var chosen = date || f('date').value;
-      if (offerPrice(chosen) == null && allowNextDate) chosen = firstOfferDate;
-      if (!chosen || offerPrice(chosen) == null) return false;
-      if (chosen !== f('date').value) offerNotice = '할인 적용이 가능한 ' + E.kdateY(chosen) + '로 이용일을 바꿨습니다.';
-      else offerNotice = '';
-      f('date').value = chosen;
-      var unknown = el.querySelector('[name=event_date_unknown]');
-      if (unknown) unknown.checked = false;
-      st.packageId = offer.id;
-      setHours(offer.start, offer.end);
-      return true;
+      f('start').value = start;
+      f('end').value = end;
     }
     function read(){
       st.date = f('date').value || E.todayIso();
-      if (st.packageId && (dateUnknown() || offerPrice(st.date) == null)){
-        clearOffer(dateUnknown() ? '일정 미정으로 변경해 종일 대관 선택을 해제했습니다.' : '선택한 이용일에는 종일 대관 할인가가 적용되지 않아 일반 시간제로 바꿨습니다.');
-      }
-      if (st.packageId) syncOfferUrl(st.date);
       st.start = +f('start').value; st.end = +f('end').value;
       if (st.end <= st.start){ st.end = Math.min(st.start + 1, D.openTo); f('end').value = st.end; }
       var enteredPeople = E.clampInt(f('people').value, 1, 350, D.people.base);
@@ -456,15 +352,13 @@
     }
     function calc(){
       read();
-      var r = E.quote({ date: st.date, start: st.start, end: st.end, people: st.people, purpose: st.purpose, options: options(), regular: st.regular, packageId: st.packageId });
+      var r = E.quote({ date: st.date, start: st.start, end: st.end, people: st.people, purpose: st.purpose, options: options(), regular: st.regular });
       if(PLAN){ PLAN.saveSpace(st,SPACE_ID); r.plan=PLAN.quote(el,r); }
       last = r; paint(r); if(PLAN){ PLAN.paint(el,r); var capacity=out('capacity'); if(capacity){capacity.hidden=st.requestedPeople<=D.people.max;capacity.textContent=NAME+'는 최대 '+D.people.max+'명입니다. 요청하신 '+st.requestedPeople+'명은 다른 공간을 선택해 주세요. 비교 금액은 '+D.people.max+'명 기준이며 공간을 바꾸면 요청 인원으로 다시 계산합니다.';} } return r;
     }
     var availabilityKey='',availabilityAt=0,availabilitySeq=0,availabilityTimer,availabilityState='idle',availabilityMessage='',availabilityChoices=[];
     function scheduleChoice(){
-      var c = {space:SPACE_ID,date:f('date').value,start:+f('start').value,end:+f('end').value};
-      if (st.packageId) c.packageId = st.packageId;
-      return c;
+      return {space:SPACE_ID,date:f('date').value,start:+f('start').value,end:+f('end').value};
     }
     function dateUnknown(){return !!el.querySelector('[name=event_date_unknown]:checked');}
     function paintAvailability(){
@@ -498,9 +392,8 @@
       },150);
     }
     function applySchedule(c){
-      if (st.packageId && +c.start === offer.start && +c.end === offer.end && offerPrice(c.date) != null) c = Object.assign({}, c, {packageId:st.packageId});
       if(location.pathname==='/inquiry/'){document.dispatchEvent(new CustomEvent('megaspot:calendar-selection',{detail:c}));}
-      else if(c.space===SPACE_ID){var unknown=el.querySelector('[name=event_date_unknown]');if(unknown&&unknown.checked){unknown.checked=false;unknown.dispatchEvent(new Event('change',{bubbles:true}));}api.set(c);var u=new URL(location.href);['date','start','end'].forEach(function(k){u.searchParams.set(k,c[k]);});if(c.packageId)u.searchParams.set('pkg',c.packageId);else u.searchParams.delete('pkg');history.replaceState(null,'',u.pathname+u.search+u.hash);M.toast('선택한 날짜와 시간을 반영했습니다.');}
+      else if(c.space===SPACE_ID){var unknown=el.querySelector('[name=event_date_unknown]');if(unknown&&unknown.checked){unknown.checked=false;unknown.dispatchEvent(new Event('change',{bubbles:true}));}api.set(c);var u=new URL(location.href);['date','start','end'].forEach(function(k){u.searchParams.set(k,c[k]);});u.searchParams.delete('pkg');history.replaceState(null,'',u.pathname+u.search+u.hash);M.toast('선택한 날짜와 시간을 반영했습니다.');}
       else {saveForm();location.assign(M.reservations.inquiryUrl(c));}
     }
     function refreshAvailability(){if(!document.hidden&&el.isConnected&&phase!=='done')checkAvailability(true);}
@@ -508,7 +401,7 @@
     document.addEventListener('visibilitychange',refreshAvailability);
     function lineRows(r){
       var lines = '';
-      if (r.pkg) lines += '<tr class="pkg"><td><span class="ln">' + esc(r.pkg.label) + ' 공간료' + (r.peak && !isOfferQuote(r) ? ' <small class="muted">(' + esc(r.peak.seasonLabel) + ')</small>' : '') + '</span><span class="nt">' + esc(r.pkg.time) + ' · ' + r.pkg.hours + '시간' + (r.pkg.pct ? ' · 시간 요금 ' + esc(won(r.pkg.regular)) + '에서 ' + r.pkg.pct + '% 할인' : '') + (r.peak && r.peak.people > D.people.base ? ' · 기준 ' + r.peak.people + '명 포함' : '') + '</span></td><td class="pr">' + esc(won(r.pkg.price)) + '</td></tr>';
+      if (r.pkg) lines += '<tr class="pkg"><td><span class="ln">' + esc(r.pkg.label) + ' 공간료' + (r.peak ? ' <small class="muted">(' + esc(r.peak.seasonLabel) + ')</small>' : '') + '</span><span class="nt">' + esc(r.pkg.time) + ' · ' + r.pkg.hours + '시간' + (r.pkg.pct ? ' · 시간 요금 ' + esc(won(r.pkg.regular)) + '에서 ' + r.pkg.pct + '% 할인' : '') + (r.peak && r.peak.people > D.people.base ? ' · 기준 ' + r.peak.people + '명 포함' : '') + '</span></td><td class="pr">' + esc(won(r.pkg.price)) + '</td></tr>';
       else {
         r.time.lines.forEach(function(l){ lines += '<tr><td><span class="ln">공간료 · ' + esc(l.label) + (l.dawn ? ' <small class="muted">(심야 요금)</small>' : '') + '</span><span class="nt">' + esc(E.hourLabel(l.from)) + '–' + esc(E.hourLabel(l.to)) + ' · ' + l.hours + '시간 × ' + esc(won(l.rate)) + '</span></td><td class="pr">' + esc(won(l.sum)) + '</td></tr>'; });
         if (r.surcharge) lines += r.peak ? '<tr><td><span class="ln">성수기 포함 인원 ' + r.peopleBase + '명 가산</span><span class="nt">' + esc(r.peak.label) + ' · 1건당 · 시간제에만 더해집니다</span></td><td class="pr">' + esc(won(r.surcharge)) + '</td></tr>'
@@ -520,22 +413,10 @@
     }
     function paint(r){
       var d = r.day;
-      var full = isOfferQuote(r);
-      var offerButton = el.querySelector('[data-act=full-day]');
-      if (offerButton){
-        var pp = offerPrice(r.date);
-        offerButton.classList.toggle('on', full);
-        offerButton.setAttribute('aria-pressed', String(full));
-        out('full-day-price').textContent = pp == null ? '할인 적용일 선택' : man(pp) + ' · 기준 ' + D.people.base + '명';
-        el.querySelector('[data-act=clear-full-day]').hidden = !full;
-      }
-      var offerHint = out('full-day-hint');
-      offerHint.hidden = !offerNotice;
-      offerHint.textContent = offerNotice;
-      out('daytag').innerHTML = '<span class="badge badge-cobalt">' + esc(E.kdate(r.date)) + '</span>' + (full ? '<span class="badge badge-ok">' + esc(offer.label) + ' 할인가</span>' : d.peak ? '<span class="badge badge-season">' + esc(d.peak.seasonLabel) + ' · ' + esc(d.peak.label) + ' 기준</span>' + (d.peak.people > D.people.base ? '<span class="badge badge-soft">' + d.peak.people + '명 포함</span>' : '') : '<span class="badge badge-soft">' + esc(r.colLabel) + ' 요금</span>') + (d.holiday ? '<span class="badge badge-rust">' + esc(d.holiday) + '</span>' : '') + (d.why ? '<span class="tiny muted" style="flex-basis:100%">' + esc(d.why) + '</span>' : '');
+      out('daytag').innerHTML = '<span class="badge badge-cobalt">' + esc(E.kdate(r.date)) + '</span>' + (d.peak ? '<span class="badge badge-season">' + esc(d.peak.seasonLabel) + ' · ' + esc(d.peak.label) + ' 기준</span>' + (d.peak.people > D.people.base ? '<span class="badge badge-soft">' + d.peak.people + '명 포함</span>' : '') : '<span class="badge badge-soft">' + esc(r.colLabel) + ' 요금</span>') + (d.holiday ? '<span class="badge badge-rust">' + esc(d.holiday) + '</span>' : '') + (d.why ? '<span class="tiny muted" style="flex-basis:100%">' + esc(d.why) + '</span>' : '');
       $$('.slot-btn', out('pkgs')).forEach(function(b){ var p = E.findPkg(b.dataset.pkg); var on = r.pkg && r.pkg.id === p.id; b.classList.toggle('on', !!on); b.setAttribute('aria-pressed', String(!!on)); var em = out('pkg-' + p.id); if (em){ var pp = E.pkgPrice(r.day, p); em.textContent = pp != null ? man(pp) + (r.peak ? ' · 성수기' : '') : ''; } });
       var pb = out('people-base'); if (pb) pb.textContent = (r.peak && r.peopleBase > D.people.base ? r.peak.seasonLabel + ' 기준 ' + r.peopleBase + '명 포함' : '기준 ' + r.peopleBase + '명 포함') + ' · ' + (r.peopleBase + 1) + '명째부터 1명당 ' + man(D.people.extra) + ' · 최대 ' + D.people.max + '명';
-      out('hours').innerHTML = '<b>' + r.hours + '시간</b><span>' + esc(full ? r.pkg.time : E.hourLabel(r.start) + ' – ' + E.hourLabel(r.end)) + '</span>' + (r.pkg ? '<span class="badge badge-ok">' + esc(r.pkg.label) + ' 할인 적용</span>' : '');
+      out('hours').innerHTML = '<b>' + r.hours + '시간</b><span>' + esc(E.hourLabel(r.start) + ' – ' + E.hourLabel(r.end)) + '</span>' + (r.pkg ? '<span class="badge badge-ok">' + esc(r.pkg.label) + ' 할인 적용</span>' : '');
       $$('button', out('people-pick')).forEach(function(b){ var on = +b.dataset.n === r.people; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
       $$('button', out('date-pick')).forEach(function(b){ var on = b.dataset.d === r.date; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
       if (!(r.plan && r.plan.unknownDate) && r.date < E.todayIso()) out('daytag').insertAdjacentHTML('beforeend', '<span class="badge badge-rust">지난 날짜</span><span class="tiny" style="flex-basis:100%;color:var(--rust)">지난 날짜입니다. 이용일을 다시 골라 주세요.</span>');
@@ -555,7 +436,7 @@
       var pl = purLabel(r.purpose), notes = r.warnings.map(function(w){ return '<li>' + esc(w) + '</li>'; }).join(''), tips = r.notes.map(function(n){ return '<li>' + esc(n) + '</li>'; }).join('');
       return '<div class="row between"><div class="eyebrow">Estimate</div><span class="tiny muted">' + esc(D.version) + '</span></div>'
         + '<div class="rv-total"><span>공간 대관료<small>' + esc(D.vatNote) + '</small></span><b>' + esc(man(r.total)) + '</b></div>'
-        + '<p class="small muted">' + esc(r.plan&&r.plan.unknownDate?'행사 일정 상담 후 결정':E.kdateY(r.date)) + ' · ' + esc(isOfferQuote(r) ? r.pkg.label + ' 할인가' : r.colLabel + ' 요금') + ' · ' + esc(r.range) + ' · ' + r.people + '명' + (pl ? ' · ' + esc(pl) : '') + '</p>'
+        + '<p class="small muted">' + esc(r.plan&&r.plan.unknownDate?'행사 일정 상담 후 결정':E.kdateY(r.date)) + ' · ' + esc(r.colLabel + ' 요금') + ' · ' + esc(r.range) + ' · ' + r.people + '명' + (pl ? ' · ' + esc(pl) : '') + '</p>'
         + '<details class="rv-lines"><summary>금액 구성 보기 <span class="muted">총액 ' + esc(won(r.total)) + ' · ' + esc(D.deposit.label) + ' ' + esc(won(r.deposit)) + ' 별도</span></summary><table class="est-lines"><tbody>' + lineRows(r) + '</tbody></table>' + (notes ? '<ul class="est-warn">' + notes + '</ul>' : '') + (tips ? '<ul class="est-notes">' + tips + '</ul>' : '') + '</details>';
     }
     function ensureCard(){
@@ -689,11 +570,6 @@
       var b = e.target.closest('[data-act]'); if (!b) return;
       var act = b.dataset.act;
       if (act === 'show' || act === 'review'){ out('result').scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
-      if (act === 'full-day'){
-        if (chooseOffer(f('date').value, true)) calc();
-        return;
-      }
-      if (act === 'clear-full-day'){ clearOffer(); calc(); return; }
       if (act === 'calendar' && M.reservations){
         read(); M.reservations.open(Object.assign(scheduleChoice(), {onSelect:applySchedule}));return;
       }
@@ -723,21 +599,16 @@
     var api = {
       setDate: function(iso){ if (!iso) return; f('date').value = iso; calc(); },
       setPackage: function(id){
-        var p = E.findPkg(id);
+        var p = D.packages.find(function(pkg){ return pkg.id === id; });
         if (!p) return;
-        if (p === offer){ if (chooseOffer(f('date').value, true)) calc(); return; }
-        clearOffer();
         setHours(p.start, p.end);
         calc();
       },
-      setRange: function(s, e){ clearOffer(); setHours(s, e); calc(); },
+      setRange: function(s, e){ setHours(s, e); calc(); },
       set: function(o){
         o = o || {};
         if (o.date) f('date').value = o.date;
-        if (offer && o.packageId === offer.id){
-          if (!chooseOffer(f('date').value, false)) clearOffer('선택한 이용일에는 종일 대관 할인가가 적용되지 않습니다.');
-        } else if (o.start != null || o.end != null || o.packageId != null){
-          clearOffer();
+        if (o.packageId !== 'full-day'){
           if (+o.start >= D.openFrom) f('start').value = o.start;
           if (+o.end > D.openFrom) f('end').value = o.end;
         }
@@ -753,10 +624,8 @@
     M.pricing.estimator = api;
     if(PLAN){ PLAN.bind(el,calc,function(){return st.people;}); if(q0.opt) Object.keys(q0.opt).forEach(function(k){var x=f(k);if(x){if(x.type==='checkbox')x.checked=!!q0.opt[k];else x.value=q0.opt[k];}}); planFormDraft=PLAN.formDraft(); }
     setHours(st.start, st.end);
-    if (st.packageId && linkedOffer && dateUnknown()) el.querySelector('[name=event_date_unknown]').checked = false;
-    if (linkedOffer && !st.packageId) syncOfferUrl('');
     calc();
-    if (q0.reserve === '1') api.reserve();
+    if (!retiredLink && initialPackage !== 'full-day' && q0.reserve === '1') api.reserve();
     return api;
   }
 
@@ -772,7 +641,7 @@
     var now = new Date(), stamp = now.getFullYear() + '.' + (now.getMonth() + 1) + '.' + now.getDate() + ' ' + ('0' + now.getHours()).slice(-2) + ':' + ('0' + now.getMinutes()).slice(-2);
     var no = 'MS-' + String(now.getFullYear()).slice(2) + ('0' + (now.getMonth() + 1)).slice(-2) + ('0' + now.getDate()).slice(-2) + '-' + ('0' + now.getHours()).slice(-2) + ('0' + now.getMinutes()).slice(-2);
     var rows = '';
-    if (r.pkg) rows += '<tr><td>공간료 · ' + esc(r.pkg.label) + (r.peak && !isOfferQuote(r) ? ' (' + esc(r.peak.seasonLabel) + ')' : '') + '</td><td>' + esc(r.pkg.time) + ' · ' + r.pkg.hours + '시간' + (r.pkg.pct ? ' (시간 요금 ' + esc(won(r.pkg.regular)) + ' → ' + r.pkg.pct + '% 할인)' : '') + '</td><td>' + esc(won(r.pkg.price)) + '</td></tr>';
+    if (r.pkg) rows += '<tr><td>공간료 · ' + esc(r.pkg.label) + (r.peak ? ' (' + esc(r.peak.seasonLabel) + ')' : '') + '</td><td>' + esc(r.pkg.time) + ' · ' + r.pkg.hours + '시간' + (r.pkg.pct ? ' (시간 요금 ' + esc(won(r.pkg.regular)) + ' → ' + r.pkg.pct + '% 할인)' : '') + '</td><td>' + esc(won(r.pkg.price)) + '</td></tr>';
     else {
       r.time.lines.forEach(function(l){ rows += '<tr><td>공간료 · ' + esc(l.label) + '</td><td>' + esc(E.hourLabel(l.from)) + '–' + esc(E.hourLabel(l.to)) + ' · ' + l.hours + '시간 × ' + esc(won(l.rate)) + '</td><td>' + esc(won(l.sum)) + '</td></tr>'; });
       if (r.surcharge) rows += r.peak ? '<tr><td>성수기 포함 인원 가산</td><td>' + esc(r.peak.label) + ' · 기준 ' + r.peopleBase + '명 · 1건당</td><td>' + esc(won(r.surcharge)) + '</td></tr>'
@@ -786,7 +655,7 @@
       + '<header class="qp-head"><div><div class="qp-logo">MEGA<b>SPOT</b></div><div class="qp-sub">' + esc(NAME) + ' · ' + esc(ADDR) + '</div></div><div class="qp-meta"><b>예상 금액 안내</b><span>문서번호 ' + no + '</span><span>작성 ' + esc(stamp) + '</span><span>' + esc(D.version) + '</span></div></header>'
       + '<div class="qp-title" role="heading" aria-level="2">' + esc(NAME) + ' 이용 예상 금액</div>'
       + '<table class="qp-cond"><tbody>'
-      + '<tr><th>이용일</th><td>' + esc(E.kdateY(r.date)) + (r.day.holiday ? ' · ' + esc(r.day.holiday) : '') + ' <span class="qp-tag">' + esc(isOfferQuote(r) ? r.pkg.label + ' 할인가' : r.colLabel + ' 요금') + '</span></td><th>이용 시간</th><td>' + esc(r.range) + '</td></tr>'
+      + '<tr><th>이용일</th><td>' + esc(E.kdateY(r.date)) + (r.day.holiday ? ' · ' + esc(r.day.holiday) : '') + ' <span class="qp-tag">' + esc(r.colLabel + ' 요금') + '</span></td><th>이용 시간</th><td>' + esc(r.range) + '</td></tr>'
       + '<tr><th>인원</th><td>' + r.people + '명</td><th>모임 유형</th><td>' + esc(pl || '미정') + (r.regular ? ' · 정기 이용(4회 이상) 예정' : '') + '</td></tr>'
       + '</tbody></table>'
       + '<table class="qp-lines"><thead><tr><th>항목</th><th>내용</th><th>금액</th></tr></thead><tbody>' + rows + '</tbody>'

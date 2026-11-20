@@ -39,13 +39,14 @@ test('목적별 가격 예시와 공개 FAQ가 현재 공간 요금으로 계산
   }
 });
 
-test('평소 올나잇 FAQ와 종일 대관 이용 시간 안내가 요금표와 일치한다', () => {
+test('평소 올나잇 FAQ는 요금표와 일치하고 종료된 종일 대관은 공용 안내에 없다', () => {
   const {answer} = purpose('party', '밤새 이용할 수 있나요?');
   const night = price.findPkg('allnight');
   for (const [label, col] of [['월–목', 'wd'], ['금요일', 'fri'], ['토요일', 'sat'], ['일요일', 'sun']]) {
     assert.ok(answer.includes(`${label} ${price.man(night.price[col])}`), label);
   }
-  const offer = price.findPkg('full-day');
-  const [start, end] = offer.time.split('–');
-  assert.ok(read('terms/index.html').includes(`할인 적용일의 ${start}부터 ${end}까지 이용합니다.`));
+  assert.doesNotMatch(read('terms/index.html'), /기간 한정 종일 대관/);
+  for (const venue of ['megaspot-gundae', 'megaspot-gundae-2']) {
+    assert.doesNotMatch(read(`spaces/${venue}/pricing/index.html`), /all-day-offer|pkg=full-day/);
+  }
 });
