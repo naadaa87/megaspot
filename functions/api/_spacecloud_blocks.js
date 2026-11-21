@@ -2,8 +2,12 @@ import {spacecloudControlReady} from './_spacecloud_control.js';
 import { bookingHourSql } from './_booking_availability.js';
 import { err, isDate, json, kstToday, log, now, readJson, sha256, SPACES } from './_lib.js';
 
+const gundaeAllDayProduct = 140187;
 const products = {
-  'megaspot-gundae': { space: 81999, items: [[140188, '메가스팟 시간단위']] },
+  'megaspot-gundae': { space: 81999, items: [
+    [140188, '메가스팟 시간단위'],
+    [gundaeAllDayProduct, '건대1호점 올데이 대관', 10],
+  ] },
   'megaspot-gundae-2': { space: 67179, items: [
     [110429, '건대2호점 시간단위 대관'],
     [110782, '건대2호점 낮올나잇 대관'],
@@ -18,6 +22,11 @@ const addDay = (date, offset) => new Date(Date.parse(date + 'T00:00:00Z') + offs
 const endsAt = (date, hour) => Date.parse(date + 'T00:00:00+09:00') + hour * 3600000;
 const clock = hour => String(hour).padStart(2, '0') + ':00';
 const channel = "COALESCE(CASE WHEN json_valid(i.data) THEN json_extract(i.data,'$.channel') END,'')";
+
+export function requiresManualSpacecloudBlock(product) {
+  // This product stays manual until the worker can verify its public calendar.
+  return product === gundaeAllDayProduct;
+}
 
 export function spacecloudSegments(date, start, end) {
   if (!isDate(date) || !Number.isInteger(start) || !Number.isInteger(end) ||
@@ -70,7 +79,8 @@ export async function spacecloudWorklist(env, instant) {
     }
     for (const segment of segments) {
       if (endsAt(segment.date, segment.end) <= instant) continue;
-      for (const [product, name] of products[booking.space_id].items) {
+      for (const [product, name, productStart = 0] of products[booking.space_id].items) {
+        if (segment.end <= productStart) continue;
         const entry = await productBlock(booking, segment, product, name);
         wanted.set(entry.id, entry);
       }

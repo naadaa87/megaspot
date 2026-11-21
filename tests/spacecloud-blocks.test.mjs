@@ -25,26 +25,41 @@ test('confirmed bookings map to their own sale products and exclude marketplace 
   result=await f.api('spacecloud-blocks');
   assert.deepEqual(result.items,[]);
 });
+test('Gundae 1 All Day is included only for confirmed segments that overlap 10:00–24:00',async t=>{
+  const f=fixture({booking:true}); t.after(()=>f.db.close());
+  const update=f.db.prepare('UPDATE bookings SET start_h=?,end_h=? WHERE booking_code=?');
+  const slots=async()=>(await f.api('spacecloud-blocks')).items.map(x=>[x.product,x.date,x.start,x.end]);
+  update.run(8,10,'BK-TEST');
+  assert.deepEqual(await slots(),[[140188,DAY,8,10]]);
+  update.run(9,11,'BK-TEST');
+  assert.deepEqual(await slots(),[[140187,DAY,9,11],[140188,DAY,9,11]]);
+  update.run(22,27,'BK-TEST');
+  assert.deepEqual(await slots(),[[140187,DAY,22,24],[140188,DAY,22,24],[140188,NEXT,0,3]]);
+  const {items}=await f.api('spacecloud-blocks');
+  assert.equal(items[0].product_name,'건대1호점 올데이 대관');
+  assert.equal(items[0].host_url,'https://partner.spacecloud.kr/reservation-calendar?product=140187&space=81999');
+  assert.equal(items[0].public_url,'https://www.spacecloud.kr/space/81999');
+});
 test('linked blocks persist through reload, rescheduling keeps old holds until replacement, then cancelled bookings show release',async t=>{
   const f=fixture({booking:true}); t.after(()=>f.db.close());
   let result=await f.api('spacecloud-blocks');
-  const original=result.items[0];
-  assert.equal(original.product,140188);
+  const original=result.items.find(x=>x.product===140188);
   const record=action=>f.api('spacecloud-blocks','POST',{id:original.id,action});
   await record('block'); await record('block');
-  assert.equal((await f.api('spacecloud-blocks')).items[0].action,'linked');
+  assert.equal((await f.api('spacecloud-blocks')).items.find(x=>x.id===original.id).action,'linked');
   assert.equal(f.db.prepare("SELECT count(*) n FROM event_log WHERE kind='spacecloud.blocked'").get().n,1);
   f.db.prepare('UPDATE bookings SET start_h=11,end_h=19 WHERE booking_code=?').run('BK-TEST');
   result=await f.api('spacecloud-blocks');
   assert.equal(result.items.find(x=>x.id===original.id).action,'hold');
   await f.api('spacecloud-blocks','POST',{id:original.id,action:'release'},409);
-  const newBlock=result.items.find(x=>x.action==='block');
-  await f.api('spacecloud-blocks','POST',{id:newBlock.id,action:'block'});
+  const newBlocks=result.items.filter(x=>x.action==='block');
+  assert.deepEqual(newBlocks.map(x=>x.product),[140187,140188]);
+  for (const block of newBlocks) await f.api('spacecloud-blocks','POST',{id:block.id,action:'block'});
   assert.equal((await f.api('spacecloud-blocks')).items.find(x=>x.id===original.id).action,'release');
   await record('release');
   f.db.prepare("UPDATE bookings SET status='cancelled' WHERE booking_code=?").run('BK-TEST');
   result=await f.api('spacecloud-blocks');
-  assert.deepEqual(result.items.map(x=>[x.id,x.action]),[[newBlock.id,'release']]);
+  assert.deepEqual(result.items.map(x=>[x.id,x.action]),newBlocks.map(x=>[x.id,'release']));
 });
 test('missing times show a review row and keep any old block held without assuming an all-day closure',async t=>{
   const f=fixture({booking:true}); t.after(()=>f.db.close());

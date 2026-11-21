@@ -4,8 +4,8 @@ import {fixture,DAY} from './helpers/admin-fixture.mjs';
 import {onRequest} from '../functions/api/internal/spacecloud-auto.js';
 
 const secret='local-verification-token-with-32-characters';
-function setup(t) {
-  const f=fixture({booking:true,space:'megaspot-gundae-2'});
+function setup(t,space='megaspot-gundae-2') {
+  const f=fixture({booking:true,space});
   f.env.SPACECLOUD_WORKER_TOKEN=secret;
   t.after(()=>f.db.close());
   const call=async (body,status=200,token=secret)=>{
@@ -29,6 +29,24 @@ test('worker has scoped authentication and reports only its working status',asyn
   assert.deepEqual(admin.automation,{configured:true,login_available:false,status:'ready'});
   assert.equal(admin.items.length,3);
   assert.doesNotMatch(JSON.stringify(admin),new RegExp(secret));
+});
+test('the new All Day card can be blocked and released manually without dispatching it to the worker',async t=>{
+  const f=setup(t,'megaspot-gundae');
+  const {items}=await f.api('spacecloud-blocks');
+  const manual=items.find(x=>x.product===140187);
+  const job=await f.claim();
+  assert.equal(job.entry.product,140188);
+  await f.finish(job);
+  assert.equal(await f.claim(),null);
+  await f.api('spacecloud-blocks','POST',{id:manual.id,action:'block'});
+  f.db.prepare("UPDATE bookings SET status='cancelled' WHERE booking_code='BK-TEST'").run();
+  const release=await f.claim();
+  assert.equal(release.entry.product,140188);
+  assert.equal(release.entry.action,'release');
+  await f.finish(release);
+  assert.equal(await f.claim(),null);
+  await f.api('spacecloud-blocks','POST',{id:manual.id,action:'release'});
+  assert.deepEqual((await f.api('spacecloud-blocks')).items,[]);
 });
 test('concurrent runs lease only one product and keep the prior administrator ledger intact',async t=>{
   const f=setup(t);

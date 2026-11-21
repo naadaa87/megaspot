@@ -1,7 +1,7 @@
 import { err, hasDb, json, log, now, randomToken, readJson } from '../_lib.js';
 import {
   spacecloudLeaseKey as leaseKey, spacecloudReviewPrefix as reviewPrefix,
-  spacecloudStatusKey as statusKey, spacecloudRecord, spacecloudWorklist
+  spacecloudStatusKey as statusKey, requiresManualSpacecloudBlock, spacecloudRecord, spacecloudWorklist
 } from '../_spacecloud_blocks.js';
 
 // The bearer token only allows scheduling work on the current confirmed-booking worklist.
@@ -33,7 +33,8 @@ async function claim(env,instant) {
   if(old?.expires>instant)return null;
   if(old)await env.DB.batch([noteReview(env,old,'unknown_result'),clearLease(env,old)]);
   const {items}=await spacecloudWorklist(env,instant);
-  const pending=items.filter(x=>['block','release'].includes(x.action)&&!x.automation_review&&!x.automatic_processing);
+  const pending=items.filter(x=>['block','release'].includes(x.action)&&!x.automation_review&&!x.automatic_processing
+    &&!requiresManualSpacecloudBlock(x.product));
   const entry=pending.find(row=>row.action==='block')||pending[0];
   if(!entry)return null;
   const lease={token:randomToken(24),expires:instant+180000,entry};
