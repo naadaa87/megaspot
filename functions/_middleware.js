@@ -2,9 +2,11 @@ import {readFoodPricing,publicFoodPricing} from './api/_food_pricing.js';
 import {foodHtml} from './api/_food_html.js';
 import {readCocktailPricing,publicCocktailPricing} from './api/_cocktail_pricing.js';
 import {cocktailHtml} from './api/_cocktail_html.js';
+import {logCrawler} from './api/_seo.js';
 export async function onRequest(context){
  const url=new URL(context.request.url),path=url.pathname;
  if(path.startsWith('/api/'))return context.next();
+ if(typeof context.waitUntil==='function')context.waitUntil(logCrawler(context.env,context.request));   // 검색봇 방문 기록 (네이버·구글·AI 검색 봇이 실제로 들어오는지 확인)
  if(/^\/assets\/docs\/megaspot-(catering|reception)-guide\.pdf$/.test(path)){
   try{const service=path.includes('-catering-')?'catering':'reception',config=publicFoodPricing(await readFoodPricing(context.env,service)),{serveFoodPdf}=await import('./api/_food_pdf.js');return await serveFoodPdf(context,service,config);}
   catch{return new Response('소개서를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',{status:503,headers:{'cache-control':'no-store'}});}

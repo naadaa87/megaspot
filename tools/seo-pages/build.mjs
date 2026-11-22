@@ -153,12 +153,12 @@ function hubList(SP, h, heading, lead) {
       <h2 class="h-l mt-1">${esc(heading)}</h2>
       <p class="hub-count mt-2" id="hub-count">지금 볼 수 있는 공간 <b>${items.length}</b>곳${lead ? ' · ' + esc(lead) : ''}</p>
     </div>
-    <div class="grid grid-3 hub-list" id="hub-list" data-people="${h.people || ''}" data-types="${(h.types || []).join(',')}" data-region="${h.region || ''}">
+    <div class="grid grid-3 hub-list" id="hub-list" data-people="${h.people || ''}" data-types="${(h.types || []).join(',')}" data-region="${h.region || ''}"${h.directOnly ? ' data-direct-only="1"' : ''}>
 ${h.direct.map(id => directCard(SP, id)).join('\n')}
 <!--hub:host-->
     </div>
     <div class="hub-after">
-      <p>입점 공간은 심사를 마치는 대로 이 목록에 올라옵니다. 찾는 조건의 공간이 보이지 않으면 날짜와 인원을 남겨 주세요. 맞는 공간을 찾아 연락드립니다.</p>
+      <p>${h.directOnly ? '두 공간 모두 메가스팟이 직접 운영합니다. 날짜와 인원을 넣으면 예상 금액이 바로 계산되고, 다른 지역의 공간이 필요하면 조건을 남겨 주세요.' : '입점 공간은 심사를 마치는 대로 이 목록에 올라옵니다. 찾는 조건의 공간이 보이지 않으면 날짜와 인원을 남겨 주세요. 맞는 공간을 찾아 연락드립니다.'}</p>
       <div class="row"><a class="btn btn-primary btn-sm" href="${h.search[0]}">${esc(h.search[1])} →</a><a class="btn btn-light btn-sm" href="/planning/">조건 남기고 추천받기</a></div>
     </div>
   </div>

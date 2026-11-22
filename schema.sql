@@ -1193,6 +1193,18 @@ CREATE TABLE IF NOT EXISTS invite_rsvps (   -- 초대장 참석 응답 · 행사
 );
 CREATE INDEX IF NOT EXISTS idx_invite_rsvps ON invite_rsvps(invite_id, status, created_at);
 
+-- ---------- 검색 노출 점검 (2026-11-23 추가) ----------
+CREATE TABLE IF NOT EXISTS crawler_hits (  -- 검색봇 방문 기록 · 날짜와 봇별로 1줄 (네이버 Yeti·구글·빙·다음·AI 검색 봇이 실제로 들어오는지 확인용 · 사람 방문은 기록하지 않음 · 2026-11-23)
+  day TEXT NOT NULL,                       -- 한국 날짜 YYYY-MM-DD
+  bot TEXT NOT NULL,                       -- naver / google / bing / daum / openai / anthropic / perplexity …
+  hits INTEGER NOT NULL DEFAULT 0,
+  last_at TEXT NOT NULL,                   -- 마지막 방문 시각 (UTC)
+  last_path TEXT,                          -- 마지막으로 가져간 주소
+  last_ua TEXT,                            -- 마지막 방문의 User-Agent
+  last_net TEXT,                           -- 마지막 방문의 통신망 이름 (봇을 사칭한 접속을 가려내는 데 씀)
+  PRIMARY KEY (day, bot)
+);
+
 -- Existing bookings are baselines; installation never sends old confirmation/paid notices.
 CREATE TABLE IF NOT EXISTS booking_payment_schedule (
  booking_code TEXT PRIMARY KEY,

@@ -87,3 +87,14 @@
 
 /play/bingo/card/*
   X-Robots-Tag: noindex, nofollow
+
+# 미리보기 주소(megaspot.pages.dev)는 같은 화면이 한 벌 더 있는 셈이라 검색에 잡히지 않게 합니다. 대표 주소는 megaspot.kr 입니다.
+https://megaspot.pages.dev/*
+  X-Robots-Tag: noindex
+
+https://:branch.megaspot.pages.dev/*
+  X-Robots-Tag: noindex
+
+/llms.txt
+  Content-Type: text/plain; charset=utf-8
+  Cache-Control: public, max-age=3600

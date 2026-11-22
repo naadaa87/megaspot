@@ -10,7 +10,7 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const SITE = 'https://megaspot.kr', UPDATED = '2026-11-21';
+const SITE = 'https://megaspot.kr', UPDATED = '2026-11-23';
 const read = p => readFileSync(path.join(ROOT, p), 'utf8');
 const ver = p => createHash('sha256').update(read(p)).digest('hex').slice(0, 12);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -109,6 +109,46 @@ export const TOOLS = [
   { k: 'balance', path: '/play/balance/', name: '밸런스 게임', text: '둘 중 하나를 고르는 질문을 크게 띄우고 손을 들어 답하게 합니다. 처음 만난 사람들이 말을 트기에 좋습니다.' },
   { k: 'wheel', path: '/play/wheel/', name: '돌림판', text: '발표 순서, 벌칙, 오늘의 미션처럼 정할 것을 돌림판에 적어 돌립니다. 나온 항목은 빼고 다시 돌릴 수 있습니다.' },
 ];
+// ---------- 도구별 검색용 제목·설명·자주 묻는 질문 (2026-11-23) ----------
+// 도구 이름으로 찾는 사람(경품 추첨 프로그램, 팀 나누기 사이트, 돌림판 돌리기 등)이 바로 쓸 수 있게 제목과 설명을 맞췄습니다.
+export const TOOL_SEO = {
+  welcome: { title: '웰컴 스크린·행사 카운트다운 타이머 | 무료 환영 화면 만들기 — 메가스팟 플레이',
+    desc: '행사 입장 때 스크린에 띄우는 환영 화면을 무료로 만듭니다. 행사 이름·일정·QR 코드, 시작 시각까지 남은 시간을 보여 주는 카운트다운과 쉬는 시간 타이머. 설치·가입 없이 브라우저에서 바로.',
+    faq: [['웰컴 스크린에는 무엇을 띄우나요?', '행사 이름, 환영 문구, 일정, QR 코드, 현재 시각을 띄웁니다. 화면 색은 밝게, 어둡게, 코발트 세 가지 가운데 고릅니다.'],
+      ['카운트다운 타이머로도 쓸 수 있나요?', '시작 시각을 정하면 남은 시간이 크게 나옵니다. 쉬는 시간에는 분 단위 타이머로 바꿔 쓸 수 있고, 끝나면 알림음이 울립니다.'],
+      ['QR 코드에는 어떤 주소를 넣을 수 있나요?', '메가스팟 모임 초대장 주소나, 설문·사진 앨범처럼 https로 시작하는 주소를 넣을 수 있습니다.']] },
+  draw: { title: '경품 추첨 프로그램 (무료) | 이름·번호 랜덤 추첨기 — 메가스팟 플레이',
+    desc: '설치·가입 없이 쓰는 무료 경품 추첨 프로그램. 이름 목록이나 번호표로 당첨자를 뽑고, 경품별 인원과 중복 당첨 제외, 당첨 기록 저장까지. 송년회·워크숍·동문회 행운권 추첨에 바로 쓰세요.',
+    faq: [['경품 추첨은 무료인가요?', '네. 가입이나 설치 없이 브라우저에서 바로 씁니다. 이름은 2,000명까지, 번호는 5,000번까지 넣을 수 있습니다.'],
+      ['추첨 결과는 공정한가요?', '버튼을 누르는 순간 브라우저의 암호용 난수로 당첨자가 정해집니다. 이름이 돌아가는 화면은 결과가 정해진 뒤 보여 주는 효과입니다.'],
+      ['같은 사람이 두 번 뽑히지 않게 할 수 있나요?', '‘이미 뽑힌 사람 빼기’를 켜 두면 한 번 당첨된 사람은 다음 추첨에서 빠집니다.'],
+      ['넣은 이름은 어디에 저장되나요?', '이름 목록과 당첨 기록은 지금 쓰는 브라우저에만 저장되고 서버로 보내지 않습니다.']] },
+  teams: { title: '팀 나누기 사이트 (무료) | 랜덤 팀 뽑기·조 편성 — 메가스팟 플레이',
+    desc: '이름만 붙여 넣으면 팀을 고르게 나눠 주는 무료 팀 나누기. 팀 수나 팀당 인원으로 랜덤 조 편성, 팀 이름 정하기, 팀장 뽑기, 결과 복사까지. 워크숍·체육대회·MT 조 짜기에 쓰세요.',
+    faq: [['몇 명까지 나눌 수 있나요?', '이름은 2,000명까지 넣을 수 있고 팀은 40개까지 만들 수 있습니다.'],
+      ['인원이 딱 나눠지지 않으면 어떻게 되나요?', '한 명씩 돌아가며 채우기 때문에 팀 사이의 인원 차이는 최대 1명입니다.'],
+      ['팀장도 뽑을 수 있나요?', '‘팀장도 함께 뽑기’를 켜면 팀마다 한 명씩 무작위로 팀장이 정해져 이름 옆에 표시됩니다.']] },
+  quiz: { title: '팀 대항 퀴즈 프로그램 (무료) | 넌센스·상식·초성 퀴즈 진행 — 메가스팟 플레이',
+    desc: '행사에서 바로 쓰는 무료 팀 퀴즈 진행 도구. 객관식·OX·초성·주관식 문제를 만들고 제한 시간과 팀 점수판, 최종 순위까지 스크린에 띄웁니다. 상식·연말·넌센스 기본 문제 제공.',
+    faq: [['문제를 직접 만들 수 있나요?', '객관식, OX, 초성, 주관식 문제를 50개까지 만들 수 있고 문제마다 제한 시간을 따로 줄 수 있습니다.'],
+      ['기본 문제도 들어 있나요?', '상식, 연말·새해, 넌센스 문제 묶음이 들어 있어 불러온 뒤 고쳐 쓸 수 있습니다.'],
+      ['점수는 어떻게 매기나요?', '팀을 12개까지 등록하고, 정답을 맞힌 팀에 버튼이나 숫자 키로 점수를 줍니다. 마지막에 최종 순위를 크게 보여 줍니다.']] },
+  bingo: { title: '빙고 번호 추첨기·빙고판 만들기 (무료) — 메가스팟 플레이',
+    desc: '스크린에서 빙고 번호를 뽑고 참석자는 QR로 연 휴대폰 빙고판에 표시하는 무료 빙고 게임. 1~25·1~50·1~75 범위, 줄 수 설정, 종이 빙고판 인쇄까지 설치 없이 바로.',
+    faq: [['빙고판은 어떻게 나눠 주나요?', '스크린의 QR 코드를 찍으면 휴대폰마다 다른 빙고판이 열립니다. 종이 빙고판을 인쇄해 나눠 줄 수도 있습니다.'],
+      ['숫자 범위를 고를 수 있나요?', '1~25, 1~50, 1~75(B·I·N·G·O) 가운데 고르고, 몇 줄을 채워야 빙고인지도 정할 수 있습니다.'],
+      ['같은 번호가 또 나오지는 않나요?', '한 번 나온 번호는 다시 나오지 않습니다. 잘못 뽑았을 때는 마지막 번호를 취소할 수 있습니다.']] },
+  balance: { title: '밸런스 게임 질문 모음·진행 화면 (무료) — 메가스팟 플레이',
+    desc: '둘 중 하나를 고르는 밸런스 게임을 스크린에 크게 띄워 진행합니다. 바로 쓸 수 있는 밸런스 게임 질문 30개와 고민 타이머, 결과 표시까지. 워크숍·신입생 환영회·모임 아이스브레이킹에.',
+    faq: [['질문을 바꿀 수 있나요?', '한 줄에 ‘A / B’ 모양으로 적으면 됩니다. 60개까지 넣을 수 있고 기본 질문 30개가 들어 있습니다.'],
+      ['참여자는 어떻게 답하나요?', '타이머가 끝나면 손을 들어 답합니다. 사회자가 많은 쪽을 표시하거나, 숫자를 세어 화면에 띄울 수 있습니다.'],
+      ['어떤 자리에 어울리나요?', '처음 만난 사람이 많은 워크숍, 신입생 환영회, 동호회 첫 모임에서 분위기를 푸는 순서로 쓰기 좋습니다.']] },
+  wheel: { title: '돌림판 돌리기 (무료) | 룰렛으로 순서·벌칙·메뉴 정하기 — 메가스팟 플레이',
+    desc: '항목만 적으면 바로 돌리는 무료 돌림판(룰렛). 발표 순서, 벌칙, 오늘의 미션, 점심 메뉴를 공정하게 정합니다. 나온 항목 빼고 다시 돌리기, 결과 기록, 전체 화면 지원.',
+    faq: [['항목은 몇 개까지 넣을 수 있나요?', '2개부터 16개까지 넣을 수 있습니다.'],
+      ['한 번 나온 항목을 빼고 돌릴 수 있나요?', '‘나온 항목은 다음 판에서 빼기’를 켜면 발표 순서처럼 한 번씩만 나오게 할 수 있습니다.'],
+      ['결과가 한쪽으로 치우치지는 않나요?', '멈출 칸은 돌리는 순간 암호용 난수로 정해지고, 돌림판은 그 칸에 멈추도록 움직입니다. 칸마다 나올 확률은 같습니다.']] }
+};
 const toolCard = (t, extra = '') => `<a class="kit-tool" href="${t.path}">${icon(t.k)}<h3>${esc(t.name)}</h3><p>${esc(t.text)}</p><span class="go">열어 보기 →</span>${extra}</a>`;
 
 // ---------- 모임 키트 (/kit/) ----------
@@ -272,6 +312,13 @@ function toolPage(t, o) {
         <div class="kit-tools" style="grid-template-columns:1fr">${others.slice(0, 3).map(x => toolCard(x)).join('')}</div>
       </div>
     </div>
+  </div>
+</section>
+<section class="kit-sec" id="faq">
+  <div class="container">
+    <h2>자주 묻는 질문</h2>
+    ${faqHtml(TOOL_SEO[t.k].faq)}
+    <p class="sub" style="margin:22px 0 0">이 도구는 초대형 공간 대관 플랫폼 <a href="/" style="text-decoration:underline">메가스팟</a>이 무료로 제공합니다. 100명 넘는 행사 장소가 필요하다면 <a href="/venues/" style="text-decoration:underline">인원·목적별 공간 모음</a>을 둘러보세요.</p>
   </div>
 </section>`;
 }
@@ -439,16 +486,16 @@ function bingoCard() {
 export function buildPages() {
   const S = shell(), out = [];
   const add = (p, o) => out.push({ path: p, file: p.slice(1) + 'index.html', html: page(S, { path: p, ...o }), index: !o.noindex, title: o.title, desc: o.desc, priority: o.priority || '0.6' });
-  add('/kit/', { title: '모임 키트 — 초대장·웰컴 스크린·경품 추첨 · 메가스팟', og: '메가스팟 모임 키트', desc: '메가스팟에서 모임을 여는 분께 드리는 무료 도구. 길찾기·주차 안내가 붙은 모임 초대장과 참석 응답, 200인치 스크린용 웰컴 화면·경품 추첨·팀 나누기·퀴즈.', bodyClass: 'page-kit', main: kitHub(), faq: KIT_FAQ, trail: [['모임 키트', '/kit/']], priority: '0.7' });
-  add('/play/', { title: '메가스팟 플레이 — 스크린으로 하는 모임 진행 도구', og: '메가스팟 플레이', desc: '설치·가입 없이 브라우저에서 바로 쓰는 모임 진행 도구. 웰컴 스크린, 경품 추첨, 팀 나누기, 팀 대항 퀴즈, 빙고, 밸런스 게임, 돌림판.', bodyClass: 'page-kit page-play-hub', main: playHub(), faq: PLAY_FAQ, trail: [['모임 키트', '/kit/'], ['메가스팟 플레이', '/play/']], scripts: ['play-hub'], priority: '0.7' });
-  const tool = (t, main, script, desc) => add(t.path, { title: `${t.name} — 메가스팟 플레이`, desc, bodyClass: 'page-kit page-play kit-noquick', main, trail: [['모임 키트', '/kit/'], ['메가스팟 플레이', '/play/'], [t.name, t.path]], scripts: [script] });
-  tool(TOOLS[0], welcomePage(), 'play-welcome', '모임 입장 때 스크린에 띄우는 환영 화면. 행사 이름·일정·초대장 QR, 시작 카운트다운과 쉬는 시간 타이머를 무료로.');
-  tool(TOOLS[1], drawPage(false), 'play-draw', '이름 목록·번호표·초대장 참석 응답으로 하는 경품 추첨. 경품별 인원, 중복 당첨 제외, 당첨 기록까지 브라우저에서 바로.');
-  tool(TOOLS[2], drawPage(true), 'play-draw', '참석자를 팀 수나 팀당 인원으로 고르게 나누고 스크린에 보여 주는 팀 나누기. 팀 이름과 팀장 뽑기까지.');
-  tool(TOOLS[3], quizPage(), 'play-quiz', '객관식·OX·초성·주관식 문제로 하는 팀 대항 퀴즈. 제한 시간, 팀 점수판, 최종 순위, 기본 문제 제공.');
-  tool(TOOLS[4], bingoPage(), 'play-bingo', '스크린에서 번호를 뽑고 휴대폰 빙고판으로 함께하는 빙고. 1~25·1~50·1~75 범위, 종이 빙고판 인쇄.');
-  tool(TOOLS[5], balancePage(), 'play-balance', '둘 중 하나를 고르는 밸런스 게임을 스크린에 띄워 진행. 고민 타이머와 기본 질문 제공.');
-  tool(TOOLS[6], wheelPage(), 'play-wheel', '발표 순서·벌칙·미션을 정하는 돌림판. 공정한 무작위, 나온 항목 빼기, 결과 기록.');
+  add('/kit/', { title: '모임 키트 | 무료 모임 초대장·경품 추첨·팀 나누기 — 메가스팟', og: '메가스팟 모임 키트', desc: '메가스팟에서 모임을 여는 분께 드리는 무료 도구. 길찾기·주차 안내가 붙은 모임 초대장과 참석 응답, 200인치 스크린용 웰컴 화면·경품 추첨·팀 나누기·퀴즈.', bodyClass: 'page-kit', main: kitHub(), faq: KIT_FAQ, trail: [['모임 키트', '/kit/']], priority: '0.7' });
+  add('/play/', { title: '무료 행사 진행 도구 | 경품 추첨·팀 나누기·퀴즈·빙고·돌림판 — 메가스팟 플레이', og: '메가스팟 플레이', desc: '설치·가입 없이 브라우저에서 바로 쓰는 모임 진행 도구. 웰컴 스크린, 경품 추첨, 팀 나누기, 팀 대항 퀴즈, 빙고, 밸런스 게임, 돌림판.', bodyClass: 'page-kit page-play-hub', main: playHub(), faq: PLAY_FAQ, trail: [['모임 키트', '/kit/'], ['메가스팟 플레이', '/play/']], scripts: ['play-hub'], priority: '0.7' });
+  const tool = (t, main, script) => add(t.path, { title: TOOL_SEO[t.k].title, og: `${t.name} — 메가스팟 플레이`, desc: TOOL_SEO[t.k].desc, faq: TOOL_SEO[t.k].faq, bodyClass: 'page-kit page-play kit-noquick', main, trail: [['모임 키트', '/kit/'], ['메가스팟 플레이', '/play/'], [t.name, t.path]], scripts: [script] });
+  tool(TOOLS[0], welcomePage(), 'play-welcome');
+  tool(TOOLS[1], drawPage(false), 'play-draw');
+  tool(TOOLS[2], drawPage(true), 'play-draw');
+  tool(TOOLS[3], quizPage(), 'play-quiz');
+  tool(TOOLS[4], bingoPage(), 'play-bingo');
+  tool(TOOLS[5], balancePage(), 'play-balance');
+  tool(TOOLS[6], wheelPage(), 'play-wheel');
   add('/play/bingo/card/', { title: '내 빙고판 · 메가스팟 플레이', desc: '휴대폰으로 쓰는 빙고판', bodyClass: 'page-bingo-card kit-noquick', main: bingoCard(), noindex: true, scripts: ['play-bingo-card'] });
   add('/invite/new/', { title: '모임 초대장 만들기 · 메가스팟', desc: '메가스팟 예약번호로 일행에게 보낼 모임 초대장을 만듭니다.', bodyClass: 'page-kit page-invite-new', main: inviteNew(), noindex: true, scripts: ['invite-card', 'invite-new'] });
   add('/invite/', { title: '모임 초대장 · 메가스팟', og: '모임 초대장이 도착했습니다', desc: '메가스팟에서 열리는 모임 초대장입니다. 일시와 장소, 길찾기, 주차 안내를 확인하고 참석 여부를 알려 주세요.', bodyClass: 'page-invite kit-noquick', main: inviteView(), noindex: true, scripts: ['invite-card', 'invite-view'] });

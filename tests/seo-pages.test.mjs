@@ -82,7 +82,7 @@ test('공간 모음의 직영 공간 카드는 공간 정보 파일의 면적·�
       if (h.people) assert.ok(byId[id].capacity.max >= h.people, h.slug + ' 에 ' + id + ' 은 인원이 모자랍니다');
     }
     assert.ok(html.includes('<!--hub:host-->') && html.includes('id="hub-count"'), h.slug);
-    assert.deepEqual(hubFilter(html), { people: h.people, types: h.types, region: h.region }, h.slug + ' 조건');
+    assert.deepEqual(hubFilter(html), h.directOnly ? null : { people: h.people, types: h.types, region: h.region }, h.slug + ' 조건');
   }
   for (const [slug] of NAV.flatMap(g => g.items)) assert.ok(HUBS.some(h => h.slug === slug), '메뉴에만 있는 모음: ' + slug);
 });
@@ -111,7 +111,7 @@ test('검색엔진 안내 파일과 공통 메뉴에 새 페이지가 들어 있
   for (const f of ['index.html', 'about/index.html', 'spaces/index.html', 'host/index.html', 'guide/index.html']) {
     const h = read(f); assert.ok(h.includes('href="/venues/"') && h.includes('href="/event-guide/"'), f + ' 메뉴');
   }
-  assert.match(read('index.html'), /<title>메가스팟 \| 초대형 공간 예약 플랫폼/);
+  assert.match(read('index.html'), /<title>메가스팟 \| 초대형 공간대여·대관 플랫폼/);
   assert.ok(!/Disallow: \/(venues|event-guide)/.test(read('robots.txt')));
 });
 

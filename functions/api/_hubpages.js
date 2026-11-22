@@ -15,6 +15,7 @@ const man = n => { n = Number(n || 0); if (n >= 10000 && n % 1000 === 0) { const
 // 목록 상자에 적힌 조건을 읽습니다. 조건이 없는 페이지(가이드 등)는 null.
 export function hubFilter(html) {
   const tag = (String(html).match(/<[a-z]+\b[^>]*\bid="hub-list"[^>]*>/i) || [])[0]; if (!tag) return null;
+  if (/\bdata-direct-only="1"/.test(tag)) return null;   // 직영 공간만 싣는 모음(예: 건대입구)은 입점 공간을 끼워 넣지 않습니다
   const attr = k => (tag.match(new RegExp('\\bdata-' + k + '="([^"]*)"')) || [])[1] || '';
   const people = Math.max(0, Math.min(99999, parseInt(attr('people'), 10) || 0));
   const types = attr('types').split(',').map(t => t.trim()).filter(t => TYPE_LABEL[t]).slice(0, 12);

@@ -4,6 +4,7 @@ import {parkingAdminSMSTick} from './_parking_admin_alerts.js';
 import {guideTick} from './_guide_messages.js';
 import {hostRenewalTick} from './_hostrenewal.js';
 import { ensureSchema } from './_lib.js';
+import { indexNowTick } from './_seo.js';
 export async function onRequest(context) {
   try { await ensureSchema(context.env); } catch {}
   const response=await context.next();
@@ -20,6 +21,7 @@ export async function onRequest(context) {
     context.waitUntil(guideTick(context.env).catch(()=>{}));
     context.waitUntil(parkingAdminSMSTick(context.env).catch(()=>{}));
     context.waitUntil(hostRenewalTick(context.env).catch(()=>{}));   // 입점 공간 무료 등록 종료 30일·7일 전 안내 (15분에 한 번 확인)
+    context.waitUntil(indexNowTick(context.env,context.request).catch(()=>{}));   // sitemap.xml 이 바뀌면 네이버·빙에 새 주소 알림 (10분에 한 번만 확인)
   }
   return response;
 }
