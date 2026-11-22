@@ -86,22 +86,43 @@ export async function indexNowTick(env, request, fetcher = fetch) {
   const entries = sitemapEntries(await res.text()), urls = Object.keys(entries); if (!urls.length) return null;
   const hash = await sha(urls.map(u => u + ' ' + entries[u]).join('\n'));
   const prev = await readState(env);
-  if (prev && prev.hash === hash) return null;
+  if (prev && prev.hash === hash) return retryFailed(env, prev, fetcher);
   const before = (prev && prev.entries) || {};
   const changed = urls.filter(u => before[u] === undefined || before[u] !== entries[u]).slice(0, 10000);
   const state = { hash, entries, at: now(), submitted: changed.length, results: {} };
   await writeState(env, { ...state, results: { pending: true } });   // 먼저 적어 두어 같은 내용을 두 번 보내지 않습니다
   if (changed.length) {
-    const body = JSON.stringify({ host: SITE_HOST, key: INDEXNOW_KEY, keyLocation: `https://${SITE_HOST}/${INDEXNOW_KEY}.txt`, urlList: changed });
-    for (const [name, endpoint] of Object.entries(INDEXNOW_ENDPOINTS)) {
-      try { const r = await fetcher(endpoint, { method: 'POST', headers: { 'content-type': 'application/json; charset=utf-8' }, body }); state.results[name] = r.status; }
-      catch (e) { state.results[name] = 'error'; }
-    }
+    for (const name of Object.keys(INDEXNOW_ENDPOINTS)) state.results[name] = await submit(name, changed, fetcher);
+    const failed = Object.keys(state.results).filter(n => !ok(state.results[n]));
+    if (failed.length) state.retry = { names: failed, urls: changed, tries: 0 };
   }
+  await writeState(env, state);
+  return state;
+}
+const ok = code => code === 200 || code === 202;
+async function submit(name, urlList, fetcher) {
+  const body = JSON.stringify({ host: SITE_HOST, key: INDEXNOW_KEY, keyLocation: `https://${SITE_HOST}/${INDEXNOW_KEY}.txt`, urlList });
+  try { return (await fetcher(INDEXNOW_ENDPOINTS[name], { method: 'POST', headers: { 'content-type': 'application/json; charset=utf-8' }, body })).status; }
+  catch { return 'error'; }
+}
+// 받는 쪽이 바빠서(429·5xx) 실패한 곳만 1시간 뒤부터 다시 보냅니다. 최대 5번.
+async function retryFailed(env, prev, fetcher) {
+  let r = prev.retry;
+  if (!r && prev.results && !prev.results.pending) {   // 다시 보내기 기능이 생기기 전에 남은 실패 기록도 이어서 처리합니다
+    const names = Object.keys(INDEXNOW_ENDPOINTS).filter(n => prev.results[n] !== undefined && !ok(prev.results[n]));
+    if (names.length) r = { names, urls: Object.keys(prev.entries || {}), tries: 0 };
+  }
+  if (!r || !r.names || !r.names.length || r.tries >= 5) return null;
+  const last = Date.parse(String(r.at || prev.at).replace(' ', 'T') + 'Z'); if (isFinite(last) && Date.now() - last < 3600e3) return null;
+  const state = { ...prev, results: { ...prev.results }, retry: { ...r, tries: r.tries + 1, at: now() } };
+  await writeState(env, state);
+  for (const name of r.names) state.results[name] = await submit(name, r.urls, fetcher);
+  state.retry.names = r.names.filter(n => !ok(state.results[n]));
+  if (!state.retry.names.length) delete state.retry;
   await writeState(env, state);
   return state;
 }
 export async function indexNowStatus(env) {
   const s = await readState(env); if (!s) return null;
-  return { at: s.at, submitted: s.submitted, total: Object.keys(s.entries || {}).length, results: s.results };
+  return { at: s.at, submitted: s.submitted, total: Object.keys(s.entries || {}).length, results: s.results, ...(s.retry ? { retry: { names: s.retry.names, tries: s.retry.tries } } : {}) };
 }
