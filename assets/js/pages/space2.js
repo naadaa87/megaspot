@@ -14,7 +14,7 @@
   (function(){
     var g=$('#gallery'); if(!g) return;
     var list=S.photos, tabs=$('#media-tabs');
-    if(tabs) tabs.innerHTML='<button type="button" role="tab" class="on" aria-selected="true" data-set="photos">공간 전경·가구·배치 예시<span class="n">'+list.length+'</span></button>';
+    if(tabs) tabs.innerHTML='<button type="button" role="tab" class="on" aria-selected="true" data-set="photos">공간 전경·배치 예시<span class="n">'+list.length+'</span></button>';
     var items=list.map(function(p){ return { src:M.imgSrc(p.id,'m'), title:p.title, cap:photoCaption(p), tag:photoLabel(p) }; });
     var show=list.slice(0,7);
     g.innerHTML=show.map(function(p,i){
