@@ -173,8 +173,8 @@
     <!-- 문의 관리 -->
     <!-- 예약 목록 -->
     <section class="adm-view" id="view-resv" hidden>
-      <div class="food-booking-toolbar"><button class="btn btn-light btn-sm food-booking-filter" type="button" id="rs-food-filter" aria-pressed="false">식음료 단독</button><nav class="food-booking-links" aria-label="식음료 단독 관리"><button class="btn btn-light btn-sm" type="button" data-food-scope="inq">문의 관리</button><span aria-current="page">예약 현황</span><button class="btn btn-light btn-sm" type="button" data-food-scope="calendar">일정 달력</button></nav></div>
-      <header class="adm-head"><div><h1>일자별 예약 · 문의</h1><p class="small muted">날짜마다 <b>예약 확정</b>과 아직 정해지지 않은 <b>예약 문의(후보)</b>를 나눠 봅니다. 후보 줄의 <b>확정</b>에서 일시·금액을 확인합니다. 식음료 단독은 해당 줄에서 견적을 만들고 예약을 확정하거나 수정할 수 있습니다. 하루 전체 마감은 선택한 경우에만 적용됩니다. 대기 취소 건은 회색으로 남고 대기 인원·순번에서 제외됩니다. 줄을 누르면 문의 상세가 열립니다.</p></div>
+      <div class="food-booking-toolbar"><button class="btn btn-light btn-sm food-booking-filter" type="button" id="rs-food-filter" aria-pressed="false">식음료 단독</button><nav class="food-booking-links" aria-label="식음료 단독 관리"><button class="btn btn-light btn-sm" type="button" data-food-scope="inq">문의 관리</button><span aria-current="page">예약 현황</span><button class="btn btn-light btn-sm" type="button" data-food-scope="calendar">일정 달력</button><button type="button" class="btn btn-light btn-sm" data-food-archive-view>삭제 보관함</button></nav></div>
+      <header class="adm-head"><div><h1>일자별 예약 · 문의</h1><p class="small muted">날짜마다 <b>예약 확정</b>과 아직 정해지지 않은 <b>예약 문의(후보)</b>를 나눠 봅니다. 후보 줄의 <b>확정</b>에서 일시·금액을 확인합니다. 식음료 단독은 해당 줄에서 견적과 예약을 관리합니다. 확정 예약을 삭제하려면 먼저 취소를 처리해 주세요. 하루 전체 마감은 선택한 경우에만 적용됩니다. 대기 취소 건은 회색으로 남고 대기 인원·순번에서 제외됩니다. 줄을 누르면 문의 상세가 열립니다.</p></div>
         <div class="row" style="gap:6px"><button class="btn btn-light btn-sm" type="button" data-go="guide-messages">예약별 알림</button><button class="btn btn-light btn-sm" type="button" id="rs-csv">CSV 내려받기</button><button class="btn btn-light btn-sm" type="button" id="rs-print">인쇄</button><button class="btn btn-light btn-sm" type="button" id="rs-reload">새로고침</button></div></header>
       <div class="rs-bar">
         <div class="rs-range" role="group" aria-label="기간">
@@ -462,7 +462,7 @@
 
     <!-- 예약 관리 -->
     <section class="adm-view" id="view-bookings" hidden>
-      <div class="food-booking-toolbar"><button class="btn btn-light btn-sm food-booking-filter" type="button" id="bk-food-filter" aria-pressed="false">식음료 단독</button><nav class="food-booking-links" aria-label="식음료 단독 관리"><button class="btn btn-light btn-sm" type="button" data-food-scope="inq">문의 관리</button><button class="btn btn-light btn-sm" type="button" data-food-scope="resv">예약 현황</button><button class="btn btn-light btn-sm" type="button" data-food-scope="calendar">일정 달력</button></nav></div>
+      <div class="food-booking-toolbar"><button class="btn btn-light btn-sm food-booking-filter" type="button" id="bk-food-filter" aria-pressed="false">식음료 단독</button><nav class="food-booking-links" aria-label="식음료 단독 관리"><button class="btn btn-light btn-sm" type="button" data-food-scope="inq">문의 관리</button><button class="btn btn-light btn-sm" type="button" data-food-scope="resv">예약 현황</button><button class="btn btn-light btn-sm" type="button" data-food-scope="calendar">일정 달력</button><button type="button" class="btn btn-light btn-sm" data-food-archive-view>삭제 보관함</button></nav></div>
       <header class="adm-head"><div><h1>예약 관리</h1><p class="small muted">예약별 진행 상태와 수납·안내 내역을 확인합니다. 새 예약은 문의 관리에서 해당 문의를 예약 확정해 주세요. 이용 완료 후에는 고객이 예약번호로 후기를 쓸 수 있습니다.</p></div><button class="btn btn-light btn-sm" type="button" data-go="guide-messages">예약별 알림</button><button class="btn btn-light btn-sm" type="button" id="bk-reload">새로고침</button></header>
       <div class="adm-grid2" style="align-items:start">
         <form class="adm-card form" id="bk-form" novalidate hidden>
@@ -600,6 +600,19 @@
   <div class="adm-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="dr-title">
     <div class="adm-drawer-head"><h2 id="dr-title">문의 상세</h2><button class="btn btn-light btn-sm" type="button" data-close>닫기 ✕</button></div>
     <div class="adm-drawer-body" id="dr-body"></div>
+  </div>
+</div>
+
+<div class="adm-drawer" id="adm-food-archive" hidden>
+  <div class="adm-drawer-bg" data-close></div>
+  <div class="adm-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="food-archive-title">
+    <div class="adm-drawer-head"><h2 id="food-archive-title">식음료 기록 삭제</h2><button type="button" class="btn btn-light btn-sm" data-close>닫기 ✕</button></div>
+    <div class="adm-drawer-body">
+      <b id="food-archive-target"></b>
+      <p>예약 현황과 달력에서 이 기록을 숨깁니다. 견적과 수납·환불 내역은 보관되며, 삭제 보관함에서 복원할 수 있습니다.</p>
+      <div class="q-btns"><button type="button" class="btn btn-danger" id="food-archive-submit">삭제 보관함으로 이동</button><button type="button" class="btn btn-light" id="food-archive-back" data-close>돌아가기</button></div>
+      <p class="form-note" id="food-archive-msg" role="alert" hidden></p>
+    </div>
   </div>
 </div>
 
@@ -777,7 +790,7 @@
 <script src="/assets/js/quote-policy.js?v=e29d1c2305b4"></script>
 <script src="/assets/js/pages/admin-food-filter.js?v=e6689c0f6f74"></script>
 <script src="/assets/js/pages/admin-reservation-period.js?v=d19a2c8a0701"></script>
-<script src="/assets/js/pages/admin.js?v=53c8423d0ba3"></script>
+<script src="/assets/js/pages/admin.js?v=530d51bde945"></script>
 <script src="/assets/js/pages/admin-service-status.js?v=6f085e2a9a83"></script>
 <script src="/assets/js/pages/admin-platform.js?v=20261102adminux1"></script>
 <script src="/assets/js/pages/admin-cocktail.js?v=c0a30f26741b"></script>

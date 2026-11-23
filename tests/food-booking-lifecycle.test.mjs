@@ -255,3 +255,49 @@ test('changing a confirmed food order preserves receipts and uses the new total 
   assert.equal(originalSnapshot.total,2007500);
   assert.equal(originalSnapshot.data.input.people,45);
 });
+
+test('archives food-only inquiries and inactive reservations with records intact and restores their previous status',async t=>{
+  const f=fixture();
+  t.after(()=>f.db.close());
+  const range='from='+DAY+'&to='+DAY;
+  const {ref:pending}=await f.api('food-inquiries','POST',{
+    name:'삭제 테스트',phone:'010-0000-4321',date:DAY,request_id:'food-archive-pending',
+  });
+  await f.api('inquiries/'+pending,'DELETE');
+  await f.api('inquiries/'+pending,'DELETE');
+  assert.ok(!(await f.api('reservations?'+range)).items.some(x=>x.ref===pending));
+  assert.ok((await f.api('inquiries?type=food-only&status=deleted')).items.some(x=>x.ref===pending));
+  assert.equal((await f.api('inquiries/'+pending+'/restore','POST')).status,'문의 접수');
+  assert.ok((await f.api('reservations?'+range)).items.some(x=>x.ref===pending));
+
+  const quote=await f.api('quotes','POST',preparedQuote());
+  const {ref,booking_code:code}=await f.api('food-inquiries','POST',{quote_no:quote.quote_no,confirm:true});
+  const path='bookings/'+code;
+  assert.equal((await f.api('inquiries/'+ref,'DELETE',undefined,409)).code,'HAS_BOOKING');
+  await payment(f,code,'receipt',300000);
+  await f.api(path,'PATCH',{status:'completed'});
+  await f.api('inquiries/'+ref,'DELETE');
+  assert.ok(!(await f.api('reservations?'+range)).items.some(x=>x.code===code));
+  assert.ok(!(await f.api('bookings?'+range)).items.some(x=>x.booking_code===code));
+  assert.equal((await f.api('inquiries/'+ref+'/restore','POST')).status,'이용 완료');
+
+  const cancel=await f.api(path+'/cancellation');
+  await f.api(path+'/cancellation','POST',{mode:'manual',fee:100000,reason:'고객 합의',cancelled_at:new Date().toISOString(),
+    request_id:crypto.randomUUID(),expected_version:cancel.version,expected_revision:cancel.settlement.revision});
+  await payment(f,code,'refund',200000);
+  await f.api('inquiries/'+ref,'DELETE');
+  const archived=await f.api('inquiries/'+ref);
+  assert.equal(archived.item.status,'삭제됨');
+  assert.equal(archived.quotes[0].quote_no,quote.quote_no);
+  assert.equal(archived.bookings[0].status,'cancelled');
+  assert.equal(archived.bookings[0].settlement.net,100000);
+  assert.equal((await f.api(path+'/settlement')).entries.length,2);
+  assert.ok(!(await f.api('bookings?'+range)).items.some(x=>x.booking_code===code));
+  const report=await f.api('revenue?'+range);
+  assert.equal(report.total.received,300000);
+  assert.equal(report.total.refunded,200000);
+  assert.equal((await body(await publicDoc(f,code))).doc.doc_type,'cancellation');
+  await f.api(path+'/reconfirm','POST',{request_id:crypto.randomUUID(),expected_revision:archived.bookings[0].settlement.revision},409);
+  assert.equal((await f.api('inquiries/'+ref+'/restore','POST')).status,'취소·환불');
+  assert.ok((await f.api('bookings?'+range)).items.some(x=>x.booking_code===code&&x.status==='cancelled'));
+});

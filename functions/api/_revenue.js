@@ -9,8 +9,8 @@ import {revenueBookingIncludedSql,revenueInquiryIncludedSql} from './_revenue_ex
 const verificationIds = PRODUCTS.items.filter(p=>p.kind==='verification').map(p=>p.id);
 const spaces = [...Object.keys(SPACES),'unassigned'];
 const pageSize = 50;
-const operational = `NOT (b.status='cancelled' AND EXISTS (
-  SELECT 1 FROM inquiries archived WHERE archived.ref=b.inquiry_ref AND archived.status='삭제됨'))`;
+const operational = `(b.space_id='food-only' OR NOT (b.status='cancelled' AND EXISTS (
+  SELECT 1 FROM inquiries archived WHERE archived.ref=b.inquiry_ref AND archived.status='삭제됨')))`;
 const categories = {rental:'대관',food:'F&B',parking:'주차',addons:'부가서비스',unclassified:'미분류'};
 const components = {
   rental:['공간 대관료','rental'],people:['추가 인원·인원 가산','rental'],

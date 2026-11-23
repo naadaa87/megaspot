@@ -72,9 +72,9 @@ const DEPOSIT_REFUNDED_SQL = `(
       AND other.booking_code<>b.booking_code AND other.status<>'cancelled'))
 )`;
 const foodQuoteTotal = `(SELECT q.total FROM food_quote_links l JOIN quotes q ON q.quote_no=l.quote_no WHERE l.inquiry_ref=i.ref ORDER BY q.id DESC LIMIT 1)`;
-const OPERATIONAL_BOOKING_SQL = `NOT (b.status='cancelled' AND EXISTS (
-  SELECT 1 FROM inquiries archived WHERE archived.ref=b.inquiry_ref AND archived.status='${DELETED}'
-))`;
+const archiveExists = `EXISTS(SELECT 1 FROM inquiries archived WHERE archived.ref=b.inquiry_ref AND archived.status='${DELETED}')`;
+const OPERATIONAL_BOOKING_SQL = `(b.space_id='${FOOD_SPACE}' OR NOT (b.status='cancelled' AND ${archiveExists}))`;
+const RESERVATION_LIST_SQL = `${OPERATIONAL_BOOKING_SQL} AND NOT (b.space_id='${FOOD_SPACE}' AND ${archiveExists})`;
 // 두 시간대가 겹치는지 (시간 정보가 없는 예약은 겹친다고 봅니다)
 function overlaps(s1, e1, s2, e2) { if (s1 == null || e1 == null || s2 == null || e2 == null) return true; return s1 < e2 && s2 < e1; }
 const OPEN = ['문의 접수', '조건 확인', '견적 발송', '결제 대기'];
@@ -122,17 +122,26 @@ function adminSummary(d) {
 }
 // 문의 삭제: 지우지 않고 '삭제됨' 상태로 보관합니다. 확정 예약·결제 완료 주문이 걸려 있으면 막습니다. 견적·예약·체크리스트 연결은 그대로 둬 복원하면 원래대로 돌아옵니다.
 async function deleteInquiry(env, ref) {
-  const row = await env.DB.prepare('SELECT ref, status, event_date, data, created_at FROM inquiries WHERE ref = ?').bind(ref).first();
+  const row = await env.DB.prepare('SELECT ref, space_id, status FROM inquiries WHERE ref = ?').bind(ref).first();
   if (!row) return { ref, ok: false, code: 'NOT_FOUND', reason: '문의를 찾을 수 없습니다.' };
   if (row.status === DELETED) return { ref, ok: true, already: true };
-  const bk0 = await env.DB.prepare("SELECT booking_code FROM bookings WHERE inquiry_ref = ? AND status = 'confirmed' LIMIT 1").bind(ref).first();
+  const activeBooking = row.space_id===FOOD_SPACE ? "status IN ('confirmed','payment_review')" : "status='confirmed'";
+  const bk0 = await env.DB.prepare(`SELECT booking_code FROM bookings WHERE inquiry_ref = ? AND ${activeBooking} LIMIT 1`).bind(ref).first();
   if (bk0) return { ref, ok: false, code: 'HAS_BOOKING', reason: '확정 예약(' + bk0.booking_code + ')이 연결되어 있습니다. 예약 관리에서 예약을 먼저 취소해 주세요.' };
   const od0 = await env.DB.prepare("SELECT oid FROM orders WHERE inquiry_ref = ? AND status = 'paid' LIMIT 1").bind(ref).first();
   if (od0) return { ref, ok: false, code: 'HAS_ORDER', reason: '결제 완료된 주문(' + od0.oid + ')이 연결되어 있습니다. 주문·결제 탭에서 환불 기록을 먼저 남겨 주세요.' };
   if(await env.DB.prepare("SELECT 1 FROM booking_payment_entries WHERE booking_code=? LIMIT 1").bind('inquiry:'+ref).first())return {ref,ok:false,code:'HAS_RECEIPTS',reason:'문의에 실제 수납 기록이 있습니다. 예약에 연결해 수납·정산 기록을 보존해 주세요.'};
   const t = now();
-  const deleted=await env.DB.prepare("UPDATE inquiries SET status = ?, data = json_set(COALESCE(data, '{}'), '$.deleted_at', ?, '$.deleted_from', ?), updated_at = ? WHERE ref = ? AND NOT EXISTS(SELECT 1 FROM booking_payment_entries WHERE booking_code='inquiry:'||inquiries.ref)").bind(DELETED, t, row.status, t, ref).run();
-  if((deleted?.meta?.changes??deleted?.changes)===0)return {ref,ok:false,code:'HAS_RECEIPTS',reason:'수납 또는 문의 상태가 바뀌었습니다. 실제 입금 기록을 확인해 주세요.'};
+  const deleted=await env.DB.prepare(`UPDATE inquiries SET status=?,data=json_set(COALESCE(data,'{}'),'$.deleted_at',?,'$.deleted_from',?),updated_at=?
+    WHERE ref=? AND status=? AND NOT EXISTS(SELECT 1 FROM bookings WHERE inquiry_ref=inquiries.ref AND ${activeBooking})
+    AND NOT EXISTS(SELECT 1 FROM orders WHERE inquiry_ref=inquiries.ref AND status='paid')
+    AND NOT EXISTS(SELECT 1 FROM booking_payment_entries WHERE booking_code='inquiry:'||inquiries.ref)`)
+    .bind(DELETED,t,row.status,t,ref,row.status).run();
+  if((deleted?.meta?.changes??deleted?.changes)===0){
+    const current=await env.DB.prepare('SELECT status FROM inquiries WHERE ref=?').bind(ref).first();
+    if(current?.status===DELETED)return {ref,ok:true,already:true};
+    return {ref,ok:false,code:'INQUIRY_CHANGED',reason:'예약이나 수납 상태가 바뀌었습니다. 최신 내역을 확인한 뒤 다시 시도해 주세요.'};
+  }
   await log(env, 'inquiry.deleted', ref, 'admin', { status: row.status });
   return { ref, ok: true };
 }
@@ -856,7 +865,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
 
     // ---- 예약 ----
     if (path === 'bookings' && method === 'GET') {
-      const where = [OPERATIONAL_BOOKING_SQL], args = [];
+      const where = [RESERVATION_LIST_SQL], args = [];
       for (const [param, column, op] of [['from', 'date', '>='], ['to', 'date', '<='], ['space', 'space_id', '='], ['status', 'status', '=']]) {
         const value = str(url.searchParams.get(param), 60); if (value) { where.push('b.' + column + ' ' + op + ' ?'); args.push(value); }
       }
@@ -927,7 +936,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
           json_extract(i.data, '$.total') AS inq_total, json_extract(i.data, '$.start_h') AS inq_start, json_extract(i.data, '$.end_h') AS inq_end, json_extract(i.data, '$.purpose') AS purpose, json_extract(i.data, '$.channel') AS channel, json_extract(i.data, '$.channel_note') AS channel_note, json_extract(i.data, '$.family') AS family,
           ${foodEventSql()} AS food_event, ${SERVICE_DATA_SQL} AS service_data, ${ORDER_OF_BOOKING} AS cat_ord, CASE WHEN COALESCE(json_extract(i.data, '$.catering.by'), '') <> 'admin' THEN json_extract(i.data, '$.catering.summary') END AS cat_req
         FROM bookings b LEFT JOIN orders o ON o.id = (SELECT ox.id FROM orders ox WHERE ox.booking_code = b.booking_code ORDER BY ox.id DESC LIMIT 1) LEFT JOIN inquiries i ON i.ref = b.inquiry_ref
-        WHERE b.date BETWEEN ? AND ? AND ${OPERATIONAL_BOOKING_SQL}
+        WHERE b.date BETWEEN ? AND ? AND ${RESERVATION_LIST_SQL}
         ORDER BY b.date ASC, COALESCE(b.start_h, json_extract(i.data, '$.start_h'), 99) ASC, b.id ASC LIMIT 1001 OFFSET ?`).bind(f, t, offset).all();
       const iqQ = "(SELECT q.total FROM quotes q WHERE q.inquiry_ref = i.ref ORDER BY q.id DESC LIMIT 1)";
       const { results: pend } = await env.DB.prepare(`WITH wait_queue AS (${rankedWaitsSql('i.event_date BETWEEN ? AND ?')})
@@ -1048,7 +1057,8 @@ export async function onRequest({ request, env, params, waitUntil }) {
     if (mBk && method === 'PATCH') {
       const d = await readJson(request); const code = mBk[1];
       if (!['confirmed', 'completed', 'cancelled'].includes(d.status)) return err('상태 값이 올바르지 않습니다.');
-      const current=await env.DB.prepare('SELECT status FROM bookings WHERE booking_code=?').bind(code).first();
+      const current=await env.DB.prepare(`SELECT b.status,b.space_id,${archiveExists} AS archived FROM bookings b WHERE b.booking_code=?`).bind(code).first();
+      if(current?.space_id===FOOD_SPACE&&current.archived)return err('삭제 보관함에서 예약을 먼저 복원해 주세요.',409,'ARCHIVED');
       if(current?.status==='payment_review'&&d.status!=='cancelled'&&(d.status!=='confirmed'||d.confirm_review!==true))return err('결제 완료 건의 일정 검토 후 확정을 명시적으로 확인해 주세요.',409,'BOOKING_REVIEW');
       if(current?.status==='cancelled'&&d.status==='confirmed')return reconfirmBooking(env,code,d,waitUntil,{legacy:true});
       const update = await bookingStatusStatements(env, code, d.status); if (update.error) return update.error;

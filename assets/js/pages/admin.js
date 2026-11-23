@@ -454,6 +454,25 @@
     return rows.concat([[cancelled?'다시 받아야 할 금액':'남은 잔금',settlement.balance],['추가 환불 필요액',settlement.refund_due]]);
   }
   function foodSettlementValue(amount){return amount==null?'확인 필요':won(amount);}
+  function foodArchiveButton(ref){
+    return '<button type="button" class="btn btn-light btn-xs" data-food-archive="'+esc(ref)+'">삭제</button>';
+  }
+  function archiveFoodRecord(button){
+    var ref=button.dataset.foodArchive, drawer=$('#adm-food-archive'), submit=$('#food-archive-submit'), message=$('#food-archive-msg');
+    $('#food-archive-target').textContent='문의번호 '+ref;
+    message.hidden=true;
+    openDrawer('#adm-food-archive');$('#food-archive-back').focus();
+    submit.onclick=function(){
+      submit.disabled=true;message.hidden=true;
+      A('/inquiries/'+encodeURIComponent(ref),{method:'DELETE'}).then(function(){
+        closeDrawer(drawer,true);
+        if(cur?.item?.ref===ref&&!$('#adm-drawer').hidden){closeDrawer($('#adm-drawer'),true);cur=null;}
+        delete SEL[ref];refreshLists();
+        if(!$('#view-calendar').hidden)loadCalendar();
+        M.toast('삭제 보관함으로 옮겼습니다.');
+      }).catch(function(error){if(!guard(error))note(message,error.message);}).finally(function(){submit.disabled=false;});
+    };
+  }
   function renderFoodInquiry(result,quote,copy){
     var it=result?.item, data=it?.data||{}, event=data.food_event||{}, input=quote?.data?.input||{};
     if(copy){
@@ -463,7 +482,7 @@
     var booking=result?.bookings?.[0], rows=result?.quotes||[], total=it?.effective_amount??quote?.total;
     if(it&&quote?.quote_no===event.quote_no)input={};
     var applied=rows.find(function(row){return row.quote_no===event.quote_no;});
-    var editable=!it||['문의 접수','조건 확인','견적 발송','결제 대기','예약 확정'].includes(it.status);
+    var archived=it?.status===DELETED, editable=!it||['문의 접수','조건 확인','견적 발송','결제 대기','예약 확정'].includes(it.status);
     var amount=total==null?'미정':won(total)+' (부가세 포함)';
     var chosen=quote?.quote_no||event.quote_no||(!booking?rows[0]?.quote_no:'')||'';
     var formId='food-inquiry-form', reason=['문의 접수','조건 확인','견적 발송','결제 대기'];
@@ -477,7 +496,8 @@
     }
     var changeQuote=editable&&applied&&!quote?'<button type="button" class="btn btn-light btn-sm" id="fi-edit-quote">구성·인원 변경</button>':'';
     var actions=booking?'<div class="q-btns">'+changeQuote+
-      (booking.status==='cancelled'?'<button type="button" class="btn btn-light btn-sm" data-food-cancel>취소·환불 정산서</button><button type="button" class="btn btn-light btn-sm" data-food-reconfirm>예약 재확정</button>':(booking.food_needs_reissue?'<button type="button" class="btn btn-light btn-sm" data-cdoc="'+esc(booking.booking_code)+'">확정서 다시 발급</button>':cdBtn(booking.booking_code,booking.confirm_issued,'btn-sm',true)))+
+      (booking.status==='cancelled'?'<button type="button" class="btn btn-light btn-sm" data-food-cancel>취소·환불 정산서</button>'+
+       (archived?'':'<button type="button" class="btn btn-light btn-sm" data-food-reconfirm>예약 재확정</button>'):(booking.food_needs_reissue?'<button type="button" class="btn btn-light btn-sm" data-cdoc="'+esc(booking.booking_code)+'">확정서 다시 발급</button>':cdBtn(booking.booking_code,booking.confirm_issued,'btn-sm',true)))+
       '<button type="button" class="btn btn-light btn-sm" data-settlement-code="'+esc(booking.booking_code)+'">수납·환불</button>'+
       (booking.status==='confirmed'?'<button type="button" class="btn btn-light btn-sm" data-food-complete>이용 완료</button><button type="button" class="btn btn-light btn-sm" data-food-cancel>예약 취소</button>':'')+'</div>':'';
     function usedQuote(q){
@@ -515,18 +535,12 @@
         (rows.length?rows.map(usedQuote).join(''):'<p class="small muted">저장한 견적이 없습니다.</p>')+
         (it&&editable?'<button type="button" class="btn btn-light btn-sm" id="fi-new-quote">+ 식음료 견적 만들기</button>':'')+'</div>'+
       (it?'<details class="dr-sec"><summary>변경 기록</summary>'+(result.log||[]).map(logLine).join('')+'</details>':'')+
-      (it?.status===DELETED?'<div class="dr-sec"><button type="button" class="btn btn-light btn-sm" id="fi-restore">문의 복원</button></div>':
-        it&&!booking?'<div class="dr-sec"><button type="button" class="btn btn-light btn-sm" id="fi-archive">문의 보관함으로 이동</button></div>':'')+'</div>';
-    var archive=$('#fi-archive'),restore=$('#fi-restore');
-    if(archive)archive.onclick=function(){
-      if(!confirm('이 식음료 문의를 삭제된 문의 보관함으로 옮길까요?'))return;
-      archive.disabled=true;
-      A('/inquiries/'+encodeURIComponent(it.ref),{method:'DELETE'}).then(function(){closeDrawer($('#adm-drawer'),true);refreshLists();if(!$('#view-calendar').hidden)loadCalendar();M.toast('문의 보관함으로 옮겼습니다.');})
-        .catch(function(e){if(!guard(e))M.toast(e.message);}).finally(function(){archive.disabled=false;});
-    };
+      (archived?'<div class="dr-sec dr-deleted"><div><b>삭제 보관함에 있는 기록입니다.</b><small>삭제 전 상태 '+esc(data.deleted_from||'')+'</small></div><button type="button" class="btn btn-primary btn-sm" id="fi-restore">'+(booking?'예약 복원':'문의 복원')+'</button></div>':
+        it&&(!booking||['cancelled','completed'].includes(booking.status))?'<div class="dr-sec">'+foodArchiveButton(it.ref)+'</div>':'')+'</div>';
+    var restore=$('#fi-restore');
     if(restore)restore.onclick=function(){
       restore.disabled=true;
-      A('/inquiries/'+encodeURIComponent(it.ref)+'/restore',{method:'POST'}).then(function(){refreshLists();openInquiry(it.ref);})
+      A('/inquiries/'+encodeURIComponent(it.ref)+'/restore',{method:'POST'}).then(function(){refreshLists();if(!$('#view-calendar').hidden)loadCalendar();openInquiry(it.ref);M.toast('삭제하기 전 상태로 복원했습니다.');})
         .catch(function(e){if(!guard(e))M.toast(e.message);}).finally(function(){restore.disabled=false;});
     };
     var form=$('#'+formId), requestId=crypto.randomUUID();
@@ -2201,8 +2215,8 @@
     if(status==='confirmed')return foodReservationButton(ref,'예약 수정','terms',true)+
       (event?.quote_no?foodReservationButton(ref,'구성·인원 변경','change'):'');
     if(status==='cancelled')return '<button type="button" class="btn btn-light btn-xs" data-food-settlement-doc="'+esc(code)+'">취소·환불 정산서</button>'+
-      foodReservationButton(ref,'예약 재확정','reconfirm');
-    return foodReservationButton(ref,'상세');
+      foodReservationButton(ref,'예약 재확정','reconfirm')+foodArchiveButton(ref);
+    return foodReservationButton(ref,'상세')+(status==='completed'?foodArchiveButton(ref):'');
   }
   function resvRow(it, x, past){
     var isB=it.kind==='booking', waitCancelled=it.status==='대기 취소', st=isB?(BST[it.status]||[it.status,'']):[it.status,ST_CLS[it.status]||'st-new'];
@@ -2214,7 +2228,8 @@
     if(isB && ['confirmed','completed'].includes(it.status) && it.code) acts+=cdBtn(it.code, it.confirm_issued,undefined,it.space_id==='food-only');
     if(isB && it.status==='confirmed' && it.space_id!=='food-only') acts+=guideControl(it.code,it.guide_status);
     if(it.space_id==='food-only'&&it.ref){
-      if(!isB&&!waitCancelled)acts=foodReservationButton(it.ref,it.food_quote_ready?'예약 확정':'견적 만들기',it.food_quote_ready?'terms':'quote',true)+acts;
+      if(!isB)acts=(waitCancelled?foodReservationButton(it.ref,'상세'):
+        foodReservationButton(it.ref,it.food_quote_ready?'예약 확정':'견적 만들기',it.food_quote_ready?'terms':'quote',true))+acts+foodArchiveButton(it.ref);
       else acts=foodBookingShortcuts(it.ref,it.status,it.code,it.food_event)+acts;
     }
     if(isB && it.status==='confirmed') acts+=(past?'<button class="btn btn-light btn-xs" type="button" data-rsact="completed" '+(it.space_id==='food-only'?'data-food-event ':'')+'data-code="'+esc(it.code)+'">이용 완료</button>':'')+'<button class="btn btn-light btn-xs" type="button" data-rsact="cancelled" data-code="'+esc(it.code)+'">취소</button>';
@@ -2730,6 +2745,14 @@
   bindFoodFilter('bk-food-filter',drawBookings,'bk-space-filter');
   bindFoodFilter('rs-food-filter',drawResv,'rs-space');
   document.addEventListener('click',function(e){
+    var archive=e.target.closest('[data-food-archive]');
+    if(archive){archiveFoodRecord(archive);return;}
+    if(e.target.closest('[data-food-archive-view]')){
+      $('#inq-food-filter').setAttribute('aria-pressed','true');
+      $('#inq-status').value='deleted';
+      ['#inq-type','#inq-ch','#inq-q'].forEach(function(selector){$(selector).value='';});
+      go('inq');return;
+    }
     var button=e.target.closest('[data-food-open]');
     if(button){openInquiry(button.dataset.foodOpen,button.dataset.foodAction);return;}
     var settlement=e.target.closest('[data-food-settlement-doc]');
