@@ -144,6 +144,7 @@ TABLES.push('host_billing_pay_requests');
 TABLES.push('invites', 'invite_rsvps');   // 모임 키트 초대장 (2026-11-21)
 TABLES.push('booking_deposit_methods','booking_deposit_card_cancellations');
 TABLES.push('crawler_hits');   // 검색봇 방문 기록 (2026-11-23)
+TABLES.push('community_photos');   // 커뮤니티 모임 사진 (2026-11-23)
 
 // ---------- 관리자 로그인 ----------
 // /admin 화면은 ADMIN_KEY 로 로그인하면 HttpOnly 쿠키(ms_admin)를 받아 그 뒤 요청에 씁니다.

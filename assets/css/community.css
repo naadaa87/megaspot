@@ -199,3 +199,63 @@
 .cm-dialog{width:min(480px,calc(100vw - 32px));border:0;border-radius:var(--radius-lg);padding:22px;box-shadow:var(--shadow-lg);color:var(--ink)}
 .cm-dialog::backdrop{background:rgba(20,22,24,.45)}
 .cm-reasons{display:flex;flex-wrap:wrap;gap:6px}
+
+/* ---------- 모임 사진 (2026-11-23) ---------- */
+.cm-photos{display:grid;gap:10px}
+.cm-ph-grid{display:grid;gap:8px;grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (min-width:480px){.cm-ph-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (min-width:900px){.cm-ph-grid{grid-template-columns:repeat(5,minmax(0,1fr))}}
+.cm-ph{position:relative;border-radius:var(--radius);overflow:hidden;background:var(--concrete-3);aspect-ratio:1;border:1px solid var(--concrete-2)}
+.cm-ph img,.cm-ph-blank{width:100%;height:100%;object-fit:cover;display:block}
+.cm-ph.is-up img{opacity:.55}
+.cm-ph.is-err{border-color:var(--rust)}
+.cm-ph.is-err img{opacity:.35}
+.cm-ph-main{position:absolute;left:6px;top:6px;background:var(--cobalt);color:#fff;font-size:11px;font-weight:800;padding:2px 7px;border-radius:999px}
+.cm-ph-state{position:absolute;inset:auto 0 0 0;padding:6px;font-size:11.5px;font-weight:700;color:#fff;background:rgba(20,22,24,.72);display:flex;align-items:center;gap:6px;flex-wrap:wrap;line-height:1.35}
+.cm-ph-state.err{background:rgba(140,58,28,.88)}
+.cm-ph-state button{border:0;background:#fff;color:var(--graphite);border-radius:6px;padding:2px 8px;font-size:11.5px;font-weight:800}
+.cm-ph-spin{width:12px;height:12px;border-radius:50%;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;animation:cm-spin .8s linear infinite;flex:none}
+@keyframes cm-spin{to{transform:rotate(360deg)}}
+.cm-ph-del{position:absolute;right:5px;top:5px;width:28px;height:28px;border:0;border-radius:50%;background:rgba(20,22,24,.7);color:#fff;font-size:18px;line-height:1;display:grid;place-items:center}
+.cm-ph-del:hover{background:var(--rust)}
+.cm-ph-tools{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:space-between;gap:4px;padding:5px;background:linear-gradient(transparent,rgba(20,22,24,.72))}
+.cm-ph-tools button{min-width:26px;height:26px;padding:0 6px;border:0;border-radius:7px;background:rgba(255,255,255,.92);color:var(--graphite);font-size:13px;font-weight:800;line-height:1}
+.cm-ph-tools button:disabled{opacity:.35}
+.cm-ph-tools .main{white-space:nowrap;font-size:11.5px;font-weight:800}
+.cm-ph-tools span.main{flex:1}
+.cm-ph-tools button.main{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.cm-ph-tools button:not(:disabled):hover{background:#fff;color:var(--cobalt)}
+.cm-ph-drop{display:flex;align-items:center;gap:6px 12px;flex-wrap:wrap;padding:14px;border:1.5px dashed var(--concrete);border-radius:var(--radius-lg);background:#fff;transition:border-color .15s,background .15s}
+.cm-ph-drop.is-over{border-color:var(--cobalt);background:var(--cobalt-soft)}
+.cm-ph-drop.is-full{opacity:.6}
+.cm-ph-drop .btn{min-height:42px}
+.cm-ph-input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.cm-ph-input:focus-visible + label{outline:3px solid var(--cobalt);outline-offset:2px}
+.cm-ph-input:disabled + label{pointer-events:none;opacity:.5}
+.cm-ph-drop .tiny{flex-basis:100%}
+@media (min-width:720px){.cm-ph-drop .tiny{flex-basis:auto}}
+.cm-cover-alt summary{font-weight:700}
+.cm-ph-count{position:absolute;right:8px;bottom:8px;background:rgba(20,22,24,.72);color:#fff;font-size:11.5px;font-weight:800;padding:3px 8px;border-radius:999px}
+.cm-ph-count.big{right:12px;bottom:12px;font-size:13px;padding:5px 11px}
+.mt-card .ph{position:relative}
+/* 상세: 대표 사진·사진 모음 */
+.cm-cover{position:relative}
+.cm-cover button{display:block;width:100%;height:100%;border:0;padding:0;background:none;cursor:zoom-in}
+.cm-gallery{display:grid;gap:8px;grid-template-columns:repeat(3,minmax(0,1fr))}
+@media (min-width:720px){.cm-gallery{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.cm-gallery button{border:0;padding:0;background:var(--concrete-3);border-radius:var(--radius);overflow:hidden;aspect-ratio:1;cursor:zoom-in}
+.cm-gallery img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .2s}
+.cm-gallery button:hover img{transform:scale(1.04)}
+.cm-preview-note{margin-bottom:14px;border-color:var(--cobalt);background:var(--cobalt-soft)}
+/* 사진 크게 보기 */
+html.cm-lb-open{overflow:hidden}
+.cm-lb{position:fixed;inset:0;z-index:600;background:rgba(14,16,18,.97);display:flex;align-items:center;justify-content:center;touch-action:pan-y}
+.cm-lb figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:10px;max-width:100vw}
+.cm-lb img{max-width:min(100vw - 24px,1600px);max-height:calc(100vh - 90px);object-fit:contain;border-radius:6px;user-select:none;-webkit-user-drag:none}
+.cm-lb figcaption{color:#cfd3d8;font-size:13px;font-weight:700;min-height:18px}
+.cm-lb-x{position:absolute;top:12px;right:12px;width:44px;height:44px;border:0;border-radius:50%;background:rgba(255,255,255,.14);color:#fff;font-size:26px;line-height:1}
+.cm-lb-nav{position:absolute;top:50%;transform:translateY(-50%);width:48px;height:64px;border:0;border-radius:10px;background:rgba(255,255,255,.12);color:#fff;font-size:34px;line-height:1}
+.cm-lb-nav.prev{left:10px}.cm-lb-nav.next{right:10px}
+.cm-lb-x:hover,.cm-lb-nav:hover{background:rgba(255,255,255,.24)}
+@media (max-width:640px){.cm-lb-nav{width:40px;height:52px;font-size:28px;background:rgba(0,0,0,.35)}}
+@media (prefers-reduced-motion:reduce){.cm-ph-spin{animation:none}.cm-gallery img{transition:none}}

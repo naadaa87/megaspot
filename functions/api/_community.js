@@ -5,6 +5,7 @@
 //  · 모임 소개의 휴대폰·이메일은 화면 원문에 넣지 않고 '연락처 보기'를 눌렀을 때만 따로 내려보냅니다(무더기 수집 방지).
 import { str, num, now, uniqueRef, log, isEmail } from './_lib.js';
 import { httpsUrl, linkOk, phoneOk, safeJson, MEETUP_COVERS, MEETUP_REF } from './_platform.js';
+import { PHOTO_ID, photoUrl, publicPhoto, pickPhotos, attachPhotos, purgePhotosOf } from './_community_photos.js';
 
 export const BOARDS = { group: '모임 소개', free: '자유게시판' };
 const PREFIX = { group: 'CG', free: 'CF' };
@@ -148,7 +149,9 @@ export function cleanFree(d, { official = false } = {}) {
 }
 const clean = (board, d, opt) => board === 'group' ? cleanGroup(d, opt) : cleanFree(d, opt);
 const LINK_KEYS = ['join_url', 'contact_url', 'contact_phone', 'contact_email', 'kakao_id'];
-const SUMMARY_KEYS = ['summary', 'region', 'schedule', 'target', 'cycle', 'size', 'fee', 'fee_text', 'venue', 'recruiting', 'join_url', 'join_label', 'contact_url', 'contact_phone', 'contact_email', 'kakao_id', 'contact_note', 'cover', 'tags', 'meetup_ref', 'body'];
+const SUMMARY_KEYS = ['summary', 'region', 'schedule', 'target', 'cycle', 'size', 'fee', 'fee_text', 'venue', 'recruiting', 'join_url', 'join_label', 'contact_url', 'contact_phone', 'contact_email', 'kakao_id', 'contact_note', 'cover', 'tags', 'meetup_ref', 'body', 'photos'];
+// 글에 붙은 사진 (모임 소개) — 첫 사진이 대표 이미지
+const photosOf = d => Array.isArray(d.photos) ? d.photos.filter(x => x && PHOTO_ID.test(x.id)).slice(0, 10) : [];
 
 // ---------- 화면용 ----------
 const excerpt = s => String(s || '').replace(/\s+/g, ' ').trim().slice(0, 120);
@@ -158,11 +161,11 @@ export function publicPost(r, { full = false } = {}) {
     title: r.title, author: r.author, official: !!r.official, pinned: !!r.pinned, featured: !!r.featured,
     views: r.views || 0, likes: r.likes || 0, comments: r.comments || 0, published_at: r.publish_at || r.created_at, edited_at: d.edited_at || '' };
   if (b === 'group') {
-    const jk = linkKind(d.join_url), ck = linkKind(d.contact_url);
+    const jk = linkKind(d.join_url), ck = linkKind(d.contact_url), ph = photosOf(d);
     Object.assign(o, { summary: d.summary || '', region: d.region || '', schedule: d.schedule || '', cycle: d.cycle || '', cycle_label: CYCLES[d.cycle] || '', size: d.size || '', size_label: SIZES[d.size] || '',
-      fee: d.fee || '', fee_text: d.fee_text || '', venue: d.venue || '', venue_label: VENUES[d.venue] || '', recruiting: d.recruiting !== false, cover: d.cover || CAT_COVER[r.category] || 'v10', tags: d.tags || [],
+      fee: d.fee || '', fee_text: d.fee_text || '', venue: d.venue || '', venue_label: VENUES[d.venue] || '', recruiting: d.recruiting !== false, cover: ph.length ? photoUrl(ph[0].id, !full) : (d.cover || CAT_COVER[r.category] || 'v10'), photo_count: ph.length, tags: d.tags || [],
       join: d.join_url ? { url: d.join_url, kind: jk, site: LINK_LABEL[jk], label: d.join_label || JOIN_TEXT[jk] } : null });
-    if (full) Object.assign(o, { body: d.body || '', target: d.target || '', meetup_ref: d.meetup_ref || '',
+    if (full) Object.assign(o, { body: d.body || '', target: d.target || '', meetup_ref: d.meetup_ref || '', photos: ph.map(publicPhoto),
       contact: { url: d.contact_url || '', kind: ck, site: d.contact_url ? LINK_LABEL[ck] : '', label: d.contact_url ? ASK_TEXT[ck] : '', kakao_id: d.kakao_id || '', note: d.contact_note || '',
         has_phone: !!d.contact_phone, has_email: !!d.contact_email } });
   } else {
@@ -217,11 +220,16 @@ export async function homeFeed(env) {
 // ---------- 글 하나 ----------
 async function getPost(env, ref) { return env.DB.prepare(`SELECT ${COLS} FROM community_posts p WHERE p.ref = ?`).bind(ref).first(); }
 const visible = (r, t) => r && r.status === 'published' && (r.publish_at || '') <= t;
-export async function postDetail(env, ref, member) {
+// preview: 관리자 로그인 상태면 검토 대기·숨김 글도 화면 그대로 미리 봅니다(조회수는 올리지 않음)
+export async function postDetail(env, ref, member, { preview = false } = {}) {
   const r = await getPost(env, ref), t = now();
   if (!r || r.status === 'deleted') return null;
   const owner = !!(member && r.member_id && r.member_id === member.id);
-  if (!visible(r, t) && !owner) return null;
+  if (!visible(r, t) && !owner && !preview) return null;
+  if (preview && !owner && !visible(r, t)) {
+    const item = { ...publicPost(r, { full: true }), status: r.status, status_label: STATUS[r.status] || r.status };
+    return { item, comments: [], me: { logged_in: !!member, owner: false, liked: false, blocked: false, preview: true }, comments_open: false };
+  }
   if (visible(r, t) && !owner) await env.DB.prepare('UPDATE community_posts SET views = views + 1 WHERE ref = ?').bind(ref).run();
   const cfg = await getConfig(env);
   const { results } = await env.DB.prepare("SELECT id, member_id, author, official, body, created_at FROM community_comments WHERE post_ref = ? AND status = 'published' ORDER BY created_at, id LIMIT 300").bind(ref).all();
@@ -253,13 +261,16 @@ export async function createPost(env, member, d) {
   const since = new Date(Date.now() - 10 * 6e4).toISOString().slice(0, 19).replace('T', ' ');
   if (await env.DB.prepare("SELECT 1 AS x FROM community_posts WHERE member_id = ? AND title = ? AND created_at >= ? AND status != 'deleted'").bind(member.id, o.title, since).first())
     return { error: '같은 제목의 글을 방금 올리셨습니다. 내 글에서 확인해 주세요.', status: 409, code: 'DUPLICATE' };
+  let photos = [];
+  if (board === 'group') { const p = await pickPhotos(env, member.id, null, d.photos); if (p.error) return p; photos = p.list || []; }
   const t = now(), status = cfg[board].mode === 'review' ? 'pending' : 'published';
   const ref = await uniqueRef(env, 'community_posts', 'ref', PREFIX[board]);
   const { title, category, ...rest } = o;
-  const data = { ...rest, agreed_at: t };
+  const data = { ...rest, ...(photos.length ? { photos } : {}), agreed_at: t };
   await env.DB.prepare('INSERT INTO community_posts (ref, board, status, category, title, member_id, author, official, pinned, featured, data, publish_at, created_at) VALUES (?,?,?,?,?,?,?,0,0,0,?,?,?)')
     .bind(ref, board, status, category, title, member.id, author, JSON.stringify(data), t, t).run();
-  await log(env, 'community.post', ref, 'member:' + member.id, { board, status });
+  if (photos.length) await attachPhotos(env, ref, photos, []);
+  await log(env, 'community.post', ref, 'member:' + member.id, { board, status, photos: photos.length });
   return { ok: true, ref, board, status, status_label: STATUS[status] };
 }
 async function ownPost(env, member, ref) {
@@ -280,11 +291,15 @@ export async function updatePost(env, member, ref, d) {
   if (r.board === 'group' && !d.agree_public) return { error: '적은 참여 링크·문의처가 모임 소개에 공개된다는 데 동의해 주세요.' };
   const author = nickOk(d.author || r.author, member); if (author.error) return author;
   const bad = bannedIn(cfg, o.title, o.summary || '', o.body); if (bad) return { error: `쓸 수 없는 낱말(${bad})이 들어 있습니다. 고쳐서 다시 올려 주세요.` };
+  // 사진: 보낸 목록으로 맞춥니다(빠진 사진은 지움). 사진 목록을 보내지 않은 요청은 그대로 둡니다
+  const pk = r.board === 'group' ? await pickPhotos(env, member.id, ref, d.photos) : { list: null }; if (pk.error) return pk;
+  const prevPhotos = photosOf(cur), photos = pk.list === null ? prevPhotos : pk.list;
   const t = now(), review = cfg[r.board].mode === 'review';
   const linksChanged = r.board === 'group' && LINK_KEYS.some(k => String(cur[k] || '') !== String(o[k] || ''));
   let status = r.status, publish = r.publish_at, note = '';
   const { title, category, ...rest } = o;
-  const data = { ...cur, ...rest, edited_at: t };
+  const data = { ...cur, ...rest, photos, edited_at: t };
+  if (!photos.length) delete data.photos;
   delete data.reject_reason;
   if (r.status === 'rejected') { status = review ? 'pending' : 'published'; if (status === 'published') publish = t; note = review ? '고친 내용을 운영팀이 다시 확인합니다.' : ''; }
   else if (r.status === 'published' && review && linksChanged) { status = 'pending'; data.recheck = true; note = '참여 링크·문의처가 바뀌어 운영팀이 다시 확인한 뒤 게시합니다.'; }
@@ -292,7 +307,8 @@ export async function updatePost(env, member, ref, d) {
   else if (r.status === 'hidden') { data.recheck = true; note = '운영팀이 숨긴 글은 고쳐도 바로 다시 보이지 않습니다. 운영팀이 확인합니다.'; }
   await env.DB.prepare('UPDATE community_posts SET status = ?, category = ?, title = ?, author = ?, data = ?, publish_at = ?, updated_at = ? WHERE ref = ?')
     .bind(status, category, title, author, JSON.stringify(data), publish, t, ref).run();
-  await log(env, 'community.edit', ref, 'member:' + member.id, { from: r.status, to: status, links: linksChanged });
+  if (pk.list !== null) await attachPhotos(env, ref, photos, prevPhotos.map(p => p.id));
+  await log(env, 'community.edit', ref, 'member:' + member.id, { from: r.status, to: status, links: linksChanged, photos: photos.length });
   return { ok: true, ref, board: r.board, status, status_label: STATUS[status], note };
 }
 export async function deletePost(env, member, ref) {
@@ -398,6 +414,7 @@ export async function purgeDeleted(env) {
     for (const tbl of ['community_comments', 'community_reactions', 'community_reports']) await env.DB.prepare(`DELETE FROM ${tbl} WHERE post_ref IN (SELECT value FROM json_each(?))`).bind(list).run();
     await env.DB.prepare('DELETE FROM community_posts WHERE ref IN (SELECT value FROM json_each(?))').bind(list).run();
   }
+  try { await purgePhotosOf(env, refs); } catch (e) { console.error('community photo purge', e && e.message); }
   await env.DB.prepare("DELETE FROM community_comments WHERE status = 'deleted' AND COALESCE(updated_at, created_at) < ?").bind(before).run();
   return refs.length;
 }

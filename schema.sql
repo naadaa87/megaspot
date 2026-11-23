@@ -1132,6 +1132,23 @@ CREATE TABLE IF NOT EXISTS community_posts (   -- 커뮤니티 글: 모임 소�
 );
 CREATE INDEX IF NOT EXISTS idx_community_posts_board ON community_posts(board, status, publish_at);
 CREATE INDEX IF NOT EXISTS idx_community_posts_member ON community_posts(member_id, created_at);
+CREATE TABLE IF NOT EXISTS community_photos (   -- 커뮤니티 모임 사진 (2026-11-23) · 글에 붙기 전에는 post_ref 가 비어 있고 24시간 뒤 지움
+  id TEXT PRIMARY KEY,                       -- 사진 번호 (무작위 22자) · /api/community/photo/<번호>
+  member_id INTEGER,                         -- 올린 회원
+  post_ref TEXT,                             -- 붙은 글 CG-… (비어 있으면 아직 임시)
+  sort INTEGER NOT NULL DEFAULT 0,           -- 글 안 순서 (1 = 대표 사진)
+  mime TEXT NOT NULL,                        -- image/jpeg · image/png · image/webp
+  thumb_mime TEXT,                           -- 목록용 작은 사진 형식
+  bytes INTEGER,                             -- 원본(줄인 사진) 크기
+  w INTEGER, h INTEGER,                      -- 가로·세로 픽셀
+  store TEXT NOT NULL DEFAULT 'd1',          -- d1 = 아래 body·thumb 에 담음 · r2 = R2 버킷(MEDIA)에 담음
+  body TEXT,                                 -- 사진 (base64, d1 일 때만)
+  thumb TEXT,                                -- 목록용 작은 사진 (base64, d1 일 때만)
+  created_at TEXT NOT NULL,
+  attached_at TEXT                           -- 글에 처음 붙은 시각
+);
+CREATE INDEX IF NOT EXISTS idx_community_photos_post ON community_photos(post_ref, sort);
+CREATE INDEX IF NOT EXISTS idx_community_photos_member ON community_photos(member_id, post_ref, created_at);
 CREATE TABLE IF NOT EXISTS community_comments (   -- 커뮤니티 댓글
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   post_ref TEXT NOT NULL,

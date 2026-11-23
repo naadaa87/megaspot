@@ -6,8 +6,11 @@
 //         GET  /api/community/posts/<CG-…>/contact       모임 소개의 전화·이메일 ('연락처 보기')
 //  회원   POST /api/community/posts                      글쓰기 · PUT /posts/<번호> 고치기 · PATCH /posts/<번호> {recruiting} · DELETE /posts/<번호>
 //         POST /api/community/posts/<번호>/like · POST /posts/<번호>/comments · DELETE /comments/<id> · POST /report · GET /mine
+//         POST /api/community/photos {body, thumb, w, h}  모임 사진 올리기(임시) · DELETE /photos/<번호> 아직 글에 붙지 않은 사진 지우기
+//  사진   GET  /api/community/photo/<번호>[?t=1]          게시 중인 글의 사진은 누구나, 그 밖에는 쓴 회원·관리자만
 //  관리자 /api/community/admin/* (관리자 로그인 필요) — summary · posts · bulk · comments · reports · settings · block
-import { json, err, hasDb, readJson, num, getMember, clientIp, tooMany, hit, sameOrigin, requireAdmin, log } from '../_lib.js';
+import { json, err, hasDb, readJson, num, getMember, clientIp, tooMany, hit, sameOrigin, requireAdmin, log, getCookie } from '../_lib.js';
+import { savePhoto, removeTemp, servePhoto, UPLOADS_PER_HOUR } from '../_community_photos.js';
 import { POST_REF, BOARDS, GROUP_CATS, FREE_CATS, STATUS, CYCLES, SIZES, VENUES, REPORT_REASONS, getConfig, saveConfig, setBlocked, blockedList,
   listPosts, homeFeed, postDetail, contactOf, createPost, updatePost, deletePost, myPosts, toggleLike, addComment, deleteComment, report,
   adminSummary, adminList, adminDetail, adminCreate, adminPatch, adminBulk, adminComments, adminCommentStatus, adminReply, adminReports, adminReport } from '../_community.js';
@@ -54,6 +57,8 @@ export async function onRequest({ request, env, params }) {
     if (parts[0] === 'admin') return await admin(request, env, parts.slice(1).join('/'), method, url);
     if (method !== 'GET' && !sameOrigin(request)) return err('허용되지 않은 요청입니다.', 403, 'FORBIDDEN');
     const q = Object.fromEntries(url.searchParams);
+    let pm = path.match(/^photo\/([A-Za-z0-9_-]{1,40})$/);
+    if (pm && method === 'GET') return await servePhoto(env, request, pm[1], q.t === '1');
     if (path === 'home' && method === 'GET') return json({ ok: true, ...(await homeFeed(env)) }, 200, { 'cache-control': 'public, max-age=30' });
     if (path === 'list' && method === 'GET') {
       const [r, cfg] = await Promise.all([listPosts(env, q), getConfig(env)]);
@@ -69,7 +74,12 @@ export async function onRequest({ request, env, params }) {
     if (m) {
       const ref = m[1].toUpperCase();
       if (!POST_REF.test(ref)) return err('글을 찾을 수 없습니다.', 404, 'NOT_FOUND');
-      if (!m[2] && method === 'GET') { const d = await postDetail(env, ref, member); return d ? json({ ok: true, ...d }, 200, { 'cache-control': 'no-store' }) : err('글을 찾을 수 없거나 아직 게시되지 않았습니다.', 404, 'NOT_FOUND'); }
+      if (!m[2] && method === 'GET') {
+        let d = await postDetail(env, ref, member);
+        // 관리자로 로그인한 브라우저는 검토 대기·숨김 글도 공개 화면 그대로 미리 봅니다(사진 확인용)
+        if (!d && getCookie(request, 'ms_admin') && !(await requireAdmin(request, env))) d = await postDetail(env, ref, member, { preview: true });
+        return d ? json({ ok: true, ...d }, 200, { 'cache-control': 'no-store' }) : err('글을 찾을 수 없거나 아직 게시되지 않았습니다.', 404, 'NOT_FOUND');
+      }
       if (m[2] === 'contact' && method === 'GET') {
         if (await limited(env, 'ccontact:' + clientIp(request), 30, 10)) return tooManyErr();
         const c = await contactOf(env, ref); return c ? json({ ok: true, ...c }, 200, { 'cache-control': 'no-store', 'x-robots-tag': 'noindex' }) : err('연락처를 찾을 수 없습니다.', 404, 'NOT_FOUND');
@@ -97,6 +107,16 @@ export async function onRequest({ request, env, params }) {
       if (!r.error) { try { await hit(env, key, win); } catch {} }
       return out(r);
     }
+    // 모임 사진 올리기 · 지우기 (회원)
+    if (path === 'photos' && method === 'POST') {
+      if (!member) return loginErr();
+      const cfg = await getConfig(env);
+      if (cfg.blocked.some(b => num(b.id) === num(member.id))) return err('커뮤니티 글쓰기가 제한된 계정입니다.', 403, 'BLOCKED');
+      if (await limited(env, 'cphoto:' + member.id, UPLOADS_PER_HOUR, 60)) return err(`사진은 한 시간에 ${UPLOADS_PER_HOUR}장까지 올릴 수 있습니다. 잠시 후 다시 시도해 주세요.`, 429, 'TOO_MANY');
+      return out(await savePhoto(env, member, await readJson(request, 1300 * 1024)));
+    }
+    pm = path.match(/^photos\/([A-Za-z0-9_-]{1,40})$/);
+    if (pm && method === 'DELETE') { if (!member) return loginErr(); return out(await removeTemp(env, member, pm[1])); }
     m = path.match(/^comments\/(\d{1,9})$/);
     if (m && method === 'DELETE') { if (!member) return loginErr(); return out(await deleteComment(env, member, +m[1])); }
     if (path === 'report' && method === 'POST') {

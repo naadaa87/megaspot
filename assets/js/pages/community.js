@@ -51,12 +51,149 @@ var C={
   function viewUrl(x){ return (x.board==='group'?'/community/groups/view/?id=':'/community/free/view/?id=')+encodeURIComponent(x.ref); }
   function officialBadge(x){ return x.official?'<span class="cm-off">공식</span>':''; }
 
+
+  /* ---------- 모임 사진: 고르기 → 브라우저에서 줄이기 → 한 장씩 올리기 ----------
+     긴 변 1600px로 줄이고(목록용 작은 사진 480px도 함께) 다시 저장하므로 사진 속 위치 정보(GPS) 같은 정보는 빠집니다.
+     올린 사진은 글을 저장할 때 그 글에 붙고, 저장하지 않으면 하루 뒤 지워집니다. 서버: /api/community/photos */
+  var PH_MAX=10, PH_EDGE=1600, PH_THUMB=480, PH_LIMIT=800000, PH_TLIMIT=120000;
+  function phDecode(file){
+    function viaImg(){ return new Promise(function(ok, no){ var u=URL.createObjectURL(file), im=new Image(); im.onload=function(){ ok(im); setTimeout(function(){ URL.revokeObjectURL(u); }, 2000); }; im.onerror=function(){ URL.revokeObjectURL(u); no(new Error('decode')); }; im.src=u; }); }
+    if(window.createImageBitmap){ try{ return createImageBitmap(file, { imageOrientation:'from-image' }).catch(viaImg); }catch(e){ return viaImg(); } }
+    return viaImg();
+  }
+  function phEncode(src, edge, type, qs, limit){
+    var w=src.width||src.naturalWidth, h=src.height||src.naturalHeight; if(!w||!h) return null;
+    var k=Math.min(1, edge/Math.max(w,h)), cw=Math.max(1,Math.round(w*k)), ch=Math.max(1,Math.round(h*k));
+    var c=document.createElement('canvas'); c.width=cw; c.height=ch;
+    var x=c.getContext('2d'); x.fillStyle='#fff'; x.fillRect(0,0,cw,ch); x.imageSmoothingEnabled=true; x.imageSmoothingQuality='high'; x.drawImage(src,0,0,cw,ch);
+    for(var i=0;i<qs.length;i++){
+      var d=c.toDataURL(type, qs[i]);
+      if(d.indexOf('data:'+type)!==0) d=c.toDataURL('image/jpeg', qs[i]);   // WebP로 저장하지 못하는 브라우저(일부 Safari)는 JPG로
+      var b=d.slice(d.indexOf(',')+1); if(b.length<=limit) return { data:b, w:cw, h:ch };
+    }
+    return null;
+  }
+  function phShrink(file){
+    return phDecode(file).then(function(img){
+      var big=phEncode(img, PH_EDGE, 'image/webp', [0.82,0.72,0.62], PH_LIMIT)||phEncode(img, 1280, 'image/jpeg', [0.72,0.58], PH_LIMIT);
+      var th=phEncode(img, PH_THUMB, 'image/jpeg', [0.8,0.66,0.5], PH_TLIMIT);
+      if(img.close) img.close();
+      if(!big) throw new Error('big');
+      return { body:big.data, thumb:th?th.data:'', w:big.w, h:big.h };
+    });
+  }
+  function phIsImage(f){ return f && (/^image\//.test(f.type||'') || /\.(jpe?g|png|webp|gif|heic|heif|bmp)$/i.test(f.name||'')); }
+  // 글쓰기 화면의 사진 칸
+  function photoBox(el, initial, onChange){
+    var list=(initial||[]).map(function(p){ return { id:p.id, thumb:p.thumb, w:p.w, h:p.h, state:'done' }; });
+    var queue=[], active=0;
+    el.innerHTML='<div class="cm-ph-grid" data-grid></div>'
+      +'<div class="cm-ph-drop" data-drop><input type="file" accept="image/*" multiple id="cm-ph-file" class="cm-ph-input"><label for="cm-ph-file" class="btn btn-light"><span aria-hidden="true">＋</span> 사진 고르기</label>'
+      +'<span class="small" data-room></span><span class="tiny muted">여러 장을 한 번에 골라도 됩니다 · 이곳에 끌어다 놓거나 복사한 사진을 붙여 넣어도 돼요</span></div>'
+      +'<p class="form-note" data-perr hidden></p>';
+    var grid=$('[data-grid]', el), input=$('#cm-ph-file', el), drop=$('[data-drop]', el), perr=$('[data-perr]', el);
+    function say(m){ perr.hidden=!m; perr.textContent=m||''; }
+    function draw(){
+      grid.innerHTML=list.map(function(p,i){
+        var src=p.preview||p.thumb||'';
+        return '<div class="cm-ph'+(p.state!=='done'?' is-'+p.state:'')+'" data-i="'+i+'">'
+          +(src?'<img src="'+esc(src)+'" alt="모임 사진 '+(i+1)+'" decoding="async" onerror="this.style.visibility=\'hidden\'">':'<span class="cm-ph-blank"></span>')
+          +(i===0?'<span class="cm-ph-main">대표</span>':'')
+          +(p.state==='up'?'<span class="cm-ph-state"><i class="cm-ph-spin" aria-hidden="true"></i>올리는 중</span>':'')
+          +(p.state==='err'?'<span class="cm-ph-state err">'+esc(p.msg||'올리지 못했어요')+(p.file&&p.retry!==false?'<button type="button" data-retry>다시 올리기</button>':'')+'</span>':'')
+          +'<button type="button" class="cm-ph-del" data-del aria-label="'+(i+1)+'번째 사진 빼기">×</button>'
+          +(p.state==='done'&&list.length>1?'<div class="cm-ph-tools">'
+            +'<button type="button" data-mv="-1" aria-label="앞으로 옮기기"'+(i===0?' disabled':'')+'>‹</button>'
+            +(i>0?'<button type="button" class="main" data-main>대표로</button>':'<span class="main"></span>')
+            +'<button type="button" data-mv="1" aria-label="뒤로 옮기기"'+(i===list.length-1?' disabled':'')+'>›</button>'
+          +'</div>':'')
+          +'</div>';
+      }).join('');
+      grid.hidden=!list.length;
+      var room=PH_MAX-list.length;
+      $('[data-room]', el).innerHTML=list.length?'<b>'+list.length+'장</b> · '+(room>0?room+'장 더 올릴 수 있어요':'10장을 모두 채웠어요'):'<b>10장까지</b> · 첫 사진이 대표 이미지가 됩니다';
+      input.disabled=room<=0; drop.classList.toggle('is-full', room<=0);
+      if(onChange) onChange();
+    }
+    function add(files){
+      files=[].slice.call(files||[]);
+      var imgs=files.filter(phIsImage), room=PH_MAX-list.length;
+      if(!imgs.length){ if(files.length) say('사진 파일만 올릴 수 있습니다.'); return; }
+      say(imgs.length>room?(room>0?'사진은 10장까지라 앞의 '+room+'장만 올립니다.':'사진은 10장까지 올릴 수 있습니다. 빼고 싶은 사진을 먼저 지워 주세요.'):'');
+      imgs.slice(0, Math.max(0,room)).forEach(function(f){
+        var p={ state:'up', file:f, fresh:true }; try{ p.preview=URL.createObjectURL(f); }catch(e){}
+        list.push(p); queue.push(p);
+      });
+      draw(); pump();
+    }
+    function pump(){ while(active<2 && queue.length){ active++; send(queue.shift()).then(function(){ active--; pump(); }); } }
+    function send(p){
+      p.state='up'; p.msg=''; draw();
+      return phShrink(p.file).then(function(img){ return api('photos',{ method:'POST', body:img }); })
+        .then(function(r){ if(list.indexOf(p)<0){ api('photos/'+encodeURIComponent(r.photo.id),{ method:'DELETE' }).catch(function(){}); return; } p.id=r.photo.id; p.thumb=r.photo.thumb; p.w=r.photo.w; p.h=r.photo.h; p.state='done'; })
+        .catch(function(e){
+          p.state='err'; p.retry=true;
+          if(e && e.message==='decode'){ p.msg='이 형식은 열 수 없어요. JPG·PNG로 바꿔 주세요'; p.retry=false; }
+          else if(e && e.message==='big'){ p.msg='사진이 너무 커요'; p.retry=false; }
+          else { p.msg=errText(e); if(e && e.status===401) p.msg='로그인이 끝났어요. 다시 로그인해 주세요'; }
+        })
+        .then(draw);
+    }
+    input.addEventListener('change', function(){ add(input.files); input.value=''; });
+    ['dragenter','dragover'].forEach(function(t){ el.addEventListener(t, function(e){ if(e.dataTransfer && [].indexOf.call(e.dataTransfer.types||[],'Files')>=0){ e.preventDefault(); drop.classList.add('is-over'); } }); });
+    ['dragleave','drop'].forEach(function(t){ el.addEventListener(t, function(e){ if(t==='dragleave' && el.contains(e.relatedTarget)) return; drop.classList.remove('is-over'); }); });
+    el.addEventListener('drop', function(e){ if(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length){ e.preventDefault(); add(e.dataTransfer.files); } });
+    document.addEventListener('paste', function(e){
+      var items=(e.clipboardData&&e.clipboardData.items)||[], files=[];
+      for(var i=0;i<items.length;i++) if(items[i].kind==='file' && /^image\//.test(items[i].type)){ var f=items[i].getAsFile(); if(f) files.push(f); }
+      if(files.length){ e.preventDefault(); add(files); el.scrollIntoView({ block:'nearest' }); }
+    });
+    grid.addEventListener('click', function(e){
+      var box=e.target.closest('[data-i]'); if(!box) return; var i=+box.dataset.i, p=list[i]; if(!p) return;
+      if(e.target.closest('[data-del]')){
+        list.splice(i,1); queue=queue.filter(function(q){ return q!==p; });
+        if(p.preview) try{ URL.revokeObjectURL(p.preview); }catch(x){}
+        if(p.fresh && p.id) api('photos/'+encodeURIComponent(p.id),{ method:'DELETE' }).catch(function(){});
+        say(''); draw(); return;
+      }
+      if(e.target.closest('[data-main]')){ list.splice(i,1); list.unshift(p); draw(); return; }
+      var mv=e.target.closest('[data-mv]'); if(mv){ var j=i+(+mv.dataset.mv); if(j<0||j>=list.length) return; list[i]=list[j]; list[j]=p; draw(); return; }
+      if(e.target.closest('[data-retry]')){ queue.push(p); pump(); }
+    });
+    draw();
+    return {
+      ids:function(){ return list.filter(function(p){ return p.state==='done' && p.id; }).map(function(p){ return p.id; }); },
+      busy:function(){ return list.some(function(p){ return p.state==='up'; }); },
+      failed:function(){ return list.filter(function(p){ return p.state==='err'; }).length; },
+      first:function(){ var p=list[0]; return p?(p.thumb||p.preview||''):''; },
+      count:function(){ return list.length; }
+    };
+  }
+  // 상세 화면의 사진 크게 보기
+  function lightbox(photos, start){
+    var i=start||0, prevFocus=document.activeElement, sx=null;
+    var box=document.createElement('div'); box.className='cm-lb'; box.setAttribute('role','dialog'); box.setAttribute('aria-modal','true'); box.setAttribute('aria-label','모임 사진 크게 보기');
+    box.innerHTML='<button type="button" class="cm-lb-x" data-x aria-label="닫기">×</button>'
+      +(photos.length>1?'<button type="button" class="cm-lb-nav prev" data-go="-1" aria-label="이전 사진">‹</button><button type="button" class="cm-lb-nav next" data-go="1" aria-label="다음 사진">›</button>':'')
+      +'<figure><img alt=""><figcaption></figcaption></figure>';
+    var img=box.querySelector('img'), cap=box.querySelector('figcaption');
+    function show(){ var p=photos[i]; img.src=p.src; img.alt='모임 사진 '+(i+1); cap.textContent=photos.length>1?(i+1)+' / '+photos.length:''; }
+    function go(d){ i=(i+d+photos.length)%photos.length; show(); }
+    function close(){ document.removeEventListener('keydown', key); box.remove(); document.documentElement.classList.remove('cm-lb-open'); if(prevFocus&&prevFocus.focus) prevFocus.focus(); }
+    function key(e){ if(e.key==='Escape') close(); else if(e.key==='ArrowLeft') go(-1); else if(e.key==='ArrowRight') go(1); else if(e.key==='Tab'){ e.preventDefault(); box.querySelector('[data-x]').focus(); } }
+    box.addEventListener('click', function(e){ if(e.target.closest('[data-x]')||e.target===box||e.target.tagName==='FIGURE') return close(); var g=e.target.closest('[data-go]'); if(g) go(+g.dataset.go); });
+    box.addEventListener('pointerdown', function(e){ sx=e.clientX; });
+    box.addEventListener('pointerup', function(e){ if(sx===null) return; var dx=e.clientX-sx; sx=null; if(Math.abs(dx)>50 && photos.length>1) go(dx<0?1:-1); });
+    document.addEventListener('keydown', key);
+    document.body.appendChild(box); document.documentElement.classList.add('cm-lb-open'); show(); box.querySelector('[data-x]').focus();
+  }
+
   // 모임 소개 카드 (목록·첫 화면·미리보기 같이 씀)
   function groupCard(x, preview){
     var meta=[x.region, x.cycle_label?(x.cycle_label+(x.schedule?'':' 모임')):'', x.size_label].filter(Boolean).slice(0,3);
     var tag=preview?'div':'a';
     return '<'+tag+' class="mt-card cm-gcard'+(x.featured?' is-featured':'')+'"'+(preview?'':' href="'+viewUrl(x)+'"')+'>'
-      +'<div class="ph"><img src="'+esc(M.coverSrc(x.cover,'m'))+'" alt="" loading="lazy" decoding="async"><span class="mt-cat">'+esc(x.cat_label||'모임')+'</span>'+(x.featured?'<span class="cm-pick">추천 모임</span>':'')+'</div>'
+      +'<div class="ph"><img src="'+esc(/^blob:/.test(x.cover||'')?x.cover:M.coverSrc(x.cover,'m'))+'" alt="" loading="lazy" decoding="async"><span class="mt-cat">'+esc(x.cat_label||'모임')+'</span>'+(x.featured?'<span class="cm-pick">추천 모임</span>':'')+(x.photo_count>1?'<span class="cm-ph-count">사진 '+num(x.photo_count)+'</span>':'')+'</div>'
       +'<div class="bd"><div class="cm-gstate'+(x.recruiting===false?' off':'')+'">'+(x.recruiting===false?'지금은 멤버를 받지 않아요':'새 멤버 모집 중')+'</div>'
       +'<h3>'+esc(x.title||'모임 이름')+'</h3><p class="mt-sum">'+esc(x.summary||'')+'</p>'
       +(meta.length?'<div class="mt-meta">'+meta.map(function(m){ return '<span>'+esc(m)+'</span>'; }).join('')+'</div>':'')
@@ -233,7 +370,12 @@ var C={
           +(!ct.url&&!ct.kakao_id&&!ct.has_phone&&!ct.has_email?'<p class="small muted">아래 묻고 답하기에 궁금한 점을 남겨 주세요.</p>':'')
         +'</div>'+actRow(d,'관심')+'</div>'
         +'<div class="notice mt-2 small"><div>모임 소개는 운영자가 직접 적은 내용입니다. 회비를 먼저 보내라고 하거나 개인 정보를 과하게 묻는 등 이상한 점이 있으면 신고해 주세요.</div></div>';
-      var main='<div class="mv-cover"><img src="'+esc(M.coverSrc(x.cover,'m'))+'" alt="" decoding="async"></div>'
+      var photos=x.photos||[];
+      var cover=photos.length
+        ?'<div class="mv-cover cm-cover"><button type="button" data-ph="0" aria-label="모임 사진 크게 보기"><img src="'+esc(photos[0].src)+'" alt="'+esc(x.title)+' 대표 사진" decoding="async"></button>'+(photos.length>1?'<span class="cm-ph-count big">사진 '+num(photos.length)+'장</span>':'')+'</div>'
+        :'<div class="mv-cover"><img src="'+esc(M.coverSrc(x.cover,'m'))+'" alt="" decoding="async"></div>';
+      var main=(d.me&&d.me.preview?'<div class="notice cm-preview-note"><div><b>관리자 미리보기</b> · 아직 공개되지 않은 글입니다(지금 상태: '+esc(x.status_label||'')+'). 사진과 내용을 확인한 뒤 관리자 화면에서 게시해 주세요.</div></div>':'')
+        +cover
         +'<div class="mv-head"><div class="row" style="gap:6px"><span class="badge badge-cobalt">'+esc(x.cat_label)+'</span>'+(x.featured?'<span class="badge cm-badge-pick">추천 모임</span>':'')+(x.venue&&x.venue!=='planned'?'<span class="badge badge-soft">메가스팟에서 모이는 모임</span>':'')+'</div>'
         +'<h1 class="h-l mt-1">'+esc(x.title)+'</h1><p class="lead mt-1">'+esc(x.summary)+'</p>'
         +'<p class="small muted mt-1">올린 사람 '+esc(x.author)+officialBadge(x)+' · '+esc(when(x.published_at,true).slice(0,10))+(x.edited_at?' · 고침':'')+' · 조회 '+num(x.views)+'</p></div>'
@@ -241,6 +383,7 @@ var C={
         +ownerBar(x)
         +(facts.length?'<dl class="cm-facts">'+facts.map(function(f){ return '<div><dt>'+esc(f[0])+'</dt><dd>'+esc(f[1])+'</dd></div>'; }).join('')+'</dl>':'')
         +'<section class="mv-sec"><h2>모임 소개</h2><div class="mv-text">'+text(x.body)+'</div></section>'
+        +(photos.length>1?'<section class="mv-sec"><h2>모임 사진 <span class="muted small">'+num(photos.length)+'장</span></h2><div class="cm-gallery">'+photos.map(function(p,i){ return '<button type="button" data-ph="'+i+'" aria-label="사진 '+(i+1)+' 크게 보기"><img src="'+esc(p.thumb)+'" alt="'+esc(x.title)+' 사진 '+(i+1)+'" loading="lazy" decoding="async"></button>'; }).join('')+'</div></section>':'')
         +(x.target?'<section class="mv-sec"><h2>이런 분께 추천해요</h2><p class="mv-text">'+text(x.target)+'</p></section>':'')
         +venueBlock(x)
         +(x.meetup_ref?'<section class="mv-sec" id="cm-meetup" hidden><h2>참가 신청을 받고 있는 모임</h2><div id="cm-meetup-card"></div></section>':'')
@@ -249,6 +392,7 @@ var C={
       root.innerHTML='<div class="mv-layout"><div class="mv-main">'+main+'</div><aside class="mv-side" id="cm-side">'+side+'</aside></div>';
       bindActs(root, d); bindComments(root, d); bindOwner(root, x);
       root.addEventListener('click', function(e){
+        var ph=e.target.closest('[data-ph]'); if(ph && photos.length){ lightbox(photos, +ph.dataset.ph); return; }
         var cp=e.target.closest('[data-copy]'); if(cp) M.copy(cp.dataset.copy).then(function(ok){ M.toast(ok?'카카오톡 아이디를 복사했습니다.':'복사하지 못했습니다.'); });
         var rv=e.target.closest('[data-reveal]'); if(rv){ rv.disabled=true; api('posts/'+encodeURIComponent(ref)+'/contact').then(function(c){
           $('#cm-contact').innerHTML=(c.phone?'<a class="cm-reveal" href="tel:'+esc(c.phone.replace(/[^0-9+]/g,''))+'"><span>전화</span><b>'+esc(c.phone)+'</b></a>':'')+(c.email?'<a class="cm-reveal" href="mailto:'+esc(c.email)+'"><span>이메일</span><b>'+esc(c.email)+'</b></a>':'');
@@ -350,15 +494,20 @@ var C={
         :'<div class="card mn-tips"><b>함께 지켜 주세요</b><ul><li>광고·홍보 글, 같은 글 반복은 숨김 처리됩니다. 모임 홍보는 모임 소개 게시판을 이용해 주세요.</li><li>다른 사람의 연락처·사진 같은 개인정보는 올리지 말아 주세요.</li><li>욕설·비방, 돈을 먼저 보내라는 글은 신고해 주세요. 신고가 여러 건 쌓이면 먼저 숨겨집니다.</li><li>링크는 한 글에 3개까지 넣을 수 있습니다.</li><li data-mode-tip>올리면 바로 게시됩니다.</li></ul><p class="tiny muted mt-2"><a href="/community/#rules" style="text-decoration:underline">커뮤니티 이용 규칙 전체 보기</a></p></div>';
       root.innerHTML=tabs+'<div class="mn-layout">'+form+'<aside class="mn-side">'+side+'</aside></div>';
       var f=$('#cm-wform');
-      if(board==='group') bindGroupForm(f, raw);
+      var photos=board==='group'?bindGroupForm(f, raw, item):null;
       // 운영팀이 게시 방식을 바꿨을 수 있으니 안내 문구를 맞춥니다
       api('meta').then(function(m){ var mode=m.modes&&m.modes[board]; if(!mode) return; $$('[data-mode-tip]').forEach(function(el){ el.textContent=mode==='review'?'운영팀이 내용을 확인한 뒤 게시합니다.'+(board==='group'?' 참여 링크·문의처를 바꾸면 다시 확인합니다.':' 보통 1영업일 안에 확인합니다.'):'올리면 바로 게시됩니다. 규칙에 어긋나면 운영팀이 내릴 수 있습니다.'; }); }).catch(function(){});
       $$('[data-count]', f).forEach(function(s){ var el=$('#'+s.dataset.count); function c(){ s.textContent=el.value.length; } el.addEventListener('input', c); c(); });
       f.addEventListener('submit', function(e){
         e.preventDefault();
         var o=M.formData(f); o.board=board; o.agree_rules=!!f.elements.agree_rules.checked; if(f.elements.agree_public) o.agree_public=!!f.elements.agree_public.checked;
-        if(board==='group'){ o.recruiting=!!f.elements.recruiting.checked; var cu=String(o.cover_url||'').trim(); if(/^https:\/\//.test(cu)) o.cover=cu; delete o.cover_url; }
         var msg=$('#cm-wmsg'), btn=f.querySelector('[type=submit]');
+        if(board==='group'){
+          o.recruiting=!!f.elements.recruiting.checked; var cu=String(o.cover_url||'').trim(); if(/^https:\/\//.test(cu)) o.cover=cu; delete o.cover_url;
+          if(photos && photos.busy()){ msg.hidden=false; msg.className='form-note'; msg.textContent='사진을 올리는 중입니다. 다 올라간 뒤 다시 눌러 주세요.'; return; }
+          if(photos && photos.failed()){ msg.hidden=false; msg.className='form-note'; msg.textContent='올리지 못한 사진이 있습니다. 다시 올리거나 × 를 눌러 빼 주세요.'; return; }
+          if(photos) o.photos=photos.ids();
+        }
         if(!M.validate(f)){ msg.hidden=false; msg.className='form-note'; msg.textContent='빨간 표시가 있는 칸을 채워 주세요.'; return; }
         btn.disabled=true; msg.hidden=true; saveNick(String(o.author||'').trim());
         api(editing?'posts/'+encodeURIComponent(ref):'posts',{ method:editing?'PUT':'POST', body:o }).then(function(r){ done(r); })
@@ -415,8 +564,12 @@ var C={
       +'</div></div>'
       +'<div class="field-row"><div class="f"><span class="lbl">회비</span><div class="checks"><label class="chk"><input type="radio" name="fee" value=""'+(!raw.fee?' checked':'')+'> 적지 않음</label><label class="chk"><input type="radio" name="fee" value="free"'+(raw.fee==='free'?' checked':'')+'> 없음</label><label class="chk"><input type="radio" name="fee" value="paid"'+(raw.fee==='paid'?' checked':'')+'> 있음</label></div></div>'
       +'<div class="f" id="cm-w-feewrap"'+(raw.fee==='paid'?'':' hidden')+'><label for="cm-w-fee">회비 안내</label><input class="input" id="cm-w-fee" name="fee_text" maxlength="40" value="'+v(item,raw,'fee_text')+'" placeholder="예: 회당 1만 원 (공간 대관비 나눔)"></div></div>'
-      +'<div class="f"><span class="lbl">대표 이미지</span><div class="cover-pick" id="cm-w-covers">'+C.COVERS.map(function(c){ return '<label class="cp"><input type="radio" name="cover" value="'+c[0]+'"'+(cover===c[0]?' checked':'')+'><img src="'+M.imgSrc(c[0],'t')+'" alt="" loading="lazy"><span>'+esc(c[1])+'</span></label>'; }).join('')+'</div>'
-      +'<details class="mn-verify mt-1"'+(custom?' open':'')+'><summary>직접 찍은 사진 주소 넣기 <span class="muted">(선택)</span></summary><div class="f mt-1"><label for="cm-w-curl">사진 주소 (https://)</label><input class="input" id="cm-w-curl" name="cover_url" value="'+(custom?esc(cover):'')+'" placeholder="https://… .jpg"><span class="hint">권리가 있는 사진만 써 주세요. 사람 얼굴이 크게 나온 사진은 피해 주세요.</span></div></details></div>'
+      +'<div class="f"><span class="lbl">모임 사진 <span class="muted">(선택)</span></span><div class="cm-photos" id="cm-photos"></div>'
+      +'<span class="hint">휴대폰 사진을 그대로 골라도 됩니다. 크기를 줄여서 올리고, 사진 속 위치 정보는 지워집니다. 사람 얼굴이 크게 나온 사진은 함께 나온 분들께 먼저 물어봐 주세요.</span></div>'
+      +'<details class="mn-verify cm-cover-alt" id="cm-cover-alt"'+(custom||(!(item&&item.photos&&item.photos.length)&&raw.cover)?' open':'')+'><summary>사진이 없다면 · 준비된 이미지로 대표 이미지 고르기</summary>'
+      +'<p class="tiny muted mt-1" data-cover-note>사진을 올리면 첫 사진이 대표 이미지가 되고, 여기서 고른 이미지는 쓰이지 않습니다.</p>'
+      +'<div class="cover-pick mt-1" id="cm-w-covers">'+C.COVERS.map(function(c){ return '<label class="cp"><input type="radio" name="cover" value="'+c[0]+'"'+(cover===c[0]?' checked':'')+'><img src="'+M.imgSrc(c[0],'t')+'" alt="" loading="lazy"><span>'+esc(c[1])+'</span></label>'; }).join('')+'</div>'
+      +'<div class="f mt-2"><label for="cm-w-curl">다른 곳에 올려 둔 사진 주소 (https://)</label><input class="input" id="cm-w-curl" name="cover_url" value="'+(custom?esc(cover):'')+'" placeholder="https://… .jpg"><span class="hint">권리가 있는 사진만 써 주세요.</span></div></details>'
       +'<label class="chk cm-rec"><input type="checkbox" name="recruiting"'+(raw.recruiting===false?'':' checked')+'> 지금 새 멤버를 받고 있어요</label>'
       +'</fieldset>'
       +'<fieldset class="fs"><legend><span class="n">3</span>참여 방법과 문의처</legend>'
@@ -433,8 +586,12 @@ var C={
       +agreeBlock(item?2:1)
       +'<div class="row"><button class="btn btn-primary btn-lg" type="submit">'+(item?'고친 내용 저장':'모임 소개 올리기')+' <span class="arrow">→</span></button><a class="btn btn-ghost btn-lg" href="'+(item?viewUrl(item):'/community/groups/')+'">취소</a></div></form>';
   }
-  function bindGroupForm(f, raw){
+  function bindGroupForm(f, raw, item){
     var touched=!!raw.cover;
+    var box=null;
+    function photosChanged(){ var n=$('[data-cover-note]', f); if(n) n.hidden=!box||!box.count(); if(box) preview(); }
+    box=photoBox($('#cm-photos', f), item&&item.photos||[], photosChanged);
+    photosChanged();
     function val(n){ var el=f.elements[n]; if(!el) return ''; if(el.length && !el.tagName){ for(var i=0;i<el.length;i++) if(el[i].checked) return el[i].value; return ''; } return el.type==='checkbox'?el.checked:String(el.value||'').trim(); }
     function preview(){
       var cat=val('category'), cu=val('cover_url');
@@ -442,10 +599,11 @@ var C={
       $('#cm-w-feewrap').hidden=val('fee')!=='paid';
       var join=val('join_url');
       $('#cm-preview').innerHTML=groupCard({ title:val('title')||'모임 이름', summary:val('summary')||'한 줄 소개가 여기에 보입니다.', cat_label:C.GROUP_CATS[cat], region:val('region'), cycle_label:C.CYCLES[val('cycle')]||'', schedule:val('schedule'), size_label:C.SIZES[val('size')]||'',
-        venue:val('venue'), venue_label:C.VENUES[val('venue')]||'', recruiting:!!val('recruiting'), cover:/^https:\/\//.test(cu)?cu:(val('cover')||C.CAT_COVER[cat]||'v10'), likes:0, comments:0, join:join?{ site:siteOf(join) }:null }, true);
+        venue:val('venue'), venue_label:C.VENUES[val('venue')]||'', recruiting:!!val('recruiting'), cover:(box&&box.first())||(/^https:\/\//.test(cu)?cu:(val('cover')||C.CAT_COVER[cat]||'v10')), photo_count:box?box.count():0, likes:0, comments:0, join:join?{ site:siteOf(join) }:null }, true);
     }
     f.addEventListener('input', preview); f.addEventListener('change', function(e){ if(e.target.name==='cover') touched=true; preview(); });
     preview();
+    return box;
   }
   function siteOf(u){ var h=''; try{ h=new URL(u, location.origin).hostname; }catch(e){ return '웹사이트'; } return /open\.kakao\.com$/.test(h)?'카카오톡 오픈채팅':/pf\.kakao\.com$/.test(h)?'카카오톡 채널':/band\.us$/.test(h)?'네이버 밴드':/cafe\.naver\.com$/.test(h)?'네이버 카페':/instagram\.com$/.test(h)?'인스타그램':/(forms\.gle|docs\.google\.com|form\.naver\.com)$/.test(h)?'신청서':/megaspot\.kr$/.test(h)||h===location.hostname?'메가스팟':'웹사이트'; }
 
