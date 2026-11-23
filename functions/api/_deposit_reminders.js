@@ -3,7 +3,6 @@ import {contactPhones} from './_contacts.js';
 import {json,err,now,readJson,sha256,log} from './_lib.js';
 import {refundAdmin} from './_deposit_refunds.js';
 import {guidePhone} from './_guide_messages.js';
-import {DEPOSIT_TEMPLATES} from './_deposit_templates.js';
 const PREFIX='deposit-notifications/account-reminders',active=['queued','sending','accepted','unknown','review'];
 const utc=s=>Date.parse(String(s||'').replace(' ','T')+'Z');
 const snapshot=b=>JSON.stringify([b.customer_name,b.phone,b.phone2||'',b.date,b.space_id,b.start_h,b.end_h,b.slot,b.deposit_amount,b.deduction,b.deposit_paid,b.account_version,b.refund_state,b.purged_at,b.account_cipher?1:0,b.returned,b.status]);
@@ -42,7 +41,7 @@ export async function accountReminderAdmin({request,env,path,method,url},d){
   if(!d.ready)return err('계좌 등록 안내의 승인·시험 수신·자동 발송 설정을 확인해 주세요.',409);
   if(!await d.approve())return err('승인 템플릿의 본문·버튼을 확인해 주세요.',409);
   const rows=Object.fromEntries((await d.bookings(env,codes)).map(b=>[b.booking_code,b])),last=await latest(env,codes),items=[],stored=[],excluded=[];
-  for(const code of codes){const b=rows[code],blocked=reason(b,last[code],d);if(blocked){excluded.push({code,reason:blocked});continue;}const e={kind:'account',payload:JSON.stringify(payload(b)),occurred_at:now()},vars=d.variables(b,e,'예약자 전용 링크는 발송 시 연결됩니다');items.push({code,name:b.customer_name,phone:contactPhones(b).join(' · '),date:b.date,message:d.render(DEPOSIT_TEMPLATES.account.content,vars),button_name:DEPOSIT_TEMPLATES.account.buttons[0].name});stored.push({code,hash:await fingerprint(b,last[code],d)});}
+  for(const code of codes){const b=rows[code],blocked=reason(b,last[code],d);if(blocked){excluded.push({code,reason:blocked});continue;}const e={kind:'account',payload:JSON.stringify(payload(b)),occurred_at:now()},vars=d.variables(b,e,'예약자 전용 링크는 발송 시 연결됩니다');items.push({code,name:b.customer_name,phone:contactPhones(b).join(' · '),date:b.date,message:d.render(d.accountTemplate.content,vars),button_name:d.accountTemplate.buttons[0].name});stored.push({code,hash:await fingerprint(b,last[code],d)});}
   const id=crypto.randomUUID(),expires=Date.now()+600000;if(items.length)await env.DB.prepare('INSERT INTO deposit_account_reminder_previews(id,items,config_hash,expires_at,created_at) VALUES(?,?,?,?,?)').bind(id,JSON.stringify(stored),d.hash,expires,now()).run();
   await env.DB.prepare('DELETE FROM deposit_account_reminder_previews WHERE expires_at<?').bind(Date.now()-86400000).run();return json({ok:true,preview_id:items.length?id:null,expires_at:expires,items,excluded});
  }

@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {DatabaseSync} from 'node:sqlite';
 import {fixture as base} from './helpers/admin-fixture.mjs';import {onRequest as cron} from '../functions/api/deposit-notifications/[[path]].js';
-import {DEPOSIT_TEMPLATES as T,DEPOSIT_TEMPLATE_CODES as C} from '../functions/api/_deposit_templates.js';
+import {DEPOSIT_TEMPLATES as T,DEPOSIT_TEMPLATE_CODES as C,CARD_REFUND_ACCOUNT_CODE,depositTemplateFor} from '../functions/api/_deposit_templates.js';
 import {depositNoticeTick,depositMessageHash,depositMessageConfig,depositTemplateMatches,depositNoticeRender,depositNoticeVariables} from '../functions/api/_deposit_notifications.js';
 import {parkingSign} from '../functions/api/_parking_notifications.js';import {now,kstToday} from '../functions/api/_lib.js';
 function setup(t){
@@ -8,7 +8,7 @@ function setup(t){
  Object.assign(f.env,{ALIGO_LIVE_ENABLED:'true',ALIGO_RELAY_URL:'https://relay.naranhistory.com/megaspot/aligo',ALIGO_RELAY_SECRET:'test-deposit-relay-secret-more-than-32',ALIGO_SENDER_KEY:'test-profile',ALIGO_SENDER:'01012345678',DEPOSIT_ACCOUNT_KEY:'cd'.repeat(32)});
  let review='APR',broken=false,result='0',onSend=null;const sent=[];
  t.mock.method(globalThis,'fetch',async(url,opts)=>{assert.equal(url,f.env.ALIGO_RELAY_URL);const request=JSON.parse(opts.body),d=request.data;assert.equal(opts.headers['X-Megaspot-Signature'],await parkingSign(f.env.ALIGO_RELAY_SECRET,opts.body));
-  if(request.path==='template/list'){const k=Object.keys(C).find(k=>C[k]===d.tpl_code);return Response.json({code:0,list:[{templtCode:C[k],inspStatus:review,status:'R',templtContent:T[k].content,buttons:T[k].buttons}]});}
+  if(request.path==='template/list'){const k=d.tpl_code===CARD_REFUND_ACCOUNT_CODE?'account':Object.keys(C).find(k=>C[k]===d.tpl_code),t=depositTemplateFor(k,d.tpl_code);return Response.json({code:0,list:[{templtCode:d.tpl_code,inspStatus:review,status:'R',templtContent:t.content,buttons:t.buttons}]});}
   if(request.path==='alimtalk/send'){sent.push(d);if(onSend)await onSend(d);if(broken)throw Error('transport unknown');return Response.json({code:0,info:{mid:String(sent.length),scnt:1,fcnt:0}});}
   if(request.path==='history/detail'){const previous=sent[Number(d.mid)-1];return Response.json({code:0,list:[{type:'AT',phone:previous.receiver_1,tpl_code:previous.tpl_code,senderKey:f.env.ALIGO_SENDER_KEY,rsltdate:now(),rslt:result,msgid:'12345'}]});}assert.fail(request.path);
  });
@@ -157,4 +157,26 @@ test('예약 확정과 동시에 보증금도 확인한 경우 통합 안내 접
 test('확정 안내 결과 대기 중인 계좌 요청들이 다른 고객의 환급 안내를 가로막지 않는다',async t=>{
  const f=await timed(t);for(let i=0;i<4;i++){const code='BK-WAIT-'+i;f.booking(code);f.db.prepare('INSERT INTO booking_deposit_checks VALUES(?,?,?)').run(code,1,now());}
  f.db.prepare("INSERT INTO booking_refunds(booking_code,amount,created_at,updated_at) VALUES('BK-TEST',150000,?,?)").run(now(),now());f.db.prepare("UPDATE booking_refunds SET state='completed',paid_amount=150000,completion_id='wait-proof',completed_at=? WHERE booking_code='BK-TEST'").run(now());await f.tick();assert.equal(f.sent.length,4);assert.equal(f.sent.at(-1).tpl_code,C.refunded);
+});
+
+test('카드 환급 안내 전환은 운영자 수신 확인을 요구하며 대기와 이전 접수 이력을 보존한다',async t=>{
+ const f=setup(t);await f.enable();
+ f.db.prepare("INSERT INTO settings VALUES('parking_admin_alerts',?,CURRENT_TIMESTAMP)").run(JSON.stringify({phones:['01085401886']}));
+ f.booking('BK-OLD-ACCEPTED');f.booking('BK-QUEUED');
+ await f.tick();assert.equal(f.sent.length,5);
+ f.booking('BK-KEPT-QUEUED');
+ const {cardDepositAccountOperation}=await import('../functions/api/_deposit_notifications.js');
+ const test={phone:'01085401886',test_id:crypto.randomUUID(),confirm_test:true};
+ const op=action=>cardDepositAccountOperation(f.env,{...test,action});
+ assert.equal((await op('test_card_deposit_account')).status,200);
+ assert.equal((await depositMessageConfig(f.env)).codes.account,C.account);
+ assert.equal(f.sent.at(-1).tpl_code,CARD_REFUND_ACCOUNT_CODE);
+ assert.match(f.sent.at(-1).message_1,/카드 결제를 취소/);
+ await op('test_card_deposit_account');assert.equal(f.sent.length,6);
+ assert.equal((await op('activate_card_deposit_account')).status,200);
+ assert.equal((await depositMessageConfig(f.env)).codes.account,CARD_REFUND_ACCOUNT_CODE);
+ assert.equal(f.db.prepare("SELECT status FROM deposit_notifications WHERE booking_code='BK-KEPT-QUEUED'").get().status,'queued');
+ await f.tick(false);
+ assert.equal(f.db.prepare("SELECT status FROM deposit_notifications WHERE booking_code='BK-OLD-ACCEPTED'").get().status,'delivered');
+ assert.deepEqual((await f.api()).tested,{payment:true,account:true,refunded:true});
 });

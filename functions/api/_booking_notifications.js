@@ -11,7 +11,7 @@ import {journeyContext} from './_booking_journey.js';
 import {JOURNEY_TEMPLATES} from './_booking_journey_templates.js';
 import {CUSTOMER_ALIMTALK} from './_customer_alimtalk_templates.js';
 import {depositConsoleContext,noticeObsolete,depositNoticeVariables,depositNoticeRender} from './_deposit_notifications.js';
-import {DEPOSIT_TEMPLATES} from './_deposit_templates.js';
+import {DEPOSIT_TEMPLATES,depositTemplateFor} from './_deposit_templates.js';
 import {depositPaymentWindow,depositDueDate,depositReminderDate} from './_deposit_due.js';
 const active=['queued','sending','accepted','unknown','review'];
 const labels={...unpaidAdminTitles,booking_feedback:'이용 후 설문 안내',booking_confirmed:'예약 확정 · 통합 안내',balance_reminder:'이용료 잔금 안내',rental_paid:'잔금 납부 완료',booking_arrival:'입실·주차 안내',payment:'보증금 입금 안내',account:'환급 계좌 등록 안내',refunded:'보증금 환급 완료',inquiry:'문의 접수',reservation_request:'예약 신청 접수',payment_review:'결제 후 확정 보류',booking_cancelled:'예약 취소',rental_refund:'이용료 환불',parking_partial_refund:'주차권 부분 환불',parking_paid:'주차권 결제 완료',parking_arrival_received:'주차권 입차 요청 접수',parking_applied:'주차권 등록 완료',parking_issue:'주차권 등록 확인 필요',parking_cancel_requested:'주차권 취소 문의 접수',parking_refunded:'주차권 전체 환불',parking_partially_refunded:'주차권 부분 환불'};
@@ -88,7 +88,7 @@ async function fingerprint(c,kind){return sha256(JSON.stringify([kind,{...c.b,co
 function brief(c){const b=c.b;return {booking_code:b.booking_code,name:b.customer_name,space_id:b.space_id,space:SPACES[b.space_id]||b.space_id,date:b.date,status:b.status,phones:c.phones,balance:c.settlement.balance,deposit_paid:!!c.deposit.b?.deposit_paid,deposit_refunded:c.deposit.b?.refund_state==='completed'||!!c.deposit.b?.returned};}
 function currentContent(c,kind){
  if(kind.startsWith('parking_'))return null;
- const template=JOURNEY_TEMPLATES[kind]||DEPOSIT_TEMPLATES[kind]||CUSTOMER_ALIMTALK[kind];if(!template)return null;
+ const template=JOURNEY_TEMPLATES[kind]||depositTemplateFor(kind,c.deposit.codes[kind])||CUSTOMER_ALIMTALK[kind];if(!template)return null;
  const hours=eventTime(c.b)?.hours||[c.b.start_h,c.b.end_h],clock=h=>h==null?'확인 필요':(h>=24?'다음날 ':'')+String(Math.floor(h%24)).padStart(2,'0')+':'+String(Math.round(h%1*60)).padStart(2,'0');
  const vars={호점:c.b.space_id==='megaspot-gundae-2'?'2호':'1호',고객명:c.b.customer_name,공간명:SPACES[c.b.space_id],이용일:c.b.date,이용시간:hours.map(clock).join('~'),예약번호:c.b.booking_code,잔금:Number(c.settlement.balance).toLocaleString('ko-KR'),수납액:Number(c.settlement.net).toLocaleString('ko-KR'),납부기한:c.schedule.due_date,번호:c.b.booking_code,금액:'처리 시 확정'};
  if(DEPOSIT_TEMPLATES[kind]&&c.deposit.b)Object.assign(vars,depositNoticeVariables(c.deposit.b,{payload:JSON.stringify(payload(c.deposit.b)),occurred_at:now()},'예약자 전용 코드'));
@@ -159,7 +159,7 @@ export async function bookingNotificationsAdmin({env,request,url,path,method}){
    }else if(stage.engine==='transaction'){
     const ctx=await journeyContext(env,{kind:stage.kind,booking_code:c.b.booking_code,receiver:recipient.phone,event_key:stage.event_key},{preview:true});if(ctx.cancel||ctx.hold)return err(ctx.cancel||ctx.hold,409);
     const template=JOURNEY_TEMPLATES[stage.kind];items.push({phone:recipient.phone,message:ctx.render(template),buttons:ctx.buttonsFor(template)});
-   }else{const template=DEPOSIT_TEMPLATES[stage.kind],e={kind:stage.kind,payload:JSON.stringify(payload(c.deposit.b)),occurred_at:now()},vars=depositNoticeVariables(c.deposit.b,e,'발송 시 생성');items.push({phone:recipient.phone,message:depositNoticeRender(template.content,vars),buttons:template.buttons.map(b=>({name:b.name,linkMo:null})),link_note:template.buttons.length?'예약자 전용 환급 계좌 링크는 실제 발송할 때 생성됩니다.':''});}
+   }else{const template=depositTemplateFor(stage.kind,c.deposit.codes[stage.kind]),e={kind:stage.kind,payload:JSON.stringify(payload(c.deposit.b)),occurred_at:now()},vars=depositNoticeVariables(c.deposit.b,e,'발송 시 생성');items.push({phone:recipient.phone,message:depositNoticeRender(template.content,vars),buttons:template.buttons.map(b=>({name:b.name,linkMo:null})),link_note:template.buttons.length?'예약자 전용 환급 계좌 링크는 실제 발송할 때 생성됩니다.':''});}
   }
   const fresh=await context(env,c.b.booking_code),id=crypto.randomUUID(),expires=Date.now()+600000;
   if(await fingerprint(c,d.kind)!==await fingerprint(fresh,d.kind))return err('예약 또는 발송 이력이 바뀌었습니다. 미리보기를 다시 열어 주세요.',409);

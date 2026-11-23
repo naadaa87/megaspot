@@ -2,7 +2,7 @@ import {overdueBalanceOperation} from './_overdue_balance_operation.js';
 import {bookingNotificationsAdmin} from './_booking_notifications.js';
 import {unpaidAdminTrialStatus} from './_transaction_notifications.js';
 import {unpaidAdminPhones} from './_unpaid_admin_notices.js';
-import {depositMessageConfig,depositMessageHash,depositTemplateMatches} from './_deposit_notifications.js';
+import {depositMessageConfig,depositMessageHash,depositTemplateMatches,cardDepositAccountOperation} from './_deposit_notifications.js';
 import {parkingNoticeCron,parkingSign} from './_parking_notifications.js';
 // HMAC-authenticated operations; booking confirmation sends require an exact current recipient and booking match.
 import {json,err,now,sha256} from './_lib.js';
@@ -19,6 +19,7 @@ export async function notificationAudit(env){
  return {manual_guide:{enabled:s.enabled,automatic:s.automatic,code:s.template_code,spaces:s.spaces,test_delivered:s.test_delivered},legacy_queued:legacyPending?.n||0,transaction_counts:transactions,deposit_counts:deposits};
 }
 export async function notificationOperations(env,d){
+ if(['test_card_deposit_account','check_card_deposit_account','activate_card_deposit_account'].includes(d?.action))return cardDepositAccountOperation(env,d);
  if(['audit_overdue_balance','queue_overdue_balance'].includes(d?.action))return overdueBalanceOperation(env,d);
  if(['send_unpaid_admin_test','check_unpaid_admin_test'].includes(d?.action)){
   const receiver=guidePhone(d.phone),id=String(d.test_id||'').toUpperCase();

@@ -41,3 +41,26 @@ export const DEPOSIT_TEMPLATES={
 입금 내역 확인이나 정산 문의는 메가스팟 카카오톡으로 연락해 주세요.
 이용해 주셔서 감사합니다.`,buttons:[]}
 };
+
+export const CARD_REFUND_ACCOUNT_CODE='UO_0282';
+export const CARD_REFUND_ACCOUNT_TEMPLATE={
+ name:"메가스팟_보증금_환급방법안내_v2",
+ content:`[메가스팟 환급 계좌 등록 안내]
+
+#{고객명}님, 보증금 결제가 확인되었습니다.
+
+■ 예약 공간: #{공간명}
+■ 이용일: #{이용일}
+■ 환급 예정일: #{환급예정일}
+
+시설 상태와 청소·정리 여부를 확인한 뒤 위 예정일에 일괄 환급합니다.
+
+■ 계좌이체로 결제하신 경우: 아래 버튼에서 환급받으실 은행·계좌번호·예금주를 등록해 주세요.
+■ 카드로 결제하신 경우: 기존 보증금 카드 결제를 취소하는 방식으로 환급합니다. 환급 계좌 등록은 필요하지 않습니다.
+예약 담당자 전용 링크이므로 다른 분께 공유하지 말아 주세요.
+문의: 메가스팟 카카오톡`,
+ buttons:[DEPOSIT_BUTTON]
+};
+export function depositTemplateFor(kind,code){
+ return kind==='account'&&code===CARD_REFUND_ACCOUNT_CODE?CARD_REFUND_ACCOUNT_TEMPLATE:DEPOSIT_TEMPLATES[kind];
+}
