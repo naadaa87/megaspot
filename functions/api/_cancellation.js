@@ -1,3 +1,4 @@
+import {FOOD_SPACE,foodEventSql} from './_food_booking.js';
 import {json,err,readJson,str,now,log,randomToken,isDate} from './_lib.js';
 import {S,settlementFor,settlementRevisionSql} from './_settlement.js';
 import {bookingAmountSql} from './_amounts.js';
@@ -13,12 +14,12 @@ export async function cancellationState(env,code){
 }
 export function cancellationDocument(row,state,settlement){
  const issued=state?.document||{};
- return {...issued,doc_type:'cancellation',customer:issued.customer||row.customer_name||'',show_amount:issued.show_amount!==false,amount:settlement.amount,amount_note:'취소 정산',paid:settlement.net,pay_status:settlement.status,settlement,deposit:null,items:[],food_services:[],reception:null,refund:[],note:'예약이 취소되었습니다. 이 문서는 취소 수수료와 이용료 환불 정산을 안내하며, 공간 이용을 확정하지 않습니다. 반환 보증금은 별도 정산합니다.'};
+ return {...issued,doc_type:'cancellation',customer:issued.customer||row.customer_name||'',show_amount:issued.show_amount!==false,amount:settlement.amount,amount_note:'취소 정산',paid:settlement.net,pay_status:settlement.status,settlement,deposit:null,items:[],food_services:[],reception:null,refund:[],note:row.space_id===FOOD_SPACE?'식음료 예약이 취소되었습니다. 취소 수수료와 이용료 환불 내역입니다.':'예약이 취소되었습니다. 이 문서는 취소 수수료와 이용료 환불 정산을 안내하며, 공간 이용을 확정하지 않습니다. 반환 보증금은 별도 정산합니다.'};
 }
 const stale=()=>err('예약·수납·취소 정산이 변경됐습니다. 최신 내역을 다시 확인해 주세요.',409,'PAYMENT_CHANGED');
 export async function cancellationAdmin({env,request,path,method,url}){
  const m=path.match(/^bookings\/([A-Z0-9-]+)\/cancellation(?:\/(document))?$/);if(!m)return null;
- const code=m[1],row=await env.DB.prepare(`SELECT b.*,${bookingAmountSql()} AS effective_amount FROM bookings b WHERE booking_code=?`).bind(code).first();if(!row)return err('예약을 찾을 수 없습니다.',404);
+ const code=m[1],row=await env.DB.prepare(`SELECT b.*,${bookingAmountSql()} AS effective_amount,${foodEventSql()} AS food_event FROM bookings b WHERE booking_code=?`).bind(code).first();if(!row)return err('예약을 찾을 수 없습니다.',404);
  const state=await cancellationState(env,code),settlement=await settlementFor(env,code);
  const restored=await env.DB.prepare('SELECT id,created_at,snapshot,show_amount FROM booking_reconfirmations WHERE booking_code=? ORDER BY id DESC LIMIT 1').bind(code).first();
  const cycle=settlement.cancellation?.cycle||(restored?{id:restored.id,started_at:restored.created_at,refunded_before:parse(restored.snapshot)?.refunded||0}:null);

@@ -52,7 +52,7 @@
 <link rel="stylesheet" href="/assets/css/admin-settlement.css?v=e1da16b3ad92">
 <link rel="stylesheet" href="/assets/css/admin-parking-alerts.css?v=20261118day-fold-readall2">
 <link rel="stylesheet" href="/assets/css/admin-parking.css?v=382ffeda9a7e">
-<link rel="stylesheet" href="/assets/css/admin-navigation.css?v=e23f7184bcaa">
+<link rel="stylesheet" href="/assets/css/admin-navigation.css?v=e9cdcb30ccd9">
 <link rel="stylesheet" href="/assets/css/admin-booking-readiness.css?v=4a673b636fe6">
 <link rel="stylesheet" href="/assets/css/admin-revenue.css?v=20261118month3">
 <link rel="stylesheet" href="/assets/css/admin-revenue-services.css?v=20261118bookingdetails1">
@@ -173,6 +173,7 @@
     <!-- 문의 관리 -->
     <!-- 예약 목록 -->
     <section class="adm-view" id="view-resv" hidden>
+      <div class="q-btns mb-2"><button class="btn btn-light btn-sm food-booking-filter" type="button" id="rs-food-filter" aria-pressed="false">식음료 단독</button></div>
       <header class="adm-head"><div><h1>일자별 예약 · 문의</h1><p class="small muted">날짜마다 <b>예약 확정</b>과 아직 정해지지 않은 <b>예약 문의(후보)</b>를 나눠 봅니다. 후보 줄의 <b>확정</b>에서 일시·금액을 확인해 예약을 확정합니다. 하루 전체 마감은 선택한 경우에만 적용됩니다. 대기 취소 건은 회색으로 남고 대기 인원·순번에서 제외됩니다. 줄을 누르면 문의 상세가 열립니다.</p></div>
         <div class="row" style="gap:6px"><button class="btn btn-light btn-sm" type="button" data-go="guide-messages">예약별 알림</button><button class="btn btn-light btn-sm" type="button" id="rs-csv">CSV 내려받기</button><button class="btn btn-light btn-sm" type="button" id="rs-print">인쇄</button><button class="btn btn-light btn-sm" type="button" id="rs-reload">새로고침</button></div></header>
       <div class="rs-bar">
@@ -183,7 +184,7 @@
       </div>
       <div class="adm-filters rs-filters">
         <div class="rs-tabs" id="rs-tabs" role="tablist" aria-label="구분"><button type="button" role="tab" data-kind="all" aria-selected="true">전체 <em data-kc="all">0</em></button><button type="button" role="tab" data-kind="booking" aria-selected="false">예약 확정 <em data-kc="booking">0</em></button><button type="button" role="tab" data-kind="pending" aria-selected="false">예약 문의 (미정) <em data-kc="pending">0</em></button></div>
-        <select class="select" id="rs-space" aria-label="공간"><option value="">1호·2호 전체</option><option value="megaspot-gundae">건대 1호</option><option value="megaspot-gundae-2">건대 2호</option></select>
+        <select class="select" id="rs-space" aria-label="공간"><option value="">전체 일정</option><option value="megaspot-gundae">건대 1호</option><option value="megaspot-gundae-2">건대 2호</option></select>
         <select class="select" id="rs-ch" aria-label="문의 경로"><option value="">모든 경로</option><option value="online">온라인 결제</option><option value="web">홈페이지</option><option value="naver">네이버</option><option value="spacecloud">스페이스클라우드</option><option value="sns">SNS</option><option value="kakao">카카오톡</option><option value="phone">전화</option><option value="email">이메일</option><option value="visit">방문</option><option value="other">기타 (직접 입력)</option></select>
         <select class="select" id="rs-status" aria-label="상태"><option value="">전체 · 취소 기록 포함</option><option value="active">취소 제외</option><option value="confirmed">예약 확정</option><option value="completed">이용 완료</option><option value="payment_review">일정 확인 필요</option><option value="cancelled">취소만</option></select>
         <select class="select" id="rs-payment-filter" aria-label="결제 상태 필터"><option value="">결제 전체</option><option value="outstanding">잔금·입금 확인 필요</option><option value="unpaid">입금 전</option><option value="reservation_paid">예약금 입금 완료</option><option value="venue_paid">대관비용 입금 완료</option><option value="food_paid">식음료 입금 완료</option><option value="venue_fully_paid">전체 입금 완료(대관)</option><option value="fully_paid">전체 입금 완료(대관+식음료)</option><option value="partial_paid">일부 입금·잔금 확인 필요</option><option value="needs_review">입금 범위 확인 필요</option></select>
@@ -201,6 +202,7 @@
     </section>
 
     <section class="adm-view" id="view-inq" hidden>
+      <div class="q-btns mb-2"><button class="btn btn-light btn-sm food-booking-filter" type="button" id="inq-food-filter" aria-pressed="false">식음료 단독</button><button class="btn btn-primary btn-sm" type="button" id="inq-food-new">+ 식음료 문의 등록</button></div>
       <header class="adm-head"><div><h1>문의 관리</h1><p class="small muted">줄을 누르면 상세 내용·체크리스트·견적·메모를 보고 수정·삭제할 수 있습니다. 왼쪽 칸을 체크하면 문의를 복사하거나 여러 건을 한 번에 삭제할 수 있고, 삭제한 문의는 지워지지 않고 상태의 '삭제된 문의 (보관함)'에 남습니다.</p></div><div class="row" style="gap:8px"><button class="btn btn-primary btn-sm" type="button" data-go="inq-new">+ 문의 직접 등록</button><button class="btn btn-light btn-sm" type="button" id="inq-csv">CSV 내려받기</button></div></header>
       <div class="adm-filters inq-filter-panel adm-card">
         <label class="inq-filter-field"><span>진행 상태</span><select class="select" id="inq-status" title="전체는 삭제된 문의를 제외한 모든 진행 상태를 표시합니다."><option value="" selected>전체</option><option value="open">진행 중 (접수~결제 대기)</option><option>문의 접수</option><option>조건 확인</option><option>견적 발송</option><option>결제 대기</option><option>예약 확정</option><option>이용 완료</option><option>취소·환불</option><option>대기 취소</option><option value="deleted">삭제된 문의 (보관함)</option></select></label>
@@ -275,6 +277,7 @@
             <label class="agree" id="q-mark-wrap" hidden><input type="checkbox" id="q-mark" checked> <span>문의 금액·조건을 반영하고, 접수·조건 확인 상태는 '견적 발송'으로 바꾸기</span></label>
             <div class="q-btns">
               <button class="btn btn-primary" type="button" id="q-save">견적 저장</button>
+              <button class="btn btn-light" type="button" id="q-food-to-booking" hidden>이 견적으로 예약 등록</button>
               <button class="btn btn-graphite" type="button" id="q-print">견적서 PDF·인쇄</button>
               <button class="btn btn-kakao" type="button" id="q-copy">고객 안내문 복사</button>
               <button class="btn btn-light" type="button" id="q-reception">테이블 케이터링 추가 →</button>
@@ -459,6 +462,7 @@
 
     <!-- 예약 관리 -->
     <section class="adm-view" id="view-bookings" hidden>
+      <div class="q-btns mb-2"><button class="btn btn-light btn-sm food-booking-filter" type="button" id="bk-food-filter" aria-pressed="false">식음료 단독</button></div>
       <header class="adm-head"><div><h1>예약 관리</h1><p class="small muted">예약별 진행 상태와 수납·안내 내역을 확인합니다. 새 예약은 문의 관리에서 해당 문의를 예약 확정해 주세요. 이용 완료 후에는 고객이 예약번호로 후기를 쓸 수 있습니다.</p></div><button class="btn btn-light btn-sm" type="button" data-go="guide-messages">예약별 알림</button><button class="btn btn-light btn-sm" type="button" id="bk-reload">새로고침</button></header>
       <div class="adm-grid2" style="align-items:start">
         <form class="adm-card form" id="bk-form" novalidate hidden>
@@ -474,7 +478,7 @@
           <button class="btn btn-primary" type="submit">예약 등록</button>
           <div class="form-note" id="bk-msg" hidden></div>
         </form>
-        <div class="adm-card"><div class="adm-booking-list-head"><h2>예약 목록</h2><div class="adm-booking-filters"><label>선택 월<input class="input" type="month" id="bk-month-filter" aria-label="예약 목록 선택 월"></label><label>호점<select class="select" id="bk-space-filter"><option value="">1호·2호 전체</option><option value="megaspot-gundae">건대 1호</option><option value="megaspot-gundae-2">건대 2호</option></select></label><label>예약 상태<select class="select" id="bk-filter"><option value="">전체 · 취소 기록 포함</option><option value="active">취소 제외</option><option value="confirmed">예약 확정</option><option value="completed">이용 완료</option><option value="payment_review">일정 확인 필요</option><option value="cancelled">취소만</option></select></label><label>식음료<select class="select" id="bk-service-filter"><option value="">식음료 전체</option><option value="confirmed">식음료 이용 확정 전체</option><option value="catering">출장뷔페 이용 확정</option><option value="reception">케이터링 이용 확정</option><option value="cocktail">칵테일 이용 확정</option></select></label><label>결제 상태<select class="select" id="bk-payment-filter" aria-label="결제 상태 필터"><option value="">결제 전체</option><option value="outstanding">잔금·입금 확인 필요</option><option value="unpaid">입금 전</option><option value="reservation_paid">예약금 입금 완료</option><option value="venue_paid">대관비용 입금 완료</option><option value="food_paid">식음료 입금 완료</option><option value="venue_fully_paid">전체 입금 완료(대관)</option><option value="fully_paid">전체 입금 완료(대관+식음료)</option><option value="partial_paid">일부 입금·잔금 확인 필요</option><option value="needs_review">입금 범위 확인 필요</option></select></label><label>문의 경로<select class="select" id="bk-channel-filter"><option value="">모든 경로</option><option value="online">온라인 결제</option><option value="web">홈페이지</option><option value="naver">네이버</option><option value="spacecloud">스페이스클라우드</option><option value="sns">SNS</option><option value="kakao">카카오톡</option><option value="phone">전화</option><option value="email">이메일</option><option value="visit">방문</option><option value="other">기타 (직접 입력)</option></select></label><label>검색<input class="input" id="bk-q" type="search" maxlength="120" placeholder="이름·연락처·예약번호·문의번호" aria-label="예약 목록 검색"></label><button type="button" class="btn btn-light btn-sm reservation-filter-reset" data-reservation-filter-reset title="이번 달 · 전체 호점 · 전체 식음료 · 전체 예약 상태 · 전체 결제 상태 · 전체 문의 경로 · 검색어 지우기">필터 초기화</button></div></div><p id="bk-service-summary" class="small muted" role="status" aria-live="polite" hidden></p><div id="bk-list" class="adm-list mt-2"></div></div>
+        <div class="adm-card"><div class="adm-booking-list-head"><h2>예약 목록</h2><div class="adm-booking-filters"><label>선택 월<input class="input" type="month" id="bk-month-filter" aria-label="예약 목록 선택 월"></label><label>호점<select class="select" id="bk-space-filter"><option value="">전체 일정</option><option value="megaspot-gundae">건대 1호</option><option value="megaspot-gundae-2">건대 2호</option></select></label><label>예약 상태<select class="select" id="bk-filter"><option value="">전체 · 취소 기록 포함</option><option value="active">취소 제외</option><option value="confirmed">예약 확정</option><option value="completed">이용 완료</option><option value="payment_review">일정 확인 필요</option><option value="cancelled">취소만</option></select></label><label>식음료<select class="select" id="bk-service-filter"><option value="">식음료 전체</option><option value="confirmed">식음료 이용 확정 전체</option><option value="catering">출장뷔페 이용 확정</option><option value="reception">케이터링 이용 확정</option><option value="cocktail">칵테일 이용 확정</option></select></label><label>결제 상태<select class="select" id="bk-payment-filter" aria-label="결제 상태 필터"><option value="">결제 전체</option><option value="outstanding">잔금·입금 확인 필요</option><option value="unpaid">입금 전</option><option value="reservation_paid">예약금 입금 완료</option><option value="venue_paid">대관비용 입금 완료</option><option value="food_paid">식음료 입금 완료</option><option value="venue_fully_paid">전체 입금 완료(대관)</option><option value="fully_paid">전체 입금 완료(대관+식음료)</option><option value="partial_paid">일부 입금·잔금 확인 필요</option><option value="needs_review">입금 범위 확인 필요</option></select></label><label>문의 경로<select class="select" id="bk-channel-filter"><option value="">모든 경로</option><option value="online">온라인 결제</option><option value="web">홈페이지</option><option value="naver">네이버</option><option value="spacecloud">스페이스클라우드</option><option value="sns">SNS</option><option value="kakao">카카오톡</option><option value="phone">전화</option><option value="email">이메일</option><option value="visit">방문</option><option value="other">기타 (직접 입력)</option></select></label><label>검색<input class="input" id="bk-q" type="search" maxlength="120" placeholder="이름·연락처·예약번호·문의번호" aria-label="예약 목록 검색"></label><button type="button" class="btn btn-light btn-sm reservation-filter-reset" data-reservation-filter-reset title="이번 달 · 전체 호점 · 전체 식음료 · 전체 예약 상태 · 전체 결제 상태 · 전체 문의 경로 · 검색어 지우기">필터 초기화</button></div></div><p id="bk-service-summary" class="small muted" role="status" aria-live="polite" hidden></p><div id="bk-list" class="adm-list mt-2"></div></div>
       </div>
     </section>
 
@@ -501,8 +505,9 @@
 
     <!-- 일정 달력 -->
     <section class="adm-view" id="view-calendar" hidden>
+      <div class="q-btns mb-2"><button class="btn btn-light btn-sm food-booking-filter" type="button" id="cal-food-filter" aria-pressed="false">식음료 단독</button></div>
       <header class="adm-head"><div><h1>일정 달력</h1><p class="small muted">초록색은 확정 예약입니다. 같은 날에도 이용 시간이 겹치지 않으면 다른 예약을 받을 수 있습니다.</p></div><div class="row" style="gap:6px"><button class="btn btn-light btn-sm" type="button" id="cal-prev">← 이전 달</button><b id="cal-title" class="cal-title"></b><button class="btn btn-light btn-sm" type="button" id="cal-next">다음 달 →</button></div></header>
-      <div class="f" style="max-width:260px"><label for="cal-filter">달력에 표시할 공간</label><select class="select" id="cal-filter"><option value="">전체 공간</option><option value="megaspot-gundae">건대 1호</option><option value="megaspot-gundae-2">건대 2호</option></select></div>
+      <div class="f" style="max-width:260px"><label for="cal-filter">달력에 표시할 공간</label><select class="select" id="cal-filter"><option value="">전체 일정</option><option value="megaspot-gundae">건대 1호</option><option value="megaspot-gundae-2">건대 2호</option></select></div>
       <div class="f adm-calendar-food"><label for="cal-service-filter">식음료 진행</label><select class="select" id="cal-service-filter"><option value="">식음료 전체</option><option value="confirmed">식음료 이용 확정 전체</option><option value="catering">출장뷔페 이용 확정</option><option value="reception">케이터링 이용 확정</option><option value="cocktail">칵테일 이용 확정</option></select></div>
       <button type="button" class="btn btn-light btn-sm reservation-filter-reset" id="cal-filter-reset" data-reservation-filter-reset title="이번 달 · 전체 호점 · 전체 식음료 · 전체 예약 상태 · 전체 결제 상태 · 전체 문의 경로 · 검색어 지우기">필터 초기화</button>
       <div class="adm-calendar-extra-filters"><label>문의 경로<select class="select" id="cal-channel-filter"><option value="">모든 경로</option><option value="online">온라인 결제</option><option value="web">홈페이지</option><option value="naver">네이버</option><option value="spacecloud">스페이스클라우드</option><option value="sns">SNS</option><option value="kakao">카카오톡</option><option value="phone">전화</option><option value="email">이메일</option><option value="visit">방문</option><option value="other">기타 (직접 입력)</option></select></label><label>결제 상태<select class="select" id="cal-payment-filter" aria-label="결제 상태 필터"><option value="">결제 전체</option><option value="outstanding">잔금·입금 확인 필요</option><option value="unpaid">입금 전</option><option value="reservation_paid">예약금 입금 완료</option><option value="venue_paid">대관비용 입금 완료</option><option value="food_paid">식음료 입금 완료</option><option value="venue_fully_paid">전체 입금 완료(대관)</option><option value="fully_paid">전체 입금 완료(대관+식음료)</option><option value="partial_paid">일부 입금·잔금 확인 필요</option><option value="needs_review">입금 범위 확인 필요</option></select></label><label>예약 상태<select class="select" id="cal-status-filter"><option value="">전체 · 취소 기록 포함</option><option value="active">취소 제외</option><option value="confirmed">예약 확정</option><option value="completed">이용 완료</option><option value="payment_review">일정 확인 필요</option><option value="cancelled">취소만</option></select></label><label>검색<input class="input" id="cal-q" type="search" maxlength="120" placeholder="이름·연락처·예약번호·문의번호" aria-label="달력 검색"></label></div>
@@ -688,16 +693,16 @@
         <div class="f"><label for="cd-customer">예약자 표시 <span class="tiny muted">(이름 · 소속)</span></label><input class="input" id="cd-customer" maxlength="80"></div>
         <div class="f"><label for="cd-event">행사 이름 <span class="tiny muted">(선택)</span></label><input class="input" id="cd-event" maxlength="80" placeholder="예: 2026 송년회, 신입사원 워크숍"></div>
         <div class="f"><label for="cd-time-note">시간 안내 <span class="tiny muted">(선택 · 이용 시간 아래에 들어감)</span></label><input class="input" id="cd-time-note" maxlength="80" placeholder="예: 세팅은 12:30부터 들어오실 수 있습니다."></div>
-        <h3>금액 · 결제</h3><button class="btn btn-light btn-sm" type="button" id="cd-settlement-open" data-settlement-code="">수납·환불 내역 확인·기록</button><p class="tiny muted">실제 받은 이용료와 완료한 환불을 기록하면 잔금·초과 수납액을 계산합니다. 반환 보증금은 별도입니다.</p>
+        <h3>금액 · 결제</h3><button class="btn btn-light btn-sm" type="button" id="cd-settlement-open" data-settlement-code="">수납·환불 내역 확인·기록</button><p class="tiny muted" id="cd-payment-hint">실제 받은 이용료와 완료한 환불을 기록하면 잔금·초과 수납액을 계산합니다. 반환 보증금은 별도입니다.</p>
         <label class="chk"><input type="checkbox" id="cd-show-amount" checked> 확정서에 금액 표시 <small class="muted">(참석자에게 돌릴 때는 끄세요)</small></label>
         <div class="field-row"><div class="f"><label for="cd-amount">확정 금액 (원)</label><input class="input" id="cd-amount" readonly type="number" min="0" step="1000"></div><div class="f"><label for="cd-amount-note">금액 설명</label><input class="input" id="cd-amount-note" maxlength="40" placeholder="부가세 포함"></div></div>
         <div class="field-row"><div class="f"><label for="cd-pay">계산된 수납 상태</label><select class="select" id="cd-pay" disabled><option value="refunded">예약 취소 · 전액 환불 완료</option><option value="payment_review">수납·환불 기록 확인 필요</option><option value="refund">초과 수납 · 환불 필요</option><option value="paid">결제 완료</option><option value="deposit">예약금 입금 완료 (잔금 안내 예정)</option><option value="onsite">현장 결제</option><option value="pending">결제 방법 안내 예정</option></select></div><div class="f"><label for="cd-paid">현재 수납액 (원 · 반환 보증금 제외)</label><input class="input" id="cd-paid" type="number" inputmode="numeric" min="0" max="1000000000" step="1" aria-describedby="cd-paid-help"></div></div>
         <p class="tiny muted" id="cd-paid-help">실제 받은 이용료 총액을 입력하세요. 저장·다운로드 시 기존 수납액보다 늘어난 차액을 입금 기록으로 반영합니다. 금액을 줄이려면 위 수납·환불 내역에서 잘못된 기록을 정정하거나 완료한 환불을 기록해 주세요.</p>
-        <div class="f"><label for="cd-deposit">보증금 (원 · 0이면 '없음', 비우면 표시 안 함)</label><input class="input" id="cd-deposit" type="number" min="0" step="10000"></div>
+        <div class="f" id="cd-deposit-field"><label for="cd-deposit">보증금 (원 · 0이면 '없음', 비우면 표시 안 함)</label><input class="input" id="cd-deposit" type="number" min="0" step="10000"></div>
         <h3>포함 내역 · 안내</h3>
         <div class="f"><label for="cd-items">포함 내역 <span class="tiny muted">(한 줄에 하나 · 최대 12줄)</span></label><textarea class="textarea" id="cd-items" style="min-height:130px"></textarea></div>
         <div class="f"><label for="cd-note">안내 메모 <span class="tiny muted">(고객에게 보이는 문장 · 선택)</span></label><textarea class="textarea" id="cd-note" maxlength="500" style="min-height:70px" placeholder="예: 행사 당일 담당 매니저 연락처는 하루 전에 문자로 보내 드립니다."></textarea></div>
-        <p class="tiny muted">이용일·시간·인원은 예약 내용을 그대로 씁니다(바꾸려면 예약을 먼저 고치세요). 취소·환불 기준은 이용일과 발급일로 자동 계산하고, 연락처는 가운데 4자리를 가려 표시합니다.</p>
+        <p class="tiny muted" id="cd-policy-hint">이용일·시간·인원은 예약 내용을 그대로 씁니다(바꾸려면 예약을 먼저 고치세요). 취소·환불 기준은 이용일과 발급일로 자동 계산하고, 연락처는 가운데 4자리를 가려 표시합니다.</p>
       </form>
       <div class="cdoc-side">
         <div class="cdoc-actions">
@@ -763,7 +768,7 @@
 <script src="/assets/js/food-pricing.js?v=6c46fa09a220"></script>
 <script src="/assets/js/food-services.js?v=0ae70b822569"></script>
 <script src="/assets/js/settlement.js?v=20261103feeadjust1"></script>
-<script src="/assets/js/confirm-doc.js?v=5e81783f8ec4"></script>
+<script src="/assets/js/confirm-doc.js?v=e35a32546007"></script>
 <script src="/assets/js/cards.js?v=7a231d1b1bd9"></script>
 <script src="/assets/js/cocktail-calc.js?v=20261104foodprices3"></script>
 <script src="/assets/js/inquiry-overview.js?v=52d10368019b"></script>
@@ -771,7 +776,7 @@
 <script src="/assets/js/quote-policy.js?v=e29d1c2305b4"></script>
 <script src="/assets/js/pages/admin-food-filter.js?v=e6689c0f6f74"></script>
 <script src="/assets/js/pages/admin-reservation-period.js?v=d19a2c8a0701"></script>
-<script src="/assets/js/pages/admin.js?v=6a0468edb7c8"></script>
+<script src="/assets/js/pages/admin.js?v=75e347038abc"></script>
 <script src="/assets/js/pages/admin-service-status.js?v=6f085e2a9a83"></script>
 <script src="/assets/js/pages/admin-platform.js?v=20261102adminux1"></script>
 <script src="/assets/js/pages/admin-cocktail.js?v=c0a30f26741b"></script>
@@ -788,7 +793,7 @@
 <script src="/assets/js/pages/admin-deposit-notifications.js?v=86f9291cbc6a"></script>
 <script src="/assets/js/pages/admin-booking-portal.js?v=20261103portal1"></script>
 <script src="/assets/js/admin-save-recovery.js?v=20261104retry1"></script>
-<script src="/assets/js/pages/admin-settlement.js?v=f799c97c414d"></script>
+<script src="/assets/js/pages/admin-settlement.js?v=d503ae733c90"></script>
 <script src="/assets/js/pages/admin-cancellation.js?v=20261104retry1"></script>
 <script src="/assets/js/pages/admin-booking-notifications.js?v=20e290bf4fd8"></script>
 <script src="/assets/js/pages/admin-transaction-notifications.js?v=87a73e4899a8"></script>

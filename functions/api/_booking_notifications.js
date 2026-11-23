@@ -111,7 +111,7 @@ export async function bookingNotificationsAdmin({env,request,url,path,method}){
  if(path==='booking-notifications'&&method==='GET'){
   const calendar=url.searchParams.get('calendar')==='1';let month=url.searchParams.get('month')||'';
   const q=String(url.searchParams.get('q')||'').trim().slice(0,100),space=url.searchParams.get('space')||'',period=calendar?'all':url.searchParams.get('period')||'upcoming',page=Math.max(0,Math.min(10000,Number(url.searchParams.get('page'))||0));
-  const where=['1'],args=[];if(q){where.push("(b.customer_name LIKE ? ESCAPE '\\' OR b.booking_code LIKE ? ESCAPE '\\' OR replace(b.phone,'-','') LIKE ? ESCAPE '\\')");const value='%'+q.replace(/[\\%_]/g,'\\$&')+'%';args.push(value,value,value.replace(/-/g,''));}if(space){where.push('b.space_id=?');args.push(space);}if(period==='upcoming'){where.push("b.date>=? AND b.status<>'cancelled'");args.push(dayAt(Date.now()));}else if(period==='past'){where.push('b.date<?');args.push(dayAt(Date.now()));}
+  const where=["b.space_id<>'food-only'"],args=[];if(q){where.push("(b.customer_name LIKE ? ESCAPE '\\' OR b.booking_code LIKE ? ESCAPE '\\' OR replace(b.phone,'-','') LIKE ? ESCAPE '\\')");const value='%'+q.replace(/[\\%_]/g,'\\$&')+'%';args.push(value,value,value.replace(/-/g,''));}if(space){where.push('b.space_id=?');args.push(space);}if(period==='upcoming'){where.push("b.date>=? AND b.status<>'cancelled'");args.push(dayAt(Date.now()));}else if(period==='past'){where.push('b.date<?');args.push(dayAt(Date.now()));}
   if(calendar){
    if(month&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))return err('조회할 월을 확인해 주세요.');
    if(!month&&q){const first=await env.DB.prepare(`SELECT COALESCE(MIN(CASE WHEN b.date>=? THEN b.date END),MAX(b.date)) date FROM bookings b WHERE ${where.join(' AND ')}`).bind(dayAt(Date.now()),...args).first();month=first?.date?.slice(0,7)||'';}
@@ -139,7 +139,7 @@ export async function bookingNotificationsAdmin({env,request,url,path,method}){
   }
   if(!match[2])return json({ok:true,booking,steps:[],history:rows.map(summary),operator_test:true});
  }
- const c=await context(env,match[1]);if(!c)return err('예약을 찾을 수 없습니다.',404);
+ const c=await context(env,match[1]);if(!c||c.b.space_id==='food-only')return err('대관 예약을 찾을 수 없습니다.',404);
  if(match[2]==='content'&&method==='GET'){
   const kind=url.searchParams.get('kind')||'',id=url.searchParams.get('id'),engine=url.searchParams.get('engine'),records=c.history.filter(r=>r.kind===kind).sort((a,b)=>String(b.occurred_at||b.created_at).localeCompare(String(a.occurred_at||a.created_at)));
   if(!Object.hasOwn(labels,kind)&&!records.length)return err('안내 종류를 확인해 주세요.',404);

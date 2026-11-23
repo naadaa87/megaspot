@@ -5,7 +5,7 @@ export const PENDING_STATUSES_SQL="('문의 접수', '조건 확인', '견적 �
 export const WAIT_ORDER_SQL="CASE WHEN json_extract(i.data, '$.wait_rank') IS NULL THEN 1 ELSE 0 END, CAST(json_extract(i.data, '$.wait_rank') AS INTEGER), COALESCE(json_extract(i.data, '$.wait_restored_at'), i.created_at), i.ref";
 export const waitSpaceSql=alias=>`CASE WHEN ${alias}.space_id='megaspot-gundae-2' THEN 'megaspot-gundae-2' ELSE 'megaspot-gundae' END`;
 export function pendingInquirySql({alias='waiting',date,space}){
- return `${alias}.status IN ${PENDING_STATUSES_SQL} AND ${alias}.event_date=${date} AND ${waitSpaceSql(alias)}=${space}
+ return `${alias}.space_id<>'food-only' AND ${alias}.status IN ${PENDING_STATUSES_SQL} AND ${alias}.event_date=${date} AND ${waitSpaceSql(alias)}=${space}
    AND NOT EXISTS(SELECT 1 FROM bookings wait_booking WHERE wait_booking.inquiry_ref=${alias}.ref AND wait_booking.status<>'cancelled')`;
 }
 // SQL expressions are provided by server code only and evaluated in the payment write transaction.

@@ -51,7 +51,7 @@ export async function bookingReadiness({env,url,method}){
  if(space&&!Object.hasOwn(SPACES,space))return err('공간을 확인해 주세요.',400,'INVALID_SPACE');
  if(!['active','all','confirmed','completed','payment_review','cancelled'].includes(scope)||!['all','attention','guide','confirmation','portal','ready','blocked'].includes(filter))return err('목록 조건을 확인해 주세요.',400,'INVALID_FILTER');
  const rawPage=url.searchParams.get('page')||'0';if(!/^(0|[1-9]\d{0,4})$/.test(rawPage))return err('페이지를 확인해 주세요.',400,'INVALID_PAGE');
- const page=Number(rawPage),pageSize=50,q=str(url.searchParams.get('q'),60).toLowerCase(),phoneQuery=/^[+\d\s()-]+$/.test(q)?q.replace(/\D/g,''):'',conditions=['b.date BETWEEN ? AND ?'],args=[from,to];
+ const page=Number(rawPage),pageSize=50,q=str(url.searchParams.get('q'),60).toLowerCase(),phoneQuery=/^[+\d\s()-]+$/.test(q)?q.replace(/\D/g,''):'',conditions=['b.date BETWEEN ? AND ?', "b.space_id<>'food-only'"],args=[from,to];
  if(space){conditions.push('b.space_id=?');args.push(space);}
  if(scope==='active')conditions.push("b.status IN ('confirmed','payment_review')");else if(scope!=='all'){conditions.push('b.status=?');args.push(scope);}
  const {results}=await env.DB.prepare(`SELECT b.*,i.data AS idata,COALESCE(gs.revision,0) AS revision,gs.manual_sent,gs.manual_revision,COALESCE(gs.needs_review,0) AS needs_review,

@@ -1,5 +1,6 @@
 // Prepare the latest confirmation before the financial transaction commits.
 import {SPACES} from './_lib.js';
+import {FOOD_SPACE} from './_food_booking.js';
 import {cleanDoc,parseDoc} from './_confirm.js';
 import {cateringOrderFor} from './_catering_orders.js';
 import {confirmationFoodData,foodDocuments,stripFoodItems} from './_food_services.js';
@@ -25,11 +26,13 @@ export async function prepareCombinedConfirmation(env,code,settlement,fee,deposi
 export async function prepareSettlementConfirmation(env,code,after,deposit,time){
  const row=await env.DB.prepare(`SELECT b.*,(SELECT amount FROM booking_refunds WHERE booking_code=b.booking_code) AS stored_deposit,(SELECT amount_visible FROM booking_journey_state WHERE booking_code=b.booking_code) AS amount_visible,i.data AS idata,(SELECT data FROM quotes WHERE inquiry_ref=b.inquiry_ref ORDER BY id DESC LIMIT 1) AS quote_data,(SELECT show_amount FROM booking_reconfirmations WHERE booking_code=b.booking_code ORDER BY id DESC LIMIT 1) AS show_amount_preference,${confirmationSourceSQL} AS document_revision FROM bookings b LEFT JOIN inquiries i ON i.ref=b.inquiry_ref WHERE b.booking_code=?`).bind(code).first();
  const previous=parseDoc(row.confirm_doc),data=await confirmationFoodData(env,row,await cateringOrderFor(env,row.inquiry_ref||'',code)),quote=parse(row.quote_data),name=data.name||row.customer_name||'',hours=row.start_h!=null&&row.end_h!=null?row.end_h-row.start_h:null;
- if(deposit==null)deposit=row.stored_deposit??previous?.deposit??quote.deposit??150000;
- const items=[(SPACES[row.space_id]||'공간')+' 공간 전체 대관'+(hours?' '+hours+'시간':'')];
+ const foodOnly=row.space_id===FOOD_SPACE;
+ if(foodOnly)deposit=null;
+ else if(deposit==null)deposit=row.stored_deposit??previous?.deposit??quote.deposit??150000;
+ const items=foodOnly?[]:[(SPACES[row.space_id]||'공간')+' 공간 전체 대관'+(hours?' '+hours+'시간':'')];
  for(const [key,value] of Object.entries(data.options||{}))if(value)items.push((OPTIONS[key]||key)+(typeof value==='object'?' '+(value.count||1)+'명 × '+(value.hours||1)+'시간':''));
- const defaults={customer:name+(data.org&&!name.includes(data.org)?' ('+data.org+')':''),event:PURPOSES[data.purpose]||'',show_amount:row.show_amount_preference==null?row.amount_visible!==0:!!row.show_amount_preference,deposit,items,refund:Array.isArray(quote.refund)?quote.refund:defaultRefund()};
- const doc={...cleanDoc({...defaults,...previous}),issued_at:previous?.issued_at||time,updated_at:time,issue_no:(Number(previous?.issue_no)||0)+1,amount:after.amount,paid:after.net,pay_status:after.status==='unpriced'?'pending':after.status,deposit,settlement:after};
+ const defaults={customer:name+(data.org&&!name.includes(data.org)?' ('+data.org+')':''),event:PURPOSES[data.purpose]||'',show_amount:row.show_amount_preference==null?row.amount_visible!==0:!!row.show_amount_preference,deposit,items,refund:Array.isArray(quote.refund)?quote.refund:foodOnly?[]:defaultRefund()};
+ const doc={...cleanDoc({...defaults,...previous,...(foodOnly?{deposit:null,refund:[]}: {})}),issued_at:previous?.issued_at||time,updated_at:time,issue_no:(Number(previous?.issue_no)||0)+1,amount:after.amount,paid:after.net,pay_status:after.status==='unpriced'?'pending':after.status,deposit,settlement:after};
  doc.reception=receptionDocument(data,after.amount);doc.food_services=foodDocuments(data,after.amount);
  doc.items=stripFoodItems(withoutReceptionItems(doc.items));
  return {doc,revision:row.document_revision,previously_issued:!!previous?.issued_at};

@@ -20,11 +20,11 @@ export async function reservationServiceStatus({env,request,path,method}){
  const [,type,ref,kind]=m;
  let booking=null,inquiry=null;
  if(type==='booking'){
-  booking=await env.DB.prepare('SELECT booking_code,inquiry_ref,customer_name,amount,status FROM bookings WHERE booking_code=?').bind(ref).first();
+  booking=await env.DB.prepare('SELECT booking_code,inquiry_ref,space_id,customer_name,amount,status FROM bookings WHERE booking_code=?').bind(ref).first();
   if(!booking)return err('예약을 찾을 수 없습니다.',404);
  }
  const inquiryRef=type==='inquiry'?ref:booking.inquiry_ref;
- if(inquiryRef)inquiry=await env.DB.prepare(`SELECT ref,name,status,data,${inquiryAmountSql()} AS effective_amount FROM inquiries i WHERE ref=?`).bind(inquiryRef).first();
+ if(inquiryRef)inquiry=await env.DB.prepare(`SELECT ref,name,status,space_id,data,${inquiryAmountSql()} AS effective_amount FROM inquiries i WHERE ref=?`).bind(inquiryRef).first();
  if((inquiryRef&&!inquiry)||(!booking&&!inquiry))return err('문의를 찾을 수 없습니다.',404);
  if([booking?.status,inquiry?.status].some(s=>['cancelled','취소·환불','대기 취소','삭제됨'].includes(s)))return err('취소·삭제된 예약이나 문의는 복원한 뒤 변경해 주세요.',409,'TARGET_CANCELLED');
  const data=safe(inquiry?.data);
@@ -34,6 +34,7 @@ export async function reservationServiceStatus({env,request,path,method}){
  const revision=inquiry?Number(data.reception_revision)||0:await directFoodRevision(env,ref),status=statuses.includes(value.status)?value.status:'pending';
  const info={kind,status,revision,can_confirm:ready(kind,value),name:inquiry?.name||booking?.customer_name||'',inquiry_ref:inquiryRef||'',configuration_view:{catering:'catering',reception:'reception',cocktail:'cocktail'}[kind]};
  if(method==='GET')return json({ok:true,...info});
+ if(booking?.space_id==='food-only'||inquiry?.space_id==='food-only')return err('식음료 예약 상세에서 변경한 견적을 적용해 주세요.',409);
  const d=await readJson(request);
  if(!statuses.includes(d.status)||!Number.isSafeInteger(d.expected_revision)||d.expected_revision<0)return err('진행 상태와 저장 버전을 확인해 주세요.');
  if(d.expected_revision!==revision)return err('다른 화면에서 식음료 구성이 변경됐습니다. 최신 내용을 확인한 뒤 다시 변경해 주세요.',409,'SERVICE_CHANGED');

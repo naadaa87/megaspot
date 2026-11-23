@@ -1,3 +1,4 @@
+import {foodEventSql} from './_food_booking.js';
 import {cancellationState,cancellationDocument} from './_cancellation.js';
 import {settlementFor} from './_settlement.js';
 // 고객용 예약확정서 조회 — /confirm/ 화면이 씁니다.
@@ -6,7 +7,7 @@ import {settlementFor} from './_settlement.js';
 import { json, err, hasDb, readJson, str, clientIp, tooMany, hit } from './_lib.js';
 import { confirmToken, tokenEq, parseDoc, publicDoc } from './_confirm.js';
 
-const COLS = 'booking_code, space_id, customer_name, phone, phone_last4, date, slot, headcount, status, start_h, end_h, confirm_doc';
+const COLS = `booking_code, space_id, customer_name, phone, phone_last4, date, slot, headcount, status, start_h, end_h, confirm_doc, ${foodEventSql()} AS food_event`;
 async function answer(env, row) {
   if(row.status==='payment_review')return err('결제는 완료됐지만 일정 확인 중으로 예약이 확정되지 않았습니다. 운영팀에 문의해 주세요.',409,'BOOKING_REVIEW');
   const doc = parseDoc(row.confirm_doc);
@@ -24,7 +25,7 @@ export async function onRequestGet({ request, env }) {
   const ipKey = 'cfm:' + clientIp(request);
   try { if (await tooMany(env, ipKey, 30, 10)) return err('짧은 시간에 너무 많은 요청이 있었습니다. 잠시 후 다시 시도해 주세요.', 429, 'TOO_MANY'); } catch {}
   if (!tokenEq(k, await confirmToken(env, code))) { try { await hit(env, ipKey, 10); } catch {} return err('확정서 주소가 올바르지 않습니다. 예약번호와 휴대폰 뒷자리로 조회해 주세요.', 403, 'BAD_TOKEN'); }
-  const row = await env.DB.prepare(`SELECT ${COLS} FROM bookings WHERE booking_code = ?`).bind(code).first();
+  const row = await env.DB.prepare(`SELECT ${COLS} FROM bookings b WHERE booking_code = ?`).bind(code).first();
   if (!row) return err('예약 정보를 찾을 수 없습니다.', 404, 'NOT_FOUND');
   return answer(env, row);
 }
@@ -35,7 +36,7 @@ export async function onRequestPost({ request, env }) {
   if (!code || last4.length !== 4) return err('예약번호와 휴대폰 뒷 4자리를 확인해 주세요.');
   const ipKey = 'cfm:' + clientIp(request);
   try { if (await tooMany(env, ipKey, 10, 10)) return err('짧은 시간에 너무 많은 시도가 있었습니다. 잠시 후 다시 시도해 주세요.', 429, 'TOO_MANY'); await hit(env, ipKey, 10); } catch {}
-  const row = await env.DB.prepare(`SELECT ${COLS} FROM bookings WHERE booking_code = ?`).bind(code).first();
+  const row = await env.DB.prepare(`SELECT ${COLS} FROM bookings b WHERE booking_code = ?`).bind(code).first();
   if (!row || row.phone_last4 !== last4) return err('예약 정보를 찾을 수 없습니다. 예약번호와 휴대폰 뒷자리를 확인해 주세요.', 404, 'NOT_FOUND');
   return answer(env, row);
 }

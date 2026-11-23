@@ -211,9 +211,10 @@ export async function onRequest({ request, env, params, waitUntil }) {
       // 접수번호는 같은 연락처(끝 4자리)로 들어온 문의일 때만 연결합니다(남의 문의를 결제로 바꾸지 못하게)
       let inquiryRef = str(o.product.kind === 'verification' ? '' : (d.inquiry_ref || retry?.inquiry_ref), 20).toUpperCase().replace(/[^0-9A-Z-]/g, '');
       if (inquiryRef) {
-        const iq = await env.DB.prepare('SELECT phone, data FROM inquiries WHERE ref = ?').bind(inquiryRef).first();
+        const iq = await env.DB.prepare('SELECT phone, data, space_id FROM inquiries WHERE ref = ?').bind(inquiryRef).first();
         const same = iq && String(iq.phone || '').replace(/\D/g, '').slice(-4) === phone.replace(/\D/g, '').slice(-4);
         if (!same) inquiryRef = '';
+        else if (iq.space_id==='food-only')return err('식음료 단독 예약은 안내받은 결제 방법을 이용해 주세요.',409,'FOOD_PAYMENT');
         else if (o.product.kind === 'pass') {
           const detail = safe(iq.data);
           if (detail.catering || detail.cocktail || detail.reception)

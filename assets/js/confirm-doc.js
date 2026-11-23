@@ -25,7 +25,17 @@
     if ((s == null || e == null) && SLOT[doc.slot]) { s = SLOT[doc.slot][0]; e = SLOT[doc.slot][1]; }
     return s != null && e != null && +e > +s ? [+s, +e] : null;
   }
-  function timeText(doc){ var h = hours(doc); return h ? hl(h[0]) + ' – ' + hl(h[1]) + ' (' + (h[1] - h[0]) + '시간)' : '시간은 별도 안내'; }
+  function timeText(doc){
+    if(doc.food_event){
+      var a=doc.food_event.start,b=doc.food_event.end;
+      return a&&b?a+'–'+(b<a?'다음 날 ':'')+b:a?a+' 시작':b?b+' 종료':'시간은 별도 안내';
+    }
+    var h = hours(doc); return h ? hl(h[0]) + ' – ' + hl(h[1]) + ' (' + (h[1] - h[0]) + '시간)' : '시간은 별도 안내'; }
+  function paymentText(doc){
+    if(doc.food_event&&doc.pay_status==='deposit')
+      return doc.food_event.reservation_fee>0&&doc.paid>=doc.food_event.reservation_fee?'예약금 입금 완료':'일부 입금';
+    return PAY[doc.pay_status]||'';
+  }
   function issuedText(doc){ var t = doc.issued_at ? String(doc.issued_at).slice(0, 10) : ''; if (!t) { var n = new Date(Date.now() + 9 * 3600e3); t = n.toISOString().slice(0, 10); } var p = t.split('-'); return p[0] + '. ' + (+p[1]) + '. ' + (+p[2]) + '.'; }
   function fileName(doc, ext){ return (doc.doc_type==='cancellation'?'메가스팟_취소환불정산서_':'메가스팟_예약확정서_') + (doc.code || '미발급') + '.' + ext; }
 
@@ -90,7 +100,7 @@
     // 머리말
     var lw = width('MEGA', 400, 34, LOGO);
     text('MEGA', L, 50, { sz: 34, fam: LOGO, c: C.graphite }); text('SPOT', L + lw, 50, { sz: 34, fam: LOGO, c: C.cobalt });
-    text((doc.space && doc.space.name) || '메가스팟 건대 1호', L + 1, 96, { sz: 11, w: 700, c: C.ink3, ls: 4 });
+    text(doc.food_event?'출장 식음료 서비스':(doc.space && doc.space.name) || '메가스팟 건대 1호', L + 1, 96, { sz: 11, w: 700, c: C.ink3, ls: 4 });
     text(doc.doc_type==='cancellation'?'취소·환불 정산서':'예약 확정서', R, 50, { sz: doc.doc_type==='cancellation'?26:32, w: 800, align: 'right' });
     text(doc.doc_type==='cancellation'?'CANCELLATION SETTLEMENT':'RESERVATION CONFIRMATION', R, 94, { sz: 10, w: 700, c: C.ink3, align: 'right', ls: 2 });
     hr(124, C.graphite, 2);
@@ -137,10 +147,10 @@
 
     section(doc.doc_type==='cancellation'?'취소된 예약 정보':'이용 정보');
     var sp0 = doc.space || {};
-    row('공간', sp0.name || '메가스팟 건대 1호', { w: 700, sub: sp0.sub || '' });
+    row(doc.food_event?'행사 장소':'공간', sp0.name || '메가스팟 건대 1호', { w: 700, sub: sp0.sub || '' });
     if (sp0.address) row('주소', sp0.address);
     row('이용일', dateText(doc.date), { w: 700 });
-    row('이용 시간', timeText(doc), { w: 700, sub: doc.time_note || '입장·세팅·정리·퇴장을 모두 포함한 시간입니다.' });
+    row('이용 시간', timeText(doc), { w: 700, sub: doc.time_note || (doc.food_event?'':'입장·세팅·정리·퇴장을 모두 포함한 시간입니다.') });
     if (doc.headcount) row('인원', doc.headcount + '명');
     if (doc.event) row('행사', doc.event);
     y += gap - Math.round(8 * k);
@@ -148,7 +158,7 @@
     if (doc.show_amount && (doc.amount != null || doc.deposit != null)) {
       section(doc.doc_type==='cancellation'?'취소·환불 정산':'금액 · 결제');
       if (doc.doc_type!=='cancellation'&&doc.amount != null) row('확정 금액', won(doc.amount) + (doc.amount_note ? '  (' + doc.amount_note + ')' : ''), { w: 800, c: C.cobalt, sz: Math.round(16 * k) });
-      if(doc.doc_type!=='cancellation')row('결제', (PAY[doc.pay_status] || PAY.paid) + (doc.paid != null && doc.paid > 0 ? ' · 받은 금액 ' + won(doc.paid) : ''));
+      if(doc.doc_type!=='cancellation')row('결제', (paymentText(doc) || PAY.paid) + (doc.paid != null && doc.paid > 0 ? ' · 받은 금액 ' + won(doc.paid) : ''));
       settlementRows(doc).forEach(function(r){row(r[0]==='초과 수납 환불 필요액'?'환불 필요액':r[0],r[1]);});
       if (doc.deposit != null) row('보증금', doc.deposit > 0 ? won(doc.deposit) + ' · 이용료와 별도, 이용 뒤 확인하고 돌려 드립니다' : '없음');
       y += gap - Math.round(8 * k);
@@ -169,7 +179,7 @@
       y += rh + Math.round(6 * k);
       ensure(Math.round(18*k)+gap);text('환불 비율은 결제한 이용료 기준이며, 보증금은 별도로 돌려 드립니다.', L, y, { sz: Math.round(11.5 * k), c: C.ink3 }); y += Math.round(18 * k) + gap - Math.round(6 * k);
     }
-    if(doc.doc_type!=='cancellation'){section('이용 안내'); bullets(GUIDE, Math.round(12.5 * k), C.ink2);}
+    if(!doc.food_event&&doc.doc_type!=='cancellation'){section('이용 안내'); bullets(GUIDE, Math.round(12.5 * k), C.ink2);}
     if (doc.note) { y += Math.round(8 * k); section('안내 메모'); wrap(doc.note, IW, 500, Math.round(13.5 * k)).forEach(function(ln){ensure(Math.round(21*k)); text(ln, L, y, { sz: Math.round(13.5 * k), w: 500 }); y += Math.round(21 * k); }); }
     var contentEnd = y;
 
@@ -182,7 +192,7 @@
     text('이메일  ' + c.email, L + 22, by + 62, { sz: 13.5, w: 600 });
     if (qr) { ctx.drawImage(qr, R - 22 - 72, by + 14, 72, 72); text('휴대폰 카메라로 비추면', R - 22 - 72 - 12, by + 38, { sz: 10.5, w: 600, c: C.ink3, align: 'right' }); text('카카오톡 채팅이 열립니다', R - 22 - 72 - 12, by + 54, { sz: 10.5, w: 600, c: C.ink3, align: 'right' }); }
     text((doc.doc_type==='cancellation'?'취소 정산서':'확정서')+' 다시 보기: megaspot.kr/confirm  (예약번호 + 휴대폰 뒷 4자리)', L, H - 64, { sz: 11, w: 600, c: C.ink2 });
-    text(doc.doc_type==='cancellation'?'취소 수수료·환불 정산 안내입니다. 공간 이용을 확정하지 않으며, 세금계산서·현금영수증 등 결제 증빙은 별도입니다.':'이 확정서는 ' + ((doc.space && doc.space.name) || '메가스팟 건대 1호') + ' 예약이 확정되었음을 알려 드리는 문서이며, 세금계산서·현금영수증 등 결제 증빙은 따로 발급됩니다.', L, H - 46, { sz: 10, c: C.ink3 });
+    text(doc.food_event?(doc.doc_type==='cancellation'?'식음료 예약 취소·환불 정산 안내입니다.':'메가스팟 출장 식음료 서비스의 예약 확정을 안내하는 문서입니다. 결제 증빙은 별도로 발급됩니다.'):doc.doc_type==='cancellation'?'취소 수수료·환불 정산 안내입니다. 공간 이용을 확정하지 않으며, 세금계산서·현금영수증 등 결제 증빙은 별도입니다.':'이 확정서는 ' + ((doc.space && doc.space.name) || '메가스팟 건대 1호') + ' 예약이 확정되었음을 알려 드리는 문서이며, 세금계산서·현금영수증 등 결제 증빙은 따로 발급됩니다.', L, H - 46, { sz: 10, c: C.ink3 });
     text('주식회사 블랭크 · 대표 최시준 · 사업자등록번호 161-86-03494 · megaspot.kr', L, H - 30, { sz: 10, c: C.ink3 });
     text((index+1)+' / '+pages.length,R,H-64,{sz:11,c:C.ink3,align:'right'});
     });
@@ -224,14 +234,22 @@
     var a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = name; document.body.appendChild(a); a.click();
     setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 1500);
   }
-  function settlementRows(doc){return window.MEGASPOT_SETTLEMENT?window.MEGASPOT_SETTLEMENT.documentRows(doc):[];}
+  function settlementRows(doc){
+    var rows=window.MEGASPOT_SETTLEMENT?window.MEGASPOT_SETTLEMENT.documentRows(doc):[];
+    if(doc.food_event&&doc.show_amount&&doc.doc_type!=='cancellation'){
+      if(doc.food_event.reservation_fee!=null)rows.push(['예약금 약정액',won(doc.food_event.reservation_fee)]);
+      if(doc.food_event.balance_due)rows.push(['잔금 납부일',dateText(doc.food_event.balance_due)]);
+    }
+    return rows;
+  }
   function kakaoText(doc, link){
     if(doc.doc_type==='cancellation'){var c=['[예약 취소·환불 정산 안내]','예약번호: '+doc.code,'예약이 취소되었습니다.'];settlementRows(doc).forEach(function(r){c.push('· '+r[0]+': '+r[1]);});if(link)c.push('취소 정산서 조회: '+link);return c.join('\n');}
-    var L = ['[' + ((doc.space && doc.space.name) || '메가스팟 건대 1호') + ' 예약 확정 안내]'];
+    var L = ['[' + (doc.food_event?'메가스팟 식음료':((doc.space && doc.space.name) || '메가스팟 건대 1호')) + ' 예약 확정 안내]'];
     var nm = String(doc.customer || '').replace(/\s*\(.*\)\s*$/, '');
     L.push((nm ? nm + ' 님, ' : '') + '예약이 확정되었습니다.');
     L.push('');
     L.push('· 예약번호: ' + doc.code);
+    if(doc.food_event)L.push('· 행사 장소: '+(doc.food_event.location||'미정'));
     L.push('· 이용일: ' + dateText(doc.date));
     L.push('· 이용 시간: ' + timeText(doc));
     if (doc.headcount) L.push('· 인원: ' + doc.headcount + '명');
@@ -239,7 +257,7 @@
     settlementRows(doc).forEach(function(row){L.push('· '+row[0]+': '+row[1]);});
     receptionRows(doc).forEach(function(row){L.push('· '+row[0]+': '+row[1]);});
     if (link) { L.push(''); L.push('예약확정서는 아래 주소에서 보시고 PDF·이미지로 저장하실 수 있습니다.'); L.push(link); }
-    L.push(''); L.push('이용 전에 주차·입장 안내를 따로 보내 드리겠습니다. 감사합니다.');
+    L.push(''); L.push(doc.food_event?'행사 장소·일정 변경이 필요하시면 알려주세요. 감사합니다.':'이용 전에 주차·입장 안내를 따로 보내 드리겠습니다. 감사합니다.');
     return L.join('\n');
   }
   // 휴대폰에서는 카카오톡 등으로 파일을 바로 공유하고, 파일 공유가 안 되는 브라우저는 링크를 공유합니다
@@ -254,5 +272,5 @@
       return 'unsupported';
     });
   }
-  window.MEGASPOT_CONFIRM = { render: render, settlementRows:settlementRows, receptionRows:receptionRows, pngBlob: pngBlob, pdfBlob: pdfBlob, download: download, share: share, kakaoText: kakaoText, fileName: fileName, dateText: dateText, timeText: timeText, PAY: PAY, size: { w: W * S, h: H * S } };
+  window.MEGASPOT_CONFIRM = { render: render, settlementRows:settlementRows, receptionRows:receptionRows, pngBlob: pngBlob, pdfBlob: pdfBlob, download: download, share: share, kakaoText: kakaoText, fileName: fileName, dateText: dateText, timeText: timeText, paymentText:paymentText, PAY: PAY, size: { w: W * S, h: H * S } };
 })();

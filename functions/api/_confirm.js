@@ -4,6 +4,7 @@ import S from '../../assets/js/settlement.js';
 import { str, num } from './_lib.js';
 import {stripFoodItems,F} from './_food_services.js';
 import { withoutReceptionItems } from './_reception.js';
+import {FOOD_SPACE,foodDocumentEvent,foodEvent} from './_food_booking.js';
 
 const enc = new TextEncoder();
 export const PAY_STATUS = ['paid', 'deposit', 'onsite', 'pending', 'refund', 'payment_review', 'refunded'];   // 결제 완료 · 예약금 입금 · 현장 결제 · 결제 안내 예정
@@ -46,7 +47,8 @@ export function confirmationConditions(row, inquiry = {}) {
   return JSON.stringify([row.space_id, row.customer_name, row.phone, row.date, row.slot || '', row.start_h ?? null, row.end_h ?? null, row.headcount ?? null,
     inquiry.name || '', inquiry.org || '', inquiry.purpose || '', !!inquiry.regular,
     !!manager, manager ? Number(manager.count) || 1 : 0, manager ? Number(manager.hours) || 1 : 0,
-    ...['cleaning','disposable','banner','xbanner'].map(key => !!options[key])]);
+    ...['cleaning','disposable','banner','xbanner'].map(key => !!options[key]),
+    ...(row.space_id===FOOD_SPACE?[inquiry.food_event, inquiry.total]:[])]);
 }
 
 // 관리자 화면에서 보낸 확정서 설정값을 정리합니다 (모르는 값은 버림)
@@ -65,16 +67,17 @@ export function parseDoc(raw) { if (!raw) return null; try { const o = JSON.pars
 
 // 고객 화면·확정서 그림에 쓰는 값 (연락처는 가운데를 가립니다)
 export function publicDoc(row, doc) {
-  const sp = SPACES[row.space_id] || { name: row.space_id || '메가스팟', address: '', sub: '' };
   const d = doc || {};
+  const food = row.space_id===FOOD_SPACE ? foodDocumentEvent(row.food_event || foodEvent(row.idata)?.food_event || d.food_event, d.show_amount!==false) : null;
+  const sp = food ? {name:food.location||'행사 장소 미정',address:'',sub:''} : SPACES[row.space_id] || { name: row.space_id || '메가스팟', address: '', sub: '' };
   return {
     doc_type:d.doc_type==='cancellation'?'cancellation':'confirmation', code: row.booking_code, status: row.status, issued_at: d.issued_at || '', updated_at: d.updated_at || '', issue_no: d.issue_no || 0,
     customer: d.customer || row.customer_name || '', phone: maskPhone(row.phone),
-    space: sp, date: row.date, start_h: row.start_h ?? null, end_h: row.end_h ?? null, slot: row.slot || '', headcount: row.headcount ?? null,
+    space: sp, ...(food ? {food_event:food} : {}), date: row.date, start_h: row.start_h ?? null, end_h: row.end_h ?? null, slot: row.slot || '', headcount: row.headcount ?? null,
     event: d.event || '', time_note: d.time_note || '', show_amount: d.show_amount !== false, amount: d.show_amount === false ? null : d.amount ?? null, amount_note: d.amount_note || '부가세 포함',
     settlement:d.show_amount===false?null:d.settlement?S.calculate(d.settlement):null,
     food_services:(d.food_services||[]).map(value=>({...(value.kind==='cocktail'?F.publicCocktail(value):value),...(d.show_amount===false?{amount:null,total:null,price:null,supply:null,fee:null,vat:null,unit:null,summary:''}:{})})),
     reception: d.reception ? { ...d.reception, ...(d.show_amount === false ? { ...(d.reception.price_basis==='budget'?{course:'cf-custom',courseName:'예산 기준 맞춤 구성',summary:''}:{}),summary:'',unitPrice:null, unit_price:null, food:null, fee:null, supply:null, vat:null, total:null, budget_per_person:null } : {}) } : null,
-    pay_status: d.pay_status || 'pending', paid: d.show_amount === false ? null : d.paid ?? null, deposit: d.show_amount === false ? null : d.deposit ?? null, items: d.show_amount === false ? stripFoodItems(withoutReceptionItems(d.items || [])) : d.items || [], refund: d.refund || [], note: d.note || ''
+    pay_status: d.pay_status || 'pending', paid: d.show_amount === false ? null : d.paid ?? null, deposit: food || d.show_amount === false ? null : d.deposit ?? null, items: d.show_amount === false ? stripFoodItems(withoutReceptionItems(d.items || [])) : d.items || [], refund: d.refund || [], note: d.note || ''
   };
 }

@@ -9,6 +9,7 @@ export function defaultBalanceDue(b){
 export async function paymentSchedule(env,b){
  const row=await env.DB.prepare('SELECT * FROM booking_payment_schedule WHERE booking_code=?').bind(b.booking_code).first();
  const state=await env.DB.prepare('SELECT confirmed_at FROM booking_journey_state WHERE booking_code=?').bind(b.booking_code).first();
+ if(b.space_id==='food-only')return {due_date:row?.due_date||'',reminder_date:'',custom:!!row?.due_date,version:row?.version||0};
  const due_date=row?.due_date||defaultBalanceDue({...b,confirmed_at:state?.confirmed_at||b.confirmed_at});
  return {due_date,reminder_date:row?.due_date?shiftDay(due_date,-7):shiftDay(b.date,-22),custom:!!row?.due_date,version:row?.version||0};
 }
@@ -17,6 +18,7 @@ export async function paymentScheduleAdmin({env,request,path,method}){
  if(!b)return err('예약을 찾을 수 없습니다.',404);
  if(method==='GET')return json({ok:true,...await paymentSchedule(env,b)});
  if(method!=='PUT')return err('지원하지 않는 요청입니다.',405);
+ if(b.space_id==='food-only')return err('식음료 예약 상세에서 잔금 기한을 수정해 주세요.',409);
  if(b.status!=='confirmed')return err('확정 예약에서 잔금 기한을 설정해 주세요.',409);
  const d=await readJson(request,2048),due=d.due_date||null;
  if(due!==null&&(!/^\d{4}-\d{2}-\d{2}$/.test(due)||!Number.isFinite(Date.parse(due+'T00:00:00Z'))||shiftDay(due,0)!==due||due>b.date))return err('이용일까지의 올바른 잔금 납부일을 입력해 주세요.');
