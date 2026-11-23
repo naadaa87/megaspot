@@ -35,7 +35,7 @@
   $('#payment-kind option[value=combined]').hidden=food;
   ['#payment-food-date','#payment-food-method'].forEach(function(sel){$(sel).disabled=state.busy||!food||!!isVoid;});
   $('#payment-reason-wrap').hidden=!e;$('#payment-reason').required=!!e;$('#payment-new').hidden=!e;
-  $('#payment-mode').textContent=e?(isVoid?'기록 #'+e.id+' 취소':'기록 #'+e.id+' 정정·복원'):({reservation:'예약금 입금 기록',balance:'잔금 입금 기록',refund:'환불 기록'}[state.shortcut]||'새 완료 내역 기록');
+  $('#payment-mode').textContent=e?(isVoid?'기록 #'+e.id+' 취소':'기록 #'+e.id+' 정정·복원'):({balance:'잔금 입금 기록',refund:'환불 기록'}[state.shortcut]||'새 완료 내역 기록');
   $('#payment-save').textContent=e?(isVoid?'이 기록 취소':'정정 내용 저장'):$('#payment-kind').value==='combined'?'합산 입금 처리 · 계좌 등록 안내':'완료 내역 기록';
   $('#payment-kind option[value=combined]').disabled=!!e||!!(state.data&&state.data.deposit.reason);splitView();
   ['#payment-kind','#payment-amount','#payment-note','#payment-combined-confirm'].forEach(function(s){$(s).disabled=state.busy||!!isVoid;});
@@ -97,14 +97,12 @@
   if(action==='history'){$('#payment-history-details').open=true;return;}
   if(action==='refund'){$('#payment-kind').value='refund';return;}
   if(action==='receipt')return;
-  var s=state.data.settlement, fee=state.data.deposit.reservation_fee;
-  var amount=action==='balance'?s.balance:fee>0?Math.max(0,fee-s.net):null;
+  var amount=state.data.settlement.balance;
   if(amount>0){
    $('#payment-amount').value=amount;
    $('#payment-msg').textContent='실제 입금액과 처리 수단을 확인한 뒤 기록해 주세요.';
   }else{
-   $('#payment-msg').textContent=amount===0?'이 단계에 남은 입금액이 없습니다. 기존 수납 내역을 확인해 주세요.':
-    action==='reservation'?'예약 상세에서 예약금 약정액을 입력하면 남은 예약금을 계산합니다.':'확정 금액과 남은 잔금을 확인해 주세요.';
+   $('#payment-msg').textContent=amount===0?'남은 잔금이 없습니다. 기존 수납 내역을 확인해 주세요.':'확정 금액과 남은 잔금을 확인해 주세요.';
   }
  }
  function load(code,action){
@@ -158,7 +156,12 @@
  });
  document.addEventListener('change',function(e){
   var select=e.target.closest('[data-food-payment]');if(!select||!select.value)return;
-  e.stopPropagation();var action=select.value;select.value='';load(select.dataset.foodPayment,action);
+  e.stopPropagation();var action=select.value,code=select.dataset.foodPayment;select.value='';
+  if(action==='reservation'){
+   window.dispatchEvent(new CustomEvent('admin-payment-editor-open',{detail:{target:'booking/'+code,status:'reservation_paid',trigger:select}}));
+   return;
+  }
+  load(code,action);
  },true);
  document.addEventListener('click',function(e){var b=e.target.closest('[data-settlement-code]');if(b&&b.dataset.settlementCode){e.preventDefault();e.stopPropagation();load(b.dataset.settlementCode);}},true);
  window.addEventListener('admin-save-recovered',function(e){if(e.detail.kind==='payment'){state.dirty=false;state.pending=null;load(e.detail.code);window.dispatchEvent(new CustomEvent('admin-settlement-saved',{detail:{code:e.detail.code}}));}});

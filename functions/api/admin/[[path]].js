@@ -1035,7 +1035,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
         const doc = parseDoc(row.confirm_doc), currentReception = receptionDocument(idata, row.effective_amount), currentFoods=foodDocuments({...idata,catering:cat},row.effective_amount);
         const foodNeedsReissue = !!doc?.food_needs_reissue;
         const needs_reissue = foodNeedsReissue || !!(doc?.issued_at && (doc.settlement?.revision!==settlement.revision||(currentReception&&!Object.hasOwn(doc,'reception'))||(currentFoods.length&&!Object.hasOwn(doc,'food_services'))));
-        const previewDoc = {...(doc||{}),settlement:foodNeedsReissue||!doc?.settlement?settlement:doc.settlement,
+        const previewDoc = {...(doc||{}),settlement:row.space_id===FOOD_SPACE||!doc?.settlement?settlement:doc.settlement,
           reception:foodNeedsReissue||!doc||!Object.hasOwn(doc,'reception')?currentReception:doc.reception,
           food_services:foodNeedsReissue||!doc||!Object.hasOwn(doc,'food_services')?currentFoods:doc.food_services};
         if(foodNeedsReissue) Object.assign(previewDoc,{customer:row.customer_name,amount:row.effective_amount,

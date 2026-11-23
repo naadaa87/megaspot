@@ -348,3 +348,40 @@ test('can archive a paid pending inquiry and link an independently saved quote w
   assert.notEqual(separateBooking.ref,ref);
   assert.equal((await f.api('bookings/'+separateBooking.booking_code+'/settlement')).settlement.net,0);
 });
+
+test('marks a recorded food deposit as paid without another receipt and refuses to mark a short deposit',async t=>{
+  const f=fixture();
+  t.after(()=>f.db.close());
+  const quote=await f.api('quotes','POST',preparedQuote());
+  const {ref,booking_code:code}=await f.api('food-inquiries','POST',{quote_no:quote.quote_no,confirm:true});
+  await payment(f,code,'receipt',200000);
+  const path='reservation-payment-checks/booking/'+code, bookings='bookings/'+code;
+  async function mark(receivedTotal=200000,expectedStatus=200){
+    const current=await f.api(path);
+    return f.api(path,'PUT',{status:'reservation_paid',received_total:receivedTotal,expected_revision:current.payment_revision,
+      expected_settlement_revision:current.settlement.revision,request_id:crypto.randomUUID()},expectedStatus);
+  }
+  assert.equal((await f.api(path)).payment_status,'partial_paid');
+  assert.equal((await body(await publicDoc(f,code))).doc.food_event.reservation_paid,false);
+
+  const saved=await mark();
+  assert.equal(saved.receipt_added,0);
+  assert.equal((await f.api(path)).payment_status,'reservation_paid');
+  const list=(await f.api('reservations?from='+DAY+'&to='+DAY)).items.find(item=>item.code===code);
+  assert.equal(list.payment_status,'reservation_paid');
+  assert.equal(list.settlement.balance,reception.total-200000);
+  assert.equal((await f.api(bookings+'/settlement')).entries.length,1);
+  assert.equal((await f.api(bookings+'/confirm-doc')).preview.food_event.reservation_paid,true);
+  assert.equal((await body(await publicDoc(f,code))).doc.food_event.reservation_paid,true);
+
+  const {item}=await f.api('inquiries/'+ref);
+  await f.api('food-inquiries/'+ref,'PUT',{version:item.data.food_event.version,reservation_fee:300000});
+  assert.equal((await f.api(path)).payment_status,'partial_paid');
+  assert.match((await mark(200000,400)).error,/300,000원/);
+  assert.equal((await f.api(bookings+'/settlement')).entries.length,1);
+  const newMoney=await mark(300000);
+  assert.equal(newMoney.receipt_added,100000);
+  assert.equal(newMoney.settlement.received,300000);
+  assert.equal((await f.api(path)).payment_status,'reservation_paid');
+  assert.equal((await f.api(bookings+'/settlement')).entries.length,2);
+});

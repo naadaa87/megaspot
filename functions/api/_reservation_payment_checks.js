@@ -37,10 +37,10 @@ export async function reservationPaymentAdmin({env,request,path,method}){
   if(!item)return err('예약 또는 문의를 찾을 수 없습니다.',404);
   item.kind=type==='booking'?'booking':'pending';
   const settlements=type==='booking'?await settlementsFor(env,[ref]):{},checks=await paymentChecksFor(env,[item],settlements);
-  const foodOnly=item.space_id===FOOD_SPACE, result=checks[key(type,ref)];
-  if(foodOnly&&type==='booking')result.payment_status=foodPaymentStatus(settlements[ref],foodEvent(item.food_event)||{},result.payment_status);
+  const foodOnly=item.space_id===FOOD_SPACE, result=checks[key(type,ref)],event=foodEvent(item.food_event)||{};
+  if(foodOnly&&type==='booking')result.payment_status=foodPaymentStatus(settlements[ref],event,result.payment_status);
   const choices=foodOnly?{...FOOD_PENDING,...(type==='booking'?{food_paid:'잔금 입금 완료'}:{})}:PAYMENT_CHECKS;
-  return json({ok:true,...result,food_only:foodOnly,name:item.name||ref,settlement:type==='booking'?settlements[ref]:await inquirySettlement(env,ref),receipt_available:true,receipt_target:type+'/'+ref,entries:type==='inquiry'?await inquiryReceiptHistory(env,ref):(await env.DB.prepare('SELECT id,kind,amount,note,state,created_at,version FROM booking_payment_current WHERE booking_code=? ORDER BY id DESC LIMIT 30').bind(ref).all()).results||[],editable:type==='booking'?['confirmed','completed','payment_review'].includes(item.status):['문의 접수','조건 확인','견적 발송','결제 대기'].includes(item.status),choices});
+  return json({ok:true,...result,food_only:foodOnly,...(foodOnly?{reservation_fee:event.reservation_fee??null}:{}),name:item.name||ref,settlement:type==='booking'?settlements[ref]:await inquirySettlement(env,ref),receipt_available:true,receipt_target:type+'/'+ref,entries:type==='inquiry'?await inquiryReceiptHistory(env,ref):(await env.DB.prepare('SELECT id,kind,amount,note,state,created_at,version FROM booking_payment_current WHERE booking_code=? ORDER BY id DESC LIMIT 30').bind(ref).all()).results||[],editable:type==='booking'?['confirmed','completed','payment_review'].includes(item.status):['문의 접수','조건 확인','견적 발송','결제 대기'].includes(item.status),choices});
  }
  if(method!=='PUT')return err('지원하지 않는 요청입니다.',405);
  const d=await readJson(request);if(d.status==='balance_paid')d.status='needs_review';const type=m[1],ref=m[2],revision=d.expected_revision;

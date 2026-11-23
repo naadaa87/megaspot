@@ -33,7 +33,7 @@
     var h = hours(doc); return h ? hl(h[0]) + ' – ' + hl(h[1]) + ' (' + (h[1] - h[0]) + '시간)' : '시간은 별도 안내'; }
   function paymentText(doc){
     if(doc.food_event&&doc.pay_status==='deposit')
-      return doc.food_event.reservation_fee>0&&doc.paid>=doc.food_event.reservation_fee?'예약금 입금 완료':'일부 입금';
+      return (doc.food_event.reservation_paid||doc.food_event.reservation_fee>0&&doc.paid>=doc.food_event.reservation_fee)?'예약금 입금 완료':'일부 입금';
     return PAY[doc.pay_status]||'';
   }
   function issuedText(doc){ var t = doc.issued_at ? String(doc.issued_at).slice(0, 10) : ''; if (!t) { var n = new Date(Date.now() + 9 * 3600e3); t = n.toISOString().slice(0, 10); } var p = t.split('-'); return p[0] + '. ' + (+p[1]) + '. ' + (+p[2]) + '.'; }

@@ -73,7 +73,7 @@ export function publicDoc(row, doc) {
   return {
     doc_type:d.doc_type==='cancellation'?'cancellation':'confirmation', code: row.booking_code, status: row.status, issued_at: d.issued_at || '', updated_at: d.updated_at || '', issue_no: d.issue_no || 0,
     customer: d.customer || row.customer_name || '', phone: maskPhone(row.phone),
-    space: sp, ...(food ? {food_event:food} : {}), date: row.date, start_h: row.start_h ?? null, end_h: row.end_h ?? null, slot: row.slot || '', headcount: row.headcount ?? null,
+    space: sp, ...(food ? {food_event:{...food,...(d.show_amount!==false&&d.settlement?{reservation_paid:!!d.settlement.food_reservation_paid}:{})}} : {}), date: row.date, start_h: row.start_h ?? null, end_h: row.end_h ?? null, slot: row.slot || '', headcount: row.headcount ?? null,
     event: d.event || '', time_note: d.time_note || '', show_amount: d.show_amount !== false, amount: d.show_amount === false ? null : d.amount ?? null, amount_note: d.amount_note || '부가세 포함',
     settlement:d.show_amount===false?null:d.settlement?S.calculate(d.settlement):null,
     food_services:(d.food_services||[]).map(value=>({...(value.kind==='cocktail'?F.publicCocktail(value):value),...(d.show_amount===false?{amount:null,total:null,price:null,supply:null,fee:null,vat:null,unit:null,summary:''}:{})})),

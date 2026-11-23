@@ -195,8 +195,18 @@ async function registered(env,ref,duplicate) {
   return json({ok:true,ref,booking_code:b?.booking_code || '',duplicate});
 }
 
+export const foodReservationFeeSql = () => `COALESCE((SELECT json_extract(data,'$.food_event.reservation_fee')
+  FROM inquiries WHERE ref=b.inquiry_ref),0)`;
+
+export function foodReservationDepositError(net,fee){
+  if(net<=0)return '기록된 입금이 없습니다. 실제 받은 금액을 확인해 주세요.';
+  if(fee>net)return '현재 수납액이 예약금 약정액 '+fee.toLocaleString('ko-KR')+'원보다 적습니다. 실제 약정액이 다르면 예약 수정에서 변경해 주세요.';
+  return '';
+}
+
 export function foodPaymentStatus(settlement,event,previous) {
-  if (!settlement || !settlement.net) return 'unpaid';
+  if (settlement?.review_required) return 'needs_review';
+  if (!(settlement?.net>0)) return 'unpaid';
   if (settlement.balance === 0) return 'food_paid';
   if (event.reservation_fee > 0 ? settlement.net >= event.reservation_fee : previous==='reservation_paid') return 'reservation_paid';
   return 'partial_paid';

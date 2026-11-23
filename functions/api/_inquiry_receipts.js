@@ -1,3 +1,4 @@
+import {FOOD_SPACE,foodReservationDepositError} from './_food_booking.js';
 import {json,err,now,str} from './_lib.js';
 import {inquiryAmountSql} from './_amounts.js';
 import {refundAmountSql} from './_payapp_refund_history.js';
@@ -10,7 +11,7 @@ const owner="('inquiry:'||i.ref)";
 const manual=kind=>`(SELECT COALESCE(SUM(p.amount),0) FROM booking_payment_current p WHERE p.booking_code=${owner} AND p.state='active' AND p.kind='${kind}')`;
 const online=field=>`(SELECT COALESCE(SUM(${field}),0) FROM orders o WHERE o.inquiry_ref=i.ref AND o.booking_code IS NULL AND o.test=0 AND o.status IN ('paid','refunded'))`;
 const gross=online('o.price'),refunds=online(refundAmountSql('o'));
-export const inquiryReceiptRevisionSql=()=>`json_array('inquiry',i.ref,CAST(${inquiryAmountSql()} AS INTEGER),${manual('receipt')},${manual('refund')},${gross},${refunds},(SELECT COALESCE(MAX(id),0) FROM booking_payment_revisions WHERE booking_code=${owner}),i.status,(SELECT booking_code FROM inquiry_payment_owners WHERE inquiry_ref=i.ref))`;
+export const inquiryReceiptRevisionSql=()=>`json_array('inquiry',i.ref,CAST(${inquiryAmountSql()} AS INTEGER),${manual('receipt')},${manual('refund')},${gross},${refunds},(SELECT COALESCE(MAX(id),0) FROM booking_payment_revisions WHERE booking_code=${owner}),i.status,(SELECT booking_code FROM inquiry_payment_owners WHERE inquiry_ref=i.ref),json_extract(i.data,'$.food_event.reservation_fee'))`;
 export async function inquiryReceiptBooking(env,ref){
  const linked=await env.DB.prepare('SELECT booking_code FROM inquiry_payment_owners WHERE inquiry_ref=?').bind(ref).first();if(linked?.booking_code)return linked.booking_code;
  const {results}=await env.DB.prepare("SELECT booking_code FROM bookings WHERE inquiry_ref=? AND status<>'cancelled' LIMIT 2").bind(ref).all();return results?.length===1?results[0].booking_code:null;
@@ -37,8 +38,10 @@ export async function inquiryReceiptAdmin(env,ref,d){
  if(!['문의 접수','조건 확인','견적 발송','결제 대기'].includes(s.inquiry_status))return err('문의 진행 상태나 연결된 예약을 확인해 주세요.',409,'PAYMENT_CHANGED');
  if(s.revision!==d.expected_settlement_revision)return err('수납이나 문의 금액이 바뀌었습니다. 최신 내역을 확인해 주세요.',409,'PAYMENT_CHANGED');
  if(total<s.received)return err('등록된 누적 입금액보다 작습니다. 기존 수납·환불 내역을 확인해 주세요.');
- if(s.space_id==='food-only'&&d.status==='reservation_paid'&&total-s.refunded<Math.max(1,s.reservation_fee||0))
-  return err('실제 수납액이 예약금 약정액에 도달했는지 확인해 주세요.');
+ if(s.space_id===FOOD_SPACE&&d.status==='reservation_paid'){
+  const issue=foodReservationDepositError(total-s.refunded,s.reservation_fee);
+  if(issue)return err(issue);
+ }
  if(['fully_paid','venue_fully_paid'].includes(d.status)&&(s.amount==null||total-s.refunded<s.amount))return err('전체 입금 완료는 견적 금액이 정해지고 잔금이 0원일 때 선택해 주세요.');
  if(typeof env.DB.batch!=='function')return err('수납과 상태의 일괄 저장을 지원하지 않습니다.',503);
  const time=now(),added=total-s.received,guard=`i.ref=? AND ${pending} AND ${noBooking} AND ${inquiryReceiptRevisionSql()}=? AND COALESCE((SELECT version FROM reservation_payment_scopes_v2 WHERE target_type='inquiry' AND target_ref=i.ref),0)=?`;

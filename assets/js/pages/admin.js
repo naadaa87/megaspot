@@ -2551,7 +2551,7 @@
     if(!current||!s.show_amount||s.paid==null||s.paid<current.net||s.paid===current.net)return current;
     return window.MEGASPOT_SETTLEMENT.calculate(Object.assign({},current,{received:current.received+s.paid-current.net}));
   }
-  function cdDoc(){ var p=CDS.preview||{}, s=cdSettings(), d={}; Object.keys(p).forEach(function(k){ d[k]=p[k]; }); Object.keys(s).forEach(function(k){ d[k]=s[k]; }); d.settlement=cdProjectedSettlement(s);if(d.settlement){d.paid=d.settlement.net;d.pay_status=d.settlement.status==='unpriced'?'pending':d.settlement.status;}var saved=CDS.doc?.food_needs_reissue?null:CDS.doc;d.food_services=saved&&Object.hasOwn(saved,'food_services')?saved.food_services:CDS.food_services;d.reception=saved&&Object.hasOwn(saved,'reception')?saved.reception:CDS.reception;d.issued_at=saved?.issued_at||''; return d; }
+  function cdDoc(){ var p=CDS.preview||{}, s=cdSettings(), d={}; Object.keys(p).forEach(function(k){ d[k]=p[k]; }); Object.keys(s).forEach(function(k){ d[k]=s[k]; }); d.settlement=cdProjectedSettlement(s);if(d.food_event&&d.show_amount)d.food_event={...d.food_event,reservation_paid:!!d.settlement?.food_reservation_paid};if(d.settlement){d.paid=d.settlement.net;d.pay_status=d.settlement.status==='unpriced'?'pending':d.settlement.status;}var saved=CDS.doc?.food_needs_reissue?null:CDS.doc;d.food_services=saved&&Object.hasOwn(saved,'food_services')?saved.food_services:CDS.food_services;d.reception=saved&&Object.hasOwn(saved,'reception')?saved.reception:CDS.reception;d.issued_at=saved?.issued_at||''; return d; }
   function cdState(){
     var d=CDS&&CDS.doc, st=$('#cd-state');
     st.className='cd-state'+(d?.issued_at&&!d.food_needs_reissue?' on':'');
@@ -2653,6 +2653,7 @@
     }).catch(function(e){if(!guard(e))note($('#cd-msg'),e.message);});
   }
   window.addEventListener('admin-settlement-saved',function(e){cdRefreshPayment(e.detail.code);});
+  window.addEventListener('admin-payment-status-saved',function(e){if(e.detail.food_only&&!e.detail.receipt_added)cdRefreshPayment(e.detail.code);});
   window.addEventListener('admin-save-recovered',function(e){if(e.detail.kind==='payment')cdRefreshPayment(e.detail.code);});
   if($('#cd-form')){
     $('#cd-form').addEventListener('input', cdQueue); $('#cd-form').addEventListener('change', function(e){ if(e.target.id==='cd-show-amount') cdAmountToggle(); cdQueue(); });

@@ -1,3 +1,4 @@
+import {FOOD_SPACE,foodReservationDepositError,foodReservationFeeSql} from './_food_booking.js';
 import {json,err,now,str} from './_lib.js';
 import {settlementFor,settlementRevisionSql,paymentConfirmation,paymentDocumentStatements} from './_settlement.js';
 import {confirmationSourceSQL} from './_confirmation_auto.js';
@@ -16,16 +17,23 @@ export async function paymentReceiptAdmin(env,code,d){
  if(!['confirmed','completed','payment_review'].includes(settlement.booking_status))return err('취소된 예약은 입금을 추가할 수 없습니다.',409,'PAYMENT_CHANGED');
  if(d.expected_settlement_revision!==settlement.revision)return err('수납 내역이 바뀌었습니다. 최신 내역을 확인한 뒤 다시 저장해 주세요.',409,'PAYMENT_CHANGED');
  if(total<settlement.received)return err('기존 누적 입금액보다 작습니다. 잘못된 기록 정정이나 실제 환불은 수납·환불 기록에서 처리해 주세요.');
+ const food=await env.DB.prepare(`SELECT ${foodReservationFeeSql()} AS fee
+  FROM bookings b WHERE booking_code=? AND space_id=?`).bind(code,FOOD_SPACE).first();
+ const checkingDeposit=food&&d.status==='reservation_paid';
+ if(checkingDeposit){
+  const issue=foodReservationDepositError(total-settlement.refunded,food.fee);
+  if(issue)return err(issue);
+ }
  if(['fully_paid','venue_fully_paid'].includes(d.status)&&settlement.amount!=null&&total-settlement.refunded<settlement.amount)return err('전체 입금 완료로 저장하려면 환불 반영 후 남은 잔금이 0원이어야 합니다. 실제 누적 입금액이나 결제 상태를 확인해 주세요.');
  if(typeof env.DB.batch!=='function')return err('수납과 상태의 일괄 저장을 지원하지 않습니다.',503);
  const added=total-settlement.received,time=now(),prepared=added>0?await paymentConfirmation(env,code,settlement,added,0,time):null;
  const writes=[
   env.DB.prepare(`INSERT OR IGNORE INTO reservation_payment_receipt_requests(booking_code,request_id,status,received_total,added,note,payment_revision,settlement_revision,created_at)
    SELECT b.booking_code,?,?,?,?,?,?,?,? FROM bookings b WHERE b.booking_code=? AND b.status IN ('confirmed','completed','payment_review') AND ${settlementRevisionSql()}=?
-   AND COALESCE((SELECT version FROM reservation_payment_scopes_v2 WHERE target_type='booking' AND target_ref=b.booking_code),0)=?${prepared?` AND ${confirmationSourceSQL}=?`:''}`)
-   .bind(id,d.status,total,added,note,d.expected_revision,d.expected_settlement_revision,time,code,d.expected_settlement_revision,d.expected_revision,...(prepared?[prepared.revision]:[])),
+   AND COALESCE((SELECT version FROM reservation_payment_scopes_v2 WHERE target_type='booking' AND target_ref=b.booking_code),0)=?${checkingDeposit?` AND ${foodReservationFeeSql()}=?`:''}${prepared?` AND ${confirmationSourceSQL}=?`:''}`)
+   .bind(id,d.status,total,added,note,d.expected_revision,d.expected_settlement_revision,time,code,d.expected_settlement_revision,d.expected_revision,...(checkingDeposit?[food.fee]:[]),...(prepared?[prepared.revision]:[])),
   env.DB.prepare("INSERT INTO booking_payment_entries(booking_code,request_id,kind,amount,note,created_at) SELECT booking_code,request_id,'receipt',added,?,created_at FROM reservation_payment_receipt_requests WHERE booking_code=? AND request_id=? AND added>0 AND changes()>0")
-   .bind(str('결제 상태 변경 · 누적 이용료 '+total.toLocaleString('ko-KR')+'원'+(note?' · '+note:''),300),code,id),
+   .bind(food&&note?note:str('결제 상태 변경 · 누적 이용료 '+total.toLocaleString('ko-KR')+'원'+(note?' · '+note:''),300),code,id),
   ...(added>0?paymentDocumentStatements(env,code,id,'entry',prepared,time):[]),
   env.DB.prepare(`INSERT INTO reservation_payment_scopes_v2(target_type,target_ref,status,version,updated_at)
    SELECT 'booking',b.booking_code,?,1,? FROM bookings b WHERE b.booking_code=? AND EXISTS(SELECT 1 FROM reservation_payment_receipt_requests WHERE booking_code=b.booking_code AND request_id=? AND payment_revision=?)
