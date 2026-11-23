@@ -165,6 +165,11 @@
 .page-admin select[data-food-payment]{min-width:0;max-width:100%}
 .page-admin #cal-grid select[data-food-payment]{width:100%;margin-top:4px;padding:4px;text-overflow:ellipsis}
 .food-agenda{display:none}
+.food-agenda-settlement{display:flex;flex-wrap:wrap;gap:4px 12px;margin:6px 0 10px}
+.food-agenda-settlement:empty{display:none}
+.cal-food-summary{display:block}
+.cal-food-event .food-agenda-settlement{gap:2px 7px;margin:4px 0}
+.cal-food-event.cancelled .cal-booked-label{background:#f5e3e0;color:#8a302b}
 @media(max-width:640px){
  .food-booking-toolbar .btn,.food-booking-links [aria-current]{min-height:40px}
  .food-booking-toolbar:has(.food-booking-filter[aria-pressed="true"]) .food-booking-links{flex-basis:100%;gap:6px}

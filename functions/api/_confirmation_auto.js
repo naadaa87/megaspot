@@ -32,7 +32,7 @@ export async function prepareSettlementConfirmation(env,code,after,deposit,time)
  const items=foodOnly?[]:[(SPACES[row.space_id]||'공간')+' 공간 전체 대관'+(hours?' '+hours+'시간':'')];
  for(const [key,value] of Object.entries(data.options||{}))if(value)items.push((OPTIONS[key]||key)+(typeof value==='object'?' '+(value.count||1)+'명 × '+(value.hours||1)+'시간':''));
  const defaults={customer:name+(data.org&&!name.includes(data.org)?' ('+data.org+')':''),event:PURPOSES[data.purpose]||'',show_amount:row.show_amount_preference==null?row.amount_visible!==0:!!row.show_amount_preference,deposit,items,refund:Array.isArray(quote.refund)?quote.refund:foodOnly?[]:defaultRefund()};
- const doc={...cleanDoc({...defaults,...previous,...(foodOnly?{deposit:null,refund:[]}: {})}),issued_at:previous?.issued_at||time,updated_at:time,issue_no:(Number(previous?.issue_no)||0)+1,amount:after.amount,paid:after.net,pay_status:after.status==='unpriced'?'pending':after.status,deposit,settlement:after};
+ const doc={...cleanDoc({...defaults,...previous,...(foodOnly?{deposit:null,refund:[],...(previous?.food_needs_reissue?{customer:name}:{})}: {})}),issued_at:previous?.issued_at||time,updated_at:time,issue_no:(Number(previous?.issue_no)||0)+1,amount:after.amount,paid:after.net,pay_status:after.status==='unpriced'?'pending':after.status,deposit,settlement:after};
  doc.reception=receptionDocument(data,after.amount);doc.food_services=foodDocuments(data,after.amount);
  doc.items=stripFoodItems(withoutReceptionItems(doc.items));
  return {doc,revision:row.document_revision,previously_issued:!!previous?.issued_at};

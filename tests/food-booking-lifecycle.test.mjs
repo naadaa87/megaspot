@@ -166,3 +166,88 @@ test('records a food reservation deposit before confirmation and carries that si
   assert.equal(booking.payment_status,'reservation_paid');
   assert.equal(booking.settlement.balance,reception.total-200000);
 });
+
+test('changing a confirmed food order preserves receipts and uses the new total through cancellation', async t => {
+  const f=fixture();
+  t.after(()=>f.db.close());
+  const quoteFor=(course,people,format)=> {
+    const reception=receptionAdmin({course,people,format});
+    return preparedQuote({people,extras:[{kind:'reception',reception,amount:reception.total}]});
+  };
+  const original=await f.api('quotes','POST',quoteFor('cf-classic',45,'table'));
+  const {ref,booking_code:code}=await f.api('food-inquiries','POST',{quote_no:original.quote_no,confirm:true,reservation_fee:1500000});
+  const path='bookings/'+code;
+  await payment(f,code,'receipt',1500000);
+  const issued=(await body(await publicDoc(f,code))).doc;
+  assert.equal(issued.amount,2007500);
+  assert.equal(issued.settlement.balance,507500);
+
+  async function apply(course,people,format,reservation_fee=1500000,status=200) {
+    const quote=await f.api('quotes','POST',{...quoteFor(course,people,format),food_inquiry_ref:ref});
+    const {item}=await f.api('inquiries/'+ref);
+    return f.api('food-inquiries/'+ref,'PUT',{quote_no:quote.quote_no,version:item.data.food_event.version,headcount:people,reservation_fee},status);
+  }
+  const higher=await apply('cf-classic',55,'table');
+  assert.equal(higher.booking_code,code);
+  let detail=await f.api('inquiries/'+ref);
+  assert.equal(detail.item.headcount,55);
+  assert.equal(detail.item.effective_amount,2447500);
+  assert.equal(detail.bookings[0].settlement.balance,947500);
+  assert.equal(detail.bookings[0].food_needs_reissue,1);
+  assert.equal((await publicDoc(f,code)).status,404);
+
+  await apply('cf-light',30,'box',1510000,400);
+  await apply('cf-light',30,'box');
+  detail=await f.api('inquiries/'+ref);
+  assert.equal(detail.item.data.food_event.reservation_fee,1500000);
+  assert.equal(detail.item.effective_amount,858000);
+  assert.equal(detail.item.headcount,30);
+  assert.equal(detail.bookings[0].settlement.net,1500000);
+  assert.equal(detail.bookings[0].settlement.balance,0);
+  assert.equal(detail.bookings[0].settlement.refund_due,642000);
+  const calendar=(await f.api('bookings?from='+DAY+'&to='+DAY)).items.find(x=>x.booking_code===code);
+  assert.deepEqual(calendar.services,[{kind:'reception',status:'confirmed',course:'라이트',people:30}]);
+  assert.equal(calendar.settlement.refund_due,642000);
+  const preview=await f.api(path+'/confirm-doc');
+  assert.equal(preview.needs_reissue,true);
+  assert.equal(preview.preview.headcount,30);
+  assert.equal(preview.preview.reception.format,'box');
+  assert.equal(preview.preview.reception.fee,30000);
+  assert.equal(preview.preview.reception.vat,78000);
+  assert.equal(preview.preview.settlement.refund_due,642000);
+  await f.api(path+'/confirm-doc','PUT',{doc:{...preview.doc},conditions_revision:preview.conditions_revision,settlement_revision:preview.settlement.revision});
+  let doc=(await body(await publicDoc(f,code))).doc;
+  assert.equal(doc.headcount,30);
+  assert.equal(doc.reception.course,'cf-light');
+  assert.equal(doc.amount,858000);
+  assert.equal(doc.settlement.refund_due,642000);
+  assert.equal(doc.issue_no,issued.issue_no+1);
+
+  await payment(f,code,'refund',200000);
+  // A cancellation before reissue still replaces the previously sent link with a settlement document.
+  await apply('cf-light',28,'box');
+  assert.equal((await publicDoc(f,code)).status,404);
+  const cancel=await f.api(path+'/cancellation');
+  await f.api(path+'/cancellation','POST',{mode:'manual',fee:100000,reason:'고객 합의',cancelled_at:new Date().toISOString(),
+    request_id:crypto.randomUUID(),expected_version:cancel.version,expected_revision:cancel.settlement.revision});
+  detail=await f.api('inquiries/'+ref);
+  assert.equal(detail.item.status,'취소·환불');
+  assert.equal(detail.bookings[0].settlement.received,1500000);
+  assert.equal(detail.bookings[0].settlement.refunded,200000);
+  assert.equal(detail.bookings[0].settlement.balance,0);
+  assert.equal(detail.bookings[0].settlement.refund_due,1200000);
+  const cancelled=(await f.api('bookings?from='+DAY+'&to='+DAY)).items.find(x=>x.booking_code===code);
+  assert.equal(cancelled.status,'cancelled');
+  assert.equal(cancelled.headcount,28);
+  assert.equal(cancelled.settlement.refund_due,1200000);
+  doc=(await body(await publicDoc(f,code))).doc;
+  assert.equal(doc.doc_type,'cancellation');
+  assert.equal(doc.status,'cancelled');
+  assert.equal(doc.amount,100000);
+  assert.equal(doc.settlement.refund_due,1200000);
+  const ledger=await f.api(path+'/settlement');
+  assert.equal(ledger.entries.length,2);
+  const originalSnapshot=(await f.api('quotes')).items.find(x=>x.quote_no===original.quote_no);
+  assert.equal(originalSnapshot.total,2007500);
+  assert.equal(originalSnapshot.data.input.people,45);
+});

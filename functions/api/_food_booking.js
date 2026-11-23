@@ -2,6 +2,7 @@ import {err,isDate,json,log,now,readJson,str,uniqueRef} from './_lib.js';
 import {timeOk} from './_visits.js';
 
 export const FOOD_SPACE = 'food-only';
+export const confirmIssuedSql = (column = 'confirm_doc') => `CASE WHEN COALESCE(json_extract(${column}, '$.food_needs_reissue'), 0) = 0 THEN json_extract(${column}, '$.issued_at') END`;
 const OPEN = ['문의 접수','조건 확인','견적 발송','결제 대기'];
 const KINDS = ['catering','reception','cocktail'];
 const refOk = value => /^[A-Z0-9-]{4,20}$/.test(value);
@@ -29,7 +30,7 @@ export async function foodInquiry(env, ref) {
   return env.DB.prepare('SELECT * FROM inquiries WHERE ref=? AND space_id=?').bind(ref, FOOD_SPACE).first();
 }
 
-function validateFields(d, defaults, confirm, total) {
+function validateFields(d, defaults, confirm, total, existingFee) {
   const name = str(d.name ?? defaults.name, 80);
   const phone = str(d.phone ?? defaults.phone, 30).replace(/[^\d+-]/g, '');
   const email = str(d.email ?? defaults.email, 120);
@@ -46,7 +47,7 @@ function validateFields(d, defaults, confirm, total) {
   if ((date || confirm) && !isDate(date)) return {error:'행사일을 확인해 주세요.'};
   if (timeOk(start) !== start || timeOk(end) !== end) return {error:'행사 시작·종료 시간을 확인해 주세요.'};
   if (people !== null && (!Number.isInteger(people) || people < 1 || people > 999)) return {error:'행사 인원을 확인해 주세요.'};
-  if (reservation_fee !== null && (!Number.isSafeInteger(reservation_fee) || reservation_fee < 0 || reservation_fee > (total ?? 1e9))) return {error:'예약금 약정액을 확인해 주세요.'};
+  if (reservation_fee !== null && (!Number.isSafeInteger(reservation_fee) || reservation_fee < 0 || reservation_fee > 1e9 || (reservation_fee > (total ?? 1e9) && reservation_fee !== existingFee))) return {error:'예약금 약정액을 확인해 주세요.'};
   if (balance_due && (!isDate(balance_due) || (date && balance_due > date))) return {error:'잔금 납부일은 행사일까지로 입력해 주세요.'};
   return {name, phone, email, date, headcount:people, event:{location,start,end,reservation_fee,balance_due}};
 }
@@ -104,7 +105,7 @@ export async function foodBookingAdmin({env,request,path,method}) {
   const input = quote?.input;
   const defaults = current ? {...oldEvent, name:current.name, phone:current.phone, email:current.email, date:current.event_date, headcount:current.headcount} :
     {name: input?.customer, phone: input?.phone, email: input?.email, date: input?.date, headcount: input?.people, location: input?.location, start:input?.foodStartTime, end:input?.foodEndTime};
-  const clean = validateFields(d,defaults,confirm || !!booked,total);
+  const clean = validateFields(d,defaults,confirm || !!booked,total,booked ? oldEvent.reservation_fee : null);
   if (clean.error) return err(clean.error);
   const inquiryRef = ref || await uniqueRef(env,'inquiries','ref','MS');
   const bookingCode = booked?.booking_code || (confirm ? await uniqueRef(env,'bookings','booking_code','MS') : '');
@@ -136,7 +137,8 @@ export async function foodBookingAdmin({env,request,path,method}) {
         oldEvent.end !== event.end || oldEvent.reservation_fee !== event.reservation_fee || oldEvent.balance_due !== event.balance_due ||
         KINDS.some(kind => JSON.stringify(before[kind] ?? null) !== JSON.stringify(data[kind] ?? null));
       statements.push(env.DB.prepare(`UPDATE bookings SET customer_name=?,phone=?,phone_last4=?,date=?,headcount=?,amount=?,memo=?,
-        confirm_doc=CASE WHEN ? THEN NULL ELSE confirm_doc END,updated_at=? WHERE booking_code=? AND status='confirmed' AND ${savedGuard}`)
+        confirm_doc=CASE WHEN ? AND json_extract(confirm_doc,'$.issued_at') IS NOT NULL
+          THEN json_set(confirm_doc,'$.food_needs_reissue',1) ELSE confirm_doc END,updated_at=? WHERE booking_code=? AND status='confirmed' AND ${savedGuard}`)
         .bind(clean.name,clean.phone,last4,clean.date,clean.headcount,total,memo,documentChanged?1:0,time,bookingCode,inquiryRef,serialized,FOOD_SPACE));
     } else {
       statements.push(env.DB.prepare(`INSERT INTO bookings(booking_code,space_id,inquiry_ref,customer_name,phone,phone_last4,date,headcount,memo,status,amount,created_at,updated_at)
