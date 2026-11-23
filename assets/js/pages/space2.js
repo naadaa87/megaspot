@@ -7,19 +7,19 @@
   var photoById={}; S.photos.forEach(function(p){ photoById[p.id]=p; });
   function photoTag(p){ return p&&p.tag||'공간 이미지'; }
   function photoLabel(p){ return p&&p.hasLinenRental ? S.coverNote : photoTag(p); }
-  function photoCaption(p){ return p&&p.hasLinenRental ? p.cap : ((p&&p.cap)||'')+' '+S.photoNote; }
+  function photoCaption(p){ return p&&(p.hasLinenRental||p.isBasicFurniture) ? p.cap : ((p&&p.cap)||'')+' '+S.photoNote; }
 
 
   /* ---------- 갤러리: 공간 전경·배치 예시 ---------- */
   (function(){
     var g=$('#gallery'); if(!g) return;
     var list=S.photos, tabs=$('#media-tabs');
-    if(tabs) tabs.innerHTML='<button type="button" role="tab" class="on" aria-selected="true" data-set="photos">공간 전경·배치 예시<span class="n">'+list.length+'</span></button>';
+    if(tabs) tabs.innerHTML='<button type="button" role="tab" class="on" aria-selected="true" data-set="photos">공간 전경·가구·배치 예시<span class="n">'+list.length+'</span></button>';
     var items=list.map(function(p){ return { src:M.imgSrc(p.id,'m'), title:p.title, cap:photoCaption(p), tag:photoLabel(p) }; });
     var show=list.slice(0,7);
     g.innerHTML=show.map(function(p,i){
       var more = i===6 && list.length>7 ? '<span class="more">+'+(list.length-7)+'장 더 보기</span>' : '';
-      return '<button type="button" class="'+(i===0?'big':'')+'" data-i="'+i+'" aria-label="'+esc(p.title)+' 크게 보기"><img src="'+M.imgSrc(p.id, i===0?'m':'t')+'" alt="메가스팟 건대 2호 — '+esc(p.title)+' ('+esc(photoTag(p))+')" '+(i===0?'':'loading="lazy"')+'>'+(i===0?'<span class="ph-note">'+esc(photoLabel(p))+'</span>':'')+more+'</button>';
+      return '<button type="button" class="'+(i===0?'big':'')+'" data-i="'+i+'" aria-label="'+esc(p.title)+' 크게 보기"><img src="'+M.imgSrc(p.id, i===0?'m':'t')+'" alt="메가스팟 건대 2호 — '+esc(p.title)+' ('+esc(photoTag(p))+')" '+(i===0?'':'loading="lazy"')+'>'+(i===0||p.isBasicFurniture?'<span class="ph-note">'+esc(photoLabel(p))+'</span>':'')+more+'</button>';
     }).join('');
     g.addEventListener('click', function(e){ var b=e.target.closest('button'); if(b) M.openLightbox(items, +b.dataset.i); });
     var all=$('#open-all-photos'); if(all) all.addEventListener('click', function(){ M.openLightbox(items,0); });
