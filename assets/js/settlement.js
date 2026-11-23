@@ -1,6 +1,18 @@
 /* 이용료 수납과 반환 보증금을 구분하는 공통 정산 계산. */
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory();else root.MEGASPOT_SETTLEMENT=factory();})(typeof window!=='undefined'?window:globalThis,function(){
  'use strict';
+ var manualPaymentMethods=['계좌이체','현금','현장 카드','기타'];
+ function manualPaymentNote(date,method,memo){return [date,method,String(memo||'').trim()].filter(Boolean).join(' · ');}
+ function manualPaymentParts(note){
+  note=String(note||'');
+  var parts=note.split(' · '), date=/^\d{4}-\d{2}-\d{2}$/.test(parts[0])?parts.shift():'';
+  var method=manualPaymentMethods.includes(parts[0])?parts.shift():'';
+  return {date:date,method:method,memo:parts.join(' · ')};
+ }
+ function describeManualPayment(note,description){
+  var fields=manualPaymentParts(note);
+  return manualPaymentNote(fields.date,fields.method,[description,fields.memo].filter(Boolean).join(' · '));
+ }
  function money(v){return v==null||v===''||!Number.isSafeInteger(Number(v))||Number(v)<0?null:Number(v);}
  function cancellationCycle(received,refunded,cycle){var prior=cycle?Math.min(money(cycle.refunded_before)||0,money(received)||0,money(refunded)||0):0;return {prior_refunded:prior,cycle_received:received-prior,cycle_refunded:refunded-prior};}
  function calculate(value){
@@ -20,5 +32,5 @@
  }
  function cancellationPolicy(date,at){var stamp=Date.parse(at),day=new Date(stamp+9*3600e3).toISOString().slice(0,10),days=Math.round((Date.parse(date+'T00:00:00Z')-Date.parse(day+'T00:00:00Z'))/864e5);return {rate:days>=15?10000:days>=8?8000:days>=6?6000:days>=4?3000:0,days:days,label:days>=15?'이용일 15일 이상 전':days>=8?'이용일 8~14일 전':days>=6?'이용일 6~7일 전':days>=4?'이용일 4~5일 전':'이용일 3일 전부터 · 이용일 경과',day:day};}
  function documentRows(doc){return doc.show_amount!==false&&doc.settlement?rows(doc.settlement):[];}
- return {cancellationCycle:cancellationCycle,cancellationPolicy:cancellationPolicy,calculate:calculate,rows:rows,documentRows:documentRows};
+ return {manualPaymentMethods:manualPaymentMethods,manualPaymentNote:manualPaymentNote,manualPaymentParts:manualPaymentParts,describeManualPayment:describeManualPayment,cancellationCycle:cancellationCycle,cancellationPolicy:cancellationPolicy,calculate:calculate,rows:rows,documentRows:documentRows};
 });

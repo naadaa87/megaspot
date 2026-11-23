@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {fixture} from './helpers/admin-fixture.mjs';
 import R from '../assets/js/admin-save-recovery.js';
+import S from '../assets/js/settlement.js';
 import {noticeObsolete} from '../functions/api/_deposit_notifications.js';
 import {confirmToken} from '../functions/api/_confirm.js';
 import {onRequestGet as customerConfirmation} from '../functions/api/confirm.js';
@@ -13,9 +14,12 @@ async function form(f,extra={}){const r=await f.api('bookings/BK-TEST/settlement
 const save=(f,d,status=200)=>f.api('bookings/BK-TEST/settlement','POST',d,status);
 const count=(f,table)=>f.db.prepare('SELECT COUNT(*) AS n FROM '+table).get().n;
 test('합산 입금은 이용료만 수납하고 보증금 확인과 계좌 알림 한 건을 같은 트랜잭션으로 준비한다',async t=>{
- const f=setup(t);const d=await form(f);const r=await save(f,d);assert.equal(r.settlement.received,500000);assert.equal(r.settlement.balance,0);assert.equal(r.settlement.refund_due,0);assert.equal(r.combined_receipt.total,650000);assert.equal(r.combined_receipt.deposit,150000);assert.equal(r.deposit_notice.status,'queued');
+ const f=setup(t);const d=await form(f,{note:S.manualPaymentNote('2026-11-23','계좌이체','합산 입금 확인')});const r=await save(f,d);assert.equal(r.settlement.received,500000);assert.equal(r.settlement.balance,0);assert.equal(r.settlement.refund_due,0);assert.equal(r.combined_receipt.total,650000);assert.equal(r.combined_receipt.deposit,150000);assert.equal(r.deposit_notice.status,'queued');
  assert.ok(JSON.parse(f.db.prepare('SELECT checks FROM inquiry_checks').get().checks).guarantee_paid);assert.match(f.db.prepare('SELECT memo FROM inquiries').get().memo,/650,000원.*500,000원.*150,000원/);
  assert.equal(f.db.prepare("SELECT COUNT(*) n FROM deposit_notifications WHERE kind='account'").get().n,1);assert.equal(count(f,'booking_payment_entries'),1);
+ const ledger=await f.api('bookings/BK-TEST/settlement');
+ assert.deepEqual(S.manualPaymentParts(ledger.entries[0].note),{date:'2026-11-23',method:'계좌이체',
+  memo:'합산 입금 650,000원 (이용료 500,000원 + 반환 보증금 150,000원) · 합산 입금 확인'});
  await save(f,{...d,request_id:crypto.randomUUID()},409);assert.equal(count(f,'booking_payment_entries'),1);
 });
 test('응답 유실 후 동일 요청 복구는 수납·보증금·메모·알림을 중복 생성하지 않는다',async t=>{

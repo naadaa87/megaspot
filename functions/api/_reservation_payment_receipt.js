@@ -1,6 +1,6 @@
 import {FOOD_SPACE,foodReservationDepositError,foodReservationFeeSql} from './_food_booking.js';
 import {json,err,now,str} from './_lib.js';
-import {settlementFor,settlementRevisionSql,paymentConfirmation,paymentDocumentStatements} from './_settlement.js';
+import {S,settlementFor,settlementRevisionSql,paymentConfirmation,paymentDocumentStatements} from './_settlement.js';
 import {confirmationSourceSQL} from './_confirmation_auto.js';
 const changed=r=>Number(r?.meta?.changes??r?.changes??0);
 async function result(env,code,added,duplicate=false){
@@ -33,7 +33,7 @@ export async function paymentReceiptAdmin(env,code,d){
    AND COALESCE((SELECT version FROM reservation_payment_scopes_v2 WHERE target_type='booking' AND target_ref=b.booking_code),0)=?${checkingDeposit?` AND ${foodReservationFeeSql()}=?`:''}${prepared?` AND ${confirmationSourceSQL}=?`:''}`)
    .bind(id,d.status,total,added,note,d.expected_revision,d.expected_settlement_revision,time,code,d.expected_settlement_revision,d.expected_revision,...(checkingDeposit?[food.fee]:[]),...(prepared?[prepared.revision]:[])),
   env.DB.prepare("INSERT INTO booking_payment_entries(booking_code,request_id,kind,amount,note,created_at) SELECT booking_code,request_id,'receipt',added,?,created_at FROM reservation_payment_receipt_requests WHERE booking_code=? AND request_id=? AND added>0 AND changes()>0")
-   .bind(food&&note?note:str('결제 상태 변경 · 누적 이용료 '+total.toLocaleString('ko-KR')+'원'+(note?' · '+note:''),300),code,id),
+   .bind(food&&note?note:str(S.describeManualPayment(note,'결제 상태 변경 · 누적 이용료 '+total.toLocaleString('ko-KR')+'원'),300),code,id),
   ...(added>0?paymentDocumentStatements(env,code,id,'entry',prepared,time):[]),
   env.DB.prepare(`INSERT INTO reservation_payment_scopes_v2(target_type,target_ref,status,version,updated_at)
    SELECT 'booking',b.booking_code,?,1,? FROM bookings b WHERE b.booking_code=? AND EXISTS(SELECT 1 FROM reservation_payment_receipt_requests WHERE booking_code=b.booking_code AND request_id=? AND payment_revision=?)

@@ -75,7 +75,7 @@ async function combinedReceipt(env,code,d,settlement){
  if(d.expected_revision!==settlement.revision||d.deposit_revision!==c.revision||deposit!==c.amount)return err('수납 또는 보증금 정보가 바뀌었습니다. 새로고침 후 확인해 주세요.',409,'PAYMENT_CHANGED');
  if(settlement.balance==null||fee>settlement.balance)return err('보증금을 제외한 이용료가 남은 잔금보다 큽니다. 입금 내역을 다시 확인해 주세요.');
  if(typeof env.DB.batch!=='function')return err('합산 입금의 일괄 저장을 지원하지 않습니다.',503);
- const time=now(),summary=`합산 입금 ${total.toLocaleString('ko-KR')}원 (이용료 ${fee.toLocaleString('ko-KR')}원 + 반환 보증금 ${deposit.toLocaleString('ko-KR')}원)`,paymentNote=str(summary+(note?' · '+note:''),300);
+ const time=now(),summary=`합산 입금 ${total.toLocaleString('ko-KR')}원 (이용료 ${fee.toLocaleString('ko-KR')}원 + 반환 보증금 ${deposit.toLocaleString('ko-KR')}원)`,paymentNote=str(S.describeManualPayment(note,summary),300);
  const confirmation=await prepareCombinedConfirmation(env,code,settlement,fee,deposit,time);
  const statements=[
   env.DB.prepare(`INSERT OR IGNORE INTO booking_combined_receipts(booking_code,request_id,total,fee,deposit,note,created_at) SELECT booking_code,?,?,?,?,?,? FROM bookings b WHERE booking_code=? AND ${settlementRevisionSql()}=? AND ${depositContextSql()}=? AND ${confirmationSourceSQL}=?`).bind(id,total,fee,deposit,note,time,code,d.expected_revision,d.deposit_revision,confirmation.revision),

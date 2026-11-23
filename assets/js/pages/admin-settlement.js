@@ -13,7 +13,7 @@
   <button class="btn btn-light" type="button" id="payment-another">다른 수납·환불 기록</button>
  </section>
  <form id="payment-form"><h3 id="payment-mode">새 완료 내역 기록</h3><div class="field-row"><div class="f"><label for="payment-kind">기록 종류</label><select class="select" id="payment-kind"><option value="receipt">이용료 입금 완료</option><option value="combined">이용료 + 보증금 합산 입금</option><option value="refund">이용료 환불 완료</option></select></div><div class="f"><label for="payment-amount">처리 금액 (원)</label><input class="input" id="payment-amount" type="number" inputmode="numeric" min="1" step="1" required></div></div>
- <div class="field-row" id="payment-food-fields" hidden><div class="f"><label for="payment-food-date">처리일</label><input class="input" id="payment-food-date" type="date"></div><div class="f"><label for="payment-food-method">처리 수단</label><select class="select" id="payment-food-method"><option value="">선택</option><option>계좌이체</option><option>현금</option><option>현장 카드</option><option>기타</option></select></div></div>
+ <div class="field-row" id="payment-processing-fields" hidden><div class="f"><label for="payment-processing-date">처리일</label><input class="input" id="payment-processing-date" type="date"></div><div class="f"><label for="payment-processing-method">처리 수단</label><select class="select" id="payment-processing-method"><option value="">미확인</option>${S.manualPaymentMethods.map(function(method){return '<option>'+method+'</option>';}).join('')}</select></div></div>
  <div class="f"><label for="payment-note">메모 (입금자·처리일·환불 사유)</label><input class="input" id="payment-note" maxlength="300"></div>
  <div id="payment-combined" class="payment-combined" hidden><div id="payment-split" aria-live="polite"></div><label class="chk"><input type="checkbox" id="payment-combined-confirm">실제 입금액과 위 이용료·보증금 구분을 확인했습니다.</label></div>
  <div class="f" id="payment-reason-wrap" hidden><label for="payment-reason">정정·취소 사유 (필수)</label><input class="input" id="payment-reason" maxlength="300"></div>
@@ -29,11 +29,11 @@
  function editor(){
   var e=state.editing,isVoid=e&&e.action==='void',food=foodBooking();
   dialog.classList.toggle('food-payment-dialog',food);
-  $('#payment-food-fields').hidden=!food||!!isVoid;
+  $('#payment-processing-fields').hidden=!!isVoid;
   $('#payment-schedule-section').hidden=food;
   $('#payment-deposit-help').hidden=food;
   $('#payment-kind option[value=combined]').hidden=food;
-  ['#payment-food-date','#payment-food-method'].forEach(function(sel){$(sel).disabled=state.busy||!food||!!isVoid;});
+  ['#payment-processing-date','#payment-processing-method'].forEach(function(sel){$(sel).disabled=state.busy||!!isVoid;});
   $('#payment-reason-wrap').hidden=!e;$('#payment-reason').required=!!e;$('#payment-new').hidden=!e;
   $('#payment-mode').textContent=e?(isVoid?'기록 #'+e.id+' 취소':'기록 #'+e.id+' 정정·복원'):({balance:'잔금 입금 기록',refund:'환불 기록'}[state.shortcut]||'새 완료 내역 기록');
   $('#payment-save').textContent=e?(isVoid?'이 기록 취소':'정정 내용 저장'):$('#payment-kind').value==='combined'?'합산 입금 처리 · 계좌 등록 안내':'완료 내역 기록';
@@ -63,7 +63,7 @@
  $('#payment-notice-history').onclick=function(){if(state.busy)return;close();X.go('deposit-notifications');};
  $('#payment-notice-refresh').onclick=async function(){if(state.busy)return;var code=state.code,id=state.request;this.disabled=true;try{await X.A('/deposit-notifications/refresh',{method:'POST',body:{}});var r=await X.A('/deposit-notifications');if(code!==state.code||id!==state.request||!state.result)return;state.result.deposit_notice=r.items.find(function(n){return n.mode==='live'&&n.kind==='account'&&n.booking_code===code;})||null;resultView();}catch(e){error(e);}finally{this.disabled=false;}};
  $('#payment-another').onclick=function(){state.result=null;reset();resultView();$('#payment-kind').focus();};
- function reset(){state.editing=null;state.pending=null;state.dirty=false;$('#payment-form').reset();$('#payment-food-date').value=new Date(Date.now()+9*3600000).toISOString().slice(0,10);editor();}
+ function reset(){state.editing=null;state.pending=null;state.dirty=false;$('#payment-form').reset();$('#payment-processing-date').value=new Date(Date.now()+9*3600000).toISOString().slice(0,10);editor();}
  function paintOnline(orders){
   $('#payment-online').innerHTML=(orders||[]).map(function(o){
    return '<article class="payment-online"><p><b>'+M.esc(o.title)+' · '+M.esc(o.oid)+'</b></p><p>수납 '+won(o.price)+' · 환불 완료 '+won(o.refunded)+' · 남은 수납 '+won(Math.max(0,o.price-o.refunded))+'</p><p class="tiny muted">원거래 '+M.esc(o.mul_no||'')+' · '+M.esc(o.paid_at||'승인일 미수신')+'</p>'+(o.events||[]).map(function(e){
@@ -124,12 +124,11 @@
   var id=Number(b.dataset.paymentEdit||b.dataset.paymentVoid),e=state.data.entries.find(function(x){return x.id===id;});if(!e)return;
   state.result=null;resultView();reset();state.editing={id:id,version:e.version,action:b.hasAttribute('data-payment-void')?'void':'correct'};
   $('#payment-kind').value=e.kind;$('#payment-amount').value=e.amount;$('#payment-note').value=e.note;
-  if(foodBooking()){
-   var parts=/^(\d{4}-\d{2}-\d{2}) · (계좌이체|현금|현장 카드|기타)(?: · (.*))?$/.exec(e.note);
-   $('#payment-food-date').value=parts?.[1]||'';
-   $('#payment-food-method').value=parts?.[2]||'';
-   if(parts)$('#payment-note').value=parts[3]||'';
-  }$('#payment-msg').textContent='';editor();$('#payment-reason').focus();
+  var parts=S.manualPaymentParts(e.note);
+  $('#payment-processing-date').value=parts.date;
+  $('#payment-processing-method').value=parts.method;
+  $('#payment-note').value=parts.memo;
+  $('#payment-msg').textContent='';editor();$('#payment-reason').focus();
  };
  $('#payment-more').onclick=function(){if(state.busy||!state.data||!state.data.has_more)return;busy(true);X.A('/bookings/'+encodeURIComponent(state.code)+'/settlement?before='+state.data.next_before).then(function(r){paint(r,true);}).catch(error).finally(function(){busy(false);});};
  $('#payment-form').addEventListener('submit',function(event){
@@ -138,10 +137,10 @@
   if(!Number.isSafeInteger(amount)||amount<=0){error(Error('금액을 확인해 주세요.'));return;}if(edit&&!reason){error(Error('정정·취소 사유를 입력해 주세요.'));return;}
   var combined=!edit&&$('#payment-kind').value==='combined';if(combined&&(!$('#payment-combined-confirm').checked||state.data.deposit.reason||amount<=state.data.deposit.amount||state.data.settlement.balance==null||amount-state.data.deposit.amount>state.data.settlement.balance)){error(Error('실제 입금액과 이용료·보증금 구분을 다시 확인해 주세요.'));return;}
   var paymentNote=$('#payment-note').value.trim();
-  if(foodBooking()&&edit?.action!=='void'){
-   var day=$('#payment-food-date').value, method=$('#payment-food-method').value;
-   if(!day||!method){error(Error('처리일과 처리 수단을 선택해 주세요.'));return;}
-   paymentNote=[day,method,paymentNote].filter(Boolean).join(' · ');
+  if(edit?.action!=='void'){
+   var day=$('#payment-processing-date').value, method=$('#payment-processing-method').value;
+   if(foodBooking()&&(!day||!method)){error(Error('처리일과 처리 수단을 선택해 주세요.'));return;}
+   paymentNote=S.manualPaymentNote(day,method,paymentNote);
    if(paymentNote.length>300){error(Error('메모를 조금 줄여 주세요.'));return;}
   }
   var body=state.pending||{kind:combined?'receipt':$('#payment-kind').value,amount:amount,note:paymentNote,expected_revision:state.data.settlement.revision,request_id:crypto.randomUUID()};

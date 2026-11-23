@@ -1,3 +1,4 @@
+import S from '../assets/js/settlement.js';
 import test from 'node:test';import assert from 'node:assert/strict';import {fixture} from './helpers/admin-fixture.mjs';
 const path='reservation-payment-checks/inquiry/MS-TEST',day='2026-11-28',range='revenue?from=2026-11-01&to=2026-11-30';
 function setup(t){const f=fixture({booking:false,date:day});t.after(()=>f.db.close());return f;}
@@ -9,16 +10,21 @@ test('미확정 문의의 실제 예약금을 기록하고 상태·매출에 한
  await f.api(path,'PUT',d);assert.equal(entries(f).length,1);assert.equal((await f.api(range)).total.received,100000);assert.equal((await f.api('reservations?from='+day+'&to='+day)).items[0].payment_status,'reservation_paid');
 });
 test('예약 확정 시 원본 입금 ID·시각·메모와 매출 분류를 유지하고 총액을 중복 합산하지 않는다',async t=>{
- const f=setup(t),d=await form(f);await f.api(path,'PUT',d);const before=entries(f)[0],movement='entry:'+before.id;
+ const f=setup(t),d={...await form(f),receipt_note:S.manualPaymentNote('2026-11-23','계좌이체','확정 전 예약금')};
+ await f.api(path,'PUT',d);const before=entries(f)[0],movement='entry:'+before.id;
+ assert.deepEqual(S.manualPaymentParts(before.note),{date:'2026-11-23',method:'계좌이체',memo:'문의 예약금 · 누적 이용료 100,000원 · 확정 전 예약금'});
  await f.api('revenue/classifications','PUT',{movement_id:movement,channel:'bank_corporate',account:'법인',components:[{id:'rental',amount:100000}],expected_version:0});
  const created=await confirm(f),after=entries(f)[0];assert.equal(after.booking_code,created.booking_code);for(const k of ['id','request_id','kind','amount','note','created_at'])assert.equal(after[k],before[k]);assert.equal(entries(f).length,1);
  const booking=await f.api('bookings/'+created.booking_code+'/settlement');assert.equal(booking.settlement.received,100000);assert.equal(booking.settlement.balance,400000);
  const revenue=await f.api(range);assert.equal(revenue.total.received,100000);assert.equal(revenue.items.length,1);assert.equal(revenue.items[0].movement_id,movement);assert.equal(revenue.items[0].channel,'bank_corporate');
  const reopened=await f.api(path);assert.equal(reopened.receipt_target,'booking/'+created.booking_code);assert.equal(reopened.entries[0].id,before.id);assert.equal(reopened.payment_status,'reservation_paid');
+ assert.equal(S.manualPaymentParts(reopened.entries[0].note).method,'계좌이체');
  await f.api(path,'PUT',d);assert.equal(entries(f).length,1);assert.equal((await f.api(range)).total.received,100000);
 });
 test('확정 이후 누적 입금을 늘리면 기존 예약금 차액만 추가하고 같은 총액 재저장은 중복되지 않는다',async t=>{
- const f=setup(t);await f.api(path,'PUT',await form(f));const b=await confirm(f);const d=await form(f,150000,'after-confirm-receipt');await f.api(path,'PUT',d);assert.equal(entries(f).length,2);assert.equal((await f.api('bookings/'+b.booking_code+'/settlement')).settlement.received,150000);await f.api(path,'PUT',await form(f,150000,'after-same-total'));assert.equal(entries(f).length,2);assert.equal((await f.api(range)).total.received,150000);
+ const f=setup(t);await f.api(path,'PUT',await form(f));const b=await confirm(f);const d={...await form(f,150000,'after-confirm-receipt'),receipt_note:S.manualPaymentNote('2026-11-24','현장 카드','추가 입금')};
+ await f.api(path,'PUT',d);assert.equal(entries(f).length,2);
+ assert.deepEqual(S.manualPaymentParts(entries(f)[1].note),{date:'2026-11-24',method:'현장 카드',memo:'결제 상태 변경 · 누적 이용료 150,000원 · 추가 입금'});assert.equal((await f.api('bookings/'+b.booking_code+'/settlement')).settlement.received,150000);await f.api(path,'PUT',await form(f,150000,'after-same-total'));assert.equal(entries(f).length,2);assert.equal((await f.api(range)).total.received,150000);
 });
 test('예약 확정과 겹친 오래 열린 문의 입금은 자동으로 중복 등록하지 않는다',async t=>{
  const f=setup(t),d=await form(f);await confirm(f);await f.api(path,'PUT',d,409);assert.equal(entries(f).length,0);

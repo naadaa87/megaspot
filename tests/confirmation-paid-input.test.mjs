@@ -8,7 +8,7 @@ import {onRequestGet} from '../functions/api/confirm.js';
 async function setup(t){
  const f=fixture({booking:true});t.after(()=>f.db.close());t.mock.method(globalThis,'fetch',async()=>assert.fail('No external sending during confirmation QA'));
  const ui=bookingUi(),c=ui.ctx,api=async(path,opts)=>f.api(path.slice(1),opts?.method,opts?.body),store=new Map();
- for(const id of ['customer','event','time-note','amount','amount-note','pay','paid','deposit','items','note']){const el=c.$('#cd-'+id);let value='';Object.defineProperty(el,'value',{get:()=>value,set:v=>{value=String(v);},configurable:true});}
+ for(const id of ['customer','event','time-note','amount','amount-note','pay','paid','deposit','items','note','processing-date','processing-method']){const el=c.$('#cd-'+id);let value='';Object.defineProperty(el,'value',{get:()=>value,set:v=>{value=String(v);},configurable:true});}
  Object.assign(c,{crypto,CDS:await f.api('bookings/BK-TEST/confirm-doc'),cdState(){},cdPreview(){},refreshLists(){},drawerDirty:{},A:api});c.cdFill(ui.defaults(c.CDS));
  c.window.MEGASPOT_ADMIN_SAVE=Recovery.create({storage:{getItem:k=>store.get(k),setItem:(k,v)=>store.set(k,v),removeItem:k=>store.delete(k)},api:(...args)=>c.A(...args)});
  return {...f,ui,c,paid:n=>ui.elements['#cd-paid'].value=String(n),settlement:()=>f.api('bookings/BK-TEST/settlement')};
@@ -19,12 +19,15 @@ test('confirmation receipt field is editable in whole won and its preview recalc
  for(const n of ['',-1,1.5,1000000001]){f.paid(n);assert.equal(f.c.cdSettings().paid,null);}
 });
 test('zero receipt → partial receipt → full receipt updates ledger, confirmation, customer link and reload without duplicates',async t=>{
- const f=await setup(t);for(const [target,entries]of [[123456,1],[500000,2],[500000,2]]){
+ const f=await setup(t);
+ f.c.$('#cd-processing-date').value='2026-11-20';
+ f.c.$('#cd-processing-method').value='계좌이체';
+ for(const [target,entries]of [[123456,1],[500000,2],[500000,2]]){
   f.paid(target);await f.c.cdSave(true);const current=await f.api('bookings/BK-TEST/confirm-doc');assert.equal(current.doc.paid,target);assert.equal(current.doc.settlement.balance,500000-target);assert.equal(current.doc.pay_status,target===500000?'paid':'deposit');assert.equal((await f.settlement()).entries.length,entries);
   const response=await onRequestGet({env:f.env,request:new Request('https://local.test/api/confirm?c=BK-TEST&k='+current.token)});const pub=await response.json();assert.equal(pub.doc.paid,target);assert.equal(pub.doc.settlement.net,target);assert.ok(f.ui.text(pub.doc).includes(target.toLocaleString('ko-KR')+'원'));
   f.c.CDS=current;f.c.cdFill(current.doc);assert.equal(f.c.cdSettings().paid,target);
  }
- const receipts=(await f.settlement()).entries;assert.equal(receipts[0].amount,500000-123456);assert.equal(receipts[1].amount,123456);
+ const receipts=(await f.settlement()).entries;assert.equal(receipts[0].amount,500000-123456);assert.equal(receipts[1].amount,123456);assert.match(receipts[1].note,/^2026-11-20 · 계좌이체 · 확정서 수납액 입력/);
 });
 test('same-window concurrent save and download reuse one receipt write',async t=>{
  const f=await setup(t);f.paid(200000);await Promise.all([f.c.cdSave(true),f.c.cdSave(true)]);assert.equal((await f.settlement()).entries.length,1);assert.equal((await f.settlement()).settlement.net,200000);

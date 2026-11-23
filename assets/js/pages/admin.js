@@ -2537,7 +2537,13 @@
     $('#cd-items').value=(v.items||[]).join('\n'); $('#cd-note').value=v.note||'';
     cdAmountToggle();
   }
-  function cdAmountToggle(){if($('#cd-pay'))$('#cd-pay').disabled=true; var on=$('#cd-show-amount').checked; ['#cd-amount','#cd-amount-note','#cd-paid','#cd-deposit'].forEach(function(s){ $(s).disabled=!on; }); }
+  function cdReceiptFields(){
+    var show=!!CDS&&!CDS.booking.food_event&&CDS.booking.status!=='cancelled'&&$('#cd-show-amount').checked&&cdPaidNum()>CDS.settlement.net;
+    $('#cd-receipt-fields').hidden=!show;
+    ['#cd-processing-date','#cd-processing-method'].forEach(function(selector){$(selector).disabled=!show;});
+  }
+  function cdAmountToggle(){if($('#cd-pay'))$('#cd-pay').disabled=true; var on=$('#cd-show-amount').checked; ['#cd-amount','#cd-amount-note','#cd-paid','#cd-deposit'].forEach(function(s){ $(s).disabled=!on; });cdReceiptFields(); }
+  function cdReceiptSummary(paid){return '확정서 수납액 입력 · 현재 수납액 '+paid+'원 (반환 보증금 제외)';}
   function cdNum(sel){ var v=$(sel).value.trim(); if(v==='') return null; var n=Math.round(Number(v)); return isFinite(n)&&n>=0?n:null; }
   function cdPaidNum(){var v=$('#cd-paid').value.trim(),n=Number(v);return v!==''&&Number.isSafeInteger(n)&&n>=0&&n<=1e9?n:null;}
   function cdRefund(){ var bk=CDS&&CDS.booking; if(!bk||bk.food_event||!D||!bk.date||bk.date<todayIso()) return []; return refundSchedule(bk.date).map(function(x){ return { k:x.k, rate:x.rate }; }); }
@@ -2561,7 +2567,7 @@
       : '<b>아직 발급하지 않았습니다.</b> <span class="muted">다운로드·공유·링크 복사를 누르면 지금 내용으로 발급(저장)한 뒤 진행합니다.</span>';
   }
   function cdPreview(){ if(!CDS||!CDX) return Promise.resolve(); var doc=cdDoc();$('#cd-pay').value=doc.pay_status;$('#cd-pay option[value=deposit]').textContent=doc.food_event?(CDX.paymentText({...doc,pay_status:'deposit'})||'일부 입금'):'예약금 입금 완료 (잔금 안내 예정)';return CDX.render(doc, $('#cd-canvas')); }
-  function cdQueue(){ cdDirty=true; cdState(); clearTimeout(cdTimer); cdTimer=setTimeout(cdPreview, 250); }
+  function cdQueue(){ cdReceiptFields(); cdDirty=true; cdState(); clearTimeout(cdTimer); cdTimer=setTimeout(cdPreview, 250); }
   function openConfirmDoc(code){
     if(!code) return;
     if(!CDX){ M.toast('확정서 도구(confirm-doc.js)를 불러오지 못했습니다. 새로고침해 주세요.'); return; }
@@ -2571,6 +2577,7 @@
       CDS=r;$('#cd-settlement-open').dataset.settlementCode=r.booking.code; var bk=r.booking;
       $('#cd-deposit-field').hidden=!!bk.food_event;
       $('#cd-paid').readOnly=!!bk.food_event;
+      $('#cd-processing-date').value=todayIso();$('#cd-processing-method').value='';
       $('#cd-form label[for=cd-paid]').textContent=bk.food_event?'현재 수납액 (원)':'현재 수납액 (원 · 반환 보증금 제외)';
       $('#cd-payment-hint').textContent=bk.food_event?'수납·환불 기록으로 잔금과 초과 수납액을 계산합니다.':'실제 받은 이용료와 완료한 환불을 기록하면 잔금·초과 수납액을 계산합니다. 반환 보증금은 별도입니다.';
       $('#cd-paid-help').textContent=bk.food_event?'수납액은 위 수납·환불 내역에서 기록하거나 정정할 수 있습니다.':'실제 받은 이용료 총액을 입력하세요. 저장·다운로드 시 기존 수납액보다 늘어난 차액을 입금 기록으로 반영합니다. 금액을 줄이려면 위 수납·환불 내역에서 잘못된 기록을 정정하거나 완료한 환불을 기록해 주세요.';
@@ -2591,7 +2598,7 @@
     if(cdSave.running)return cdSave.running;
     if(!CDS)return Promise.reject(new Error('예약 정보를 불러오는 중입니다.'));
     var expected=window.MEGASPOT_RECEPTION_CALC.revision(CDS.inquiry),expectedPayment=CDS.settlement&&CDS.settlement.revision,code=CDS.booking.code;
-    var journal=window.MEGASPOT_ADMIN_SAVE,pending=journal&&journal.current(),settings=cdSettings(),recover=pending&&pending.kind==='payment'&&pending.code===code&&pending.path==='/bookings/'+encodeURIComponent(code)+'/settlement'&&pending.body.kind==='receipt'&&pending.body.note==='확정서 수납액 입력 · 현재 수납액 '+settings.paid+'원 (반환 보증금 제외)';
+    var journal=window.MEGASPOT_ADMIN_SAVE,pending=journal&&journal.current(),settings=cdSettings(),recover=pending&&pending.kind==='payment'&&pending.code===code&&pending.path==='/bookings/'+encodeURIComponent(code)+'/settlement'&&pending.body.kind==='receipt'&&window.MEGASPOT_SETTLEMENT.manualPaymentParts(pending.body.note).memo===cdReceiptSummary(settings.paid);
     var operation=(recover?journal.retry().then(function(result){if(!CDS||CDS.booking.code!==code)throw new Error('수납 기록은 확인되었습니다. 해당 예약을 다시 열어 주세요.');CDS.settlement=result.settlement;expectedPayment=result.settlement.revision;}):Promise.resolve()).then(function(){return A('/bookings/'+encodeURIComponent(code)+'/confirm-doc');}).then(function(fresh){
       if(!CDS||CDS.booking.code!==code)throw new Error('다른 예약을 열었습니다. 현재 예약을 확인하고 다시 발급해 주세요.');
       if(fresh.booking.status==='cancelled'){
@@ -2626,8 +2633,9 @@
   function cdRecordReceipt(fresh,sent){
     if(!sent.show_amount||sent.paid===fresh.settlement.net)return Promise.resolve(fresh);
     var journal=window.MEGASPOT_ADMIN_SAVE;if(!journal)return Promise.reject(new Error('수납 저장 도구를 불러오지 못했습니다. 새로고침한 뒤 다시 저장해 주세요.'));
-    var code=fresh.booking.code,path='/bookings/'+encodeURIComponent(code)+'/settlement',noteText='확정서 수납액 입력 · 현재 수납액 '+sent.paid+'원 (반환 보증금 제외)',pending=journal.current();
-    var body=pending&&pending.kind==='payment'&&pending.code===code&&pending.path===path&&pending.body.kind==='receipt'&&pending.body.note===noteText?pending.body:{kind:'receipt',amount:sent.paid-fresh.settlement.net,note:noteText,expected_revision:fresh.settlement.revision,request_id:crypto.randomUUID()};
+    var code=fresh.booking.code,path='/bookings/'+encodeURIComponent(code)+'/settlement',summary=cdReceiptSummary(sent.paid),pending=journal.current();
+    var noteText=window.MEGASPOT_SETTLEMENT.manualPaymentNote($('#cd-processing-date').value,$('#cd-processing-method').value,summary);
+    var body=pending&&pending.kind==='payment'&&pending.code===code&&pending.path===path&&pending.body.kind==='receipt'&&window.MEGASPOT_SETTLEMENT.manualPaymentParts(pending.body.note).memo===summary?pending.body:{kind:'receipt',amount:sent.paid-fresh.settlement.net,note:noteText,expected_revision:fresh.settlement.revision,request_id:crypto.randomUUID()};
     return journal.submit('payment',code,path,body).then(function(result){
       refreshLists();return A('/bookings/'+encodeURIComponent(code)+'/confirm-doc').then(function(current){
         if(current.booking.status==='cancelled'||current.conditions_revision!==fresh.conditions_revision||window.MEGASPOT_RECEPTION_CALC.revision(current.inquiry)!==window.MEGASPOT_RECEPTION_CALC.revision(fresh.inquiry)||current.settlement.revision!==result.settlement.revision)throw new Error('수납 기록은 저장되었습니다. 예약 조건 또는 수납 내역이 추가로 변경되어 확정서 발급을 중단했습니다. 최신 예약을 다시 열어 확인해 주세요.');
@@ -2656,6 +2664,7 @@
   window.addEventListener('admin-payment-status-saved',function(e){if(e.detail.food_only&&!e.detail.receipt_added)cdRefreshPayment(e.detail.code);});
   window.addEventListener('admin-save-recovered',function(e){if(e.detail.kind==='payment')cdRefreshPayment(e.detail.code);});
   if($('#cd-form')){
+    $('#cd-processing-method').innerHTML='<option value="">미확인</option>'+window.MEGASPOT_SETTLEMENT.manualPaymentMethods.map(function(method){return '<option>'+esc(method)+'</option>';}).join('');
     $('#cd-form').addEventListener('input', cdQueue); $('#cd-form').addEventListener('change', function(e){ if(e.target.id==='cd-show-amount') cdAmountToggle(); cdQueue(); });
     $('#cd-save').addEventListener('click', function(){ var b=this, m=$('#cd-msg'); m.hidden=true; cdBusy(b, true, '저장하는 중…');
       cdSave(true).then(function(){ cdPreview(); note(m, '확정서를 발급했습니다. PDF·이미지로 내려받거나 고객용 링크를 보내 주세요.', true); }).catch(function(e){ if(!guard(e)) note(m, e.message); }).finally(function(){ cdBusy(b, false); }); });
