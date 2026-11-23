@@ -203,7 +203,7 @@ window.MEGASPOT_SPACES = [
     ],
     photos: [
       { id:'r28-matte-black', title:'메인 홀 6인용 연회 배치 예시', cap:'원형 테이블과 의자 6개를 검정 테이블보와 의자보로 꾸민 연출 이미지입니다. 작은 조화를 테이블 중앙에 배치했습니다.', zone:'hall', tag:'연회 배치 예시', hasLinenRental:true },
-      { id:'r31-actual-furniture-layout', title:'커버 없이 꾸민 메인 홀', cap:'2호점 메인 홀에 원형 테이블과 흰색 접이식 사각 테이블을 배치한 모습입니다. 현장 사진에서 테이블보와 상판 위 물건을 지우고 밝기를 보정했습니다.', zone:'hall', tag:'기본 가구 배치 예시', isBasicFurniture:true },
+      { id:'r32-bright-furniture-layout', title:'커버 없이 꾸민 메인 홀', cap:'2호점 메인 홀에 원형 테이블과 흰색 접이식 사각 테이블을 배치한 모습입니다. 현장 사진의 통로와 상판을 정리하고 밝기를 보정했습니다.', zone:'hall', tag:'기본 가구 배치 예시', isBasicFurniture:true },
       { id:'r22-matte-black', title:'홀 입구 쪽 연회 배치 예시', cap:'검정 테이블보와 의자보를 씌운 연회 배치를 홀 입구에서 바라본 연출 이미지입니다. 접수와 식사 동선을 함께 계획할 수 있습니다.', zone:'hall', tag:'연회 배치 예시', hasLinenRental:true },
       { id:'r23-matte-black', title:'창가 쪽 연회 배치 예시', cap:'검정 테이블보와 의자보를 씌운 원형 테이블을 창을 따라 배치한 연출 이미지입니다. 행사 인원과 통로를 고려해 배치를 상담합니다.', zone:'windows', tag:'연회 배치 예시', hasLinenRental:true },
       { id:'r24', title:'비워 둔 메인 홀 전체', cap:'가구를 배치하지 않은 메인 홀의 공간 전경입니다. 기둥과 창, 바닥 구획을 살펴볼 수 있습니다.', zone:'hall', tag:'공간 전경' },
