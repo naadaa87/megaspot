@@ -408,10 +408,23 @@
 
   /* =================== 문의 상세 =================== */
   var cur=null, detailRequest=0;
-  function openInquiry(ref){
+  function openInquiry(ref,action){
     openDrawer('#adm-drawer'); var body=$('#dr-body'); body.innerHTML='<div class="empty small">불러오는 중…</div>'; $('#dr-title').textContent=ref;
     var request=++detailRequest;
-    A('/inquiries/'+encodeURIComponent(ref)).then(function(r){ if(request!==detailRequest || $('#adm-drawer').hidden) return; cur=r; renderDetail(); $('#dr-title').setAttribute('tabindex','-1'); if(drawerStack[drawerStack.length-1]===$('#adm-drawer')) $('#dr-title').focus(); A('/inquiry-notifications/'+encodeURIComponent(ref)+'/read',{method:'POST',body:{}}).then(loadNotifications).catch(function(e){ if(!guard(e)) M.toast('문의 확인 상태를 저장하지 못했습니다.'); }); }).catch(function(e){ if(request===detailRequest) fail(body)(e); });
+    A('/inquiries/'+encodeURIComponent(ref)).then(function(r){
+      if(request!==detailRequest || $('#adm-drawer').hidden)return;
+      cur=r;renderDetail();
+      var title=$('#dr-title');
+      title.setAttribute('tabindex','-1');
+      if(drawerStack[drawerStack.length-1]===$('#adm-drawer')){
+        var target=r.item.space_id==='food-only'?{terms:'#fi-terms',quote:'#fi-new-quote',change:'#fi-edit-quote',reconfirm:'[data-food-reconfirm]'}[action]:null;
+        var control=target&&$(target,body);
+        if(control&&(action==='quote'||action==='change'))control.click();
+        else (control||title).focus();
+      }
+      A('/inquiry-notifications/'+encodeURIComponent(ref)+'/read',{method:'POST',body:{}}).then(loadNotifications)
+        .catch(function(e){if(!guard(e))M.toast('문의 확인 상태를 저장하지 못했습니다.');});
+    }).catch(function(e){if(request===detailRequest)fail(body)(e);});
   }
   function kv(k,v){ return v?'<div class="kv"><span>'+esc(k)+'</span><b>'+v+'</b></div>':''; }
   function detailWaitMarkup(wait){
@@ -479,7 +492,7 @@
       kv('행사 일정',esc([it?.event_date?kd(it.event_date):'',foodEventTime(event)].filter(Boolean).join(' · ')))+
       (data.message?'<div class="dr-msg">'+esc(data.message)+'</div>':'')+actions+
       (it&&editable&&!booking?'<button type="button" class="btn btn-light btn-sm" data-payment-editor="inquiry/'+esc(it.ref)+'">예약금 입금 기록</button>':'')+'</div>'+
-      (editable?'<form class="dr-sec" id="'+formId+'"><h3>행사 및 결제 조건</h3>'+
+      (editable?'<form class="dr-sec" id="'+formId+'"><h3 id="fi-terms" tabindex="-1">행사 및 결제 조건</h3>'+
         '<div class="field-row three fi-contact">'+field('name','예약자',input.customer??it?.name,'text','required maxlength="80"')+field('phone','연락처',input.phone??it?.phone,'tel','maxlength="30"')+field('email','이메일',input.email??it?.email,'email','maxlength="120"')+'</div>'+
         field('location','행사 장소',input.location??event.location,'text','maxlength="200"')+
         '<div class="field-row three fi-schedule">'+field('date','행사일',input.date??it?.event_date,'date')+field('start','행사 시작',input.foodStartTime??event.start,'time')+field('end','행사 종료',input.foodEndTime??event.end,'time')+'</div>'+
@@ -2031,7 +2044,8 @@
     if(f==='upcoming') list.sort(function(a,b){ return a.date<b.date?-1:1; });
     $('#bk-list').innerHTML=list.length?list.map(function(b){
       var st={confirmed:['예약 확정','st-ok'],completed:['이용 완료','st-done'],payment_review:['결제 완료 · 일정 확인 필요','st-quote'],cancelled:['취소','st-cancel']}[b.status]||[b.status,''];
-      return '<div class="adm-row"'+(b.inquiry_ref?' data-ref="'+esc(b.inquiry_ref)+'"':'')+'><div class="r1"><b>'+esc(b.customer_name)+'</b>'+spaceTag(b.space_id)+'<span class="st '+st[1]+'">'+st[0]+'</span>'+depositControl(b)+'</div>'+serviceChips(b)+paymentBadge(b,false)+settlementSummary(b)+'<div class="r2">'+esc(kd(b.date))+' · '+esc(b.food_event?[foodEventTime(b.food_event),b.food_event.location].filter(Boolean).join(' · '):b.start_h!=null&&b.end_h!=null?hl(b.start_h)+'–'+hl(b.end_h):(SLOT[b.slot]||b.slot||''))+(b.headcount?' · '+b.headcount+'명':'')+(b.amount!=null?' · <b>'+esc(won(b.amount))+'</b>':'')+'</div>'+(b.memo?'<div class="tiny muted">'+esc(b.memo)+'</div>':'')+'<div class="r3"><span>'+esc(b.booking_code)+(b.inquiry_ref?' · '+esc(b.inquiry_ref):'')+' · <a href="tel:'+esc(b.phone)+'">'+esc(b.phone)+'</a>'+(b.phone2?' · <a href="tel:'+esc(b.phone2)+'">'+esc(b.phone2)+'</a>':'')+'</span><span>'+(['confirmed','completed'].includes(b.status)?(b.space_id==='food-only'?'':'<button type="button" class="btn btn-light btn-sm" data-refund-code="'+esc(b.booking_code)+'">보증금 환급</button> ')+cdBtn(b.booking_code, b.confirm_issued, 'btn-sm',b.space_id==='food-only')+' ':'')+(b.status==='payment_review'?'<button class="btn btn-primary btn-sm" type="button" data-bk="confirmed" data-code="'+esc(b.booking_code)+'">일정 검토 후 확정</button>':'')+(b.status==='confirmed'?(b.space_id==='food-only'?'':guideControl(b.booking_code,b.guide_status))+' <button class="btn btn-light btn-sm" type="button" data-bk="completed" '+(b.space_id==='food-only'?'data-food-event ':'')+'data-code="'+esc(b.booking_code)+'">이용 완료</button> <button class="btn btn-light btn-sm" type="button" data-bk="cancelled" data-code="'+esc(b.booking_code)+'">취소</button>':'')+'</span></div></div>';
+      var food=b.space_id==='food-only', shortcuts=food?foodBookingShortcuts(b.inquiry_ref,b.status,b.booking_code,b.food_event):'';
+      return '<div class="adm-row"'+(b.inquiry_ref?' data-ref="'+esc(b.inquiry_ref)+'"':'')+'><div class="r1"><b>'+esc(b.customer_name)+'</b>'+spaceTag(b.space_id)+'<span class="st '+st[1]+'">'+st[0]+'</span>'+depositControl(b)+'</div>'+(food&&b.status==='cancelled'?'':serviceChips(b))+paymentBadge(b,false)+settlementSummary(b)+'<div class="r2">'+esc(kd(b.date))+' · '+esc(b.food_event?[foodEventTime(b.food_event),b.food_event.location].filter(Boolean).join(' · '):b.start_h!=null&&b.end_h!=null?hl(b.start_h)+'–'+hl(b.end_h):(SLOT[b.slot]||b.slot||''))+(b.headcount?' · '+b.headcount+'명':'')+(b.amount!=null?' · <b>'+esc(won(b.amount))+'</b>':'')+'</div>'+(b.memo?'<div class="tiny muted">'+esc(b.memo)+'</div>':'')+'<div class="r3"><span>'+esc(b.booking_code)+(b.inquiry_ref?' · '+esc(b.inquiry_ref):'')+' · <a href="tel:'+esc(b.phone)+'">'+esc(b.phone)+'</a>'+(b.phone2?' · <a href="tel:'+esc(b.phone2)+'">'+esc(b.phone2)+'</a>':'')+'</span><span'+(food?' class="food-rs-actions"':'')+'>'+shortcuts+(['confirmed','completed'].includes(b.status)?(b.space_id==='food-only'?'':'<button type="button" class="btn btn-light btn-sm" data-refund-code="'+esc(b.booking_code)+'">보증금 환급</button> ')+cdBtn(b.booking_code, b.confirm_issued, 'btn-sm',b.space_id==='food-only')+' ':'')+(b.status==='payment_review'?'<button class="btn btn-primary btn-sm" type="button" data-bk="confirmed" data-code="'+esc(b.booking_code)+'">일정 검토 후 확정</button>':'')+(b.status==='confirmed'?(b.space_id==='food-only'?'':guideControl(b.booking_code,b.guide_status))+' <button class="btn btn-light btn-sm" type="button" data-bk="completed" '+(b.space_id==='food-only'?'data-food-event ':'')+'data-code="'+esc(b.booking_code)+'">이용 완료</button> <button class="btn btn-light btn-sm" type="button" data-bk="cancelled" data-code="'+esc(b.booking_code)+'">취소</button>':'')+'</span></div></div>';
     }).join(''):emptyMsg(service?'현재 예약 상태에 해당하는 식음료 이용 확정 건이 없습니다. 예약 상태나 식음료 필터를 변경해 주세요.':'해당하는 예약이 없습니다.');
   }
   $('#bk-channel-filter').addEventListener('change',drawBookings);
@@ -2178,18 +2192,30 @@
         }).join('')+'</div>';
     }).join('');
   }
+  function foodReservationButton(ref,label,action,primary){
+    return '<button type="button" class="btn '+(primary?'btn-primary':'btn-light')+' btn-xs" data-food-open="'+esc(ref)+'"'+
+      (action?' data-food-action="'+action+'"':'')+'>'+label+'</button>';
+  }
+  function foodBookingShortcuts(ref,status,code,event){
+    if(!ref)return '';
+    if(status==='confirmed')return foodReservationButton(ref,'예약 수정','terms',true)+
+      (event?.quote_no?foodReservationButton(ref,'구성·인원 변경','change'):'');
+    if(status==='cancelled')return '<button type="button" class="btn btn-light btn-xs" data-food-settlement-doc="'+esc(code)+'">취소·환불 정산서</button>'+
+      foodReservationButton(ref,'예약 재확정','reconfirm');
+    return foodReservationButton(ref,'상세');
+  }
   function resvRow(it, x, past){
     var isB=it.kind==='booking', waitCancelled=it.status==='대기 취소', st=isB?(BST[it.status]||[it.status,'']):[it.status,ST_CLS[it.status]||'st-new'];
     var wait=!isB&&!waitCancelled&&it.wait;
     var grip=wait&&wait.total>1?'<button type="button" class="rs-grip" data-wdate="'+esc(it.date)+'"'+(waitDraggable()?'':' disabled')+' title="끌어서 대기 순번 바꾸기 (키보드: 위·아래 화살표)" aria-label="'+esc(it.name||'')+' 대기 순번 바꾸기, 현재 '+esc(wait.no)+'번"><svg viewBox="0 0 10 16" aria-hidden="true"><circle cx="2.5" cy="3" r="1.4"/><circle cx="7.5" cy="3" r="1.4"/><circle cx="2.5" cy="8" r="1.4"/><circle cx="7.5" cy="8" r="1.4"/><circle cx="2.5" cy="13" r="1.4"/><circle cx="7.5" cy="13" r="1.4"/></svg></button>':'';
-    var kind=isB?(it.status==='payment_review'?'<span class="kind kind-pd">일정 확인</span>':'<span class="kind kind-bk">확정</span>'):waitCancelled?'<span class="kind kind-cancel">대기 취소</span>':grip+(wait?'<span class="kind kind-pd wait-no" title="같은 호점·이용일 예약 대기 순번">대기 <b>'+esc(wait.no)+'</b>번</span>':'<span class="kind kind-pd">예약 문의</span>')+(it.reserve?'<span class="tag-rv">예약 신청</span>':'');
+    var kind=isB?(it.space_id==='food-only'&&it.status==='cancelled'?'<span class="kind kind-cancel">취소</span>':it.status==='payment_review'?'<span class="kind kind-pd">일정 확인</span>':'<span class="kind kind-bk">확정</span>'):waitCancelled?'<span class="kind kind-cancel">대기 취소</span>':grip+(wait?'<span class="kind kind-pd wait-no" title="같은 호점·이용일 예약 대기 순번">대기 <b>'+esc(wait.no)+'</b>번</span>':'<span class="kind kind-pd">예약 문의</span>')+(it.reserve?'<span class="tag-rv">예약 신청</span>':'');
     var tel=String(it.phone||'').replace(/[^0-9+]/g,'');
     var acts=(tel?'<a class="btn btn-light btn-xs" href="tel:'+esc(tel)+'" aria-label="전화">전화</a>':'');
     if(isB && ['confirmed','completed'].includes(it.status) && it.code) acts+=cdBtn(it.code, it.confirm_issued,undefined,it.space_id==='food-only');
     if(isB && it.status==='confirmed' && it.space_id!=='food-only') acts+=guideControl(it.code,it.guide_status);
     if(it.space_id==='food-only'&&it.ref){
-      var canConfirm=!isB&&!waitCancelled&&it.amount>0;
-      acts+='<button type="button" class="btn '+(canConfirm?'btn-primary':'btn-light')+' btn-xs" data-food-open="'+esc(it.ref)+'">'+(canConfirm?'예약 확정':'상세')+'</button>';
+      if(!isB&&!waitCancelled)acts=foodReservationButton(it.ref,it.food_quote_ready?'예약 확정':'견적 만들기',it.food_quote_ready?'terms':'quote',true)+acts;
+      else acts=foodBookingShortcuts(it.ref,it.status,it.code,it.food_event)+acts;
     }
     if(isB && it.status==='confirmed') acts+=(past?'<button class="btn btn-light btn-xs" type="button" data-rsact="completed" '+(it.space_id==='food-only'?'data-food-event ':'')+'data-code="'+esc(it.code)+'">이용 완료</button>':'')+'<button class="btn btn-light btn-xs" type="button" data-rsact="cancelled" data-code="'+esc(it.code)+'">취소</button>';
     if(!isB && waitCancelled && it.space_id!=='food-only') acts+='<button class="btn btn-light btn-xs" type="button" data-waitact="restore" data-ref="'+esc(it.ref)+'">대기 복원</button>';
@@ -2199,7 +2225,7 @@
     return '<tr class="rs-row '+(isB?'booking':'pending')+(waitCancelled?' cancelled wait-cancelled':it.status==='cancelled'?' cancelled':'')+(past?' past':'')+'" data-date="'+esc(it.date)+'" data-space="'+esc(spKey(it.space_id))+'"'+(it.ref?' data-ref="'+esc(it.ref)+'" tabindex="0"':'')+'>'
       +'<td data-th="구분">'+kind+(!isB && !waitCancelled && it.space_id!=='food-only' && x.sp && x.sp[spKey(it.space_id)] && x.sp[spKey(it.space_id)].bk?'<small class="rs-taken">이 날 확정 예약 있음</small>':'')+'</td>'
       +'<td data-th="시간">'+esc(resvTime(it))+(it.food_event?.location?'<small>'+esc(it.food_event.location)+'</small>':'')+(resvHours(it)?'<small>'+esc(resvHours(it))+'</small>':'')+'</td>'
-      +'<td data-th="예약자"><b>'+esc(it.name||'')+'</b>'+spaceTag(it.space_id)+'<small>'+esc(it.phone||'')+(it.purpose&&PUR[it.purpose]?' · '+esc(PUR[it.purpose]):'')+'</small>'+(famAsk(it)?'<small class="rs-fam">+ '+esc(famAsk(it))+'</small>':'')+serviceChips(it)+(it.catering?'<small class="rs-cat">출장뷔페 '+esc(won(it.catering.total||0))+'</small>':'')+'</td>'
+      +'<td data-th="예약자"><b>'+esc(it.name||'')+'</b>'+spaceTag(it.space_id)+'<small>'+esc(it.phone||'')+(it.purpose&&PUR[it.purpose]?' · '+esc(PUR[it.purpose]):'')+'</small>'+(famAsk(it)?'<small class="rs-fam">+ '+esc(famAsk(it))+'</small>':'')+(it.space_id==='food-only'&&it.status==='cancelled'?'':serviceChips(it))+(it.catering?'<small class="rs-cat">출장뷔페 '+esc(won(it.catering.total||0))+'</small>':'')+'</td>'
       +'<td data-th="경로">'+chs+'</td>'
       +'<td data-th="인원">'+(it.headcount?it.headcount+'명':'—')+'</td>'
       +'<td data-th="금액" class="r">'+(it.amount!=null?'<b>'+esc(won(it.amount))+'</b><small>'+esc(SRC[it.amount_src]||'')+'</small>':'<span class="muted">미정</span>')+'</td>'
@@ -2207,7 +2233,7 @@
       +'<td data-th="진행"><span class="st '+st[1]+'">'+esc(st[0])+'</span></td>'
       +'<td data-th="보증금">'+depositControl(it)+'</td>'
       +'<td data-th="운영 메모" class="rs-operation-memo"><span class="adm-operation-memo">'+esc(it.memo||'–')+'</span></td>'
-      +'<td class="rs-acts">'+acts+'</td></tr>';
+      +'<td class="rs-acts">'+(it.space_id==='food-only'?'<div class="food-rs-actions">'+acts+'</div>':acts)+'</td></tr>';
   }
 
   $('#view-resv').addEventListener('click', function(e){ var vd=e.target.closest('[data-vday]'); if(vd){ e.stopPropagation(); $('#vs-from').value=vd.dataset.vday; $('#vs-to').value=vd.dataset.vday; VS.range='custom'; $$('#view-visits [data-vrange]').forEach(function(b){ b.classList.remove('on'); }); go('visits'); return; } var r=e.target.closest('[data-range]'); if(r){ setRange(r.dataset.range); loadResv(); return; } var t=e.target.closest('#rs-tabs [data-kind]'); if(t){ RS.kind=t.dataset.kind; drawResv(); } });
@@ -2705,7 +2731,12 @@
   bindFoodFilter('rs-food-filter',drawResv,'rs-space');
   document.addEventListener('click',function(e){
     var button=e.target.closest('[data-food-open]');
-    if(button){openInquiry(button.dataset.foodOpen);return;}
+    if(button){openInquiry(button.dataset.foodOpen,button.dataset.foodAction);return;}
+    var settlement=e.target.closest('[data-food-settlement-doc]');
+    if(settlement){
+      window.dispatchEvent(new CustomEvent('admin-cancellation-open',{detail:{codes:[settlement.dataset.foodSettlementDoc]}}));
+      return;
+    }
     var scope=e.target.closest('[data-food-scope]');
     if(scope){
       var view=scope.dataset.foodScope, target={inq:'inq',resv:'rs',calendar:'cal'}[view];

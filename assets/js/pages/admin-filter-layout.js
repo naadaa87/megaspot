@@ -10,7 +10,7 @@
  var search=$('#rs-search'),searchLabel=document.createElement('label');searchLabel.htmlFor='rs-q';searchLabel.textContent='고객·예약 검색';searchLabel.className='adm-filter-search-label';search.prepend(searchLabel);
  var revenue=$('#revenue-form');revenue.classList.add('adm-card','adm-filter-panel');$('#view-revenue .revenue-page-head').after(revenue);
  function groupActions(root){root.querySelectorAll('.rs-acts,.adm-row .r3>span:last-child').forEach(function(cell){
-  if(cell.querySelector('.reservation-action-group'))return;
+  if(cell.matches('.food-rs-actions')||cell.querySelector('.reservation-action-group, .food-rs-actions'))return;
   var nodes=Array.from(cell.childNodes),buttons=nodes.filter(function(n){return n.nodeType===1&&n.matches('button,a');});
   if(buttons.length<2)return;
   var primary=buttons.filter(function(n){return n.matches('a[href^="tel:"],[data-portal-code],[data-rsconfirm],[data-food-open],[data-bk="confirmed"],[data-rsact="confirmed"]');}),secondary=buttons.filter(function(n){return primary.indexOf(n)<0;});

@@ -188,6 +188,12 @@
  .food-agenda-row .q-btns>*{min-height:42px}
 }
 
+.page-admin :is(#view-resv,#view-bookings) .food-rs-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:5px;white-space:normal}
+.page-admin :is(#view-resv,#view-bookings) .food-rs-actions .btn{margin:0;justify-content:center;text-align:center;white-space:normal}
+@media(max-width:1100px){
+ .page-admin :is(#view-resv,#view-bookings) .food-rs-actions{justify-content:flex-start;gap:8px;margin-top:8px}
+ .page-admin :is(#view-resv,#view-bookings) .food-rs-actions .btn{min-height:44px;padding-inline:12px;font-size:13px}
+}
 #view-resv:has(#rs-food-filter[aria-pressed="true"]) .rs-table [data-th="보증금"],
 #view-resv:has(#rs-food-filter[aria-pressed="true"]) .rs-table th:nth-child(9){display:none}
 @media(max-width:640px){

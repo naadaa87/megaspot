@@ -119,9 +119,13 @@ test('food inquiry does not enter venue waitlist and updates a booking through a
   assert.equal((await f.api('food-inquiries','POST',intake)).ref,inquiry.ref);
   assert.ok(!(await waitList(f.env,DAY,'megaspot-gundae')).includes(inquiry.ref));
   assert.ok((await f.api('inquiries?type=food-only')).items.every(x=>x.ref===inquiry.ref));
-  assert.equal((await f.api('reservations?from='+DAY+'&to='+DAY)).items.find(x=>x.ref===inquiry.ref).kind,'pending');
+  const reservations='reservations?from='+DAY+'&to='+DAY;
+  const candidate=(await f.api(reservations)).items.find(x=>x.ref===inquiry.ref);
+  assert.equal(candidate.kind,'pending');
+  assert.equal(candidate.food_quote_ready,false);
 
   const first=await f.api('quotes','POST',{...preparedQuote(),food_inquiry_ref:inquiry.ref});
+  assert.equal((await f.api(reservations)).items.find(x=>x.ref===inquiry.ref).food_quote_ready,true);
   const initial=(await f.api('inquiries/'+inquiry.ref)).item.data.food_event;
   const booking=await f.api('food-inquiries/'+inquiry.ref,'PUT',{version:initial.version,quote_no:first.quote_no,confirm:true});
   await f.api('inquiries/'+inquiry.ref+'/confirm','POST',{date:DAY,start_h:10,end_h:17},409);
