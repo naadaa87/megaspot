@@ -1,4 +1,5 @@
-import {FOOD_SPACE,confirmIssuedSql,foodBookingAdmin,foodEvent,foodEventSql,foodInquiry,foodPaymentStatus} from '../_food_booking.js';
+import {inquirySettlement} from '../_inquiry_receipts.js';
+import {FOOD_SPACE,confirmIssuedSql,foodBookingAdmin,foodBookingTargets,foodEvent,foodEventSql,foodInquiry,foodPaymentStatus} from '../_food_booking.js';
 import {spacecloudControl} from '../_spacecloud_control.js';
 import {spacecloudBlocksAdmin} from '../_spacecloud_blocks.js';
 import {feedbackAdmin} from '../_feedback.js';
@@ -125,18 +126,23 @@ async function deleteInquiry(env, ref) {
   const row = await env.DB.prepare('SELECT ref, space_id, status FROM inquiries WHERE ref = ?').bind(ref).first();
   if (!row) return { ref, ok: false, code: 'NOT_FOUND', reason: '문의를 찾을 수 없습니다.' };
   if (row.status === DELETED) return { ref, ok: true, already: true };
-  const activeBooking = row.space_id===FOOD_SPACE ? "status IN ('confirmed','payment_review')" : "status='confirmed'";
+  const foodOnly = row.space_id===FOOD_SPACE;
+  const activeBooking = foodOnly ? "status IN ('confirmed','payment_review')" : "status='confirmed'";
   const bk0 = await env.DB.prepare(`SELECT booking_code FROM bookings WHERE inquiry_ref = ? AND ${activeBooking} LIMIT 1`).bind(ref).first();
   if (bk0) return { ref, ok: false, code: 'HAS_BOOKING', reason: '확정 예약(' + bk0.booking_code + ')이 연결되어 있습니다. 예약 관리에서 예약을 먼저 취소해 주세요.' };
-  const od0 = await env.DB.prepare("SELECT oid FROM orders WHERE inquiry_ref = ? AND status = 'paid' LIMIT 1").bind(ref).first();
-  if (od0) return { ref, ok: false, code: 'HAS_ORDER', reason: '결제 완료된 주문(' + od0.oid + ')이 연결되어 있습니다. 주문·결제 탭에서 환불 기록을 먼저 남겨 주세요.' };
-  if(await env.DB.prepare("SELECT 1 FROM booking_payment_entries WHERE booking_code=? LIMIT 1").bind('inquiry:'+ref).first())return {ref,ok:false,code:'HAS_RECEIPTS',reason:'문의에 실제 수납 기록이 있습니다. 예약에 연결해 수납·정산 기록을 보존해 주세요.'};
+  const noReceipts = `NOT EXISTS(SELECT 1 FROM orders WHERE inquiry_ref=inquiries.ref AND status='paid')
+    AND NOT EXISTS(SELECT 1 FROM booking_payment_entries WHERE booking_code='inquiry:'||inquiries.ref)`;
+  if (!foodOnly) {
+    const order = await env.DB.prepare("SELECT oid FROM orders WHERE inquiry_ref=? AND status='paid' LIMIT 1").bind(ref).first();
+    if (order) return {ref,ok:false,code:'HAS_ORDER',reason:'결제 완료된 주문('+order.oid+')이 연결되어 있습니다. 주문·결제 탭에서 환불 기록을 먼저 남겨 주세요.'};
+    if(await env.DB.prepare("SELECT 1 FROM booking_payment_entries WHERE booking_code=? LIMIT 1").bind('inquiry:'+ref).first())
+      return {ref,ok:false,code:'HAS_RECEIPTS',reason:'문의에 실제 수납 기록이 있습니다. 예약에 연결해 수납·정산 기록을 보존해 주세요.'};
+  }
   const t = now();
   const deleted=await env.DB.prepare(`UPDATE inquiries SET status=?,data=json_set(COALESCE(data,'{}'),'$.deleted_at',?,'$.deleted_from',?),updated_at=?
     WHERE ref=? AND status=? AND NOT EXISTS(SELECT 1 FROM bookings WHERE inquiry_ref=inquiries.ref AND ${activeBooking})
-    AND NOT EXISTS(SELECT 1 FROM orders WHERE inquiry_ref=inquiries.ref AND status='paid')
-    AND NOT EXISTS(SELECT 1 FROM booking_payment_entries WHERE booking_code='inquiry:'||inquiries.ref)`)
-    .bind(DELETED,t,row.status,t,ref,row.status).run();
+    AND (?=1 OR (${noReceipts}))`)
+    .bind(DELETED,t,row.status,t,ref,row.status,foodOnly?1:0).run();
   if((deleted?.meta?.changes??deleted?.changes)===0){
     const current=await env.DB.prepare('SELECT status FROM inquiries WHERE ref=?').bind(ref).first();
     if(current?.status===DELETED)return {ref,ok:true,already:true};
@@ -219,6 +225,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
 
   const denied = await requireAdmin(request, env); if (denied) return denied;
   try {
+    if(path==='food-inquiries/targets')return await foodBookingTargets({env,url,method});
     if (/^food-inquiries(?:\/[A-Z0-9-]+)?$/.test(path)) return await foodBookingAdmin({env,request,path,method});
     const propertyInquiry = path.match(/^inquiries\/([A-Z0-9-]+)\/(confirm|checks|deposit-paid|wait-(?:cancel|restore))$/);
     const propertyBooking = path.match(/^bookings\/([A-Z0-9-]+)\/(deposit-paid|portal-link(?:\/rotate)?)$/);
@@ -344,7 +351,8 @@ export async function onRequest({ request, env, params, waitUntil }) {
       const { results: lg } = await env.DB.prepare('SELECT kind, actor, detail, created_at FROM event_log WHERE ref = ? ORDER BY id DESC LIMIT 30').bind(mDet[1]).all();
       const wait = await inquiryWait(env, r.ref, r);
       const guides=await guideSummary(env,(bk || []).map(x=>x.booking_code)),settlements=await settlementsFor(env,(bk||[]).map(x=>x.booking_code));
-      return json({ ok: true, item: { ...r, data: safe(r.data) }, checks: await guideInquiryChecks(env,mDet[1],safe(c && c.checks)), quotes: (qs || []).map(q => ({ ...q, data: safe(q.data) })), bookings: (bk || []).map(x=>({...x,settlement:settlements[x.booking_code],guide_status:guides[x.booking_code] || ''})), log: lg || [], wait, visits: await visitsForInquiry(env, mDet[1]), catering_order: await cateringOrderFor(env, mDet[1], '') });
+      const foodPayment=r.space_id===FOOD_SPACE&&!bk?.length?await inquirySettlement(env,r.ref):null;
+      return json({ ok: true, item: { ...r, data: safe(r.data) }, checks: await guideInquiryChecks(env,mDet[1],safe(c && c.checks)), quotes: (qs || []).map(q => ({ ...q, data: safe(q.data) })), ...(foodPayment?{inquiry_settlement:foodPayment}:{}), bookings: (bk || []).map(x=>({...x,settlement:settlements[x.booking_code],guide_status:guides[x.booking_code] || ''})), log: lg || [], wait, visits: await visitsForInquiry(env, mDet[1]), catering_order: await cateringOrderFor(env, mDet[1], '') });
     }
     if (path === 'inquiries' && method === 'POST') {
       // 카카오톡·전화·이메일·방문으로 받은 문의를 관리자가 직접 등록합니다.
@@ -423,8 +431,10 @@ export async function onRequest({ request, env, params, waitUntil }) {
       const data = d.data && typeof d.data === 'object' ? d.data : {};
       const foodOnly = data.input?.foodOnly === true;
       if (foodOnly && ref) return err('식음료 단독 예약에서 견적을 다시 열어 주세요.');
-      const foodRef = foodOnly ? str(d.food_inquiry_ref, 20) : '';
-      if (foodRef && !await foodInquiry(env,foodRef)) return err('연결할 식음료 문의를 찾을 수 없습니다.');
+      const foodRef = foodOnly ? str(d.food_inquiry_ref, 20).toUpperCase() : '';
+      const foodTarget = foodRef ? await foodInquiry(env,foodRef) : null;
+      if (foodRef && !foodTarget) return err('연결할 식음료 문의를 찾을 수 없습니다.');
+      if (foodTarget && ![...OPEN,'예약 확정'].includes(foodTarget.status)) return err('연결할 문의 상태를 확인해 주세요. 삭제된 문의는 먼저 복원해야 합니다.',409,'FOOD_CHANGED');
       if (ref && await foodInquiry(env,ref)) return err('식음료 단독 견적으로 저장해 주세요.');
       if (!foodOnly) await preserveLegacyPayments(env);
       const inquiry = ref ? await env.DB.prepare('SELECT * FROM inquiries WHERE ref = ?').bind(ref).first() : null;
@@ -476,6 +486,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
         input.date = date;
         input.people = people;
         input.ref = '';
+        input.foodInquiryRef = foodRef;
         input.deposit = 0;
         data.extras = data.extras.map(row => ({...row, amount: Number(row.amount)}));
         input.extras = data.extras;
@@ -532,12 +543,19 @@ export async function onRequest({ request, env, params, waitUntil }) {
       if(ref){const bks=await env.DB.prepare("SELECT booking_code FROM bookings WHERE inquiry_ref=? AND status<>'cancelled'").bind(ref).all();if(bks.results?.length===1){const payment=await settlementFor(env,bks.results[0].booking_code);data.settlement=S.calculate({...payment,amount:total});}else delete data.settlement;}else delete data.settlement;
       const serialized = JSON.stringify(data);
       if (serialized.length > 100000) return err('견적 내용이 너무 깁니다. 안내 메모나 추가 항목을 줄여 주세요.');
-      statements.push(env.DB.prepare('INSERT INTO quotes (quote_no, inquiry_ref, customer, event_date, total, data, created_at) VALUES (?,?,?,?,?,?,?)')
-        .bind(quote_no, ref || null, str(d.customer, 120), isDate(str(d.event_date, 10)) ? str(d.event_date, 10) : null, total, serialized, now()));
-      if (foodRef) statements.push(env.DB.prepare('INSERT INTO food_quote_links(quote_no,inquiry_ref) VALUES (?,?)').bind(quote_no,foodRef));
-      await batch(env, statements);
+      const quoteArgs=[quote_no,ref||null,str(d.customer,120),isDate(str(d.event_date,10))?str(d.event_date,10):null,total,serialized,now()];
+      const insertQuote='INSERT INTO quotes (quote_no, inquiry_ref, customer, event_date, total, data, created_at)';
+      if (foodRef) {
+        statements.push(env.DB.prepare(insertQuote+` SELECT ?,?,?,?,?,?,? FROM inquiries
+          WHERE ref=? AND space_id=? AND status IN ('문의 접수','조건 확인','견적 발송','결제 대기','예약 확정')`).bind(...quoteArgs,foodRef,FOOD_SPACE));
+        statements.push(env.DB.prepare('INSERT INTO food_quote_links(quote_no,inquiry_ref) SELECT quote_no,? FROM quotes WHERE quote_no=?').bind(foodRef,quote_no));
+      } else {
+        statements.push(env.DB.prepare(insertQuote+' VALUES (?,?,?,?,?,?,?)').bind(...quoteArgs));
+      }
+      const saved=await batch(env,statements);
+      if(foodRef && !(saved.at(-1)?.meta?.changes??saved.at(-1)?.changes))return err('연결할 문의 상태가 변경되었습니다. 문의를 다시 열어 주세요.',409,'FOOD_CHANGED');
       await log(env, 'quote.saved', foodRef || ref || quote_no, 'admin', { quote_no, total });
-      return json({ ok: true, quote_no, reception_revision, food_state:input?.food_state, confirm_doc_invalidated: invalidated });
+      return json({ ok: true, quote_no, ...(foodOnly?{food_inquiry_ref:foodRef}:{}), reception_revision, food_state:input?.food_state, confirm_doc_invalidated: invalidated });
     }
     if (path === 'quotes' && method === 'GET') {
       const { results } = await env.DB.prepare('SELECT q.quote_no,q.inquiry_ref,q.customer,q.event_date,q.total,q.data,q.created_at,l.inquiry_ref AS food_inquiry_ref FROM quotes q LEFT JOIN food_quote_links l ON l.quote_no=q.quote_no ORDER BY q.id DESC LIMIT 100').all();

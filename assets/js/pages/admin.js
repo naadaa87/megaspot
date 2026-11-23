@@ -434,15 +434,55 @@
   }
   function openFoodQuote(q){
     if(!q||!q.data?.input?.foodOnly)return;
-    var ref=q.food_inquiry_ref||q.data.input.foodInquiryRef;
-    ++detailRequest;openDrawer('#adm-drawer');
-    $('#dr-title').textContent='식음료 예약 등록';
-    if(!ref){renderFoodInquiry(null,q);return;}
-    var request=++detailRequest;
-    $('#dr-body').innerHTML='<p class="small muted">연결된 문의를 불러오는 중…</p>';
+    var ref=q.food_inquiry_ref, request=++detailRequest, body=$('#dr-body');
+    openDrawer('#adm-drawer');
+    if(!ref){renderFoodQuoteTarget(q);return;}
+    $('#dr-title').textContent='기존 식음료 문의에 견적 적용';
+    body.innerHTML='<p class="small muted">연결된 문의를 불러오는 중…</p>';
     A('/inquiries/'+encodeURIComponent(ref)).then(function(r){
       if(request===detailRequest&&!$('#adm-drawer').hidden)renderFoodInquiry(r,q);
-    }).catch(fail($('#dr-body')));
+    }).catch(function(error){if(request===detailRequest)fail(body)(error);});
+  }
+  function renderFoodQuoteTarget(quote,draft){
+    var input=draft||quote.data.input;
+    var search=input.phone||input.email||input.name||input.customer||'';
+    var title=$('#dr-title'),body=$('#dr-body'),version=++detailRequest;
+    title.textContent='식음료 견적을 연결할 문의 선택';
+    body.innerHTML='<div class="food-inquiry-content"><div class="dr-sec">'+
+      '<p><b>'+esc(quote.quote_no)+'</b> · '+esc(won(quote.total))+' (부가세 포함)</p>'+
+      '<p class="small muted">이미 등록한 문의가 있으면 아래에서 선택해 주세요. 기존 문의번호와 입금 기록이 이어집니다.</p>'+
+      (draft?'<p class="form-note" role="status">같은 연락처와 행사일의 문의가 있습니다. 기존 문의를 선택하거나 별도 행사로 등록하세요.</p>':'')+
+      '<form id="food-target-search"><div class="f"><label for="food-target-q">기존 식음료 문의 검색</label>'+
+      '<input class="input" id="food-target-q" type="search" maxlength="80" placeholder="이름·연락처·이메일·문의번호" value="'+esc(search)+'"></div>'+
+      '<div class="q-btns"><button class="btn btn-light btn-sm" type="submit">검색</button></div></form>'+
+      '<div id="food-target-results" aria-live="polite"></div></div>'+
+      '<div class="dr-sec"><div class="q-btns"><button class="btn btn-light" type="button" id="food-target-new" disabled>'+
+      (draft?'별도 행사로 새 문의 등록':'새 문의로 예약 등록')+'</button></div></div></div>';
+    var results=$('#food-target-results'),newButton=$('#food-target-new'),attempt=0;
+    function find(){
+      var seq=++attempt, value=$('#food-target-q').value.trim();
+      newButton.disabled=true;results.textContent='기존 문의를 찾는 중입니다.';
+      A('/food-inquiries/targets?q='+encodeURIComponent(value)+'&date='+encodeURIComponent(input.date||'')).then(function(r){
+        if(version!==detailRequest||seq!==attempt||$('#adm-drawer').hidden)return;
+        results.innerHTML=r.items.length?r.items.map(function(item){
+          var booking=[item.event_date?kd(item.event_date):'행사일 미정',item.location].filter(Boolean).join(' · ');
+          return '<div class="adm-row"><div class="r1"><b>'+esc(item.name)+'</b>'+stBadge(item.status)+'</div>'+
+            '<div class="small">'+esc(booking)+'</div><div class="r3"><span>'+esc(item.ref)+' · '+esc(item.phone||'')+'</span>'+
+            '<button class="btn btn-light btn-sm" type="button" data-food-target-ref="'+esc(item.ref)+'">이 문의에 연결</button></div></div>';
+        }).join(''):'<p class="small muted">검색 결과가 없습니다. 다른 이름이나 문의번호로 다시 찾을 수 있습니다.</p>';
+        newButton.disabled=false;
+      }).catch(function(error){
+        if(version===detailRequest&&seq===attempt&&!guard(error))results.textContent=error.message||'기존 문의를 불러오지 못했습니다. 다시 검색해 주세요.';
+      });
+    }
+    $('#food-target-search').onsubmit=function(e){e.preventDefault();find();};
+    results.onclick=function(e){
+      var button=e.target.closest('[data-food-target-ref]');
+      if(button)openFoodQuote({...quote,food_inquiry_ref:button.dataset.foodTargetRef});
+    };
+    newButton.onclick=function(){renderFoodInquiry(null,quote,null,draft);};
+    title.setAttribute('tabindex','-1');title.focus();
+    find();
   }
   function foodEventTime(event){
     return event?foodQuoteTimeText({foodStartTime:event.start,foodEndTime:event.end}):'';
@@ -473,7 +513,7 @@
       }).catch(function(error){if(!guard(error))note(message,error.message);}).finally(function(){submit.disabled=false;});
     };
   }
-  function renderFoodInquiry(result,quote,copy){
+  function renderFoodInquiry(result,quote,copy,newDraft){
     var it=result?.item, data=it?.data||{}, event=data.food_event||{}, input=quote?.data?.input||{};
     if(copy){
       var source=copy.data?.food_event||{};
@@ -481,10 +521,13 @@
     }
     var booking=result?.bookings?.[0], rows=result?.quotes||[], total=it?.effective_amount??quote?.total;
     if(it&&quote?.quote_no===event.quote_no)input={};
+    if(newDraft)input={...input,customer:newDraft.name,phone:newDraft.phone,email:newDraft.email,date:newDraft.date,
+      people:newDraft.headcount,location:newDraft.location,foodStartTime:newDraft.start,foodEndTime:newDraft.end,note:newDraft.message};
     var applied=rows.find(function(row){return row.quote_no===event.quote_no;});
     var archived=it?.status===DELETED, editable=!it||['문의 접수','조건 확인','견적 발송','결제 대기','예약 확정'].includes(it.status);
     var amount=total==null?'미정':won(total)+' (부가세 포함)';
     var chosen=quote?.quote_no||event.quote_no||(!booking?rows[0]?.quote_no:'')||'';
+    var inquiryPayment=result?.inquiry_settlement, hasInquiryPayment=(inquiryPayment?.received||inquiryPayment?.refunded)>0;
     var formId='food-inquiry-form', reason=['문의 접수','조건 확인','견적 발송','결제 대기'];
     function field(key,label,value,type,extra){
       return '<div class="f"><label for="fi-'+key+'">'+label+'</label><input class="input" id="fi-'+key+'" name="'+key+'" type="'+(type||'text')+'" value="'+esc(value??'')+'" '+(extra||'')+'></div>';
@@ -503,29 +546,32 @@
     function usedQuote(q){
       return '<div class="dr-quote"><div><b>'+esc(q.quote_no)+'</b> <span class="small muted">'+esc(foodQuoteTimeText(q.data.input))+'</span></div><b>'+esc(won(q.total))+'</b><button type="button" class="btn btn-light btn-sm" data-fi-quote="'+esc(q.quote_no)+'">열기</button></div>';
     }
-    $('#dr-title').textContent=it?'식음료 단독 · '+it.ref:quote?'식음료 예약 등록':'식음료 문의 등록';
+    $('#dr-title').textContent=it?'식음료 단독 · '+it.ref:quote?'식음료 새 예약 등록':'식음료 문의 등록';
     $('#dr-body').innerHTML='<div class="food-inquiry-content"><div class="dr-sec"><div class="row between"><b>'+esc(it?.name||input.customer||'식음료 단독')+'</b>'+stBadge(it?.status||'문의 접수')+'</div>'+
       (booking?kv('예약번호',esc(booking.booking_code)):'')+
       kv(booking?.status==='cancelled'?'취소 전 예약 금액':'확정·견적 금액',esc(amount))+
-      foodSettlementRows(booking?.settlement,booking?.status==='cancelled').map(function(row){return kv(row[0],esc(foodSettlementValue(row[1])));}).join('')+
+      foodSettlementRows(booking?.settlement||(hasInquiryPayment?inquiryPayment:null),booking?.status==='cancelled').map(function(row){return kv(row[0],esc(foodSettlementValue(row[1])));}).join('')+
       kv('행사 인원',it?.headcount?esc(it.headcount+'명'):'')+kv('행사 장소',esc(event.location||input.location||'미정'))+
       kv('행사 일정',esc([it?.event_date?kd(it.event_date):'',foodEventTime(event)].filter(Boolean).join(' · ')))+
       (data.message?'<div class="dr-msg">'+esc(data.message)+'</div>':'')+actions+
-      (it&&editable&&!booking?'<button type="button" class="btn btn-light btn-sm" data-payment-editor="inquiry/'+esc(it.ref)+'">예약금 입금 기록</button>':'')+'</div>'+
+      (it&&!booking?'<div class="q-btns">'+
+        (editable&&!quote?'<button type="button" class="btn btn-primary btn-sm" id="fi-new-quote">이 문의로 견적 만들기</button>':'')+
+        (editable||hasInquiryPayment?'<button type="button" class="btn btn-light btn-sm" data-payment-editor="inquiry/'+esc(it.ref)+'">'+(archived?'보관된 수납 내역':'예약금 입금 기록')+'</button>':'')+'</div>':'')+'</div>'+
       (editable?'<form class="dr-sec" id="'+formId+'"><h3 id="fi-terms" tabindex="-1">행사 및 결제 조건</h3>'+
-        '<div class="field-row three fi-contact">'+field('name','예약자',input.customer??it?.name,'text','required maxlength="80"')+field('phone','연락처',input.phone??it?.phone,'tel','maxlength="30"')+field('email','이메일',input.email??it?.email,'email','maxlength="120"')+'</div>'+
-        field('location','행사 장소',input.location??event.location,'text','maxlength="200"')+
-        '<div class="field-row three fi-schedule">'+field('date','행사일',input.date??it?.event_date,'date')+field('start','행사 시작',input.foodStartTime??event.start,'time')+field('end','행사 종료',input.foodEndTime??event.end,'time')+'</div>'+
-        '<div class="field-row three fi-payment-terms">'+field('headcount','행사 인원',input.people??it?.headcount,'number','min="1" max="999"')+field('reservation_fee','예약금 약정액 (원)',event.reservation_fee,'number','min="0" step="1"')+field('balance_due','잔금 납부일',event.balance_due,'date')+'</div>'+
+        '<div class="field-row three fi-contact">'+field('name','예약자',it?.name??input.customer,'text','required maxlength="80"')+field('phone','연락처',it?.phone||input.phone,'tel','maxlength="30"')+field('email','이메일',it?.email||input.email,'email','maxlength="120"')+'</div>'+
+        field('location','행사 장소',input.location||event.location,'text','maxlength="200"')+
+        '<div class="field-row three fi-schedule">'+field('date','행사일',input.date||it?.event_date,'date')+field('start','행사 시작',input.foodStartTime||event.start,'time')+field('end','행사 종료',input.foodEndTime||event.end,'time')+'</div>'+
+        '<div class="field-row three fi-payment-terms">'+field('headcount','행사 인원',input.people??it?.headcount,'number','min="1" max="999"')+field('reservation_fee','예약금 약정액 (원)',newDraft?.reservation_fee??event.reservation_fee,'number','min="0" step="1"')+field('balance_due','잔금 납부일',newDraft?.balance_due??event.balance_due,'date')+'</div>'+
         (!booking&&it?selectStatus():'')+
         '<div class="f"><label for="fi-message">고객 요청</label><textarea class="textarea" id="fi-message" name="message" maxlength="2000">'+esc(data.message||input.note||'')+'</textarea></div>'+
-        '<div class="f"><label for="fi-memo">운영 메모</label><textarea class="textarea" id="fi-memo" name="memo" maxlength="2000">'+esc(it?.memo||'')+'</textarea></div>'+
+        '<div class="f"><label for="fi-memo">운영 메모</label><textarea class="textarea" id="fi-memo" name="memo" maxlength="2000">'+esc(newDraft?.memo||it?.memo||'')+'</textarea></div>'+
         (quote?'<p class="small muted">적용할 견적 '+esc(quote.quote_no)+' · '+esc(won(quote.total))+' (부가세 포함)</p>'+
           (quote.data.input.extras||[]).map(function(row){return kv(foodLabels[row.kind],esc(foodQuoteDetails(row)[0][1]));}).join(''):
           event.quote_no?'<p class="small muted">적용된 견적 '+esc(event.quote_no)+'</p>':
           !chosen?'<p class="small muted">식음료 견적을 저장하면 이 문의에서 예약을 확정할 수 있습니다.</p>':'')+
-        '<div class="q-btns">'+(it||!quote?'<button type="submit" class="btn '+(quote?'btn-primary':'btn-light')+'" name="save">'+(quote?'견적 적용 및 저장':'저장')+'</button>':'')+
-        (!booking&&chosen?'<button type="submit" class="btn btn-primary" name="confirm">예약 확정</button>':'')+'</div><p class="form-note" id="fi-error" hidden></p></form>':'')+
+        '<div class="q-btns">'+(it||!quote?'<button type="submit" class="btn '+(quote?'btn-primary':'btn-light')+'" name="save">'+(quote?'이 문의에 견적 적용':it?'저장':'문의 등록')+'</button>':'')+
+        (!booking&&chosen?'<button type="submit" class="btn btn-primary" name="confirm">'+(quote&&!it?'새 문의 등록 및 예약 확정':'예약 확정')+'</button>':'')+
+        (quote&&!it?'<button type="button" class="btn btn-light" id="fi-target-back">기존 문의 선택으로 돌아가기</button>':'')+'</div><p class="form-note" id="fi-error" hidden></p></form>':'')+
       '<div class="dr-sec"><h3>'+(booking?.status==='cancelled'?'취소 전 식음료 구성':'식음료 구성')+'·견적 이력</h3>'+
         Object.keys(foodLabels).map(function(kind){
           var value=data[kind];
@@ -533,7 +579,7 @@
         }).join('')+
         (!booking?changeQuote:'')+
         (rows.length?rows.map(usedQuote).join(''):'<p class="small muted">저장한 견적이 없습니다.</p>')+
-        (it&&editable?'<button type="button" class="btn btn-light btn-sm" id="fi-new-quote">+ 식음료 견적 만들기</button>':'')+'</div>'+
+        (it&&editable&&booking&&!quote?'<button type="button" class="btn btn-light btn-sm" id="fi-new-quote">이 문의로 견적 만들기</button>':'')+'</div>'+
       (it?'<details class="dr-sec"><summary>변경 기록</summary>'+(result.log||[]).map(logLine).join('')+'</details>':'')+
       (archived?'<div class="dr-sec dr-deleted"><div><b>삭제 보관함에 있는 기록입니다.</b><small>삭제 전 상태 '+esc(data.deleted_from||'')+'</small></div><button type="button" class="btn btn-primary btn-sm" id="fi-restore">'+(booking?'예약 복원':'문의 복원')+'</button></div>':
         it&&(!booking||['cancelled','completed'].includes(booking.status))?'<div class="dr-sec">'+foodArchiveButton(it.ref)+'</div>':'')+'</div>';
@@ -543,18 +589,24 @@
       A('/inquiries/'+encodeURIComponent(it.ref)+'/restore',{method:'POST'}).then(function(){refreshLists();if(!$('#view-calendar').hidden)loadCalendar();openInquiry(it.ref);M.toast('삭제하기 전 상태로 복원했습니다.');})
         .catch(function(e){if(!guard(e))M.toast(e.message);}).finally(function(){restore.disabled=false;});
     };
+    var targetBack=$('#fi-target-back');
+    if(targetBack)targetBack.onclick=function(){renderFoodQuoteTarget(quote,newDraft);};
     var form=$('#'+formId), requestId=crypto.randomUUID();
     if(form)form.addEventListener('submit',function(e){
       e.preventDefault(); if(!form.reportValidity()||form.dataset.busy)return;
       var d=Object.fromEntries(new FormData(form)),confirming=e.submitter?.name==='confirm';
       Object.assign(d,{confirm:confirming,request_id:requestId,version:event.version});
       if(quote||confirming)d.quote_no=chosen;
+      if(quote&&!it&&newDraft)d.allow_new=true;
       form.dataset.busy='1';form.querySelectorAll('button').forEach(function(button){button.disabled=true;});
       A('/food-inquiries'+(it?'/'+encodeURIComponent(it.ref):''),{method:it?'PUT':'POST',body:d}).then(function(r){
         M.toast(confirming?'식음료 예약을 확정했습니다.':'식음료 문의·예약을 저장했습니다.');
         if(quote&&Q.foodOnly&&Q.quoteNo===quote.quote_no){Q.foodInquiryRef=r.ref;renderLink();calc();}
         refreshLists();if(!$('#view-calendar').hidden)loadCalendar();if(!$('#view-quote').hidden)loadRecentQuotes();openInquiry(r.ref);
-      }).catch(function(error){if(!guard(error))note($('#fi-error'),error.message);}).finally(function(){
+      }).catch(function(error){
+        if(error.code==='FOOD_EXISTING_INQUIRY'&&quote&&!it){renderFoodQuoteTarget(quote,d);return;}
+        if(!guard(error))note($('#fi-error'),error.message);
+      }).finally(function(){
         delete form.dataset.busy;form.querySelectorAll('button').forEach(function(button){button.disabled=false;});
       });
     });
@@ -1002,7 +1054,9 @@
   }
   function renderLink(){
     $('#q-link').innerHTML=Q.ref?'<span>연결된 문의 <b>'+esc(Q.ref)+'</b></span><button type="button" class="btn btn-light btn-sm" id="q-open-ref">문의 열기</button><button type="button" class="btn btn-light btn-sm" id="q-unlink">연결 해제</button>':'<span class="small muted">연결된 문의 없음 — 전화·카카오톡 상담용 단독 견적으로 저장됩니다.</span>';
-    if(Q.foodOnly)$('#q-link').textContent=Q.foodInquiryRef?'식음료 단독 견적 · 연결된 문의 '+Q.foodInquiryRef:'식음료 단독 견적 · 문의 연결 없이 저장됩니다.';
+    if(Q.foodOnly)$('#q-link').innerHTML=Q.foodInquiryRef?
+      '<span>기존 식음료 문의 <b>'+esc(Q.foodInquiryRef)+'</b></span><button type="button" class="btn btn-light btn-sm" data-food-open="'+esc(Q.foodInquiryRef)+'">문의 열기</button>':
+      '<span>식음료 단독 견적 · 저장 후 기존 문의에 연결하거나 새 예약으로 등록할 수 있습니다.</span>';
     $('#q-mark-wrap').hidden=!Q.ref;
     var o=$('#q-open-ref'); if(o) o.addEventListener('click', function(){ openInquiry(Q.ref); });
     var u=$('#q-unlink'); if(u) u.addEventListener('click', function(){ Q.ref=''; renderLink(); });
@@ -1145,7 +1199,7 @@
     $('#q-copy').disabled=$('#q-print').disabled=Q.foodOnly&&!R.extras.length;
     $('#q-catering').hidden=Q.foodOnly||!R||!savedStandaloneCatering();
     $('#q-food-to-booking').hidden=!Q.foodOnly||!Q.quoteNo;
-    $('#q-food-to-booking').textContent=Q.foodInquiryRef?'이 견적을 예약에 적용':'이 견적으로 예약 등록';
+    $('#q-food-to-booking').textContent=Q.foodInquiryRef?'기존 문의에 견적 적용':'기존 문의 선택·새 예약 등록';
     $('#q-reception').textContent=Q.receptionExcluded&&Q.reception_removed?'케이터링 다시 추가 →':'테이블 케이터링 추가 →';
     if(!R) return;
     if(Q.foodOnly){renderFoodQuoteResult();return;}
@@ -1297,7 +1351,7 @@
     }).catch(function(e){if(!guard(e))M.toast(e.message);});
     var inp=(q.data&&q.data.input)||null; if(!inp){ M.toast('이 견적은 다시 열 수 있는 정보가 없습니다.'); return; }
     if(quoteSaving||quoteDirty && !confirm('작성 중인 견적을 바꾸고 저장 견적을 열까요?')) return false;
-    Q=Object.assign(blankQ(), JSON.parse(JSON.stringify(inp))); Q.space=spaceOk(Q.space||(q.data&&q.data.space)); Q.ref=ref||q.inquiry_ref||''; Q.quoteNo=q.quote_no; if(Q.foodOnly)Q.foodInquiryRef=q.food_inquiry_ref||Q.foodInquiryRef||'';
+    Q=Object.assign(blankQ(), JSON.parse(JSON.stringify(inp))); Q.space=spaceOk(Q.space||(q.data&&q.data.space)); Q.ref=ref||q.inquiry_ref||''; Q.quoteNo=q.quote_no; if(Q.foodOnly)Q.foodInquiryRef=q.food_inquiry_ref||'';
     savedQuoteSnapshot=q.data&&Array.isArray(q.data.lines)?JSON.parse(JSON.stringify(q.data)):null; savedQuoteCreatedAt=q.created_at||''; quoteDirty=false; if(Q.foodOnly){quoteSettlement=null;$('#q-msg').hidden=true;} fillForm();setQuoteHistorical(!!(checked&&checked.outdated));calc();
     if(quoteHistorical){note($('#q-msg'),'변경 전 견적 원본입니다. 저장·수정은 최신 구성에서 해 주세요.');var latest=document.createElement('button');latest.type='button';latest.id='q-show-current';latest.className='btn btn-light btn-sm';latest.textContent='최신 구성으로 열기';latest.onclick=function(){A('/inquiries/'+encodeURIComponent(ref)).then(function(r){if(quoteFromInquiry(r.item))calc();}).catch(function(e){if(!guard(e))M.toast(e.message);});};$('#q-msg').appendChild(latest);}return true;
   }
@@ -1332,7 +1386,7 @@
           if(CT&&CT.target&&CT.ref===Q.ref)CT.target.reception_revision=r.reception_revision;
           window.dispatchEvent(new CustomEvent('admin-food-saved',{detail:{ref:Q.ref,revision:r.reception_revision}}));
         }
-        note($('#q-msg'),'견적 '+r.quote_no+'을(를) 저장했습니다.'+(sent.inquiry_ref?' 문의의 금액·조건도 반영했습니다.':'')+(r.confirm_doc_invalidated?' 예약확정서를 다시 발급해 주세요.':'')+(!unchanged?' 저장 중 바꾼 내용은 아직 저장되지 않았습니다.':''),true);
+        note($('#q-msg'),'견적 '+r.quote_no+'을(를) 저장했습니다.'+(sent.inquiry_ref?' 문의의 금액·조건도 반영했습니다.':sent.food_inquiry_ref?' 기존 문의 '+sent.food_inquiry_ref+'에 저장했습니다.':'')+(r.confirm_doc_invalidated?' 예약확정서를 다시 발급해 주세요.':'')+(!unchanged?' 저장 중 바꾼 내용은 아직 저장되지 않았습니다.':''),true);
         loadRecentQuotes();refreshLists();
       });
     }).catch(function(e){if(!guard(e))note($('#q-msg'),e.message);}).finally(function(){quoteSaving=false;calc();});
@@ -1478,7 +1532,7 @@
   }
   function loadRecentQuotes(){
     A('/quotes').then(function(r){ var l=(r.items||[]).slice(0,12);
-      $('#q-recent').innerHTML=l.length?l.map(function(q){ var input=q.data?.input, schedule=[q.event_date?kd(q.event_date):'',input?.foodOnly?foodQuoteTimeText(input):''].filter(Boolean).join(' · '); return '<div class="adm-row"><div class="r1"><b>'+esc(q.customer||'(고객명 없음)')+'</b><span class="small">'+esc(won(q.total))+'</span></div><div class="r3"><span>'+esc(q.quote_no)+(q.data?.input?.foodOnly?' · 식음료 단독'+(q.data.input.location?' · '+esc(q.data.input.location):''):'')+(q.inquiry_ref?' · '+esc(q.inquiry_ref):'')+(schedule?' · '+esc(schedule):'')+'</span><button class="btn btn-light btn-sm" type="button" data-recent="'+esc(q.quote_no)+'">열기</button>'+(input?.foodOnly?'<button class="btn btn-light btn-sm" type="button" data-food-quote-register="'+esc(q.quote_no)+'">'+(q.food_inquiry_ref?'예약 적용':'예약 등록')+'</button>':'')+'</div></div>'; }).join(''):emptyMsg('저장한 견적이 없습니다.');
+      $('#q-recent').innerHTML=l.length?l.map(function(q){ var input=q.data?.input, schedule=[q.event_date?kd(q.event_date):'',input?.foodOnly?foodQuoteTimeText(input):''].filter(Boolean).join(' · '); return '<div class="adm-row"><div class="r1"><b>'+esc(q.customer||'(고객명 없음)')+'</b><span class="small">'+esc(won(q.total))+'</span></div><div class="r3"><span>'+esc(q.quote_no)+(q.data?.input?.foodOnly?' · 식음료 단독'+(q.data.input.location?' · '+esc(q.data.input.location):''):'')+(q.inquiry_ref?' · '+esc(q.inquiry_ref):'')+(schedule?' · '+esc(schedule):'')+'</span><button class="btn btn-light btn-sm" type="button" data-recent="'+esc(q.quote_no)+'">열기</button>'+(input?.foodOnly?'<button class="btn btn-light btn-sm" type="button" data-food-quote-register="'+esc(q.quote_no)+'">'+(q.food_inquiry_ref?'기존 문의에 견적 적용':'문의 선택·예약 등록')+'</button>':'')+'</div></div>'; }).join(''):emptyMsg('저장한 견적이 없습니다.');
       $$('#q-recent [data-food-quote-register]').forEach(function(b){b.onclick=function(){
         openFoodQuote(l.find(function(q){return q.quote_no===b.dataset.foodQuoteRegister;}));
       };});

@@ -56,7 +56,7 @@ function movementCtes(operationalBookingSql=operational,report=false) {
       AND o.product_id NOT IN (${verificationIds.map(()=>'?').join(',')})
       AND (${operationalBookingSql}) AND ${bookingIncluded}
       AND (b.booking_code IS NOT NULL OR ${orderInquiryIncluded})
-      AND (b.booking_code IS NOT NULL OR i.status IS NOT ?)
+      AND (b.booking_code IS NOT NULL OR i.space_id='food-only' OR i.status IS NOT ?)
   ),refund_rows AS (
     SELECT r.mul_no,r.oid,r.amount,r.created_at,
       SUM(r.amount) OVER (PARTITION BY r.oid ORDER BY r.created_at,r.mul_no)-r.amount AS previous
@@ -76,7 +76,7 @@ function movementCtes(operationalBookingSql=operational,report=false) {
       COALESCE(NULLIF(i.event_date,''),NULLIF(json_extract(i.data,'$.date'),''),date(m.created_at,'+9 hours')) AS event_date,
       m.created_at,'manual',m.kind,m.amount,m.estimated
     FROM manual m JOIN inquiries i ON m.booking_code='inquiry:'||i.ref
-    WHERE i.status<>'삭제됨' AND ${inquiryIncluded}
+    WHERE (i.status<>'삭제됨' OR i.space_id='food-only') AND ${inquiryIncluded}
     UNION ALL
     SELECT 'paid:'||oid,oid,booking_code,title,space_id,event_date,paid_at,'online','receipt',price,estimated_receipt FROM online
     UNION ALL

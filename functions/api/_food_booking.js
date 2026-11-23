@@ -77,6 +77,26 @@ async function selectedQuote(env, raw) {
   return {...row, ...data, quote_no, total:row.total, inquiry_ref:row.inquiry_ref};
 }
 
+const editableStatusSql = "status IN ('문의 접수','조건 확인','견적 발송','결제 대기','예약 확정')";
+const digits = value => String(value || '').replace(/\D/g,'');
+const phoneDigitsSql = "REPLACE(REPLACE(COALESCE(phone,''),'-',''),'+','')";
+const sameEvent = `space_id=? AND ${editableStatusSql} AND event_date=?
+  AND ((${phoneDigitsSql}=? AND ?<>'') OR (LOWER(COALESCE(email,''))=? AND ?<>''))`;
+
+export async function foodBookingTargets({env,url,method}) {
+  if (method !== 'GET') return err('지원하지 않는 작업입니다.',405);
+  const query = str(url.searchParams.get('q'),80).toLowerCase();
+  const date = str(url.searchParams.get('date'),10);
+  const phone = /^[0-9+() -]+$/.test(query) ? digits(query) : '';
+  const {results} = await env.DB.prepare(`SELECT ref,name,phone,event_date,status,
+    json_extract(data,'$.food_event.location') AS location FROM inquiries
+    WHERE space_id=? AND ${editableStatusSql} AND (?='' OR INSTR(LOWER(name),?)>0 OR INSTR(LOWER(ref),?)>0
+      OR INSTR(LOWER(COALESCE(email,'')),?)>0 OR (?<>'' AND INSTR(${phoneDigitsSql},?)>0))
+    ORDER BY (event_date=?) DESC, updated_at DESC, ref DESC LIMIT 30`)
+    .bind(FOOD_SPACE,query,query,query,query,phone,phone,date).all();
+  return json({ok:true,items:results||[]});
+}
+
 export async function foodBookingAdmin({env,request,path,method}) {
   const ref = path.split('/')[1] || '';
   if ((!ref && method !== 'POST') || (ref && (method !== 'PUT' || !refOk(ref)))) return err('지원하지 않는 작업입니다.',405);
@@ -107,6 +127,9 @@ export async function foodBookingAdmin({env,request,path,method}) {
     {name: input?.customer, phone: input?.phone, email: input?.email, date: input?.date, headcount: input?.people, location: input?.location, start:input?.foodStartTime, end:input?.foodEndTime};
   const clean = validateFields(d,defaults,confirm || !!booked,total,booked ? oldEvent.reservation_fee : null);
   if (clean.error) return err(clean.error);
+  const protectNew = !ref && !!quote && d.allow_new !== true && !!clean.date;
+  const phone = digits(clean.phone), email = clean.email.toLowerCase();
+  const eventMatch = [FOOD_SPACE,clean.date,phone,phone,email,email];
   const inquiryRef = ref || await uniqueRef(env,'inquiries','ref','MS');
   const bookingCode = booked?.booking_code || (confirm ? await uniqueRef(env,'bookings','booking_code','MS') : '');
   const event = {...oldEvent,...clean.event,version:(oldEvent.version || 0)+1,quote_no:quote?.quote_no || oldEvent.quote_no || ''};
@@ -123,8 +146,10 @@ export async function foodBookingAdmin({env,request,path,method}) {
     WHERE ref=? AND space_id=? AND status=? AND data=? AND NOT EXISTS(SELECT 1 FROM food_quote_links WHERE quote_no=? AND inquiry_ref<>?)`)
     .bind(status,clean.name,clean.phone,clean.email,clean.date || null,clean.headcount,serialized,memo,time,inquiryRef,FOOD_SPACE,current.status,current.data,quote?.quote_no||'',inquiryRef)
     : env.DB.prepare(`INSERT OR IGNORE INTO inquiries(ref,space_id,status,name,phone,email,event_date,headcount,data,memo,created_at,updated_at)
-    SELECT ?,?,?,?,?,?,?,?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM food_quote_links WHERE quote_no=?)`)
-    .bind(inquiryRef,FOOD_SPACE,status,clean.name,clean.phone,clean.email,clean.date || null,clean.headcount,serialized,memo,time,time,quote?.quote_no||'');
+    SELECT ?,?,?,?,?,?,?,?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM food_quote_links WHERE quote_no=?)
+      AND (?=0 OR NOT EXISTS(SELECT 1 FROM inquiries WHERE ${sameEvent}))`)
+    .bind(inquiryRef,FOOD_SPACE,status,clean.name,clean.phone,clean.email,clean.date || null,clean.headcount,serialized,memo,time,time,
+      quote?.quote_no||'',protectNew?1:0,...eventMatch);
   const statements = [primary];
   const savedGuard = 'EXISTS(SELECT 1 FROM inquiries WHERE ref=? AND data=? AND space_id=?)';
   if (quote) statements.push(env.DB.prepare(`INSERT OR IGNORE INTO food_quote_links(quote_no,inquiry_ref)
@@ -154,6 +179,9 @@ export async function foodBookingAdmin({env,request,path,method}) {
     if (!ref) {
       const retry = await env.DB.prepare("SELECT ref FROM inquiries WHERE space_id=? AND json_extract(data,'$.food_event.registration_key')=?").bind(FOOD_SPACE,registration_key).first();
       if (retry) return registered(env,retry.ref,true);
+      if (protectNew && await env.DB.prepare(`SELECT ref FROM inquiries WHERE ${sameEvent} LIMIT 1`).bind(...eventMatch).first()) {
+        return err('같은 연락처와 행사일로 등록된 문의가 있습니다. 기존 문의를 선택해 주세요.',409,'FOOD_EXISTING_INQUIRY');
+      }
     }
     return err('다른 화면에서 문의나 견적이 변경되었습니다. 다시 열어 주세요.',409,'FOOD_CHANGED');
   }

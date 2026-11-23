@@ -301,3 +301,50 @@ test('archives food-only inquiries and inactive reservations with records intact
   assert.equal((await f.api('inquiries/'+ref+'/restore','POST')).status,'취소·환불');
   assert.ok((await f.api('bookings?'+range)).items.some(x=>x.booking_code===code&&x.status==='cancelled'));
 });
+
+test('can archive a paid pending inquiry and link an independently saved quote without creating a second inquiry or receipt',async t=>{
+  const f=fixture();
+  t.after(()=>f.db.close());
+  const inquiry=await f.api('food-inquiries','POST',{
+    name:'외부 행사 담당자',phone:'010-4567-8901',date:DAY,request_id:'food-link-target',reservation_fee:200000,
+  });
+  const ref=inquiry.ref, paymentPath='reservation-payment-checks/inquiry/'+ref, inquiryPath='inquiries/'+ref;
+  const incoming=await f.api(paymentPath);
+  await f.api(paymentPath,'PUT',{status:'reservation_paid',received_total:200000,
+    expected_revision:incoming.payment_revision,expected_settlement_revision:incoming.settlement.revision,request_id:'food-link-receipt'});
+  const range='from='+DAY+'&to='+DAY;
+  assert.equal((await f.api('revenue?'+range)).total.received,200000);
+  await f.api(inquiryPath,'DELETE');
+  assert.equal((await f.api('revenue?'+range)).total.received,200000);
+  assert.ok(!(await f.api('reservations?'+range)).items.some(x=>x.ref===ref));
+  const archived=await f.api(inquiryPath);
+  assert.equal(archived.inquiry_settlement.received,200000);
+  assert.equal((await f.api(paymentPath)).editable,false);
+  assert.equal((await f.api(paymentPath)).entries.length,1);
+  await f.api(inquiryPath+'/purge','POST',undefined,409);
+  await f.api(inquiryPath+'/restore','POST');
+
+  const quote=await f.api('quotes','POST',preparedQuote());
+  const candidates=await f.api('food-inquiries/targets?q=01045678901&date='+DAY);
+  assert.deepEqual(candidates.items.map(item=>item.ref),[ref]);
+  const duplicate=await f.api('food-inquiries','POST',{quote_no:quote.quote_no,confirm:true},409);
+  assert.equal(duplicate.code,'FOOD_EXISTING_INQUIRY');
+  assert.equal((await f.api('inquiries?type=food-only')).items.length,1);
+  const current=(await f.api(inquiryPath)).item;
+  const connected=await f.api('food-inquiries/'+ref,'PUT',{
+    version:current.data.food_event.version,quote_no:quote.quote_no,confirm:true,
+  });
+  assert.equal(connected.ref,ref);
+  assert.equal((await f.api('inquiries?type=food-only')).items.length,1);
+  const settlement=await f.api('bookings/'+connected.booking_code+'/settlement');
+  assert.equal(settlement.entries.length,1);
+  assert.equal(settlement.settlement.net,200000);
+  assert.equal(settlement.settlement.balance,reception.total-200000);
+  assert.equal((await f.api('quotes')).items.find(item=>item.quote_no===quote.quote_no).food_inquiry_ref,ref);
+  assert.equal((await f.api('food-inquiries','POST',{quote_no:quote.quote_no,confirm:true})).ref,ref);
+
+  const separate=await f.api('quotes','POST',preparedQuote({foodStartTime:'09:00',foodEndTime:'12:00'}));
+  const separateBooking=await f.api('food-inquiries','POST',{quote_no:separate.quote_no,confirm:true,allow_new:true});
+  assert.notEqual(separateBooking.ref,ref);
+  assert.equal((await f.api('bookings/'+separateBooking.booking_code+'/settlement')).settlement.net,0);
+});

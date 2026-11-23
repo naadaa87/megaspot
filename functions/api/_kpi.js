@@ -77,7 +77,7 @@ function revenueSql(operationalBookingSql) {
       LEFT JOIN inquiries i ON i.ref=COALESCE(b.inquiry_ref,o.inquiry_ref)
       WHERE o.test=0 AND o.status IN ('paid','refunded') AND o.price>0
         AND o.product_id NOT IN (${ph(verificationIds)})
-        AND ${operationalBookingSql} AND (b.booking_code IS NOT NULL OR i.status IS NOT ?)
+        AND ${operationalBookingSql} AND (b.booking_code IS NOT NULL OR i.space_id='food-only' OR i.status IS NOT ?)
     ),
     refund_rows AS (
       SELECT r.mul_no,r.oid,r.amount,r.created_at,
