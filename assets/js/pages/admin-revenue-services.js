@@ -5,7 +5,7 @@
   const categories={rental:'공간대관',food:'식음료',parking:'주차',addons:'부가서비스',unclassified:'구성 미분류'};
   const components={rental:'공간대관',people:'추가 인원',catering:'출장뷔페',reception:'테이블·박스 케이터링',cocktail:'출장 칵테일',parking:'주차',cleaning:'청소지원',banner:'현수막',xbanner:'X배너',disposable:'1회용 세트',manager:'현장 매니저',other:'기타',unclassified:'구성 미분류'};
   const componentCategories={rental:'rental',people:'rental',catering:'food',reception:'food',cocktail:'food',parking:'parking',cleaning:'addons',banner:'addons',xbanner:'addons',disposable:'addons',manager:'addons',other:'unclassified',unclassified:'unclassified'};
-  const branches={'megaspot-gundae':'건대 1호점','megaspot-gundae-2':'건대 2호점',unassigned:'공통·지점 미지정'};
+  const branches={'megaspot-gundae':'건대 1호점','megaspot-gundae-2':'건대 2호점','food-only':'식음료 단독',unassigned:'공통·지점 미지정'};
   const channels={spacecloud:'온라인 (스페이스클라우드)',payapp:'온라인 (페이앱)',toss_terminal:'현장 (토스 터미널)',bank_corporate:'법인계좌',bank_personal:'개인계좌',unknown:'미분류'};
   const esc=X.esc,won=value=>Number(value||0).toLocaleString('ko-KR')+'원';
   const dialog=document.createElement('dialog');
@@ -22,14 +22,17 @@
   function render(r) {
     const total=r.total||{received:0,refunded:0,net:0};
     $('total').innerHTML=[['수납 배분액',total.received],['환불 배분액',total.refunded],['순수납 배분액',total.net]].map(([label,value])=>'<div><span>'+label+'</span><strong'+(value<0?' class="revenue-services-negative"':'')+'>'+won(value)+'</strong></div>').join('');
-    const items=r.items||[];
+    const items=r.items||[],processed=query.get('basis')==='processed';
     $('list').innerHTML=items.length?'<ul class="revenue-services-list">'+items.map(row=>{
       const refund=row.kind==='refund',signed=refund?-row.amount:row.amount;
       const reference=[row.booking_code?'예약 '+row.booking_code:'',row.ref&&row.ref!==row.booking_code?'거래 '+row.ref:''].filter(Boolean).join(' · ');
       const parts=(row.components||[]).map(part=>'<span>'+esc(components[part.id]||part.label||part.id)+' <b>'+won(refund?-part.amount:part.amount)+'</b></span>').join('');
       const original=Number(row.original_amount);
-      return '<li class="revenue-services-row" data-movement-id="'+esc(row.movement_id||row.id||'')+'"><div class="revenue-services-identity"><strong>'+esc(row.title||'수납·환불 내역')+'</strong><span>'+esc(row.event_date||row.day||'')+' · '+esc(branches[row.branch]||branches.unassigned)+'</span><small>'+esc(reference||row.movement_id||'')+'</small><small>기록 '+esc(row.recorded_day||'날짜 미상')+' · '+(row.source==='manual'?'수기 ':'온라인 ')+(refund?'환불':'수납')+'</small></div>'
-        +'<div class="revenue-services-allocation"><span class="revenue-services-basis">'+esc(row.allocation_basis||'구성 미분류')+'</span><div class="revenue-services-parts">'+parts+'</div><small>'+esc(channels[row.channel]||'미분류')+(row.account?' · '+esc(row.account):'')+'</small>'+(Number.isFinite(original)&&original!==row.amount?'<small>원거래 '+won(original)+' 중 선택한 항목</small>':'')+'</div>'
+      const activeDate=processed?row.processing_day:row.event_date;
+      const secondaryDate=processed?(row.event_date?'이용일 '+row.event_date:'이용일 미정'):
+        (row.processing_day?(row.processing_estimated?'기록일 ':'처리일 ')+row.processing_day:'기록 '+(row.recorded_day||'날짜 미상'));
+      return '<li class="revenue-services-row" data-movement-id="'+esc(row.movement_id||row.id||'')+'"><div class="revenue-services-identity"><strong>'+esc(row.title||'수납·환불 내역')+'</strong><span>'+esc(activeDate||row.day||'날짜 미상')+(processed&&row.processing_estimated?' (기록일)':'')+' · '+esc(branches[row.branch]||branches.unassigned)+'</span><small>'+esc(reference||row.movement_id||'')+'</small><small>'+esc(secondaryDate)+' · '+(row.source==='manual'?'수기 ':'온라인 ')+(refund?'환불':'수납')+'</small></div>'
+        +'<div class="revenue-services-allocation"><span class="revenue-services-basis">'+esc(row.allocation_basis||'구성 미분류')+'</span><div class="revenue-services-parts">'+parts+'</div><small>'+esc(channels[row.channel]||'미분류')+[row.method,row.account].filter(Boolean).map(value=>' · '+esc(value)).join('')+'</small>'+(Number.isFinite(original)&&original!==row.amount?'<small>원거래 '+won(original)+' 중 선택한 항목</small>':'')+'</div>'
         +'<div class="revenue-services-amount"><span>'+(refund?'환불 배분액':'수납 배분액')+'</span><strong'+(signed<0?' class="revenue-services-negative"':'')+'>'+won(signed)+'</strong></div></li>';
     }).join('')+'</ul>':'<p class="revenue-services-empty small muted">선택한 조건에 해당하는 수납·환불 내역이 없습니다.</p>';
     const count=Number(r.detailCount)||0,pages=Math.max(1,Math.ceil(count/r.pageSize));
@@ -55,12 +58,12 @@
     const component=options.component||'',category=options.category||componentCategories[component]||'';
     if((category&&!Object.hasOwn(categories,category))||(component&&!Object.hasOwn(components,component)))return false;
     query=new URLSearchParams();
-    for(const key of ['from','to','space','channel'])if(options[key])query.set(key,options[key]);
+    for(const key of ['from','to','space','channel','basis','method'])if(options[key])query.set(key,options[key]);
     if(category)query.set('category',category);if(component)query.set('component',component);
     page=1;
     const label=components[component]||categories[category]||'전체 서비스';
     $('title').textContent=label+' 수납·환불 내역';
-    $('scope').textContent=(options.from||'선택한 기간')+(options.to?' ~ '+options.to:'')+' · '+(branches[options.space]||'전체 지점')+' · '+(channels[options.channel]||'전체 결제 채널')+' · 이용일 기준';
+    $('scope').textContent=(options.from||'선택한 기간')+(options.to?' ~ '+options.to:'')+' · '+(branches[options.space]||'전체 지점')+' · '+(channels[options.channel]||'전체 결제 채널')+(options.method?' · '+options.method:'')+(options.basis==='processed'?' · 실제 처리일 기준 (미상은 기록일)':' · 이용일 기준');
     if(!dialog.open){opener=document.activeElement;dialog.showModal();}
     dialog.scrollTop=0;load();return true;
   };

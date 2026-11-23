@@ -1,13 +1,15 @@
 import {PRODUCTS} from './_catalog.js';
-import {DEFAULT_SPACE,err,isDate,json,kstToday,SPACES} from './_lib.js';
+import {DEFAULT_SPACE,err,isDate,json,kstToday} from './_lib.js';
+import S from '../../assets/js/settlement.js';
 import {refundAmountSql} from './_payapp_refund_history.js';
 import {legacyPaymentSourceSql} from './_settlement.js';
 import {bookingAmountSql,inquiryAmountSql} from './_amounts.js';
-import {revenueBookingSummary} from './_revenue_bookings.js';
+import {revenueBookingSummary,revenueBranches} from './_revenue_bookings.js';
 import {revenueBookingIncludedSql,revenueInquiryIncludedSql} from './_revenue_exclusions.js';
 
 const verificationIds = PRODUCTS.items.filter(p=>p.kind==='verification').map(p=>p.id);
-const spaces = [...Object.keys(SPACES),'unassigned'];
+const spaces = [...revenueBranches,'unassigned'];
+const branchBindings=revenueBranches.map(()=>'?').join(',');
 const pageSize = 50;
 const operational = `(b.space_id='food-only' OR NOT (b.status='cancelled' AND EXISTS (
   SELECT 1 FROM inquiries archived WHERE archived.ref=b.inquiry_ref AND archived.status='삭제됨')))`;
@@ -59,33 +61,36 @@ function movementCtes(operationalBookingSql=operational,report=false) {
       AND (b.booking_code IS NOT NULL OR i.space_id='food-only' OR i.status IS NOT ?)
   ),refund_rows AS (
     SELECT r.mul_no,r.oid,r.amount,r.created_at,
+      (SELECT e.provider_at FROM payapp_refund_events e WHERE e.oid=r.oid AND e.effective_amount>0
+        AND r.mul_no=CASE e.event_type WHEN 'full' THEN 'full-'||e.original_no WHEN 'partial' THEN e.refund_no END
+        ORDER BY e.id LIMIT 1) AS provider_at,
       SUM(r.amount) OVER (PARTITION BY r.oid ORDER BY r.created_at,r.mul_no)-r.amount AS previous
     FROM payapp_refunds r JOIN online o ON o.oid=r.oid
   ),manual AS (
-    SELECT booking_code,kind,amount,created_at,'entry:'||id AS id,request_id='legacy-confirmation' AS estimated
+    SELECT booking_code,kind,amount,created_at,'entry:'||id AS id,request_id='legacy-confirmation' AS estimated,note
     FROM booking_payment_current WHERE state='active'
     UNION ALL
-    SELECT booking_code,'receipt',amount,created_at,'legacy:'||booking_code,1 FROM (${legacyPaymentSourceSql()})
+    SELECT booking_code,'receipt',amount,created_at,'legacy:'||booking_code,1,'' FROM (${legacyPaymentSourceSql()})
   ),movements AS (
     SELECT m.id,b.booking_code AS ref,b.booking_code,'이용료 수납·환불' AS title,b.space_id,b.date AS event_date,
-      m.created_at AS occurred_at,'manual' AS source,m.kind,m.amount,m.estimated
+      m.created_at AS occurred_at,'manual' AS source,m.kind,m.amount,m.estimated,m.note,NULL AS provider_at
     FROM manual m JOIN bookings b ON b.booking_code=m.booking_code
     WHERE (${operationalBookingSql}) AND ${bookingIncluded}
     UNION ALL
     SELECT m.id,i.ref,NULL,'미확정 문의 이용료 수납·환불',i.space_id,
       COALESCE(NULLIF(i.event_date,''),NULLIF(json_extract(i.data,'$.date'),''),date(m.created_at,'+9 hours')) AS event_date,
-      m.created_at,'manual',m.kind,m.amount,m.estimated
+      m.created_at,'manual',m.kind,m.amount,m.estimated,m.note,NULL
     FROM manual m JOIN inquiries i ON m.booking_code='inquiry:'||i.ref
     WHERE (i.status<>'삭제됨' OR i.space_id='food-only') AND ${inquiryIncluded}
     UNION ALL
-    SELECT 'paid:'||oid,oid,booking_code,title,space_id,event_date,paid_at,'online','receipt',price,estimated_receipt FROM online
+    SELECT 'paid:'||oid,oid,booking_code,title,space_id,event_date,paid_at,'online','receipt',price,estimated_receipt,'',NULL FROM online
     UNION ALL
     SELECT 'refund:'||r.mul_no,o.oid,o.booking_code,o.title,o.space_id,o.event_date,r.created_at,
-      'online','refund',MIN(r.amount,o.refund_total-r.previous),0
+      'online','refund',MIN(r.amount,o.refund_total-r.previous),0,'',r.provider_at
     FROM refund_rows r JOIN online o ON o.oid=r.oid WHERE r.previous<o.refund_total
     UNION ALL
     SELECT 'legacy-refund:'||oid,oid,booking_code,title,space_id,event_date,legacy_refund_at,'online','refund',
-      refund_total-COALESCE((SELECT SUM(r.amount) FROM payapp_refunds r WHERE r.oid=o.oid),0),1 FROM online o
+      refund_total-COALESCE((SELECT SUM(r.amount) FROM payapp_refunds r WHERE r.oid=o.oid),0),1,'',NULL FROM online o
   )`;
 }
 export async function revenueMovement(env,movementId) {
@@ -185,9 +190,11 @@ function merchantAccount(row,env) {
 }
 function classify(row,env) {
   const own=row.metadata_id!=null,inherit=row.inherited_id!=null;
-  const channel=own?row.metadata_channel:inherit?row.inherited_channel:
-    row.source==='online'&&(row.payapp_order||/^PayApp:/i.test(row.pay_method||'')||safe(row.order_data).provider==='payapp')?'payapp':'unknown';
-  const account=own?row.metadata_account:inherit?row.inherited_account:channel==='payapp'?merchantAccount(row,env):'';
+  const fields=S.manualPaymentParts(row.note),manualAccount=S.manualPaymentAccounts[fields.account];
+  const inferredChannel=manualAccount?.channel|| (
+    row.source==='online'&&(row.payapp_order||/^PayApp:/i.test(row.pay_method||'')||safe(row.order_data).provider==='payapp')?'payapp':'unknown');
+  const channel=own?row.metadata_channel:inherit?row.inherited_channel:inferredChannel;
+  const account=own?row.metadata_account:inherit?row.inherited_account:channel==='payapp'?merchantAccount(row,env):manualAccount?.label||'';
   const raw=own&&row.metadata_components!=null?row.metadata_components:inherit?row.inherited_components:null;
   const custom=safe(raw,[]),hasCustom=Array.isArray(custom)&&custom.length>0;
   const expected=own&&row.metadata_components!=null?row.amount:
@@ -195,11 +202,11 @@ function classify(row,env) {
   const stale=hasCustom&&custom.reduce((n,part)=>n+positive(part.amount),0)!==expected;
   const selected=hasCustom&&!stale?{rows:custom,basis:'직접 분류'}:defaultWeights(row);
   const parts=allocate(row.amount,selected.rows).map(part=>({...part,label:components[part.id][0],category:components[part.id][1]}));
-  const {id,space_id,order_data,product_id,order_price,inquiry_data,quote_data,booking_amount,payapp_order,
+  const {id,space_id,note,provider_at,actual_processing_day,order_data,product_id,order_price,inquiry_data,quote_data,booking_amount,payapp_order,
     merchant_userid,pay_method,metadata_id,metadata_channel,metadata_account,metadata_components,
     inherited_id,inherited_channel,inherited_account,inherited_components,...publicRow}=row;
   return {...publicRow,movement_id:id,metadata_version:row.metadata_version||0,
-    channel:Object.hasOwn(channels,channel)?channel:'unknown',account:account||'',allocation_basis:stale?'구성 재확인 필요':selected.basis,
+    channel:Object.hasOwn(channels,channel)?channel:'unknown',account:account||'',method:fields.method,allocation_basis:stale?'구성 재확인 필요':selected.basis,
     classification_stale:stale,
     original_amount:row.amount,all_components:parts,components:parts};
 }
@@ -246,18 +253,38 @@ export async function revenueAdmin({env,url,method,operationalBookingSql=operati
   if(method!=='GET')return err('지원하지 않는 요청입니다.',405);
   const q=url.searchParams,today=kstToday(),month=today.slice(0,7),[year,monthNumber]=month.split('-').map(Number);
   const from=q.get('from')??month+'-01',to=q.get('to')??new Date(Date.UTC(year,monthNumber,0)).toISOString().slice(0,10);
-  const basis=q.get('basis'),space=q.get('space')??'',day=q.get('day')??'',page=Number(q.get('page')??1);
-  const channel=q.get('channel')||'',category=q.get('category')||'',component=q.get('component')||'';
+  const basis=q.get('basis')??'event',space=q.get('space')??'',day=q.get('day')??'',page=Number(q.get('page')??1);
+  const channel=q.get('channel')||'',category=q.get('category')||'',component=q.get('component')||'',paymentMethod=q.get('method')||'';
   if(!isDate(from)||!isDate(to)||from>to||Date.parse(to)-Date.parse(from)>365*864e5)
     return err('조회 기간을 확인해 주세요. 최대 366일까지 조회할 수 있습니다.');
-  if(basis!==null&&basis!=='event')return err('매출은 이용일 기준으로 조회합니다. 화면을 새로고침해 주세요.');
+  if(!['event','processed'].includes(basis))return err('조회 기준을 확인해 주세요.');
   if((space&&!spaces.includes(space))||(day&&(!isDate(day)||day<from||day>to))||
     !Number.isSafeInteger(page)||page<1||page>100000||(channel&&!Object.hasOwn(channels,channel))||
-    (category&&!Object.hasOwn(categories,category))||(component&&!Object.hasOwn(components,component)))
+    (category&&!Object.hasOwn(categories,category))||(component&&!Object.hasOwn(components,component))||
+    (paymentMethod&&!S.manualPaymentMethods.includes(paymentMethod)))
     return err('조회 조건을 확인해 주세요.');
-  const sql=`WITH ${movementCtes(operationalBookingSql,true)}
-    SELECT m.*,m.event_date AS day,date(m.occurred_at,'+9 hours') AS recorded_day,
-      CASE WHEN m.space_id IN (?,?) THEN m.space_id ELSE 'unassigned' END AS branch,
+  const processed=basis==='processed';
+  const manualDay='substr(note,1,10)',providerDay='substr(provider_at,1,10)';
+  // A provider date without a zone is in Korea time. Unusable or absent dates fall back to the ledger time.
+  const sql=`WITH ${movementCtes(operationalBookingSql,true)}, movement_dates AS (
+    SELECT *,date(occurred_at,'+9 hours') AS recorded_day,
+      CASE
+        WHEN source='manual' AND (length(note)=10 OR substr(note,11,3)=' · ')
+          AND date(${manualDay},'+0 days')=${manualDay} THEN ${manualDay}
+        WHEN source='online' AND kind='receipt' AND estimated=0 THEN date(occurred_at,'+9 hours')
+        WHEN source='online' AND kind='refund' AND date(${providerDay},'+0 days')=${providerDay}
+          THEN CASE WHEN provider_at GLOB '*Z' OR substr(provider_at,20,1) IN ('+','-')
+            THEN date(provider_at,'+9 hours') ELSE ${providerDay} END
+      END AS actual_processing_day
+    FROM movements
+  ), dated AS (
+    SELECT *,COALESCE(actual_processing_day,recorded_day) AS processing_day,
+      actual_processing_day IS NULL AS processing_estimated,
+      ${processed?'COALESCE(actual_processing_day,recorded_day)':'event_date'} AS day
+    FROM movement_dates
+  )
+    SELECT m.*,
+      CASE WHEN m.space_id IN (${branchBindings}) THEN m.space_id ELSE 'unassigned' END AS branch,
       o.product_id,o.price AS order_price,
       json_object('lines',json_extract(o.data,'$.lines'),'provider',json_extract(o.data,'$.provider')) AS order_data,
       o.pay_method,p.oid AS payapp_order,p.merchant_userid,
@@ -276,7 +303,7 @@ export async function revenueAdmin({env,url,method,operationalBookingSql=operati
       meta.components AS metadata_components,meta.version AS metadata_version,
       inherited.movement_id AS inherited_id,inherited.channel AS inherited_channel,inherited.account AS inherited_account,
       inherited.components AS inherited_components
-    FROM movements m
+    FROM dated m
     LEFT JOIN orders o ON m.source='online' AND o.oid=m.ref
     LEFT JOIN payapp_payments p ON p.oid=o.oid
     LEFT JOIN bookings b ON b.booking_code=m.booking_code
@@ -285,9 +312,13 @@ export async function revenueAdmin({env,url,method,operationalBookingSql=operati
     LEFT JOIN revenue_payment_metadata inherited ON inherited.movement_id=CASE
       WHEN m.source='online' AND m.kind='refund' THEN 'paid:'||m.ref
       WHEN m.source='manual' AND m.estimated=1 AND m.id LIKE 'entry:%' THEN 'legacy:'||m.booking_code END
-    WHERE m.amount>0 AND m.event_date BETWEEN ? AND ? ${space?'AND branch=?':''}
-    ORDER BY m.event_date DESC,m.occurred_at DESC,m.id DESC`;
-  const args=[...verificationIds,archivedStatus,...Object.keys(SPACES),from,to];
+    WHERE m.amount>0 AND (m.day BETWEEN ? AND ? ${processed?`OR (m.source='online' AND m.ref IN (
+      SELECT ref FROM dated WHERE source='online' AND amount>0 AND day BETWEEN ? AND ?))`:''})
+    ${space?'AND branch=?':''}
+    ORDER BY m.day DESC,m.occurred_at DESC,m.id DESC`;
+  const args=[...verificationIds,archivedStatus,...revenueBranches,from,to];
+  // A refund in this period still consumes the components of its prior receipts and refunds.
+  if(processed)args.push(from,to);
   if(space)args.push(space);
   const {results}=await env.DB.prepare(sql).bind(...args).all();
   const total=totals(),branches=Object.fromEntries(spaces.map(id=>[id,totals()])),daily=new Map(),monthly=monthList(from,to);
@@ -295,7 +326,7 @@ export async function revenueAdmin({env,url,method,operationalBookingSql=operati
   const byComponent=Object.fromEntries(Object.entries(components).map(([id,[label,category]])=>[id,{id,label,category,...totals()}]));
   const all=[];
   for(const item of classifyMovements(results||[],env)) {
-    if(channel&&item.channel!==channel)continue;
+    if(!item.day||item.day<from||item.day>to||(channel&&item.channel!==channel)||(paymentMethod&&item.method!==paymentMethod))continue;
     const parts=item.components.filter(part=>(!category||part.category===category)&&(!component||part.id===component));
     if(!parts.length)continue;
     item.components=parts;item.amount=parts.reduce((n,part)=>n+part.amount,0);
@@ -324,10 +355,10 @@ export async function revenueAdmin({env,url,method,operationalBookingSql=operati
     accounts:withShares([...accounts.values()].filter(account=>account.channel===row.id).map(({channel,...account})=>account))}));
   const details=day?all.filter(item=>item.day===day):all;
   let upcoming=[];
-  if(!channel&&!category&&!component) {
+  if(!channel&&!category&&!component&&!paymentMethod) {
     const upSql=`WITH ${movementCtes(operationalBookingSql,true)}
       SELECT b.booking_code,b.date AS day,b.space_id AS branch,b.customer_name,${bookingAmountSql()} AS amount
-      FROM bookings b WHERE b.status='confirmed' AND b.date BETWEEN ? AND ? AND b.space_id IN (?,?)
+      FROM bookings b WHERE b.status='confirmed' AND b.date BETWEEN ? AND ? AND b.space_id IN (${branchBindings})
       AND (${operationalBookingSql}) AND ${revenueBookingIncludedSql()}
       ${space?'AND b.space_id=?':''}
       AND NOT EXISTS(SELECT 1 FROM manual m WHERE m.booking_code=b.booking_code AND m.kind='receipt' AND m.amount>0)
@@ -337,12 +368,12 @@ export async function revenueAdmin({env,url,method,operationalBookingSql=operati
           WHERE other.inquiry_ref=b.inquiry_ref AND other.booking_code<>b.booking_code AND other.status<>'cancelled')))))
       AND (${bookingAmountSql()} IS NULL OR ${bookingAmountSql()}>0)
       ORDER BY b.date,b.booking_code`;
-    const upArgs=[...verificationIds,archivedStatus,from>today?from:today,to,...Object.keys(SPACES)];
+    const upArgs=[...verificationIds,archivedStatus,from>today?from:today,to,...revenueBranches];
     if(space)upArgs.push(space);
     upcoming=(await env.DB.prepare(upSql).bind(...upArgs).all()).results||[];
   }
   const bookingSummary=await revenueBookingSummary({env,from,to,space,operationalBookingSql});
-  return json({ok:true,total,bookingSummary,branches,daily:[...daily.values()],monthly:[...monthly.values()],
+  return json({ok:true,basis,total,bookingSummary,branches,daily:[...daily.values()],monthly:[...monthly.values()],
     categories:withShares(Object.values(byCategory)),components:withShares(Object.values(byComponent)),channels:channelRows,
     items:details.slice((page-1)*pageSize,page*pageSize),detailCount:details.length,page,pageSize,upcoming},200,{'cache-control':'no-store'});
 }

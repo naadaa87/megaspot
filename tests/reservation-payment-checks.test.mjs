@@ -54,3 +54,41 @@ test('상태 편집을 열 때 최신 값·버전·선택지를 읽으며 읽기
 test('문의용 상태 편집도 목록과 동일한 예약금 추론과 최신 저장값을 읽는다',async t=>{
  const f=setup(t,{booking:false});f.db.exec("INSERT INTO inquiry_checks VALUES('MS-TEST','{\"deposit_paid\":true}',datetime('now'))");const path='reservation-payment-checks/inquiry/MS-TEST';assert.equal((await f.api(path)).payment_status,'reservation_paid');await f.api(path,'PUT',{status:'food_paid',expected_revision:0});assert.equal((await f.api(path)).payment_status,'food_paid');
 });
+test('대관 약정 예약금은 수납·환불로 자동 판정되며 반환 보증금과 확정서에서 구분된다',async t=>{
+ const f=setup(t,{booking:false}),inquiry='inquiries/MS-TEST',terms='reservation-payment-terms/',check='reservation-payment-checks/';
+ await f.api(terms+'inquiry/MS-TEST','PUT',{reservation_fee:200000,version:0});
+ await f.api(terms+'inquiry/MS-TEST','PUT',{reservation_fee:300000,version:0},409);
+ await f.api(check+'inquiry/MS-TEST','PUT',{status:'reservation_paid',expected_revision:0});
+ assert.equal((await rows(f))[0].payment_status,'unpaid');
+ let ledger=await f.api(inquiry+'/settlement');
+ await f.api(inquiry+'/settlement','POST',{kind:'receipt',amount:100000,note:'계좌이체',expected_revision:ledger.settlement.revision,request_id:crypto.randomUUID()});
+ assert.equal((await rows(f))[0].payment_status,'partial_paid');
+ const {booking_code:code}=await f.api(inquiry+'/confirm','POST',{date:DAY,start_h:10,end_h:17,headcount:30,amount:500000});
+ const booking='bookings/'+code;
+ let doc=await f.api(booking+'/confirm-doc');
+ assert.equal(doc.preview.reservation_fee,200000);
+ assert.equal(doc.preview.reservation_paid,false);
+ assert.equal(doc.settlement.net,100000);
+ assert.equal((await rows(f)).find(r=>r.code===code).payment_status,'partial_paid');
+ await f.api(booking+'/confirm-doc','PUT',{doc:{show_amount:true,deposit:150000},conditions_revision:doc.conditions_revision,settlement_revision:doc.settlement.revision});
+ const {onRequestGet}=await import('../functions/api/confirm.js'),{confirmToken}=await import('../functions/api/_confirm.js');
+ const request=new Request('https://local.test/api/confirm?c='+code+'&k='+await confirmToken(f.env,code));
+ async function published(){return (await (await onRequestGet({env:f.env,request})).json()).doc;}
+ async function payment(kind,amount){
+  ledger=await f.api(booking+'/settlement');
+  await f.api(booking+'/settlement','POST',{kind,amount,note:'계좌이체',expected_revision:ledger.settlement.revision,request_id:crypto.randomUUID()});
+ }
+ await payment('receipt',100000);
+ assert.equal((await rows(f)).find(r=>r.code===code).payment_status,'reservation_paid');
+ assert.equal((await published()).reservation_paid,true);
+ assert.equal((await published()).deposit,150000);
+ await payment('refund',50000);
+ assert.equal((await rows(f)).find(r=>r.code===code).payment_status,'partial_paid');
+ assert.equal((await published()).reservation_paid,false);
+ await f.api(terms+'booking/'+code,'PUT',{reservation_fee:120000,version:1});
+ assert.equal((await published()).reservation_fee,120000);
+ assert.equal((await published()).reservation_paid,true);
+ await f.api(terms+'booking/'+code,'PUT',{reservation_fee:null,version:2});
+ assert.equal((await published()).reservation_fee,undefined);
+ assert.equal((await published()).deposit,150000);
+});

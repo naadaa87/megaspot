@@ -43,7 +43,8 @@ function ui(api,{storedMode=null,blockedStorage=false,profitLoader=false,chartWi
   }
   const form = node('revenue-form');
   form.elements = {space:node('revenue-space'),from:node('revenue-from'),to:node('revenue-to'),
-    channel:node('revenue-channel'),category:node('revenue-category'),component:node('revenue-component')};
+    channel:node('revenue-channel'),category:node('revenue-category'),component:node('revenue-component'),
+    basis:node('revenue-basis'),method:node('revenue-method')};
   class FormData {
     constructor(form) { this.values=Object.entries(form.elements).map(([name,input])=>[name,input.value]); }
     [Symbol.iterator]() { return this.values[Symbol.iterator](); }
@@ -351,4 +352,34 @@ test('조회 실패는 오류를 표시하고 이후 새로 조회하면 화면�
   await tick();
   assert.equal(f.node('revenue-report').hidden,false);
   assert.match(f.node('revenue-items').innerHTML,/BK-PAID/);
+});
+
+
+test('식음료 단독 조회에서 수납 처리일·수단은 거래와 서비스 상세에만 전달된다',async()=>{
+  const calls=[];
+  const f=ui(async path=>{
+    const q=new URL(path,'https://local.test').searchParams;
+    calls.push(q);
+    const r=report();
+    if(q.get('basis')==='processed') {
+      r.items[0]={...r.items[0],branch:'food-only',processing_day:'2026-11-22',processing_estimated:1,method:'현금'};
+    }
+    return r;
+  },{profitLoader:true});
+  f.form.elements.space.value='food-only';
+  f.form.elements.basis.value='processed';
+  f.form.elements.method.value='현금';
+  f.open();await tick();
+  const query=calls.find(q=>q.has('page')),trend=calls.find(q=>!q.has('page'));
+  assert.equal(query.get('basis'),'processed');assert.equal(query.get('method'),'현금');
+  assert.equal(trend.has('basis'),false);assert.equal(trend.has('method'),false);
+  assert.match(f.node('revenue-status').textContent,/수납·환불 처리일 기준/);
+  assert.match(f.node('revenue-booking-scope').textContent,/이용일 기준/);
+  assert.match(f.node('revenue-items').innerHTML,/2026-11-22.*기록일 기준.*이용일 2026-11-20.*식음료 단독.*현금/);
+  assert.deepEqual(Object.keys(f.profitCalls.at(-1).scope).sort(),['from','space','to']);
+  f.node('revenue-categories').listeners.click({target:{closest:()=>({dataset:{revenueCategory:'food'}})}});
+  assert.equal(f.serviceCalls.at(-1).basis,'processed');assert.equal(f.serviceCalls.at(-1).method,'현금');
+  f.node('revenue-show-all').listeners.click();await tick();
+  assert.equal(f.form.elements.method.value,'');
+  assert.equal(f.form.elements.basis.value,'processed');
 });

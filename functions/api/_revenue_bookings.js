@@ -2,6 +2,7 @@ import {SPACES,err,isDate,json,kstToday} from './_lib.js';
 import {settlementsFor} from './_settlement.js';
 import {revenueBookingIncludedSql} from './_revenue_exclusions.js';
 import {bookingPhone2Sql} from './_contacts.js';
+import {FOOD_SPACE,foodEvent,foodEventSql} from './_food_booking.js';
 
 const totals=()=>({bookingCount:0,booked:0,received:0,refunded:0,netReceived:0,
   balance:0,balanceCount:0,amountUnknownCount:0,balanceUnknownCount:0,
@@ -26,17 +27,17 @@ function monthTotals(from,to) {
   return months;
 }
 
+export const revenueBranches=[...Object.keys(SPACES),FOOD_SPACE];
 const statuses=['confirmed','completed'];
 export async function revenueBookingCohort({env,from,to,space='',bookingCode='',operationalBookingSql='1=1'},identities=false) {
   const where=["b.status IN ('confirmed','completed')",'b.date BETWEEN ? AND ?',`(${operationalBookingSql})`,revenueBookingIncludedSql()];
   const args=[from,to];
   if(space==='unassigned') {
-    const known=Object.keys(SPACES);
-    where.push(`(b.space_id IS NULL OR b.space_id NOT IN (${known.map(()=>'?').join(',')}))`);
-    args.push(...known);
+    where.push(`(b.space_id IS NULL OR b.space_id NOT IN (${revenueBranches.map(()=>'?').join(',')}))`);
+    args.push(...revenueBranches);
   } else if(space) { where.push('b.space_id=?');args.push(space); }
   if(bookingCode){where.push('b.booking_code=?');args.push(bookingCode);}
-  const identityColumns=identities?',b.customer_name,b.space_id,b.start_h,b.end_h,b.slot':'';
+  const identityColumns=identities?`,b.customer_name,b.space_id,b.start_h,b.end_h,b.slot,${foodEventSql()} AS food_event`:'';
   const detailColumns=identities==='detail'?`,b.inquiry_ref,b.phone,${bookingPhone2Sql()} AS phone2,b.headcount,b.memo,b.created_at,b.updated_at,
     (SELECT COUNT(*) FROM bookings other WHERE other.inquiry_ref=b.inquiry_ref AND other.status<>'cancelled') AS inquiry_booking_count,
     (SELECT COUNT(*) FROM bookings other WHERE other.inquiry_ref=b.inquiry_ref AND other.status<>'cancelled' AND other.date=b.date AND other.space_id=b.space_id) AS inquiry_event_count`:'';
@@ -73,7 +74,7 @@ export function revenueBookingScope(url) {
   const space=q.get('space')??'';
   if(!isDate(from)||!isDate(to)||from>to||Date.parse(to)-Date.parse(from)>365*864e5)
     return {error:err('조회 기간을 확인해 주세요. 최대 366일까지 조회할 수 있습니다.')};
-  if(space&&space!=='unassigned'&&!Object.hasOwn(SPACES,space))return {error:err('조회 조건을 확인해 주세요.')};
+  if(space&&space!=='unassigned'&&!revenueBranches.includes(space))return {error:err('조회 조건을 확인해 주세요.')};
   return {from,to,space};
 }
 export async function revenueBookingsAdmin({env,url,method,operationalBookingSql='1=1'}) {
@@ -89,7 +90,7 @@ export async function revenueBookingsAdmin({env,url,method,operationalBookingSql
   const items=selected.slice((page-1)*pageSize,page*pageSize).map(row=>{
     const s=row.settlement;
     return {booking_code:row.booking_code,customer_name:row.customer_name,date:row.event_date,space_id:row.space_id,
-      status:s.booking_status,start_h:row.start_h,end_h:row.end_h,slot:row.slot,...financialFields(s)};
+      status:s.booking_status,start_h:row.start_h,end_h:row.end_h,slot:row.slot,...foodSchedule(row),...financialFields(s)};
   });
   return json({ok:true,metric,summary,total,items,detailCount:selected.length,page,pageSize},200,{'cache-control':'no-store'});
 }
@@ -97,6 +98,10 @@ export async function revenueBookingsAdmin({env,url,method,operationalBookingSql
 function savedData(raw) {try {const value=JSON.parse(raw||'{}');return value&&typeof value==='object'&&!Array.isArray(value)?value:{};}catch{return {};}}
 const savedAmount=value=>value==null||value===''||!Number.isFinite(Number(value))?null:Number(value);
 const text=value=>typeof value==='string'?value:'';
+function foodSchedule(row) {
+  const saved=foodEvent(row.food_event);
+  return saved?{food_event:{start:text(saved.start),end:text(saved.end),location:text(saved.location)}}:{};
+}
 const optionLabels={manager:'현장 매니저',cleaning:'뒷정리·청소',disposable:'1회용 세트',banner:'현수막',xbanner:'X배너'};
 function savedOptions(options) {
   if(!options||typeof options!=='object')return [];
@@ -124,15 +129,18 @@ export async function revenueBookingDetailAdmin({env,url,method,bookingCode,oper
     needs:Array.isArray(d.needs)?d.needs.filter(value=>typeof value==='string'):[],options:savedOptions(d.options)}:null;
   // An inquiry may cover several dates/spaces. A saved quote must belong to the
   // clicked reservation; an undated legacy quote is safe only for a sole booking.
-  const quoteRow=inquiry?await env.DB.prepare(`SELECT q.quote_no,q.event_date,q.created_at,q.total,q.data FROM quotes q
+  const quoteRow=!inquiry?null:row.space_id===FOOD_SPACE?await env.DB.prepare(`SELECT q.quote_no,q.event_date,q.created_at,q.total,q.data
+    FROM food_quote_links link JOIN quotes q ON q.quote_no=link.quote_no WHERE link.inquiry_ref=? AND link.quote_no=?`)
+    .bind(ref,text(d.food_event?.quote_no)).first():await env.DB.prepare(`SELECT q.quote_no,q.event_date,q.created_at,q.total,q.data FROM quotes q
     WHERE q.inquiry_ref=? AND (q.event_date=? OR (q.event_date IS NULL AND ?=1))
       AND COALESCE(json_extract(CASE WHEN json_valid(q.data) THEN q.data ELSE '{}' END,'$.input.space'),?)=?
-    ORDER BY q.id DESC LIMIT 1`).bind(ref,row.event_date,row.inquiry_booking_count,row.space_id,row.space_id).first():null;
+    ORDER BY q.id DESC LIMIT 1`).bind(ref,row.event_date,row.inquiry_booking_count,row.space_id,row.space_id).first();
   const q=savedData(quoteRow?.data),quoteLines=rows=>Array.isArray(rows)?rows.filter(line=>line&&typeof line==='object').map(line=>({label:text(line.label),amount:savedAmount(line.amount)})):[];
   const quote=quoteRow?{quote_no:quoteRow.quote_no,event_date:quoteRow.event_date,created_at:quoteRow.created_at,total:quoteRow.total,
     subtotal:savedAmount(q.subtotal),discount:savedAmount(q.discount),lines:quoteLines(q.lines),extras:quoteLines(q.extras)}:null;
   const services=new Map();
-  for(const extra of Array.isArray(q.extras)?q.extras:[])if(extra&&Object.hasOwn(serviceLabels,extra.kind))
+  const quotedExtras=row.space_id!==FOOD_SPACE&&Array.isArray(q.extras)?q.extras:[];
+  for(const extra of quotedExtras)if(extra&&Object.hasOwn(serviceLabels,extra.kind))
     services.set(extra.kind,serviceSnapshot(extra.kind,{summary:extra.label,status:extra[extra.kind]?.status},extra.amount));
   if(inquiry&&(row.inquiry_booking_count===1||(inquiryRow.event_date===row.event_date&&inquiryRow.space_id===row.space_id&&row.inquiry_event_count===1))) {
     for(const kind of Object.keys(serviceLabels)) {
@@ -148,6 +156,6 @@ export async function revenueBookingDetailAdmin({env,url,method,bookingCode,oper
   if(catering)services.set('catering',serviceSnapshot('catering',{...savedData(catering.data),status:catering.status},catering.total));
   return json({ok:true,scope:{...scope,statuses,filters:'period-space'},booking:{booking_code:row.booking_code,customer_name:row.customer_name,
     date:row.event_date,space_id:row.space_id,status:s.booking_status,start_h:row.start_h,end_h:row.end_h,slot:row.slot,
-    headcount:row.headcount,phone:row.phone,phone2:row.phone2,inquiry_ref:ref,memo:row.memo||'',created_at:row.created_at,updated_at:row.updated_at},
+    ...foodSchedule(row),headcount:row.headcount,phone:row.phone,phone2:row.phone2,inquiry_ref:ref,memo:row.memo||'',created_at:row.created_at,updated_at:row.updated_at},
     settlement:financialFields(s),inquiry,quote,services:[...services.values()]},200,{'cache-control':'no-store'});
 }

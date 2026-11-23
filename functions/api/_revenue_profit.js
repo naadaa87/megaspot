@@ -1,6 +1,7 @@
 import {err,json} from './_lib.js';
 import {revenueBookingCohort,revenueBookingScope} from './_revenue_bookings.js';
 import {readCocktailPricing,cocktailPricing} from './_cocktail_pricing.js';
+import {FOOD_SPACE} from './_food_booking.js';
 import {savedCleaningEstimateQuote} from './_revenue_estimate.js';
 
 const names={rental:'공간 대관·인원',catering:'출장뷔페',reception:'테이블·박스 케이터링',cocktail:'출장 칵테일',cleaning:'청소 지원',manager:'현장 매니저',banner:'현수막',other:'기타·확인 필요'};
@@ -134,6 +135,7 @@ function discountedCore(rows,discount) {
 }
 
 export function calculateBookingProfit(booking,context,policy) {
+  const foodOnly=booking.space_id===FOOD_SPACE;
   const amount=booking.settlement.amount,d=context?.inquiry_data||{},direct=context?.catering_data;
   const lines=[],reasons=[],snapshots={};
   if(!context)reasons.push(issue('booking_context_missing','예약의 서비스 구성 정보를 다시 확인해야 합니다.'));
@@ -146,7 +148,8 @@ export function calculateBookingProfit(booking,context,policy) {
     const flag=kind==='catering'&&direct?direct.data?.include_in_booking:d[kind+'_in_quote'];
     return included>0||snapshot&&!snapshot.removed&&snapshot.status!=='cancelled'&&included!==0&&flag!==false&&flag!==0;
   });
-  const quote=context?.quote_data||(!unresolvedFood?savedCleaningEstimateQuote(booking,context):null);
+  // Food-only contracts use their currently applied service amounts and snapshots.
+  const quote=foodOnly?null:context?.quote_data||(!unresolvedFood?savedCleaningEstimateQuote(booking,context):null);
   const quoteMatches=quote&&money(quote.total)===amount;
   const extras=quoteMatches&&Array.isArray(quote.extras)?quote.extras:[];
   const manager=quoteMatches&&Object.hasOwn(quote.options||{},'manager')?quote.options.manager:inquirySafe?d.options?.manager:null;
@@ -197,7 +200,10 @@ export function calculateBookingProfit(booking,context,policy) {
       ambiguous=true;lines.push(unknownLine('이전 견적의 서비스 구성',null,issue('contract_changed','이전 서비스 견적과 현재 계약금액의 적용 범위를 확인해야 합니다.')));
     }
     if(amount!=null&&included>amount){ambiguous=true;reasons.push(issue('included_services_exceed_contract','서비스 포함 금액이 확정 예약금액보다 큽니다.'));}
-    lines.unshift(rentalLine(amount==null||ambiguous?null:amount-included));
+    if(foodOnly) {
+      if(amount!=null&&included!==amount)
+        reasons.push(issue('food_composition_unknown','확정 예약금액과 현재 적용된 식음료 구성이 일치하지 않습니다.'));
+    } else lines.unshift(rentalLine(amount==null||ambiguous?null:amount-included));
   }
   if(amount==null)reasons.push(issue('contract_amount_unknown','확정 예약금액이 미정입니다.'));
   if(quote?.source==='inquiry-estimate')for(const line of lines)line.basis+=' · 문의에 저장된 요금 계산 내역';

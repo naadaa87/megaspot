@@ -1,0 +1,101 @@
+.adm-card.food-ops-dialog {
+  box-sizing: border-box;
+  width: min(100% - 28px, 650px);
+  max-width: 100%;
+  max-height: min(88vh, 800px);
+  max-height: min(calc(var(--adm-visible-height, 100dvh) - 24px), 800px);
+  margin: auto;
+  padding: 22px;
+  border: 1px solid #dce0e6;
+  border-radius: 12px;
+  color: inherit;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.food-ops-dialog::backdrop { background: rgba(19, 28, 54, .45); }
+
+.food-ops-dialog [hidden] { display: none; }
+.food-ops-dialog p:empty { display: none; }
+.food-ops-dialog .food-ops-header h2 { margin: 0; }
+.food-ops-dialog h3 { margin: 0; font-size: 15px; }
+
+.food-ops-header,
+.food-ops-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  justify-content: space-between;
+}
+
+.food-ops-booking { margin: 8px 0 12px; overflow-wrap: anywhere; }
+.food-ops-error { margin: 12px 0; }
+
+.food-ops-dialog fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.food-ops-section {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid #dce0e6;
+  border-radius: 9px;
+}
+
+.food-ops-section > p { margin: 0; }
+.food-ops-section > label { font-size: 14px; font-weight: 600; }
+.food-ops-dialog .food-ops-stage + .food-ops-stage { margin-top: 12px; }
+.food-ops-stage legend { margin-bottom: 4px; padding: 0; font-size: 13px; font-weight: 700; }
+.food-ops-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .8fr) minmax(0, 1.2fr); gap: 8px; }
+.food-ops-row label { display: grid; gap: 4px; min-width: 0; font-size: 12px; }
+.food-ops-dialog .input,
+.food-ops-dialog .textarea { box-sizing: border-box; min-width: 0; width: 100%; }
+
+.food-ops-order {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(145px, .5fr);
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.food-ops-order + .food-ops-order { padding-top: 8px; border-top: 1px solid #dce0e6; margin-top: 8px; }
+.food-ops-order label { display: grid; gap: 2px; overflow-wrap: anywhere; }
+.food-ops-order label span:empty { display: none; }
+
+.food-ops-checks { display: flex; flex-wrap: wrap; gap: 8px 14px; }
+.food-ops-check {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 6px;
+  min-height: 32px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.food-ops-check input { margin: 0; }
+.food-ops-review { font-size: 12px; font-weight: 600; color: #895000; }
+.food-ops-actions { justify-content: end; margin-top: 12px; }
+#food-ops-copy { margin-top: 8px; }
+
+@media (max-width: 560px) {
+  .adm-card.food-ops-dialog { padding: 12px; }
+  .food-ops-section { padding: 10px; }
+  .food-ops-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .food-ops-row label:last-child { grid-column: 1 / -1; }
+  .food-ops-order { grid-template-columns: minmax(0, 1fr); }
+  .food-ops-check { min-height: 44px; }
+  .food-ops-dialog .input,
+  .food-ops-dialog .textarea,
+  .food-ops-dialog .btn { font-size: 16px; min-height: 44px; }
+}
+
+@media (max-width: 360px) {
+  .food-ops-row { grid-template-columns: minmax(0, 1fr); }
+}

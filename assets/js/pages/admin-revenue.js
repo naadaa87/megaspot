@@ -4,7 +4,7 @@
   const $ = id => document.getElementById(id);
   const form = $('revenue-form'), report = $('revenue-report'), status = $('revenue-status');
   const dayList = $('revenue-daily'), detail = $('revenue-detail');
-  const labels = {'megaspot-gundae':'건대 1호점','megaspot-gundae-2':'건대 2호점',unassigned:'공통·지점 미지정'};
+  const labels = {'megaspot-gundae':'건대 1호점','megaspot-gundae-2':'건대 2호점','food-only':'식음료 단독',unassigned:'공통·지점 미지정'};
   const columns = Object.keys(labels);
   const categoryLabels = {rental:'공간대관',food:'식음료',parking:'주차',addons:'부가서비스',unclassified:'구성 미분류'};
   const componentLabels = {rental:'공간대관',people:'추가 인원',catering:'출장뷔페',reception:'테이블·박스 케이터링',cocktail:'출장 칵테일',parking:'주차',cleaning:'청소지원',banner:'현수막',xbanner:'X배너',disposable:'1회용 세트',manager:'현장 매니저',other:'기타',unclassified:'구성 미분류'};
@@ -77,7 +77,7 @@
     const booked=allUnpriced?'금액 미정':won(summary.booked);
     const balance=allBalancesUnknown?'확인 필요':won(summary.balance);
     const scope=summary.scope||{};
-    $('revenue-booking-scope').textContent=(scope.from||filters.get('from'))+' ~ '+(scope.to||filters.get('to'))+' · '+(labels[scope.space]||'전체 지점')+' · 확정·이용 완료 예약 · 보증금 제외';
+    $('revenue-booking-scope').textContent=(scope.from||filters.get('from'))+' ~ '+(scope.to||filters.get('to'))+' · '+(labels[scope.space]||'전체 지점')+' · 이용일 기준 · 확정·이용 완료 예약 · 보증금 제외';
     $('revenue-booking-cards').innerHTML=[
       ['booked','전체 예약금액',booked,'예약 '+summary.bookingCount+'건'+(summary.amountUnknownCount?' · 금액 미정 '+summary.amountUnknownCount+'건 별도':'')],
       ['received','수납 완료 금액',won(summary.netReceived),'누적 수납 '+won(summary.received)+' · 환불 '+won(summary.refunded)],
@@ -93,6 +93,7 @@
     $('revenue-booking-status').hidden=!notes.length;
   }
   function bookingHours(row) {
+    if(row.food_event)return [row.food_event.start,row.food_event.end].filter(Boolean).join(' ~ ');
     const hour=value=>{const minutes=Math.round(Number(value)*60);return String(Math.floor(minutes/60)).padStart(2,'0')+':'+String(minutes%60).padStart(2,'0');};
     return row.start_h!=null&&row.end_h!=null?hour(row.start_h)+' ~ '+hour(row.end_h):row.slot||'';
   }
@@ -124,7 +125,7 @@
     const amounts=[['전체 예약금액',s.amount],['수납 완료 금액',s.netReceived],['앞으로 받을 잔금',s.balance]];
     let html='<section class="revenue-booking-detail-section"><h3>예약 정보</h3>'+detailFields([
       ['예약번호',b.booking_code],['상태',({confirmed:'예약 확정',completed:'이용 완료',cancelled:'취소',payment_review:'일정 확인 필요'})[b.status]||b.status],
-      ['예약자',b.customer_name],['지점',labels[b.space_id]||labels.unassigned],['이용일',b.date],['이용시간',bookingHours(b)],['이용 인원',b.headcount==null?'미정':b.headcount+'명'],
+      ['예약자',b.customer_name],b.space_id==='food-only'?['행사 장소',b.food_event?.location]:['지점',labels[b.space_id]||labels.unassigned],['이용일',b.date],['이용시간',bookingHours(b)],['이용 인원',b.headcount==null?'미정':b.headcount+'명'],
       ['연락처',b.phone],['추가 연락처',b.phone2],['단체명',inq?.org],['이메일',inq?.email],['연결 문의',b.inquiry_ref||'연결된 문의 없음']
     ])+'</section><section class="revenue-booking-detail-section"><h3>예약금액·수납·잔금</h3><div class="revenue-booking-detail-money">'+amounts.map(([label,value])=>'<div><span>'+label+'</span><strong'+(value<0?' class="revenue-refund"':'')+'>'+(value==null?(label==='전체 예약금액'?'금액 미정':'확인 필요'):won(value))+'</strong></div>').join('')+'</div><p class="tiny muted">누적 수납 '+won(s.received)+' · 완료 환불 '+won(s.refunded)+' · 반환 보증금 별도</p>';
     const warnings=[s.review_required?'정산 기록 확인이 필요합니다.':'',s.excessPaid?'초과 수납 '+won(s.excessPaid):'',s.overRefunded?'초과 환불 '+won(s.overRefunded):''].filter(Boolean);
@@ -212,23 +213,28 @@
       X.revenueProfitScope={from:scope.from||filters.get('from'),to:scope.to||filters.get('to'),space:scope.space??filters.get('space')??''};
       if(X.loadRevenueProfit){X.loadRevenueProfit(X.revenueProfitScope,{force:profitRefresh});profitRefresh=false;}
     }
-    const filtered = filters.get('space'), shownBranches = filtered ? [] : columns;
+    const filtered = filters.get('space'), shownBranches = filtered ? [] : columns.filter(key=>r.branches[key]);
+    const processed=filters.get('basis')==='processed',dateLabel=processed?'처리일':'이용일';
     const cards = [[filtered ? labels[filtered] : '전체 합계',r.total],...shownBranches.map(key=>[labels[key],r.branches[key]])];
     $('revenue-totals').innerHTML = cards.map(([name,t])=>'<div class="adm-card revenue-total"><h2>'+name+'</h2><dl><dt>수납액</dt><dd>'+won(t.received)+'</dd><dt>환불액</dt><dd>'+won(t.refunded)+'</dd><dt>순매출</dt><dd class="'+(t.net<0?'revenue-refund':'')+'">'+won(t.net)+'</dd></dl></div>').join('');
     renderBreakdown(r);
     renderUpcoming(r.upcoming || [],filtered);
-    $('revenue-upcoming').hidden = !!(filters.get('channel')||filters.get('category')||filters.get('component'));
-    dayList.innerHTML = r.daily.length ? table(['날짜','수납액','환불액','순매출',...shownBranches.map(key=>labels[key])],r.daily.map(d=>'<tr><td class="revenue-date"><button type="button" class="btn btn-light btn-sm" data-revenue-day="'+esc(d.day)+'" aria-pressed="'+(selectedDay===d.day)+'">'+esc(d.day)+'</button></td>'+money(d.received)+money(d.refunded)+money(d.net)+shownBranches.map(key=>money(d.branches[key]?.net||0)).join('')+'</tr>'),1) : '<p class="small muted">선택한 조건에 해당하는 매출 기록이 없습니다.</p>';
+    $('revenue-upcoming').hidden = !!(filters.get('channel')||filters.get('category')||filters.get('component')||filters.get('method'));
+    dayList.innerHTML = r.daily.length ? table([dateLabel,'수납액','환불액','순매출',...shownBranches.map(key=>labels[key])],r.daily.map(d=>'<tr><td class="revenue-date"><button type="button" class="btn btn-light btn-sm" data-revenue-day="'+esc(d.day)+'" aria-pressed="'+(selectedDay===d.day)+'">'+esc(d.day)+'</button></td>'+money(d.received)+money(d.refunded)+money(d.net)+shownBranches.map(key=>money(d.branches[key]?.net||0)).join('')+'</tr>'),1) : '<p class="small muted">선택한 조건에 해당하는 매출 기록이 없습니다.</p>';
     $('revenue-clear-day').hidden = !selectedDay;
     $('revenue-clear-component').hidden = !filters.get('component');
     $('revenue-detail-label').textContent = (selectedDay ? selectedDay+' · ' : '조회 기간 전체 · ')+r.detailCount.toLocaleString('ko-KR')+'건';
     records = new Map(r.items.map(row=>[row.movement_id||row.id,row]));
-    $('revenue-items').innerHTML = r.items.length ? table(['이용일·기록일','지점','거래·참조번호','매출 구성','결제 채널·계좌','구분','금액','분류'],r.items.map(row=>{
+    $('revenue-items').innerHTML = r.items.length ? table([dateLabel,'지점','거래·참조번호','매출 구성','결제 채널·계좌','구분','금액','분류'],r.items.map(row=>{
       const refund = row.kind==='refund', manual = row.source==='manual';
       const kind = (manual?'수기 ':'온라인 ')+(refund?'환불':manual?'수납':'결제');
       const booking = row.booking_code ? '<button type="button" class="btn btn-light btn-sm" data-settlement-code="'+esc(row.booking_code)+'" aria-label="예약 '+esc(row.booking_code)+' 수납·환불 내역">'+esc(row.booking_code)+'</button>' : '';
       const components = (row.components||[]).map(item=>esc(componentLabels[item.id]||item.label)+' '+won(item.amount)).join('<br>');
-      return '<tr><td class="revenue-date">'+esc(row.event_date)+'<span class="tiny muted revenue-ref">기록 '+esc(row.recorded_day||'날짜 미상')+(row.estimated?' · 추정':'')+'</span></td><td>'+labels[row.branch]+'</td><td>'+esc(row.title)+'<span class="tiny muted revenue-ref">'+(manual?'':esc(row.ref)+' ')+booking+'</span></td><td>'+components+'<span class="tiny muted revenue-ref">'+esc(row.allocation_basis||'')+'</span></td><td>'+esc(channelLabels[row.channel]||'미분류')+'<span class="tiny muted revenue-ref">'+esc(row.account||'')+'</span></td><td>'+kind+'</td>'+money(refund ? -row.amount : row.amount)+'<td><button type="button" class="btn btn-light btn-sm" data-revenue-classify="'+esc(row.movement_id||row.id)+'">분류</button></td></tr>';
+      const date=processed?row.processing_day:row.event_date;
+      const secondaryDate=processed?(row.event_date?'이용일 '+row.event_date:'이용일 미정'):
+        (row.processing_day?(row.processing_estimated?'기록일 ':'처리일 ')+row.processing_day:'기록 '+(row.recorded_day||'날짜 미상'));
+      const paymentDetails=[row.method,row.account].filter(Boolean).join(' · ');
+      return '<tr><td class="revenue-date">'+esc(date||'날짜 미상')+(processed&&row.processing_estimated?'<span class="tiny muted revenue-ref">기록일 기준</span>':'')+'<span class="tiny muted revenue-ref">'+esc(secondaryDate)+'</span></td><td>'+labels[row.branch]+'</td><td>'+esc(row.title)+'<span class="tiny muted revenue-ref">'+(manual?'':esc(row.ref)+' ')+booking+'</span></td><td>'+components+'<span class="tiny muted revenue-ref">'+esc(row.allocation_basis||'')+'</span></td><td>'+esc(channelLabels[row.channel]||'미분류')+'<span class="tiny muted revenue-ref">'+esc(paymentDetails)+'</span></td><td>'+kind+'</td>'+money(refund ? -row.amount : row.amount)+'<td><button type="button" class="btn btn-light btn-sm" data-revenue-classify="'+esc(row.movement_id||row.id)+'">분류</button></td></tr>';
     })) : '<p class="small muted">표시할 거래가 없습니다.</p>';
     const pages = Math.max(1,Math.ceil(r.detailCount/r.pageSize));
     $('revenue-pagination').hidden = pages<=1;
@@ -305,7 +311,7 @@
     if(!Number.isInteger(year)||year<2000||year>2100) {trendData=null;$('revenue-trend').innerHTML='';$('revenue-trend').removeAttribute('aria-busy');$('revenue-trend-status').textContent='2000~2100년 사이의 연도를 입력해 주세요.';return;}
     const q=new URLSearchParams(filters);
     q.set('from',year+'-01-01');q.set('to',year+'-12-31');
-    ['day','page','category','component','channel'].forEach(key=>q.delete(key));
+    ['day','page','category','component','channel','basis','method'].forEach(key=>q.delete(key));
     $('revenue-trend-status').textContent=year+'년 추이를 불러오는 중입니다.';
     $('revenue-trend').setAttribute('aria-busy','true');
     try {
@@ -328,7 +334,7 @@
       const lastPage=Math.max(1,Math.ceil(r.detailCount/r.pageSize));
       if(page>lastPage){page=lastPage;return load({detailOnly,focus,trend:false});}
       render(r);report.hidden=false;refreshTrendWidth();
-      status.textContent=filters.get('from')+' ~ '+filters.get('to')+' · 이용일 기준 · 보증금 제외'+(filters.get('component')?' · '+(componentLabels[filters.get('component')]||'세부 항목'):'');
+      status.textContent=filters.get('from')+' ~ '+filters.get('to')+(filters.get('basis')==='processed'?' · 수납·환불 처리일 기준 (미상은 기록일)':' · 이용일 기준')+' · 보증금 제외'+(filters.get('component')?' · '+(componentLabels[filters.get('component')]||'세부 항목'):'');
       if(focus&&!$('view-revenue').hidden){const target=detail.querySelector(focus);if(target&&!target.hidden&&!target.disabled)target.focus();else detail.querySelector('h2').focus();}
     }catch(e){if(request!==version)return;report.hidden=true;if(!X.guard(e))status.textContent=e.message||'매출 내역을 불러오지 못했습니다.';}
     finally{if(request===version)report.removeAttribute('aria-busy');}
@@ -350,11 +356,12 @@
   else window.addEventListener('resize',refreshTrendWidth);
   ['revenue-from','revenue-to'].forEach(id=>$(id).addEventListener('change',()=>{$('revenue-month-select').value='';syncMonthDisplay();$('revenue-trend-year').value=form.elements.from.value.slice(0,4);}));
   $('revenue-category').addEventListener('change',()=>{$('revenue-component').value='';});
-  $('revenue-show-all').addEventListener('click',()=>{form.elements.category.value='';form.elements.component.value='';form.elements.channel.value='';search();});
+  $('revenue-show-all').addEventListener('click',()=>{form.elements.category.value='';form.elements.component.value='';form.elements.channel.value='';if(form.elements.method)form.elements.method.value='';search();});
   $('revenue-clear-component').addEventListener('click',()=>{$('revenue-component').value='';search();});
   function openRevenueServices(category,component='') {
     if(!X.openRevenueServices){status.textContent='내역 화면을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.';return;}
-    X.openRevenueServices({from:filters.get('from'),to:filters.get('to'),space:filters.get('space')||'',channel:filters.get('channel')||'',category,component});
+    X.openRevenueServices({from:filters.get('from'),to:filters.get('to'),space:filters.get('space')||'',channel:filters.get('channel')||'',category,component,
+      ...(filters.get('basis')==='processed'?{basis:'processed'}:{}),...(filters.get('method')?{method:filters.get('method')}:{})});
   }
   $('revenue-categories').addEventListener('click',e=>{const b=e.target.closest('[data-revenue-category]');if(b)openRevenueServices(b.dataset.revenueCategory);});
   $('revenue-components').addEventListener('click',e=>{const b=e.target.closest('[data-revenue-component]');if(b)openRevenueServices(b.dataset.category,b.dataset.revenueComponent);});

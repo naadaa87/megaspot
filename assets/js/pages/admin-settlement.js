@@ -12,9 +12,9 @@
   <div class="payment-result-stage"><b>환급 계좌 등록 알림톡</b><span id="payment-notice-state" aria-live="polite"></span><div class="payment-result-actions"><button class="btn btn-light" type="button" id="payment-notice-refresh">발송 상태 새로고침</button><button class="btn btn-light" type="button" id="payment-notice-history">알림톡 이력 보기</button></div></div>
   <button class="btn btn-light" type="button" id="payment-another">다른 수납·환불 기록</button>
  </section>
- <form id="payment-form"><h3 id="payment-mode">새 완료 내역 기록</h3><div class="field-row"><div class="f"><label for="payment-kind">기록 종류</label><select class="select" id="payment-kind"><option value="receipt">이용료 입금 완료</option><option value="combined">이용료 + 보증금 합산 입금</option><option value="refund">이용료 환불 완료</option></select></div><div class="f"><label for="payment-amount">처리 금액 (원)</label><input class="input" id="payment-amount" type="number" inputmode="numeric" min="1" step="1" required></div></div>
- <div class="field-row" id="payment-processing-fields" hidden><div class="f"><label for="payment-processing-date">처리일</label><input class="input" id="payment-processing-date" type="date"></div><div class="f"><label for="payment-processing-method">처리 수단</label><select class="select" id="payment-processing-method"><option value="">미확인</option>${S.manualPaymentMethods.map(function(method){return '<option>'+method+'</option>';}).join('')}</select></div></div>
- <div class="f"><label for="payment-note">메모 (입금자·처리일·환불 사유)</label><input class="input" id="payment-note" maxlength="300"></div>
+ <form id="payment-form"><h3 id="payment-mode">새 완료 내역 기록</h3><p class="small muted" id="payment-inquiry-help" hidden>이미 처리한 입금·환불을 기록하세요. 잘못 입력했다면 아래 수기 기록에서 정정하거나 취소할 수 있습니다.</p><div class="field-row"><div class="f"><label for="payment-kind">기록 종류</label><select class="select" id="payment-kind"><option value="receipt">이용료 입금 완료</option><option value="combined">이용료 + 보증금 합산 입금</option><option value="refund">이용료 환불 완료</option></select></div><div class="f"><label for="payment-amount">처리 금액 (원)</label><input class="input" id="payment-amount" type="number" inputmode="numeric" min="1" step="1" required></div></div>
+ <div class="field-row" id="payment-processing-fields" hidden><div class="f"><label for="payment-processing-date">처리일</label><input class="input" id="payment-processing-date" type="date"></div><div class="f"><label for="payment-processing-method">처리 수단</label><select class="select" id="payment-processing-method"><option value="">미확인</option>${S.manualPaymentMethods.map(function(method){return '<option>'+method+'</option>';}).join('')}</select></div><div class="f" id="payment-processing-account-field" hidden><label for="payment-processing-account">계좌 유형 (선택)</label><select class="select" id="payment-processing-account">${S.manualPaymentAccountOptions()}</select></div></div>
+ <div class="f"><label for="payment-note">메모 (입금자·환불 사유)</label><input class="input" id="payment-note" maxlength="300"></div>
  <div id="payment-combined" class="payment-combined" hidden><div id="payment-split" aria-live="polite"></div><label class="chk"><input type="checkbox" id="payment-combined-confirm">실제 입금액과 위 이용료·보증금 구분을 확인했습니다.</label></div>
  <div class="f" id="payment-reason-wrap" hidden><label for="payment-reason">정정·취소 사유 (필수)</label><input class="input" id="payment-reason" maxlength="300"></div>
  <div class="payment-actions"><button class="btn btn-primary" id="payment-save" type="submit">완료 내역 기록</button><button class="btn btn-light" type="button" id="payment-new" hidden>새 기록으로 전환</button></div></form>
@@ -22,22 +22,43 @@
  <details class="payment-details" id="payment-history-details"><summary>기존 수납·환불 내역 자세히</summary><button class="btn btn-light btn-sm" type="button" id="payment-refresh">페이앱·수납 내역 새로고침</button><div id="payment-summary"></div><div id="payment-channels"></div><h3>페이앱 자동 수납·환불 <small>읽기 전용 · 최근 결제 90건</small></h3><div id="payment-online"></div><h3>수기 기록 · 정정 이력</h3><div id="payment-history"></div><button class="btn btn-light btn-sm" type="button" id="payment-more" hidden>이전 기록 더 보기</button><button class="btn btn-light btn-sm" type="button" id="payment-cancellation">취소 수수료·환불 정산</button></details>
  <details class="payment-details" id="payment-deposit-help"><summary>수납·보증금 처리 안내</summary><p class="small muted">페이앱 결제·취소는 자동 기록되므로 수기 기록에 다시 추가하지 않아도 됩니다. 별도로 받은 이용료 또는 완료한 계좌 환불을 기록하세요. 보증금을 함께 받았다면 ‘이용료 + 보증금 합산 입금’을 선택하세요. 잘못 입력한 기록은 기존 수납 내역에서 정정·취소할 수 있습니다. 기록 정정·취소는 실제 입금·송금을 되돌리지 않습니다.</p></details></div>`;
  document.body.appendChild(dialog);
- var $=function(s){return dialog.querySelector(s);},state={code:'',data:null,busy:false,dirty:false,request:0,pending:null,editing:null,result:null};
+ var $=function(s){return dialog.querySelector(s);},state={code:'',inquiry:false,data:null,busy:false,dirty:false,request:0,pending:null,editing:null,result:null};
  var kindLabel=function(k){return k==='receipt'?'입금':'환불';},won=function(n){return Number(n).toLocaleString('ko-KR')+'원';};
  function error(e){if(!X.guard(e))$('#payment-msg').textContent=e.message||'처리하지 못했습니다.';$('#payment-msg').tabIndex=-1;$('#payment-msg').focus();$('#payment-msg').scrollIntoView({block:'nearest'});}
- function foodBooking(){return state.data?.deposit?.space_id==='food-only';}
+ function settlementPath(suffix){
+  return (state.inquiry?'/inquiries/':'/bookings/')+encodeURIComponent(state.code)+'/settlement'+(suffix||'');
+ }
+ function readOnly(){return state.inquiry&&state.data?.editable===false;}
+ function foodBooking(){return (state.inquiry?state.data?.settlement?.space_id:state.data?.deposit?.space_id)==='food-only';}
+ function settlementTitle(){$('#payment-title').textContent=(state.inquiry?'문의 수납·환불 · ':'이용료 수납·정산 · ')+state.code;}
+ async function readSettlement(suffix){
+  var r=await X.A(settlementPath(suffix));
+  if(!state.inquiry||!r.booking_code)return r;
+  state.inquiry=false;state.code=r.booking_code;state.data=null;settlementTitle();reset();
+  return X.A(settlementPath());
+ }
+ function saved(){
+  window.dispatchEvent(new CustomEvent('admin-settlement-saved',{detail:state.inquiry?{ref:state.code}:{code:state.code}}));
+ }
  function editor(){
-  var e=state.editing,isVoid=e&&e.action==='void',food=foodBooking();
+  var e=state.editing,isVoid=e&&e.action==='void',food=foodBooking(),noDeposit=state.inquiry||food;
+  var refundOnly=state.inquiry&&state.data?.refund_only&&!e;
+  if(refundOnly)$('#payment-kind').value='refund';
   dialog.classList.toggle('food-payment-dialog',food);
   $('#payment-processing-fields').hidden=!!isVoid;
-  $('#payment-schedule-section').hidden=food;
-  $('#payment-deposit-help').hidden=food;
-  $('#payment-kind option[value=combined]').hidden=food;
-  ['#payment-processing-date','#payment-processing-method'].forEach(function(sel){$(sel).disabled=state.busy||!!isVoid;});
+  $('#payment-processing-account-field').hidden=$('#payment-processing-method').value!=='계좌이체';
+  $('#payment-schedule-section').hidden=noDeposit;
+  $('#payment-deposit-help').hidden=noDeposit;
+  $('#payment-inquiry-help').hidden=!state.inquiry||!!e;
+  $('#payment-cancellation').hidden=state.inquiry;
+  $('#payment-kind option[value=combined]').hidden=noDeposit;
+  $('#payment-kind option[value=receipt]').hidden=!!refundOnly;
+  $('#payment-kind option[value=receipt]').disabled=!!refundOnly;
+  ['#payment-processing-date','#payment-processing-method','#payment-processing-account'].forEach(function(sel){$(sel).disabled=state.busy||!!isVoid;});
   $('#payment-reason-wrap').hidden=!e;$('#payment-reason').required=!!e;$('#payment-new').hidden=!e;
   $('#payment-mode').textContent=e?(isVoid?'기록 #'+e.id+' 취소':'기록 #'+e.id+' 정정·복원'):({balance:'잔금 입금 기록',refund:'환불 기록'}[state.shortcut]||'새 완료 내역 기록');
   $('#payment-save').textContent=e?(isVoid?'이 기록 취소':'정정 내용 저장'):$('#payment-kind').value==='combined'?'합산 입금 처리 · 계좌 등록 안내':'완료 내역 기록';
-  $('#payment-kind option[value=combined]').disabled=!!e||!!(state.data&&state.data.deposit.reason);splitView();
+  $('#payment-kind option[value=combined]').disabled=noDeposit||!!e||!!state.data?.deposit?.reason;splitView();
   ['#payment-kind','#payment-amount','#payment-note','#payment-combined-confirm'].forEach(function(s){$(s).disabled=state.busy||!!isVoid;});
  }
  function splitView(){
@@ -48,10 +69,11 @@
   var total=Number($('#payment-amount').value),fee=total-d.amount,valid=Number.isSafeInteger(total)&&fee>0&&state.data.settlement.balance!=null&&fee<=state.data.settlement.balance&&!d.reason;
   $('#payment-split').innerHTML='<b>총 입금 '+won(total||0)+'</b><dl><div><dt>이용료 수납</dt><dd>'+won(Math.max(0,fee))+'</dd></div><div><dt>반환 보증금</dt><dd>'+won(d.amount)+'</dd></div></dl><p class="small">'+M.esc(d.reason||(!valid?'총 입금액에서 보증금을 뺀 금액이 남은 이용료 잔금 이내인지 확인해 주세요.':d.automatic?'저장하면 보증금 입금 확인과 최신 수납 내역의 확정서 발급을 함께 처리하고, 환급 계좌 등록 알림톡을 준비합니다. 이미 계좌를 등록한 고객은 재요청하지 않습니다. 발송 시간은 09:00–21:00입니다.':'현재 계좌 등록 알림 자동 발송이 꺼져 있습니다. 입금은 저장되며 계좌 등록 안내는 별도로 전달해 주세요.'))+'</p>';
  }
+ $('#payment-processing-method').addEventListener('change',editor);
  $('#payment-kind').addEventListener('change',function(){if(this.value==='combined'&&state.data){$('#payment-amount').value=state.data.settlement.balance+state.data.deposit.amount;$('#payment-combined-confirm').checked=false;}editor();});
  $('#payment-amount').addEventListener('input',function(){$('#payment-combined-confirm').checked=false;splitView();});
  function resultView(){
-  var r=state.result;$('#payment-result').hidden=!r;$('#payment-form').hidden=!!r;if(!r)return;
+  var r=state.result;$('#payment-result').hidden=!r;$('#payment-form').hidden=!!r||readOnly();if(!r)return;
   $('#payment-result-summary').textContent='이용료 '+won(r.combined_receipt.fee)+' 수납 · 보증금 '+won(r.combined_receipt.deposit)+' 입금 확인';
   $('#payment-document-state').textContent=r.confirmation&&r.confirmation.current?'최신 수납 내역으로 자동 발급 완료':'후속 변경이 있어 최신 내용을 확인해 주세요.';
   $('#payment-document').disabled=state.busy||!(r.confirmation&&r.confirmation.issued);
@@ -85,11 +107,12 @@
   $('#payment-history').innerHTML=(r.entries||[]).map(function(e){
    var history=(r.history||[]).filter(function(h){return h.entry_id===e.id;}).sort(function(a,b){return a.id-b.id;});
    var original='원본 · '+e.created_at+' · '+kindLabel(e.original_kind)+' '+won(e.original_amount)+(e.original_note?' · '+e.original_note:'');
-   return '<article class="payment-entry'+(e.state==='void'?' is-void':'')+'" data-payment-entry="'+e.id+'"><p class="small"><b>#'+e.id+' · '+(e.state==='void'?'기록 취소됨 · ':e.version?'정정됨 · ':'')+kindLabel(e.kind)+' '+won(e.amount)+'</b>'+(e.note?' · '+M.esc(e.note):'')+'</p><div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn btn-light btn-xs" type="button" data-payment-edit="'+e.id+'">'+(e.state==='void'?'복원·정정':'정정')+'</button>'+(e.state==='void'?'':'<button class="btn btn-light btn-xs" type="button" data-payment-void="'+e.id+'">기록 취소</button>')+'</div><details><summary>원본·변경 이력 ('+history.length+')</summary><p>'+M.esc(original)+'</p>'+history.map(function(h){return '<p>'+M.esc(h.created_at)+' · '+(h.action==='void'?'기록 취소':kindLabel(h.kind)+' '+won(h.amount)+(h.note?' · '+M.esc(h.note):''))+'<br>사유: '+M.esc(h.reason)+'</p>';}).join('')+'</details></article>';
+   var controls=readOnly()?'':'<div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn btn-light btn-xs" type="button" data-payment-edit="'+e.id+'">'+(e.state==='void'?'복원·정정':'정정')+'</button>'+(e.state==='void'?'':'<button class="btn btn-light btn-xs" type="button" data-payment-void="'+e.id+'">기록 취소</button>')+'</div>';
+   return '<article class="payment-entry'+(e.state==='void'?' is-void':'')+'" data-payment-entry="'+e.id+'"><p class="small"><b>#'+e.id+' · '+(e.state==='void'?'기록 취소됨 · ':e.version?'정정됨 · ':'')+kindLabel(e.kind)+' '+won(e.amount)+'</b>'+(e.note?' · '+M.esc(e.note):'')+'</p>'+controls+'<details><summary>원본·변경 이력 ('+history.length+')</summary><p>'+M.esc(original)+'</p>'+history.map(function(h){return '<p>'+M.esc(h.created_at)+' · '+(h.action==='void'?'기록 취소':kindLabel(h.kind)+' '+won(h.amount)+(h.note?' · '+M.esc(h.note):''))+'<br>사유: '+M.esc(h.reason)+'</p>';}).join('')+'</details></article>';
   }).join('')||'<p class="small muted">수기 기록이 없습니다. 온라인 결제 내역은 주문·결제에서 확인할 수 있습니다.</p>';
   if(r.history_truncated)$('#payment-history').insertAdjacentHTML('beforeend','<p class="tiny muted">변경 이력은 최근 1,000건을 표시합니다.</p>');
   $('#payment-more').hidden=!r.has_more;$('#payment-save').disabled=state.busy;editor();
-  $('#payment-overview').innerHTML='<div><span>남은 이용료</span><b>'+M.esc(r.settlement.balance==null?'정산 확인 필요':won(r.settlement.balance))+'</b></div>'+(foodBooking()?'':'<div><span>반환 보증금</span><b>'+won(r.deposit.amount)+(r.deposit.paid?' · 입금 확인':' · 확인 전')+'</b></div>');resultView();
+  $('#payment-overview').innerHTML='<div><span>남은 이용료</span><b>'+M.esc(r.settlement.balance==null?'정산 확인 필요':won(r.settlement.balance))+'</b></div>'+(state.inquiry?'<div><span>환불 필요액</span><b>'+M.esc(r.settlement.refund_due==null?'정산 확인 필요':won(r.settlement.refund_due))+'</b></div>':foodBooking()?'':'<div><span>반환 보증금</span><b>'+won(r.deposit.amount)+(r.deposit.paid?' · 입금 확인':' · 확인 전')+'</b></div>');resultView();
  }
  function busy(on){state.busy=on;dialog.querySelectorAll('input,select,button').forEach(function(el){el.disabled=on;});editor();$('#payment-save').disabled=on||!state.data;resultView();}
  function applyFoodPaymentChoice(action){
@@ -105,21 +128,27 @@
    $('#payment-msg').textContent=amount===0?'남은 잔금이 없습니다. 기존 수납 내역을 확인해 주세요.':'확정 금액과 남은 잔금을 확인해 주세요.';
   }
  }
- function load(code,action){
-  if(state.busy)return;if(state.dirty&&!confirm('입력 중인 내용을 바꾸고 예약을 불러올까요?'))return;
-  state.code=code;state.data=null;state.result=null;state.shortcut=action||'';reset();resultView();$('#payment-overview').textContent='불러오는 중…';$('#payment-title').textContent='이용료 수납·정산 · '+code;$('#payment-summary').textContent='불러오는 중…';$('#payment-history').innerHTML='';$('#payment-online').innerHTML='';$('#payment-channels').innerHTML='';$('#payment-more').hidden=true;$('#payment-msg').textContent='';
+ function load(code,action,inquiry){
+  if(state.busy)return;if(state.dirty&&!confirm('입력 중인 내용을 버리고 수납 내역을 불러올까요?'))return;
+  state.code=code;state.inquiry=!!inquiry;state.data=null;state.result=null;state.shortcut=action||'';reset();resultView();settlementTitle();
+  $('#payment-overview').textContent='불러오는 중…';$('#payment-summary').textContent='불러오는 중…';$('#payment-history').innerHTML='';$('#payment-online').innerHTML='';$('#payment-channels').innerHTML='';$('#payment-more').hidden=true;$('#payment-msg').textContent='';
   if(!dialog.open)dialog.showModal();dialog.scrollTop=0;busy(true);var n=++state.request;
-  X.A('/bookings/'+encodeURIComponent(code)+'/settlement').then(function(r){if(n!==state.request)return;paint(r);$('#payment-history-details').open=false;applyFoodPaymentChoice(action);}).catch(error).finally(function(){if(n===state.request)busy(false);});
+  readSettlement().then(function(r){
+   if(n!==state.request)return;
+   paint(r);$('#payment-history-details').open=!!inquiry||action==='history';
+   if(readOnly())$('#payment-msg').textContent='문의 상태를 확인해 주세요. 현재 수납·환불 내역을 조회할 수 있습니다.';
+   if(!state.inquiry)applyFoodPaymentChoice(action);
+  }).catch(error).finally(function(){if(n===state.request)busy(false);});
  }
  function close(){if(state.busy)return;if(state.dirty&&!confirm('입력한 내용을 버리고 닫을까요?'))return;dialog.close();state.dirty=false;}
  $('#payment-due-save').onclick=async function(){if(state.busy||!state.data)return;busy(true);try{var schedule=await X.A('/bookings/'+encodeURIComponent(state.code)+'/payment-schedule',{method:'PUT',body:{due_date:$('#payment-due').value||null,version:state.data.schedule.version}});state.data.schedule=schedule;$('#payment-due').value=schedule.due_date;$('#payment-due-status').textContent='잔금 기한을 저장했습니다.';}catch(e){error(e);}finally{busy(false);}};
  $('#payment-cancellation').onclick=function(){var code=state.code;close();if(!dialog.open)window.dispatchEvent(new CustomEvent('admin-cancellation-open',{detail:{codes:[code]}}));};
- $('#payment-refresh').onclick=function(){load(state.code);};
+ $('#payment-refresh').onclick=function(){load(state.code,'history',state.inquiry);};
  $('#payment-close').onclick=close;dialog.addEventListener('cancel',function(e){e.preventDefault();close();});
  ['input','change'].forEach(function(name){$('#payment-form').addEventListener(name,function(){state.dirty=true;state.pending=null;});});
  $('#payment-new').onclick=function(){if(state.dirty&&!confirm('입력 중인 정정 내용을 버리고 새 기록을 만들까요?'))return;reset();};
  $('#payment-history').onclick=function(event){
-  if(state.busy||!state.data)return;var b=event.target.closest('[data-payment-edit],[data-payment-void]');if(!b)return;
+  if(state.busy||!state.data||readOnly())return;var b=event.target.closest('[data-payment-edit],[data-payment-void]');if(!b)return;
   if(state.dirty&&!confirm('입력 중인 내용을 바꾸고 이 기록을 선택할까요?'))return;
   var id=Number(b.dataset.paymentEdit||b.dataset.paymentVoid),e=state.data.entries.find(function(x){return x.id===id;});if(!e)return;
   state.result=null;resultView();reset();state.editing={id:id,version:e.version,action:b.hasAttribute('data-payment-void')?'void':'correct'};
@@ -127,12 +156,17 @@
   var parts=S.manualPaymentParts(e.note);
   $('#payment-processing-date').value=parts.date;
   $('#payment-processing-method').value=parts.method;
+  $('#payment-processing-account').value=parts.account||'';
   $('#payment-note').value=parts.memo;
   $('#payment-msg').textContent='';editor();$('#payment-reason').focus();
  };
- $('#payment-more').onclick=function(){if(state.busy||!state.data||!state.data.has_more)return;busy(true);X.A('/bookings/'+encodeURIComponent(state.code)+'/settlement?before='+state.data.next_before).then(function(r){paint(r,true);}).catch(error).finally(function(){busy(false);});};
+ $('#payment-more').onclick=function(){
+  if(state.busy||!state.data||!state.data.has_more)return;
+  var code=state.code;busy(true);
+  readSettlement('?before='+state.data.next_before).then(function(r){paint(r,code===state.code);}).catch(error).finally(function(){busy(false);});
+ };
  $('#payment-form').addEventListener('submit',function(event){
-  event.preventDefault();if(state.busy||!state.data)return;
+  event.preventDefault();if(state.busy||!state.data||readOnly())return;
   var edit=state.editing,amount=Number($('#payment-amount').value),reason=$('#payment-reason').value.trim();
   if(!Number.isSafeInteger(amount)||amount<=0){error(Error('금액을 확인해 주세요.'));return;}if(edit&&!reason){error(Error('정정·취소 사유를 입력해 주세요.'));return;}
   var combined=!edit&&$('#payment-kind').value==='combined';if(combined&&(!$('#payment-combined-confirm').checked||state.data.deposit.reason||amount<=state.data.deposit.amount||state.data.settlement.balance==null||amount-state.data.deposit.amount>state.data.settlement.balance)){error(Error('실제 입금액과 이용료·보증금 구분을 다시 확인해 주세요.'));return;}
@@ -140,18 +174,24 @@
   if(edit?.action!=='void'){
    var day=$('#payment-processing-date').value, method=$('#payment-processing-method').value;
    if(foodBooking()&&(!day||!method)){error(Error('처리일과 처리 수단을 선택해 주세요.'));return;}
-   paymentNote=S.manualPaymentNote(day,method,paymentNote);
+   paymentNote=S.manualPaymentNote(day,method,paymentNote,$('#payment-processing-account').value);
    if(paymentNote.length>300){error(Error('메모를 조금 줄여 주세요.'));return;}
   }
   var body=state.pending||{kind:combined?'receipt':$('#payment-kind').value,amount:amount,note:paymentNote,expected_revision:state.data.settlement.revision,request_id:crypto.randomUUID()};
   if(combined){body.combined=true;body.confirm_combined=true;body.deposit_amount=state.data.deposit.amount;body.deposit_revision=state.data.deposit.revision;}
   if(edit){body.action=edit.action;body.entry_version=edit.version;body.reason=reason;}
   state.pending=body;busy(true);$('#payment-msg').textContent='';
-  var path='/bookings/'+encodeURIComponent(state.code)+'/settlement'+(edit?'/entries/'+edit.id:'');
-  R.submit('payment',state.code,path,body).then(function(result){
-   state.shortcut='';reset();state.data=null;if(result.combined_receipt){state.result=result;}$('#payment-msg').textContent=result.combined_receipt?'합산 입금을 저장했습니다. 이용료 '+won(result.combined_receipt.fee)+' · 보증금 '+won(result.combined_receipt.deposit)+' 입금 확인. '+(result.deposit_notice?({queued:'환급 계좌 등록 알림톡 발송 대기.',accepted:'계좌 등록 알림톡 접수 완료.',delivered:'계좌 등록 알림톡 수신 성공.',review:'계좌 안내의 최신 예약 내용 확인이 필요합니다.'}[result.deposit_notice.status]||'계좌 등록 알림톡 이력을 확인해 주세요.'):'환급 계좌가 이미 등록되었거나 자동 발송 설정 확인이 필요합니다.')+(result.confirmation&&result.confirmation.current?' 확정서를 최신 수납 내역으로 자동 발급했습니다.':' 후속 변경이 있어 현재 확정서를 확인해 주세요.'):result.confirmation&&result.confirmation.current?'수납 내역을 저장하고 예약확정서를 최신 내역으로 자동 갱신했습니다. 기존 통합 링크에서도 확인할 수 있습니다.':'수납 내역을 저장했습니다. 예약 상태와 총 이용료를 확인해 주세요. 확정·이용 완료 예약의 이용료가 정해져 있으면 확정서를 자동 갱신합니다.';
-   window.dispatchEvent(new CustomEvent('admin-settlement-saved',{detail:{code:state.code}}));if(result.combined_receipt){$('#payment-msg').textContent='';finishCombined(result);}return X.A('/bookings/'+encodeURIComponent(state.code)+'/settlement').then(function(r){paint(r);}).catch(function(){$('#payment-msg').textContent='저장은 완료되었습니다. 최신 수납·환불 내역을 다시 불러와 주세요.';});
-  }).catch(function(e){if(e.code==='PAYMENT_CHANGED'||e.code==='DEPOSIT_CHANGED'){state.data=null;reset();return X.A('/bookings/'+encodeURIComponent(state.code)+'/settlement').then(function(r){paint(r);}).catch(error).then(function(){error(e);});}error(e);}).finally(function(){busy(false);});
+  var path=settlementPath(edit?'/entries/'+edit.id:'');
+  R.submit(state.inquiry?'inquiry-payment':'payment',state.code,path,body).then(function(result){
+   state.shortcut='';reset();state.data=null;if(result.combined_receipt){state.result=result;}$('#payment-msg').textContent=state.inquiry?'문의 수납·환불 내역을 저장했습니다.':result.combined_receipt?'합산 입금을 저장했습니다. 이용료 '+won(result.combined_receipt.fee)+' · 보증금 '+won(result.combined_receipt.deposit)+' 입금 확인. '+(result.deposit_notice?({queued:'환급 계좌 등록 알림톡 발송 대기.',accepted:'계좌 등록 알림톡 접수 완료.',delivered:'계좌 등록 알림톡 수신 성공.',review:'계좌 안내의 최신 예약 내용 확인이 필요합니다.'}[result.deposit_notice.status]||'계좌 등록 알림톡 이력을 확인해 주세요.'):'환급 계좌가 이미 등록되었거나 자동 발송 설정 확인이 필요합니다.')+(result.confirmation&&result.confirmation.current?' 확정서를 최신 수납 내역으로 자동 발급했습니다.':' 후속 변경이 있어 현재 확정서를 확인해 주세요.'):result.confirmation&&result.confirmation.current?'수납 내역을 저장하고 예약확정서를 최신 내역으로 자동 갱신했습니다. 기존 통합 링크에서도 확인할 수 있습니다.':'수납 내역을 저장했습니다. 예약 상태와 총 이용료를 확인해 주세요. 확정·이용 완료 예약의 이용료가 정해져 있으면 확정서를 자동 갱신합니다.';
+   saved();if(result.combined_receipt){$('#payment-msg').textContent='';finishCombined(result);}
+   return readSettlement().then(function(r){paint(r);}).catch(function(){$('#payment-msg').textContent='저장은 완료되었습니다. 최신 수납·환불 내역을 다시 불러와 주세요.';});
+  }).catch(function(e){
+   if(e.code==='PAYMENT_CHANGED'||e.code==='DEPOSIT_CHANGED'){
+    state.data=null;reset();return readSettlement().then(function(r){paint(r);}).catch(error).then(function(){error(e);});
+   }
+   error(e);
+  }).finally(function(){busy(false);});
  });
  document.addEventListener('change',function(e){
   var select=e.target.closest('[data-food-payment]');if(!select||!select.value)return;
@@ -162,8 +202,16 @@
   }
   load(code,action);
  },true);
- document.addEventListener('click',function(e){var b=e.target.closest('[data-settlement-code]');if(b&&b.dataset.settlementCode){e.preventDefault();e.stopPropagation();load(b.dataset.settlementCode);}},true);
- window.addEventListener('admin-save-recovered',function(e){if(e.detail.kind==='payment'){state.dirty=false;state.pending=null;load(e.detail.code);window.dispatchEvent(new CustomEvent('admin-settlement-saved',{detail:{code:e.detail.code}}));}});
+ document.addEventListener('click',function(e){
+  var b=e.target.closest('[data-settlement-code],[data-inquiry-settlement]');if(!b)return;
+  var ref=b.dataset.inquirySettlement,code=b.dataset.settlementCode;if(!ref&&!code)return;
+  e.preventDefault();e.stopPropagation();load(ref||code,'',!!ref);
+ },true);
+ window.addEventListener('admin-inquiry-settlement-open',function(e){if(e.detail?.ref)load(e.detail.ref,'',true);});
+ window.addEventListener('admin-save-recovered',function(e){
+  var inquiry=e.detail.kind==='inquiry-payment';if(!inquiry&&e.detail.kind!=='payment')return;
+  state.dirty=false;state.pending=null;load(e.detail.code,'',inquiry);saved();
+ });
  window.addEventListener('beforeunload',function(e){if(state.dirty){e.preventDefault();e.returnValue='';}});
  new MutationObserver(function(){if(!document.body.classList.contains('adm-on')&&dialog.open){dialog.close();state.dirty=false;state.data=null;}}).observe(document.body,{attributes:true,attributeFilter:['class']});
 })();

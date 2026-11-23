@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {fixture} from './helpers/admin-fixture.mjs';
+import S from '../assets/js/settlement.js';
 import {preserveLegacyPayments} from '../functions/api/_settlement.js';
 
 const first = 'megaspot-gundae', second = 'megaspot-gundae-2';
@@ -148,4 +149,99 @@ test('입금 확인 전 예정 예약은 지점별로 표시하고 수납을 기
   const receipt = after.items.find(r=>r.booking_code==='BK-TEST');
   assert.deepEqual([receipt.day,receipt.recorded_day,receipt.amount],[event,'2026-10-31',200000]);
   assert.deepEqual((await api('revenue?from=2026-10-01&to=2026-10-31')).total,amounts(0,0,0));
+});
+
+
+test('식음료 단독 수납 계좌와 처리 수단을 분류하고 실제 처리일로 조회한다', async t => {
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-11-23T16:00:00Z')});
+  const {db,api}=fixture({booking:true,date:event,space:'food-only'});
+  t.after(()=>db.close());
+  addBooking(db,'BK-VENUE',first);
+  order(db,'PARK-TEST',{product:'parking-batch',price:1000});
+  const url='bookings/BK-TEST/settlement';
+  const save=async(kind,amount,note)=>{
+    const {settlement}=await api(url);
+    await api(url,'POST',{kind,amount,note,expected_revision:settlement.revision,request_id:crypto.randomUUID()});
+  };
+  await save('receipt',100000,S.describeManualPayment(S.manualPaymentNote('2026-10-31','계좌이체','입금 메모','bank_corporate'),'예약금'));
+  await save('receipt',30000,S.manualPaymentNote('2026-11-02','현금',''));
+  await save('receipt',20000,'메모만 남은 이전 기록');
+  await save('refund',10000,S.manualPaymentNote('2026-11-05','계좌이체','','personal'));
+  await save('receipt',40000,S.manualPaymentNote('2026-11-06','계좌이체','','blank'));
+  await save('receipt',50000,S.manualPaymentNote('2026-11-07','계좌이체','','jiyu'));
+
+  const day='revenue?from=2026-10-31&to=2026-10-31&space=food-only';
+  const venueDate=await api(range+'&space=food-only');
+  assert.equal(venueDate.basis,'event');
+  assert.deepEqual(venueDate.total,amounts(240000,10000,6));
+  assert.equal(venueDate.bookingSummary.booked,500000);
+  assert.equal(venueDate.bookingSummary.netReceived,230000);
+  assert.equal(venueDate.bookingSummary.balance,270000);
+  assert.deepEqual((await api(range)).branches['food-only'],venueDate.total);
+  assert.equal((await api(range+'&space=unassigned')).bookingSummary.bookingCount,0);
+  assert.equal((await api(range+'&space=unassigned')).total.received,1000);
+  assert.deepEqual((await api(range.replace('revenue?','revenue/bookings?')+'&space=food-only')).items.map(r=>r.booking_code),['BK-TEST']);
+
+  const processed=await api(day+'&basis=processed');
+  assert.equal(processed.basis,'processed');
+  assert.deepEqual(processed.total,amounts(100000,0,1));
+  const [receipt]=processed.items;
+  assert.deepEqual([receipt.branch,receipt.day,receipt.event_date,receipt.recorded_day,receipt.processing_estimated],
+    ['food-only','2026-10-31',event,'2026-11-24',0]);
+  assert.deepEqual([receipt.channel,receipt.account,receipt.method],['bank_corporate','법인계좌','계좌이체']);
+  assert.equal('note' in receipt,false);
+  assert.equal(processed.bookingSummary.bookingCount,0);
+  assert.deepEqual((await api(day)).total,amounts(0,0,0));
+
+  const cash=await api(range+'&basis=processed&space=food-only&method='+encodeURIComponent('현금'));
+  assert.deepEqual(cash.total,amounts(30000,0,1));
+  assert.equal(cash.items[0].channel,'unknown');
+  assert.equal(cash.bookingSummary.bookingCount,1);
+  const personal=await api(range+'&basis=processed&space=food-only&channel=bank_personal');
+  assert.deepEqual(personal.total,amounts(0,10000,1));
+  assert.equal(personal.items[0].day,'2026-11-05');
+  assert.equal(personal.items[0].account,'최준원개인');
+  const corporate=(await api(range+'&channel=bank_corporate&space=food-only')).channels.find(channel=>channel.id==='bank_corporate');
+  assert.deepEqual(corporate.accounts.map(a=>[a.account,a.received]).sort(),[
+    ['법인계좌',100000],['블랭크',40000],['지유공간개발',50000]
+  ]);
+  const fallback=(await api(range+'&basis=processed&space=food-only')).items.find(r=>r.amount===20000);
+  assert.deepEqual([fallback.day,fallback.processing_estimated,fallback.method],['2026-11-24',1,'']);
+
+  await api('revenue/classifications','PUT',{movement_id:receipt.movement_id,expected_version:0,
+    channel:'bank_personal',account:'직접 분류 계좌',components:null});
+  const [overridden]=(await api(day+'&basis=processed')).items;
+  assert.deepEqual([overridden.channel,overridden.account,overridden.method],['bank_personal','직접 분류 계좌','계좌이체']);
+
+  const current=db.prepare("SELECT * FROM booking_payment_current WHERE id=?").get(Number(receipt.movement_id.split(':')[1]));
+  db.prepare(`INSERT INTO booking_payment_revisions(booking_code,entry_id,request_id,previous_version,action,kind,amount,note,reason,created_at)
+    VALUES(?,?,?,?, 'correct','receipt',?,?,?,?)`).run(current.booking_code,current.id,'correct-revenue-processing-day',current.version,
+    90000,S.manualPaymentNote('2026-11-04','계좌이체','정정','bank_corporate'),'실제 이체일 확인',stamp);
+  assert.equal((await api(day+'&basis=processed')).detailCount,0);
+  const [corrected]=(await api(range+'&basis=processed&space=food-only&day=2026-11-04')).items;
+  assert.deepEqual([corrected.amount,corrected.day,corrected.account],[90000,'2026-11-04','직접 분류 계좌']);
+});
+
+test('실제 처리일 범위는 이전 결제와 환불의 배분을 사용하면서 기간 밖 거래는 집계하지 않는다', async t => {
+  const {db,api}=setup(t);
+  order(db,'PG-PROCESS',{booking:'BK-TEST',price:3,paidAt:'2026-10-31 10:00:00',status:'refunded'});
+  db.prepare("UPDATE orders SET pay_method='PayApp:card',data=? WHERE oid='PG-PROCESS'").run(JSON.stringify({
+    lines:[{id:'rental',amount:1},{id:'catering',amount:2}]
+  }));
+  const refund=db.prepare('INSERT INTO payapp_refunds VALUES(?,?,?,?)');
+  refund.run('PART-OLD','PG-PROCESS',1,'2026-11-02 09:00:00');
+  refund.run('full-ORIGIN','PG-PROCESS',2,'2026-12-01 02:00:00');
+  const eventRow=db.prepare(`INSERT INTO payapp_refund_events(event_key,oid,event_type,original_no,refund_no,
+    raw_amount,effective_amount,state_changed,fingerprint,processing_token,provider_at,created_at)
+    VALUES(?,'PG-PROCESS',?,'ORIGIN',?,?,?,1,'fixture','fixture',?,?)`);
+  eventRow.run('part:PART-OLD','partial','PART-OLD',1,1,'2026-10-31 20:00:00','2026-11-02 09:00:00');
+  eventRow.run('full:ORIGIN','full','ORIGIN',2,2,'2026-11-29T18:00:00Z','2026-12-01 02:00:00');
+
+  const report=await api(range+'&basis=processed&day=2026-11-30');
+  assert.deepEqual(report.total,amounts(0,2,1));
+  const [row]=report.items;
+  assert.deepEqual([row.kind,row.channel,row.day,row.recorded_day,row.processing_estimated],['refund','payapp','2026-11-30','2026-12-01',0]);
+  assert.deepEqual(row.components.map(part=>[part.id,part.amount]),[['rental',1],['catering',1]]);
+  assert.deepEqual((await api(range)).total,amounts(3,3,3));
+  assert.deepEqual(report.bookingSummary,(await api(range)).bookingSummary);
 });

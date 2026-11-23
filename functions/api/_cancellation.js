@@ -20,6 +20,7 @@ const stale=()=>err('예약·수납·취소 정산이 변경됐습니다. 최신
 export async function cancellationAdmin({env,request,path,method,url}){
  const m=path.match(/^bookings\/([A-Z0-9-]+)\/cancellation(?:\/(document))?$/);if(!m)return null;
  const code=m[1],row=await env.DB.prepare(`SELECT b.*,${bookingAmountSql()} AS effective_amount,${foodEventSql()} AS food_event FROM bookings b WHERE booking_code=?`).bind(code).first();if(!row)return err('예약을 찾을 수 없습니다.',404);
+ const event=parse(row.food_event),foodAgreement=event?.cancellation_terms?{...event.cancellation_terms,quote_no:event.quote_no}:null;
  const state=await cancellationState(env,code),settlement=await settlementFor(env,code);
  const restored=await env.DB.prepare('SELECT id,created_at,snapshot,show_amount FROM booking_reconfirmations WHERE booking_code=? ORDER BY id DESC LIMIT 1').bind(code).first();
  const cycle=settlement.cancellation?.cycle||(restored?{id:restored.id,started_at:restored.created_at,refunded_before:parse(restored.snapshot)?.refunded||0}:null);
@@ -28,7 +29,7 @@ export async function cancellationAdmin({env,request,path,method,url}){
  if(method==='GET'&&!m[2]){
   const history=(await env.DB.prepare('SELECT id,previous_version,terms,created_at FROM booking_cancellation_revisions WHERE booking_code=? ORDER BY id DESC LIMIT 50').bind(code).all()).results||[];
   const doc=state&&row.status==='cancelled'?cancellationDocument(row,state,settlement):null;
-  return json({ok:true,booking:{code,name:row.customer_name,date:row.date,status:row.status,amount:row.effective_amount},version:state?.version||0,terms:state?.terms||null,cycle,document_preferences,document_version:state?.document?.issue_no||0,settlement,history:history.map(r=>({...r,terms:parse(r.terms)})),preview:doc?publicDoc(row,doc):null,issued:!!state?.document?.issued_at});
+  return json({ok:true,booking:{code,name:row.customer_name,date:row.date,status:row.status,amount:row.effective_amount,food_only:row.space_id===FOOD_SPACE},food_agreement:foodAgreement,version:state?.version||0,terms:state?.terms||null,cycle,document_preferences,document_version:state?.document?.issue_no||0,settlement,history:history.map(r=>({...r,terms:parse(r.terms)})),preview:doc?publicDoc(row,doc):null,issued:!!state?.document?.issued_at});
  }
  if(method!=='POST')return err('지원하지 않는 요청입니다.',405);
  const d=await readJson(request),id=str(d.request_id,80);
@@ -47,23 +48,27 @@ export async function cancellationAdmin({env,request,path,method,url}){
  const previous=await env.DB.prepare('SELECT terms FROM booking_cancellation_revisions WHERE booking_code=? AND request_id=?').bind(code,id).first();
  const reason=str(d.reason,500),at=String(d.cancelled_at||''),mode=d.mode;
  const original=state?.terms,basis=original?original.basis_net:Math.max(0,settlement.net),eligible=original?.basis_eligible??Math.min(basis,row.effective_amount==null?basis:row.effective_amount);
- if(!['policy','full','manual'].includes(mode)||!reason||!/^\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d(?:\.\d{3})?)?(?:Z|[+-]\d\d:\d\d)$/.test(at)||!isDate(at.slice(0,10))||!Number.isFinite(Date.parse(at))||Date.parse(at)>Date.now()+60000)return err('취소 접수 시각·정산 방식·사유를 확인해 주세요.');
+ if(!['policy','full','manual','agreement'].includes(mode)||!reason||!/^\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d(?:\.\d{3})?)?(?:Z|[+-]\d\d:\d\d)$/.test(at)||!isDate(at.slice(0,10))||!Number.isFinite(Date.parse(at))||Date.parse(at)>Date.now()+60000)return err('취소 접수 시각·정산 방식·사유를 확인해 주세요.');
+ const agreementQuote=mode==='agreement'?str(d.expected_quote_no,40):null;
+ const savedRequest=previous?parse(previous.terms)?.request:null;
+ if(mode==='agreement'&&!savedRequest&&(!agreementQuote||agreementQuote!==foodAgreement?.quote_no||foodAgreement.fee==null))return stale();
  const policy=cancellationPolicy(row.date,at),refundRate=mode==='full'?10000:mode==='policy'?policy.rate:null;
- const fee=mode==='manual'?Number(d.fee):eligible-Math.round(eligible*refundRate/10000);
+ const fee=mode==='manual'?Number(d.fee):mode==='agreement'?(savedRequest?.fee??foodAgreement.fee):eligible-Math.round(eligible*refundRate/10000);
  const cycleBasis=S.cancellationCycle(original?.basis_received??settlement.received,original?.basis_refunded??settlement.refunded,cycle);
- const limit=mode==='manual'?(original?.basis_cycle_received??cycleBasis.cycle_received):basis;
- if(!Number.isSafeInteger(fee)||fee<0||fee>limit)return err('수수료는 정산 기준으로 받은 이용료 이내의 정수로 입력해 주세요.');
- const signature={mode,cancelled_at:new Date(at).toISOString(),fee,reason};
+ const limit=mode==='manual'||mode==='agreement'?(original?.basis_cycle_received??cycleBasis.cycle_received):basis;
+ const signature={mode,cancelled_at:new Date(at).toISOString(),fee,reason,...(agreementQuote?{agreement_quote_no:agreementQuote}:{})};
  if(previous){const saved=parse(previous.terms);if(JSON.stringify(saved?.request)!==JSON.stringify(signature))return err('다른 취소 정산에 사용된 요청번호입니다.',409,'PAYMENT_CONFLICT');return json({ok:true,duplicate:true,settlement});}
+ if(!Number.isSafeInteger(fee)||fee<0||fee>limit)return err('수수료는 정산 기준으로 받은 이용료 이내의 정수로 입력해 주세요.');
  if(d.expected_revision!==settlement.revision||d.expected_version!==(state?.version||0))return stale();
  if(!state&&settlement.net<0)return err('환불액이 수납액보다 많습니다. 수납·환불 기록을 먼저 확인해 주세요.',409,'PAYMENT_REVIEW');
- const t=now(),terms={...signature,request:signature,policy_version:'megaspot-refund-20261103',policy_label:mode==='policy'?policy.label+' · '+refundRate/100+'% 환불':mode==='full'?'전액 환불 · 수수료 없음':'별도 합의 수수료',refund_rate:refundRate,original_amount:original?original.original_amount:row.effective_amount,basis_received:original?.basis_received??settlement.received,basis_refunded:original?.basis_refunded??settlement.refunded,basis_net:basis,basis_eligible:eligible,...(cycle?{cycle,basis_cycle_received:original?.basis_cycle_received??cycleBasis.cycle_received,basis_cycle_refunded:original?.basis_cycle_refunded??cycleBasis.cycle_refunded}:{})};
+ const t=now(),terms={...signature,request:signature,policy_version:'megaspot-refund-20261103',policy_label:mode==='policy'?policy.label+' · '+refundRate/100+'% 환불':mode==='full'?'전액 환불 · 수수료 없음':mode==='agreement'?'식음료 견적 합의 수수료':'별도 합의 수수료',refund_rate:refundRate,original_amount:original?original.original_amount:row.effective_amount,basis_received:original?.basis_received??settlement.received,basis_refunded:original?.basis_refunded??settlement.refunded,basis_net:basis,basis_eligible:eligible,...(cycle?{cycle,basis_cycle_received:original?.basis_cycle_received??cycleBasis.cycle_received,basis_cycle_refunded:original?.basis_cycle_refunded??cycleBasis.cycle_refunded}:{})};
  const published=previousDoc.issued_at?JSON.stringify({issued_at:state?.document?.issued_at||t,updated_at:t,issue_no:(state?.document?.issue_no||0)+1,show_amount:previousDoc.show_amount!==false,customer:previousDoc.customer||row.customer_name}):JSON.stringify({show_amount:document_preferences.show_amount,customer:previousDoc.customer||row.customer_name});
  const version=state?.version||0,financial=settlement.revision,token=randomToken();
  // The serialized revision includes the current terms version; stale writes never change status or publish a new plan.
  await env.DB.batch([
   env.DB.prepare(`INSERT INTO booking_cancellation_revisions(booking_code,request_id,previous_version,terms,created_at,processing_token) SELECT booking_code,?,?,?,?,? FROM bookings b WHERE booking_code=? AND ${settlementRevisionSql()}=?
-   AND (b.space_id<>'${FOOD_SPACE}' OR NOT EXISTS(SELECT 1 FROM inquiries WHERE ref=b.inquiry_ref AND status='삭제됨')) AND COALESCE((SELECT revision FROM booking_cancellation_state WHERE booking_code=b.booking_code),0)=? AND COALESCE((SELECT document FROM booking_cancellation_state WHERE booking_code=b.booking_code),'')=?`).bind(id,version,JSON.stringify(terms),t,token,code,financial,version,state?.document_raw||''),
+   AND (? IS NULL OR json_extract(${foodEventSql()},'$.quote_no')=?)
+   AND (b.space_id<>'${FOOD_SPACE}' OR NOT EXISTS(SELECT 1 FROM inquiries WHERE ref=b.inquiry_ref AND status='삭제됨')) AND COALESCE((SELECT revision FROM booking_cancellation_state WHERE booking_code=b.booking_code),0)=? AND COALESCE((SELECT document FROM booking_cancellation_state WHERE booking_code=b.booking_code),'')=?`).bind(id,version,JSON.stringify(terms),t,token,code,financial,agreementQuote,agreementQuote,version,state?.document_raw||''),
   env.DB.prepare('INSERT INTO booking_cancellation_state(booking_code,revision,document) SELECT booking_code,id,? FROM booking_cancellation_revisions WHERE booking_code=? AND request_id=? AND processing_token=? ON CONFLICT(booking_code) DO UPDATE SET revision=excluded.revision,document=excluded.document').bind(published,code,id,token),
   env.DB.prepare("UPDATE bookings SET status='cancelled',confirm_doc=NULL,updated_at=? WHERE booking_code=? AND EXISTS(SELECT 1 FROM booking_cancellation_revisions WHERE booking_code=? AND request_id=? AND processing_token=?)").bind(t,code,code,id,token),
   env.DB.prepare("DELETE FROM calendar_blocks WHERE memo=? AND EXISTS(SELECT 1 FROM booking_cancellation_revisions WHERE booking_code=? AND request_id=? AND processing_token=?)").bind('예약 '+code,code,id,token),

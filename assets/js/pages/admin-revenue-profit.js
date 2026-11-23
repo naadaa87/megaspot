@@ -2,7 +2,7 @@
   'use strict';
   const X=window.MEGASPOT_ADMIN,panel=document.getElementById('revenue-profit-panel');
   if(!X||!panel)return;
-  const esc=X.esc,branches={'megaspot-gundae':'건대 1호점','megaspot-gundae-2':'건대 2호점',unassigned:'공통·지점 미지정'};
+  const esc=X.esc,branches={'megaspot-gundae':'건대 1호점','megaspot-gundae-2':'건대 2호점','food-only':'식음료 단독',unassigned:'공통·지점 미지정'};
   const serviceLabels={rental:'공간대관',catering:'출장뷔페',reception:'케이터링',cocktail:'출장 칵테일',other:'기타·확인 필요'};
   const won=value=>Number(value).toLocaleString('ko-KR')+'원';
   const amount=value=>value==null?'확인 필요':won(value);

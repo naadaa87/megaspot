@@ -75,6 +75,7 @@ export function publicDoc(row, doc) {
     customer: d.customer || row.customer_name || '', phone: maskPhone(row.phone),
     space: sp, ...(food ? {food_event:{...food,...(d.show_amount!==false&&d.settlement?{reservation_paid:!!d.settlement.food_reservation_paid}:{})}} : {}), date: row.date, start_h: row.start_h ?? null, end_h: row.end_h ?? null, slot: row.slot || '', headcount: row.headcount ?? null,
     event: d.event || '', time_note: d.time_note || '', show_amount: d.show_amount !== false, amount: d.show_amount === false ? null : d.amount ?? null, amount_note: d.amount_note || '부가세 포함',
+    ...(d.show_amount!==false&&d.settlement?.venue_reservation_fee>0?{reservation_fee:d.settlement.venue_reservation_fee,reservation_paid:!!d.settlement.venue_reservation_paid}:{}),
     settlement:d.show_amount===false?null:d.settlement?S.calculate(d.settlement):null,
     food_services:(d.food_services||[]).map(value=>({...(value.kind==='cocktail'?F.publicCocktail(value):value),...(d.show_amount===false?{amount:null,total:null,price:null,supply:null,fee:null,vat:null,unit:null,summary:''}:{})})),
     reception: d.reception ? { ...d.reception, ...(d.show_amount === false ? { ...(d.reception.price_basis==='budget'?{course:'cf-custom',courseName:'예산 기준 맞춤 구성',summary:''}:{}),summary:'',unitPrice:null, unit_price:null, food:null, fee:null, supply:null, vat:null, total:null, budget_per_person:null } : {}) } : null,

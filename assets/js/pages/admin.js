@@ -401,6 +401,7 @@
   window.addEventListener('beforeunload',function(e){ if(Object.keys(drawerDirty).some(function(k){ return drawerDirty[k] && !document.getElementById(k).hidden; }) || quoteDirty){ e.preventDefault(); e.returnValue=''; } });
   $$('.adm-drawer').forEach(function(d){ d.addEventListener('click', function(e){ if(e.target.closest('[data-close]')) closeDrawer(d); }); });
   document.addEventListener('keydown', function(e){
+    if(document.querySelector('dialog[open]'))return;
     var d=drawerStack[drawerStack.length-1];
     if(e.key==='Escape' && d){ e.preventDefault(); closeDrawer(d); }
     if(e.key==='Tab' && d){ var fields=Array.from(d.querySelectorAll('button,a[href],input,select,textarea,[tabindex="0"]')).filter(function(x){ return !x.disabled && x.getClientRects().length; }); if(!fields.length) return; var first=fields[0], last=fields[fields.length-1]; if(e.shiftKey && (document.activeElement===first || !d.contains(document.activeElement))){ e.preventDefault(); last.focus(); } else if(!e.shiftKey && (document.activeElement===last || !d.contains(document.activeElement))){ e.preventDefault(); first.focus(); } }
@@ -542,6 +543,7 @@
       (booking.status==='cancelled'?'<button type="button" class="btn btn-light btn-sm" data-food-cancel>취소·환불 정산서</button>'+
        (archived?'':'<button type="button" class="btn btn-light btn-sm" data-food-reconfirm>예약 재확정</button>'):(booking.food_needs_reissue?'<button type="button" class="btn btn-light btn-sm" data-cdoc="'+esc(booking.booking_code)+'">확정서 다시 발급</button>':cdBtn(booking.booking_code,booking.confirm_issued,'btn-sm',true)))+
       '<button type="button" class="btn btn-light btn-sm" data-settlement-code="'+esc(booking.booking_code)+'">수납·환불</button>'+
+      foodOperationsButton(booking.booking_code,'btn-sm')+
       (booking.status==='confirmed'?'<button type="button" class="btn btn-light btn-sm" data-food-complete>이용 완료</button><button type="button" class="btn btn-light btn-sm" data-food-cancel>예약 취소</button>':'')+'</div>':'';
     function usedQuote(q){
       return '<div class="dr-quote"><div><b>'+esc(q.quote_no)+'</b> <span class="small muted">'+esc(foodQuoteTimeText(q.data.input))+'</span></div><b>'+esc(won(q.total))+'</b><button type="button" class="btn btn-light btn-sm" data-fi-quote="'+esc(q.quote_no)+'">열기</button></div>';
@@ -553,10 +555,12 @@
       foodSettlementRows(booking?.settlement||(hasInquiryPayment?inquiryPayment:null),booking?.status==='cancelled').map(function(row){return kv(row[0],esc(foodSettlementValue(row[1])));}).join('')+
       kv('행사 인원',it?.headcount?esc(it.headcount+'명'):'')+kv('행사 장소',esc(event.location||input.location||'미정'))+
       kv('행사 일정',esc([it?.event_date?kd(it.event_date):'',foodEventTime(event)].filter(Boolean).join(' · ')))+
+      foodCancellationLines(event.cancellation_terms).map(function(row){return kv(row[0],esc(row[1]));}).join('')+
       (data.message?'<div class="dr-msg">'+esc(data.message)+'</div>':'')+actions+
       (it&&!booking?'<div class="q-btns">'+
         (editable&&!quote?'<button type="button" class="btn btn-primary btn-sm" id="fi-new-quote">이 문의로 견적 만들기</button>':'')+
-        (editable||hasInquiryPayment?'<button type="button" class="btn btn-light btn-sm" data-payment-editor="inquiry/'+esc(it.ref)+'">'+(archived?'보관된 수납 내역':'예약금 입금 기록')+'</button>':'')+'</div>':'')+'</div>'+
+        (editable||hasInquiryPayment?'<button type="button" class="btn btn-light btn-sm" data-payment-editor="inquiry/'+esc(it.ref)+'">'+(archived?'보관된 수납 내역':'예약금·입금 상태')+'</button>':'')+
+        (editable||hasInquiryPayment?'<button type="button" class="btn btn-light btn-sm" data-inquiry-settlement="'+esc(it.ref)+'">수납·환불 기록 관리</button>':'')+'</div>':'')+'</div>'+
       (editable?'<form class="dr-sec" id="'+formId+'"><h3 id="fi-terms" tabindex="-1">행사 및 결제 조건</h3>'+
         '<div class="field-row three fi-contact">'+field('name','예약자',it?.name??input.customer,'text','required maxlength="80"')+field('phone','연락처',it?.phone||input.phone,'tel','maxlength="30"')+field('email','이메일',it?.email||input.email,'email','maxlength="120"')+'</div>'+
         field('location','행사 장소',input.location||event.location,'text','maxlength="200"')+
@@ -566,7 +570,8 @@
         '<div class="f"><label for="fi-message">고객 요청</label><textarea class="textarea" id="fi-message" name="message" maxlength="2000">'+esc(data.message||input.note||'')+'</textarea></div>'+
         '<div class="f"><label for="fi-memo">운영 메모</label><textarea class="textarea" id="fi-memo" name="memo" maxlength="2000">'+esc(newDraft?.memo||it?.memo||'')+'</textarea></div>'+
         (quote?'<p class="small muted">적용할 견적 '+esc(quote.quote_no)+' · '+esc(won(quote.total))+' (부가세 포함)</p>'+
-          (quote.data.input.extras||[]).map(function(row){return kv(foodLabels[row.kind],esc(foodQuoteDetails(row)[0][1]));}).join(''):
+          (quote.data.input.extras||[]).map(function(row){return kv(foodLabels[row.kind],esc(foodQuoteDetails(row)[0][1]));}).join('')+
+          foodCancellationLines(quote.data.input.cancellationTerms).map(function(row){return kv(row[0],esc(row[1]));}).join(''):
           event.quote_no?'<p class="small muted">적용된 견적 '+esc(event.quote_no)+'</p>':
           !chosen?'<p class="small muted">식음료 견적을 저장하면 이 문의에서 예약을 확정할 수 있습니다.</p>':'')+
         '<div class="q-btns">'+(it||!quote?'<button type="submit" class="btn '+(quote?'btn-primary':'btn-light')+'" name="save">'+(quote?'이 문의에 견적 적용':it?'저장':'문의 등록')+'</button>':'')+
@@ -660,16 +665,24 @@
     var needs=(d.needs||[]).join(', ');
     $('#dr-title').textContent=it.ref+' · '+(d.name||it.name||'');
     var tel=(d.phone||it.phone||'').replace(/[^0-9+]/g,'');
+    var pending=cur.inquiry_settlement,venuePaymentRows=pending&&pending.received>0?foodSettlementRows(pending,['취소·환불','대기 취소'].includes(it.status)):[];
+    if(pending?.reservation_fee>0)venuePaymentRows.unshift(['예약금 약정액',pending.reservation_fee]);
+    var activeBookings=(cur.bookings||[]).filter(function(b){return b.status!=='cancelled';});
+    var depositRecord=activeBookings.length===1?activeBookings[0].settlement:pending;
+    var depositFee=depositRecord?.venue_reservation_fee??depositRecord?.reservation_fee;
+    var depositStatus=depositFee>0?(depositRecord.net>=depositFee?'완료':depositRecord.net>0?'일부 입금':'입금 전'):'';
+
     $('#dr-body').innerHTML=
       (it.status===DELETED?'<div class="dr-deleted"><div><b>삭제된 문의입니다.</b> 목록과 집계에서는 빠지고 이 보관함에만 남아 있습니다.<small>삭제 '+esc(String(d.deleted_at||it.updated_at||'').slice(0,16))+(d.deleted_from?' · 삭제 전 상태 '+esc(d.deleted_from):'')+'</small></div><div class="row" style="gap:6px"><button class="btn btn-primary btn-sm" type="button" id="dr-restore">복원</button><button class="btn btn-danger btn-sm" type="button" id="dr-purge">완전 삭제</button></div></div>':'')
       +'<div class="dr-top">'+(it.status===DELETED?stBadge(it.status):'<select class="select" id="dr-status"'+(it.status==='대기 취소'?' disabled title="일자별 예약에서 대기를 복원할 수 있습니다."':'')+'>'+STATUSES.map(function(s){ return '<option'+(s===it.status?' selected':'')+(s==='대기 취소'?' disabled':'')+'>'+s+'</option>'; }).join('')+'</select>')
       +'<span class="small muted"><b class="dr-space">'+esc(spaceName(it.space_id||d.space_id||DEFAULT_SPACE))+'</b> · 접수 '+esc(String(it.created_at||'').slice(0,16))+(d.member_id?' · 회원 '+esc(d.member_email||''):'')+'</span></div>'
       +inquiryOverview(it,d)
+      +(venuePaymentRows.length?'<div class="dr-sec"><h3>이용료 수납·환불</h3>'+venuePaymentRows.map(function(row){return kv(row[0],esc(foodSettlementValue(row[1])));}).join('')+'</div>':'')
       +'<div class="dr-ch"><label for="dr-ch">문의 경로</label><select class="select" id="dr-ch">'+chOptions(d.channel||'web')+'</select><input class="input" id="dr-ch-note" maxlength="40" value="'+esc(d.channel_note||'')+'" placeholder="'+((d.channel||'web')==='other'?'기타 경로 (선택)':'세부 경로 (선택)')+'"'+(['other','sns'].indexOf(d.channel||'web')>=0?'':' hidden')+'><button class="btn btn-light btn-xs" type="button" id="dr-ch-save" hidden>경로 저장</button>'
       +((d.channel||'web')==='web'&&d.came_from?'<span class="dr-came">유입: <b>'+esc(d.came_from.label||'')+'</b>'+(d.came_from.host?' <small>('+esc(d.came_from.host)+')</small>':'')+(d.came_from.utm_campaign?' <small>캠페인 '+esc(d.came_from.utm_campaign)+'</small>':'')+(d.came_from.landing?' <small>첫 페이지 '+esc(d.came_from.landing)+'</small>':'')+'</span>':'')+'</div>'
       +'<div class="dr-wait" id="dr-wait" role="status"'+(cur.wait?'':' hidden')+'>'+detailWaitMarkup(cur.wait)+'</div>'
       +(famAsk(d)?'<div class="dr-fam"><span class="ch-tag">함께 알아보기</span> <b>'+esc(famAsk(d))+'</b> <small class="muted">고객이 같은 날 함께 쓰고 싶다고 체크했습니다. 해당 공간 일정을 확인해 함께 안내해 주세요.</small></div>':'')
-      +'<div class="dr-actions"><button class="btn btn-primary btn-sm" type="button" id="dr-quote">현재 요금으로 견적 계산 →</button>'+((sentQuote&&sentQuote.data&&sentQuote.data.input)?'<button class="btn btn-light btn-sm" type="button" id="dr-saved-quote">저장한 견적 보기</button>':'')+'<button class="btn btn-light btn-sm" type="button" data-payment-editor="inquiry/'+esc(it.ref)+'">입금·수납 등록</button><button class="btn btn-light btn-sm" type="button" id="dr-cat">출장뷔페 계산</button><button class="btn btn-light btn-sm" type="button" id="dr-reception">테이블 케이터링 계산</button><button class="btn btn-light btn-sm" type="button" id="dr-cocktail">칵테일 계산·변경</button>'
+      +'<div class="dr-actions"><button class="btn btn-primary btn-sm" type="button" id="dr-quote">현재 요금으로 견적 계산 →</button>'+((sentQuote&&sentQuote.data&&sentQuote.data.input)?'<button class="btn btn-light btn-sm" type="button" id="dr-saved-quote">저장한 견적 보기</button>':'')+'<button class="btn btn-light btn-sm" type="button" data-payment-editor="inquiry/'+esc(it.ref)+'">예약금·입금 상태</button><button class="btn btn-light btn-sm" type="button" data-inquiry-settlement="'+esc(it.ref)+'">수납·환불 기록 관리</button><button class="btn btn-light btn-sm" type="button" id="dr-cat">출장뷔페 계산</button><button class="btn btn-light btn-sm" type="button" id="dr-reception">테이블 케이터링 계산</button><button class="btn btn-light btn-sm" type="button" id="dr-cocktail">칵테일 계산·변경</button>'
       +(tel?'<a class="btn btn-light btn-sm" href="tel:'+esc(tel)+'">전화</a><a class="btn btn-light btn-sm" href="sms:'+esc(tel)+'">문자</a>':'')
       +((d.email||it.email)?'<a class="btn btn-light btn-sm" href="mailto:'+esc(d.email||it.email)+'?subject='+encodeURIComponent('['+spaceName(spaceOk(it.space_id))+'] 문의 '+it.ref+' 안내')+'">이메일</a>':'')
       +((it.status===DELETED||it.status==='대기 취소'||(cur.bookings||[]).some(function(b){ return b.status!=='cancelled'; }))?'':'<button class="btn btn-light btn-sm btn-ok" type="button" id="dr-book">예약 확정</button>')
@@ -683,7 +696,7 @@
       +(calculation.text?'<details class="dr-sec" id="dr-calculation"><summary><h3 style="display:inline">'+(calculation.admin?'요금표 계산 내역':'고객이 보낸 예상 금액')+'</h3></summary><button class="btn btn-light btn-sm mt-1" type="button" id="dr-calculation-copy">계산 내역 복사하기</button><pre class="dr-pre">'+esc(calculation.text)+'</pre></details>':'')
       +(calculation.customerOriginal?'<details class="dr-sec"><summary><h3 style="display:inline">고객이 처음 보낸 예상 금액</h3></summary><pre class="dr-pre">'+esc(calculation.customerOriginal)+'</pre></details>':'')
       +(previousEstimate?'<details class="dr-sec"><summary><h3 style="display:inline">이전 요금 안내</h3>'+(previousEstimate.total!=null?' <b>'+esc(won(previousEstimate.total))+'</b>':'')+'</summary>'+(previousEstimate.text?'<pre class="dr-pre">'+esc(previousEstimate.text)+'</pre>':'')+'</details>':'')
-      +'<div class="dr-sec"><h3>진행 체크리스트</h3><div class="dr-checks">'+CHECKS.map(function(c){ var v=ch[c[0]]; return '<label class="chk"><input type="checkbox" data-chk="'+c[0]+'"'+(v?' checked':'')+'> '+esc(c[0]==='guide_sent'&&(cur.bookings||[]).filter(function(b){return b.status!=='cancelled';}).length>1?'연결된 예약 전체 현장 안내 확인':c[1])+(v&&typeof v==='string'?' <small>'+esc(v.slice(5,16))+'</small>':'')+'</label>'; }).join('')+'</div></div>'
+      +'<div class="dr-sec"><h3>진행 체크리스트</h3><div class="dr-checks">'+CHECKS.map(function(c){ if(c[0]==='deposit_paid'&&depositStatus)return '<span class="chk">예약금 입금 확인 · '+depositStatus+' (자동)</span>'; var v=ch[c[0]]; return '<label class="chk"><input type="checkbox" data-chk="'+c[0]+'"'+(v?' checked':'')+'> '+esc(c[0]==='guide_sent'&&(cur.bookings||[]).filter(function(b){return b.status!=='cancelled';}).length>1?'연결된 예약 전체 현장 안내 확인':c[1])+(v&&typeof v==='string'?' <small>'+esc(v.slice(5,16))+'</small>':'')+'</label>'; }).join('')+'</div></div>'
       +'<div class="dr-sec"><h3>저장한 견적</h3>'+((cur.quotes||[]).length?cur.quotes.map(function(q){ return '<div class="dr-quote"><div><b>'+esc(q.quote_no)+'</b> <span class="small muted">'+esc(String(q.created_at).slice(0,16))+'</span></div><b>'+esc(won(q.total))+'</b><button class="btn btn-light btn-sm" type="button" data-openq="'+esc(q.quote_no)+'">열기</button></div>'; }).join(''):'<p class="small muted">아직 저장한 견적이 없습니다.</p>')+'</div>'
       +((cur.bookings||[]).length?'<div class="dr-sec"><h3>연결된 예약</h3>'+cur.bookings.map(function(b){ return '<div class="dr-bk"><span class="small">'+esc(b.booking_code)+' · '+esc(kd(b.date))+' · '+esc({confirmed:'예약 확정',completed:'이용 완료',payment_review:'결제 완료 · 일정 확인 필요',cancelled:'취소'}[b.status]||b.status)+'</span>'+(b.status==='payment_review'?'<span class="small">예약 목록의 일정 확인 필요 항목에서 검토해 주세요.</span>':'')+(b.status==='confirmed'?guideControl(b.booking_code,b.guide_status):'')+settlementSummary(b)+(['confirmed','completed'].includes(b.status)?cdBtn(b.booking_code, b.confirm_issued, 'btn-sm',b.space_id==='food-only')+(b.confirm_issued?'':' <span class="tiny muted">고객에게 보낼 예약확정서를 만들 수 있습니다</span>'):'')+'</div>'; }).join('')+'</div>':'')
       +'<div class="dr-sec"><h3>운영 메모</h3><textarea class="textarea" id="dr-memo" style="min-height:90px" placeholder="통화 내용, 확정 금액, 특이사항">'+esc(it.memo||'')+'</textarea><button class="btn btn-light btn-sm mt-1" type="button" id="dr-memo-save">메모 저장</button></div>'
@@ -1025,6 +1038,9 @@
     $('#q-location').value=Q.location;$('#q-reception').hidden=Q.foodOnly;
     $('#q-food-start').value=Q.foodStartTime||'';
     $('#q-food-end').value=Q.foodEndTime||'';
+    $('#q-food-cancel-note').value=Q.cancellationTerms?.cancellation||'';
+    $('#q-food-cancel-fee').value=Q.cancellationTerms?.fee??'';
+    $('#q-food-change-note').value=Q.cancellationTerms?.change||'';
     $('#q-rental-intro').hidden=Q.foodOnly;$('#q-food-intro').hidden=!Q.foodOnly;
     $('#q-people').placeholder=Q.foodOnly?'선택 사항':'';
     $('#q-people-label').textContent=Q.foodOnly?'행사 인원':'인원';
@@ -1070,6 +1086,8 @@
       Q.date=$('#q-date').value;
       Q.foodStartTime=$('#q-food-start').value;
       Q.foodEndTime=$('#q-food-end').value;
+      var cancelFee=$('#q-food-cancel-fee').value, cancellation=($('#q-food-cancel-note').value||'').trim(), change=($('#q-food-change-note').value||'').trim();
+      Q.cancellationTerms=cancellation||change||cancelFee?{fee:cancelFee?Number(cancelFee):null,cancellation:cancellation,change:change}:null;
       Q.people=Math.min(999,Math.max(1,parseInt($('#q-people').value,10)))||null;
       Q.valid=+$('#q-valid').value||1;
       Q.note=$('#q-note').value.trim();
@@ -1324,7 +1342,7 @@
     if(!Q.ref)return Promise.resolve(true);
     readForm();var ref=Q.ref;
     return A('/inquiries/'+encodeURIComponent(ref)).then(function(r){
-      if(Q.ref!==ref)return false;var linked=(r.bookings||[]).filter(function(b){return b.status!=='cancelled';});if(!linked.length&&r.bookings?.length===1&&r.bookings[0].settlement?.cancellation)linked=r.bookings;quoteSettlement=linked.length===1?linked[0].settlement:null;var d=r.item.data||{},RC=window.MEGASPOT_RECEPTION_CALC;
+      if(Q.ref!==ref)return false;var linked=(r.bookings||[]).filter(function(b){return b.status!=='cancelled';});if(!linked.length&&r.bookings?.length===1&&r.bookings[0].settlement?.cancellation)linked=r.bookings;quoteSettlement=linked.length===1?linked[0].settlement:(r.inquiry_settlement?.received>0?r.inquiry_settlement:null);var d=r.item.data||{},RC=window.MEGASPOT_RECEPTION_CALC;
       if(!RC.quoteCurrent(Q,d)||!window.MEGASPOT_FOOD_SERVICES.current(Q,d)){
         var include=!Q.receptionExcluded&&(d.reception_in_quote||Q.extras.some(function(x){return x.kind==='reception';})||!d.quote_input);
         Q=window.MEGASPOT_FOOD_SERVICES.syncQuote(RC.syncQuote(Q,d,include),d,false);invalidateQuote();fillForm();calc();note($('#q-msg'),'변경된 식음료 구성과 취소 상태를 최신 정보로 반영했습니다. 금액을 확인하고 견적 저장을 눌러 주세요.',true);
@@ -1369,6 +1387,7 @@
     quoteSaving=true;this.disabled=true;
     return ensureCurrentQuote('save').then(function(ok){
       if(!ok)return;
+      if(Q.foodOnly&&!$('#q-food-cancel-fee').reportValidity())return;
       calc();
       if(!R||Q.foodOnly&&!R.extras.length)return;
       var sent=payload(),draft=Q;
@@ -1402,6 +1421,12 @@
     if(!row.catering||!window.MEGASPOT_FOOD_SERVICES.isRow('catering',row)) return null;
     return Object.assign({},row.catering,{kind:'catering',amount:row.amount,included:true});
   }
+  function foodCancellationLines(terms){
+    if(!terms)return [];
+    return [terms.cancellation?['전체 취소 조건',terms.cancellation]:null,
+      terms.fee!=null?['합의한 전체 취소 수수료',won(terms.fee)]:null,
+      terms.change?['인원·메뉴 일부 변경 조건',terms.change]:null].filter(Boolean);
+  }
   function kakaoText(){
     var q=R.q, L=[], cp=custParts(Q.customer);
     if(Q.foodOnly){
@@ -1418,6 +1443,7 @@
       var tax=foodQuoteTax();
       L.push('','공급가액 '+won(tax.supply)+' + 부가세 '+won(tax.vat),
         '합계 '+won(R.total)+' (부가세 포함)','견적 유효기간: '+E.kdateY(R.validUntil)+'까지');
+      foodCancellationLines(Q.cancellationTerms).forEach(function(row){L.push('· '+row[0]+' '+row[1]);});
       if(Q.note)L.push('',Q.note);
       return L.join('\n');
     }
@@ -1527,6 +1553,9 @@
       +((Q.phone||Q.email)?'<tr><th>연락처</th><td colspan="3">'+esc([Q.phone,Q.email].filter(Boolean).join(' · '))+'</td></tr>':'')
       +'</tbody></table><table class="qp-lines"><thead><tr><th>항목</th><th>내용</th><th>금액</th></tr></thead><tbody>'+rows+'</tbody>'
       +'<tfoot><tr><td colspan="2">공급가액</td><td>'+esc(won(tax.supply))+'</td></tr><tr><td colspan="2">부가세</td><td>'+esc(won(tax.vat))+'</td></tr><tr><th colspan="2">합계 <small>부가세 포함</small></th><th>'+esc(won(R.total))+'</th></tr></tfoot></table>'
+      +(Q.cancellationTerms?'<ul class="qp-notes">'+foodCancellationLines(Q.cancellationTerms).map(function(row){
+        return '<li>'+esc(row[0]+' '+row[1]).replace(/\n/g,'<br>')+'</li>';
+      }).join('')+'</ul>':'')
       +(Q.note?'<ul class="qp-notes"><li>'+esc(Q.note).replace(/\n/g,'<br>')+'</li></ul>':'')
       +'<footer class="qp-foot">'+esc([contact.phone,contact.email,'megaspot.kr'].filter(Boolean).join(' · '))+'</footer></div>';
   }
@@ -2264,13 +2293,16 @@
     return '<button type="button" class="btn '+(primary?'btn-primary':'btn-light')+' btn-xs" data-food-open="'+esc(ref)+'"'+
       (action?' data-food-action="'+action+'"':'')+'>'+label+'</button>';
   }
+  function foodOperationsButton(code,size){
+    return code?'<button type="button" class="btn btn-light '+size+'" data-food-operations-code="'+esc(code)+'">현장 운영·잔금 안내</button>':'';
+  }
   function foodBookingShortcuts(ref,status,code,event){
     if(!ref)return '';
     if(status==='confirmed')return foodReservationButton(ref,'예약 수정','terms',true)+
-      (event?.quote_no?foodReservationButton(ref,'구성·인원 변경','change'):'');
+      (event?.quote_no?foodReservationButton(ref,'구성·인원 변경','change'):'')+foodOperationsButton(code,'btn-xs');
     if(status==='cancelled')return '<button type="button" class="btn btn-light btn-xs" data-food-settlement-doc="'+esc(code)+'">취소·환불 정산서</button>'+
-      foodReservationButton(ref,'예약 재확정','reconfirm')+foodArchiveButton(ref);
-    return foodReservationButton(ref,'상세')+(status==='completed'?foodArchiveButton(ref):'');
+      foodReservationButton(ref,'예약 재확정','reconfirm')+foodOperationsButton(code,'btn-xs')+foodArchiveButton(ref);
+    return foodReservationButton(ref,'상세')+foodOperationsButton(code,'btn-xs')+(status==='completed'?foodArchiveButton(ref):'');
   }
   function resvRow(it, x, past){
     var isB=it.kind==='booking', waitCancelled=it.status==='대기 취소', st=isB?(BST[it.status]||[it.status,'']):[it.status,ST_CLS[it.status]||'st-new'];
@@ -2541,6 +2573,8 @@
     var show=!!CDS&&!CDS.booking.food_event&&CDS.booking.status!=='cancelled'&&$('#cd-show-amount').checked&&cdPaidNum()>CDS.settlement.net;
     $('#cd-receipt-fields').hidden=!show;
     ['#cd-processing-date','#cd-processing-method'].forEach(function(selector){$(selector).disabled=!show;});
+    var bank=show&&$('#cd-processing-method').value==='계좌이체';
+    $('#cd-account-field').hidden=!bank;$('#cd-processing-account').disabled=!bank;
   }
   function cdAmountToggle(){if($('#cd-pay'))$('#cd-pay').disabled=true; var on=$('#cd-show-amount').checked; ['#cd-amount','#cd-amount-note','#cd-paid','#cd-deposit'].forEach(function(s){ $(s).disabled=!on; });cdReceiptFields(); }
   function cdReceiptSummary(paid){return '확정서 수납액 입력 · 현재 수납액 '+paid+'원 (반환 보증금 제외)';}
@@ -2557,7 +2591,7 @@
     if(!current||!s.show_amount||s.paid==null||s.paid<current.net||s.paid===current.net)return current;
     return window.MEGASPOT_SETTLEMENT.calculate(Object.assign({},current,{received:current.received+s.paid-current.net}));
   }
-  function cdDoc(){ var p=CDS.preview||{}, s=cdSettings(), d={}; Object.keys(p).forEach(function(k){ d[k]=p[k]; }); Object.keys(s).forEach(function(k){ d[k]=s[k]; }); d.settlement=cdProjectedSettlement(s);if(d.food_event&&d.show_amount)d.food_event={...d.food_event,reservation_paid:!!d.settlement?.food_reservation_paid};if(d.settlement){d.paid=d.settlement.net;d.pay_status=d.settlement.status==='unpriced'?'pending':d.settlement.status;}var saved=CDS.doc?.food_needs_reissue?null:CDS.doc;d.food_services=saved&&Object.hasOwn(saved,'food_services')?saved.food_services:CDS.food_services;d.reception=saved&&Object.hasOwn(saved,'reception')?saved.reception:CDS.reception;d.issued_at=saved?.issued_at||''; return d; }
+  function cdDoc(){ var p=CDS.preview||{}, s=cdSettings(), d={}; Object.keys(p).forEach(function(k){ d[k]=p[k]; }); Object.keys(s).forEach(function(k){ d[k]=s[k]; }); d.settlement=cdProjectedSettlement(s);if(d.food_event&&d.show_amount)d.food_event={...d.food_event,reservation_paid:!!d.settlement?.food_reservation_paid};if(d.settlement){if(d.show_amount&&CDS.settlement.venue_reservation_fee>0){d.reservation_fee=CDS.settlement.venue_reservation_fee;d.reservation_paid=d.settlement.net>=d.reservation_fee;}d.paid=d.settlement.net;d.pay_status=d.settlement.status==='unpriced'?'pending':d.settlement.status;}var saved=CDS.doc?.food_needs_reissue?null:CDS.doc;d.food_services=saved&&Object.hasOwn(saved,'food_services')?saved.food_services:CDS.food_services;d.reception=saved&&Object.hasOwn(saved,'reception')?saved.reception:CDS.reception;d.issued_at=saved?.issued_at||''; return d; }
   function cdState(){
     var d=CDS&&CDS.doc, st=$('#cd-state');
     st.className='cd-state'+(d?.issued_at&&!d.food_needs_reissue?' on':'');
@@ -2566,7 +2600,7 @@
       ? '<b>발급됨</b> '+esc(String(d.issued_at).slice(0,16))+(d.updated_at&&d.updated_at!==d.issued_at?' · 마지막 저장 '+esc(String(d.updated_at).slice(0,16)):'')+(cdDirty?' · <span class="warn">고친 내용이 아직 저장되지 않았습니다</span>':'')+'<br><span class="muted">고객은 링크나 megaspot.kr/confirm (예약번호 + 휴대폰 뒷 4자리)에서 같은 확정서를 볼 수 있습니다.</span>'
       : '<b>아직 발급하지 않았습니다.</b> <span class="muted">다운로드·공유·링크 복사를 누르면 지금 내용으로 발급(저장)한 뒤 진행합니다.</span>';
   }
-  function cdPreview(){ if(!CDS||!CDX) return Promise.resolve(); var doc=cdDoc();$('#cd-pay').value=doc.pay_status;$('#cd-pay option[value=deposit]').textContent=doc.food_event?(CDX.paymentText({...doc,pay_status:'deposit'})||'일부 입금'):'예약금 입금 완료 (잔금 안내 예정)';return CDX.render(doc, $('#cd-canvas')); }
+  function cdPreview(){ if(!CDS||!CDX) return Promise.resolve(); var doc=cdDoc();$('#cd-pay').value=doc.pay_status;$('#cd-pay option[value=deposit]').textContent=(doc.food_event||doc.reservation_fee>0)?(CDX.paymentText({...doc,pay_status:'deposit'})||'일부 입금'):'예약금 입금 완료 (잔금 안내 예정)';return CDX.render(doc, $('#cd-canvas')); }
   function cdQueue(){ cdReceiptFields(); cdDirty=true; cdState(); clearTimeout(cdTimer); cdTimer=setTimeout(cdPreview, 250); }
   function openConfirmDoc(code){
     if(!code) return;
@@ -2577,7 +2611,7 @@
       CDS=r;$('#cd-settlement-open').dataset.settlementCode=r.booking.code; var bk=r.booking;
       $('#cd-deposit-field').hidden=!!bk.food_event;
       $('#cd-paid').readOnly=!!bk.food_event;
-      $('#cd-processing-date').value=todayIso();$('#cd-processing-method').value='';
+      $('#cd-processing-date').value=todayIso();$('#cd-processing-method').value='';$('#cd-processing-account').value='';
       $('#cd-form label[for=cd-paid]').textContent=bk.food_event?'현재 수납액 (원)':'현재 수납액 (원 · 반환 보증금 제외)';
       $('#cd-payment-hint').textContent=bk.food_event?'수납·환불 기록으로 잔금과 초과 수납액을 계산합니다.':'실제 받은 이용료와 완료한 환불을 기록하면 잔금·초과 수납액을 계산합니다. 반환 보증금은 별도입니다.';
       $('#cd-paid-help').textContent=bk.food_event?'수납액은 위 수납·환불 내역에서 기록하거나 정정할 수 있습니다.':'실제 받은 이용료 총액을 입력하세요. 저장·다운로드 시 기존 수납액보다 늘어난 차액을 입금 기록으로 반영합니다. 금액을 줄이려면 위 수납·환불 내역에서 잘못된 기록을 정정하거나 완료한 환불을 기록해 주세요.';
@@ -2634,7 +2668,7 @@
     if(!sent.show_amount||sent.paid===fresh.settlement.net)return Promise.resolve(fresh);
     var journal=window.MEGASPOT_ADMIN_SAVE;if(!journal)return Promise.reject(new Error('수납 저장 도구를 불러오지 못했습니다. 새로고침한 뒤 다시 저장해 주세요.'));
     var code=fresh.booking.code,path='/bookings/'+encodeURIComponent(code)+'/settlement',summary=cdReceiptSummary(sent.paid),pending=journal.current();
-    var noteText=window.MEGASPOT_SETTLEMENT.manualPaymentNote($('#cd-processing-date').value,$('#cd-processing-method').value,summary);
+    var noteText=window.MEGASPOT_SETTLEMENT.manualPaymentNote($('#cd-processing-date').value,$('#cd-processing-method').value,summary,$('#cd-processing-account').value);
     var body=pending&&pending.kind==='payment'&&pending.code===code&&pending.path===path&&pending.body.kind==='receipt'&&window.MEGASPOT_SETTLEMENT.manualPaymentParts(pending.body.note).memo===summary?pending.body:{kind:'receipt',amount:sent.paid-fresh.settlement.net,note:noteText,expected_revision:fresh.settlement.revision,request_id:crypto.randomUUID()};
     return journal.submit('payment',code,path,body).then(function(result){
       refreshLists();return A('/bookings/'+encodeURIComponent(code)+'/confirm-doc').then(function(current){
@@ -2661,9 +2695,11 @@
     }).catch(function(e){if(!guard(e))note($('#cd-msg'),e.message);});
   }
   window.addEventListener('admin-settlement-saved',function(e){cdRefreshPayment(e.detail.code);});
-  window.addEventListener('admin-payment-status-saved',function(e){if(e.detail.food_only&&!e.detail.receipt_added)cdRefreshPayment(e.detail.code);});
+  window.addEventListener('admin-payment-status-saved',function(e){if((e.detail.food_only||e.detail.terms_saved)&&!e.detail.receipt_added)cdRefreshPayment(e.detail.code);});
   window.addEventListener('admin-save-recovered',function(e){if(e.detail.kind==='payment')cdRefreshPayment(e.detail.code);});
   if($('#cd-form')){
+    $('#cd-processing-account').innerHTML=window.MEGASPOT_SETTLEMENT.manualPaymentAccountOptions();
+    $('#cd-processing-method').onchange=cdReceiptFields;
     $('#cd-processing-method').innerHTML='<option value="">미확인</option>'+window.MEGASPOT_SETTLEMENT.manualPaymentMethods.map(function(method){return '<option>'+esc(method)+'</option>';}).join('');
     $('#cd-form').addEventListener('input', cdQueue); $('#cd-form').addEventListener('change', function(e){ if(e.target.id==='cd-show-amount') cdAmountToggle(); cdQueue(); });
     $('#cd-save').addEventListener('click', function(){ var b=this, m=$('#cd-msg'); m.hidden=true; cdBusy(b, true, '저장하는 중…');
@@ -2745,7 +2781,7 @@
             '<p>'+esc(when.location||'행사 장소 미정')+'</p>'+
             (details?'<p class="food-agenda-details">'+(item.status==='cancelled'?'취소 전 · ':'')+esc(details)+'</p>':'')+
             (settlement?'<div class="food-agenda-settlement">'+settlement+'</div>':'')+'<div class="q-btns">'+paymentBadge(item,true)+
-            (ref?'<button type="button" class="btn btn-light btn-sm" data-food-open="'+esc(ref)+'">상세</button>':'')+'</div></article>';
+            (ref?'<button type="button" class="btn btn-light btn-sm" data-food-open="'+esc(ref)+'">상세</button>':'')+foodOperationsButton(item.booking_code,'btn-sm')+'</div></article>';
         }).join('')||'<p class="small muted">이 달의 식음료 일정이 없습니다.</p>';
     }
     var y=+calMonth.slice(0,4), m=+calMonth.slice(5,7), first=new Date(y,m-1,1), days=new Date(y,m,0).getDate(), pad=first.getDay(), t=todayIso();
@@ -2801,7 +2837,7 @@
   $('#cal-status-filter').addEventListener('change',loadCalendar);
   $('#cal-service-filter').addEventListener('change',loadCalendar);
   $('#cal-filter').addEventListener('change',function(){ if(this.value) $('#cal-space').value=this.value; loadCalendar(); });
-  $('#cal-grid').addEventListener('click', function(e){ if(e.target.closest('[data-food-info],[data-payment-editor],[data-food-payment]')) return; if(e.target.closest('[data-cal-retry]')){ loadCalendar(); return; } if(e.target.closest('[data-ref]')) return; var c=e.target.closest('[data-day]'); if(!c) return; $('#cal-date').value=c.dataset.day; $('#cal-form').scrollIntoView({behavior:'smooth',block:'center'}); });
+  $('#cal-grid').addEventListener('click', function(e){ if(e.target.closest('[data-food-info],[data-payment-editor],[data-food-payment],[data-food-operations-code]')) return; if(e.target.closest('[data-cal-retry]')){ loadCalendar(); return; } if(e.target.closest('[data-ref]')) return; var c=e.target.closest('[data-day]'); if(!c) return; $('#cal-date').value=c.dataset.day; $('#cal-form').scrollIntoView({behavior:'smooth',block:'center'}); });
   $('#cal-form').addEventListener('submit', function(e){ e.preventDefault(); var f=e.target; if(!M.validate(f)) return;
     A('/calendar',{method:'POST', body:M.formData(f)}).then(function(){ note($('#cal-msg'),'저장했습니다.',true); loadCalendar(); }).catch(function(x){ if(!guard(x)) note($('#cal-msg'), x.message); }); });
 

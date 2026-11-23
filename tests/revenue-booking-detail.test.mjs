@@ -112,3 +112,27 @@ test('상세는 목록의 기간·지점·상태·테스트 제외와 인증을 
   await api(path('BK-TEST'),'POST',{},405);assert.equal(jobs,0);assert.deepEqual(snapshot(),before);
   assert.equal(db.prepare('SELECT total_changes() AS n').get().n,changes);
 });
+
+
+test('식음료 단독 예약의 실제 행사 장소·시각과 적용 견적만 조회한다',async t=>{
+  const {db,api}=setup(t,{base:false});
+  const space='food-only',ref='MS-TEST';
+  const food_event={location:'외부 행사장',start:'18:15',end:'20:45',quote_no:'Q-APPLIED',registration_key:'PRIVATE_REGISTRATION'};
+  db.prepare("UPDATE inquiries SET space_id=?,status='예약 확정',data=? WHERE ref=?").run(space,JSON.stringify({food_event}),ref);
+  booking(db,'FOOD-DETAIL',{space,inquiry:ref,amount:120000});
+  const save=db.prepare('INSERT INTO quotes(quote_no,customer,event_date,total,data,created_at) VALUES(?,?,?,?,?,?)');
+  for(const [id,amount] of [['Q-APPLIED',120000],['Q-LATER',200000]]) {
+    save.run(id,'테스트 고객',day,amount,JSON.stringify({input:{foodOnly:true},extras:[{kind:'reception',label:id,amount}]}),stamp);
+    db.prepare('INSERT INTO food_quote_links(quote_no,inquiry_ref) VALUES(?,?)').run(id,ref);
+  }
+  const scope='&space='+space,fields={location:'외부 행사장',start:'18:15',end:'20:45'};
+  const list=await api('revenue/bookings?'+query+scope);
+  assert.deepEqual(list.items[0].food_event,fields);
+  const detail=await api(path('FOOD-DETAIL')+scope);
+  assert.deepEqual(detail.booking.food_event,fields);
+  assert.equal(detail.quote.quote_no,'Q-APPLIED');
+  assert.equal(detail.quote.total,120000);
+  assert.doesNotMatch(JSON.stringify(detail),/PRIVATE_REGISTRATION/);
+  db.prepare("DELETE FROM food_quote_links WHERE quote_no='Q-APPLIED'").run();
+  assert.equal((await api(path('FOOD-DETAIL')+scope)).quote,null);
+});

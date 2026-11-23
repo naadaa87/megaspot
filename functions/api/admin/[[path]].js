@@ -1,4 +1,7 @@
-import {inquirySettlement} from '../_inquiry_receipts.js';
+import {foodCancellationTerms} from '../_food_cancellation_terms.js';
+import {venuePaymentTerms} from '../_venue_payment_terms.js';
+import {inquirySettlement,inquirySettlementAdmin} from '../_inquiry_receipts.js';
+import {foodOperationsAdmin} from '../_food_operations.js';
 import {FOOD_SPACE,confirmIssuedSql,foodBookingAdmin,foodBookingTargets,foodEvent,foodEventSql,foodInquiry,foodPaymentStatus} from '../_food_booking.js';
 import {spacecloudControl} from '../_spacecloud_control.js';
 import {spacecloudBlocksAdmin} from '../_spacecloud_blocks.js';
@@ -225,6 +228,9 @@ export async function onRequest({ request, env, params, waitUntil }) {
 
   const denied = await requireAdmin(request, env); if (denied) return denied;
   try {
+    const venueTerms=await venuePaymentTerms({env,request,path,method});if(venueTerms)return venueTerms;
+    if(/^inquiries\/[A-Z0-9-]+\/settlement(?:\/entries\/\d+)?$/.test(path))return await inquirySettlementAdmin({env,request,path,method,url});
+    if(/^bookings\/[A-Z0-9-]{1,40}\/food-operations(?:\/reminder)?$/.test(path))return await foodOperationsAdmin({env,request,path,method});
     if(path==='food-inquiries/targets')return await foodBookingTargets({env,url,method});
     if (/^food-inquiries(?:\/[A-Z0-9-]+)?$/.test(path)) return await foodBookingAdmin({env,request,path,method});
     const propertyInquiry = path.match(/^inquiries\/([A-Z0-9-]+)\/(confirm|checks|deposit-paid|wait-(?:cancel|restore))$/);
@@ -351,8 +357,8 @@ export async function onRequest({ request, env, params, waitUntil }) {
       const { results: lg } = await env.DB.prepare('SELECT kind, actor, detail, created_at FROM event_log WHERE ref = ? ORDER BY id DESC LIMIT 30').bind(mDet[1]).all();
       const wait = await inquiryWait(env, r.ref, r);
       const guides=await guideSummary(env,(bk || []).map(x=>x.booking_code)),settlements=await settlementsFor(env,(bk||[]).map(x=>x.booking_code));
-      const foodPayment=r.space_id===FOOD_SPACE&&!bk?.length?await inquirySettlement(env,r.ref):null;
-      return json({ ok: true, item: { ...r, data: safe(r.data) }, checks: await guideInquiryChecks(env,mDet[1],safe(c && c.checks)), quotes: (qs || []).map(q => ({ ...q, data: safe(q.data) })), ...(foodPayment?{inquiry_settlement:foodPayment}:{}), bookings: (bk || []).map(x=>({...x,settlement:settlements[x.booking_code],guide_status:guides[x.booking_code] || ''})), log: lg || [], wait, visits: await visitsForInquiry(env, mDet[1]), catering_order: await cateringOrderFor(env, mDet[1], '') });
+      const pendingSettlement=!bk?.length?await inquirySettlement(env,r.ref):null;
+      return json({ ok: true, item: { ...r, data: safe(r.data) }, checks: await guideInquiryChecks(env,mDet[1],safe(c && c.checks)), quotes: (qs || []).map(q => ({ ...q, data: safe(q.data) })), ...(pendingSettlement?{inquiry_settlement:pendingSettlement}:{}), bookings: (bk || []).map(x=>({...x,settlement:settlements[x.booking_code],guide_status:guides[x.booking_code] || ''})), log: lg || [], wait, visits: await visitsForInquiry(env, mDet[1]), catering_order: await cateringOrderFor(env, mDet[1], '') });
     }
     if (path === 'inquiries' && method === 'POST') {
       // 카카오톡·전화·이메일·방문으로 받은 문의를 관리자가 직접 등록합니다.
@@ -415,6 +421,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
         if (!!d.checks?.guarantee_returned !== completed) return err('보증금 환급 관리에서 송금 완료 여부를 확인해 주세요.',409,'REFUND_MANAGED');
       }
       for (const [k, v] of Object.entries(d.checks || {})) if (/^[a-z_]{1,30}$/.test(k)) checks[k] = v ? saved[k] || now() : false;
+      if(!Object.hasOwn(checks,'deposit_paid')&&saved.deposit_paid!==undefined)checks.deposit_paid=saved.deposit_paid;
       // Only the explicitly changed guide checkbox may mark every currently linked booking.
       if(d.changed_check && d.changed_check!=='guide_sent' && saved.guide_sent!==undefined)checks.guide_sent=saved.guide_sent;
       const statements=[env.DB.prepare('INSERT INTO inquiry_checks (ref, checks, updated_at) VALUES (?,?,?) ON CONFLICT(ref) DO UPDATE SET checks = excluded.checks, updated_at = excluded.updated_at').bind(mChk[1], JSON.stringify(checks), now())];
@@ -471,6 +478,9 @@ export async function onRequest({ request, env, params, waitUntil }) {
         if(Array.isArray(input?.extras))input.extras=input.extras.map(x=>x.kind==='reception'?{...x,amount:rec.amount,reception:rec.reception}:x);
       }
       if (foodOnly) {
+        const cancellationTerms=foodCancellationTerms(input.cancellationTerms);
+        if(cancellationTerms?.error)return err(cancellationTerms.error);
+        input.cancellationTerms=cancellationTerms;
         if (total !== rec.amount + food.amount) return err('식음료 항목의 합계와 견적 합계가 달라 저장할 수 없습니다.');
         const foodStartTime = input.foodStartTime ?? '', foodEndTime = input.foodEndTime ?? '';
         if (timeOk(foodStartTime) !== foodStartTime || timeOk(foodEndTime) !== foodEndTime) {
@@ -1035,7 +1045,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
         const doc = parseDoc(row.confirm_doc), currentReception = receptionDocument(idata, row.effective_amount), currentFoods=foodDocuments({...idata,catering:cat},row.effective_amount);
         const foodNeedsReissue = !!doc?.food_needs_reissue;
         const needs_reissue = foodNeedsReissue || !!(doc?.issued_at && (doc.settlement?.revision!==settlement.revision||(currentReception&&!Object.hasOwn(doc,'reception'))||(currentFoods.length&&!Object.hasOwn(doc,'food_services'))));
-        const previewDoc = {...(doc||{}),settlement:row.space_id===FOOD_SPACE||!doc?.settlement?settlement:doc.settlement,
+        const previewDoc = {...(doc||{}),settlement:row.space_id===FOOD_SPACE||settlement.venue_reservation_fee>0||doc?.settlement?.venue_reservation_fee>0||!doc?.settlement?settlement:doc.settlement,
           reception:foodNeedsReissue||!doc||!Object.hasOwn(doc,'reception')?currentReception:doc.reception,
           food_services:foodNeedsReissue||!doc||!Object.hasOwn(doc,'food_services')?currentFoods:doc.food_services};
         if(foodNeedsReissue) Object.assign(previewDoc,{customer:row.customer_name,amount:row.effective_amount,

@@ -82,3 +82,18 @@ test('서비스 페이지를 넘겨도 전체 합계를 유지하며 페이지 �
   assert.equal(f.node('revenue-services-pagination').hidden,true);assert.equal(f.node('revenue-services-page').textContent,'1 / 1');
   assert.equal(f.open({...options,category:'invalid'}),false);
 });
+
+
+test('서비스 상세에서 실제 처리일과 기록일 대체를 명확히 표시한다',async()=>{
+  const calls=[];
+  const f=ui(async path=>{
+    calls.push(new URL(path,'https://local.test').searchParams);
+    const [row]=report().items;
+    return report({items:[{...row,branch:'food-only',processing_day:'2026-11-18',processing_estimated:1,method:'계좌이체'}]});
+  });
+  f.open({...options,space:'food-only',basis:'processed',method:'계좌이체'});await tick();
+  assert.equal(calls[0].get('basis'),'processed');
+  assert.equal(calls[0].get('method'),'계좌이체');
+  assert.match(f.node('revenue-services-scope').textContent,/식음료 단독.*계좌이체.*실제 처리일 기준/);
+  assert.match(f.node('revenue-services-list').innerHTML,/2026-11-18 \(기록일\).*이용일 2026-11-20/);
+});

@@ -22,7 +22,8 @@ export function foodDocumentEvent(value, showAmount = true) {
     location: event.location || '',
     start: event.start || '',
     end: event.end || '',
-    ...(showAmount ? {reservation_fee: event.reservation_fee ?? null, balance_due: event.balance_due || ''} : {})
+    ...(showAmount ? {reservation_fee: event.reservation_fee ?? null, balance_due: event.balance_due || '',
+      ...(event.cancellation_terms?{cancellation_terms:event.cancellation_terms}:{})} : {})
   };
 }
 
@@ -133,6 +134,7 @@ export async function foodBookingAdmin({env,request,path,method}) {
   const inquiryRef = ref || await uniqueRef(env,'inquiries','ref','MS');
   const bookingCode = booked?.booking_code || (confirm ? await uniqueRef(env,'bookings','booking_code','MS') : '');
   const event = {...oldEvent,...clean.event,version:(oldEvent.version || 0)+1,quote_no:quote?.quote_no || oldEvent.quote_no || ''};
+  if(quote)event.cancellation_terms=input.cancellationTerms||null;
   if (!current) event.registration_key = registration_key;
   const status = bookingCode ? '예약 확정' : OPEN.includes(d.status) ? d.status : current?.status || '문의 접수';
   const memo = str(d.memo ?? current?.memo,2000);
@@ -160,6 +162,7 @@ export async function foodBookingAdmin({env,request,path,method}) {
       const documentChanged = booked.customer_name !== clean.name || booked.phone !== clean.phone || booked.date !== clean.date ||
         booked.headcount !== clean.headcount || booked.amount !== total || oldEvent.location !== event.location || oldEvent.start !== event.start ||
         oldEvent.end !== event.end || oldEvent.reservation_fee !== event.reservation_fee || oldEvent.balance_due !== event.balance_due ||
+        JSON.stringify(oldEvent.cancellation_terms||null)!==JSON.stringify(event.cancellation_terms||null) ||
         KINDS.some(kind => JSON.stringify(before[kind] ?? null) !== JSON.stringify(data[kind] ?? null));
       statements.push(env.DB.prepare(`UPDATE bookings SET customer_name=?,phone=?,phone_last4=?,date=?,headcount=?,amount=?,memo=?,
         confirm_doc=CASE WHEN ? AND json_extract(confirm_doc,'$.issued_at') IS NOT NULL

@@ -188,3 +188,25 @@ test('90건 배치를 넘는 구성 조회와 50건 페이지도 전체 합계�
   assert.equal(db.prepare('SELECT total_changes() AS n').get().n,before);
   assert.doesNotMatch(JSON.stringify(pages[0]),/01012345678|phone|confirm_doc|inquiry_data|quote_data/);
 });
+
+
+test('식음료 단독 원가는 적용된 서비스로 계산하고 미확인 차액을 대관 이익으로 잡지 않는다',async t=>{
+  const {db,api}=setup(t),space='food-only';
+  const inquiryData={reception,included_reception_amount:reception.total,reception_in_quote:true};
+  booking(db,'FOOD-EXACT',{space,rental:0,amount:reception.total,inquiryData});
+  booking(db,'FOOD-REMAINDER',{space,amount:reception.total+250000,inquiryData});
+  booking(db,'FOOD-LEGACY',{space,amount:250000});
+  booking(db,'VENUE',{rental:200000});
+  const r=await api(path+'&space='+space);
+  assert.equal(r.items.length,3);
+  const exact=row(r,'FOOD-EXACT');
+  assert.deepEqual([exact.complete,exact.serviceCost,exact.profit],[true,1870000,275000]);
+  assert.deepEqual(exact.lines.map(line=>line.kind),['reception']);
+  for(const code of ['FOOD-REMAINDER','FOOD-LEGACY']) {
+    const item=row(r,code);
+    assert.equal(item.complete,false);
+    assert.equal(item.profit,null);
+    assert.ok(item.reasons.some(reason=>reason.code==='food_composition_unknown'));
+    assert.equal(item.lines.some(line=>line.kind==='rental'),false);
+  }
+});

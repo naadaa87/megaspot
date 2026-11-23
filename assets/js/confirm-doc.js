@@ -34,6 +34,7 @@
   function paymentText(doc){
     if(doc.food_event&&doc.pay_status==='deposit')
       return (doc.food_event.reservation_paid||doc.food_event.reservation_fee>0&&doc.paid>=doc.food_event.reservation_fee)?'예약금 입금 완료':'일부 입금';
+    if(doc.pay_status==='deposit'&&doc.reservation_fee>0)return doc.reservation_paid?'예약금 입금 완료':'일부 입금 · 예약금 미완료';
     return PAY[doc.pay_status]||'';
   }
   function issuedText(doc){ var t = doc.issued_at ? String(doc.issued_at).slice(0, 10) : ''; if (!t) { var n = new Date(Date.now() + 9 * 3600e3); t = n.toISOString().slice(0, 10); } var p = t.split('-'); return p[0] + '. ' + (+p[1]) + '. ' + (+p[2]) + '.'; }
@@ -236,9 +237,14 @@
   }
   function settlementRows(doc){
     var rows=window.MEGASPOT_SETTLEMENT?window.MEGASPOT_SETTLEMENT.documentRows(doc):[];
+    if(doc.reservation_fee>0&&doc.show_amount&&doc.doc_type!=='cancellation')rows.push(['예약금 약정액',won(doc.reservation_fee)]);
     if(doc.food_event&&doc.show_amount&&doc.doc_type!=='cancellation'){
       if(doc.food_event.reservation_fee!=null)rows.push(['예약금 약정액',won(doc.food_event.reservation_fee)]);
       if(doc.food_event.balance_due)rows.push(['잔금 납부일',dateText(doc.food_event.balance_due)]);
+      var terms=doc.food_event.cancellation_terms;
+      if(terms?.cancellation)rows.push(['전체 취소 조건',terms.cancellation]);
+      if(terms?.fee!=null)rows.push(['합의한 전체 취소 수수료',won(terms.fee)]);
+      if(terms?.change)rows.push(['인원·메뉴 일부 변경 조건',terms.change]);
     }
     return rows;
   }
