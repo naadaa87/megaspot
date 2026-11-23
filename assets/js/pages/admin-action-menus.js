@@ -8,8 +8,12 @@
    var secondary=Array.from(actions.children).filter(function(el){return !el.matches('#dr-quote,#dr-saved-quote,[data-payment-editor],#dr-book,a[href^="tel:"]');});
    if(secondary.length){var more=menu('문의 추가 작업 더보기');secondary.forEach(function(el){more.lastElementChild.appendChild(el);});actions.appendChild(more);actions.classList.add('compact-action-set');}
   }
-  var bulk=document.getElementById('inq-bulk');
-  if(bulk&&!bulk.querySelector('.compact-more')){var more=menu('선택한 문의 추가 작업 더보기');['inq-sel-del','inq-sel-restore'].forEach(function(id){var el=document.getElementById(id);if(el)more.lastElementChild.appendChild(el);});bulk.appendChild(more);}
+  var bulk=document.getElementById('inq-bulk'),remove=document.getElementById('inq-sel-del');
+  if(bulk&&remove&&!bulk.querySelector('.compact-more')){
+   var more=menu('선택한 문의 추가 작업 더보기');
+   more.lastElementChild.appendChild(remove);
+   bulk.appendChild(more);
+  }
  }
  function parking(){document.querySelectorAll('#pa-list .pa-order').forEach(function(card){
   if(card.querySelector(':scope>.compact-more'))return;

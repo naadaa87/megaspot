@@ -150,13 +150,17 @@
 
 .page-admin .tag-sp-food,.page-admin #cal-grid .cal-food-event{background:#e3f4eb;color:#176044}
 .page-admin #cal-grid .cal-food-event .cal-booked-label{color:inherit}
-.page-admin .food-booking-filter[aria-pressed="true"]{background:#1f53d5;border-color:#1f53d5;color:white}
 
-.food-booking-toolbar,.food-booking-links{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-width:0}
-.food-booking-toolbar{margin:0 0 14px}
-.food-booking-links{display:none}
-.food-booking-toolbar:has(.food-booking-filter[aria-pressed="true"]) .food-booking-links{display:flex}
+/* Reservation scope uses the same position between the page heading and its filters. */
+.food-booking-toolbar,.food-booking-links,.food-booking-switch{display:flex;align-items:center;gap:8px;min-width:0}
+.food-booking-toolbar{flex-wrap:wrap;justify-content:space-between;margin:0 0 18px}
+.food-booking-switch{border:1px solid #e0e4ec;border-radius:10px;background:#f5f7fb;padding:3px;gap:4px}
+.page-admin .food-booking-switch .food-booking-filter{min-width:112px;justify-content:center;border:1px solid transparent;border-radius:7px;background:none;color:#394457;white-space:nowrap}
+.page-admin .food-booking-switch .food-booking-filter[aria-pressed="true"]{background:#1f53d5;color:#fff}
+.food-booking-links{display:none;flex-wrap:wrap}
+.food-booking-toolbar:has(.food-booking-filter:not([data-food-all])[aria-pressed="true"]) .food-booking-links{display:flex}
 .food-booking-links [aria-current]{padding:7px 10px;color:#1f53d5;font-size:13px;font-weight:700}
+@media print{.food-booking-toolbar{display:none!important}}
 .food-inquiry-content .dr-sec{margin-bottom:12px}
 .food-inquiry-content .kv{line-height:1.5;overflow-wrap:anywhere}
 .food-inquiry-content .dr-quote{flex-wrap:wrap;gap:8px}
@@ -171,9 +175,11 @@
 .cal-food-event .food-agenda-settlement{gap:2px 7px;margin:4px 0}
 .cal-food-event.cancelled .cal-booked-label{background:#f5e3e0;color:#8a302b}
 @media(max-width:640px){
- .food-booking-toolbar .btn,.food-booking-links [aria-current]{min-height:40px}
- .food-booking-toolbar:has(.food-booking-filter[aria-pressed="true"]) .food-booking-links{flex-basis:100%;gap:6px}
- .food-booking-links .btn,.food-booking-links [aria-current]{flex:1;min-width:0;text-align:center;white-space:normal}
+ .food-booking-toolbar .btn,.food-booking-links [aria-current]{min-height:44px}
+ .food-booking-switch,.food-booking-links{flex-basis:100%}
+ .page-admin .food-booking-switch .food-booking-filter,.food-booking-links .btn,.food-booking-links [aria-current]{flex:1;min-width:0;text-align:center}
+ .food-booking-links [aria-current]{display:grid;place-items:center}
+ .food-booking-links .btn{justify-content:center;white-space:normal}
  .food-inquiry-content .dr-sec{padding:14px}
  .food-inquiry-content .q-btns>*{flex:1 1 120px;min-height:44px}
  .page-admin #dr-body .food-inquiry-content .field-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
