@@ -2221,20 +2221,23 @@
   var BST={confirmed:['예약 확정','st-ok'],completed:['이용 완료','st-done'],payment_review:['결제 완료 · 일정 확인 필요','st-quote'],cancelled:['취소','st-cancel']};
   // 상태·경로·검색으로 거른 목록 (구분 탭은 아직 적용 전) — 날짜별 확정/후보 개수는 이 목록으로 셉니다
   var PAYMENT_CHECKS={unpaid:"입금 전",reservation_paid:"예약금 입금 완료",venue_paid:"대관비용 입금 완료",food_paid:"식음료 입금 완료",venue_fully_paid:"전체 입금 완료(대관)",fully_paid:"전체 입금 완료(대관+식음료)",partial_paid:"일부 입금·잔금 확인 필요",needs_review:"입금 범위 확인 필요"},paymentSaving=new Set();
-  function foodPaymentBadge(item){
+  function foodPaymentBadge(item,calendar){
     var code=item.booking_code||item.code, status=item.payment_status||'unpaid', ref=item.ref,
-      text=status==='food_paid'?'잔금 입금 완료':status==='partial_paid'?'일부 입금':(PAYMENT_CHECKS[status]||'입금 전');
-    if(!code)return ref&&paymentEditable(item)?'<button type="button" class="adm-payment-badge" data-payment-editor="inquiry/'+esc(ref)+'">결제 · '+esc(text)+' ⌄</button>':'';
-    if(item.status==='cancelled')return '<button type="button" class="adm-payment-badge" data-settlement-code="'+esc(code)+'">취소 정산·수납</button>';
-    return '<select class="select rs-payment-status" data-food-payment="'+esc(code)+'" aria-label="'+esc((item.name||item.customer_name||code)+' 결제 상태·입금 기록')+'">'+
-      '<option value="">'+esc(text)+'</option>'+
+      text=status==='food_paid'?'잔금 입금 완료':status==='partial_paid'?'일부 입금':(PAYMENT_CHECKS[status]||'입금 전'),
+      short={reservation_paid:'예약금 완료',food_paid:'잔금 완료',partial_paid:'일부 입금'},
+      label=calendar?(short[status]||text):text, name=item.name||item.customer_name||code||ref||'',
+      buttonClass='adm-payment-badge'+(calendar?' cal-payment-badge':'');
+    if(!code)return ref&&paymentEditable(item)?'<button type="button" class="'+buttonClass+'" data-payment-editor="inquiry/'+esc(ref)+'" aria-haspopup="dialog" aria-label="'+esc(name+' 결제 상태: '+text)+'" title="'+esc(text)+'">'+(calendar?'':'결제 · ')+esc(label)+' ⌄</button>':'';
+    if(item.status==='cancelled')return '<button type="button" class="'+buttonClass+'" data-settlement-code="'+esc(code)+'" title="취소 정산·수납">'+(calendar?'취소 정산':'취소 정산·수납')+'</button>';
+    return '<select class="select rs-payment-status" data-food-payment="'+esc(code)+'" aria-label="'+esc(name+' 결제 상태·입금 기록: '+text)+'" title="'+esc(text)+'">'+
+      '<option value="">'+esc(label)+'</option>'+
       (!['reservation_paid','food_paid'].includes(status)?'<option value="reservation">예약금 입금 완료</option>':'')+
       (status!=='food_paid'?'<option value="balance">잔금 입금 완료</option>':'')+
       '<option value="receipt">'+(status==='food_paid'?'추가 입금 기록':'일부 입금 기록')+'</option>'+
       '<option value="refund">환불 기록</option><option value="history">수납·환불 내역</option></select>';
   }
   function paymentBadge(item,calendar){
-    if(item.space_id==='food-only')return foodPaymentBadge(item);
+    if(item.space_id==='food-only')return foodPaymentBadge(item,calendar);
     var type=item.booking_code||item.kind==='booking'?'booking':'inquiry',ref=type==='booking'?(item.booking_code||item.code):item.ref,status=PAYMENT_CHECKS[item.payment_status]?item.payment_status:'unpaid',text=PAYMENT_CHECKS[status],short={unpaid:'입금 전',reservation_paid:'예약금 완료',venue_paid:'대관 완료',food_paid:'식음료 완료',venue_fully_paid:'대관 전체 완료',fully_paid:'대관+식음료 완료',partial_paid:'일부 입금',needs_review:'범위 확인'},name=item.customer_name||item.name||ref||'',disabled=!ref||!paymentEditable(item);
     return '<button type="button" class="adm-payment-badge'+(calendar?' cal-payment-badge':'')+'" data-payment-editor="'+esc(type+'/'+(ref||''))+'" data-payment-status="'+status+'" aria-haspopup="dialog" aria-label="'+esc(name+' 결제 상태: '+text+' — 변경')+'" title="'+esc(text)+'"'+(disabled?' disabled':'')+'>결제 · '+esc(calendar?short[status]:text)+' ⌄</button>';
   }
@@ -2803,7 +2806,7 @@
             '<div><strong>'+esc(item.customer_name||item.name||'')+'</strong> <span class="tag-sp tag-sp-food">'+esc(status)+'</span></div>'+
             '<p>'+esc(when.location||'행사 장소 미정')+'</p>'+
             (details?'<p class="food-agenda-details">'+(item.status==='cancelled'?'취소 전 · ':'')+esc(details)+'</p>':'')+
-            (settlement?'<div class="food-agenda-settlement">'+settlement+'</div>':'')+'<div class="q-btns">'+paymentBadge(item,true)+
+            (settlement?'<div class="food-agenda-settlement">'+settlement+'</div>':'')+'<div class="q-btns">'+paymentBadge(item,false)+
             (ref?'<button type="button" class="btn btn-light btn-sm" data-food-open="'+esc(ref)+'">상세</button>':'')+foodOperationsButton(item.booking_code,'btn-sm')+'</div></article>';
         }).join('')||'<p class="small muted">이 달의 식음료 일정이 없습니다.</p>';
     }
@@ -2816,8 +2819,10 @@
       var status=item.booking_code?({confirmed:'확정',completed:'완료',cancelled:'취소'}[item.status]||item.status):item.status;
       var location=event.location||'장소 미정', time=foodEventTime(event)||'시간 미정';
       var details=foodCalendarSummary(item), active=item.status!=='cancelled';
-      return '<i class="ev cal-food-event'+(active?'':' cancelled')+'"'+ref+' title="'+esc([status,time,location,details].filter(Boolean).join(' · '))+'"><span class="cal-booked-label">'+esc(status)+'</span> '+esc(time)+'<br>'+esc(person)+'<br>'+esc(location)+
-        (active?calendarServiceDot(item):'')+(onlyFood?(details?'<span class="cal-food-summary">'+esc(details)+'</span>':'')+'<span class="food-agenda-settlement">'+foodCalendarSettlement(item)+'</span>':'')+paymentBadge(item,true)+'</i>';
+      return '<i class="ev cal-food-event'+(active?'':' cancelled')+'"'+ref+' title="'+esc([status,time,location,details].filter(Boolean).join(' · '))+'">'+
+        '<span class="cal-food-event-heading"><span class="cal-food-event-time"><span class="cal-booked-label">'+esc(status)+'</span> '+esc(time)+'</span>'+
+        (active?calendarServiceDot(item):'')+'</span>'+esc(person)+'<br>'+esc(location)+
+        (onlyFood?(details?'<span class="cal-food-summary">'+esc(details)+'</span>':'')+'<span class="food-agenda-settlement">'+foodCalendarSettlement(item)+'</span>':'')+paymentBadge(item,true)+'</i>';
     }
     var label=function(x){ return room(x)+' · '; };
     blocks.forEach(function(b){

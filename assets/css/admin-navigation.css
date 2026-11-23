@@ -104,6 +104,11 @@
 
 #view-calendar .adm-calendar-scroll{max-width:100%;overflow-x:auto}
 #view-calendar .adm-calendar-swipe-hint{display:none}
+#view-calendar .calendar-food-only{container:food-calendar / inline-size}
+#view-calendar .calendar-food-only .adm-cal{min-width:820px}
+@container food-calendar (width < 820px){
+ #view-calendar .calendar-food-only .adm-calendar-swipe-hint{display:block;margin:0 0 12px}
+}
 @media(max-width:640px){
  #view-calendar .adm-calendar-scroll .adm-cal{min-width:720px}
  #view-calendar .adm-calendar-swipe-hint{display:block;margin:0 0 12px}
@@ -132,7 +137,7 @@
 .adm-service-popover[hidden],.adm-food-tooltip[hidden]{display:none!important}
 .asp-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.asp-head strong{font-size:15px}.asp-head .btn{flex-shrink:0;min-height:36px}
 .asp-customer{margin:8px 0;font-size:13px;overflow-wrap:anywhere}.asp-options{display:flex;gap:8px;margin:12px 0}.asp-options .btn{flex:1;min-width:0;min-height:44px;padding:8px 6px;white-space:normal;font-size:13px}.asp-options .is-current{border-color:var(--cobalt);background:var(--cobalt-soft);color:var(--cobalt)}.asp-message{margin:8px 0 0;color:#924323;overflow-wrap:anywhere}.asp-message:empty{display:none}
-#view-calendar .adm-cal .ev:has(.cal-food-dot){position:relative;padding-right:28px}
+#view-calendar .adm-cal .ev:has(>.cal-food-dot){position:relative;padding-right:28px}
 #view-calendar .cal-food-dot{position:absolute;right:0;top:0;width:26px;height:28px;display:flex;align-items:center;justify-content:center;padding:0;border:0;border-radius:var(--radius-sm,6px);background:transparent;cursor:pointer}
 #view-calendar .cal-food-dot>span,.cal-food-legend>span{display:inline-block;width:8px;height:8px;border-radius:50%;background:#d92c35;box-shadow:0 0 0 2px #fff;flex-shrink:0}
 .cal-food-legend{display:inline-flex;align-items:center;gap:6px}.adm-food-tooltip{width:min(280px,calc(100vw - 24px));font-size:13px}.adm-food-tooltip>strong{display:block;overflow-wrap:anywhere;margin-bottom:8px}.adm-food-tooltip>div{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:4px 0}.adm-food-tooltip .cat-st{max-width:100%;white-space:normal}
@@ -167,7 +172,11 @@
 .food-inquiry-content .q-btns{gap:8px}
 .food-inquiry-content .field-row>.f{min-width:0}
 .page-admin select[data-food-payment]{min-width:0;max-width:100%}
-.page-admin #cal-grid select[data-food-payment]{width:100%;margin-top:4px;padding:4px;text-overflow:ellipsis}
+#cal-grid .cal-food-event-heading{display:flex;align-items:center;gap:2px}
+#cal-grid .cal-food-event-time{flex:1;min-width:0}
+#cal-grid .cal-food-event-heading .cal-food-dot{position:static;flex:0 0 24px;width:24px;height:24px}
+#cal-grid .cal-food-event select[data-food-payment]{width:100%;min-height:30px;margin-top:4px;padding:4px 14px 4px 5px;font-size:11px;line-height:1.35;background-position:right 4px center;background-size:8px auto;text-overflow:ellipsis}
+#cal-food-agenda select[data-food-payment]{width:auto;min-height:44px;padding:6px 26px 6px 10px;font-size:13px;line-height:1.4;background-position:right 9px center}
 .food-agenda{display:none}
 .food-agenda-settlement{display:flex;flex-wrap:wrap;gap:4px 12px;margin:6px 0 10px}
 .food-agenda-settlement:empty{display:none}

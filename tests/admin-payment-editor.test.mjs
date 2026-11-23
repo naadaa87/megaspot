@@ -12,3 +12,16 @@ test('후보 문의는 문의 키를 쓰며 취소·삭제·대상 없음은 편
 });
 
 test('대관만 전체 완료도 명확히 구분되는 상태명을 제공한다',()=>{const c=context(),html=c.paymentBadge({booking_code:'BK-ONE',status:'confirmed',payment_status:'venue_fully_paid'},true);assert.match(html,/title="전체 입금 완료\(대관\)"/);assert.match(html,/>결제 · 대관 전체 완료/);});
+
+test('식음료 월간 칸에서 결제 상태를 줄여 표시하고 전체 문구와 수납 메뉴를 유지한다',()=>{
+ const c=context(),item={space_id:'food-only',booking_code:'FOOD-ONE',customer_name:'예약 고객',status:'confirmed',payment_status:'reservation_paid'};
+ const grid=c.paymentBadge(item,true),list=c.paymentBadge(item,false);
+ assert.match(grid,/<option value="">예약금 완료<\/option>/);
+ assert.match(grid,/aria-label="예약 고객 결제 상태·입금 기록: 예약금 입금 완료"/);
+ assert.match(grid,/title="예약금 입금 완료"/);
+ assert.match(grid,/data-food-payment="FOOD-ONE"/);
+ assert.match(grid,/<option value="balance">잔금 입금 완료<\/option>/);
+ assert.match(grid,/<option value="refund">환불 기록<\/option>/);
+ assert.match(list,/<option value="">예약금 입금 완료<\/option>/);
+ assert.match(c.paymentBadge({...item,payment_status:'food_paid'},true),/<option value="">잔금 완료<\/option>/);
+});

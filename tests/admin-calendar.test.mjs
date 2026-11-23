@@ -100,3 +100,21 @@ test('달력 식음료 필터는 상담·취소·미선택과 종일 마감을 �
 });
 
 test('달력 상태·검색은 취소 기록도 조회하고 다른 상태·검색어를 제외한다',()=>{const {context,nodes}=calendar();nodes['#cal-status-filter']={value:'cancelled'};nodes['#cal-q']={value:'01012345678'};context.drawCalendar([],[{date:'2026-10-23',status:'cancelled',customer_name:'취소 검증',phone:'010-1234-5678'},{date:'2026-10-23',status:'completed',customer_name:'완료 검증',phone:'010-1234-5678'}],[]);assert.match(nodes['#cal-grid'].innerHTML,/취소 검증/);assert.doesNotMatch(nodes['#cal-grid'].innerHTML,/완료 검증/);assert.match(nodes['#cal-service-summary'].textContent,/1건/);});
+
+test('식음료 단독 카드의 진행 상태 점은 시간 줄에 있고 결제와 본문은 그 아래에 있다',()=>{
+ const {context,nodes}=calendar();
+ context.foodEventTime=()=> '18:00–20:00';
+ context.foodLabels={reception:'케이터링'};
+ context.paymentBadge=(item,grid)=>grid?'[달력 결제]':'[목록 결제]';
+ context.BST={confirmed:['예약 확정']};
+ context.kd=value=>value;
+ context.foodOperationsButton=()=>'';
+ nodes['#cal-food-filter']={getAttribute:()=> 'true'};
+ const booking={date:'2026-10-23',space_id:'food-only',booking_code:'FOOD-ONE',status:'confirmed',customer_name:'식음료 고객',services:[{kind:'reception',status:'confirmed'}],food_event:{location:'행사 장소'}};
+ context.drawCalendar([],[booking,{...booking,status:'cancelled',booking_code:'FOOD-TWO'}],[]);
+ const [active,cancelled]=nodes['#cal-grid'].innerHTML.match(/<i class="ev cal-food-event[^]*?<\/i>/g);
+ assert.match(active,/class="cal-food-event-heading"[^]*?18:00–20:00<\/span><button[^]*?class="cal-food-dot"[^]*?<\/button><\/span>식음료 고객<br>행사 장소/);
+ assert.match(active,/\[달력 결제\]<\/i>/);
+ assert.doesNotMatch(cancelled,/cal-food-dot/);
+ assert.match(nodes['#cal-food-agenda'].innerHTML,/\[목록 결제\]/);
+});
