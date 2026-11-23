@@ -140,3 +140,29 @@ test('food inquiry does not enter venue waitlist and updates a booking through a
   assert.equal((await f.api('inquiries/'+inquiry.ref)).quotes.length,2);
   assert.equal((await f.api('bookings?space=megaspot-gundae')).items[0].booking_code,'BK-TEST');
 });
+
+test('records a food reservation deposit before confirmation and carries that single receipt into the booking', async t => {
+  const f=fixture();
+  t.after(()=>f.db.close());
+  const {ref}=await f.api('food-inquiries','POST',{
+    name:'식음료 고객',phone:'010-3333-4444',date:DAY,request_id:'food-before-confirm',reservation_fee:200000,
+  });
+  const endpoint='reservation-payment-checks/inquiry/'+ref;
+  const incoming=await f.api(endpoint);
+  assert.deepEqual(Object.keys(incoming.choices),['unpaid','reservation_paid','partial_paid']);
+  const draft={status:'reservation_paid',expected_revision:incoming.payment_revision,
+    expected_settlement_revision:incoming.settlement.revision,request_id:'deposit-before-confirm'};
+  await f.api(endpoint,'PUT',{...draft,received_total:50000},400);
+  const receipt=await f.api(endpoint,'PUT',{...draft,received_total:200000});
+  assert.equal(receipt.receipt_added,200000);
+  await f.api(endpoint,'PUT',{...draft,received_total:200000});
+  const quote=await f.api('quotes','POST',{...preparedQuote(),food_inquiry_ref:ref});
+  const saved=await f.api('food-inquiries/'+ref,'PUT',{version:1,quote_no:quote.quote_no,confirm:true});
+  const settlement=await f.api('bookings/'+saved.booking_code+'/settlement');
+  assert.equal(settlement.entries.length,1);
+  assert.equal(settlement.settlement.net,200000);
+  assert.equal(settlement.deposit.reservation_fee,200000);
+  const booking=(await f.api('bookings')).items[0];
+  assert.equal(booking.payment_status,'reservation_paid');
+  assert.equal(booking.settlement.balance,reception.total-200000);
+});

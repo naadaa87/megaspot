@@ -869,7 +869,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
         FROM bookings b ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY date DESC, created_at DESC, id DESC LIMIT 301 OFFSET ?`).bind(...args).all();
       const items=(results || []).slice(0,300).map(x=>x.space_id===FOOD_SPACE?{...x,food_event:foodEvent(x.food_event)}:x), guides=await guideSummary(env,items.map(x=>x.booking_code)),settlements=await settlementsFor(env,items.map(x=>x.booking_code));
       const paymentChecks=await paymentChecksFor(env,items.map(x=>({kind:'booking',code:x.booking_code,ref:x.inquiry_ref,amount:x.amount,status:x.status})),settlements);
-      return json({ ok: true, has_more: (results || []).length > 300, items: items.map(({service_data,cat_ord,...x})=>({...x,...paymentChecks['booking:'+x.booking_code],...(x.food_event?{payment_status:foodPaymentStatus(settlements[x.booking_code],x.food_event)}:{}),services:reservationServices(service_data,orderBrief(cat_ord)),settlement:settlements[x.booking_code],guide_status:guides[x.booking_code] || ''})) });
+      return json({ ok: true, has_more: (results || []).length > 300, items: items.map(({service_data,cat_ord,...x})=>({...x,...paymentChecks['booking:'+x.booking_code],...(x.food_event?{payment_status:foodPaymentStatus(settlements[x.booking_code],x.food_event,paymentChecks['booking:'+x.booking_code]?.payment_status)}:{}),services:reservationServices(service_data,orderBrief(cat_ord)),settlement:settlements[x.booking_code],guide_status:guides[x.booking_code] || ''})) });
     }
     if (path === 'bookings' && method === 'POST') {
       const d = await readJson(request);
@@ -959,7 +959,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
         Object.assign(item,paymentChecks[(item.kind==='booking'?'booking:'+item.code:'inquiry:'+item.ref)]);
         if(item.food_event && item.kind==='booking'){
           item.settlement=settlements[item.code];
-          item.payment_status=foodPaymentStatus(item.settlement,item.food_event);
+          item.payment_status=foodPaymentStatus(item.settlement,item.food_event,item.payment_status);
         }
       }
       const startMinutes=item=>item.food_event?.start?Number(item.food_event.start.slice(0,2))*60+Number(item.food_event.start.slice(3)):(item.start_h??99)*60;

@@ -83,3 +83,11 @@
  #payment-result{padding:14px}
  #payment-result .btn,#payment-result .payment-result-actions{width:100%}
 }
+
+#payment-dialog.food-payment-dialog #payment-form{display:grid;gap:14px}
+#payment-dialog.food-payment-dialog #payment-form h3,#payment-dialog.food-payment-dialog #payment-form .field-row,
+#payment-dialog.food-payment-dialog #payment-form>.f{margin:0}
+#payment-dialog.food-payment-dialog #payment-form .payment-actions{margin-top:0}
+@media(min-width:380px) and (max-width:640px){
+ #payment-dialog.food-payment-dialog #payment-food-fields{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+}

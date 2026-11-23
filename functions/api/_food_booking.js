@@ -165,9 +165,9 @@ async function registered(env,ref,duplicate) {
   return json({ok:true,ref,booking_code:b?.booking_code || '',duplicate});
 }
 
-export function foodPaymentStatus(settlement,event) {
+export function foodPaymentStatus(settlement,event,previous) {
   if (!settlement || !settlement.net) return 'unpaid';
   if (settlement.balance === 0) return 'food_paid';
-  if (event.reservation_fee > 0 && settlement.net >= event.reservation_fee) return 'reservation_paid';
+  if (event.reservation_fee > 0 ? settlement.net >= event.reservation_fee : previous==='reservation_paid') return 'reservation_paid';
   return 'partial_paid';
 }

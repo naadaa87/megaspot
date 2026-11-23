@@ -13,7 +13,7 @@
   if(cell.querySelector('.reservation-action-group'))return;
   var nodes=Array.from(cell.childNodes),buttons=nodes.filter(function(n){return n.nodeType===1&&n.matches('button,a');});
   if(buttons.length<2)return;
-  var primary=buttons.filter(function(n){return n.matches('a[href^="tel:"],[data-portal-code],[data-rsconfirm],[data-bk="confirmed"],[data-rsact="confirmed"]');}),secondary=buttons.filter(function(n){return primary.indexOf(n)<0;});
+  var primary=buttons.filter(function(n){return n.matches('a[href^="tel:"],[data-portal-code],[data-rsconfirm],[data-food-open],[data-bk="confirmed"],[data-rsact="confirmed"]');}),secondary=buttons.filter(function(n){return primary.indexOf(n)<0;});
   if(!secondary.length)return;
   var group=document.createElement('div'),main=document.createElement('div'),more=document.createElement('details'),summary=document.createElement('summary'),items=document.createElement('div');
   group.className='reservation-action-group';main.className='reservation-primary-actions';more.className='reservation-more';summary.textContent='더보기';summary.setAttribute('aria-label','예약 추가 작업 더보기');items.className='reservation-more-items';

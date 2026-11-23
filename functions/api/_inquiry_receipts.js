@@ -16,7 +16,7 @@ export async function inquiryReceiptBooking(env,ref){
  const {results}=await env.DB.prepare("SELECT booking_code FROM bookings WHERE inquiry_ref=? AND status<>'cancelled' LIMIT 2").bind(ref).all();return results?.length===1?results[0].booking_code:null;
 }
 export async function inquirySettlement(env,ref){
- const item=await env.DB.prepare(`SELECT i.status AS inquiry_status,${inquiryAmountSql()} AS amount,${manual('receipt')} AS manual_received,${manual('refund')} AS manual_refunded,${gross} AS pg_received,${refunds} AS pg_refunded,${inquiryReceiptRevisionSql()} AS revision FROM inquiries i WHERE i.ref=?`).bind(ref).first();
+ const item=await env.DB.prepare(`SELECT i.status AS inquiry_status,i.space_id, json_extract(i.data,'$.food_event.reservation_fee') AS reservation_fee,${inquiryAmountSql()} AS amount,${manual('receipt')} AS manual_received,${manual('refund')} AS manual_refunded,${gross} AS pg_received,${refunds} AS pg_refunded,${inquiryReceiptRevisionSql()} AS revision FROM inquiries i WHERE i.ref=?`).bind(ref).first();
  if(!item)return null;
  return {...S.calculate({amount:item.amount,received:item.manual_received+item.pg_received,refunded:item.manual_refunded+item.pg_refunded}),...item,inquiry_status:item.inquiry_status};
 }
@@ -37,6 +37,8 @@ export async function inquiryReceiptAdmin(env,ref,d){
  if(!['문의 접수','조건 확인','견적 발송','결제 대기'].includes(s.inquiry_status))return err('문의 진행 상태나 연결된 예약을 확인해 주세요.',409,'PAYMENT_CHANGED');
  if(s.revision!==d.expected_settlement_revision)return err('수납이나 문의 금액이 바뀌었습니다. 최신 내역을 확인해 주세요.',409,'PAYMENT_CHANGED');
  if(total<s.received)return err('등록된 누적 입금액보다 작습니다. 기존 수납·환불 내역을 확인해 주세요.');
+ if(s.space_id==='food-only'&&d.status==='reservation_paid'&&total-s.refunded<Math.max(1,s.reservation_fee||0))
+  return err('실제 수납액이 예약금 약정액에 도달했는지 확인해 주세요.');
  if(['fully_paid','venue_fully_paid'].includes(d.status)&&(s.amount==null||total-s.refunded<s.amount))return err('전체 입금 완료는 견적 금액이 정해지고 잔금이 0원일 때 선택해 주세요.');
  if(typeof env.DB.batch!=='function')return err('수납과 상태의 일괄 저장을 지원하지 않습니다.',503);
  const time=now(),added=total-s.received,guard=`i.ref=? AND ${pending} AND ${noBooking} AND ${inquiryReceiptRevisionSql()}=? AND COALESCE((SELECT version FROM reservation_payment_scopes_v2 WHERE target_type='inquiry' AND target_ref=i.ref),0)=?`;

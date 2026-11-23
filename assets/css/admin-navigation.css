@@ -151,3 +151,48 @@
 .page-admin .tag-sp-food,.page-admin #cal-grid .cal-food-event{background:#e3f4eb;color:#176044}
 .page-admin #cal-grid .cal-food-event .cal-booked-label{color:inherit}
 .page-admin .food-booking-filter[aria-pressed="true"]{background:#1f53d5;border-color:#1f53d5;color:white}
+
+.food-booking-toolbar,.food-booking-links{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-width:0}
+.food-booking-toolbar{margin:0 0 14px}
+.food-booking-links{display:none}
+.food-booking-toolbar:has(.food-booking-filter[aria-pressed="true"]) .food-booking-links{display:flex}
+.food-booking-links [aria-current]{padding:7px 10px;color:#1f53d5;font-size:13px;font-weight:700}
+.food-inquiry-content .dr-sec{margin-bottom:12px}
+.food-inquiry-content .kv{line-height:1.5;overflow-wrap:anywhere}
+.food-inquiry-content .dr-quote{flex-wrap:wrap;gap:8px}
+.food-inquiry-content .q-btns{gap:8px}
+.food-inquiry-content .field-row>.f{min-width:0}
+.page-admin select[data-food-payment]{min-width:0;max-width:100%}
+.page-admin #cal-grid select[data-food-payment]{width:100%;margin-top:4px;padding:4px;text-overflow:ellipsis}
+.food-agenda{display:none}
+@media(max-width:640px){
+ .food-booking-toolbar .btn,.food-booking-links [aria-current]{min-height:40px}
+ .food-booking-toolbar:has(.food-booking-filter[aria-pressed="true"]) .food-booking-links{flex-basis:100%;gap:6px}
+ .food-booking-links .btn,.food-booking-links [aria-current]{flex:1;min-width:0;text-align:center;white-space:normal}
+ .food-inquiry-content .dr-sec{padding:14px}
+ .food-inquiry-content .q-btns>*{flex:1 1 120px;min-height:44px}
+ .page-admin #dr-body .food-inquiry-content .field-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+ .food-inquiry-content .fi-contact>.f:last-child,.food-inquiry-content .fi-schedule>.f:first-child,.food-inquiry-content .fi-payment-terms>.f:last-child{grid-column:1/-1}
+ .food-inquiry-content input:is([type=date],[type=time]){min-width:0;width:100%}
+ .page-admin .calendar-food-only .adm-calendar-scroll,.page-admin .calendar-food-only>.adm-cal,
+ .page-admin .calendar-food-only .adm-calendar-swipe-hint,.page-admin .calendar-food-only .cal-legend{display:none}
+ .page-admin .calendar-food-only .food-agenda:not([hidden]){display:grid;gap:10px}
+ .food-agenda-row{border:1px solid #dce9e1;border-radius:10px;background:#f5faf7;padding:12px;line-height:1.5;overflow-wrap:anywhere}
+ .food-agenda-row p{margin:4px 0 8px}
+ .food-agenda-row .q-btns{gap:8px}
+ .food-agenda-row .q-btns>*{min-height:42px}
+}
+
+#view-resv:has(#rs-food-filter[aria-pressed="true"]) .rs-table [data-th="보증금"],
+#view-resv:has(#rs-food-filter[aria-pressed="true"]) .rs-table th:nth-child(9){display:none}
+@media(max-width:640px){
+ .page-admin :is(#rs-list,#bk-list) [data-food-payment]{width:100%;min-height:42px;font-size:16px}
+ .page-admin #rs-list [data-food-open]{min-height:42px}
+}
+
+#cal-food-more-filters{display:none}
+#view-calendar:has(#cal-food-filter[aria-pressed="true"]) :is(.f:has(#cal-filter),#cal-form){display:none}
+@media(max-width:640px){
+ #view-calendar:has(#cal-food-filter[aria-pressed="true"]) #cal-food-more-filters{display:inline-flex;margin:0 0 10px;min-height:40px}
+ #view-calendar:has(#cal-food-filter[aria-pressed="true"]):has(#cal-food-more-filters[aria-expanded="false"]) #cal-extra-filters{display:none}
+}

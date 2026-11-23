@@ -49,10 +49,10 @@
 <link rel="stylesheet" href="/assets/css/admin-confirmation.css?v=f1b323cf1117">
 <link rel="stylesheet" href="/assets/css/admin-food-pricing.css?v=20261103foodprices1">
 <link rel="stylesheet" href="/assets/css/admin-cocktail.css?v=c1dfdbb5ee34">
-<link rel="stylesheet" href="/assets/css/admin-settlement.css?v=e1da16b3ad92">
+<link rel="stylesheet" href="/assets/css/admin-settlement.css?v=12989ad9271e">
 <link rel="stylesheet" href="/assets/css/admin-parking-alerts.css?v=20261118day-fold-readall2">
 <link rel="stylesheet" href="/assets/css/admin-parking.css?v=382ffeda9a7e">
-<link rel="stylesheet" href="/assets/css/admin-navigation.css?v=e9cdcb30ccd9">
+<link rel="stylesheet" href="/assets/css/admin-navigation.css?v=01ce5c74f526">
 <link rel="stylesheet" href="/assets/css/admin-booking-readiness.css?v=4a673b636fe6">
 <link rel="stylesheet" href="/assets/css/admin-revenue.css?v=20261118month3">
 <link rel="stylesheet" href="/assets/css/admin-revenue-services.css?v=20261118bookingdetails1">
@@ -173,7 +173,7 @@
     <!-- 문의 관리 -->
     <!-- 예약 목록 -->
     <section class="adm-view" id="view-resv" hidden>
-      <div class="q-btns mb-2"><button class="btn btn-light btn-sm food-booking-filter" type="button" id="rs-food-filter" aria-pressed="false">식음료 단독</button></div>
+      <div class="food-booking-toolbar"><button class="btn btn-light btn-sm food-booking-filter" type="button" id="rs-food-filter" aria-pressed="false">식음료 단독</button><nav class="food-booking-links" aria-label="식음료 단독 관리"><button class="btn btn-light btn-sm" type="button" data-food-scope="inq">문의 관리</button><span aria-current="page">예약 현황</span><button class="btn btn-light btn-sm" type="button" data-food-scope="calendar">일정 달력</button></nav></div>
       <header class="adm-head"><div><h1>일자별 예약 · 문의</h1><p class="small muted">날짜마다 <b>예약 확정</b>과 아직 정해지지 않은 <b>예약 문의(후보)</b>를 나눠 봅니다. 후보 줄의 <b>확정</b>에서 일시·금액을 확인해 예약을 확정합니다. 하루 전체 마감은 선택한 경우에만 적용됩니다. 대기 취소 건은 회색으로 남고 대기 인원·순번에서 제외됩니다. 줄을 누르면 문의 상세가 열립니다.</p></div>
         <div class="row" style="gap:6px"><button class="btn btn-light btn-sm" type="button" data-go="guide-messages">예약별 알림</button><button class="btn btn-light btn-sm" type="button" id="rs-csv">CSV 내려받기</button><button class="btn btn-light btn-sm" type="button" id="rs-print">인쇄</button><button class="btn btn-light btn-sm" type="button" id="rs-reload">새로고침</button></div></header>
       <div class="rs-bar">
@@ -202,7 +202,7 @@
     </section>
 
     <section class="adm-view" id="view-inq" hidden>
-      <div class="q-btns mb-2"><button class="btn btn-light btn-sm food-booking-filter" type="button" id="inq-food-filter" aria-pressed="false">식음료 단독</button><button class="btn btn-primary btn-sm" type="button" id="inq-food-new">+ 식음료 문의 등록</button></div>
+      <div class="food-booking-toolbar"><button class="btn btn-light btn-sm food-booking-filter" type="button" id="inq-food-filter" aria-pressed="false">식음료 단독</button><button class="btn btn-primary btn-sm" type="button" id="inq-food-new">+ 식음료 문의 등록</button><nav class="food-booking-links" aria-label="식음료 단독 관리"><span aria-current="page">문의 관리</span><button class="btn btn-light btn-sm" type="button" data-food-scope="resv">예약 현황</button><button class="btn btn-light btn-sm" type="button" data-food-scope="calendar">일정 달력</button></nav></div>
       <header class="adm-head"><div><h1>문의 관리</h1><p class="small muted">줄을 누르면 상세 내용·체크리스트·견적·메모를 보고 수정·삭제할 수 있습니다. 왼쪽 칸을 체크하면 문의를 복사하거나 여러 건을 한 번에 삭제할 수 있고, 삭제한 문의는 지워지지 않고 상태의 '삭제된 문의 (보관함)'에 남습니다.</p></div><div class="row" style="gap:8px"><button class="btn btn-primary btn-sm" type="button" data-go="inq-new">+ 문의 직접 등록</button><button class="btn btn-light btn-sm" type="button" id="inq-csv">CSV 내려받기</button></div></header>
       <div class="adm-filters inq-filter-panel adm-card">
         <label class="inq-filter-field"><span>진행 상태</span><select class="select" id="inq-status" title="전체는 삭제된 문의를 제외한 모든 진행 상태를 표시합니다."><option value="" selected>전체</option><option value="open">진행 중 (접수~결제 대기)</option><option>문의 접수</option><option>조건 확인</option><option>견적 발송</option><option>결제 대기</option><option>예약 확정</option><option>이용 완료</option><option>취소·환불</option><option>대기 취소</option><option value="deleted">삭제된 문의 (보관함)</option></select></label>
@@ -462,7 +462,7 @@
 
     <!-- 예약 관리 -->
     <section class="adm-view" id="view-bookings" hidden>
-      <div class="q-btns mb-2"><button class="btn btn-light btn-sm food-booking-filter" type="button" id="bk-food-filter" aria-pressed="false">식음료 단독</button></div>
+      <div class="food-booking-toolbar"><button class="btn btn-light btn-sm food-booking-filter" type="button" id="bk-food-filter" aria-pressed="false">식음료 단독</button><nav class="food-booking-links" aria-label="식음료 단독 관리"><button class="btn btn-light btn-sm" type="button" data-food-scope="inq">문의 관리</button><button class="btn btn-light btn-sm" type="button" data-food-scope="resv">예약 현황</button><button class="btn btn-light btn-sm" type="button" data-food-scope="calendar">일정 달력</button></nav></div>
       <header class="adm-head"><div><h1>예약 관리</h1><p class="small muted">예약별 진행 상태와 수납·안내 내역을 확인합니다. 새 예약은 문의 관리에서 해당 문의를 예약 확정해 주세요. 이용 완료 후에는 고객이 예약번호로 후기를 쓸 수 있습니다.</p></div><button class="btn btn-light btn-sm" type="button" data-go="guide-messages">예약별 알림</button><button class="btn btn-light btn-sm" type="button" id="bk-reload">새로고침</button></header>
       <div class="adm-grid2" style="align-items:start">
         <form class="adm-card form" id="bk-form" novalidate hidden>
@@ -505,14 +505,15 @@
 
     <!-- 일정 달력 -->
     <section class="adm-view" id="view-calendar" hidden>
-      <div class="q-btns mb-2"><button class="btn btn-light btn-sm food-booking-filter" type="button" id="cal-food-filter" aria-pressed="false">식음료 단독</button></div>
+      <div class="food-booking-toolbar"><button class="btn btn-light btn-sm food-booking-filter" type="button" id="cal-food-filter" aria-pressed="false">식음료 단독</button><nav class="food-booking-links" aria-label="식음료 단독 관리"><button class="btn btn-light btn-sm" type="button" data-food-scope="inq">문의 관리</button><button class="btn btn-light btn-sm" type="button" data-food-scope="resv">예약 현황</button><span aria-current="page">일정 달력</span></nav></div>
       <header class="adm-head"><div><h1>일정 달력</h1><p class="small muted">초록색은 확정 예약입니다. 같은 날에도 이용 시간이 겹치지 않으면 다른 예약을 받을 수 있습니다.</p></div><div class="row" style="gap:6px"><button class="btn btn-light btn-sm" type="button" id="cal-prev">← 이전 달</button><b id="cal-title" class="cal-title"></b><button class="btn btn-light btn-sm" type="button" id="cal-next">다음 달 →</button></div></header>
       <div class="f" style="max-width:260px"><label for="cal-filter">달력에 표시할 공간</label><select class="select" id="cal-filter"><option value="">전체 일정</option><option value="megaspot-gundae">건대 1호</option><option value="megaspot-gundae-2">건대 2호</option></select></div>
       <div class="f adm-calendar-food"><label for="cal-service-filter">식음료 진행</label><select class="select" id="cal-service-filter"><option value="">식음료 전체</option><option value="confirmed">식음료 이용 확정 전체</option><option value="catering">출장뷔페 이용 확정</option><option value="reception">케이터링 이용 확정</option><option value="cocktail">칵테일 이용 확정</option></select></div>
       <button type="button" class="btn btn-light btn-sm reservation-filter-reset" id="cal-filter-reset" data-reservation-filter-reset title="이번 달 · 전체 호점 · 전체 식음료 · 전체 예약 상태 · 전체 결제 상태 · 전체 문의 경로 · 검색어 지우기">필터 초기화</button>
-      <div class="adm-calendar-extra-filters"><label>문의 경로<select class="select" id="cal-channel-filter"><option value="">모든 경로</option><option value="online">온라인 결제</option><option value="web">홈페이지</option><option value="naver">네이버</option><option value="spacecloud">스페이스클라우드</option><option value="sns">SNS</option><option value="kakao">카카오톡</option><option value="phone">전화</option><option value="email">이메일</option><option value="visit">방문</option><option value="other">기타 (직접 입력)</option></select></label><label>결제 상태<select class="select" id="cal-payment-filter" aria-label="결제 상태 필터"><option value="">결제 전체</option><option value="outstanding">잔금·입금 확인 필요</option><option value="unpaid">입금 전</option><option value="reservation_paid">예약금 입금 완료</option><option value="venue_paid">대관비용 입금 완료</option><option value="food_paid">식음료 입금 완료</option><option value="venue_fully_paid">전체 입금 완료(대관)</option><option value="fully_paid">전체 입금 완료(대관+식음료)</option><option value="partial_paid">일부 입금·잔금 확인 필요</option><option value="needs_review">입금 범위 확인 필요</option></select></label><label>예약 상태<select class="select" id="cal-status-filter"><option value="">전체 · 취소 기록 포함</option><option value="active">취소 제외</option><option value="confirmed">예약 확정</option><option value="completed">이용 완료</option><option value="payment_review">일정 확인 필요</option><option value="cancelled">취소만</option></select></label><label>검색<input class="input" id="cal-q" type="search" maxlength="120" placeholder="이름·연락처·예약번호·문의번호" aria-label="달력 검색"></label></div>
+      <button type="button" class="btn btn-light btn-sm" id="cal-food-more-filters" aria-controls="cal-extra-filters" aria-expanded="false">일정 검색·필터</button>
+      <div class="adm-calendar-extra-filters" id="cal-extra-filters"><label>문의 경로<select class="select" id="cal-channel-filter"><option value="">모든 경로</option><option value="online">온라인 결제</option><option value="web">홈페이지</option><option value="naver">네이버</option><option value="spacecloud">스페이스클라우드</option><option value="sns">SNS</option><option value="kakao">카카오톡</option><option value="phone">전화</option><option value="email">이메일</option><option value="visit">방문</option><option value="other">기타 (직접 입력)</option></select></label><label>결제 상태<select class="select" id="cal-payment-filter" aria-label="결제 상태 필터"><option value="">결제 전체</option><option value="outstanding">잔금·입금 확인 필요</option><option value="unpaid">입금 전</option><option value="reservation_paid">예약금 입금 완료</option><option value="venue_paid">대관비용 입금 완료</option><option value="food_paid">식음료 입금 완료</option><option value="venue_fully_paid">전체 입금 완료(대관)</option><option value="fully_paid">전체 입금 완료(대관+식음료)</option><option value="partial_paid">일부 입금·잔금 확인 필요</option><option value="needs_review">입금 범위 확인 필요</option></select></label><label>예약 상태<select class="select" id="cal-status-filter"><option value="">전체 · 취소 기록 포함</option><option value="active">취소 제외</option><option value="confirmed">예약 확정</option><option value="completed">이용 완료</option><option value="payment_review">일정 확인 필요</option><option value="cancelled">취소만</option></select></label><label>검색<input class="input" id="cal-q" type="search" maxlength="120" placeholder="이름·연락처·예약번호·문의번호" aria-label="달력 검색"></label></div>
       <p class="small muted" id="cal-service-summary" role="status" aria-live="polite" hidden></p>
-      <div class="adm-card"><div class="adm-cal" id="cal-grid" aria-busy="false"></div><span class="sr-only" id="cal-status" role="status" aria-live="polite"></span><div class="cal-legend small"><span class="lg bk">확정 예약</span><span class="lg full">별도 종일 마감</span><span class="lg hold">임시 확보 · 결제 확인</span><span class="lg inq">미확정 문의 · 이용 완료</span><span class="cal-food-legend"><span aria-hidden="true"></span>식음료 · 점을 눌러 확인</span></div></div>
+      <div class="adm-card"><div class="adm-cal" id="cal-grid" aria-busy="false"></div><div id="cal-food-agenda" class="food-agenda" hidden></div><span class="sr-only" id="cal-status" role="status" aria-live="polite"></span><div class="cal-legend small"><span class="lg bk">확정 예약</span><span class="lg full">별도 종일 마감</span><span class="lg hold">임시 확보 · 결제 확인</span><span class="lg inq">미확정 문의 · 이용 완료</span><span class="cal-food-legend"><span aria-hidden="true"></span>식음료 · 점을 눌러 확인</span></div></div>
       <form class="adm-card form mt-3" id="cal-form" novalidate>
         <h2>날짜 상태 바꾸기</h2>
         <div class="field-row three"><div class="f"><label>공간</label><select class="select" name="space_id" id="cal-space"></select></div><div class="f"><label>날짜 <span class="req">*</span></label><input class="input" type="date" name="date" id="cal-date" required></div><div class="f"><label>상태</label><select class="select" name="state"><option value="full">마감</option><option value="hold">임시 확보</option><option value="open">문의 가능(해제)</option></select></div></div>
@@ -776,7 +777,7 @@
 <script src="/assets/js/quote-policy.js?v=e29d1c2305b4"></script>
 <script src="/assets/js/pages/admin-food-filter.js?v=e6689c0f6f74"></script>
 <script src="/assets/js/pages/admin-reservation-period.js?v=d19a2c8a0701"></script>
-<script src="/assets/js/pages/admin.js?v=75e347038abc"></script>
+<script src="/assets/js/pages/admin.js?v=13ab3e0d4140"></script>
 <script src="/assets/js/pages/admin-service-status.js?v=6f085e2a9a83"></script>
 <script src="/assets/js/pages/admin-platform.js?v=20261102adminux1"></script>
 <script src="/assets/js/pages/admin-cocktail.js?v=c0a30f26741b"></script>
@@ -793,7 +794,7 @@
 <script src="/assets/js/pages/admin-deposit-notifications.js?v=86f9291cbc6a"></script>
 <script src="/assets/js/pages/admin-booking-portal.js?v=20261103portal1"></script>
 <script src="/assets/js/admin-save-recovery.js?v=20261104retry1"></script>
-<script src="/assets/js/pages/admin-settlement.js?v=d503ae733c90"></script>
+<script src="/assets/js/pages/admin-settlement.js?v=ce158a123215"></script>
 <script src="/assets/js/pages/admin-cancellation.js?v=20261104retry1"></script>
 <script src="/assets/js/pages/admin-booking-notifications.js?v=20e290bf4fd8"></script>
 <script src="/assets/js/pages/admin-transaction-notifications.js?v=87a73e4899a8"></script>
@@ -809,9 +810,9 @@
 <script src="/assets/js/pages/admin-navigation.js?v=b1e11119cbdb"></script>
 <script src="/assets/js/pages/admin-booking-readiness.js?v=20261105readiness1"></script>
 <script src="/assets/js/pages/admin-contacts.js?v=6d34a1d37fb7"></script>
-<script src="/assets/js/pages/admin-payment-editor.js?v=16b445ae9107"></script>
+<script src="/assets/js/pages/admin-payment-editor.js?v=190dffec2811"></script>
 <script src="/assets/js/pages/admin-mobile.js?v=8168b5a79401"></script>
-<script src="/assets/js/pages/admin-filter-layout.js?v=f321a987ab45"></script>
+<script src="/assets/js/pages/admin-filter-layout.js?v=9bcec56a680f"></script>
 <script src="/assets/js/pages/admin-action-menus.js?v=7c15484e63ce"></script>
 </body>
 </html>
