@@ -310,7 +310,7 @@
      아래 메가스팟 안내 배너(건대 1호·2호·모임 모집·공간 등록)를 대신 보여 줍니다. 유료 광고에는 항상 '광고' 표시를 붙입니다. */
   var HOUSE_ADS={
     'home-mid':[
-      { title:'400평 메가스팟 건대 2호, 지금 예약할 수 있습니다', sub:'최대 350명 · 200인치 레이저 빔프로젝터 2대 · 기준 50명 포함. 날짜·시간·인원을 넣으면 금액이 바로 나옵니다.', cta:'2호 보기', href:'/spaces/megaspot-gundae-2/', image:'/assets/img/gundae2/m/r28.jpg', theme:'graphite' },
+      { title:'400평 메가스팟 건대 2호, 지금 예약할 수 있습니다', sub:'최대 350명 · 200인치 레이저 빔프로젝터 2대 · 기준 50명 포함. 날짜·시간·인원을 넣으면 금액이 바로 나옵니다.', cta:'2호 보기', href:'/spaces/megaspot-gundae-2/', image:'/assets/img/gundae2/m/r28-matte-black.jpg', theme:'graphite' },
       { title:'대관을 정했다면, 참가자 모집도 메가스팟에서', sub:'모임 소개와 참가 신청·대기 신청을 받는 페이지를 무료로 만들 수 있습니다. 신청자 명단은 주최자 관리 화면에서 봅니다.', cta:'모임 등록하기', href:'/meetups/new/', image:'/assets/img/scenes/m/s04.jpg', theme:'cobalt' }],
     'list-top':[
       { title:'바로 쓸 수 있는 190평, 메가스팟 건대 1호', sub:'최대 200명 · 기준 50명 포함 · 1시간 총 34만 원부터 · 200인치 빔프로젝터와 음향 무료', cta:'1호 보기', href:'/spaces/megaspot-gundae/', theme:'light' },
@@ -320,7 +320,7 @@
       { title:'함께할 사람을 모으는 중인가요', sub:'세미나·네트워킹·동호회 모임을 올리고 참가 신청을 받아 보세요.', cta:'모임 등록하기', href:'/meetups/new/', image:'/assets/img/scenes/m/s13.jpg', theme:'cobalt' }],
     'content-bottom':[
       { title:'건대입구 190평 · 400평, 메가스팟 건대 1호·2호', sub:'20명 소모임부터 350명 행사까지. 날짜·시간·인원을 넣으면 요금표 그대로 금액이 나옵니다.', cta:'금액 확인하기', href:'/inquiry/', image:'/assets/img/views/m/v01.jpg', theme:'graphite' },
-      { title:'400평 메가스팟 건대 2호', sub:'최대 350명 · 송년회·시상식·대규모 세미나 · 1호와 같은 층', cta:'2호 보기', href:'/spaces/megaspot-gundae-2/', image:'/assets/img/gundae2/m/r28.jpg', theme:'cobalt' }]
+      { title:'400평 메가스팟 건대 2호', sub:'최대 350명 · 송년회·시상식·대규모 세미나 · 1호와 같은 층', cta:'2호 보기', href:'/spaces/megaspot-gundae-2/', image:'/assets/img/gundae2/m/r28-matte-black.jpg', theme:'cobalt' }]
   };
   var adsReq=null, adSeen={}, adQueue=[], adTimer=null, adIO=null;
   function adsLoad(slots){
