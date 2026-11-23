@@ -53,7 +53,7 @@
 <link rel="stylesheet" href="/assets/css/admin-settlement.css?v=12989ad9271e">
 <link rel="stylesheet" href="/assets/css/admin-parking-alerts.css?v=20261118day-fold-readall2">
 <link rel="stylesheet" href="/assets/css/admin-parking.css?v=382ffeda9a7e">
-<link rel="stylesheet" href="/assets/css/admin-navigation.css?v=a5a36e92f88b">
+<link rel="stylesheet" href="/assets/css/admin-navigation.css?v=c39cfd7d51e9">
 <link rel="stylesheet" href="/assets/css/admin-booking-readiness.css?v=4a673b636fe6">
 <link rel="stylesheet" href="/assets/css/admin-revenue.css?v=20261118month3">
 <link rel="stylesheet" href="/assets/css/admin-revenue-services.css?v=20261118bookingdetails1">
@@ -520,7 +520,7 @@
       <button type="button" class="btn btn-light btn-sm" id="cal-food-more-filters" aria-controls="cal-extra-filters" aria-expanded="false">일정 검색·필터</button>
       <div class="adm-calendar-extra-filters" id="cal-extra-filters"><label>문의 경로<select class="select" id="cal-channel-filter"><option value="">모든 경로</option><option value="online">온라인 결제</option><option value="web">홈페이지</option><option value="naver">네이버</option><option value="spacecloud">스페이스클라우드</option><option value="sns">SNS</option><option value="kakao">카카오톡</option><option value="phone">전화</option><option value="email">이메일</option><option value="visit">방문</option><option value="other">기타 (직접 입력)</option></select></label><label>결제 상태<select class="select" id="cal-payment-filter" aria-label="결제 상태 필터"><option value="">결제 전체</option><option value="outstanding">잔금·입금 확인 필요</option><option value="unpaid">입금 전</option><option value="reservation_paid">예약금 입금 완료</option><option value="venue_paid">대관비용 입금 완료</option><option value="food_paid">식음료 입금 완료</option><option value="venue_fully_paid">전체 입금 완료(대관)</option><option value="fully_paid">전체 입금 완료(대관+식음료)</option><option value="partial_paid">일부 입금·잔금 확인 필요</option><option value="needs_review">입금 범위 확인 필요</option></select></label><label>예약 상태<select class="select" id="cal-status-filter"><option value="">전체 · 취소 기록 포함</option><option value="active">취소 제외</option><option value="confirmed">예약 확정</option><option value="completed">이용 완료</option><option value="payment_review">일정 확인 필요</option><option value="cancelled">취소만</option></select></label><label>검색<input class="input" id="cal-q" type="search" maxlength="120" placeholder="이름·연락처·예약번호·문의번호" aria-label="달력 검색"></label></div>
       <p class="small muted" id="cal-service-summary" role="status" aria-live="polite" hidden></p>
-      <div class="adm-card"><div class="adm-cal" id="cal-grid" aria-busy="false"></div><div id="cal-food-agenda" class="food-agenda" hidden></div><span class="sr-only" id="cal-status" role="status" aria-live="polite"></span><div class="cal-legend small"><span class="lg bk">확정 예약</span><span class="lg full">별도 종일 마감</span><span class="lg hold">임시 확보 · 결제 확인</span><span class="lg inq">미확정 문의 · 이용 완료</span><span class="cal-food-legend"><span aria-hidden="true"></span>식음료 · 점을 눌러 확인</span></div></div>
+      <div class="adm-card adm-calendar-panel"><div class="adm-cal" id="cal-grid" aria-busy="false"></div><div id="cal-food-agenda" class="food-agenda" hidden></div><span class="sr-only" id="cal-status" role="status" aria-live="polite"></span><div class="cal-legend small"><span class="lg bk">확정 예약</span><span class="lg full">별도 종일 마감</span><span class="lg hold">임시 확보 · 결제 확인</span><span class="lg inq">미확정 문의 · 이용 완료</span><span class="cal-food-legend"><span aria-hidden="true"></span>식음료 · 점을 눌러 확인</span></div></div>
       <form class="adm-card form mt-3" id="cal-form" novalidate>
         <h2>날짜 상태 바꾸기</h2>
         <div class="field-row three"><div class="f"><label>공간</label><select class="select" name="space_id" id="cal-space"></select></div><div class="f"><label>날짜 <span class="req">*</span></label><input class="input" type="date" name="date" id="cal-date" required></div><div class="f"><label>상태</label><select class="select" name="state"><option value="full">마감</option><option value="hold">임시 확보</option><option value="open">문의 가능(해제)</option></select></div></div>
@@ -803,7 +803,7 @@
 <script src="/assets/js/quote-policy.js?v=e29d1c2305b4"></script>
 <script src="/assets/js/pages/admin-food-filter.js?v=e6689c0f6f74"></script>
 <script src="/assets/js/pages/admin-reservation-period.js?v=d19a2c8a0701"></script>
-<script src="/assets/js/pages/admin.js?v=41b6286f2653"></script>
+<script src="/assets/js/pages/admin.js?v=858b36de68f1"></script>
 <script src="/assets/js/pages/admin-service-status.js?v=6f085e2a9a83"></script>
 <script src="/assets/js/pages/admin-platform.js?v=20261102adminux1"></script>
 <script src="/assets/js/pages/admin-cocktail.js?v=c0a30f26741b"></script>

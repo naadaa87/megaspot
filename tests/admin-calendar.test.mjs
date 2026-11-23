@@ -113,8 +113,33 @@ test('식음료 단독 카드의 진행 상태 점은 시간 줄에 있고 결�
  const booking={date:'2026-10-23',space_id:'food-only',booking_code:'FOOD-ONE',status:'confirmed',customer_name:'식음료 고객',services:[{kind:'reception',status:'confirmed'}],food_event:{location:'행사 장소'}};
  context.drawCalendar([],[booking,{...booking,status:'cancelled',booking_code:'FOOD-TWO'}],[]);
  const [active,cancelled]=nodes['#cal-grid'].innerHTML.match(/<i class="ev cal-food-event[^]*?<\/i>/g);
- assert.match(active,/class="cal-food-event-heading"[^]*?18:00–20:00<\/span><button[^]*?class="cal-food-dot"[^]*?<\/button><\/span>식음료 고객<br>행사 장소/);
+ assert.match(active,/class="cal-event-heading"[^]*?18:00–20:00<\/span><button[^]*?class="cal-food-dot"[^]*?<\/button><\/span><span class="cal-event-details">식음료 고객<br>행사 장소/);
  assert.match(active,/\[달력 결제\]<\/i>/);
  assert.doesNotMatch(cancelled,/cal-food-dot/);
  assert.match(nodes['#cal-food-agenda'].innerHTML,/\[목록 결제\]/);
+});
+
+test('전체 달력에서 대관과 식음료 수납액·잔금을 표시하고 취소 정산과 문의를 구분한다',()=>{
+ const {context,nodes}=calendar();
+ context.foodEventTime=()=> '18:00–20:00';
+ context.foodLabels={reception:'케이터링'};
+ context.foodSettlementValue=value=>value==null?'확인 필요':value.toLocaleString('ko-KR')+'원';
+ context.paymentBadge=()=> '[결제]';
+ const date='2026-10-23',base={date,status:'confirmed',start_h:13,end_h:21},services=[{kind:'reception',status:'confirmed'}];
+ const venue={...base,space_id:'megaspot-gundae',booking_code:'BK-ROOM',customer_name:'대관 고객',services,deposit_paid:true,settlement:{received:200000,refunded:30000,net:170000,balance:330000}};
+ const food={...base,space_id:'food-only',booking_code:'BK-FOOD',customer_name:'식음료 고객',settlement:{net:200000,balance:955000}};
+ const cancelled={...base,status:'cancelled',space_id:'megaspot-gundae-2',customer_name:'취소 고객',settlement:{net:100000,balance:0,refund_due:80000}};
+ const unpriced={...base,space_id:'megaspot-gundae-2',customer_name:'금액 미정 고객',settlement:{net:0,balance:null}};
+ const inquiry={event_date:date,ref:'MS-LEAD',space_id:'megaspot-gundae',status:'문의 접수',name:'문의 고객',services};
+ context.drawCalendar([],[venue,food,cancelled,unpriced],[inquiry]);
+ const cards=nodes['#cal-grid'].innerHTML.match(/<i class="ev [^]*?<\/i>/g);
+ const card=name=>cards.find(html=>html.includes(name));
+ assert.match(card('대관 고객'),/현재 수납액<\/span> <b>170,000원<\/b>.*남은 잔금<\/span> <b>330,000원<\/b>/);
+ assert.match(card('대관 고객'),/class="cal-event-heading"[^]*?class="cal-food-dot"[^]*?<\/button><\/span><span class="cal-event-details">대관 고객/);
+ assert.match(card('식음료 고객'),/현재 수납액<\/span> <b>200,000원<\/b>.*남은 잔금<\/span> <b>955,000원<\/b>/);
+ assert.match(card('취소 고객'),/다시 받아야 할 금액<\/span> <b>0원<\/b>.*추가 환불 필요액<\/span> <b>80,000원<\/b>/);
+ assert.doesNotMatch(card('취소 고객'),/남은 잔금/);
+ assert.match(card('금액 미정 고객'),/남은 잔금<\/span> <b>확인 필요<\/b>/);
+ assert.match(card('문의 고객'),/class="cal-event-heading"[^]*?class="cal-food-dot"[^]*?<\/button><\/span><span class="cal-event-details">문의 고객/);
+ assert.doesNotMatch(card('문의 고객'),/수납액|잔금/);
 });
