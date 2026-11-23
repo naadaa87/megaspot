@@ -46,7 +46,7 @@ async function tested(env,kind,hashes){
  }
  return !!await env.DB.prepare("SELECT id FROM deposit_notifications WHERE mode='test' AND kind=? AND status='delivered' AND config_hash IN ("+acceptable.map(()=>'?').join(',')+") LIMIT 1").bind(kind,...acceptable).first();
 }
-const BOOKING_SELECT=`SELECT b.*,${depositConfirmedSql()} AS confirmed_day,${bookingPhone2Sql()} AS phone2,r.state AS refund_state,r.account_cipher,r.purged_at,r.completion_id,r.paid_amount,r.deduction,r.completed_at,r.account_version,
+const BOOKING_SELECT=`SELECT b.*,(SELECT method FROM booking_deposit_methods WHERE booking_code=b.booking_code) AS deposit_method,${depositConfirmedSql()} AS confirmed_day,${bookingPhone2Sql()} AS phone2,r.state AS refund_state,r.account_cipher,r.purged_at,r.completion_id,r.paid_amount,r.deduction,r.completed_at,r.account_version,
  COALESCE(r.amount,json_extract(b.confirm_doc,'$.deposit'),(SELECT json_extract(q.data,'$.deposit') FROM quotes q WHERE q.inquiry_ref=b.inquiry_ref ORDER BY q.id DESC LIMIT 1),150000) AS deposit_amount,
  CASE WHEN b.inquiry_ref IS NOT NULL THEN COALESCE(json_extract(ic.checks,'$.guarantee_paid'),0) ELSE COALESCE(dc.paid,0) END AS deposit_paid,
  COALESCE(json_extract(ic.checks,'$.guarantee_returned'),0) AS returned
@@ -65,7 +65,7 @@ export function noticeObsolete(b,e,at=Date.now(),scheduledPayment=false){
  if(Number(p.amount)!==Number(b.deposit_amount)||b.deposit_amount<=0)return '보증금액이 변경되었거나 보증금이 없는 예약입니다.';
  if(b.returned||b.refund_state==='completed')return '보증금 반환이 완료되었습니다.';
  if(e.kind==='payment'){if(b.deposit_paid)return '이미 보증금 입금이 확인되었습니다.';if(end.end<=at)return '이용이 종료되어 입금 안내를 보내지 않습니다.';}
- if(e.kind==='account'){if(!b.deposit_paid)return '보증금 입금 확인이 취소되었습니다.';if(b.account_cipher)return '환급 계좌가 이미 등록되었습니다.';if(['processing','hold'].includes(b.refund_state)||b.purged_at)return '계좌 등록을 받을 수 없는 처리 상태입니다.';if(end.end+90*864e5<=at)return '계좌 등록 안내 유효기간이 지났습니다.';}
+ if(e.kind==='account'){if(b.deposit_method==='card')return '카드 보증금은 환급계좌 등록이 필요하지 않습니다.';if(!b.deposit_paid)return '보증금 입금 확인이 취소되었습니다.';if(b.account_cipher)return '환급 계좌가 이미 등록되었습니다.';if(['processing','hold'].includes(b.refund_state)||b.purged_at)return '계좌 등록을 받을 수 없는 처리 상태입니다.';if(end.end+90*864e5<=at)return '계좌 등록 안내 유효기간이 지났습니다.';}
  if(!scheduledPayment&&at-utc(e.occurred_at)>7*864e5)return '안내 발생 후 7일이 지나 자동 발송하지 않습니다.';
  return '';
 }

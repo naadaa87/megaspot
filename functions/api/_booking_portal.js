@@ -43,7 +43,7 @@ export function arrival(b){
 function accountState(b,amount){
  const expired=!!(b.account_expires_at&&b.account_expires_at<=Date.now()),registered=!!b.account_cipher&&!expired;
  const returned=!!b.legacy_returned||b.state==='completed',purged=!!b.purged_at||expired;
- return {registered,state:returned?'completed':b.state||'pending',available:amount>0&&!returned&&!purged&&!!eventTime(b)&&!!b.link_cipher&&b.link_expires_at>Date.now(),purged,completed_at:b.completed_at||null};
+ return {registered,state:returned?'completed':b.state||'pending',available:b.deposit_method!=='card'&&amount>0&&!returned&&!purged&&!!eventTime(b)&&!!b.link_cipher&&b.link_expires_at>Date.now(),purged,completed_at:b.completed_at||null};
 }
 export async function portalAdmin({env,request,url,path,method}){
  const match=path.match(/^bookings\/([A-Z0-9-]{1,40})\/portal-link(?:\/(rotate))?$/);if(!match)return null;
@@ -103,9 +103,9 @@ export async function portalCustomer({env,request,path}){
  if(path==='view'&&request.method==='GET'){
   const visibility=await env.DB.prepare('SELECT amount_visible,confirmed_at,confirm_version FROM booking_journey_state WHERE booking_code=?').bind(b.booking_code).first();
   const doc=parseDoc(b.confirm_doc),issued=!!doc?.issued_at,showAmount=doc?.show_amount!==false&&visibility?.amount_visible!==0,end=eventTime(b);
-  const deposit={amount:showAmount?amount:null,amount_visible:showAmount,paid:!!b.deposit_paid,returned:account.state==='completed',due_date:null,refund_date:b.settled_refund_date||refundDate(b),account};
+  const deposit={payment_method:b.deposit_method||'',amount:showAmount?amount:null,amount_visible:showAmount,paid:!!b.deposit_paid,returned:account.state==='completed',due_date:null,refund_date:b.settled_refund_date||refundDate(b),account};
   if(end)deposit.due_date=depositDueDate({...b,confirmed_day:visibility?.confirm_version>0?visibility.confirmed_at?.slice(0,10):undefined});
-  if(showAmount&&amount>0&&!deposit.paid&&!deposit.returned)deposit.bank={name:'기업은행',account:'064-179058-04018',holder:'주식회사 지유공간개발'};
+  if(showAmount&&amount>0&&!deposit.paid&&!deposit.returned&&b.deposit_method!=='card')deposit.bank={name:'기업은행',account:'064-179058-04018',holder:'주식회사 지유공간개발'};
   const settlement=showAmount?await settlementFor(env,b.booking_code):null,schedule=await paymentSchedule(env,b);
   const payment={amount_visible:showAmount,total:settlement?.amount??null,received:settlement?.received??null,refunded:settlement?.refunded??null,paid:settlement?.net??null,balance:settlement?.balance??null,refund_due:settlement?.refund_due??null,due_date:schedule.due_date,complete:!!settlement&&settlement.amount!=null&&settlement.balance===0&&!settlement.over_refunded};
   if(showAmount&&payment.balance>0)payment.bank={name:'하나은행',account:'298-910064-39104',holder:'주식회사 블랭크'};

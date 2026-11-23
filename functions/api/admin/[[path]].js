@@ -29,6 +29,7 @@ import {readCocktailPricing,publicCocktailPricing,adminCocktailPricing,saveCockt
 import { depositNoticeAdmin } from '../_deposit_notifications.js';
 import {transactionNoticeAdmin,transactionNoticeTick} from '../_transaction_notifications.js';
 import { refundAdmin } from '../_deposit_refunds.js';
+import { depositMethodSql } from '../_deposit_payment_methods.js';
 import {paymentScheduleAdmin} from '../_booking_payment_schedule.js';
 import { portalAdmin } from '../_booking_portal.js';
 import { cateringAdmin } from '../_catering.js';
@@ -838,7 +839,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
       const page = Math.max(0, Math.min(100000, num(url.searchParams.get('page')) || 0)); args.push(page * 300);
       const { results } = await env.DB.prepare(`SELECT booking_code, space_id, inquiry_ref, customer_name, phone, ${bookingPhone2Sql()} AS phone2, date, slot, headcount, memo, status, ${bookingAmountSql()} AS amount, start_h, end_h, created_at, json_extract(confirm_doc, '$.issued_at') AS confirm_issued,
         CASE WHEN b.inquiry_ref IS NOT NULL THEN (SELECT CASE WHEN json_extract(ic.checks, '$.guarantee_paid') IS NULL THEN NULL WHEN json_extract(ic.checks, '$.guarantee_paid') = 0 THEN 0 ELSE 1 END FROM inquiry_checks ic WHERE ic.ref = b.inquiry_ref)
-             ELSE (SELECT dc.paid FROM booking_deposit_checks dc WHERE dc.booking_code = b.booking_code) END AS deposit_paid, ${DEPOSIT_REFUNDED_SQL} AS deposit_refunded, CASE WHEN EXISTS(SELECT 1 FROM orders oc WHERE oc.booking_code=b.booking_code) THEN 'online' ELSE COALESCE((SELECT NULLIF(json_extract(ic.data,'$.channel'),'') FROM inquiries ic WHERE ic.ref=b.inquiry_ref),CASE WHEN NULLIF(b.inquiry_ref,'') IS NOT NULL THEN 'web' ELSE '' END) END AS channel,
+             ELSE (SELECT dc.paid FROM booking_deposit_checks dc WHERE dc.booking_code = b.booking_code) END AS deposit_paid, ${DEPOSIT_REFUNDED_SQL} AS deposit_refunded, ${depositMethodSql('b.booking_code')} AS deposit_method, CASE WHEN EXISTS(SELECT 1 FROM orders oc WHERE oc.booking_code=b.booking_code) THEN 'online' ELSE COALESCE((SELECT NULLIF(json_extract(ic.data,'$.channel'),'') FROM inquiries ic WHERE ic.ref=b.inquiry_ref),CASE WHEN NULLIF(b.inquiry_ref,'') IS NOT NULL THEN 'web' ELSE '' END) END AS channel,
         (SELECT json_extract(ic.data,'$.channel_note') FROM inquiries ic WHERE ic.ref=b.inquiry_ref) AS channel_note, ${ORDER_OF_BOOKING} AS cat_ord,
         (SELECT ${SERVICE_DATA_SQL} FROM inquiries i WHERE i.ref=b.inquiry_ref) AS service_data
         FROM bookings b ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY date DESC, created_at DESC, id DESC LIMIT 301 OFFSET ?`).bind(...args).all();
@@ -896,7 +897,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
       const latestQ = "(SELECT q.total FROM quotes q WHERE q.inquiry_ref = b.inquiry_ref ORDER BY q.id DESC LIMIT 1)";
       const { results: bks } = await env.DB.prepare(`SELECT b.booking_code, b.space_id, b.inquiry_ref, b.customer_name, b.phone, ${bookingPhone2Sql()} AS phone2, b.date, b.slot, b.headcount, CASE WHEN i.ref IS NOT NULL THEN COALESCE(i.memo, '') ELSE COALESCE(b.memo, '') END AS operation_memo, b.status, b.amount, b.start_h, b.end_h, b.created_at, json_extract(b.confirm_doc, '$.issued_at') AS confirm_issued,
           CASE WHEN b.inquiry_ref IS NOT NULL THEN (SELECT CASE WHEN json_extract(ic.checks, '$.guarantee_paid') IS NULL THEN NULL WHEN json_extract(ic.checks, '$.guarantee_paid') = 0 THEN 0 ELSE 1 END FROM inquiry_checks ic WHERE ic.ref = b.inquiry_ref)
-               ELSE (SELECT dc.paid FROM booking_deposit_checks dc WHERE dc.booking_code = b.booking_code) END AS deposit_paid, ${DEPOSIT_REFUNDED_SQL} AS deposit_refunded,
+               ELSE (SELECT dc.paid FROM booking_deposit_checks dc WHERE dc.booking_code = b.booking_code) END AS deposit_paid, ${DEPOSIT_REFUNDED_SQL} AS deposit_refunded, ${depositMethodSql('b.booking_code')} AS deposit_method,
           o.oid AS order_oid, o.price AS order_price, o.status AS order_status, ${latestQ} AS quote_total,
           ${bookingAmountSql()} AS effective_amount, ${amountOverrideSql()} AS amount_override,
           json_extract(i.data, '$.total') AS inq_total, json_extract(i.data, '$.start_h') AS inq_start, json_extract(i.data, '$.end_h') AS inq_end, json_extract(i.data, '$.purpose') AS purpose, json_extract(i.data, '$.channel') AS channel, json_extract(i.data, '$.channel_note') AS channel_note, json_extract(i.data, '$.family') AS family,
@@ -919,7 +920,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
       const jarr = v => { try { const a = JSON.parse(v || '[]'); return Array.isArray(a) ? a.slice(0, 4) : []; } catch { return []; } };
       for (const b of (bks || []).slice(0, 1000)) items.push({ family: jarr(b.family), kind: 'booking', code: b.booking_code, space_id: b.space_id || '', ref: b.inquiry_ref, name: b.customer_name, phone: b.phone, phone2:b.phone2||'', date: b.date, slot: b.slot,
         start_h: b.start_h ?? b.inq_start ?? null, end_h: b.end_h ?? b.inq_end ?? null, headcount: b.headcount, memo: b.operation_memo, status: b.status, purpose: b.purpose || '', channel: b.order_oid ? 'online' : (b.channel || (b.inquiry_ref ? 'web' : '')), channel_note: b.channel_note || '',
-        amount: b.effective_amount, deposit_paid: b.deposit_paid, deposit_refunded: b.deposit_refunded,
+        amount: b.effective_amount, deposit_paid: b.deposit_paid, deposit_refunded: b.deposit_refunded, deposit_method: b.deposit_method,
         confirm_issued: b.confirm_issued || '', amount_src: b.amount_override ? 'adjusted' : (b.amount != null ? 'booking' : (b.order_price != null && b.order_status !== 'failed' ? 'order' : (b.quote_total != null ? 'quote' : (b.inq_total != null ? 'estimate' : '')))), order: b.order_oid || '', services: reservationServices(b.service_data,orderBrief(b.cat_ord)), catering: orderBrief(b.cat_ord), catering_req: b.cat_req || '' });
       for (const p of (pend || []).slice(0, 1000)) items.push({ family: jarr(p.family), kind: 'pending', code: '', ref: p.ref, space_id: p.space_id || '', name: p.name, phone: p.phone, date: p.event_date, slot: p.slot, pkg: p.pkg, start_h: p.start_h ?? null, end_h: p.end_h ?? null,
         t_start: p.t_start || '', t_end: p.t_end || '', headcount: p.headcount, memo: p.memo || '', status: p.status, reserve: !!p.reserve, purpose: p.purpose || '', channel: p.channel || 'web', channel_note: p.channel_note || '', inquiry_type: p.inquiry_type || 'event', wait_rank: p.wait_rank == null ? null : Number(p.wait_rank), created_at: p.created_at, wait_restored_at: p.wait_restored_at || '',

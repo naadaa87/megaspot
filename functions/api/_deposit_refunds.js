@@ -1,5 +1,6 @@
 // Deposit accounts never enter static assets, query strings, or event-log detail.
 import {json,err,readJson,now,str,isDate,sha256,randomToken,SPACES,kstToday,getCookie,log} from './_lib.js';
+import {depositPayappAccounts,saveDepositMethod} from './_deposit_payment_methods.js';
 export const CONSENT_VERSION='deposit-refund-20261103-v1';
 export const RETENTION_DAYS=30;
 export const BANKS=[['004','KB국민은행'],['088','신한은행'],['020','우리은행'],['081','하나은행'],['011','NH농협은행'],['012','지역농축협'],['003','IBK기업은행'],['023','SC제일은행'],['027','한국씨티은행'],['090','카카오뱅크'],['089','케이뱅크'],['092','토스뱅크'],['002','KDB산업은행'],['007','Sh수협은행'],['045','새마을금고'],['048','신협'],['071','우체국'],['031','iM뱅크'],['032','부산은행'],['039','경남은행'],['034','광주은행'],['037','전북은행'],['035','제주은행'],['064','산림조합'],['050','저축은행']];
@@ -24,19 +25,21 @@ export function eventTime(b){
 }
 export function refundDate(b){const e=eventTime(b);if(!e)return null;const d=new Date(e.end_date+'T00:00:00Z'),day=(d.getUTCDay()+6)%7;d.setUTCDate(d.getUTCDate()-day+9);return d.toISOString().slice(0,10);}
 export function initialDepositAmount(b){const doc=parse(b.confirm_doc),q=parse(b.quote_data);return money(doc.deposit)?doc.deposit:money(q.deposit)?q.deposit:150000;}
-const SELECT=`SELECT b.*,r.booking_code AS refund_code,r.token_hash,r.link_cipher,r.link_expires_at,r.account_cipher,r.account_mask,r.bank_code,r.account_version,r.submitted_at,r.account_updated_at,r.state,r.amount AS deposit_amount,r.deduction,r.deduction_reason,r.deduction_notified,r.inspected,r.operator,r.note,r.revision,r.claimed_by,r.claimed_at,r.settlement_snapshot,r.completed_at,r.paid_amount,r.refund_date AS settled_refund_date,r.account_expires_at,r.purged_at,
+const SELECT=`SELECT b.*,dm.method AS deposit_method,dm.merchant_userid AS deposit_merchant,dm.transaction_no AS deposit_transaction,dm.version AS deposit_method_version,
+ EXISTS(SELECT 1 FROM booking_deposit_card_cancellations e WHERE e.merchant_userid=dm.merchant_userid AND e.transaction_no=dm.transaction_no) AS card_cancellation_received,
+ r.booking_code AS refund_code,r.token_hash,r.link_cipher,r.link_expires_at,r.account_cipher,r.account_mask,r.bank_code,r.account_version,r.submitted_at,r.account_updated_at,r.state,r.amount AS deposit_amount,r.deduction,r.deduction_reason,r.deduction_notified,r.inspected,r.operator,r.note,r.revision,r.claimed_by,r.claimed_at,r.settlement_snapshot,r.completed_at,r.paid_amount,r.refund_date AS settled_refund_date,r.account_expires_at,r.purged_at,
  CASE WHEN b.inquiry_ref IS NOT NULL THEN COALESCE(json_extract(ic.checks,'$.guarantee_paid'),0) ELSE COALESCE(dc.paid,0) END AS deposit_paid,
  COALESCE(json_extract(ic.checks,'$.guarantee_returned'),0) AS legacy_returned,
  (SELECT q.data FROM quotes q WHERE q.inquiry_ref=b.inquiry_ref ORDER BY q.id DESC LIMIT 1) AS quote_data
- FROM bookings b LEFT JOIN booking_refunds r ON r.booking_code=b.booking_code LEFT JOIN inquiry_checks ic ON ic.ref=b.inquiry_ref LEFT JOIN booking_deposit_checks dc ON dc.booking_code=b.booking_code`;
+ FROM bookings b LEFT JOIN booking_refunds r ON r.booking_code=b.booking_code LEFT JOIN inquiry_checks ic ON ic.ref=b.inquiry_ref LEFT JOIN booking_deposit_checks dc ON dc.booking_code=b.booking_code LEFT JOIN booking_deposit_methods dm ON dm.booking_code=b.booking_code`;
 const one=(env,code)=>env.DB.prepare(SELECT+' WHERE b.booking_code=?').bind(code).first();
 export async function purgeAccounts(env){return env.DB.prepare("UPDATE booking_refunds SET account_cipher=NULL,account_mask=NULL,bank_code=NULL,link_cipher=NULL,token_hash=NULL,link_expires_at=NULL,purged_at=?,revision=revision+1 WHERE account_expires_at IS NOT NULL AND account_expires_at<=? AND purged_at IS NULL").bind(now(),Date.now()).run();}
 function available(b){return b&&Object.hasOwn(SPACES,b.space_id)&&['confirmed','completed'].includes(b.status);}
 function publicItem(b,admin=false){
  const expired=b.account_expires_at&&b.account_expires_at<=Date.now();const exists=!!b.account_cipher&&!expired;
  const state=b.state||'pending',amount=b.deposit_amount??initialDepositAmount(b);
- const out={code:b.booking_code,date:b.date,space:SPACES[b.space_id]||b.space_id,refund_date:b.settled_refund_date||refundDate(b),state,registered:exists,account_mask:exists?b.account_mask:'',bank:exists?(BANKS.find(x=>x[0]===b.bank_code)?.[1]||''):'',account_version:b.account_version||0,submitted_at:b.submitted_at||null,account_updated_at:b.account_updated_at||null,editable:available(b)&&state==='pending'&&!b.legacy_returned&&!b.purged_at&&!expired,completed_at:b.completed_at||null,purged:!!b.purged_at||!!expired};
- if(admin)Object.assign(out,{name:b.customer_name,phone:b.phone,booking_status:b.status,inquiry_ref:b.inquiry_ref||'',paid:!!b.deposit_paid,legacy_returned:!!b.legacy_returned,amount,deduction:b.deduction||0,deduction_reason:b.deduction_reason||'',deduction_notified:!!b.deduction_notified,refund_amount:b.paid_amount??amount-(b.deduction||0),inspected:!!b.inspected,operator:b.operator||'',note:b.note||'',revision:b.revision??0,has_record:!!b.refund_code,claimed_at:b.claimed_at||null,can_resume:!!b.settlement_snapshot,account_expires_at:b.account_expires_at||null,ended:!!eventTime(b)&&eventTime(b).end<=Date.now()});
+ const out={code:b.booking_code,date:b.date,space:SPACES[b.space_id]||b.space_id,refund_date:b.settled_refund_date||refundDate(b),state,registered:exists,account_mask:exists?b.account_mask:'',bank:exists?(BANKS.find(x=>x[0]===b.bank_code)?.[1]||''):'',account_version:b.account_version||0,submitted_at:b.submitted_at||null,account_updated_at:b.account_updated_at||null,editable:available(b)&&b.deposit_method!=='card'&&state==='pending'&&!b.legacy_returned&&!b.purged_at&&!expired,completed_at:b.completed_at||null,purged:!!b.purged_at||!!expired};
+ if(admin)Object.assign(out,{payment_method:b.deposit_method||'',card_cancellation_received:!!b.card_cancellation_received,name:b.customer_name,phone:b.phone,booking_status:b.status,inquiry_ref:b.inquiry_ref||'',paid:!!b.deposit_paid,legacy_returned:!!b.legacy_returned,amount,deduction:b.deduction||0,deduction_reason:b.deduction_reason||'',deduction_notified:!!b.deduction_notified,refund_amount:b.paid_amount??amount-(b.deduction||0),inspected:!!b.inspected,operator:b.operator||'',note:b.note||'',revision:b.revision??0,has_record:!!b.refund_code,claimed_at:b.claimed_at||null,can_resume:!!b.settlement_snapshot,account_expires_at:b.account_expires_at||null,ended:!!eventTime(b)&&eventTime(b).end<=Date.now()});
  else out.name=String(b.customer_name||'').slice(0,1)+'○'.repeat(Math.max(1,Math.min(3,String(b.customer_name||'').length-1)));
  return out;
 }
@@ -74,7 +77,7 @@ export async function refundAdmin({env,request,url,path,method}){
   if(filter!=='all'){
    if(filter==='completed')where.push("(r.state='completed' OR COALESCE(json_extract(ic.checks,'$.guarantee_returned'),0)<>0)");
    else {where.push("b.status IN ('confirmed','completed') AND COALESCE(r.state,'pending')<>'completed' AND COALESCE(json_extract(ic.checks,'$.guarantee_returned'),0)=0");
-    if(filter==='missing')where.push("r.account_cipher IS NULL AND r.purged_at IS NULL AND (CASE WHEN b.inquiry_ref IS NOT NULL THEN COALESCE(json_extract(ic.checks,'$.guarantee_paid'),0) ELSE COALESCE(dc.paid,0) END)<>0 AND COALESCE(r.amount,json_extract(b.confirm_doc,'$.deposit'),(SELECT json_extract(q.data,'$.deposit') FROM quotes q WHERE q.inquiry_ref=b.inquiry_ref ORDER BY q.id DESC LIMIT 1),150000)>COALESCE(r.deduction,0)");
+    if(filter==='missing')where.push("COALESCE(dm.method,'')<>'card' AND r.account_cipher IS NULL AND r.purged_at IS NULL AND (CASE WHEN b.inquiry_ref IS NOT NULL THEN COALESCE(json_extract(ic.checks,'$.guarantee_paid'),0) ELSE COALESCE(dc.paid,0) END)<>0 AND COALESCE(r.amount,json_extract(b.confirm_doc,'$.deposit'),(SELECT json_extract(q.data,'$.deposit') FROM quotes q WHERE q.inquiry_ref=b.inquiry_ref ORDER BY q.id DESC LIMIT 1),150000)>COALESCE(r.deduction,0)");
     if(filter==='missing'){
      const notice=url.searchParams.get('reminder_status')||'all';
      if(notice==='unsent')where.push("NOT EXISTS(SELECT 1 FROM deposit_notifications n WHERE n.booking_code=b.booking_code AND n.mode='live' AND n.kind='account' AND n.status<>'cancelled')");
@@ -90,17 +93,31 @@ export async function refundAdmin({env,request,url,path,method}){
   let items=(results||[]).map(b=>publicItem(b,true));if(due)items=items.filter(b=>b.refund_date===due);if(filter==='due')items=items.filter(b=>!b.refund_date||b.refund_date<=kstToday((3-new Date(kstToday()+'T00:00Z').getUTCDay()+7)%7));
   return json({ok:true,items:items.slice(0,1000),truncated:(results||[]).length>1000,today:kstToday(),key_ready:keyReady(env)});
  }
- const m=path.match(/^deposit-refunds\/bookings\/([A-Z0-9-]+)(?:\/(link|rotate-link|settlement|reveal|claim|complete|hold|release|resume|history))?$/);
+ const m=path.match(/^deposit-refunds\/bookings\/([A-Z0-9-]+)(?:\/(link|rotate-link|settlement|reveal|claim|complete|hold|release|resume|history|payment-method))?$/);
  if(!m)return err('경로를 찾을 수 없습니다.',404);
  const code=m[1],action=m[2]||'',b=await one(env,code);if(!b)return err('예약을 찾을 수 없습니다.',404);
- if(method==='GET'&&!action)return json({ok:true,item:publicItem(b,true)});
+ const methodItem=row=>{
+  const accounts=depositPayappAccounts(env);
+  return {...publicItem(row,true),payment_method_version:row.deposit_method_version||0,
+   payapp_accounts:accounts.map(({id,label})=>({id,label})),payapp_account:accounts.find(a=>a.userid===row.deposit_merchant)?.id||'',
+   transaction_no:row.deposit_transaction||'',method_editable:['confirmed','completed','cancelled'].includes(row.status)
+    &&(!row.state||row.state==='pending')&&!row.legacy_returned&&!row.card_cancellation_received};
+ };
+ if(method==='GET'&&!action)return json({ok:true,item:methodItem(b)});
  if(method==='GET'&&action==='history'){const {results}=await env.DB.prepare("SELECT kind,actor,detail,created_at FROM event_log WHERE ref=? AND kind LIKE 'deposit.%' ORDER BY id DESC LIMIT 60").bind(code).all();return json({ok:true,items:results||[]});}
  if(method!=='POST')return err('허용되지 않은 요청입니다.',405);
  const d=await readJson(request,8192);if(!d||typeof d!=='object'||Array.isArray(d))return err('입력 내용을 확인해 주세요.');
+ if(action==='payment-method'){
+  if(!Number.isSafeInteger(d.revision)||!Number.isSafeInteger(d.method_version)||d.revision<0||d.method_version<0)return stale();
+  const denied=await saveDepositMethod(env,b,d,b.deposit_amount??initialDepositAmount(b));if(denied)return denied;
+  return json({ok:true,item:methodItem(await one(env,code))});
+ }
+ if(b.deposit_method==='card')return err('카드 보증금은 원거래 취소로 환급합니다.',409,'CARD_DEPOSIT');
  if(['link','rotate-link'].includes(action)){
   if(!keyReady(env))return err('환급 계좌 암호화 설정이 필요합니다.',503,'ACCOUNT_KEY_UNAVAILABLE');
   const denied=await initialize(env,b);if(denied)return denied;
   const row=await one(env,code);
+  if(row.deposit_method==='card')return err('카드 보증금은 계좌 등록이 필요하지 않습니다.',409,'CARD_DEPOSIT');
   if(row.state==='completed'||row.purged_at||row.legacy_returned)return err('환급이 완료된 예약입니다.',409);
   if(!eventTime(row))return err('예약의 이용 시작·종료 시간을 먼저 확인해 주세요.',409);
   if(row.state==='processing')return err('송금 처리 중에는 링크를 변경할 수 없습니다.',409);
@@ -112,7 +129,7 @@ export async function refundAdmin({env,request,url,path,method}){
    const r=await env.DB.prepare('UPDATE booking_refunds SET token_hash=?,link_cipher=?,link_expires_at=?,revision=revision+1,updated_at=? WHERE booking_code=? AND revision=? AND state<>\'processing\' AND state<>\'completed\'').bind(await sha256(token),encrypted,expiry,now(),code,row.revision).run();if(!changed(r))return stale();
    await log(env,'deposit.link_issued',code,'admin',{rotated:action==='rotate-link'});
   }
-  return json({ok:true,url:(row.space_id==='megaspot-gundae'?GUIDE:url.origin+'/deposit/')+'#refund-account='+token,item:publicItem(await one(env,code),true)});
+  return json({ok:true,url:(row.space_id==='megaspot-gundae'?GUIDE:url.origin+'/deposit/')+'#refund-account='+token,item:methodItem(await one(env,code))});
  }
  if(!b.refund_code)return err('먼저 고객용 계좌 등록 링크를 발급해 주세요.',409);
  if(!Number.isSafeInteger(d.revision)||d.revision!==b.revision)return stale();
@@ -162,7 +179,7 @@ export async function refundAdmin({env,request,url,path,method}){
   const r=await env.DB.prepare("UPDATE booking_refunds SET state=?,note=?,inspected=CASE WHEN ?='pending' THEN 0 ELSE inspected END,claimed_by=CASE WHEN ?='pending' THEN NULL ELSE claimed_by END,claimed_at=CASE WHEN ?='pending' THEN NULL ELSE claimed_at END,settlement_snapshot=CASE WHEN ?='pending' THEN NULL ELSE settlement_snapshot END,revision=revision+1,updated_at=? WHERE booking_code=? AND revision=? AND state<>'completed'").bind(action==='hold'?'hold':'pending',reason,action==='release'?'pending':'hold',...Array(3).fill(action==='release'?'pending':'hold'),now(),code,b.revision).run();if(!changed(r))return stale();
   await log(env,'deposit.'+action,code,b.operator||'admin',{reason});
  }else return err('경로를 찾을 수 없습니다.',404);
- return json({ok:true,item:publicItem(await one(env,code),true)});
+ return json({ok:true,item:methodItem(await one(env,code))});
 }
 export async function refundCustomer({env,request,portalGuard=null}){
  if(!keyReady(env))return err('환급 계좌 등록을 준비 중입니다. 관리자에게 문의해 주세요.',503);
@@ -170,7 +187,7 @@ export async function refundCustomer({env,request,portalGuard=null}){
  if(!/^[A-Za-z0-9_-]{43}$/.test(token))return err('예약자 전용 링크로 접속해 주세요.',403);
  const row=await env.DB.prepare('SELECT booking_code FROM booking_refunds WHERE token_hash=? AND link_expires_at>? AND purged_at IS NULL').bind(await sha256(token),Date.now()).first();
  const b=row&&await one(env,row.booking_code);
- if(!b||!available(b)||(b.account_expires_at&&b.account_expires_at<=Date.now()))return err('사용할 수 없는 링크입니다. 관리자에게 새 링크를 요청해 주세요.',403);
+ if(!b||!available(b)||b.deposit_method==='card'||(b.account_expires_at&&b.account_expires_at<=Date.now()))return err('사용할 수 없는 링크입니다. 관리자에게 새 링크를 요청해 주세요.',403);
  if(request.method==='GET')return json({ok:true,item:publicItem(b),banks:BANKS,consent_version:CONSENT_VERSION,retention_days:RETENTION_DAYS});
  if(request.method!=='POST')return err('허용되지 않은 요청입니다.',405);
  if(b.state!=='pending'||b.legacy_returned)return err('환급 처리 중이거나 완료된 예약은 계좌를 수정할 수 없습니다.',409);

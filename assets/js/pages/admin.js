@@ -70,6 +70,12 @@
     return '<button class="btn btn-light btn-xs gm-inline" type="button" data-guide-code="'+esc(code)+'">이용 안내'+(status?'<small>'+esc(labels[status]||status)+'</small>':'')+'</button>';
   }
   function depositControl(it){
+    var code=it.kind==='pending'?'':(it.code||it.booking_code);
+    var method=it.deposit_method==='card'?'카드':it.deposit_method==='bank'?'계좌이체':'결제수단 미기록';
+    return depositStatus(it)+(code&&['confirmed','completed','cancelled'].includes(it.status)
+      ?' <button class="btn btn-light btn-xs" type="button" data-refund-code="'+esc(code)+'" aria-label="보증금 결제수단 · '+method+'">'+method+'</button>':'');
+  }
+  function depositStatus(it){
     if(it.deposit_refunded===1||it.deposit_refunded===true)return '<span class="deposit-state is-paid">보증금 환급 완료</span>';
     if(it.status==='payment_review')return '<span class="tiny muted">예약 확정 후 확인</span>';
     var paid=it.deposit_paid===1||it.deposit_paid===true, known=it.deposit_paid!=null;
@@ -570,6 +576,7 @@
   window.addEventListener('admin-settlement-saved',function(e){refreshLists();if(cur&&cur.item&&((cur.bookings||[]).some(function(b){return b.booking_code===e.detail.code;})||cur.item.ref===e.detail.ref)&&!drawerDirty['adm-drawer'])openInquiry(cur.item.ref);});
   window.addEventListener('admin-payment-status-saved',function(e){if(!e.detail.receipt_added)refreshLists();if(!$('#view-calendar').hidden)loadCalendar();});
   window.addEventListener('admin-service-status-saved',function(){refreshLists();if(!$('#view-calendar').hidden)loadCalendar();});
+  window.addEventListener('admin-deposit-method-saved',refreshLists);
   function refreshLists(){ if(!$('#view-visits').hidden) loadVisits(); if(!$('#view-inq').hidden) loadInq(); if(!$('#view-dash').hidden) loadDash(); if(!$('#view-resv').hidden) loadResv(); if(!$('#view-bookings').hidden) loadBookings(); }
   var LOGK={'inquiry.created':'접수','reserve.created':'예약 신청 접수','inquiry.updated':'상태·메모·금액 변경','inquiry.edited':'내용 수정','quote.saved':'견적 저장','booking.created':'예약 등록','inquiry.confirmed':'예약 확정 처리','inquiry.deleted':'삭제 (보관함으로)','inquiry.restored':'삭제 문의 복원','waitlist.updated':'대기 순번 변경','waitlist.cancelled':'대기 취소','waitlist.restored':'대기 복원','booking.updated':'예약 상태 변경','order.created':'주문 생성','order.paid':'결제 완료','order.updated':'주문 변경','visit.created':'현장답사 등록','catering.created':'출장뷔페 저장','catering.updated':'출장뷔페 변경','catering.status':'출장뷔페 상태 변경','catering.deleted':'출장뷔페 삭제','visit.updated':'현장답사 변경','visit.deleted':'현장답사 삭제'};
   var LOGA={admin:'관리자',customer:'고객',system:'시스템'};

@@ -1362,3 +1362,24 @@ BEGIN
  INSERT INTO reservation_payment_scopes_v2(target_type,target_ref,status,version,updated_at) SELECT 'booking',NEW.booking_code,CASE WHEN p.status IN ('fully_paid','venue_fully_paid') AND (NEW.amount IS NULL OR ((SELECT COALESCE(SUM(CASE WHEN kind='receipt' THEN amount ELSE -amount END),0) FROM booking_payment_current WHERE booking_code=NEW.booking_code AND state='active')+(SELECT COALESCE(SUM(o.price-CASE WHEN o.status='refunded' THEN o.price ELSE MIN(o.price,COALESCE((SELECT SUM(r.amount) FROM payapp_refunds r WHERE r.oid=o.oid),0)) END),0) FROM orders o WHERE o.booking_code=NEW.booking_code AND o.test=0 AND o.status IN ('paid','refunded')))<NEW.amount) THEN 'needs_review' ELSE p.status END,1,p.updated_at FROM reservation_payment_scopes_v2 p JOIN inquiry_payment_owners ip ON ip.inquiry_ref=p.target_ref AND ip.booking_code=NEW.booking_code WHERE p.target_type='inquiry' AND p.target_ref=NEW.inquiry_ref ON CONFLICT(target_type,target_ref) DO UPDATE SET status=excluded.status,version=CASE WHEN reservation_payment_scopes_v2.status<>excluded.status THEN reservation_payment_scopes_v2.version+1 ELSE reservation_payment_scopes_v2.version END;
  INSERT INTO event_log(kind,ref,actor,detail,created_at) SELECT 'inquiry.payment.linked',NEW.inquiry_ref,'admin',json_object('booking_code',NEW.booking_code),datetime('now') WHERE EXISTS(SELECT 1 FROM inquiry_payment_owners WHERE inquiry_ref=NEW.inquiry_ref AND booking_code=NEW.booking_code) AND EXISTS(SELECT 1 FROM booking_payment_entries WHERE booking_code=NEW.booking_code);
 END;
+CREATE TABLE IF NOT EXISTS booking_deposit_methods (
+ booking_code TEXT PRIMARY KEY REFERENCES bookings(booking_code),
+ method TEXT NOT NULL CHECK(method IN ('bank','card')),
+ merchant_userid TEXT,
+ transaction_no TEXT,
+ amount INTEGER,
+ version INTEGER NOT NULL DEFAULT 1,
+ updated_at TEXT NOT NULL,
+ UNIQUE(merchant_userid,transaction_no),
+ CHECK((merchant_userid IS NULL AND transaction_no IS NULL AND amount IS NULL)
+    OR (method='card' AND merchant_userid IS NOT NULL AND transaction_no IS NOT NULL AND amount IS NOT NULL AND amount>0))
+);
+
+CREATE TABLE IF NOT EXISTS booking_deposit_card_cancellations (
+ merchant_userid TEXT NOT NULL,
+ transaction_no TEXT NOT NULL,
+ cancellation_key TEXT NOT NULL,
+ amount INTEGER NOT NULL CHECK(amount>0),
+ created_at TEXT NOT NULL,
+ PRIMARY KEY(merchant_userid,transaction_no,cancellation_key)
+);

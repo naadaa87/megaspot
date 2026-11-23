@@ -1,6 +1,7 @@
 import {wakeParkingRegistration} from '../_parking_wake.js';
 import {preserveLegacyPayments} from '../_settlement.js';
 import {recordPayappRefund} from '../_payapp_refunds.js';
+import {depositCardFeedback,recordDepositCardCancellation} from '../_deposit_payment_methods.js';
 // 페이앱: 서버에서 결제 요청 → payurl 이동 → 검증된 feedback만 주문·예약 확정.
 import { json, err, hasDb, readJson, str, num, isDate, now, log, sha256, sameOrigin, clientIp, getMember, kstToday, tooMany, hit, randomToken, requireAdmin,SPACES } from '../_lib.js';
 import { PRODUCTS, HOLIDAYS, PRICING } from '../_catalog.js';
@@ -169,6 +170,11 @@ export async function onRequest({ request, env, params, waitUntil }) {
       } catch (e) { return json({ ok: false, diagnostic_error: String(e?.message || '').slice(0, 180), error_name: e?.name, abort_timeout_supported: typeof AbortSignal.timeout === 'function' }); }
     }
     if (path === 'feedback' && method === 'POST') return await feedback(request, env, waitUntil);
+    if (path === 'deposit-feedback' && method === 'POST') {
+      const raw=await request.text();
+      if(raw.length>32768)return notice('FAIL',413);
+      return await depositCardFeedback(env,Object.fromEntries(new URLSearchParams(raw)));
+    }
     // return은 화면 이동 전용이며 결제 상태는 절대 바꾸지 않습니다.
     if (path === 'return' && ['GET', 'POST'].includes(method)) {
       const oid = new URL(request.url).searchParams.get('oid') || '';
@@ -267,7 +273,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
         lines: data.lines || [], retry:retrySelection(row,data), refunded_amount: row.status==='refunded'?row.price:Math.min(row.price, refunds?.total || 0), pay_method: row.pay_method, tid: row.tid ? row.tid.slice(-8) : '', appl_at: row.appl_at, result_msg: row.result_msg, booking_code: row.booking_code, booking_status:reservation?.status||null, test: !!row.test, created_at: row.created_at } });
     }
     return err('경로를 찾을 수 없습니다.', 404, 'NOT_FOUND');
-  } catch (e) { console.error('pay', e && e.message); if(path==='feedback')return notice('FAIL',500); return err('처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.', 500, 'SERVER_ERROR'); }
+  } catch (e) { console.error('pay', e && e.message); if(path==='feedback'||path==='deposit-feedback')return notice('FAIL',500); return err('처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.', 500, 'SERVER_ERROR'); }
 }
 function safe(s) { try { return JSON.parse(s || '{}'); } catch { return {}; } }
 
@@ -291,6 +297,10 @@ async function feedback(request, env, waitUntil) {
   if (!['1', '4', '8', '16', '31', '32', '9', '64', '10', '70', '71'].includes(state)) return notice('FAIL', 400);
   if (!/^\d{1,30}$/.test(f.mul_no || '')) return notice('FAIL', 400);
   const row = await env.DB.prepare('SELECT o.*, p.nonce, p.merchant_userid, p.mul_no AS payapp_no FROM orders o JOIN payapp_payments p ON p.oid = o.oid WHERE o.oid = ?').bind(f.var1 || '').first();
+  if (!row && f.feedbacktype==='1') {
+    await recordDepositCardCancellation(env,C.userid,f);
+    return notice('SUCCESS');
+  }
   if (!row || !payappMerchantMatches(env, row.merchant_userid, C) || !equalSecret(f.var2, row.nonce)) return notice('FAIL', 403);
   const price = partial ? f.orig_price : f.price, originalNo = partial ? f.orig_mul_no : f.mul_no;
   if (!/^\d+$/.test(price || '') || Number(price) !== row.price || !/^\d{1,30}$/.test(originalNo || '')) return notice('FAIL', 400);
