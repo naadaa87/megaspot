@@ -438,6 +438,12 @@ export async function onRequest({ request, env, params, waitUntil }) {
       }
       if (foodOnly) {
         if (total !== rec.amount + food.amount) return err('식음료 항목의 합계와 견적 합계가 달라 저장할 수 없습니다.');
+        const foodStartTime = input.foodStartTime ?? '', foodEndTime = input.foodEndTime ?? '';
+        if (timeOk(foodStartTime) !== foodStartTime || timeOk(foodEndTime) !== foodEndTime) {
+          return err('행사 시작·종료 시간을 확인해 주세요.');
+        }
+        input.foodStartTime = foodStartTime;
+        input.foodEndTime = foodEndTime;
         const location = str(input.location, 200);
         const date = isDate(str(d.event_date, 10)) ? str(d.event_date, 10) : '';
         const headcount = Number(input.people);

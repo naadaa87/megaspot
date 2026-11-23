@@ -768,11 +768,14 @@
     Q.space=spaceOk(Q.space); useSpace(Q.space);
     var qs=$('#q-space'); if(qs){ qs.innerHTML=spaceOptions(Q.space); } qSpaceHint();
     $$('#q-form [data-q-rental]').forEach(function(el){el.hidden=Q.foodOnly;});
+    $$('#q-form [data-q-food]').forEach(function(el){el.hidden=!Q.foodOnly;});
     ['#q-location-field','#q-food-heading','#q-food-services'].forEach(function(id){$(id).hidden=!Q.foodOnly;});
     $('#q-location').value=Q.location;$('#q-reception').hidden=Q.foodOnly;
+    $('#q-food-start').value=Q.foodStartTime||'';
+    $('#q-food-end').value=Q.foodEndTime||'';
     $('#q-rental-intro').hidden=Q.foodOnly;$('#q-food-intro').hidden=!Q.foodOnly;
     $('#q-people').placeholder=Q.foodOnly?'선택 사항':'';
-    ['#q-date','#q-people','#q-valid'].forEach(function(id){$(id).closest('.field-row').classList.toggle('three',!Q.foodOnly);});
+    ['#q-people','#q-valid'].forEach(function(id){$(id).closest('.field-row').classList.toggle('three',!Q.foodOnly);});
     $('#q-note').placeholder=Q.foodOnly?'예: 음식 세팅은 17시부터 가능합니다.':'예: 예약금은 견적 금액의 30%이며, 잔금은 이용 7일 전까지 입금해 주세요.';
     $('#q-customer').value=Q.customer; $('#q-phone').value=Q.phone; $('#q-email').value=Q.email; $('#q-date').value=Q.date;
     $('#q-start').innerHTML=hourOpts(ADMIN_HOURS.from, ADMIN_HOURS.to-1, Q.start); $('#q-end').innerHTML=hourOpts(Q.start+1, ADMIN_HOURS.to, Q.end);
@@ -810,6 +813,8 @@
     if(Q.foodOnly){
       Q.location=$('#q-location').value.trim();
       Q.date=$('#q-date').value;
+      Q.foodStartTime=$('#q-food-start').value;
+      Q.foodEndTime=$('#q-food-end').value;
       Q.people=Math.min(999,Math.max(1,parseInt($('#q-people').value,10)))||null;
       Q.valid=+$('#q-valid').value||1;
       Q.note=$('#q-note').value.trim();
@@ -870,6 +875,14 @@
   }
   var R=null;
   var foodLabels={catering:'출장뷔페',reception:'케이터링',cocktail:'출장 칵테일'};
+  function foodQuoteEndsNextDay(input){
+    return !!(input.foodStartTime && input.foodEndTime && input.foodEndTime<input.foodStartTime);
+  }
+  function foodQuoteTimeText(input){
+    var start=input.foodStartTime, end=input.foodEndTime;
+    if(start && end)return start+'–'+(foodQuoteEndsNextDay(input)?'다음 날 ':'')+end;
+    return start?start+' 시작':end?end+' 종료':'';
+  }
   function foodQuoteTax(){
     return R.extras.reduce(function(sum,row){
       var value=row[row.kind];
@@ -950,6 +963,7 @@
       +'<p class="tiny muted mt-2">견적 유효기간 '+esc(R.validUntil?E.kdateY(R.validUntil):'저장 당시 기록 없음')+(R.validUntil?'까지':'')+(Q.quoteNo?' · 저장된 견적번호 <b>'+esc(Q.quoteNo)+'</b>':' · 아직 저장하지 않음')+(savedQuoteSnapshot?(quoteDirty?' · 저장된 대관료·할인을 기준으로 변경 항목을 반영했습니다.':' · 저장 당시 금액·유효기간입니다. 대관 조건을 수정하면 현재 요금표로 다시 계산합니다.'):'')+'</p>';
   }
   function renderFoodQuoteResult(){
+    $('#q-food-end-next').hidden=!foodQuoteEndsNextDay(Q);
     Object.keys(foodLabels).forEach(function(kind){
       var id=kind==='catering'?'#q-food-buffet':'#q-food-'+kind;
       var label=foodLabels[kind]+(Q.extras.some(function(x){return x.kind===kind;})?' 수정':' 추가');
@@ -959,7 +973,7 @@
     var rows=R.extras.map(function(x){
       return '<tr><td>'+esc(foodLabels[x.kind])+'<small>'+esc(foodQuoteDetails(x)[0][1])+'</small></td><td>'+esc(won(x.amount))+'</td></tr>';
     }).join('');
-    $('#q-result').innerHTML='<h2>식음료 견적 결과</h2><div class="q-cond"><b>'+esc(Q.location||'행사 장소 미정')+'</b><br>'+esc([Q.date?E.kdateY(Q.date):'행사일 미정',Q.people?Q.people+'명':''].filter(Boolean).join(' · '))+'</div>'
+    $('#q-result').innerHTML='<h2>식음료 견적 결과</h2><div class="q-cond"><b>'+esc(Q.location||'행사 장소 미정')+'</b><br>'+esc([Q.date?E.kdateY(Q.date):'행사일 미정',foodQuoteTimeText(Q),Q.people?Q.people+'명':''].filter(Boolean).join(' · '))+'</div>'
       +(rows?'<table class="q-table"><tbody>'+rows+'</tbody><tfoot><tr><td>공급가액</td><td>'+esc(won(taxes.supply))+'</td></tr><tr><td>부가세</td><td>'+esc(won(taxes.vat))+'</td></tr><tr class="sum"><td>합계 <small>부가세 포함</small></td><td>'+esc(won(R.total))+'</td></tr></tfoot></table>':'<p class="small muted">견적에 담을 식음료를 하나 이상 추가해 주세요.</p>')
       +'<p class="tiny muted mt-2">견적 유효기간 '+esc(E.kdateY(R.validUntil))+'까지'+(Q.quoteNo?' · 저장된 견적번호 <b>'+esc(Q.quoteNo)+'</b>':' · 아직 저장하지 않음')+'</p>';
   }
@@ -1127,6 +1141,8 @@
       L.push('[메가스팟 식음료 견적]'+(Q.quoteNo?' '+Q.quoteNo:''),
         (cp[0]?cp[0]+' 님, ':'')+'요청하신 식음료 견적을 안내드립니다.','',
         '· 행사 장소: '+(Q.location||'미정'),'· 행사일: '+(Q.date?E.kdateY(Q.date):'미정'));
+      var time=foodQuoteTimeText(Q);
+      if(time)L.push('· 행사 시간: '+time);
       if(Q.people)L.push('· 행사 인원: '+Q.people+'명');
       R.extras.forEach(function(row){
         L.push('',foodLabels[row.kind]+' '+won(row.amount)+' (부가세 포함)');
@@ -1230,6 +1246,7 @@
   }
   function renderFoodSheet(contact,stamp){
     var tax=foodQuoteTax();
+    var time=foodQuoteTimeText(Q);
     var rows=R.extras.map(function(row){
       var details=foodQuoteDetails(row).map(function(detail){return detail[0]+': '+detail[1];}).join('\n');
       return '<tr><td>'+esc(foodLabels[row.kind])+'</td><td>'+esc(details).replace(/\n/g,'<br>')+'</td><td>'+esc(won(row.amount))+'</td></tr>';
@@ -1239,6 +1256,7 @@
       +'<h1 class="qp-title">'+esc(Q.customer?Q.customer+' 귀하':'식음료 서비스 견적')+'</h1>'
       +'<table class="qp-cond"><tbody><tr><th>행사 장소</th><td colspan="3">'+esc(Q.location||'미정')+'</td></tr>'
       +'<tr><th>행사일</th><td'+(Q.people?'':' colspan="3"')+'>'+esc(Q.date?E.kdateY(Q.date):'미정')+'</td>'+(Q.people?'<th>행사 인원</th><td>'+Q.people+'명</td>':'')+'</tr>'
+      +(time?'<tr><th>행사 시간</th><td colspan="3">'+esc(time)+'</td></tr>':'')
       +((Q.phone||Q.email)?'<tr><th>연락처</th><td colspan="3">'+esc([Q.phone,Q.email].filter(Boolean).join(' · '))+'</td></tr>':'')
       +'</tbody></table><table class="qp-lines"><thead><tr><th>항목</th><th>내용</th><th>금액</th></tr></thead><tbody>'+rows+'</tbody>'
       +'<tfoot><tr><td colspan="2">공급가액</td><td>'+esc(won(tax.supply))+'</td></tr><tr><td colspan="2">부가세</td><td>'+esc(won(tax.vat))+'</td></tr><tr><th colspan="2">합계 <small>부가세 포함</small></th><th>'+esc(won(R.total))+'</th></tr></tfoot></table>'
@@ -1247,7 +1265,7 @@
   }
   function loadRecentQuotes(){
     A('/quotes').then(function(r){ var l=(r.items||[]).slice(0,12);
-      $('#q-recent').innerHTML=l.length?l.map(function(q){ return '<div class="adm-row"><div class="r1"><b>'+esc(q.customer||'(고객명 없음)')+'</b><span class="small">'+esc(won(q.total))+'</span></div><div class="r3"><span>'+esc(q.quote_no)+(q.data?.input?.foodOnly?' · 식음료 단독'+(q.data.input.location?' · '+esc(q.data.input.location):''):'')+(q.inquiry_ref?' · '+esc(q.inquiry_ref):'')+' · '+esc(q.event_date?kd(q.event_date):'')+'</span><button class="btn btn-light btn-sm" type="button" data-recent="'+esc(q.quote_no)+'">열기</button></div></div>'; }).join(''):emptyMsg('저장한 견적이 없습니다.');
+      $('#q-recent').innerHTML=l.length?l.map(function(q){ var input=q.data?.input, schedule=[q.event_date?kd(q.event_date):'',input?.foodOnly?foodQuoteTimeText(input):''].filter(Boolean).join(' · '); return '<div class="adm-row"><div class="r1"><b>'+esc(q.customer||'(고객명 없음)')+'</b><span class="small">'+esc(won(q.total))+'</span></div><div class="r3"><span>'+esc(q.quote_no)+(q.data?.input?.foodOnly?' · 식음료 단독'+(q.data.input.location?' · '+esc(q.data.input.location):''):'')+(q.inquiry_ref?' · '+esc(q.inquiry_ref):'')+(schedule?' · '+esc(schedule):'')+'</span><button class="btn btn-light btn-sm" type="button" data-recent="'+esc(q.quote_no)+'">열기</button></div></div>'; }).join(''):emptyMsg('저장한 견적이 없습니다.');
       $$('#q-recent [data-recent]').forEach(function(b){ b.addEventListener('click', function(){ var q=l.filter(function(x){ return x.quote_no===b.dataset.recent; })[0]; if(q){ loadSavedQuote(q, q.inquiry_ref); window.scrollTo(0,0); } }); });
     }).catch(fail($('#q-recent')));
   }
