@@ -7,7 +7,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
-import { botOf, logCrawler, crawlerSummary, indexNowTick, indexNowStatus, resetIndexNowThrottle, sitemapEntries, INDEXNOW_KEY, INDEXNOW_ENDPOINTS } from '../functions/api/_seo.js';
+import { botOf, logCrawler, crawlerSummary, indexNowTick, indexNowStatus, indexNowManual, resetIndexNowThrottle, RETRY_WAIT_HOURS, sitemapEntries, INDEXNOW_KEY, INDEXNOW_ENDPOINTS } from '../functions/api/_seo.js';
 import { onRequestGet as seoApi } from '../functions/api/seo.js';
 
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
@@ -59,7 +59,7 @@ test('IndexNow: 처음엔 전체, 그다음엔 바뀐 주소만 알리고 같은
   const req = new Request('https://megaspot.kr/api/stats');
   resetIndexNowThrottle();
   let r = await indexNowTick(f.env, req, fetcher);
-  assert.equal(r.submitted, 2); assert.deepEqual(r.results, { naver: 200, indexnow: 202 });
+  assert.equal(r.submitted, 2); assert.deepEqual(r.results, { naver: 200, bing: 202 });
   assert.deepEqual(calls.map(c => c.url), Object.values(INDEXNOW_ENDPOINTS));
   assert.deepEqual(calls[0].body, { host: 'megaspot.kr', key: INDEXNOW_KEY, keyLocation: `https://megaspot.kr/${INDEXNOW_KEY}.txt`, urlList: ['https://megaspot.kr/', 'https://megaspot.kr/venues/'] });
   assert.equal(await indexNowTick(f.env, req, fetcher), null, '10분 안에는 다시 확인하지 않습니다');
@@ -67,27 +67,75 @@ test('IndexNow: 처음엔 전체, 그다음엔 바뀐 주소만 알리고 같은
   f.state.sitemap = SM(['/', '2026-11-23'], ['/venues/', '2026-11-13'], ['/venues/gundae/', '2026-11-23']);
   resetIndexNowThrottle(); r = await indexNowTick(f.env, req, fetcher);
   assert.deepEqual(calls[2].body.urlList, ['https://megaspot.kr/', 'https://megaspot.kr/venues/gundae/']);
-  assert.deepEqual(await indexNowStatus(f.env), { at: r.at, submitted: 2, total: 3, results: { naver: 200, indexnow: 202 } });
+  assert.deepEqual(await indexNowStatus(f.env), { at: r.at, submitted: 2, total: 3, results: { naver: 200, bing: 202 } });
   // 주소가 빠지기만 한 변경은 알릴 것이 없습니다
   f.state.sitemap = SM(['/', '2026-11-23'], ['/venues/', '2026-11-13']);
   resetIndexNowThrottle(); r = await indexNowTick(f.env, req, fetcher); assert.equal(r.submitted, 0); assert.equal(calls.length, 4);
   // 미리보기 주소에서는 보내지 않습니다
   f.state.sitemap = SM(['/', '2026-12-01']);
   resetIndexNowThrottle(); assert.equal(await indexNowTick(f.env, new Request('https://megaspot.pages.dev/api/stats'), fetcher), null); assert.equal(calls.length, 4);
-  // 한 곳이 바빠서(429) 실패하면 그곳만 1시간 뒤에 다시 보냅니다
+  // 한 곳이 바빠서(429) 실패하면 그곳만 1시간 뒤에 다시 보냅니다 (공용 주소 대신 빙에 직접)
   f.state.sitemap = SM(['/', '2026-12-02']); let busy = true; const seen = [];
   const flaky = async (url, init) => { seen.push(url); return new Response('', { status: url.includes('naver') ? 200 : (busy ? 429 : 202) }); };
-  resetIndexNowThrottle(); r = await indexNowTick(f.env, req, flaky); assert.deepEqual(r.results, { naver: 200, indexnow: 429 }); assert.deepEqual(r.retry.names, ['indexnow']);
+  resetIndexNowThrottle(); r = await indexNowTick(f.env, req, flaky); assert.deepEqual(r.results, { naver: 200, bing: 429 }); assert.deepEqual(r.retry.names, ['bing']);
   resetIndexNowThrottle(); assert.equal(await indexNowTick(f.env, req, flaky), null, '1시간이 지나기 전에는 다시 보내지 않습니다');
-  const st = JSON.parse(f.db.prepare("SELECT value FROM settings WHERE key = 'indexnow'").get().value); st.at = '2026-01-01 00:00:00';
+  const st = JSON.parse(f.db.prepare("SELECT value FROM settings WHERE key = 'indexnow'").get().value); st.retry.next_at = '2026-01-01 00:00:00';
   f.db.prepare("UPDATE settings SET value = ? WHERE key = 'indexnow'").run(JSON.stringify(st));
   busy = false; resetIndexNowThrottle(); r = await indexNowTick(f.env, req, flaky);
-  assert.deepEqual(r.results, { naver: 200, indexnow: 202 }); assert.equal(r.retry, undefined); assert.deepEqual(seen.slice(-1), [INDEXNOW_ENDPOINTS.indexnow]);
+  assert.deepEqual(r.results, { naver: 200, bing: 202 }); assert.equal(r.retry, undefined); assert.deepEqual(seen.slice(-1), [INDEXNOW_ENDPOINTS.bing]);
   resetIndexNowThrottle(); assert.equal(await indexNowTick(f.env, req, flaky), null);
   // 알림 서버가 응답하지 않아도 멈추지 않고 결과만 남깁니다
   f.state.sitemap = SM(['/', '2026-12-03']);
   resetIndexNowThrottle(); r = await indexNowTick(f.env, req, async () => { throw new Error('down'); });
-  assert.deepEqual(r.results, { naver: 'error', indexnow: 'error' });
+  assert.deepEqual(r.results, { naver: 'error', bing: 'error' });
+});
+
+test('IndexNow: 예전 공용 주소 실패 기록은 빙으로 이어 보내고, 기다리는 시간은 점점 늘며 Retry-After 를 지킨다', async t => {
+  const f = fixture(t, SM(['/', '2026-11-20'], ['/venues/', '2026-11-13']));
+  const req = new Request('https://megaspot.kr/');
+  // 예전 형식으로 남은 기록: 공용 주소(indexnow)가 429 로 실패
+  const old = { hash: 'x', entries: { 'https://megaspot.kr/': '2026-11-20', 'https://megaspot.kr/venues/': '2026-11-13' }, at: '2026-01-01 00:00:00', submitted: 2, results: { naver: 200, indexnow: 429 }, retry: { names: ['indexnow'], urls: ['https://megaspot.kr/'], tries: 1, at: '2026-01-01 00:00:00' } };
+  f.db.prepare("INSERT INTO settings (key, value, updated_at) VALUES ('indexnow', ?, '2026-01-01 00:00:00')").run(JSON.stringify(old));
+  // sitemap 이 그대로면(hash 같음) 재시도만 합니다 — hash 를 맞춰 줍니다
+  const cur = JSON.parse(f.db.prepare("SELECT value FROM settings WHERE key='indexnow'").get().value);
+  const sha = async x => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(x)))).map(b => b.toString(16).padStart(2, '0')).join('');
+  cur.hash = await sha(Object.keys(cur.entries).map(u => u + ' ' + cur.entries[u]).join('\n'));
+  f.db.prepare("UPDATE settings SET value=? WHERE key='indexnow'").run(JSON.stringify(cur));
+  const seen = [];
+  const busy = async (url, init) => { seen.push(url); return new Response('', { status: 429, headers: { 'retry-after': '36000' } }); };
+  resetIndexNowThrottle(); let r = await indexNowTick(f.env, req, busy);
+  assert.deepEqual(seen, [INDEXNOW_ENDPOINTS.bing], '예전 공용 주소 대신 빙에 보냅니다');
+  assert.equal(r.results.bing, 429); assert.equal(r.results.indexnow, 429, '예전 결과는 지우지 않고 남겨 둡니다');
+  assert.deepEqual(r.retry.names, ['bing']); assert.equal(r.retry.tries, 2);
+  const wait = Date.parse(r.retry.next_at.replace(' ', 'T') + 'Z') - Date.now();
+  assert.ok(wait > 9.5 * 3600e3 && wait <= 10 * 3600e3 + 5e3, 'Retry-After(10시간)가 기본 대기(6시간)보다 길면 그 값을 씁니다');
+  resetIndexNowThrottle(); assert.equal(await indexNowTick(f.env, req, busy), null, '기다리는 동안에는 보내지 않습니다');
+  // 기본 대기 시간은 1·3·6·12·24시간으로 늘어납니다
+  assert.deepEqual(RETRY_WAIT_HOURS.slice(0, 5), [1, 3, 6, 12, 24]);
+  // 관리자 화면 상태: 받는 곳별 기록
+  const st = await indexNowStatus(f.env, { withLog: true });
+  assert.deepEqual(st.endpoints, ['naver', 'bing']); assert.equal(st.log[0].name, 'bing'); assert.equal(st.log[0].code, 429); assert.equal(st.retry.next_at, r.retry.next_at);
+});
+
+test('IndexNow: 관리자 [지금 다시 보내기] — 실패한 곳은 바로, 아니면 하루 한 번 전체', async t => {
+  const f = fixture(t, SM(['/', '2026-11-20'], ['/venues/', '2026-11-13']));
+  const req = new Request('https://megaspot.kr/api/admin/search-perf/indexnow');
+  let code = 429; const calls = [];
+  const fetcher = async (url, init) => { calls.push({ url, n: JSON.parse(init.body).urlList.length }); return new Response('', { status: url.includes('naver') ? 200 : code }); };
+  assert.equal((await indexNowManual(f.env, new Request('https://megaspot.pages.dev/x'), fetcher)).ok, false, '미리보기 주소에서는 보내지 않습니다');
+  resetIndexNowThrottle(); await indexNowTick(f.env, new Request('https://megaspot.kr/'), fetcher);
+  assert.equal(calls.length, 2);
+  code = 202; let m = await indexNowManual(f.env, req, fetcher);
+  assert.equal(m.ok, true); assert.deepEqual(calls.slice(2).map(c => c.url), [INDEXNOW_ENDPOINTS.bing], '실패한 곳(빙)만 바로 다시 보냅니다');
+  assert.equal(m.state.results.bing, 202); assert.equal(m.state.retry, undefined);
+  m = await indexNowManual(f.env, req, fetcher);
+  assert.equal(m.ok, false, '실패가 없으면 전체 다시 알리기인데, 방금 눌렀으므로 하루를 기다립니다'); assert.equal(calls.length, 3);
+  // 하루가 지나면 전체 주소를 두 곳에 다시 알립니다
+  const st = JSON.parse(f.db.prepare("SELECT value FROM settings WHERE key='indexnow'").get().value); st.manual_at = '2026-01-01 00:00:00';
+  f.db.prepare("UPDATE settings SET value=? WHERE key='indexnow'").run(JSON.stringify(st));
+  m = await indexNowManual(f.env, req, fetcher);
+  assert.equal(m.ok, true); assert.deepEqual(calls.slice(3).map(c => [c.url, c.n]), [[INDEXNOW_ENDPOINTS.naver, 2], [INDEXNOW_ENDPOINTS.bing, 2]]);
+  const s2 = await indexNowStatus(f.env, { withLog: true }); assert.equal(s2.log[0].why, 'manual'); assert.ok(s2.log.length >= 5);
 });
 
 test('공개 파일: IndexNow 열쇠 · llms.txt 주소 · 색인에서 빼는 화면', () => {

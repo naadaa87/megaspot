@@ -23,6 +23,8 @@
   nav.appendChild(button('dash','오늘 할 일'));
   // 본사 경영 지표 (admin-kpi.js 가 화면을 만듭니다)
   if(document.getElementById('view-kpi')){nav.appendChild(button('kpi','KPI 지표'));labels.kpi='KPI 지표';}
+  // 검색 성과 (admin-search-perf.js 가 화면을 만듭니다 · 2026-11-25)
+  if(document.getElementById('view-search-perf')){nav.appendChild(button('search-perf','검색 성과'));labels['search-perf']='검색 성과';}
   nav.appendChild(button('revenue','매출'));
   groups.forEach(function(g,i){
     var d=document.createElement('details');d.className='adm-nav-group';d.dataset.navGroup=g.id;d.open=Object.prototype.hasOwnProperty.call(saved,g.id)?saved[g.id]===true:!!g.open;
