@@ -1,8 +1,9 @@
 // 공간대관 계약서 (2026-11-24)
 //  · 관리자가 예약·문의 정보를 불러와 계약서를 채우고, 대관자에게 링크(/contract/#id=&k=)를 보냅니다.
-//  · 대관자는 링크에서 대관자 정보를 확인·입력하고 동의한 뒤 서명합니다. 서명하면 내용이 잠기고 PDF로 내려받을 수 있습니다.
+//  · 대관자는 링크에서 대관자 정보를 확인·입력하고 동의한 뒤 '확인'을 누르면 계약이 완료됩니다(서명 그림은 선택, 없으면 이름으로 전자 서명).
+//    완료하면 내용이 잠기고 PDF·이미지로 내려받을 수 있습니다.
 //  · 링크 열쇠는 계약 번호와 링크 차수로 만든 서명값이라 저장하지 않습니다. '링크 다시 만들기'를 하면 예전 링크는 열리지 않습니다.
-//  · 서명 기록: 서명 그림, 서명한 사람, 서명 시각, 접속 IP·브라우저, 서명 시점 계약 내용의 SHA-256(문서 확인값)
+//  · 서명 기록: 서명한 사람, 서명 시각, 접속 IP·브라우저, 서명 시점 계약 내용의 SHA-256(문서 확인값), 서명 그림(그린 경우)
 //  · 보관: 서명한 계약은 이용일로부터 5년, 서명 전·취소한 계약은 이용일로부터 1년 뒤 지웁니다.
 import { str, num, isDate, now, kstToday, sha256 } from './_lib.js';
 import { hmacToken, tokenEq } from './_confirm.js';
@@ -12,7 +13,7 @@ import CD from '../../assets/js/kit/contract-doc.js';
 
 export const CONTRACT_SETTINGS = 'rental_contract';
 const SEAL_KEY = 'rental_contract:seal';
-export const STATUS = { ready: '서명 대기', signed: '서명 완료', void: '취소' };
+export const STATUS = { ready: '확인 대기', signed: '계약 완료', void: '취소' };
 const ID_RE = /^RC-\d{4}-[A-Z2-9]{4}$/;
 export const validId = id => ID_RE.test(String(id || ''));
 
@@ -132,7 +133,7 @@ export function kstTime(ts) { const t = Date.parse(String(ts || '').replace(' ',
 // 서명 시점의 계약 내용을 고정하는 확인값
 export async function docHash(row, renter, signer, signedAt, signature) {
   const termsHash = await sha256(JSON.stringify([CD.TERMS_VERSION, CD.INTRO, CD.CLAUSES, CD.REFUND, CD.SIGN_TEXT]));
-  return sha256(JSON.stringify({ id: row.id, terms: termsHash, data: parse(row.data), renter, signer, signed_at: signedAt, signature: await sha256(signature) }));
+  return sha256(JSON.stringify({ id: row.id, terms: termsHash, data: parse(row.data), renter, signer, signed_at: signedAt, signature: signature ? await sha256(signature) : 'typed' }));
 }
 
 // 보관 기간이 지난 계약서를 지웁니다 (서명 완료 5년 · 서명 전·취소 1년, 이용일 기준)
@@ -154,9 +155,9 @@ export const CONTRACT_TEMPLATE = {
 이용 날짜: #{이용일}
 계약 번호: #{계약번호}
 
-아래 '계약서 확인·서명'에서 내용을 확인하고 대관자 정보 입력과 서명을 마쳐 주세요.
-서명을 마치면 같은 화면에서 계약서 PDF를 내려받을 수 있습니다.`,
-  buttons: [{ name: '계약서 확인·서명', linkType: 'WL', linkMo: LINK, linkPc: LINK }]
+아래 '계약서 확인'에서 내용과 대관자 정보를 확인하고 '확인하고 계약 완료'를 눌러 주세요.
+완료하면 같은 화면에서 계약서 PDF와 이미지를 내려받을 수 있습니다.`,
+  buttons: [{ name: '계약서 확인', linkType: 'WL', linkMo: LINK, linkPc: LINK }]
 };
 export const CONTRACT_SUBJECT = '메가스팟 공간대관 계약서';
 export const contractKakao = makeKakao({ key: 'contract_alimtalk', tag: 'contract-alimtalk-v1', template: CONTRACT_TEMPLATE, subject: CONTRACT_SUBJECT, table: 'contract_messages', idCol: 'contract_id', noun: '계약서', hashTag: 'contract-receiver:' });
@@ -170,13 +171,13 @@ export function sampleContractVars() { return { 고객명: '운영자 시험', �
 export const emailReady = env => !!(env.RESEND_API_KEY && /@/.test(env.MAIL_FROM || ''));
 export function contractEmail(row, data, url) {
   const c = data, r = c.renter || {}, who = r.rep || r.name || '대관자';
-  const subject = '[메가스팟] 공간대관 계약서 확인·서명 안내 (' + row.id + ')';
+  const subject = '[메가스팟] 공간대관 계약서 확인 안내 (' + row.id + ')';
   const lines = [who + '님, 메가스팟 공간대관 계약서를 보내드립니다.', '', '예약 공간: ' + (CD.SPACES[c.space] || '메가스팟'), '이용 날짜: ' + (CD.dateText(c.date) || '협의'), '계약 번호: ' + row.id, '',
-    '아래 링크에서 내용을 확인하고 대관자 정보 입력과 서명을 마쳐 주세요. 서명을 마치면 같은 화면에서 계약서 PDF를 내려받을 수 있습니다.', url, '', '문의: 메가스팟 카카오톡 https://pf.kakao.com/_LnxbmX/chat · 010-2384-9580'];
+    '아래 링크에서 내용과 대관자 정보를 확인하고 ‘확인하고 계약 완료’를 눌러 주세요. 완료하면 같은 화면에서 계약서 PDF와 이미지를 내려받을 수 있습니다.', url, '', '문의: 메가스팟 카카오톡 https://pf.kakao.com/_LnxbmX/chat · 010-2384-9580'];
   const esc = s => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
   const html = '<div style="font-family:Apple SD Gothic Neo,Malgun Gothic,sans-serif;font-size:15px;line-height:1.7;color:#1E2225;max-width:560px">' +
     '<p style="font-weight:800;color:#1F53D5;letter-spacing:.1em;margin:0 0 12px">MEGASPOT</p>' + lines.slice(0, 7).map(l => l ? '<p style="margin:0">' + esc(l) + '</p>' : '<p style="margin:0">&nbsp;</p>').join('') +
-    '<p style="margin:16px 0">' + esc(lines[7]) + '</p><p style="margin:20px 0"><a href="' + esc(url) + '" style="display:inline-block;background:#1F53D5;color:#fff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:8px">계약서 확인·서명</a></p>' +
+    '<p style="margin:16px 0">' + esc(lines[7]) + '</p><p style="margin:20px 0"><a href="' + esc(url) + '" style="display:inline-block;background:#1F53D5;color:#fff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:8px">계약서 확인</a></p>' +
     '<p style="margin:0;color:#5B6168;font-size:13px">' + esc(lines[10]) + '</p></div>';
   return { subject, text: lines.join('\n'), html };
 }

@@ -100,7 +100,7 @@
     h += '<section class="cdoc-sec cdoc-sign"><h2>6. 서명</h2><p>' + esc(SIGN_TEXT) + '</p><p class="cdoc-date"><b>계약일　' + (cd ? esc(dateText(cd).replace(/ \(.+\)$/, '')) : '20　　년　　월　　일') + '</b></p>' +
       '<table class="cdoc-tbl cdoc-signs"><thead><tr><th scope="col">운영자</th><th scope="col">대관자</th></tr></thead><tbody><tr><td>상호: ' + esc(op.name) + '<br>대표: ' + esc(op.rep_name || op.rep) +
       ' <span class="cdoc-stamp">' + (o.seal ? '<img src="' + esc(o.seal) + '" alt="운영자 도장">' : '(인)') + '</span></td><td>상호·성명: ' + esc(r.name || '') + '<br>대표자·담당자: ' + esc(r.rep || '') +
-      ' <span class="cdoc-stamp">' + (o.signature ? '<img src="' + esc(o.signature) + '" alt="대관자 서명">' : '(서명 또는 인)') + '</span></td></tr></tbody></table>' +
+      ' <span class="cdoc-stamp">' + (o.signature ? '<img src="' + esc(o.signature) + '" alt="대관자 서명">' : o.signed_at ? '<span class="cdoc-esign">' + esc(o.signer || r.rep || r.name || '') + '<small>전자서명</small></span>' : '(서명 또는 인)') + '</span></td></tr></tbody></table>' +
       (o.signed_at ? '<p class="cdoc-evidence">전자서명 기록 · 서명 시각 ' + esc(o.signed_at) + ' (한국 시간) · 서명한 분 ' + esc(o.signer || r.rep || r.name || '') + ' · 계약 번호 ' + esc(c.id || '') + (o.hash ? ' · 문서 확인값 ' + esc(String(o.hash).slice(0, 16)) : '') + '</p>' : '') +
       (o.draft ? '<p class="cdoc-evidence">서명 전 문서입니다.</p>' : '') + '</section>';
     return h + '</article>';

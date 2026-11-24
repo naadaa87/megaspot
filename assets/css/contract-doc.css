@@ -31,5 +31,7 @@
 .cdoc-date{text-align:center;margin:12px 0}
 .cdoc-signs td{width:50%;padding:12px;line-height:2}
 .cdoc-stamp{display:inline-flex;align-items:center;min-width:64px;min-height:30px;vertical-align:middle;color:#6B7178}
+.cdoc-esign{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;padding:2px 12px;border:2px solid #C0262D;border-radius:6px;color:#C0262D;font-weight:800;font-size:16px;line-height:1.2;letter-spacing:.04em}
+.cdoc-esign small{font-size:9.5px;font-weight:700;letter-spacing:.12em}
 .cdoc-stamp img{max-height:58px;max-width:160px;display:block}
 .cdoc-evidence{font-size:11.5px;color:#5B6168;border-top:1px dashed #C9C4BB;padding-top:8px;margin-top:10px}

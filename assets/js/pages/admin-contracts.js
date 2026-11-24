@@ -1,7 +1,7 @@
 /* 관리자 · 공간대관 계약서 (2026-11-24)
    예약·문의 정보를 불러와 계약서를 채우고, 대관자에게 링크를 보냅니다(카카오톡 알림톡 · 이메일 · 링크 복사).
-   대관자가 링크에서 대관자 정보를 입력하고 서명하면 '서명 완료'로 바뀌고, 같은 링크에서 계약서 PDF를 내려받을 수 있습니다.
-   · 서명한 계약서는 고칠 수 없습니다. 바꿀 내용이 있으면 취소하고 새로 만듭니다(예약 1건에 진행 중인 계약서 1장).
+   대관자가 링크에서 대관자 정보를 확인하고 '확인'을 누르면 '계약 완료'로 바뀌고, 같은 링크에서 계약서 PDF·이미지를 내려받을 수 있습니다.
+   · 계약 완료된 계약서는 고칠 수 없습니다. 바꿀 내용이 있으면 취소하고 새로 만듭니다(예약 1건에 진행 중인 계약서 1장).
    · 계약서 설정: 운영자 정보 · 입금 계좌 · 기본 잔금 기한·결제 방법 · 운영자 도장(서명) · 카카오톡 템플릿
    서버: /api/contracts/admin/* (functions/api/contracts/[[path]].js) · 계약서 본문: assets/js/kit/contract-doc.js */
 (function () {
@@ -27,10 +27,10 @@
 
   /* ---------- 화면 틀 ---------- */
   var sec = document.createElement('section'); sec.className = 'adm-view act-view'; sec.id = 'view-contracts'; sec.hidden = true;
-  sec.innerHTML = '<header class="adm-head"><div><h1>공간대관 계약서</h1><p class="small muted">예약·문의 정보를 불러와 계약서를 채우고 대관자에게 링크를 보냅니다. 대관자가 링크에서 정보를 입력하고 서명하면 ‘서명 완료’로 바뀌며, 같은 링크에서 계약서 PDF와 모임 초대장을 내려받을 수 있습니다.</p></div>' +
+  sec.innerHTML = '<header class="adm-head"><div><h1>공간대관 계약서</h1><p class="small muted">예약·문의 정보를 불러와 계약서를 채우고 대관자에게 링크를 보냅니다. 대관자가 링크에서 정보를 확인하고 ‘확인’을 누르면 ‘계약 완료’로 바뀌며, 같은 링크에서 계약서 PDF·이미지와 모임 초대장을 내려받을 수 있습니다.</p></div>' +
     '<div class="row act-head-act"><button class="btn btn-primary btn-sm" type="button" data-ca="new">새 계약서</button><button class="btn btn-light btn-sm" type="button" data-ca="settings">계약서 설정</button><button class="btn btn-light btn-sm" type="button" data-ca="reload">새로고침</button></div></header>' +
     '<div class="act-tiles" id="act-tiles"></div>' +
-    '<form class="adm-card act-filter" id="act-filter"><label>상태 <select class="input" name="status"><option value="">전체</option><option value="ready">서명 대기</option><option value="signed">서명 완료</option><option value="void">취소</option></select></label>' +
+    '<form class="adm-card act-filter" id="act-filter"><label>상태 <select class="input" name="status"><option value="">전체</option><option value="ready">확인 대기</option><option value="signed">계약 완료</option><option value="void">취소</option></select></label>' +
     '<label class="grow">찾기 <input class="input" name="q" maxlength="40" placeholder="대관자·연락처·계약 번호·예약번호"></label><button class="btn btn-primary" type="submit">조회</button></form>' +
     '<p class="small muted" id="act-status" role="status"></p><div class="act-list" id="act-list"></div>';
   main.appendChild(sec);
@@ -46,12 +46,12 @@
     $('#act-status').textContent = '불러오는 중…';
     return A('list?' + new URLSearchParams(new FormData(f)).toString()).then(function (r) {
       $('#act-status').textContent = '';
-      $('#act-tiles').innerHTML = [['서명 대기', r.counts.ready], ['서명 완료', r.counts.signed], ['취소', r.counts.void]].map(function (t) { return '<div class="act-tile"><span>' + t[0] + '</span><b>' + t[1] + '<small>건</small></b></div>'; }).join('');
+      $('#act-tiles').innerHTML = [['확인 대기', r.counts.ready], ['계약 완료', r.counts.signed], ['취소', r.counts.void]].map(function (t) { return '<div class="act-tile"><span>' + t[0] + '</span><b>' + t[1] + '<small>건</small></b></div>'; }).join('');
       $('#act-list').innerHTML = r.items.length ? r.items.map(row).join('') : '<div class="adm-card empty small">아직 계약서가 없습니다. ‘새 계약서’로 예약이나 문의를 불러와 만들어 보세요.</div>';
     }, function (e) { $('#act-status').textContent = ''; oops(e); });
   }
   function row(x) {
-    var sub = x.status === 'signed' ? '서명 ' + x.signed_at + ' · ' + x.signer : x.status === 'ready' ? (x.viewed_at ? '대관자가 열어 봄 ' + kst(x.viewed_at) : x.sent_at ? '보냄 ' + kst(x.sent_at) + ' · 아직 안 열어 봄' : '아직 보내지 않음') : '취소됨';
+    var sub = x.status === 'signed' ? '계약 완료 ' + x.signed_at + ' · ' + x.signer : x.status === 'ready' ? (x.viewed_at ? '대관자가 열어 봄 ' + kst(x.viewed_at) : x.sent_at ? '보냄 ' + kst(x.sent_at) + ' · 아직 안 열어 봄' : '아직 보내지 않음') : '취소됨';
     return '<button type="button" class="act-row" data-open="' + esc(x.id) + '"><span class="act-when"><b>' + esc(kd(x.date)) + '</b><small>' + esc((x.start || '') + (x.end ? '~' + x.end : '')) + ' · ' + esc(x.space.replace('메가스팟 ', '')) + '</small></span>' +
       '<span class="act-who"><b>' + esc(x.renter || '-') + (x.rep && x.rep !== x.renter ? ' · ' + esc(x.rep) : '') + '</b><small>' + esc(x.id) + (x.booking_code ? ' · ' + esc(x.booking_code) : '') + (x.event ? ' · ' + esc(x.event) : '') + '</small></span>' +
       '<span class="act-amt"><b>' + esc(won(x.total)) + '</b><small>' + esc(sub) + '</small></span><span class="st ' + (ST[x.status] || '') + '">' + esc(x.status_label) + '</span></button>';
@@ -97,7 +97,7 @@
     var num = function (name, label, val, unit) { return '<label>' + label + '<span class="act-unit"><input class="input" name="' + name + '" inputmode="numeric" value="' + esc(val ? Number(val).toLocaleString('ko-KR') : '') + '" data-money><em>' + (unit || '원') + '</em></span></label>'; };
     var checks = function (name, list, on) { return '<div class="act-checks">' + list.map(function (x) { return '<label><input type="checkbox" name="' + name + '" value="' + x[0] + '"' + ((on || []).indexOf(x[0]) >= 0 ? ' checked' : '') + '> ' + esc(x[1]) + '</label>'; }).join('') + '</div>'; };
     body.innerHTML = '<form class="act-form" data-cf novalidate>' +
-      '<div class="adm-card"><h3>1. 대관자 <small class="muted">대관자가 서명할 때 고칠 수 있습니다</small></h3><div class="act-2">' +
+      '<div class="adm-card"><h3>1. 대관자 <small class="muted">대관자가 확인할 때 고칠 수 있습니다</small></h3><div class="act-2">' +
       inp('r_name', '상호·성명 <span class="req">*</span>', r.name, 'maxlength="60"') + inp('r_rep', '대표자·담당자', r.rep, 'maxlength="40"') + inp('r_bizno', '사업자등록번호', r.bizno, 'maxlength="20"') + inp('r_phone', '연락처', r.phone, 'maxlength="20" type="tel"') +
       inp('r_email', '이메일', r.email, 'maxlength="80" type="email"') + inp('r_address', '주소', r.address, 'maxlength="120"') + '</div></div>' +
       '<div class="adm-card"><h3>2. 대관 내용</h3><div class="act-checks">' + Object.keys(C.SPACES).map(function (k) { return '<label><input type="radio" name="space" value="' + k + '"' + (d.space === k ? ' checked' : '') + '> ' + esc(C.SPACES[k]) + '</label>'; }).join('') + '</div>' +
@@ -114,7 +114,7 @@
       '<p class="small" style="margin:10px 0 4px">결제 방법</p>' + checks('f_methods', C.METHODS, fe.methods) +
       '<div class="act-3">' + inp('b_bank', '입금 은행', bank.bank, 'maxlength="20"') + inp('b_number', '계좌번호', bank.number, 'maxlength="30"') + inp('b_holder', '예금주', bank.holder, 'maxlength="40"') + '</div></div>' +
       '<div class="adm-card"><h3>5. 특약 사항</h3><textarea class="input" name="special" rows="3" maxlength="1000" placeholder="없으면 비워 두세요. 특약은 계약 조항보다 우선합니다.">' + esc(d.special || '') + '</textarea>' +
-      '<p class="small muted">4. 계약 조항과 6. 서명란은 정해진 양식이 그대로 들어갑니다. 계약일은 대관자가 서명한 날로 적힙니다.</p></div>' +
+      '<p class="small muted">4. 계약 조항과 6. 서명란은 정해진 양식이 그대로 들어갑니다. 계약일은 대관자가 확인한 날로 적힙니다.</p></div>' +
       '<p class="small act-err" data-err role="alert"></p><div class="act-sticky"><button class="btn btn-primary" type="submit">' + (id ? '고친 내용 저장' : '계약서 만들기') + '</button>' + (id ? '<button class="btn btn-light" type="button" data-back>취소</button>' : '') + '</div></form>';
     var fm = $('[data-cf]', body);
     var val = function () {
@@ -162,11 +162,11 @@
   }
   function draw(body, d) {
     var c = d.contract, data = c.data, r = data.renter || {}, t = c.totals, link = abs(d.link), k = d.kakao;
-    var msg = (r.rep || r.name || '') + '님, 메가스팟 공간대관 계약서를 보내드립니다.\n' + (C.SPACES[data.space] || '') + ' · ' + (C.dateText(data.date) || '') + '\n아래 링크에서 내용을 확인하고 대관자 정보 입력과 서명을 마쳐 주세요. 서명 후 같은 화면에서 계약서 PDF를 내려받을 수 있습니다.\n' + link;
+    var msg = (r.rep || r.name || '') + '님, 메가스팟 공간대관 계약서를 보내드립니다.\n' + (C.SPACES[data.space] || '') + ' · ' + (C.dateText(data.date) || '') + '\n아래 링크에서 내용과 대관자 정보를 확인하고 ‘확인하고 계약 완료’를 눌러 주세요. 완료 후 같은 화면에서 계약서 PDF·이미지를 내려받을 수 있습니다.\n' + link;
     var head = '<div class="adm-card act-sum"><div><span class="st ' + (ST[c.status] || '') + '">' + esc(c.status_label) + '</span><h3>' + esc(r.name || '-') + (r.rep && r.rep !== r.name ? ' · ' + esc(r.rep) : '') + '</h3>' +
       '<p class="small muted">' + esc(C.SPACES[data.space] || '') + ' · ' + esc(C.dateText(data.date)) + ' ' + esc(data.start + '~' + data.end) + (data.booking_code ? ' · 예약 ' + esc(data.booking_code) : '') + (c.inquiry_ref ? ' · 문의 ' + esc(c.inquiry_ref) : '') + '</p></div>' +
       '<div class="act-sum-amt"><b>' + esc(won(t.total)) + '</b><span>예약금 ' + esc(won(data.fee.deposit)) + ' · 잔금 ' + esc(t.paid_full ? '없음' : won(t.balance)) + '</span></div></div>';
-    var stateLine = c.status === 'signed' ? '<div class="adm-card act-signed"><h3>서명 완료</h3><dl><div><dt>서명한 분</dt><dd>' + esc(c.signed.signer) + '</dd></div><div><dt>서명 시각</dt><dd>' + esc(c.signed.at) + '</dd></div><div><dt>접속 IP</dt><dd>' + esc(c.signed_ip || '-') + '</dd></div><div><dt>문서 확인값</dt><dd><code>' + esc(String(c.signed.hash).slice(0, 32)) + '</code></dd></div></dl>' +
+    var stateLine = c.status === 'signed' ? '<div class="adm-card act-signed"><h3>계약 완료</h3><dl><div><dt>확인한 분</dt><dd>' + esc(c.signed.signer) + '</dd></div><div><dt>확인 시각</dt><dd>' + esc(c.signed.at) + '</dd></div><div><dt>접속 IP</dt><dd>' + esc(c.signed_ip || '-') + '</dd></div><div><dt>문서 확인값</dt><dd><code>' + esc(String(c.signed.hash).slice(0, 32)) + '</code></dd></div></dl>' +
         '<div class="act-acts"><a class="btn btn-dark btn-sm" href="' + esc(link) + '" target="_blank" rel="noopener">계약서 보기·PDF 내려받기 ↗</a><button type="button" class="btn btn-light btn-sm" data-copy="' + esc(link) + '">링크 복사</button><button type="button" class="btn btn-light btn-sm act-danger" data-void>계약 취소 처리</button></div></div>'
       : c.status === 'void' ? '<div class="adm-card"><p class="small">취소한 계약서입니다. 링크를 열면 ‘취소된 계약서’로 보입니다.</p></div>'
       : '<div class="adm-card"><h3>대관자에게 보내기</h3><p class="small muted">' + (c.viewed_at ? '대관자가 ' + esc(kst(c.viewed_at)) + '에 처음 열어 봤습니다.' : c.sent_at ? esc(kst(c.sent_at)) + '에 보냈고 아직 열어 보지 않았습니다.' : '아직 보내지 않았습니다.') + '</p>' +
@@ -184,7 +184,7 @@
       if (b.hasAttribute('data-copymsg')) { copy(msg, '안내 문구를 복사했습니다. 카카오톡 채널 대화방이나 문자에 붙여 넣어 주세요.'); A('sent', { id: c.id }).then(load, function () {}); return; }
       if (b.hasAttribute('data-edit')) { form(c.id, data, c.inquiry_ref); return; }
       if (b.hasAttribute('data-relink')) { if (!window.confirm('새 링크를 만들면 지금까지 보낸 링크는 열리지 않습니다. 새 링크를 만들까요?')) return; A('relink', { id: c.id }).then(function () { M.toast('새 링크를 만들었습니다. 대관자에게 다시 보내 주세요.'); open(c.id); load(); }, oops); return; }
-      if (b.hasAttribute('data-void')) { if (!window.confirm(c.status === 'signed' ? '서명을 마친 계약서를 취소 처리할까요? 대관자 화면에도 ‘취소’로 보입니다.' : '이 계약서를 취소할까요? 보낸 링크는 ‘취소된 계약서’로 열립니다.')) return; A('void', { id: c.id }).then(function () { M.toast('취소 처리했습니다.'); open(c.id); load(); }, oops); return; }
+      if (b.hasAttribute('data-void')) { if (!window.confirm(c.status === 'signed' ? '계약 완료된 계약서를 취소 처리할까요? 대관자 화면에도 ‘취소’로 보입니다.' : '이 계약서를 취소할까요? 보낸 링크는 ‘취소된 계약서’로 열립니다.')) return; A('void', { id: c.id }).then(function () { M.toast('취소 처리했습니다.'); open(c.id); load(); }, oops); return; }
       if (b.hasAttribute('data-kakao')) {
         var to = $$('input[name=to]:checked', body).map(function (x) { return x.value; }); if (!to.length) { M.toast('보낼 번호를 골라 주세요.'); return; }
         if (!window.confirm(to.map(phone).join(', ') + ' 번호로 계약서 카카오톡을 보낼까요?')) return;
@@ -201,7 +201,7 @@
       }
       if (b.hasAttribute('data-mailapp')) {
         var to2 = $('[data-mailto]', body).value.trim();
-        location.href = 'mailto:' + encodeURIComponent(to2) + '?subject=' + encodeURIComponent('[메가스팟] 공간대관 계약서 확인·서명 안내 (' + c.id + ')') + '&body=' + encodeURIComponent(msg);
+        location.href = 'mailto:' + encodeURIComponent(to2) + '?subject=' + encodeURIComponent('[메가스팟] 공간대관 계약서 확인 안내 (' + c.id + ')') + '&body=' + encodeURIComponent(msg);
         A('sent', { id: c.id }).then(load, function () {});
       }
     };

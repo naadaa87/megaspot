@@ -39,7 +39,7 @@ function fixture(t, extra = {}) {
   const link = l => { const p = new URLSearchParams(l.split('#')[1]); return { id: p.get('id'), k: p.get('k') }; };
   return { db, env, call, booking, link };
 }
-const sign = (f, o, extra = {}) => f.call('sign', { method: 'POST', body: { ...o, renter: { address: '서울시 성동구 1', bizno: '123-45-67890' }, signer: '홍길동', agree: true, agree_esign: true, signature: PNG, ...extra } });
+const sign = (f, o, extra = {}) => f.call('sign', { method: 'POST', body: { ...o, renter: { address: '서울시 성동구 1', bizno: '123-45-67890' }, signer: '홍길동', agree: true, signature: PNG, ...extra } });
 
 test('불러오기: 예약·문의·예약확정서에서 대관자·이용일·시간·금액·옵션을 채운다', async t => {
   const f = fixture(t);
@@ -99,9 +99,9 @@ test('대관자 화면: 링크 열쇠·열람 기록·서명 확인·서명 기�
   assert.equal(v.json.invite.available, true); assert.equal(v.json.invite.invite, null);
   assert.ok(f.db.prepare('SELECT viewed_at FROM rental_contracts').get().viewed_at);
   // 서명 확인
-  assert.equal((await sign(f, o, { agree_esign: false })).status, 400);
+  assert.equal((await sign(f, o, { agree: false })).status, 400);
   assert.equal((await sign(f, o, { signature: 'data:image/png;base64,AAAA' })).status, 400);
-  assert.equal((await sign(f, o, { signer: '홍' })).status, 400);
+  assert.equal((await sign(f, o, { signer: '홍', renter: { rep: '홍' } })).status, 400);
   assert.equal((await sign(f, o, { renter: { phone: '12' } })).status, 400);
   // 링크를 다시 만들면 예전 링크는 막힌다
   const re = await f.call('admin/relink', { method: 'POST', admin: true, body: { id: o.id } });
@@ -116,6 +116,19 @@ test('대관자 화면: 링크 열쇠·열람 기록·서명 확인·서명 기�
   assert.equal((await sign(f, o2)).json.code, 'SIGNED');
   v = await f.call('view?id=' + o2.id + '&k=' + o2.k);
   assert.equal(v.json.contract.status, 'signed'); assert.ok(v.json.contract.signed.at);
+});
+
+test('입력하고 확인만 눌러도 계약 완료 — 서명 그림 없이 대표자 이름으로 전자 서명', async t => {
+  const f = fixture(t);
+  f.booking('BK-A', { ref: 'MS-2611-AAAA' });
+  const data = (await f.call('admin/prefill?booking_code=BK-A', { admin: true })).json.data;
+  const o = f.link((await f.call('admin/save', { method: 'POST', admin: true, body: { data } })).json.link);
+  const r = await f.call('sign', { method: 'POST', body: { ...o, renter: { rep: '김담당' }, agree: true } });
+  assert.equal(r.status, 200); assert.equal(r.json.contract.status, 'signed'); assert.equal(r.json.contract.status_label, '계약 완료');
+  assert.equal(r.json.contract.signed.signer, '김담당'); assert.equal(r.json.contract.signature, '');
+  assert.equal(f.db.prepare('SELECT signature FROM rental_contracts').get().signature, null);
+  const html = CD.html(r.json.contract.data, { signed_at: r.json.contract.signed.at, signer: '김담당' });
+  assert.ok(html.includes('cdoc-esign') && html.includes('김담당<small>전자서명</small>'));
 });
 
 test('취소된 예약은 서명할 수 없고, 취소한 계약서는 취소로 보인다', async t => {

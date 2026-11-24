@@ -1,7 +1,8 @@
 // 공간대관 계약서 API (2026-11-24) — 설명은 functions/api/_contracts.js
 //  고객 (링크 열쇠 필요)
 //  GET  /api/contracts/view?id=&k=              계약서 · 서명 상태 · 운영자 도장 · 모임 초대장(예약이 있으면)
-//  POST /api/contracts/sign   { id, k, renter, signer, agree, agree_esign, signature }   대관자 정보 확인·서명 (한 번만)
+//  POST /api/contracts/sign   { id, k, renter, signer?, agree, signature? }   대관자 정보 확인 → '확인'으로 계약 완료 (한 번만)
+//                              서명 그림은 선택입니다. 없으면 서명한 분 이름(기본: 대표자·담당자)이 전자 서명으로 들어갑니다.
 //  POST /api/contracts/invite { id, k, data }   계약서 화면에서 모임 초대장 만들기 (확정 예약만, 예약 1건에 1장)
 //  관리자 (/api/contracts/admin/*)
 //  GET  list?status=&q=          계약서 목록           GET  sources?q=         불러올 예약·문의 찾기
@@ -69,13 +70,14 @@ async function sign(request, env) {
   if (!renter.rep) return err('대표자·담당자 이름을 적어 주세요.');
   if (String(renter.phone).replace(/\D/g, '').length < 9) return err('대관자 연락처를 확인해 주세요.');
   if (renter.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(renter.email)) return err('이메일 주소를 확인해 주세요.');
-  const signer = str(d.signer, 30).replace(/\s+/g, ' ').trim();
+  const signer = (str(d.signer, 30) || renter.rep).replace(/\s+/g, ' ').trim();
   if (signer.length < 2) return err('서명하는 분의 이름을 적어 주세요.');
-  if (d.agree !== true || d.agree_esign !== true) return err('계약 내용과 전자 서명에 동의해 주세요.');
-  const bad = pngError(d.signature, 200000); if (bad) return err(bad);
-  const at = now(), hash = await docHash(row, renter, signer, at, d.signature);
+  if (d.agree !== true) return err('계약 내용을 확인하고 동의해 주세요.');
+  const signature = d.signature ? String(d.signature) : '';
+  if (signature) { const bad = pngError(signature, 200000); if (bad) return err(bad); }
+  const at = now(), hash = await docHash(row, renter, signer, at, signature);
   const r = await env.DB.prepare("UPDATE rental_contracts SET status = 'signed', renter = ?, signer = ?, signature = ?, signed_at = ?, signed_ip = ?, signed_ua = ?, doc_hash = ?, terms_version = ?, updated_at = ? WHERE id = ? AND status = 'ready' AND link_ver = ?")
-    .bind(JSON.stringify(renter), signer, d.signature, at, clientIp(request).slice(0, 64), str(request.headers.get('user-agent'), 200), hash, CD.TERMS_VERSION, at, row.id, row.link_ver).run();
+    .bind(JSON.stringify(renter), signer, signature || null, at, clientIp(request).slice(0, 64), str(request.headers.get('user-agent'), 200), hash, CD.TERMS_VERSION, at, row.id, row.link_ver).run();
   if (!Number(r.meta?.changes ?? r.changes)) return err('계약서가 바뀌었습니다. 화면을 새로 열어 주세요.', 409, 'CHANGED');
   await log(env, 'contract.signed', row.booking_code || row.id, 'customer', { id: row.id });
   const fresh = await byId(env, row.id);

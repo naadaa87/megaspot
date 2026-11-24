@@ -437,3 +437,10 @@ html:has(.stage.is-full){overflow:hidden}
   body.page-contract [data-doc]{position:absolute;left:0;top:0;width:100%;border:0;box-shadow:none;padding:0}
   .cdoc-clause,.cdoc-tbl tr,.cdoc-sign{break-inside:avoid}
 }
+.ct-tools{display:flex;flex-wrap:wrap;gap:8px}
+.ct-doc-tools{display:grid;gap:8px;margin-bottom:10px}
+.ct-doc-tools .ct-tools .btn{min-height:40px;padding:0 14px;font-size:14px}
+.ct-sign-opt{border:1px solid var(--concrete-2);border-radius:var(--radius);padding:10px 14px;background:#fff}
+.ct-sign-opt summary{cursor:pointer;font-weight:700;font-size:14px;color:var(--ink-2)}
+.ct-sign-opt[open] summary{margin-bottom:4px}
+@media (max-width:560px){.ct-done .ct-tools .btn{flex:1 1 calc(50% - 8px)}}
