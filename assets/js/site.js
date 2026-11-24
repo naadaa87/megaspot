@@ -374,6 +374,11 @@
   /* ---------- 모바일 빠른 연락 바 + 맨 위로 ---------- */
   // 작은 화면에서 화면 아래에 전화·카카오톡·예약 신청 버튼을 고정해 둡니다.
   // 계산기(예약/견적 문의 화면)가 보이는 동안과 주문·회원·관리자 화면에서는 보이지 않습니다.
+  // 모임 메뉴(모임 소개 · 모임 모집 · 모임 올리기)에서 지금 보고 있는 화면 표시
+  function initMeetTabs(){
+    $$('.meet-tabs a').forEach(function(a){ var also=(a.getAttribute('data-also')||'').split(/\s+/).filter(Boolean);
+      if(a.pathname===location.pathname||also.indexOf(location.pathname)>=0) a.setAttribute('aria-current','page'); });
+  }
   function initQuickBar(){
     var skip=/^\/(admin|order|login|signup|mypage|confirm|my-booking)\//.test(location.pathname) || /^\/meetups\/(manage|new|view)\//.test(location.pathname) || /^\/spaces\/listing\//.test(location.pathname) || /^\/host\/register\//.test(location.pathname) || document.body.classList.contains('page-admin') || document.body.classList.contains('page-inquiry');
     if(!skip){
@@ -423,5 +428,5 @@
 
   function initToastRegion(){ if(!toastEl){ toastEl=document.createElement('div'); toastEl.className='toast'; toastEl.setAttribute('role','status'); toastEl.setAttribute('aria-live','polite'); document.body.appendChild(toastEl); } }
 
-  document.addEventListener('DOMContentLoaded', function(){ initHeader(); initAccount(); initSubnav(); initQuickBar(); initBottomClearance(); initToastRegion(); initAds(); });
+  document.addEventListener('DOMContentLoaded', function(){ initHeader(); initAccount(); initSubnav(); initMeetTabs(); initQuickBar(); initBottomClearance(); initToastRegion(); initAds(); });
 })();

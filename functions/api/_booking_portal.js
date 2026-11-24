@@ -2,6 +2,7 @@ import {depositDueDate} from './_deposit_due.js';
 import {trialPortalResponse} from './_booking_journey_trial.js';
 // Separate capability for a reservation's unified page. Never accept a confirm/last4 token here.
 import {settlementFor} from './_settlement.js';
+import {RENTAL_BANK,DEPOSIT_BANK,bankCopy} from './_business.js';
 import {paymentSchedule} from './_booking_payment_schedule.js';
 import {json,err,now,str,sha256,randomToken,readJson,log} from './_lib.js';
 import {parseDoc,publicDoc,maskPhone,SPACES,confirmToken} from './_confirm.js';
@@ -105,10 +106,10 @@ export async function portalCustomer({env,request,path}){
   const doc=parseDoc(b.confirm_doc),issued=!!doc?.issued_at,showAmount=doc?.show_amount!==false&&visibility?.amount_visible!==0,end=eventTime(b);
   const deposit={payment_method:b.deposit_method||'',amount:showAmount?amount:null,amount_visible:showAmount,paid:!!b.deposit_paid,returned:account.state==='completed',due_date:null,refund_date:b.settled_refund_date||refundDate(b),account};
   if(end)deposit.due_date=depositDueDate({...b,confirmed_day:visibility?.confirm_version>0?visibility.confirmed_at?.slice(0,10):undefined});
-  if(showAmount&&amount>0&&!deposit.paid&&!deposit.returned&&b.deposit_method!=='card')deposit.bank={name:'기업은행',account:'064-179058-04018',holder:'주식회사 지유공간개발'};
+  if(showAmount&&amount>0&&!deposit.paid&&!deposit.returned&&b.deposit_method!=='card')deposit.bank=bankCopy(DEPOSIT_BANK);
   const settlement=showAmount?await settlementFor(env,b.booking_code):null,schedule=await paymentSchedule(env,b);
   const payment={amount_visible:showAmount,total:settlement?.amount??null,received:settlement?.received??null,refunded:settlement?.refunded??null,paid:settlement?.net??null,balance:settlement?.balance??null,refund_due:settlement?.refund_due??null,due_date:schedule.due_date,complete:!!settlement&&settlement.amount!=null&&settlement.balance===0&&!settlement.over_refunded};
-  if(showAmount&&payment.balance>0)payment.bank={name:'하나은행',account:'298-910064-39104',holder:'주식회사 블랭크'};
+  if(showAmount&&payment.balance>0)payment.bank=bankCopy(RENTAL_BANK);
   return json({ok:true,payment,booking:{code:b.booking_code,name:b.customer_name,phone:maskPhone(b.phone),space:SPACES[b.space_id],date:b.date,start_h:end?.hours[0]??null,end_h:end?.hours[1]??null,headcount:b.headcount,status:b.status,ended:!!end&&end.end<=Date.now(),updated_at:b.updated_at||b.created_at},confirmation:issued?publicDoc(b,doc):null,deposit,arrival:arrival(b),my_booking_url:'/my-booking/#c='+encodeURIComponent(b.booking_code)+'&k='+encodeURIComponent(await confirmToken(env,b.booking_code))});
  }
  if(path==='account'&&['GET','POST'].includes(request.method)){

@@ -22,6 +22,7 @@ import {revenueBookingsAdmin,revenueBookingDetailAdmin} from '../_revenue_bookin
 import {revenueProfitAdmin} from '../_revenue_profit.js';
 import {revenueMetadataAdmin} from '../_revenue_metadata.js';
 import {kpiAdmin} from '../_kpi.js';   // KPI 지표 (본사 관리자 · 읽기 전용)
+import {notifyCenterAdmin} from '../_notify_center.js';   // 알림 센터 (발송 기록 모아 보기 · 읽기 전용 · 2026-11-24)
 import {cancellationAdmin} from '../_cancellation.js';
 import {refundAmountSql} from '../_payapp_refund_history.js';
 import {S,preserveLegacyPayments,settlementFor,settlementsFor,settlementAdmin,settlementRevisionSql} from '../_settlement.js';
@@ -244,6 +245,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
     if(revenueBooking)return await revenueBookingDetailAdmin({env,url,method,bookingCode:revenueBooking[1],operationalBookingSql:OPERATIONAL_BOOKING_SQL});
     if(path==='revenue')return await revenueAdmin({env,url,method,operationalBookingSql:OPERATIONAL_BOOKING_SQL,archivedStatus:DELETED});
     if(path==='kpi')return await kpiAdmin({env,url,method,operationalBookingSql:OPERATIONAL_BOOKING_SQL,archivedStatus:DELETED});
+    if(path==='notify-center')return await notifyCenterAdmin({env,url,method});
     if(/^spacecloud-blocks\/login\/(start|save|cancel)$/.test(path))return await spacecloudControl({env,request,method,path});
     if(path==='spacecloud-blocks')return await spacecloudBlocksAdmin({env,request,method});
     if(path==='booking-readiness')return await bookingReadiness({env,url,method});

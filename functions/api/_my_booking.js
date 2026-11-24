@@ -16,6 +16,7 @@ import { depositDueDate } from './_deposit_due.js';
 import { refundBooking, refundDate, eventTime } from './_deposit_refunds.js';
 import { links as inviteLinks, summarize as rsvpSummary } from './_invites.js';
 import { linkOf as contractLink, STATUS as CONTRACT_STATUS } from './_contracts.js';
+import { RENTAL_BANK, DEPOSIT_BANK, bankCopy } from './_business.js';
 
 const STATUS = { confirmed: '예약 확정', completed: '이용 완료', cancelled: '취소된 예약', payment_review: '결제 확인 중' };
 const SPACE_PAGE = { 'megaspot-gundae': '/spaces/megaspot-gundae/', 'megaspot-gundae-2': '/spaces/megaspot-gundae-2/' };
@@ -73,7 +74,7 @@ export async function bookingView(env, code, { today = kstToday() } = {}) {
   if (showAmount) {
     const s = await settlementFor(env, b.booking_code).catch(() => null), schedule = await paymentSchedule(env, b).catch(() => ({}));
     out.payment = { visible: true, total: s?.amount ?? null, paid: s?.net ?? null, balance: s?.balance ?? null, due_date: schedule?.due_date || '', complete: !!s && s.amount != null && s.balance === 0 };
-    if (out.payment.balance > 0 && b.status !== 'completed') out.payment.bank = { name: '하나은행', account: '298-910064-39104', holder: '주식회사 블랭크' };
+    if (out.payment.balance > 0 && b.status !== 'completed') out.payment.bank = bankCopy(RENTAL_BANK);
   } else out.payment = { visible: false };
 
   // 보증금 (계좌 원문·마스킹 번호는 싣지 않습니다)
@@ -82,7 +83,7 @@ export async function bookingView(env, code, { today = kstToday() } = {}) {
     const dep = { method: b.deposit_method || '', amount: showAmount ? amount : null, paid: !!b.deposit_paid, returned,
       refund_date: b.settled_refund_date || refundDate(b), account_registered: !!b.account_cipher, due_date: null };
     if (end) dep.due_date = depositDueDate({ ...b, confirmed_day: vis?.confirm_version > 0 ? vis.confirmed_at?.slice(0, 10) : undefined });
-    if (showAmount && amount > 0 && !dep.paid && !returned && b.deposit_method !== 'card' && !out.booking.ended) dep.bank = { name: '기업은행', account: '064-179058-04018', holder: '주식회사 지유공간개발' };
+    if (showAmount && amount > 0 && !dep.paid && !returned && b.deposit_method !== 'card' && !out.booking.ended) dep.bank = bankCopy(DEPOSIT_BANK);
     out.deposit = dep;
   }
 

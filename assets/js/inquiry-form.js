@@ -42,6 +42,8 @@
     + '<div class="f"><label for="iq-org">회사·단체명 <span class="req">*</span></label><input class="input" id="iq-org" name="org" maxlength="120" placeholder="예: ○○컴퍼니, ○○대학교 학생회"></div>'
     + '<div class="f"><label for="iq-pkind">제휴 형태 <span class="muted">(선택)</span></label><select class="select" id="iq-pkind" name="partner_kind">'+opt(PKIND,'')+'</select></div>'
     + '</div>'
+    // 공간을 올리려는 분은 입점 신청으로 (예전 공간 등록 문의와 새 입점 플랫폼을 한 길로 — 2026-11-24)
+    + '<p class="notice small mt-1" id="iq-host-hint" hidden>운영하시는 공간을 메가스팟에 올리려면 <a href="/host/register/" style="color:var(--cobalt);font-weight:700">입점 신청</a>이 더 빠릅니다. 50명 이상 또는 50평 이상 공간이면 결제 수수료 없이 등록할 수 있고, 공간 정보를 대신 채워 달라는 요청은 가입 뒤 호스트센터의 ‘공간 등록 대행 요청’으로 남기실 수 있습니다.</p>'
     + '</fieldset>'
 
     // 모임 조건 (모두 선택)
@@ -126,6 +128,7 @@
       if(!TYPE_LABEL[t]) t='event'; cur=t; typeIn.value=t;
       if(typeBox) typeBox.querySelectorAll('.iq-type').forEach(function(b){ var on=b.dataset.v===t; b.classList.toggle('on',on); b.setAttribute('aria-checked',String(on)); });
       $f('#iq-org-row').hidden = t!=='partner'; $f('#iq-org').required = t==='partner';
+      var hh=$f('#iq-host-hint'); if(hh) hh.hidden = t!=='partner';
       $f('#iq-regular-row').hidden = t!=='regular';
       var fam=$f('.fam-ask'); if(fam){ fam.hidden = t==='partner'; if(t==='partner') fam.querySelectorAll('input').forEach(function(i){ i.checked=false; }); }
       var va=$f('.visit-ask'); if(va){ va.hidden = t==='partner'; }

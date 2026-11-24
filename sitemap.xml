@@ -64,13 +64,15 @@
   </url>
   <url><loc>https://megaspot.kr/community/</loc><lastmod>2026-11-17</lastmod><changefreq>daily</changefreq><priority>0.7</priority>
   </url>
-  <url><loc>https://megaspot.kr/community/groups/</loc><lastmod>2026-11-17</lastmod><changefreq>daily</changefreq><priority>0.7</priority>
+  <url><loc>https://megaspot.kr/community/groups/</loc><lastmod>2026-11-24</lastmod><changefreq>daily</changefreq><priority>0.7</priority>
   </url>
   <url><loc>https://megaspot.kr/community/free/</loc><lastmod>2026-11-17</lastmod><changefreq>daily</changefreq><priority>0.6</priority>
   </url>
-  <url><loc>https://megaspot.kr/meetups/</loc><lastmod>2026-10-27</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>
+  <url><loc>https://megaspot.kr/meetups/</loc><lastmod>2026-11-24</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>
   </url>
-  <url><loc>https://megaspot.kr/meetups/new/</loc><lastmod>2026-10-27</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
+  <url><loc>https://megaspot.kr/meetups/new/</loc><lastmod>2026-11-24</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url><loc>https://megaspot.kr/meetups/start/</loc><lastmod>2026-11-24</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
   </url>
   <url><loc>https://megaspot.kr/about/</loc><lastmod>2026-10-27</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
     <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s04.jpg</image:loc><image:title>메가스팟 건대 1호 네트워킹 행사 — 접수 테이블과 서서 대화하는 참석자들</image:title></image:image>
@@ -148,4 +150,7 @@
   <url><loc>https://megaspot.kr/play/balance/</loc><lastmod>2026-11-24</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://megaspot.kr/play/wheel/</loc><lastmod>2026-11-24</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <!-- kit-pages:end -->
+  <!-- faq:start · tools/faq/build.mjs 가 만드는 구간입니다. 손으로 고치지 마세요 -->
+  <url><loc>https://megaspot.kr/help/</loc><lastmod>2026-11-24</lastmod><changefreq>weekly</changefreq><priority>0.6</priority></url>
+  <!-- faq:end -->
 </urlset>

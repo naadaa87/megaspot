@@ -11,7 +11,7 @@
     {id:'after',label:'정산·사후관리',items:[['deposit-refunds','보증금 환급'],['feedback','이용 의견'],['reviews','후기 관리']]},
     {id:'platform',label:'고객·플랫폼',items:[['members','회원'],['meetups','모임 관리'],['community','커뮤니티 관리'],['hosts','입점·광고 신청'],['listings','등록 공간'],['ads','배너 광고']]},
     {id:'hostplat',label:'입점 플랫폼',items:[['hp-spaces','입점 심사·공간'],['hp-assist','공간 등록 대행'],['hp-bookings','호스트 예약·문의'],['hp-addons','본사 부가서비스'],['hp-planning','행사 준비 요청'],['hp-billing','입점 이용료'],['hp-notices','호스트 알림']]},
-    {id:'settings',label:'운영 설정',items:[['prices-catering','공급가·판매가'],['guide-settings','알림톡·자동 발송'],['parking-settings','주차 판매·연결 설정']]}
+    {id:'settings',label:'운영 설정',items:[['prices-catering','공급가·판매가'],['guide-settings','알림톡·자동 발송'],['parking-settings','주차 판매·연결 설정']].concat(document.getElementById('view-notify-center')?[['notify-center','알림 센터']]:[])}
   ];
   var owners={bookings:'resv',calendar:'resv','booking-new':'resv',reception:'catering',cocktail:'catering','deposit-notifications':'deposit-refunds','prices-reception':'prices-catering','prices-cocktail':'prices-catering','deposit-settings':'guide-settings'};
   var labels={'guide-delivery':'입실 안내 상세·설정',dash:'오늘 할 일',revenue:'매출',bookings:'예약 목록',calendar:'일정 달력','booking-new':'예약 등록',reception:'케이터링',cocktail:'출장 칵테일','deposit-notifications':'보증금 안내 내역','prices-reception':'공급가·판매가','prices-cocktail':'공급가·판매가','deposit-settings':'알림톡·자동 발송'};

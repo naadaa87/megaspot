@@ -269,6 +269,7 @@ function renderHubIndex(S, SP) {
   <div class="container">
     <div class="pf-sec-head"><div class="eyebrow">02 · By purpose</div><h2 class="h-l mt-1">어떤 모임인가요</h2><p class="lead">같은 인원이라도 파티와 세미나는 봐야 할 조건이 다릅니다. 목적별로 확인할 것을 함께 정리했습니다.</p></div>
     <div class="hub-tiles words">${I.purposeTiles.map(([slug, b, t]) => `<a class="hub-tile" href="${hubPath(slug)}"><b>${esc(b)}</b><span>${esc(t)}</span><em>공간 둘러보기 →</em></a>`).join('')}</div>
+    <div class="hub-direct mt-4"><p class="small muted">메가스팟이 직접 운영하는 건대 1호·2호를 목적에 맞게 쓰는 방법은 <a href="/purpose/">모임 목적별 안내</a>에서 사진·배치·요금 예시와 함께 볼 수 있습니다.</p><nav class="hub-nav" style="border-top:0;padding-top:0;margin-top:8px" aria-label="건대 직영 공간 목적별 안내"><div class="hub-nav-row">${(I.directPurpose || []).map(([slug, label]) => `<a href="/purpose/${slug}/">${esc(label)}</a>`).join('')}</div></nav></div>
   </div>
 </section>
 ${list.html.replace('01 · Spaces', '03 · Spaces')}

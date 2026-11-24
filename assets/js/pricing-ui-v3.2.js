@@ -247,6 +247,7 @@
 
   function renderEstimator(el, cfg){
     cfg = cfg || {};
+    var ON_INQUIRY = document.body.classList.contains('page-inquiry');
     var q0 = {}; try { q0 = Object.fromEntries(new URLSearchParams(location.search)); } catch (_) {}
     var retiredLink = q0.pkg === 'full-day';
     var linkedPackage = !!q0.pkg, linkedHours = q0.start != null && q0.end != null;
@@ -361,6 +362,15 @@
       return {space:SPACE_ID,date:f('date').value,start:+f('start').value,end:+f('end').value};
     }
     function dateUnknown(){return !!el.querySelector('[name=event_date_unknown]:checked');}
+    function handoff(){
+      var r = last || calc(); if (PLAN) PLAN.saveSpace(st, SPACE_ID);
+      var q = { space: SPACE_ID };
+      if (!dateUnknown()) q.date = st.date;
+      q.start = String(st.start); q.end = String(st.end); q.people = String(st.requestedPeople || st.people);
+      if (st.purpose) q.purpose = st.purpose; if (st.regular) q.type = 'regular';
+      q.reserve = '1';
+      location.href = '/inquiry/?' + new URLSearchParams(q).toString() + '#reserve';
+    }
     function paintAvailability(){
       var box=out('availability');if(!box)return;
       box.hidden=availabilityState==='idle'||phase==='done';box.dataset.state=availabilityState;
@@ -451,7 +461,7 @@
       out('body').innerHTML = (cq && !cq.empty ? '<p class="rv-cat-note"><span class="badge badge-direct">출장뷔페</span> ' + esc(CC.parts(cq)) + ' · 예상 ' + esc(won(cq.total)) + ' <small class="muted">부가세 포함 · 대관료와 별도 · 예약 신청서에 함께 담깁니다</small></p>' : '')
         + '<button type="button" class="btn btn-primary btn-lg rv-go" data-act="reserve">이 구성으로 예약 상담 <span class="arrow">→</span></button>'
         + '<div class="rv-sub"><button type="button" class="btn btn-light btn-sm" data-act="pdf">전체 견적서 저장</button>' + (KAKAO ? '<a class="btn btn-kakao btn-sm" data-act="kakao" href="' + esc(KAKAO) + '" target="_blank" rel="noopener">카카오톡으로 문의</a>' : '') + '</div>'
-        + '<p class="tiny muted mt-2">예약 신청은 결제가 아닙니다. 담당자가 일정을 확인한 뒤 확정 금액과 결제 방법을 안내드리고, 결제가 끝나면 예약이 확정됩니다.</p>'
+        + '<p class="tiny muted mt-2">' + (ON_INQUIRY ? '' : '예약/견적 문의 화면에서 지금 고른 조건 그대로 이어서 신청합니다. ') + '예약 신청은 결제가 아닙니다. 담당자가 일정을 확인한 뒤 확정 금액과 결제 방법을 안내드리고, 결제가 끝나면 예약이 확정됩니다.</p>'
         + (D.specialNote ? '<p class="rv-special"><span class="badge badge-rust">추가 협찬 · 할인</span>' + esc(D.specialNote) + '</p>' : '');
       paintAvailability();
     }
@@ -581,6 +591,8 @@
         M.reservations.checkRange(picked,true).then(function(v){if(!el.isConnected||key!==JSON.stringify(scheduleChoice())||dateUnknown())return;if(v.closed||v.invalid||v.conflict||v.unknown){checkAvailability(true);M.toast('예약 현황이 바뀌었습니다. 다른 일정을 확인해 주세요.');return;}applySchedule(picked);}).catch(function(){if(el.isConnected){checkAvailability(true);M.toast('최신 예약 현황을 확인하지 못했습니다. 다시 확인해 주세요.');}}).finally(function(){if(el.isConnected)paintAvailability();});return;
       }
       if (act === 'reserve' && b.disabled)return;
+      // 예약 신청서는 예약/견적 문의 화면 한 곳에서만 받습니다 (2026-11-24). 공간·요금 화면에서는 고른 조건 그대로 넘겨 이어서 신청합니다.
+      if (act === 'reserve' && !ON_INQUIRY){ handoff(); return; }
       if (act === 'reserve'){ phase = 'form'; paintForm(last || calc()); if (window.matchMedia('(max-width:959px)').matches) el.querySelector('.rv-apply').scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
       if (act === 'back'){ saveForm(); phase = 'calc'; paintResult(last || calc()); out('result').scrollIntoView({behavior:'smooth',block:'start'}); return; }
       if (act === 'ics'){ if (done) icsDownload(); return; }
