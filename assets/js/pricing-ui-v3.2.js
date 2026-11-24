@@ -167,7 +167,7 @@
       for (var i = 0; i < first; i++) cells += '<span class="pc-cell empty"></span>';
       days.forEach(function(x){
         var di = x.day, unavailable = x.iso < today || x.price == null, t = tier(di);
-        var tag = di.peak ? (di.peak.people > D.people.base ? '<small>' + di.peak.people + '명 포함</small>' : '<small>성수기</small>') : (di.holiday ? '<small>' + esc(di.holiday.replace(/\(.*\)/, '')) + '</small>' : '');
+        var tag = di.peak ? (di.peak.calTag ? '<small>' + esc(di.peak.calTag) + '</small>' : di.peak.people > D.people.base ? '<small>' + di.peak.people + '명 포함</small>' : '<small>성수기</small>') : (di.holiday ? '<small>' + esc(di.holiday.replace(/\(.*\)/, '')) + '</small>' : '');
         cells += '<button type="button" class="pc-cell t-' + t + (unavailable ? ' past' : '') + (x.iso === today ? ' today' : '') + '" data-d="' + x.iso + '"' + (unavailable ? ' disabled' : '') + ' aria-label="' + esc(E.kdateY(x.iso)) + ' ' + esc(pkg.label) + ' ' + esc(x.price == null ? '예약 불가' : won(x.price)) + '"><i>' + (+x.iso.slice(8)) + '</i><b>' + (x.price != null ? esc(man(x.price)).replace(' 원', '').replace('만 원', '만').replace(/만$/, '<span class="pc-unit">만</span>') : '–') + '</b>' + tag + '</button>';
       });
       var p = ym.split('-');

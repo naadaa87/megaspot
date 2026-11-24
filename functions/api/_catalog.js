@@ -137,11 +137,12 @@ export const PRICING_ALL = (function(){ const window = {};
 //  - 시간당 요금(원) × 이용 시간 + 시간제 1건당 기본료 + 인원 추가 + 옵션 방식입니다.
 //  - 요일 구분은 공휴일에도 같은 규칙으로 정합니다 (아래 dayRule 참고).
 //  - 성수기(2026-10-30·31, 2026년 12월, 2027년 1월)는 아래 peak 에 적힌 적용 구분의 요금을 대신 씁니다.
+//  - 12월 할인일(5·6·13·24·25·26·27·31일)은 성수기 요금에서 20% 할인한 금액입니다(천 원 단위 올림, 2026-11-24 반영).
 // =====================================================================
 window.MEGASPOT_PRICING = window.MEGASPOT_PRICING || {};
 window.MEGASPOT_PRICING['megaspot-gundae'] = {
-  version: '요금표 v3.2 · 2026년 11월 20일 기준',
-  effectiveFrom: '2026-11-20',
+  version: '요금표 v3.3 · 2026년 11월 24일 기준',
+  effectiveFrom: '2026-11-24',
   vatNote: '표시 금액은 부가세 포함 기준입니다.',   // 가격구조도에 부가세 표기가 없어 이전 기준(부가세 포함)을 유지했습니다. 다르면 이 문장과 FAQ를 고쳐 주세요.
 
   /* ---------- 공간 표시 (요금 화면·견적서·예약 신청서가 씁니다) ---------- */
@@ -219,9 +220,11 @@ window.MEGASPOT_PRICING['megaspot-gundae'] = {
       '2027-01': { wd: 1180000, fri: 1500000, sat: 2850000, sun: 2150000 },
       '2027-02': { wd: 1100000, fri: 1300000, sat: 1900000, sun: 1650000 }
     },
+    // 12월 할인일은 특정일 목록에 들어가도 종일 대관 조회 금액을 바꾸지 않습니다(이미 발행한 종일 대관 견적·예약 보존).
+    keepOnSpecial: { '2026-12-05': 1, '2026-12-06': 1, '2026-12-13': 1, '2026-12-26': 1, '2026-12-27': 1 },
     priceOn: function(date, holidays, specialDates){
       var rates = this.prices[date.slice(0, 7)];
-      if (!rates || holidays[date] || specialDates[date]) return null;
+      if (!rates || holidays[date] || (specialDates[date] && !this.keepOnSpecial[date])) return null;
       var day = new Date(date + 'T00:00:00Z');
       if (isNaN(day) || day.toISOString().slice(0, 10) !== date) return null;
       var dow = day.getUTCDay();
@@ -276,9 +279,13 @@ window.MEGASPOT_PRICING['megaspot-gundae'] = {
       { id: 'dec',  label: '12월',          from: '2026-12-01', to: '2026-12-31' },
       { id: 'jan',  label: '1월',           from: '2027-01-01', to: '2027-01-31' }
     ],
-    dates: { '2026-10-30': 'oct30', '2026-10-31': 'oct31', '2026-12-24': 'dec24', '2026-12-25': 'dec25', '2026-12-31': 'dec31', '2027-01-01': 'jan1' },
+    // 12월 할인일(2026-11-24 반영): 5·26일(토)과 6·13·27일(일)은 할인 구분, 24·25·31일은 기존 특정일 구분에 할인 금액을 넣었습니다.
+    dates: { '2026-10-30': 'oct30', '2026-10-31': 'oct31',
+      '2026-12-05': 'dec_sat_sale', '2026-12-06': 'dec_sun_sale', '2026-12-13': 'dec_sun_sale', '2026-12-24': 'dec24', '2026-12-25': 'dec25',
+      '2026-12-26': 'dec_sat_sale', '2026-12-27': 'dec_sun_sale', '2026-12-31': 'dec31', '2027-01-01': 'jan1' },
     months: { '2026-12': { wd: 'dec_wd', fri: 'dec_fri', sat: 'dec_sat', sun: 'dec_sun' }, '2027-01': { wd: 'jan_wd', fri: 'jan_fri', sat: 'jan_sat', sun: 'jan_sun' } },
     // base: 비교 기준이 된 평소 요일 구분 · people: 포함 인원 · pct: 목표 인상률(%) · surcharge: 시간제 1건당 가산액
+    // sale: 할인율 · saleFrom: 할인 전 구분 · calTag: 요금 달력 날짜 아래 표시. 할인 금액 = 할인 전 금액 × 0.8, 천 원 단위 올림
     types: {
       oct30:   { label: '10월 30일',  short: '10/30(금)',  period: 'oct', base: 'fri', people: 50, pct: 20,  surcharge: 300000, hourly: { morning: 70000,  day: 70000,  evening: 180000, night: 95000  }, pkg: { day: 660000,  allday: 1200000, allnight: 1620000 } },
       oct31:   { label: '10월 31일',  short: '10/31(토)',  period: 'oct', base: 'sat', people: 50, pct: 50,  surcharge: 450000, hourly: { morning: 120000, day: 225000, evening: 300000, night: 150000 }, pkg: { day: 1500000, allday: 2850000, allnight: 2700000 } },
@@ -286,9 +293,11 @@ window.MEGASPOT_PRICING['megaspot-gundae'] = {
       dec_fri: { label: '12월 금요일', short: '금',        period: 'dec', base: 'fri', people: 50, pct: 40,  surcharge: 300000, hourly: { morning: 85000,  day: 85000,  evening: 210000, night: 110000 }, pkg: { day: 720000,  allday: 1400000, allnight: 1840000 } },
       dec_sat: { label: '12월 토요일', short: '토',        period: 'dec', base: 'sat', people: 50, pct: 100, surcharge: 600000, hourly: { morning: 160000, day: 300000, evening: 400000, night: 200000 }, pkg: { day: 2000000, allday: 3800000, allnight: 3600000 } },
       dec_sun: { label: '12월 일요일', short: '일',        period: 'dec', base: 'sun', people: 50, pct: 50,  surcharge: 450000, hourly: { morning: 150000, day: 225000, evening: 225000, night: 90000  }, pkg: { day: 1500000, allday: 2480000, allnight: 1950000 } },
-      dec24:   { label: '12월 24일',  short: '12/24',      period: 'dec', base: 'sun', people: 50, pct: 50,  surcharge: 450000, hourly: { morning: 150000, day: 225000, evening: 225000, night: 90000  }, pkg: { day: 1500000, allday: 2480000, allnight: 1950000 }, same: 'dec_sun' },
-      dec25:   { label: '12월 25일',  short: '12/25',      period: 'dec', base: 'sat', people: 50, pct: 100, surcharge: 600000, hourly: { morning: 160000, day: 300000, evening: 400000, night: 200000 }, pkg: { day: 2000000, allday: 3800000, allnight: 3600000 }, same: 'dec_sat' },
-      dec31:   { label: '12월 31일',  short: '12/31',      period: 'dec', base: 'sat', people: 50, pct: 100, surcharge: 600000, hourly: { morning: 160000, day: 300000, evening: 400000, night: 200000 }, pkg: { day: 2000000, allday: 3800000, allnight: 3600000 }, same: 'dec_sat' },
+      dec_sat_sale: { label: '12월 5·26일(토) 20% 할인', short: '12/5·12/26', period: 'dec', base: 'sat', people: 50, pct: 60, sale: 20, saleFrom: 'dec_sat', calTag: '20% 할인', surcharge: 480000, hourly: { morning: 128000, day: 240000, evening: 320000, night: 160000 }, pkg: { day: 1600000, allday: 3040000, allnight: 2880000 } },
+      dec_sun_sale: { label: '12월 6·13·27일(일) 20% 할인', short: '12/6·12/13·12/27', period: 'dec', base: 'sun', people: 50, pct: 20, sale: 20, saleFrom: 'dec_sun', calTag: '20% 할인', surcharge: 360000, hourly: { morning: 120000, day: 180000, evening: 180000, night: 72000 }, pkg: { day: 1200000, allday: 1984000, allnight: 1560000 } },
+      dec24:   { label: '12월 24일 20% 할인', short: '12/24',  period: 'dec', base: 'sun', people: 50, pct: 20,  sale: 20, saleFrom: 'dec_sun', calTag: '20% 할인', surcharge: 360000, hourly: { morning: 120000, day: 180000, evening: 180000, night: 72000  }, pkg: { day: 1200000, allday: 1984000, allnight: 1560000 }, same: 'dec_sun_sale' },
+      dec25:   { label: '12월 25일 20% 할인', short: '12/25',  period: 'dec', base: 'sat', people: 50, pct: 60,  sale: 20, saleFrom: 'dec_sat', calTag: '20% 할인', surcharge: 480000, hourly: { morning: 128000, day: 240000, evening: 320000, night: 160000 }, pkg: { day: 1600000, allday: 3040000, allnight: 2880000 }, same: 'dec_sat_sale' },
+      dec31:   { label: '12월 31일 20% 할인', short: '12/31',  period: 'dec', base: 'sat', people: 50, pct: 60,  sale: 20, saleFrom: 'dec_sat', calTag: '20% 할인', surcharge: 480000, hourly: { morning: 128000, day: 240000, evening: 320000, night: 160000 }, pkg: { day: 1600000, allday: 3040000, allnight: 2880000 }, same: 'dec_sat_sale' },
       jan_wd:  { label: '1월 월–목',  short: '월–목',      period: 'jan', base: 'wd',  people: 50, pct: 10,  surcharge: 300000, hourly: { morning: 45000,  day: 65000,  evening: 110000, night: 45000  }, pkg: { day: 630000,  allday: 880000,  allnight: 1070000  } },
       jan_fri: { label: '1월 금요일', short: '금',         period: 'jan', base: 'fri', people: 50, pct: 20,  surcharge: 300000, hourly: { morning: 70000,  day: 70000,  evening: 180000, night: 95000  }, pkg: { day: 660000,  allday: 1200000, allnight: 1620000 } },
       jan_sat: { label: '1월 토요일', short: '토',         period: 'jan', base: 'sat', people: 50, pct: 50,  surcharge: 450000, hourly: { morning: 120000, day: 225000, evening: 300000, night: 150000 }, pkg: { day: 1500000, allday: 2850000, allnight: 2700000 } },
@@ -296,12 +305,13 @@ window.MEGASPOT_PRICING['megaspot-gundae'] = {
       jan1:    { label: '1월 1일',    short: '1/1',        period: 'jan', base: 'fri', people: 50, pct: 30,  surcharge: 390000, hourly: { morning: 80000,  day: 80000,  evening: 195000, night: 105000 }, pkg: { day: 780000,  allday: 1690000, allnight: 1820000 } }
     },
     // 표에 보여 줄 순서 (기간별)
-    order: { oct: ['oct30', 'oct31'], dec: ['dec_wd', 'dec_fri', 'dec_sat', 'dec_sun', 'dec24', 'dec25', 'dec31'], jan: ['jan_wd', 'jan_fri', 'jan_sat', 'jan_sun', 'jan1'] },
+    order: { oct: ['oct30', 'oct31'], dec: ['dec_wd', 'dec_fri', 'dec_sat', 'dec_sun', 'dec_sat_sale', 'dec_sun_sale', 'dec24', 'dec25', 'dec31'], jan: ['jan_wd', 'jan_fri', 'jan_sat', 'jan_sun', 'jan1'] },
     peopleNote: '성수기에도 기준 인원은 50명입니다. 시간제 기본료는 날짜별로 다르며 1건당 한 번 더합니다.',
     notes: [
       '성수기 시간제는 시간당 요금 × 이용 시간에 해당 날짜의 기본료를 1건당 한 번 더합니다. 기본료는 패키지 금액에 포함되어 있습니다.',
       '포함 인원보다 적게 와도 공간료는 같고, 초과 인원은 1명당 1만 원입니다. 옵션과 보증금은 평소와 같습니다.',
-      '12월 24일은 12월 일요일, 12월 25일·31일은 12월 토요일 요금과 같습니다. 12월 31일 올나잇은 1월 1일 요금을 다시 더하지 않습니다.',
+      '12월 5·6·13·24·25·26·27·31일은 성수기 요금에서 20% 할인한 금액입니다(천 원 단위 올림). 12월 24일은 일요일 할인 요금, 25·31일은 토요일 할인 요금과 같습니다.',
+      '12월 31일 올나잇은 1월 1일 요금을 다시 더하지 않습니다.',
       '성수기에는 요일 구분을 실제 요일로 정하고, 자정을 넘어도 시작한 이용일의 요금입니다.'
     ]
   },
@@ -453,7 +463,8 @@ window.MEGASPOT_PRICING['megaspot-gundae-2'] = {
     notes: [
       '성수기 시간제는 시간당 요금 × 이용 시간에 해당 날짜의 기본료를 1건당 한 번 더합니다. 기본료는 패키지 금액에 포함되어 있습니다.',
       '기준 인원 50명보다 적게 와도 공간료는 같고, 51명째부터 1명당 1만 원입니다. 옵션과 보증금은 평소와 같습니다.',
-      '12월 24일은 12월 일요일, 12월 25일·31일은 12월 토요일 요금과 같습니다. 12월 31일 올나잇은 1월 1일 요금을 다시 더하지 않습니다.',
+      '12월 5·6·13·24·25·26·27·31일은 성수기 요금에서 20% 할인한 금액입니다(천 원 단위 올림). 12월 24일은 일요일 할인 요금, 25·31일은 토요일 할인 요금과 같습니다.',
+      '12월 31일 올나잇은 1월 1일 요금을 다시 더하지 않습니다.',
       '성수기에는 요일 구분을 실제 요일로 정하고, 자정을 넘어도 시작한 이용일의 요금입니다.'
     ]
   },

@@ -75,7 +75,7 @@ test('일반 시간제 기본료를 한 번 부과하고 이전 종일 대관은
   const quote=(date,start,end,people,packageId)=>E.quote({date,start,end,people,packageId});
   assert.equal(quote('2026-11-23',7,10,50).total,420000);
   assert.equal(quote('2026-11-23',7,10,51).total,430000);
-  assert.equal(quote('2026-12-05',7,10,50).surcharge,600000);
+  assert.equal(quote('2026-12-12',7,10,50).surcharge,600000);
   assert.equal(quote('2026-11-23',10,17,50).total,600000);
   for(const [date,total] of dayRates){
    const promo=quote(date,0,24,150,'full-day');
@@ -161,7 +161,7 @@ test('두 호점의 올데이는 1호의 11월 19일 판매가와 할인 비교 
    }
   }
   assert.equal(E.quote({date:'2026-12-07',start:10,end:24,people:50}).total,960000);
-  assert.equal(E.quote({date:'2026-12-25',start:10,end:24,people:50}).total,3800000);
+  assert.equal(E.quote({date:'2026-12-25',start:10,end:24,people:50}).total,3040000);
   assert.equal(E.quote({date:'2027-01-04',start:10,end:24,people:50}).total,880000);
  }
  assert.equal(PRODUCTS.items.some(p=>p.pkg==='full-day'),false);
