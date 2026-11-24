@@ -1,0 +1,34 @@
+/* 행사 사례 (2026-11-25) */
+.cs-filter{display:flex;gap:6px;flex-wrap:wrap;margin-top:16px}
+.cs-filter button{border:1px solid var(--concrete);background:#fff;border-radius:999px;padding:7px 14px;font:inherit;font-size:14px;font-weight:700;color:var(--ink-2);cursor:pointer}
+.cs-filter button.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.cs-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.cs-grid>.cs-empty,.cs-grid>.empty{grid-column:1/-1}
+.cs-card{display:flex;flex-direction:column;background:#fff;border:1px solid var(--concrete-2,#E6E2DB);border-radius:var(--radius,12px);overflow:hidden;color:var(--ink);text-decoration:none}
+.cs-card:hover{border-color:var(--cobalt)}
+.cs-ph{aspect-ratio:4/3;background:#F1EFEB;overflow:hidden}
+.cs-ph img{width:100%;height:100%;object-fit:cover;display:block}
+.cs-noimg{display:flex;align-items:center;justify-content:center}
+.cs-noimg span{font-weight:800;color:var(--cobalt);font-size:15px}
+.cs-bd{padding:14px 16px 16px;display:grid;gap:6px}
+.cs-bd h3{font-size:17px;line-height:1.35;margin:2px 0 0}
+.cs-bd p{font-size:14px;color:var(--ink-2);margin:0;line-height:1.55}
+.cs-tags{display:flex;gap:6px;flex-wrap:wrap}
+.cs-meta{font-size:13px;color:var(--ink-2);font-weight:700}
+.cs-empty b{font-size:16px}
+.cs-article{max-width:860px}
+.cs-facts{margin-top:18px}
+.cs-facts a{color:var(--cobalt);font-weight:700}
+.cs-photos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:20px}
+.cs-photos figure{margin:0}
+.cs-photos img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:10px;display:block}
+.cs-photos figure:first-child{grid-column:1/-1}
+.cs-photos figure:first-child img{aspect-ratio:16/9}
+.cs-photos figcaption{font-size:13px;color:var(--ink-2);margin-top:4px}
+.cs-text{margin-top:20px;font-size:16px;line-height:1.8}
+.cs-quote{margin:22px 0 0;padding:16px 20px;border-left:4px solid var(--cobalt);background:#F6F8FE;border-radius:0 10px 10px 0}
+.cs-quote p{margin:0;font-size:16px;line-height:1.7}
+.cs-quote cite{display:block;margin-top:8px;font-style:normal;font-size:13px;font-weight:700;color:var(--ink-2)}
+.cs-consent{margin-top:16px}
+@media (max-width:900px){.cs-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:560px){.cs-grid{grid-template-columns:1fr}.cs-photos{grid-template-columns:1fr}}

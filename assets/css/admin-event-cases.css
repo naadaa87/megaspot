@@ -1,0 +1,35 @@
+/* 관리자 · 행사 사례 (2026-11-25) */
+.ec-view .adm-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}
+.ec-view .adm-head p{max-width:76ch}
+.ec-view .adm-head a{color:#1F53D5;text-decoration:underline}
+.ec-acts{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.ec-list{display:grid;gap:10px;margin-top:10px}
+.ec-item{border-left:4px solid #E6E2DB}
+.ec-item.ec-published{border-left-color:#2E7D4F}
+.ec-item.ec-draft{border-left-color:#A36A00}
+.ec-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
+.ec-item h3{font-size:16px;margin:6px 0 2px}
+.ec-item p{margin:2px 0}
+.ec-warn{color:#8A5A00}
+.ec-pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:800;background:#EEF1F4;color:#5B6168}
+.ec-p-published{background:#E3F2E8;color:#2E7D4F}
+.ec-p-draft{background:#FBF1D9;color:#8A5A00}
+.ec-p-hidden{background:#F5E6DF;color:#B35632}
+.ec-form{margin-top:14px;display:grid;gap:14px}
+.ec-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.ec-grid label{display:grid;gap:4px;font-size:13px;font-weight:700;color:#3C4248}
+.ec-grid label small{font-weight:500;color:#6B7178}
+.ec-wide{grid-column:1/-1}
+.ec-chks{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:6px}
+.ec-chk{display:inline-flex!important;align-items:center;gap:6px;font-weight:600!important}
+.ec-consent{border:1px solid #D5D0C8;border-radius:12px;padding:12px 14px;background:#FAFAF8}
+.ec-consent legend{font-weight:800;padding:0 6px}
+.ec-consent legend small{font-weight:500;color:#6B7178}
+.ec-confirm{display:flex!important;align-items:flex-start;gap:8px;font-weight:700}
+.ec-pick summary{cursor:pointer;color:#1F53D5;font-weight:700}
+.ec-pick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:6px;margin-top:8px}
+.ec-pick-grid button{border:2px solid transparent;border-radius:8px;padding:0;background:none;cursor:pointer;overflow:hidden}
+.ec-pick-grid button.on{border-color:#1F53D5}
+.ec-pick-grid img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block}
+@media (max-width:900px){.ec-grid{grid-template-columns:1fr 1fr}}
+@media (max-width:560px){.ec-grid{grid-template-columns:1fr}}

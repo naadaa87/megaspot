@@ -144,6 +144,7 @@ TABLES.push('host_billing_pay_requests');
 TABLES.push('invites', 'invite_rsvps');   // 모임 키트 초대장 (2026-11-21)
 TABLES.push('invite_messages');   // 초대장 카카오톡 보낸 기록 (2026-11-24)
 TABLES.push('rental_contracts', 'contract_messages');   // 공간대관 계약서 (2026-11-24)
+TABLES.push('event_cases');   // 행사 사례 (2026-11-25)
 TABLES.push('visit_messages', 'member_booking_links', 'member_social', 'auth_tokens', 'proof_requests');   // 사전답사 메시지 · 예약 연결 · 간편 로그인 · 증빙 요청 (2026-11-25)
 TABLES.push('booking_deposit_methods','booking_deposit_card_cancellations');
 TABLES.push('crawler_hits');   // 검색봇 방문 기록 (2026-11-23)

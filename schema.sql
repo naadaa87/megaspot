@@ -1303,6 +1303,16 @@ CREATE TABLE IF NOT EXISTS proof_requests (   -- 예약 고객의 증빙 요청 
   done_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_proof_requests_booking ON proof_requests(booking_code, id);
+CREATE TABLE IF NOT EXISTS event_cases (   -- 행사 사례 (2026-11-25) · 주최 측 동의 기록이 있어야 공개 · 공개한 사례는 지우지 않고 숨김
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ref TEXT NOT NULL UNIQUE,            -- EC-YYMM-XXXX
+  status TEXT NOT NULL DEFAULT 'draft',   -- draft 작성 중 | published 공개 | hidden 숨김
+  data TEXT NOT NULL DEFAULT '{}',     -- 제목·요약·본문·공간·행사 종류·시기·인원·배치·함께 쓴 서비스·사진·주최 측 표기·한마디·동의 기록·운영 메모
+  published_at TEXT,                   -- 처음 공개한 시각
+  created_at TEXT NOT NULL,
+  updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_event_cases_status ON event_cases(status, published_at);
 
 -- ---------- 검색 노출 점검 (2026-11-23 추가) ----------
 CREATE TABLE IF NOT EXISTS crawler_hits (  -- 검색봇 방문 기록 · 날짜와 봇별로 1줄 (네이버 Yeti·구글·빙·다음·AI 검색 봇이 실제로 들어오는지 확인용 · 사람 방문은 기록하지 않음 · 2026-11-23)
