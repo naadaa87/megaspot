@@ -10,7 +10,7 @@
    inv: 서버 publicInvite() 모양 { title, host, message, entry, schedule, notice, contact, theme, date, start_h, end_h, space, place, rsvp } */
 (function (root) {
   'use strict';
-  var W = 1240, A5H = Math.round(W * 210 / 148), U = W / 600;   // 1U = 너비 600 화면의 1px (A5에 찍으면 본문이 10~11pt)
+  var W = 1240, A5H = Math.round(W * 210 / 148), U = W / 640;   // 1U = 너비 640 화면의 1px (A5에 찍으면 본문이 약 10.5pt)
   var FONT = '"Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif';
   var DISPLAY = 'Anton, ' + FONT;
   var THEME = {
@@ -79,27 +79,27 @@
     ctx.textBaseline = 'alphabetic';
     inv = nightShift(inv);
     // ---- 머리 (색 띠) — 높이를 먼저 센 뒤 배경을 칠하고 글자를 얹습니다 ----
-    var brandY = 46 * U + 13 * U;
+    var brandY = 40 * U + 13 * U;
     var headDraw = function (bandH) {
       if (!draw) return;
       ctx.fillStyle = th.bg; ctx.fillRect(0, 0, W, bandH);
       if (th.stripe) { ctx.fillStyle = th.stripe; ctx.fillRect(0, 0, W, 7 * U); }
       ctx.font = font('400', 13, DISPLAY); ctx.fillStyle = th.sub; ctx.textAlign = 'left'; spaced(ctx, 'MEGASPOT INVITATION', PX, brandY, 2.2 * U);
     };
-    y = brandY + 30 * U;
+    y = brandY + 24 * U;
     // 제목
-    ctx.font = font('800', 36);
-    var tl = clip(ctx, wrap(ctx, inv.title || '모임 초대장', CW), 3, CW), ts = 36 * U, tlh = 1.27;
+    ctx.font = font('800', 35);
+    var tl = clip(ctx, wrap(ctx, inv.title || '모임 초대장', CW), 3, CW), ts = 35 * U, tlh = 1.25;
     var titleY = y; y += tl.length * ts * tlh;
     var hostY = 0; if (inv.host) { y += 6 * U; hostY = y; y += 16 * U * 1.5; }
-    y += 22 * U; var ruleY = y; y += 24 * U;
+    y += 18 * U; var ruleY = y; y += 20 * U;
     var dateY = y; y += 23 * U * 1.35;
     var time = timeRange(inv.start_h, inv.end_h), sub = time + (inv.entry ? (time ? ' · ' : '') + inv.entry + '부터 입장' : '');
     var subY = 0; if (sub) { subY = y; y += 17 * U * 1.5; }
-    y += 40 * U; var bandH = y;
+    y += 32 * U; var bandH = y;
     if (draw) {
       headDraw(bandH);
-      ctx.font = font('800', 36); ctx.fillStyle = th.fg; ctx.textAlign = 'left';
+      ctx.font = font('800', 35); ctx.fillStyle = th.fg; ctx.textAlign = 'left';
       tl.forEach(function (l, i) { ctx.fillText(l, PX, titleY + ts + i * ts * tlh - ts * 0.12); });
       if (inv.host) { ctx.font = font('500', 16); ctx.fillStyle = th.sub; ctx.fillText(clip(ctx, wrap(ctx, inv.host, CW), 1, CW)[0], PX, hostY + 16 * U * 1.15); }
       ctx.fillStyle = th.line; ctx.fillRect(PX, ruleY, CW, Math.max(1, U));
@@ -107,44 +107,41 @@
       if (sub) { ctx.font = font('500', 17); ctx.fillStyle = th.sub; ctx.fillText(sub, PX, subY + 17 * U * 1.1); }
     }
     // ---- 본문 ----
-    y += 34 * U;
-    if (inv.message) { para(inv.message, font('400', 17), INK, 1.72, 10); y += 26 * U; }
+    y += 24 * U;
+    if (inv.message) { para(inv.message, font('400', 17), INK, 1.65, 10); y += 20 * U; }
     out.breaks = [];
     var section = function (label, body) {
       out.breaks.push(y - 6 * U);
       if (draw) { ctx.fillStyle = RULE; ctx.fillRect(PX, y, CW, Math.max(1, U)); }
-      y += 20 * U;
+      y += 15 * U;
       if (draw) { ctx.font = font('800', 12.5); ctx.fillStyle = th.key; ctx.textAlign = 'left'; spaced(ctx, label, PX, y + 12.5 * U, 1.4 * U); }
-      y += 12.5 * U + 11 * U;
-      body(); y += 18 * U;
+      y += 12.5 * U + 9 * U;
+      body(); y += 12 * U;
     };
-    section('장소', function () {
+    section('장소 · 주차', function () {
       para(space.name || '메가스팟', font('800', 18.5), INK, 1.4, 1);
-      y += 4 * U;
-      para(place.road + ' ' + (space.floor || place.building) + (space.note ? ' · ' + space.note : ''), font('400', 15.5), INK2, 1.6, 2);
-      para(place.transit, font('400', 15.5), INK2, 1.6, 1);
+      y += 2 * U;
+      para(place.road + ' ' + (space.floor || place.building) + (space.note ? ' · ' + space.note : '') + ' · ' + place.transit, font('400', 15.5), INK2, 1.55, 3);
+      y += 6 * U;
+      para('주차 ' + (place.parking || PLACE.parking) + ' · 도착한 뒤 주차 할인 등록', font('500', 15), '#262B2E', 1.55, 2);
     });
     if (inv.schedule && inv.schedule.length) section('일정', function () {
       var col = 70 * U;
       inv.schedule.slice(0, 12).forEach(function (s) {
-        var f = font('500', 16), size = 16 * U, lh = 1.55;
+        var f = font('500', 16), size = 16 * U, lh = 1.5;
         ctx.font = f; var lines = clip(ctx, wrap(ctx, s.text, CW - col), 2, CW - col);
         if (draw) {
           if (s.time) { ctx.font = font('800', 16); ctx.fillStyle = th.key; ctx.fillText(s.time, PX, y + size * 1.1); }
           ctx.font = f; ctx.fillStyle = INK; lines.forEach(function (l, i) { ctx.fillText(l, PX + col, y + size * 1.1 + i * size * lh); });
         }
-        y += lines.length * size * lh + 4 * U;
+        y += lines.length * size * lh + 2 * U;
       });
-    });
-    section('주차', function () {
-      para(place.parking || PLACE.parking, font('600', 15.5), '#262B2E', 1.6, 2);
-      para('차를 가져오시면 도착한 뒤 주차 할인 등록에서 차량번호를 등록해 주세요.', font('400', 14.5), INK2, 1.6, 2);
     });
     if (inv.notice) section('알려 드려요', function () { para(inv.notice, font('400', 15.5), INK, 1.68, 8); });
     if (inv.contact) section('문의', function () { para(inv.contact, font('500', 15.5), INK, 1.6, 2); });
     // ---- QR 상자 ----
-    var boxH = 152 * U, footH = 64 * U, qrS = 112 * U;
-    var contentEnd = y + 10 * U, pageH = Math.max(H || A5H, contentEnd + boxH + footH);
+    var boxH = 132 * U, footH = 48 * U, qrS = 100 * U;
+    var contentEnd = y + 6 * U, pageH = Math.max(H || A5H, contentEnd + boxH + footH);
     var by = draw ? pageH - footH - boxH : contentEnd;
     out.breaks.push(by - 12 * U);
     if (draw) {
@@ -157,7 +154,7 @@
         for (var r = 0; r < q.size; r++) for (var c = 0; c < q.size; c++) if (q.modules[r][c]) ctx.fillRect(Math.floor(qx + pad + c * m), Math.floor(qy + pad + r * m), Math.ceil(m), Math.ceil(m));
       }
       out.qr = { x: qx, y: qy, w: qrS, h: qrS };
-      var tx = qx + qrS + 22 * U, tw = PX + CW - 20 * U - tx, ty = by + 40 * U;
+      var tx = qx + qrS + 22 * U, tw = PX + CW - 20 * U - tx, ty = by + 34 * U;
       ctx.textAlign = 'left';
       ctx.font = font('800', 17); ctx.fillStyle = INK; ctx.fillText('QR을 찍으면 초대장이 열립니다', tx, ty);
       ctx.font = font('400', 14); ctx.fillStyle = INK2;
@@ -165,12 +162,11 @@
       wrap(ctx, info, tw).slice(0, 2).forEach(function (l, i) { ctx.fillText(l, tx, ty + 28 * U + i * 21 * U); });
       var shortUrl = String(url).replace(/^https?:\/\//, '');
       ctx.font = font('700', 13.5); ctx.fillStyle = '#1F53D5';
-      var su = clip(ctx, [shortUrl], 1, tw)[0]; ctx.fillText(su, tx, by + boxH - 28 * U);
-      out.url = { x: tx, y: by + boxH - 46 * U, w: Math.min(tw, ctx.measureText(su).width), h: 26 * U };
+      var su = clip(ctx, [shortUrl], 1, tw)[0]; ctx.fillText(su, tx, by + boxH - 24 * U);
+      out.url = { x: tx, y: by + boxH - 42 * U, w: Math.min(tw, ctx.measureText(su).width), h: 26 * U };
       // 바닥글
-      ctx.fillStyle = RULE; ctx.fillRect(PX, pageH - footH + 14 * U, CW, Math.max(1, U));
-      ctx.font = font('400', 12, DISPLAY); ctx.fillStyle = INK3; spaced(ctx, 'MEGASPOT', PX, pageH - 22 * U, 1.6 * U);
-      ctx.font = font('500', 12.5); ctx.textAlign = 'right'; ctx.fillText('메가스팟 건대 · megaspot.kr', W - PX, pageH - 22 * U); ctx.textAlign = 'left';
+      ctx.font = font('400', 12, DISPLAY); ctx.fillStyle = INK3; spaced(ctx, 'MEGASPOT', PX, pageH - 18 * U, 1.6 * U);
+      ctx.font = font('500', 12.5); ctx.textAlign = 'right'; ctx.fillText('메가스팟 건대 · megaspot.kr', W - PX, pageH - 18 * U); ctx.textAlign = 'left';
     }
     out.h = pageH;
     return out;
@@ -197,6 +193,7 @@
       return jpegOf(cv).then(function (img) {
         var one = { bytes: img.bytes, w: cv.width, h: cv.height, links: links };
         if (cv.height <= A5H + 2) return { img: img, pages: [one] };
+        if (cv.height <= A5H * 1.2) { var f = fitPage(cv, links); return jpegOf(f.canvas).then(function (j) { return { img: img, pages: [{ bytes: j.bytes, w: W, h: A5H, links: f.links }] }; }); }
         return Promise.all(paginate(cv, o.breaks, links, inv).map(function (pg) {
           return jpegOf(pg.canvas).then(function (j) { return { bytes: j.bytes, w: pg.canvas.width, h: pg.canvas.height, links: pg.links }; });
         })).then(function (pages) { return { img: img, pages: pages }; });
@@ -217,6 +214,14 @@
         b.arrayBuffer().then(function (buf) { res({ blob: b, bytes: new Uint8Array(buf) }); }, rej);
       }, 'image/jpeg', 0.9);
     });
+  }
+  // 조금 넘치는 초대장(A5의 1.2배까지)은 한 쪽에 들어가게 줄입니다(본문 약 9pt 이상)
+  function fitPage(tall, links) {
+    var cv = root.document.createElement('canvas'); cv.width = W; cv.height = A5H;
+    var ctx = cv.getContext('2d'), k = A5H / tall.height, dw = W * k, dx = (W - dw) / 2;
+    ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, W, A5H); ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(tall, dx, 0, dw, A5H);
+    return { canvas: cv, links: links.map(function (l) { return Object.assign({}, l, { x: dx + l.x * k, y: l.y * k, w: l.w * k, h: l.h * k }); }) };
   }
   // 긴 초대장을 A5 쪽으로 나눕니다. 항목(장소·일정·주차…)이 시작하는 자리에서 자르고, QR 상자와 바닥글은 마지막 쪽에 둡니다.
   function paginate(tall, breaks, links, inv) {
