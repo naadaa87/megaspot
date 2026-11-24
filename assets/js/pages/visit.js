@@ -121,7 +121,7 @@
       +'<section class="card vs-chat"><h3 class="h-s">운영팀과 주고받은 글</h3><div class="vs-msgs" id="vs-msgs">'+msgsHtml(v.messages)+'</div>'
         +(active?'<form id="vs-msg-form" class="vs-msg-form"><label class="sr-only" for="vs-msg">운영팀에 남길 글</label><textarea class="textarea" id="vs-msg" rows="2" maxlength="1000" placeholder="시간 변경, 주차, 함께 오시는 분 등 궁금한 점을 남겨 주세요."></textarea><button class="btn btn-primary btn-sm" type="submit">보내기</button></form><p class="tiny muted">운영팀 답글은 이 화면에 표시됩니다. 급한 일은 카카오톡이 더 빠릅니다.</p>':'')
       +'</section></div>'
-      +'<aside class="vs-side"><div class="card vs-help"><b>메가스팟 건대 · 한아름건물 2층</b><p class="small muted mt-1">서울 광진구 화양동 10-1. 지하철 2·7호선 건대입구역 인근이고 건물 주차장을 이용할 수 있습니다(유료).</p></div>'
+      +'<aside class="vs-side"><div class="card vs-help"><b>메가스팟 건대 · 한아름건물 2층</b><p class="small muted mt-1">서울 광진구 능동로13길 39 한아름건물 2층 (화양동 10-1). 지하철 2·7호선 건대입구역 인근이고 건물 주차장을 이용할 수 있습니다(유료).</p></div>'
         +'<div class="card vs-help"><b>예약까지 이어서 보시려면</b><div class="vs-help-row mt-1"><a class="btn btn-light btn-sm" href="/inquiry/'+(v.space&&v.space!=='both'?'?space='+v.space:'')+'">예약/견적 문의</a><a class="btn btn-ghost btn-sm" href="/help/?q=답사">자주 묻는 질문</a></div></div>'
         +'<div class="card vs-help"><button type="button" class="linkish small" id="vs-forget">이 기기에서 이 신청 지우기</button></div></aside></div>';
     var mf=$('#vs-msg-form'); if(mf) mf.addEventListener('submit',function(e){ e.preventDefault(); var t=$('#vs-msg').value.trim(); if(!t) return; var b=mf.querySelector('button'); b.disabled=true;

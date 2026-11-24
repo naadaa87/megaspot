@@ -1,6 +1,6 @@
 (function(){
   'use strict';
-  var M=window.MEGASPOT, url='https://megaspot.kr/parking/', address='서울 광진구 능동로13길 39, 한아름건물 2층';
+  var M=window.MEGASPOT, url='https://megaspot.kr/parking/', address='서울 광진구 능동로13길 39 한아름건물 2층';
   function copy(text, message){
     return (navigator.clipboard?navigator.clipboard.writeText(text):Promise.reject()).then(function(){ M.toast(message); }).catch(function(){ window.prompt('아래 내용을 복사해 주세요.', text); });
   }

@@ -401,7 +401,7 @@
     var chips=$('#slot-chips'); if(chips) chips.innerHTML=S.booking.slots.map(function(s){ return '<span class="tag">'+esc(s.label)+' '+esc(s.time)+'</span>'; }).join('');
     var rn=$('#response-note'); if(rn) rn.textContent=S.booking.response;
     var rules=$('#rules'); if(rules) rules.innerHTML=S.rules.map(function(r){ return '<div><dt>'+esc(r.k)+'</dt><dd>'+esc(r.d)+'</dd></div>'; }).join('');
-    var ac=$('#access-list'); if(ac) ac.innerHTML=[['주소',S.address],['대중교통',S.access.transit],['주차',S.access.parking],['엘리베이터',S.access.elevator],['현장 안내',S.access.note]].map(function(r){ return '<div><dt>'+r[0]+'</dt><dd>'+esc(r[1])+'</dd></div>'; }).join('');
+    var ac=$('#access-list'); if(ac) ac.innerHTML=[['주소',S.address+(S.jibunAddress?' ('+S.jibunAddress.replace(/^서울 광진구 /,'')+')':'')],['대중교통',S.access.transit],['주차',S.access.parking],['엘리베이터',S.access.elevator],['현장 안내',S.access.note]].map(function(r){ return '<div><dt>'+r[0]+'</dt><dd>'+esc(r[1])+'</dd></div>'; }).join('');
     var cp=$('#copy-address'); if(cp) cp.addEventListener('click', function(){ (navigator.clipboard?navigator.clipboard.writeText(S.address):Promise.reject()).then(function(){ M.toast('주소를 복사했습니다.'); }).catch(function(){ M.toast(S.address); }); });
   })();
 
