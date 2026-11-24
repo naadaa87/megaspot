@@ -231,7 +231,7 @@ test('글쓰기 제한 · 게시 방식 설정 · 댓글 닫기', async t => {
   const meta = (await f.call('meta')).json; assert.equal(meta.modes.free, 'review'); assert.equal(meta.comments.group, false);
 });
 
-test('탈퇴하면 글·댓글을 내리고, 30일 지난 삭제 글은 관리자 요약 때 지운다', async t => {
+test('탈퇴하면 글·댓글을 내리고, 기본은 보관 · 삭제를 켜면 30일 지난 삭제 글을 관리자 요약 때 지운다', async t => {
   const f = await fixture(t); await f.member(1); await f.member(2);
   const ref = (await f.call('posts', { method: 'POST', who: 1, body: FREE })).json.ref;
   const other = (await f.call('posts', { method: 'POST', who: 2, body: { ...FREE, title: '다른 글' } })).json.ref;
@@ -241,6 +241,9 @@ test('탈퇴하면 글·댓글을 내리고, 30일 지난 삭제 글은 관리�
   assert.equal(f.db.prepare('SELECT status FROM community_posts WHERE ref = ?').get(ref).status, 'deleted');
   assert.equal((await f.call('posts/' + other)).json.comments.length, 0);
   f.db.prepare("UPDATE community_posts SET updated_at = '2020-01-01 00:00:00' WHERE ref = ?").run(ref);
+  await f.call('admin/summary', { admin: true });
+  assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM community_posts WHERE ref = ?').get(ref).n, 1);   // 기본: 보관
+  f.env.CUSTOMER_DATA_PURGE = 'on';
   await f.call('admin/summary', { admin: true });
   assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM community_posts WHERE ref = ?').get(ref).n, 0);
 });

@@ -87,7 +87,7 @@ test('기존 반환 완료 예약은 다시 등록·송금하지 않음',async t
 });
 test('완료 30일·미완료 90일 후 계좌와 링크 삭제·송금 기록 보존',async t=>{
  const f=setup(t);await f.ready();await f.claim();await f.complete();const cutoff=f.db.prepare('SELECT account_expires_at FROM booking_refunds').get().account_expires_at;
- t.mock.method(Date,'now',()=>cutoff);await purgeAccounts(f.env);const b=f.db.prepare('SELECT * FROM booking_refunds').get();assert.equal(b.account_cipher,null);assert.equal(b.link_cipher,null);assert.equal(b.token_hash,null);assert.equal(b.account_mask,null);assert.equal(b.paid_amount,150000);assert.ok(b.completed_at);assert.equal((await f.call()).status,403);
+ t.mock.method(Date,'now',()=>cutoff);await purgeAccounts(f.env);assert.ok(f.db.prepare('SELECT account_cipher FROM booking_refunds').get().account_cipher,'기본은 보관');await purgeAccounts({...f.env,CUSTOMER_DATA_PURGE:'on'});const b=f.db.prepare('SELECT * FROM booking_refunds').get();assert.equal(b.account_cipher,null);assert.equal(b.link_cipher,null);assert.equal(b.token_hash,null);assert.equal(b.account_mask,null);assert.equal(b.paid_amount,150000);assert.ok(b.completed_at);assert.equal((await f.call()).status,403);
 });
 test('최초 보증금은 확정서·최근 견적 기준, 프론트 입력으로 바뀌지 않음',async t=>{
  const f=setup(t);f.db.prepare('UPDATE bookings SET confirm_doc=?').run('{"deposit":200000}');await f.link();assert.equal((await f.item()).amount,200000);await f.register({amount:1});assert.equal((await f.item()).amount,200000);
@@ -104,15 +104,20 @@ test('전액 차감은 계좌 없이 정산하되 사전 안내·0원 확인·�
 });
 test('일일 정리 Worker는 만료된 계좌만 삭제하고 환급 처리 기록은 유지',async t=>{
  const f=setup(t);await f.link();await f.register();const at=f.db.prepare('SELECT account_expires_at FROM booking_refunds').get().account_expires_at;
- await purgeAccounts(f.env);assert.ok(f.db.prepare('SELECT account_cipher FROM booking_refunds').get().account_cipher);t.mock.method(Date,'now',()=>at);await purgeAccounts(f.env);const row=f.db.prepare('SELECT * FROM booking_refunds').get();assert.equal(row.account_cipher,null);assert.ok(row.submitted_at);await purgeAccounts(f.env);assert.equal(f.db.prepare('SELECT purged_at FROM booking_refunds').get().purged_at,row.purged_at);
+ await purgeAccounts(f.env);assert.ok(f.db.prepare('SELECT account_cipher FROM booking_refunds').get().account_cipher);t.mock.method(Date,'now',()=>at);await purgeAccounts(f.env);assert.ok(f.db.prepare('SELECT account_cipher FROM booking_refunds').get().account_cipher,'기본은 보관');await purgeAccounts({...f.env,CUSTOMER_DATA_PURGE:'on'});const row=f.db.prepare('SELECT * FROM booking_refunds').get();assert.equal(row.account_cipher,null);assert.ok(row.submitted_at);await purgeAccounts(f.env);assert.equal(f.db.prepare('SELECT purged_at FROM booking_refunds').get().purged_at,row.purged_at);
 });
 
 test('일일 작업은 DB 접근 없이 서버의 만료 전용 경로만 호출',async t=>{
  const {triggerCleanup}=await import('../deploy/deposit-retention/worker.js');let calls=0;t.mock.method(globalThis,'fetch',async(url,options)=>{assert.equal(url,'https://megaspot.kr/api/deposit-refunds/cleanup');assert.equal(options.method,'POST');assert.equal(options.body,'{}');calls++;return new Response(null,{status:204});});await triggerCleanup();assert.equal(calls,1);
 });
-test('정리 경로는 임의 예약·만료 시각을 무시하고 실제 만료 계좌만 삭제',async t=>{
- const f=setup(t);await f.link();await f.register();const req=()=>customer({env:f.env,params:{path:['cleanup']},request:new Request('https://local.test/api/deposit-refunds/cleanup',{method:'POST',body:JSON.stringify({code:'BK-TEST',cutoff:9999999999999})})});assert.equal((await req()).status,204);assert.ok(f.db.prepare('SELECT account_cipher FROM booking_refunds').get().account_cipher);
+test('정리 경로는 임의 예약·만료 시각을 무시하고 실제 만료 계좌만 삭제 (삭제를 켠 경우)',async t=>{
+ const f=setup(t);f.env.CUSTOMER_DATA_PURGE='on';await f.link();await f.register();const req=()=>customer({env:f.env,params:{path:['cleanup']},request:new Request('https://local.test/api/deposit-refunds/cleanup',{method:'POST',body:JSON.stringify({code:'BK-TEST',cutoff:9999999999999})})});assert.equal((await req()).status,204);assert.ok(f.db.prepare('SELECT account_cipher FROM booking_refunds').get().account_cipher);
  const at=f.db.prepare('SELECT account_expires_at FROM booking_refunds').get().account_expires_at;t.mock.method(Date,'now',()=>at);assert.equal((await req()).status,204);assert.equal(f.db.prepare('SELECT account_cipher FROM booking_refunds').get().account_cipher,null);
+});
+test('기본 설정에서는 정리 경로가 만료된 계좌도 지우지 않고 보관',async t=>{
+ const f=setup(t);await f.link();await f.register();const at=f.db.prepare('SELECT account_expires_at FROM booking_refunds').get().account_expires_at;t.mock.method(Date,'now',()=>at+864e5);
+ const r=await customer({env:f.env,params:{path:['cleanup']},request:new Request('https://local.test/api/deposit-refunds/cleanup',{method:'POST',body:'{}'})});assert.equal(r.status,204);
+ const row=f.db.prepare('SELECT account_cipher,purged_at FROM booking_refunds').get();assert.ok(row.account_cipher);assert.equal(row.purged_at,null);
 });
 test('로그인 만료·담당자 변경 후 은행 결과 대조를 거쳐 잠금 유지한 채 이어받기',async t=>{
  const f=setup(t);await f.ready();await f.claim();let b=await f.item();await f.api(PATH+'/hold','POST',{revision:b.revision,reason:'이체 결과 확인 후 담당자 변경'});b=await f.item();assert.equal(b.can_resume,true);

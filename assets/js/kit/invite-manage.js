@@ -46,7 +46,7 @@
         (ask.question ? '<td>' + esc(r.answer || '') + '</td>' : '') + '<td class="muted">' + esc(K.kst(r.updated_at || r.created_at)) + '</td>' +
         '<td><button type="button" class="btn btn-light btn-sm" data-remove="' + r.id + '">지우기</button></td></tr>';
     }).join('');
-    return h + '</tbody></table></div><p class="hint" style="margin-top:10px">응답은 모임 날로부터 30일 뒤 자동으로 지워집니다. 잘못 들어온 응답은 ‘지우기’로 바로 지울 수 있습니다.</p>';
+    return h + '</tbody></table></div><p class="hint" style="margin-top:10px">잘못 들어온 응답은 ‘지우기’로 바로 지울 수 있습니다.</p>';
   }
   function screenTab() {
     var tools = [['/play/welcome/', '웰컴 스크린', '행사 이름·일정·초대장 QR'], ['/play/draw/', '경품 추첨', '참석 응답 ' + S.summary.yes + '명 중에서'], ['/play/teams/', '팀 나누기', '참석자를 팀으로'],

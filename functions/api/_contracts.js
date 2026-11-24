@@ -4,7 +4,8 @@
 //    완료하면 내용이 잠기고 PDF·이미지로 내려받을 수 있습니다.
 //  · 링크 열쇠는 계약 번호와 링크 차수로 만든 서명값이라 저장하지 않습니다. '링크 다시 만들기'를 하면 예전 링크는 열리지 않습니다.
 //  · 서명 기록: 서명한 사람, 서명 시각, 접속 IP·브라우저, 서명 시점 계약 내용의 SHA-256(문서 확인값), 서명 그림(그린 경우)
-//  · 보관: 서명한 계약은 이용일로부터 5년, 서명 전·취소한 계약은 이용일로부터 1년 뒤 지웁니다.
+//  · 보관: 2026-11-24부터 기간이 지나도 지우지 않습니다(_retention.js). 예전 기준은 서명 5년 · 서명 전·취소 1년.
+import { purgeEnabled } from './_retention.js';
 import { str, num, isDate, now, kstToday, sha256 } from './_lib.js';
 import { hmacToken, tokenEq } from './_confirm.js';
 import { line, text, hhmm, shiftDate } from './_invites.js';
@@ -137,7 +138,9 @@ export async function docHash(row, renter, signer, signedAt, signature) {
 }
 
 // 보관 기간이 지난 계약서를 지웁니다 (서명 완료 5년 · 서명 전·취소 1년, 이용일 기준)
+// 2026-11-24부터 기본은 보관(삭제 안 함) — CUSTOMER_DATA_PURGE='on' 일 때만 지웁니다.
 export async function purgeContracts(env, today = kstToday()) {
+  if (!purgeEnabled(env)) return;
   const y1 = shiftDate(today, -365), y5 = shiftDate(today, -365 * 5 - 1);
   await env.DB.prepare("DELETE FROM contract_messages WHERE contract_id IN (SELECT id FROM rental_contracts WHERE (status <> 'signed' AND event_date < ?) OR (status = 'signed' AND event_date < ?))").bind(y1, y5).run();
   await env.DB.prepare("DELETE FROM rental_contracts WHERE (status <> 'signed' AND event_date < ?) OR (status = 'signed' AND event_date < ?)").bind(y1, y5).run();

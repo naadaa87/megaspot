@@ -143,7 +143,7 @@ test('고치기: 순서를 바꾸고 뺀 사진은 지우며, 사진 목록을 �
   assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM community_photos').get().n, 0);
 });
 
-test('지운 글의 사진은 바로 안 보이고 30일 뒤 지운다 · 하루 지난 임시 사진도 지운다', async t => {
+test('지운 글의 사진은 바로 안 보이고, 삭제를 켜면 30일 뒤 지운다 · 하루 지난 임시 사진도 지운다', async t => {
   const f = await fixture(t); await f.member(1);
   const id = (await f.upload(1)).json.photo.id;
   const ref = (await f.call('posts', { method: 'POST', who: 1, body: { ...GROUP, photos: [id] } })).json.ref;
@@ -154,7 +154,9 @@ test('지운 글의 사진은 바로 안 보이고 30일 뒤 지운다 · 하루
   const temp = (await f.upload(1)).json.photo.id;
   f.db.prepare("UPDATE community_posts SET updated_at = '2026-01-01 00:00:00'").run();
   f.db.prepare("UPDATE community_photos SET created_at = '2026-01-01 00:00:00' WHERE id = ?").run(temp);
-  await purgeDeleted(f.env);
+  await purgeDeleted(f.env);   // 기본: 지운 글도 DB에 보관
+  assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM community_posts').get().n, 1);
+  await purgeDeleted({ ...f.env, CUSTOMER_DATA_PURGE: 'on' });
   assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM community_photos').get().n, 0);
   assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM community_posts').get().n, 0);
 });

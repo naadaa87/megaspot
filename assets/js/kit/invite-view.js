@@ -45,7 +45,7 @@
     }
     if (r.question) h += '<div class="f" data-going><label for="rv-answer">' + esc(r.question) + '</label><input class="input" id="rv-answer" name="answer" maxlength="200" value="' + esc(m.answer || '') + '"></div>';
     h += '<div style="position:absolute;left:-9999px" aria-hidden="true"><label>웹사이트<input name="website" tabindex="-1" autocomplete="off"></label></div>';
-    h += '<label class="agree"><input type="checkbox" name="agree"' + (mine ? ' checked' : '') + '><span>이름과 응답 내용을 이 초대장을 만든 주최자에게 전달하는 데 동의합니다. 응답은 모임 날로부터 30일 뒤 지웁니다. <a href="/privacy/#invite" target="_blank" rel="noopener">개인정보처리방침</a></span></label>';
+    h += '<label class="agree"><input type="checkbox" name="agree"' + (mine ? ' checked' : '') + '><span>이름과 응답 내용을 이 초대장을 만든 주최자에게 전달하는 데 동의합니다. 응답은 삭제를 요청하실 때까지 보관합니다. <a href="/privacy/#invite" target="_blank" rel="noopener">개인정보처리방침</a></span></label>';
     h += '<p class="kit-msg err" data-err role="alert"></p><button type="submit" class="btn btn-primary btn-lg" style="width:100%">' + (mine ? '응답 고치기' : '응답 보내기') + '</button>';
     if (mine) h += '<button type="button" class="btn btn-light" data-cancel-edit>그대로 두기</button>';
     return h + '</form></section>';

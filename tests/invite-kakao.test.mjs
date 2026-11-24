@@ -203,7 +203,9 @@ test('예시 초대장과 보관 기간 정리', async t => {
   f.booking('BK-OLD', { date: day(-100), status: 'completed' });
   f.db.prepare("INSERT INTO invites (id, code, booking_code, space_id, event_date, data, status, created_at) VALUES ('IV-OLD', 'oldcode1234', 'BK-OLD', 'megaspot-gundae-2', ?, '{}', 'active', '2026-01-01 00:00:00')").run(day(-100));
   f.db.prepare("INSERT INTO invite_messages (invite_id, booking_code, receiver_mask, receiver_hash, actor, status, created_at) VALUES ('IV-OLD', 'BK-OLD', '010-****-5678', 'h', 'admin', 'accepted', '2026-01-01 00:00:00'), (NULL, NULL, '010-****-3333', 'h2', 'test', 'accepted', '2026-01-01 00:00:00')").run();
-  await purge(f.env);
+  await purge(f.env);   // 기본: 보관
+  assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM invites').get().n, 1);
+  await purge({ ...f.env, CUSTOMER_DATA_PURGE: 'on' });
   assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM invite_messages').get().n, 0);
   assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM invites').get().n, 0);
 });

@@ -162,12 +162,15 @@ test('스크린: 참석 이름만 넘기고, 준비 내용은 정리해서 저�
   assert.equal((await f.call('screen', { method: 'POST', body: { id, s: mk, play } })).status, 403);
 });
 
-test('보관 기간: 응답은 행사일 30일 뒤, 초대장은 90일 뒤 지운다', async t => {
+test('보관: 기본은 지우지 않고, 삭제를 켜면 응답 30일·초대장 90일 뒤 지운다', async t => {
   const f = fixture(t);
   const add = (id, date) => { f.db.prepare("INSERT INTO invites (id, code, booking_code, space_id, event_date, data, status, created_at) VALUES (?,?,?,?,?,?,'active','x')").run(id, id.toLowerCase(), 'B-' + id, 'megaspot-gundae', date, '{}');
     f.db.prepare("INSERT INTO invite_rsvps (invite_id, token_hash, name, status, created_at) VALUES (?,?,?,?,'x')").run(id, 'h-' + id, 'n', 'yes'); };
   add('IV-NEW', day(-29)); add('IV-MID', day(-31)); add('IV-OLD', day(-91));
-  await purge(f.env);
+  await purge(f.env);   // 기본: 고객 데이터 보관
+  assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM invite_rsvps').get().n, 3);
+  assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM invites').get().n, 3);
+  await purge({ ...f.env, CUSTOMER_DATA_PURGE: 'on' });
   assert.deepEqual(f.db.prepare('SELECT invite_id FROM invite_rsvps').all().map(r => r.invite_id), ['IV-NEW']);
   assert.deepEqual(f.db.prepare('SELECT id FROM invites ORDER BY id').all().map(r => r.id), ['IV-MID', 'IV-NEW']);
 });

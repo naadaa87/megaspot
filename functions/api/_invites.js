@@ -4,7 +4,8 @@
 //      ② 예약번호 + 예약자 휴대폰 뒷 4자리
 //  · 일시·공간은 늘 예약에서 다시 읽어, 예약이 바뀌면 초대장도 함께 바뀝니다.
 //  · 참석 응답은 이름·참석 여부·인원·차량 여부·질문 답변만 받습니다(휴대폰 번호 없음). 행사일로부터 30일 뒤 지웁니다.
-//  · 초대장과 스크린 준비 내용은 행사일로부터 90일 뒤 지웁니다.
+//  · 초대장과 스크린 준비 내용은 행사일로부터 90일 뒤 지웁니다. (2026-11-24부터 기본은 보관 — _retention.js)
+import { purgeEnabled } from './_retention.js';
 import { str, num, kstToday, isDate } from './_lib.js';
 import { hmacToken, tokenEq } from './_confirm.js';
 import { mobilePhone, contactPhones } from './_contacts.js';
@@ -241,7 +242,9 @@ export function summarize(rows) {
 }
 
 // 보관 기간이 지난 응답·초대장을 지웁니다 (초대장 화면이 열릴 때마다 가볍게 확인)
+// 2026-11-24부터 기본은 보관(삭제 안 함) — _retention.js 의 CUSTOMER_DATA_PURGE='on' 일 때만 지웁니다.
 export async function purge(env, today = kstToday()) {
+  if (!purgeEnabled(env)) return;
   const shift = d => new Date(Date.UTC(+today.slice(0, 4), +today.slice(5, 7) - 1, +today.slice(8, 10) - d)).toISOString().slice(0, 10);
   await env.DB.prepare('DELETE FROM invite_rsvps WHERE invite_id IN (SELECT id FROM invites WHERE event_date < ?)').bind(shift(KEEP_RSVP_DAYS)).run();
   await env.DB.prepare('DELETE FROM invite_messages WHERE invite_id IN (SELECT id FROM invites WHERE event_date < ?)').bind(shift(KEEP_INVITE_DAYS)).run();

@@ -1,7 +1,8 @@
 // Deposit accounts never enter static assets, query strings, or event-log detail.
+import {purgeEnabled} from './_retention.js';
 import {json,err,readJson,now,str,isDate,sha256,randomToken,SPACES,kstToday,getCookie,log} from './_lib.js';
 import {depositPayappAccounts,saveDepositMethod} from './_deposit_payment_methods.js';
-export const CONSENT_VERSION='deposit-refund-20261103-v1';
+export const CONSENT_VERSION='deposit-refund-20261124-v2';   // 2026-11-24 보유기간 문구 변경(삭제 요청 시까지 보관)
 export const RETENTION_DAYS=30;
 export const BANKS=[['004','KB국민은행'],['088','신한은행'],['020','우리은행'],['081','하나은행'],['011','NH농협은행'],['012','지역농축협'],['003','IBK기업은행'],['023','SC제일은행'],['027','한국씨티은행'],['090','카카오뱅크'],['089','케이뱅크'],['092','토스뱅크'],['002','KDB산업은행'],['007','Sh수협은행'],['045','새마을금고'],['048','신협'],['071','우체국'],['031','iM뱅크'],['032','부산은행'],['039','경남은행'],['034','광주은행'],['037','전북은행'],['035','제주은행'],['064','산림조합'],['050','저축은행']];
 const GUIDE='https://megaspot.kr/arrival/space1/';
@@ -33,7 +34,8 @@ const SELECT=`SELECT b.*,dm.method AS deposit_method,dm.merchant_userid AS depos
  (SELECT q.data FROM quotes q WHERE q.inquiry_ref=b.inquiry_ref ORDER BY q.id DESC LIMIT 1) AS quote_data
  FROM bookings b LEFT JOIN booking_refunds r ON r.booking_code=b.booking_code LEFT JOIN inquiry_checks ic ON ic.ref=b.inquiry_ref LEFT JOIN booking_deposit_checks dc ON dc.booking_code=b.booking_code LEFT JOIN booking_deposit_methods dm ON dm.booking_code=b.booking_code`;
 const one=(env,code)=>env.DB.prepare(SELECT+' WHERE b.booking_code=?').bind(code).first();
-export async function purgeAccounts(env){return env.DB.prepare("UPDATE booking_refunds SET account_cipher=NULL,account_mask=NULL,bank_code=NULL,link_cipher=NULL,token_hash=NULL,link_expires_at=NULL,purged_at=?,revision=revision+1 WHERE account_expires_at IS NOT NULL AND account_expires_at<=? AND purged_at IS NULL").bind(now(),Date.now()).run();}
+// 2026-11-24부터 기본은 보관(계좌 암호문을 지우지 않음) — CUSTOMER_DATA_PURGE='on' 일 때만 지웁니다.
+export async function purgeAccounts(env){if(!purgeEnabled(env))return {meta:{changes:0}};return env.DB.prepare("UPDATE booking_refunds SET account_cipher=NULL,account_mask=NULL,bank_code=NULL,link_cipher=NULL,token_hash=NULL,link_expires_at=NULL,purged_at=?,revision=revision+1 WHERE account_expires_at IS NOT NULL AND account_expires_at<=? AND purged_at IS NULL").bind(now(),Date.now()).run();}
 function available(b){return b&&Object.hasOwn(SPACES,b.space_id)&&['confirmed','completed'].includes(b.status);}
 function publicItem(b,admin=false){
  const expired=b.account_expires_at&&b.account_expires_at<=Date.now();const exists=!!b.account_cipher&&!expired;

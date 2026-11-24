@@ -132,7 +132,7 @@ export async function onRequest({ request, env, params }) {
         return err('호스트센터에 등록한 공간이 있어 바로 탈퇴할 수 없습니다. 진행 중인 예약과 이용료를 정리해야 하니 운영팀에 문의해 주세요.', 409, 'HOST_LINKED');
       await env.DB.prepare('DELETE FROM sessions WHERE member_id = ?').bind(me.id).run();
       await env.DB.prepare('DELETE FROM members WHERE id = ?').bind(me.id).run();
-      try { await withdrawCommunity(env, me.id); } catch (e) { console.error('community withdraw', e && e.message); }   // 커뮤니티 글·댓글은 내리고 30일 뒤 지웁니다
+      try { await withdrawCommunity(env, me.id); } catch (e) { console.error('community withdraw', e && e.message); }   // 커뮤니티 글·댓글은 내립니다 (기록은 보관 — _retention.js)
       await log(env, 'member.withdrawn', String(me.id), 'member', '');
       return withCookies(json({ ok: true }), sessionCookies('', 0));
     }

@@ -3,6 +3,7 @@
 //  · 자유게시판: 회원끼리 이야기·질문·후기·행사 준비 팁을 나눕니다. 기본은 바로 게시하고, 신고가 쌓이면 자동으로 숨깁니다.
 //  · 글쓰기·댓글·공감·신고는 회원만 할 수 있습니다. 운영팀은 관리자 화면에서 검토·숨김·고정·추천·예약 게시·공지 작성을 합니다.
 //  · 모임 소개의 휴대폰·이메일은 화면 원문에 넣지 않고 '연락처 보기'를 눌렀을 때만 따로 내려보냅니다(무더기 수집 방지).
+import { purgeEnabled } from './_retention.js';
 import { str, num, now, uniqueRef, log, isEmail } from './_lib.js';
 import { httpsUrl, linkOk, phoneOk, safeJson, MEETUP_COVERS, MEETUP_REF } from './_platform.js';
 import { PHOTO_ID, photoUrl, publicPhoto, pickPhotos, attachPhotos, purgePhotosOf } from './_community_photos.js';
@@ -394,7 +395,7 @@ export async function report(env, member, d) {
   return { ok: true, hidden };
 }
 
-// 탈퇴한 회원의 글·댓글은 내리고, 30일 뒤 지웁니다
+// 탈퇴한 회원의 글·댓글은 내립니다 (기록은 보관 — _retention.js)
 export async function withdrawMember(env, memberId) {
   const t = now();
   await env.DB.prepare("UPDATE community_posts SET status = 'deleted', updated_at = ? WHERE member_id = ? AND status != 'deleted'").bind(t, memberId).run();
@@ -405,7 +406,9 @@ export async function withdrawMember(env, memberId) {
 // =====================================================================
 // 관리자
 // =====================================================================
+// 2026-11-24부터 기본은 보관(지운 글도 화면에서만 내리고 DB에 남김) — CUSTOMER_DATA_PURGE='on' 일 때만 완전히 지웁니다.
 export async function purgeDeleted(env) {
+  if (!purgeEnabled(env)) return 0;
   const before = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 19).replace('T', ' ');
   const { results } = await env.DB.prepare("SELECT ref FROM community_posts WHERE status = 'deleted' AND COALESCE(updated_at, created_at) < ? LIMIT 50").bind(before).all();
   const refs = (results || []).map(r => r.ref);

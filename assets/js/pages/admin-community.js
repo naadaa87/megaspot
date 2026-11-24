@@ -89,7 +89,7 @@
     $('#cmd-all').addEventListener('change', function(){ var on=this.checked; $$('#cmd-rows [data-sel]').forEach(function(c){ c.checked=on; if(on) S.sel[c.dataset.sel]=1; else delete S.sel[c.dataset.sel]; }); selUi(); });
     $('#cmd-bar').addEventListener('click', function(e){ var b=e.target.closest('[data-bulk]'); if(!b) return; var a=b.dataset.bulk, refs=Object.keys(S.sel);
       if(a==='clear'){ S.sel={}; $$('#cmd-rows [data-sel]').forEach(function(c){ c.checked=false; }); selUi(); return; }
-      if(!refs.length) return; if(a==='delete' && !confirm('고른 글 '+refs.length+'개를 지울까요? 지운 글은 30일 뒤 완전히 지워집니다.')) return;
+      if(!refs.length) return; if(a==='delete' && !confirm('고른 글 '+refs.length+'개를 지울까요? 지운 글은 화면에서만 내리고 기록은 보관합니다.')) return;
       b.disabled=true; A('bulk',{ method:'POST', body:{ refs:refs, action:a } }).then(function(r){ M.toast(r.done+'개를 처리했습니다.'+(r.failed&&r.failed.length?' '+r.failed.length+'개는 처리하지 못했습니다.':'')); S.sel={}; loadPosts(); summary(); }).catch(oops).then(function(){ b.disabled=false; }); });
     $('#cmd-pages').addEventListener('click', function(e){ var b=e.target.closest('[data-page]'); if(!b) return; S.page=+b.dataset.page; loadPosts(); });
     loadPosts();
@@ -168,7 +168,7 @@
         if(k==='checked') patch({ checked:true }, '확인 표시를 지웠습니다.');
         if(k==='pin') patch({ pinned:!x.pinned }, x.pinned?'상단 고정을 풀었습니다.':'목록 맨 위에 고정했습니다.');
         if(k==='feature') patch({ featured:!x.featured }, x.featured?'추천을 풀었습니다.':'추천 모임으로 정했습니다.');
-        if(k==='delete'){ if(confirm('이 글을 지울까요? 회원 화면에서 바로 사라지고, 30일 뒤 완전히 지워집니다.')) patch({ status:'deleted' }, '지웠습니다.'); }
+        if(k==='delete'){ if(confirm('이 글을 지울까요? 회원 화면에서 바로 사라지고, 기록은 보관합니다.')) patch({ status:'deleted' }, '지웠습니다.'); }
         if(k==='reject'){ var why=prompt('반려 이유를 적어 주세요. 글쓴이의 ‘내 글’ 화면에 그대로 보입니다.', x.reject_reason||''); if(why && why.trim()) patch({ status:'rejected', reject_reason:why.trim() }, '반려했습니다.'); }
         if(k==='block'){ if(x.blocked){ if(confirm('이 회원의 커뮤니티 글쓰기 제한을 풀까요?')) A('block',{ method:'POST', body:{ member_id:x.member_id, on:false } }).then(function(){ M.toast('글쓰기 제한을 풀었습니다.'); openPost(ref); }).catch(oops); }
           else { var r=prompt('이 회원이 커뮤니티에 글·댓글을 쓰지 못하게 합니다. 이유를 적어 주세요 (운영팀만 봄).', ''); if(r!==null) A('block',{ method:'POST', body:{ member_id:x.member_id, on:true, reason:r } }).then(function(){ M.toast('글쓰기를 제한했습니다.'); openPost(ref); }).catch(oops); } }

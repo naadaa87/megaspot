@@ -201,7 +201,9 @@ test('설정·도장 · 보관 기간 · 본문 모듈', async t => {
   assert.equal((await f.call('admin/seal', { method: 'POST', admin: true, body: { image: PNG } })).json.seal, PNG);
   // 보관 기간
   f.db.prepare("INSERT INTO rental_contracts (id, status, data, event_date, created_at) VALUES ('RC-2001-AAAA','ready','{}',?,'x'),('RC-2001-BBBB','signed','{}',?,'x'),('RC-2001-CCCC','signed','{}',?,'x')").run(day(-400), day(-400), day(-1900));
-  await purgeContracts(f.env);
+  await purgeContracts(f.env);   // 기본: 보관
+  assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM rental_contracts').get().n, 3);
+  await purgeContracts({ ...f.env, CUSTOMER_DATA_PURGE: 'on' });
   assert.deepEqual(f.db.prepare('SELECT id FROM rental_contracts ORDER BY id').all().map(r => r.id), ['RC-2001-BBBB']);
   // 본문 모듈
   assert.deepEqual(CD.totals({ space: 1000000, extra_people: 3, options_amount: 200000, discount: 50000, deposit: 1180000 }), { extra_amount: 30000, total: 1180000, balance: 0, paid_full: true });

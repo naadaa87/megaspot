@@ -47,7 +47,7 @@
       +((x.max_per||1)>1?'<div class="f"><label for="ap-people">인원</label><select class="select" id="ap-people" name="people">'+per.join('')+'</select></div>':'')
       +(x.question?'<div class="f"><label for="ap-answer">'+esc(x.question)+' <span class="req">*</span></label><textarea class="textarea" id="ap-answer" name="answer" rows="2" maxlength="300" required></textarea></div>':'')
       +'<div class="f"><label for="ap-msg">주최자에게 남길 말 <span class="muted">(선택)</span></label><input class="input" id="ap-msg" name="message" maxlength="500"></div>'
-      +'<label class="agree"><input type="checkbox" name="agree_privacy" required> <span>(필수) 참가 신청을 위해 이름·휴대폰 번호를 수집·이용하는 데 동의합니다. 모임이 끝나고 30일 뒤 지웁니다.</span></label>'
+      +'<label class="agree"><input type="checkbox" name="agree_privacy" required> <span>(필수) 참가 신청을 위해 이름·휴대폰 번호를 수집·이용하는 데 동의합니다. 삭제를 요청하실 때까지 보관합니다.</span></label>'
       +'<label class="agree"><input type="checkbox" name="agree_share" required> <span>(필수) 이름·휴대폰 번호·인원·답변·남길 말을 모임 주최자 <b>'+esc(x.host_name||'')+'</b>에게 제공하는 데 동의합니다. 주최자는 참가 확인과 모임 안내에만 쓰고, 모임이 끝나고 30일 안에 지웁니다.</span></label>'
       +'<div class="form-note" id="ap-msgbox" hidden></div>'
       +'<button class="btn '+(full?'btn-dark':'btn-primary')+' btn-lg btn-block" type="submit">'+(full?'대기 신청하기':(x.mode==='approve'?'참가 신청하기 (주최자 승인)':'참가 신청하기'))+' <span class="arrow">→</span></button>'

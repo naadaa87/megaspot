@@ -2,6 +2,7 @@
 // assets/js/stats.js 가 페이지를 열 때(v), 페이지를 떠날 때 머문 시간(d), 링크를 누를 때(c) 보냅니다.
 // 이름·연락처·IP 주소는 받지도 저장하지도 않습니다. 브라우저가 만든 무작위 번호(방문자·방문·페이지 조회)만 씁니다.
 // 관리자 화면 'KPI 지표'의 홈페이지 방문 항목이 이 표(web_hits · web_clicks)를 읽습니다.
+import { purgeEnabled } from './_retention.js';
 import { hasDb, sameOrigin, kstToday, now } from './_lib.js';
 import { cameFrom } from './inquiry.js';
 
@@ -59,8 +60,8 @@ export async function onRequestPost({ request, env, waitUntil }) {
       const hour = new Date(Date.now() + 9 * 3600e3).getUTCHours();
       await env.DB.prepare('INSERT OR IGNORE INTO web_hits (pid, day, hour, vid, sid, path, title, src, ref_host, device, new_visitor, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
         .bind(d.pid, day, hour, d.vid, d.sid, path, clip(d.ti, 80).replace(/\s*[·|–-]\s*메가스팟.*$/, '') || null, src, refHost, deviceOf(ua), d.n ? 1 : 0, now()).run();
-      // 오래된 기록은 가끔 한 번씩 지웁니다.
-      if (Math.random() < 0.002) {
+      // 오래된 기록은 가끔 한 번씩 지웁니다. (2026-11-24부터 기본은 보관 — CUSTOMER_DATA_PURGE='on' 일 때만)
+      if (purgeEnabled(env) && Math.random() < 0.002) {
         const cut = kstToday(-KEEP_DAYS), job = Promise.all([
           env.DB.prepare('DELETE FROM web_hits WHERE day < ?').bind(cut).run(),
           env.DB.prepare('DELETE FROM web_clicks WHERE day < ?').bind(cut).run()]).catch(() => {});
