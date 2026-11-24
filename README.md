@@ -913,3 +913,35 @@ QR 이미지는 `assets/img/brand/kakao-qr.svg` 입니다. **채널 주소를 �
 3. Cloudflare Pages → 설정 → 환경 변수(Secret)에 `KAKAO_REST_API_KEY`(REST API 키)를 넣습니다. 클라이언트 시크릿을 켰다면 `KAKAO_CLIENT_SECRET`도 넣습니다.
 4. 넣기 전에는 로그인·가입 화면에 카카오 단추가 보이지 않습니다. 처음 온 카카오 회원은 연락처·약관 동의만 받고 가입하며(비밀번호 없음), 카카오에서 확인된 이메일이 기존 회원과 같으면 그 계정에 연결합니다. 카카오로만 가입한 회원은 마이페이지 탈퇴 때 ‘탈퇴’를 입력합니다.
 5. 비밀번호 재설정 메일은 `RESEND_API_KEY`와 `MAIL_FROM`이 있어야 나갑니다. 없으면 예전처럼 카카오톡으로 안내합니다.
+
+## 검색 노출 개선 — S1~S11 (2026-11-25)
+
+예약·문의·결제 표는 읽기만 하고 바꾸지 않았습니다. 새 표는 `event_cases`(행사 사례) 하나입니다.
+
+### 관리자 새 메뉴
+- **검색 성과** (KPI 지표 아래, `/api/admin/search-perf…`): 검색봇 방문(날짜·봇별), IndexNow 결과와 [지금 다시 보내기], sitemap 주소 묶음, 검색으로 들어온 방문·첫 화면, 검색에서 온 문의 수, **주간 기록**(서치콘솔·서치어드바이저의 색인 수·클릭·검색어를 적는 표, settings `search_perf_log`). 검색어는 브라우저가 넘겨주지 않아 자동으로 셀 수 없으므로 주간 기록에 옮겨 적습니다.
+- **행사 사례** (정산·사후관리, `/api/admin/event-cases…`): 주최 측 동의 기록(동의한 사람·날짜·방법·범위 + 확인 체크)이 있어야 공개. 사진·주최 측 이름·한마디는 각각 동의 범위가 있어야 함. 한 번 공개한 사례는 지우지 않고 숨김.
+
+### IndexNow (`functions/api/_seo.js`)
+- 공용 주소(api.indexnow.org) 429가 이어져 **네이버 서치어드바이저 · 빙**에 직접 보냄. 실패한 곳만 1·3·6·12·24시간 간격으로 다시 보내고 Retry-After 를 지킴. 보낸 기록 40건은 '검색 성과'에서 봄.
+
+### 글마다 고유 주소와 서버에서 채우는 제목·본문 (`functions/api/_view_heads.js`)
+- `/community/free/view/?id=CF-…` · `/community/groups/view/?id=CG-…` · `/meetups/view/?id=MO-…` · `/cases/view/?id=EC-…`
+- 공개된 글이면 제목·설명·canonical·공유 미리보기·H1·본문을 HTML 에 넣고 검색 허용. 숨김·검토 중·주소 오류는 정적 화면(noindex) 그대로. 모임 소개·모임 주최자 연락처, 사례 동의자는 넣지 않음.
+- 구조화 데이터: 글 `DiscussionForumPosting`, 모임 모집 `Event`(일시·장소·참가비·모집 상태), 사례 `Article`.
+- 주소 목록: `/community/sitemap.xml` · `/meetups/sitemap.xml` · `/cases/sitemap.xml` (robots.txt 에 적음). `_routes.json` 에 해당 화면만 추가.
+- 영상(VideoObject)은 홈페이지에 실제 영상이 없어 넣지 않았고, 후기 별점은 입점 공간 후기 기능이 아직 없고 직영 공간 별점은 검색엔진이 자기 평가로 보아 넣지 않았습니다.
+
+### 제목·설명 · 이름·주소 표기
+- 검색 허용 화면은 제목 60자·설명 160자 이하 (`tests/meta-length.test.mjs`).
+- 이용 장소 주소는 도로명 기준 **서울 광진구 능동로13길 39 한아름건물 2층**, 필요한 곳에 (화양동 10-1). 위치 표기 한곳: `functions/api/_site_info.js`. 사업자 정보·예약확정서·계약서·견적·이용권 고지는 그대로 (`tests/nap.test.mjs`).
+
+### 링크·본문 보강
+- 행사 준비 가이드 '이어서 읽기'와 놀이 도구 '다른 놀이'를 돌아가며 연결, 목적별 안내 공통 조각에 식음료·놀이·사전답사·FAQ 링크, 모임 메뉴에 자유게시판, 사전답사·자유게시판 화면에 정적 안내 본문.
+
+### 화면 속도
+- 사진 WebP: `python3 -I tools/webp/make_webp.py` (새 사진을 넣은 뒤 한 번). 화면 HTML·`imgSrc` 의 중간·작은 크기는 WebP, 원본은 JPG. WebP 가 없으면 화면이 JPG 로 다시 불러옵니다 (`tests/webp.test.mjs`).
+- 인쇄 전용 `quote-print.css` 는 `media="print"`.
+
+### 네이버
+- 서치어드바이저 제출·수집 요청 순서, 스마트플레이스 1호·2호 입력값과 소개 문구, 블로그 12주 주제표와 첫 글 초안은 프로젝트 문서 `megaspot-naver-search-guide.md` 에 있습니다.
