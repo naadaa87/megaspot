@@ -1,0 +1,103 @@
+/* 나의 예약확인 (/my-booking/) — 2026-11-24 */
+.mb-hero{background:#fff;border-bottom:1px solid var(--concrete-2)}
+.mb-hero .lead{max-width:62ch}
+.mb-doors{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.mb-doors span{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:var(--cobalt-soft);color:var(--cobalt-2);font-size:13px;font-weight:700}
+.page-my-booking .section{background:var(--concrete-3)}
+#mb-root{display:grid;gap:20px}
+
+/* 찾기 */
+.mb-find-grid{display:grid;gap:20px;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);align-items:start}
+.mb-find{display:grid;gap:14px}
+.mb-find .btn-lg{justify-content:center}
+.mb-side{display:grid;gap:20px}
+.mb-list{display:grid;gap:8px}
+.mb-row{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"t c" "s c";gap:2px 12px;align-items:center;width:100%;padding:12px 14px;border:1px solid var(--concrete);border-radius:var(--radius);background:#fff;text-align:left;font:inherit;color:var(--ink);cursor:pointer;text-decoration:none}
+.mb-row:hover,.mb-row:focus-visible{border-color:var(--cobalt);box-shadow:0 0 0 3px var(--cobalt-soft)}
+.mb-row b{grid-area:t;font-size:15px}
+.mb-row span{grid-area:s;font-size:13px;color:var(--ink-2)}
+.mb-row .mb-chip{grid-area:c}
+.mb-other-row{display:grid;gap:12px;grid-template-columns:repeat(4,minmax(0,1fr));margin-top:12px}
+.mb-other-card{display:grid;gap:4px;padding:14px 16px;border-radius:var(--radius);background:#fff;border:1px solid var(--concrete-2);color:var(--ink);text-decoration:none}
+.mb-other-card b{font-size:15px}
+.mb-other-card span{font-size:13px;color:var(--ink-2);line-height:1.5}
+.mb-other-card:hover{border-color:var(--cobalt)}
+.mb-other-card:hover b{color:var(--cobalt)}
+
+/* 칩 */
+.mb-chip{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;background:var(--concrete-2);color:var(--ink-2);font-size:12px;font-style:normal;font-weight:700;white-space:nowrap}
+.mb-chip.ok,.mb-chip.st-confirmed{background:var(--ok-soft);color:var(--ok)}
+.mb-chip.todo,.mb-chip.st-payment_review{background:var(--warn-soft);color:var(--warn)}
+.mb-chip.st-completed{background:var(--cobalt-soft);color:var(--cobalt-2)}
+.mb-chip.st-cancelled{background:var(--rust-soft);color:var(--rust)}
+.mb-chip.mb-dday{background:var(--cobalt);color:#fff}
+
+/* 예약 요약 */
+.mb-loading{text-align:center;color:var(--ink-2)}
+.mb-sum{border-top:4px solid var(--cobalt)}
+.mb-sum-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
+.mb-space{font-size:clamp(22px,3vw,28px);font-weight:800;margin-top:4px;letter-spacing:-.01em}
+.mb-sum-chips{display:flex;gap:6px;flex-wrap:wrap}
+.mb-sum-grid{display:grid;grid-template-columns:2fr 1fr 1.4fr;gap:12px;margin-top:16px;padding-top:16px;border-top:1px dashed var(--concrete)}
+.mb-sum-grid>div{display:grid;gap:2px;align-content:start}
+.mb-sum-grid span{font-size:12px;color:var(--ink-3)}
+.mb-sum-grid b{font-size:16px}
+.mb-sum-grid small{font-size:12px;color:var(--ink-2)}
+.mb-sum-grid .linkish{justify-self:start;font-size:12px}
+
+/* 지금 할 일 */
+.mb-next-list{display:grid;gap:8px;margin-top:10px}
+.mb-step{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 16px;border-radius:var(--radius);background:#fff;border:1px solid var(--concrete-2);border-left:4px solid var(--concrete)}
+.mb-step b{font-size:15px}
+.mb-step p{margin:2px 0 0;font-size:13px;color:var(--ink-2)}
+.mb-step.s-todo{border-left-color:var(--warn)}
+.mb-step.s-wait{border-left-color:var(--concrete)}
+.mb-step.s-idea{border-left-color:var(--cobalt)}
+.mb-step.s-ok{border-left-color:var(--ok)}
+.mb-step.s-warn{border-left-color:var(--warn)}
+.mb-step.s-muted{border-left-color:var(--rust)}
+.mb-step .btn{flex:0 0 auto}
+
+/* 타일 */
+.mb-tiles{display:grid;gap:16px;grid-template-columns:repeat(2,minmax(0,1fr))}
+.mb-tile{display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:var(--radius-lg);background:#fff;border:1px solid var(--concrete-2);scroll-margin-top:90px}
+.mb-tile-h{display:flex;align-items:center;gap:10px}
+.mb-tile-h h3{font-size:16px;font-weight:800;margin:0;flex:1}
+.mb-ico{display:inline-grid;place-items:center;width:32px;height:32px;border-radius:8px;background:var(--cobalt-soft);font-size:16px}
+.mb-tile-b{font-size:14px;line-height:1.6;color:var(--ink);flex:1}
+.mb-tile-b p{margin:0}
+.mb-tile-b p+p{margin-top:6px}
+.mb-acts{display:flex;flex-wrap:wrap;gap:6px}
+.mb-line{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px dashed var(--concrete-2);font-size:14px}
+.mb-line span{color:var(--ink-2)}
+.mb-bank{display:grid;grid-template-columns:auto 1fr auto;grid-template-areas:"l v c" "l h c";gap:0 10px;align-items:center;margin-top:10px;padding:10px 12px;border-radius:var(--radius);background:var(--concrete-3)}
+.mb-bank span{grid-area:l;font-size:12px;color:var(--ink-3)}
+.mb-bank b{grid-area:v;font-size:14px}
+.mb-bank small{grid-area:h;font-size:12px;color:var(--ink-2)}
+.mb-bank .linkish{grid-area:c}
+.mb-review{display:grid;gap:10px;margin-top:4px}
+.mb-review .field-row{display:grid;gap:10px;grid-template-columns:1fr 1fr}
+#mb-review{grid-column:1/-1}
+.mb-foot{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.mb-foot p{flex-basis:100%;margin:4px 0 0}
+.page-my-booking .linkish{background:none;border:0;padding:0;color:var(--cobalt);font-family:inherit;font-weight:700;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.page-my-booking .linkish.tiny{font-size:12.5px}
+
+@media (max-width:899px){
+  .mb-find-grid{grid-template-columns:1fr}
+  .mb-other-row{grid-template-columns:1fr 1fr}
+  .mb-tiles{grid-template-columns:1fr}
+  .mb-sum-grid{grid-template-columns:1fr 1fr}
+  .mb-sum-grid>div:first-child{grid-column:1/-1}
+}
+@media (max-width:539px){
+  .mb-other-row{grid-template-columns:1fr}
+  .mb-step{flex-direction:column;align-items:stretch}
+  .mb-step .btn{justify-content:center}
+  .mb-review .field-row{grid-template-columns:1fr}
+  .mb-bank{grid-template-columns:1fr auto;grid-template-areas:"l c" "v v" "h h"}
+  .mb-tile{padding:16px}
+}
+@media print{
+  .site-header,.mobile-nav,.site-footer,.mb-foot,.mb-acts,.quick-bar{display:none!important}
+}

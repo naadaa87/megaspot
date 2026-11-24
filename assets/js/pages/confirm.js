@@ -7,6 +7,7 @@
   function show(doc, k){
     cur = doc; link = location.origin + '/confirm/?c=' + encodeURIComponent(doc.code) + '&k=' + encodeURIComponent(k || '');
     try { if (k) history.replaceState(null, '', '/confirm/?c=' + encodeURIComponent(doc.code) + '&k=' + encodeURIComponent(k)); } catch (e) {}
+    var hub = $('#cfd-hub'); if (hub) hub.href = k ? '/my-booking/#c=' + encodeURIComponent(doc.code) + '&k=' + encodeURIComponent(k) : '/my-booking/';
     $('#cfd-title').textContent = (doc.doc_type==='cancellation'?'취소·환불 정산서 · ':'예약번호 ') + doc.code;
     $('#cfd-sub').textContent = ' · ' + X.dateText(doc.date) + ' · ' + X.timeText(doc);
     form.hidden = true; errBox.hidden = true; view.hidden = false;

@@ -364,7 +364,7 @@
   function askWith(s){
     var est=M.pricing&&M.pricing.estimator; if(est&&s.purpose) est.set({purpose:s.purpose});
     var b=$('#estimate'); if(b) b.scrollIntoView({behavior:'smooth', block:'start'});
-    M.toast('‘'+s.title+'’ 기준으로 모임 유형을 예약 신청 화면에 넣었습니다.');
+    M.toast('‘'+s.title+'’ 기준으로 모임 유형을 예약/견적 문의 화면에 넣었습니다.');
   }
 
   /* ---------- 시설·장비 ---------- */
@@ -405,7 +405,7 @@
     var cp=$('#copy-address'); if(cp) cp.addEventListener('click', function(){ (navigator.clipboard?navigator.clipboard.writeText(S.address):Promise.reject()).then(function(){ M.toast('주소를 복사했습니다.'); }).catch(function(){ M.toast(S.address); }); });
   })();
 
-  /* ---------- 달력 (예약 신청 화면과 연결) ---------- */
+  /* ---------- 달력 (예약/견적 문의 화면과 연결) ---------- */
   (function(){
     var grid=$('#booking-grid'); if(!grid) return;
     function layout(e){ grid.style.gridTemplateColumns=e.matches?'minmax(320px,1.1fr) minmax(0,.9fr)':'1fr'; } var mq=window.matchMedia('(min-width:900px)'); layout(mq); mq.addEventListener('change', layout);
@@ -440,12 +440,12 @@
           h+='<div class="'+classes+'" data-d="'+iso+'" role="button" '+control+' aria-label="'+M.fmtKDate(iso)+' '+description+'">'+d+status+'</div>';
         }
         h+='</div><div class="cal-legend"><span><i class="open"></i>신청 가능 (확인 뒤 확정)</span><span><i class="partial"></i>일부 시간 예약 (다른 시간 가능)</span><span><i class="hold"></i>임시 확보 중</span><span><i class="full"></i>마감</span><span><i class="sel"></i>선택한 날짜</span></div>';
-        h+='<p class="tiny muted mt-2">'+(M.demo.on||!Object.keys(days).length?'달력은 안내용이며 실시간 재고가 아닙니다. 희망일을 고르면 예약 신청 화면에 들어가고, 확정 여부는 상담 때 안내합니다.':'표시 상태는 운영자가 갱신한 일정 기준이며 최종 확정은 금액 확인과 결제 뒤에 이뤄집니다.')+'</p>';
+        h+='<p class="tiny muted mt-2">'+(M.demo.on||!Object.keys(days).length?'달력은 안내용이며 실시간 재고가 아닙니다. 희망일을 고르면 예약/견적 문의 화면에 들어가고, 확정 여부는 상담 때 안내합니다.':'표시 상태는 운영자가 갱신한 일정 기준이며 최종 확정은 금액 확인과 결제 뒤에 이뤄집니다.')+'</p>';
         cal.innerHTML=h;
         $('#cal-prev').addEventListener('click', function(){ cur=new Date(y,m-1,1); render(); });
         $('#cal-next').addEventListener('click', function(){ cur=new Date(y,m+1,1); render(); });
         $('#cal-prev').disabled = (y===today.getFullYear()&&m===today.getMonth());
-        cal.querySelectorAll('.cal-day.open,.cal-day.hold,.cal-day.partial').forEach(function(el){ function pick(){ var part=el.classList.contains('partial'); selected=el.dataset.d; var est=M.pricing&&M.pricing.estimator; if(est) est.setDate(selected); render(); M.toast(M.fmtKDate(selected)+'을(를) 예약 신청 화면에 넣었습니다.'+(part?' 이 날은 일부 시간에 예약이 있어, 가능한 시간을 확인해 안내해 드립니다.':'')); var box=$('#estimate'); if(box) box.scrollIntoView({behavior:'smooth',block:'start'}); } el.addEventListener('click', pick); el.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); pick(); } }); });
+        cal.querySelectorAll('.cal-day.open,.cal-day.hold,.cal-day.partial').forEach(function(el){ function pick(){ var part=el.classList.contains('partial'); selected=el.dataset.d; var est=M.pricing&&M.pricing.estimator; if(est) est.setDate(selected); render(); M.toast(M.fmtKDate(selected)+'을(를) 예약/견적 문의 화면에 넣었습니다.'+(part?' 이 날은 일부 시간에 예약이 있어, 가능한 시간을 확인해 안내해 드립니다.':'')); var box=$('#estimate'); if(box) box.scrollIntoView({behavior:'smooth',block:'start'}); } el.addEventListener('click', pick); el.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); pick(); } }); });
       }).catch(function(){ cal.innerHTML='<p class="plan-attention">예약 현황을 불러오지 못했습니다. 잠시 후 다시 확인하거나 담당자에게 문의해 주세요.</p><button type="button" class="btn btn-light" id="calendar-retry">다시 불러오기</button>';$('#calendar-retry').addEventListener('click',render); });
     }
     M.checkApi().then(render);

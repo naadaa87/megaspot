@@ -37,7 +37,7 @@
       +'<div class="specs">'+(c.area?'<span><b>'+esc(c.area)+'</b>평</span>':'')+(c.capacity?'<span>최대 <b>'+esc(c.capacity)+'</b>명</span>':'')+'<span class="price">'+esc(priceLine(c))+'</span></div>'
       +(c.busy?'<p class="small mt-1" style="color:var(--warn);font-weight:700">고른 날짜에 확정된 예약이 있습니다 · 시간대를 확인해 주세요</p>':'')
       +'<div class="tags mt-2">'+types+'</div>'
-      +'<div class="foot"><span class="muted">결제 수수료 없이 호스트와 직접 예약</span><span style="font-weight:700;color:var(--cobalt)">자세히 보기 →</span></div></div></a>';
+      +'<div class="foot"><span class="muted">결제 수수료 없이 호스트와 직접 예약</span><span style="font-weight:700;color:var(--cobalt)">공간 둘러보기 →</span></div></div></a>';
   }
   // 메가스팟 회원으로 로그인해 있으면 연결된 호스트 계정으로 전환합니다.
   //  → 'ok' 전환됨 · 'not_host' 회원이지만 아직 호스트 등록 전 · 'login' 회원 로그인 필요

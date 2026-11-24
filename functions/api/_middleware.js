@@ -11,7 +11,7 @@ export async function onRequest(context) {
   const path=new URL(context.request.url).pathname;
   if (path === "/api/internal/spacecloud-auto") return response;
   const readOnlyRevenue=/^\/api\/admin\/revenue(?:\/|$)/.test(path);
-  const readOnlyPortal=path==='/api/feedback'||path.startsWith('/api/admin/feedback')||/^\/api\/pay\/availability\/?$/.test(path)||/^\/api\/reservation-calendar\/?$/.test(path)||path.startsWith('/api/booking-portal/')||/^\/api\/admin\/bookings\/[^/]+\/portal-link/.test(path)||/^\/api\/admin\/guide-messages\/(portal-preview|portal-test|portal-template|portal-check-template)$/.test(path);
+  const readOnlyPortal=path==='/api/feedback'||path.startsWith('/api/admin/feedback')||/^\/api\/pay\/availability\/?$/.test(path)||/^\/api\/reservation-calendar\/?$/.test(path)||path.startsWith('/api/booking-portal/')||path.startsWith('/api/my-booking/')||/^\/api\/admin\/bookings\/[^/]+\/portal-link/.test(path)||/^\/api\/admin\/guide-messages\/(portal-preview|portal-test|portal-template|portal-check-template)$/.test(path);
   const readOnlyReadiness=/^\/api\/admin\/booking-readiness\/?$/.test(path);
   const readOnlyMemberInquiries=context.request.method==='GET'&&/^\/api\/auth\/inquiries\/?$/.test(path);
   const siteStats=path==='/api/stats';   // 방문 통계 수집은 페이지마다 들어오므로 예약 알림 확인을 붙이지 않습니다

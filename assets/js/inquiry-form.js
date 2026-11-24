@@ -1,7 +1,7 @@
 /* =====================================================================
    간단 문의서 컴포넌트
    - MEGASPOT.renderInquiry(container, { spaceId, mode:'space'|'request', type:'event'|'regular'|'partner', prefill:{...} })
-   - 날짜가 정해진 행사는 '예약 신청 · 금액 확인'(pricing-ui.js)에서 바로 신청합니다.
+   - 날짜가 정해진 행사는 '예약/견적 문의'(pricing-ui.js)에서 바로 신청합니다.
      이 문의서는 정기·반복 모임, 제휴·협력, 조건에 맞는 공간 찾기처럼 요금표와 별도로 상의할 일에 씁니다.
    - 필수는 이름·연락처·동의(제휴는 회사명·제안 내용 포함)뿐이고, 나머지는 모두 선택입니다.
    - API 연결 시 /api/inquiry 로 저장, 미연결 시 체험 모드(내용 복사·카카오톡)로 전환
@@ -135,7 +135,7 @@
       $f('#iq-msg-lbl').innerHTML = t==='partner' ? '제안 내용 <span class="req">*</span>' : '요청사항';
       msg.placeholder = t==='partner' ? '함께하고 싶은 일, 예상 일정과 규모, 원하는 조건을 적어 주세요.' : t==='regular' ? '모임 성격, 회차마다 바뀌는 조건, 보관이 필요한 물품 등을 적어 주세요.' : '행사 성격, 꼭 필요한 조건, 궁금한 점을 자유롭게 적어 주세요.';
       $f('#iq-title').textContent = o.title || HEAD[t][0]; $f('#iq-sub').textContent = o.sub || HEAD[t][1];
-      var hint=$f('#iq-type-hint'); if(hint) hint.textContent = t==='event' ? '날짜가 정해진 행사는 위 \'예약 신청 · 금액 확인\'에서 금액을 보고 바로 신청하는 편이 빠릅니다.' : '';
+      var hint=$f('#iq-type-hint'); if(hint) hint.textContent = t==='event' ? '날짜가 정해진 행사는 위 \'예약/견적 문의\'에서 금액을 보고 바로 신청하는 편이 빠릅니다.' : '';
       $f('#iq-submit').innerHTML = esc(SUBMIT[t])+' <span class="arrow">→</span>';
       form.querySelectorAll('.invalid').forEach(function(el){ el.classList.remove('invalid'); });
     }

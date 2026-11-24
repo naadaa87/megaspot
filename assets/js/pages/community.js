@@ -410,7 +410,7 @@ var C={
     var ids=x.venue==='both'?['megaspot-gundae','megaspot-gundae-2']:[x.venue];
     var sp=(window.MEGASPOT_SPACES||[]).filter(function(s){ return ids.indexOf(s.id)>=0; });
     if(!sp.length) return '';
-    return '<section class="mv-sec"><h2>모이는 곳</h2><div class="cm-venues">'+sp.map(function(s){ return '<a class="mv-venue" href="/spaces/'+esc(s.slug)+'/"><img src="'+M.imgSrc(s.cover,'t')+'" alt="" loading="lazy"><span><b>'+esc(s.name)+'</b><small>'+esc(s.addressShort||s.address||'')+'</small><small>'+esc(s.area.pyeong)+'평 · 최대 '+esc(s.capacity.max)+'명</small></span><span class="go">공간 보기 →</span></a>'; }).join('')+'</div>'
+    return '<section class="mv-sec"><h2>모이는 곳</h2><div class="cm-venues">'+sp.map(function(s){ return '<a class="mv-venue" href="/spaces/'+esc(s.slug)+'/"><img src="'+M.imgSrc(s.cover,'t')+'" alt="" loading="lazy"><span><b>'+esc(s.name)+'</b><small>'+esc(s.addressShort||s.address||'')+'</small><small>'+esc(s.area.pyeong)+'평 · 최대 '+esc(s.capacity.max)+'명</small></span><span class="go">공간 둘러보기 →</span></a>'; }).join('')+'</div>'
       +'<p class="small muted mt-2">같은 공간에서 행사를 열고 싶다면 <a href="/inquiry/" style="text-decoration:underline">금액 확인·예약 신청</a>에서 날짜와 인원을 넣어 보세요.</p></section>';
   }
 

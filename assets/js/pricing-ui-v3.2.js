@@ -2,11 +2,11 @@
    메가스팟 · 요금 화면 (건대 1호 요금표 v2.1 · 건대 2호 요금표 v1.1 · 성수기 포함)
    - HTML에 <div data-price="rate-table"></div>처럼 자리만 두면 이 파일이 내용을 채웁니다.
    - 어느 공간의 요금인지는 자리의 data-space, 감싸는 요소의 data-space, <body data-space> 순서로 정하고, 없으면 1호입니다.
-     (예: <div data-price="packages" data-space="megaspot-gundae-2"></div>) 계산기는 data-space 를 바꿔 다시 그릴 수 있습니다(예약 신청 화면의 공간 선택).
+     (예: <div data-price="packages" data-space="megaspot-gundae-2"></div>) 계산기는 data-space 를 바꿔 다시 그릴 수 있습니다(예약/견적 문의 화면의 공간 선택).
    - 쓸 수 있는 자리: version, facts, rate-table, day-rule, packages(data-opt="compact"), people-rule,
      options, included, deposit, refund-table, special, examples, estimator,
      peak-table(성수기 요금표), price-calendar(요금 달력 · data-opt="compact"), season-note(성수기 한 줄 안내)
-   - 예약 신청 · 금액 확인: 시간(패키지 버튼 포함) → 날짜 → 인원 → (선택) 옵션 → 금액 → 예약신청하기 → 이름·연락처 → 접수. 견적서 PDF 저장(인쇄), 카카오톡 전송.
+   - 예약/견적 문의: 시간(패키지 버튼 포함) → 날짜 → 인원 → (선택) 옵션 → 금액 → 예약신청하기 → 이름·연락처 → 접수. 견적서 PDF 저장(인쇄), 카카오톡 전송.
    ===================================================================== */
 (function(){
   'use strict';
@@ -184,7 +184,7 @@
       + '<div class="pc-grid" data-out="pc-grid"></div>'
       + '<div class="pc-legend"><span class="t-wd">월–목</span><span class="t-fri">금</span><span class="t-sat">토</span><span class="t-sun">일·공휴일</span><span class="t-peak">성수기</span></div>'
       + '<p class="tiny muted mt-2" data-out="pc-note"></p>'
-      + '<p class="tiny muted">날짜를 누르면 그 날짜와 패키지 시간이 예약 신청 · 금액 확인에 들어갑니다. ' + esc(D.vatNote) + '</p></div>';
+      + '<p class="tiny muted">날짜를 누르면 그 날짜와 패키지 시간이 예약/견적 문의에 들어갑니다. ' + esc(D.vatNote) + '</p></div>';
     el.addEventListener('click', function(e){
       var n = e.target.closest('[data-nav]'); if (n){ ym = shift(ym, n.dataset.nav === 'prev' ? -1 : 1); draw(); return; }
       var k = e.target.closest('[data-pc-pkg]'); if (k){
@@ -220,14 +220,14 @@
       var q = E.quote({ date: x.d, start: x.s, end: x.e, people: x.p, purpose: x.pu, options: x.o, regular: x.regular });
       var parts = [q.pkg ? q.pkg.label + ' ' + man(q.pkg.price) : '공간료 ' + man(q.spaceFee)];
       if (q.peopleFee) parts.push('인원 추가 ' + man(q.peopleFee)); q.options.forEach(function(o){ parts.push(o.label + ' ' + man(o.amount)); });
-      return '<button type="button" class="ex-card' + (x.peak ? ' is-peak' : '') + '" data-d="' + x.d + '" data-s="' + x.s + '" data-e="' + x.e + '" data-p="' + x.p + '" data-pu="' + x.pu + '" data-o="' + esc(Object.keys(x.o || {}).join(',')) + '" data-regular="' + (x.regular ? 1 : 0) + '"><div class="eyebrow">' + esc(E.kdate(x.d)) + ' · ' + esc(q.colLabel) + ' 요금' + (q.peak && q.peopleBase > D.people.base ? ' · ' + q.peopleBase + '명 포함' : '') + '</div><b>' + esc(x.t) + '</b><span class="ex-when">' + esc(q.range) + '</span><ul>' + parts.map(function(p){ return '<li>' + esc(p) + '</li>'; }).join('') + '</ul><div class="ex-total">' + esc(man(q.total)) + '<small>' + (x.regular ? ' 1회 기준 · 정기 할인 별도' : '') + '</small></div><span class="go">이 조건으로 금액 확인 →</span></button>';
+      return '<button type="button" class="ex-card' + (x.peak ? ' is-peak' : '') + '" data-d="' + x.d + '" data-s="' + x.s + '" data-e="' + x.e + '" data-p="' + x.p + '" data-pu="' + x.pu + '" data-o="' + esc(Object.keys(x.o || {}).join(',')) + '" data-regular="' + (x.regular ? 1 : 0) + '"><div class="eyebrow">' + esc(E.kdate(x.d)) + ' · ' + esc(q.colLabel) + ' 요금' + (q.peak && q.peopleBase > D.people.base ? ' · ' + q.peopleBase + '명 포함' : '') + '</div><b>' + esc(x.t) + '</b><span class="ex-when">' + esc(q.range) + '</span><ul>' + parts.map(function(p){ return '<li>' + esc(p) + '</li>'; }).join('') + '</ul><div class="ex-total">' + esc(man(q.total)) + '<small>' + (x.regular ? ' 1회 기준 · 정기 할인 별도' : '') + '</small></div><span class="go">이 조건으로 예약/견적 문의 →</span></button>';
     }).join('');
     el.innerHTML = '<div class="ex-grid">' + ex + '</div><p class="tiny muted mt-2">' + esc(D.version.split(' · ')[0]) + '으로 계산한 예시입니다. 옵션과 인원을 바꾸면 금액이 달라지니 계산기에서 조건을 직접 넣어 보세요. 성수기 예시는 그날의 성수기 요금과 포함 인원으로 계산했습니다.</p>';
     el.addEventListener('click', function(e){ var b = e.target.closest('.ex-card'); if (!b) return; var est = M.pricing.estimator; if (est){ est.set({ date: b.dataset.d, start: +b.dataset.s, end: +b.dataset.e, people: +b.dataset.p, purpose: b.dataset.pu, options: b.dataset.o ? b.dataset.o.split(',') : [], regular: b.dataset.regular === '1' }); var box = document.querySelector('[data-price=estimator]'); if (box) box.scrollIntoView({ behavior: 'smooth', block: 'start' }); } });
   };
 
   /* =====================================================================
-     예약 신청 · 금액 확인 (계산기 + 예약 신청을 한 화면에)
+     예약/견적 문의 (계산기 + 예약 신청을 한 화면에)
      ① 시간(패키지 버튼 포함) → ② 이용일 → ③ 인원 → (선택) 옵션 → 금액 → 예약신청하기 → 이름·연락처 → 접수
      ===================================================================== */
   function defaultDate(){ var d = E.addDays(E.todayIso(), 14); return D.opening && D.opening > d ? D.opening : d; }   // 오픈 전 공간은 오픈일이 기본 이용일
@@ -271,7 +271,7 @@
 
     el.innerHTML = ''
       + '<div class="rv"><div class="rv-form">'
-      + '<div class="rv-head"><div><div class="eyebrow">Reserve</div><h3>예약 신청 · 금액 확인</h3></div><p class="small muted">시간 · 날짜 · 인원만 고르면 금액이 바로 나옵니다. 그대로 예약을 신청하면 담당자가 일정을 확인하고 결제를 안내해 드립니다.</p></div>'
+      + '<div class="rv-head"><div><div class="eyebrow">Reserve</div><h3>예약/견적 문의</h3></div><p class="small muted">시간 · 날짜 · 인원만 고르면 금액이 바로 나옵니다. 그대로 예약을 신청하면 담당자가 일정을 확인하고 결제를 안내해 드립니다.</p></div>'
       + (retiredLink ? '<p class="plan-attention hint" role="status">종일 대관 할인 접수가 종료되었습니다. 현재 이용 가능한 시간이나 패키지를 선택해 주세요.</p>' : '')
       + (PLAN?'<nav class="plan-service-links" aria-label="행사 준비 단계"><a href="#event-food">식음료 더하기 ↓</a><a href="#event-visit">답사 신청 ↓</a></nav>':'')
       // ① 시간
@@ -707,7 +707,7 @@
       if (ui.R[key]) ui.R[key](el, el.dataset.opt);
     });
   }
-  // 자리의 공간을 바꿔 다시 그립니다 (예약 신청 화면의 1호·2호 선택). 자리를 새 요소로 바꿔 이전 공간의 이벤트 처리기를 떼어 내므로, 돌려주는 요소를 다시 잡아 써야 합니다.
+  // 자리의 공간을 바꿔 다시 그립니다 (예약/견적 문의 화면의 1호·2호 선택). 자리를 새 요소로 바꿔 이전 공간의 이벤트 처리기를 떼어 내므로, 돌려주는 요소를 다시 잡아 써야 합니다.
   function rerender(el, spaceId){
     if (!el || !el.parentNode) return null;
     if(M.eventPlan && M.pricing.estimator && M.pricing.estimator.draft) M.eventPlan.keep(M.pricing.estimator.draft());

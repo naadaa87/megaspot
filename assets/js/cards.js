@@ -35,7 +35,7 @@
       + '</div>'
       + (s.price&&s.price.surcharge?'<p class="small muted mt-1">평소 월–목 아침 기준 · 시간당 '+M.fmtNum(s.price.from)+'원 + 1건당 기본료 '+M.fmtNum(s.price.surcharge)+'원 별도 · 1시간 총 '+M.fmtNum(s.price.minTotal)+'원부터. 인원 추가·옵션·보증금 별도.</p>':'')
       + '<div class="tags mt-2">'+feats+'</div>'
-      + '<div class="foot"><span class="muted">'+purs+'</span><span style="font-weight:700;color:var(--cobalt)">자세히 보기 →</span></div>'
+      + '<div class="foot"><span class="muted">'+purs+'</span><span style="font-weight:700;color:var(--cobalt)">공간 둘러보기 →</span></div>'
       + '</div></a>';
   };
 
@@ -53,7 +53,7 @@
       + (l.summary ? '<p class="mt-1 small muted">'+esc(l.summary)+'</p>' : '')
       + '<div class="specs">'+(l.area?'<span><b>'+esc(l.area)+'</b>평</span>':'')+(l.capacity?'<span>최대 <b>'+esc(l.capacity)+'</b>명</span>':'')+(l.price_note?'<span class="price">'+esc(l.price_note)+'</span>':'')+'</div>'
       + '<div class="tags mt-2">'+feats+'</div>'
-      + '<div class="foot"><span class="muted">'+(purs||'조건 확인 후 견적')+'</span><span style="font-weight:700;color:var(--cobalt)">자세히 보기 →</span></div>'
+      + '<div class="foot"><span class="muted">'+(purs||'조건 확인 후 견적')+'</span><span style="font-weight:700;color:var(--cobalt)">공간 둘러보기 →</span></div>'
       + '</div></a>';
   };
 

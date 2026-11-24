@@ -1,0 +1,6 @@
+{
+  "reception/index.html": {
+    "note": "출장 케이터링 화면은 상담 전화(data-phone 링크)만 다릅니다. 꼬리말 사업자 정보의 대표 전화는 그대로 둡니다.",
+    "replace": [["href=\"tel:01023849580\" data-phone", "href=\"tel:01085401886\" data-phone"], ["data-phone>010-2384-9580<", "data-phone>010-8540-1886<"]]
+  }
+}

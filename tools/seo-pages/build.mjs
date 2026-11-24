@@ -140,7 +140,7 @@ function directCard(SP, id) {
     + `<div class="loc">${esc(c.loc)}</div><p class="mt-1 small muted">${esc(c.text)}</p>`
     + `<div class="specs"><span><b>${s.area.pyeong}</b>평</span><span>최대 <b>${s.capacity.max}</b>명</span>${s.parking && s.parking.spaces ? `<span>주차 최대 <b>${s.parking.spaces}</b>대</span>` : ''}</div>`
     + `<div class="tags mt-2">${(s.features || []).slice(0, 4).map(f => `<span class="tag">${esc(SP.feat[f] || f)}</span>`).join('')}</div>`
-    + `<div class="foot"><span class="muted">${esc(c.foot)}</span><span style="font-weight:700;color:var(--cobalt)">자세히 보기 →</span></div></div></a>`;
+    + `<div class="foot"><span class="muted">${esc(c.foot)}</span><span style="font-weight:700;color:var(--cobalt)">공간 둘러보기 →</span></div></div></a>`;
 }
 function hubList(SP, h, heading, lead) {
   const items = h.direct.map(id => SP.list.find(x => x.id === id));
@@ -262,13 +262,13 @@ function renderHubIndex(S, SP) {
 <section class="section" id="by-size">
   <div class="container">
     <div class="pf-sec-head"><div class="eyebrow">01 · By headcount</div><h2 class="h-l mt-1">몇 명이 모이나요</h2><p class="lead">가까운 인원을 고르면 그 인원 이상을 받는 공간만 나옵니다. 정확한 인원으로 찾으려면 공간 검색에 인원을 넣어 보세요.</p></div>
-    <div class="hub-tiles">${I.sizeTiles.map(([slug, n, b, t]) => `<a class="hub-tile" href="${hubPath(slug)}"><span class="n">${n}<small>명+</small></span><b>${esc(b)}</b><span>${esc(t)}</span><em>공간 보기 →</em></a>`).join('')}</div>
+    <div class="hub-tiles">${I.sizeTiles.map(([slug, n, b, t]) => `<a class="hub-tile" href="${hubPath(slug)}"><span class="n">${n}<small>명+</small></span><b>${esc(b)}</b><span>${esc(t)}</span><em>공간 둘러보기 →</em></a>`).join('')}</div>
   </div>
 </section>
 <section class="section sec-white sec-line" id="by-purpose">
   <div class="container">
     <div class="pf-sec-head"><div class="eyebrow">02 · By purpose</div><h2 class="h-l mt-1">어떤 모임인가요</h2><p class="lead">같은 인원이라도 파티와 세미나는 봐야 할 조건이 다릅니다. 목적별로 확인할 것을 함께 정리했습니다.</p></div>
-    <div class="hub-tiles words">${I.purposeTiles.map(([slug, b, t]) => `<a class="hub-tile" href="${hubPath(slug)}"><b>${esc(b)}</b><span>${esc(t)}</span><em>공간 보기 →</em></a>`).join('')}</div>
+    <div class="hub-tiles words">${I.purposeTiles.map(([slug, b, t]) => `<a class="hub-tile" href="${hubPath(slug)}"><b>${esc(b)}</b><span>${esc(t)}</span><em>공간 둘러보기 →</em></a>`).join('')}</div>
   </div>
 </section>
 ${list.html.replace('01 · Spaces', '03 · Spaces')}

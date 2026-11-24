@@ -319,7 +319,7 @@
       { title:'우리 공간도 여기에 올리고 싶다면', sub:'50명 이상 모일 수 있거나 50평 이상인 공간이면 입점할 수 있습니다. 결제 수수료는 없습니다.', cta:'입점 안내 보기', href:'/host/', image:'/assets/img/gundae2/m/r24.jpg', theme:'rust' },
       { title:'함께할 사람을 모으는 중인가요', sub:'세미나·네트워킹·동호회 모임을 올리고 참가 신청을 받아 보세요.', cta:'모임 등록하기', href:'/meetups/new/', image:'/assets/img/scenes/m/s13.jpg', theme:'cobalt' }],
     'content-bottom':[
-      { title:'건대입구 190평 · 400평, 메가스팟 건대 1호·2호', sub:'20명 소모임부터 350명 행사까지. 날짜·시간·인원을 넣으면 요금표 그대로 금액이 나옵니다.', cta:'금액 확인하기', href:'/inquiry/', image:'/assets/img/views/m/v01.jpg', theme:'graphite' },
+      { title:'건대입구 190평 · 400평, 메가스팟 건대 1호·2호', sub:'20명 소모임부터 350명 행사까지. 날짜·시간·인원을 넣으면 요금표 그대로 금액이 나옵니다.', cta:'예약/견적 문의', href:'/inquiry/', image:'/assets/img/views/m/v01.jpg', theme:'graphite' },
       { title:'400평 메가스팟 건대 2호', sub:'최대 350명 · 송년회·시상식·대규모 세미나 · 1호와 같은 층', cta:'2호 보기', href:'/spaces/megaspot-gundae-2/', image:'/assets/img/gundae2/m/r28-matte-black.jpg', theme:'cobalt' }]
   };
   var adsReq=null, adSeen={}, adQueue=[], adTimer=null, adIO=null;
@@ -373,14 +373,14 @@
 
   /* ---------- 모바일 빠른 연락 바 + 맨 위로 ---------- */
   // 작은 화면에서 화면 아래에 전화·카카오톡·예약 신청 버튼을 고정해 둡니다.
-  // 계산기(예약 신청 화면)가 보이는 동안과 주문·회원·관리자 화면에서는 보이지 않습니다.
+  // 계산기(예약/견적 문의 화면)가 보이는 동안과 주문·회원·관리자 화면에서는 보이지 않습니다.
   function initQuickBar(){
-    var skip=/^\/(admin|order|login|signup|mypage|confirm)\//.test(location.pathname) || /^\/meetups\/(manage|new|view)\//.test(location.pathname) || /^\/spaces\/listing\//.test(location.pathname) || /^\/host\/register\//.test(location.pathname) || document.body.classList.contains('page-admin') || document.body.classList.contains('page-inquiry');
+    var skip=/^\/(admin|order|login|signup|mypage|confirm|my-booking)\//.test(location.pathname) || /^\/meetups\/(manage|new|view)\//.test(location.pathname) || /^\/spaces\/listing\//.test(location.pathname) || /^\/host\/register\//.test(location.pathname) || document.body.classList.contains('page-admin') || document.body.classList.contains('page-inquiry');
     if(!skip){
       var bar=document.createElement('nav'); bar.className='quick-bar'; bar.setAttribute('aria-label','빠른 연락');
       bar.innerHTML='<a class="qb-call" href="tel:'+CONFIG.phone.replace(/-/g,'')+'"><span class="qb-ico" aria-hidden="true">☎</span>전화</a>'
         +(CONFIG.kakaoChannel?'<a class="qb-kakao" href="'+esc(CONFIG.kakaoChannel)+'" target="_blank" rel="noopener"><svg class="ico-talk" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3.2C6.6 3.2 2.3 6.6 2.3 10.9c0 2.7 1.8 5.1 4.5 6.5l-.9 3.4c-.1.3.3.6.6.4l4-2.6c.5.1 1 .1 1.5.1 5.4 0 9.7-3.4 9.7-7.8S17.4 3.2 12 3.2z"/></svg>카카오톡</a>':'')
-        +'<a class="qb-main" href="'+(document.querySelector('#cat-calc')?'#calc':document.querySelector('#cocktail-calc')?'#calc':document.querySelector('#reception-calc')?'#calc':document.querySelector('[data-price=estimator]')?'#estimate':'/inquiry/')+'">예약신청·금액확인 <span class="arrow">→</span></a>';
+        +(function(){ var food=document.querySelector('#cat-calc,#cocktail-calc,#reception-calc'); return '<a class="qb-main" href="'+(food?'#calc':document.querySelector('[data-price=estimator]')?'#estimate':'/inquiry/')+'">'+(food?'식음료 문의':'예약/견적 문의')+' <span class="arrow">→</span></a>'; })();
       document.body.appendChild(bar); document.body.classList.add('has-quick-bar');
       var est=document.querySelector('[data-price=estimator]');
       if(est && 'IntersectionObserver' in window){ new IntersectionObserver(function(en){ bar.classList.toggle('off', en[0].isIntersecting); }, { rootMargin:'0px 0px -40% 0px' }).observe(est); }

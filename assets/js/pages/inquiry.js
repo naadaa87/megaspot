@@ -1,4 +1,4 @@
-/* 예약 신청 · 금액 확인 페이지
+/* 예약/견적 문의 페이지
    - 위쪽: 계산기 + 예약 신청(pricing-ui-v3.2.js 가 [data-price=estimator] 를 그립니다)
      ?date= ?start= ?end= ?pkg=day|allday|allnight ?people= ?purpose= ?reserve=1 로 값을 미리 넣을 수 있습니다.
    - 아래쪽: 정기·반복 모임 / 제휴·협력 / 조건에 맞는 공간 찾기 간단 문의 (?type=regular|partner, ?mode=request 로 열면 그쪽으로 이동) */

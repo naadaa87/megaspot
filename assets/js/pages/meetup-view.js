@@ -17,7 +17,7 @@
 
   function venueBlock(x){
     var sp=spaceOf(x.venue);
-    if(sp) return '<section class="mv-sec"><h2>장소</h2><a class="mv-venue" href="/spaces/'+esc(sp.slug)+'/"><img src="'+M.imgSrc(sp.cover,'t')+'" alt="" loading="lazy"><span><b>'+esc(sp.name)+'</b><small>'+esc(sp.addressShort||sp.address||'')+'</small><small>'+esc(sp.area.pyeong)+'평 · 최대 '+esc(sp.capacity.max)+'명'+'</small></span><span class="go">공간 보기 →</span></a>'
+    if(sp) return '<section class="mv-sec"><h2>장소</h2><a class="mv-venue" href="/spaces/'+esc(sp.slug)+'/"><img src="'+M.imgSrc(sp.cover,'t')+'" alt="" loading="lazy"><span><b>'+esc(sp.name)+'</b><small>'+esc(sp.addressShort||sp.address||'')+'</small><small>'+esc(sp.area.pyeong)+'평 · 최대 '+esc(sp.capacity.max)+'명'+'</small></span><span class="go">공간 둘러보기 →</span></a>'
       +'<p class="small muted mt-2">서울 광진구 화양동 10-1 한아름건물 2층 · 지하철 2·7호선 건대입구역 인근 · 차를 가져오신다면 <a href="/parking/" style="text-decoration:underline">주차 안내</a>를 먼저 확인해 주세요.</p></section>';
     if(x.venue==='tbd') return '<section class="mv-sec"><h2>장소</h2><p>메가스팟 건대 1호(190평·최대 200명) 또는 건대 2호(400평·최대 350명)에서 열 예정입니다. 신청 인원을 보고 주최자가 정하며, 정해지면 이 페이지의 공지로 알려 드립니다.</p><div class="row mt-2" style="gap:8px"><a class="btn btn-light btn-sm" href="/spaces/megaspot-gundae/">건대 1호 보기</a><a class="btn btn-light btn-sm" href="/spaces/megaspot-gundae-2/">건대 2호 보기</a></div></section>';
     return '<section class="mv-sec"><h2>장소</h2><p><b>'+esc(x.venue_text||'다른 장소')+'</b></p><p class="small muted mt-1">메가스팟이 운영하지 않는 장소입니다. 장소 정보는 주최자가 적은 내용이니 자세한 위치는 주최자 공지나 문의 링크로 확인해 주세요.</p></section>';

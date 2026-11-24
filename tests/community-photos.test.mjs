@@ -184,6 +184,6 @@ test('글쓰기 화면이 사진 칸과 크게 보기를 갖고, 사진 주소 �
   const js = read('assets/js/pages/community.js');
   for (const s of ["api('photos',{ method:'POST'", 'o.photos=photos.ids()', 'function lightbox(', "accept=\"image/*\" multiple", 'name="cover_url"', 'imageOrientation']) assert.ok(js.includes(s), s);
   for (const page of ['community/write/index.html', 'community/groups/view/index.html', 'community/groups/index.html'])
-    assert.match(read(page), /community\.js\?v=20261123ph1/, page);
+    assert.match(read(page), /community\.js\?v=[0-9a-f]{12}"/, page);   // 판 번호는 tools/asset-version.mjs 가 파일 내용에 맞춤
   assert.match(read('functions/api/_middleware.js'), /\/api\/community\/photo\//);
 });

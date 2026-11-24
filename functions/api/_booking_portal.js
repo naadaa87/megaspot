@@ -4,7 +4,7 @@ import {trialPortalResponse} from './_booking_journey_trial.js';
 import {settlementFor} from './_settlement.js';
 import {paymentSchedule} from './_booking_payment_schedule.js';
 import {json,err,now,str,sha256,randomToken,readJson,log} from './_lib.js';
-import {parseDoc,publicDoc,maskPhone,SPACES} from './_confirm.js';
+import {parseDoc,publicDoc,maskPhone,SPACES,confirmToken} from './_confirm.js';
 import {keyReady,seal,unseal,eventTime,refundDate,refundBooking,refundAdmin,refundCustomer} from './_deposit_refunds.js';
 
 const DAY=86400000,valid=b=>b&&Object.hasOwn(SPACES,b.space_id)&&['confirmed','completed'].includes(b.status);
@@ -109,7 +109,7 @@ export async function portalCustomer({env,request,path}){
   const settlement=showAmount?await settlementFor(env,b.booking_code):null,schedule=await paymentSchedule(env,b);
   const payment={amount_visible:showAmount,total:settlement?.amount??null,received:settlement?.received??null,refunded:settlement?.refunded??null,paid:settlement?.net??null,balance:settlement?.balance??null,refund_due:settlement?.refund_due??null,due_date:schedule.due_date,complete:!!settlement&&settlement.amount!=null&&settlement.balance===0&&!settlement.over_refunded};
   if(showAmount&&payment.balance>0)payment.bank={name:'하나은행',account:'298-910064-39104',holder:'주식회사 블랭크'};
-  return json({ok:true,payment,booking:{code:b.booking_code,name:b.customer_name,phone:maskPhone(b.phone),space:SPACES[b.space_id],date:b.date,start_h:end?.hours[0]??null,end_h:end?.hours[1]??null,headcount:b.headcount,status:b.status,ended:!!end&&end.end<=Date.now(),updated_at:b.updated_at||b.created_at},confirmation:issued?publicDoc(b,doc):null,deposit,arrival:arrival(b)});
+  return json({ok:true,payment,booking:{code:b.booking_code,name:b.customer_name,phone:maskPhone(b.phone),space:SPACES[b.space_id],date:b.date,start_h:end?.hours[0]??null,end_h:end?.hours[1]??null,headcount:b.headcount,status:b.status,ended:!!end&&end.end<=Date.now(),updated_at:b.updated_at||b.created_at},confirmation:issued?publicDoc(b,doc):null,deposit,arrival:arrival(b),my_booking_url:'/my-booking/#c='+encodeURIComponent(b.booking_code)+'&k='+encodeURIComponent(await confirmToken(env,b.booking_code))});
  }
  if(path==='account'&&['GET','POST'].includes(request.method)){
   if(!account.available)return err(account.purged?'계좌 보유기간이 종료되었습니다. 운영팀에 문의해 주세요.':'현재 환급 계좌를 등록할 수 없습니다. 운영팀에 문의해 주세요.',409,'ACCOUNT_UNAVAILABLE');

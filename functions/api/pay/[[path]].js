@@ -90,7 +90,7 @@ export function buildOrder(input) {
     if (Date.parse(event_date + 'T00:00:00+09:00') + p.start * 36e5 <= Date.now())
       return { error: '이미 시작한 패키지는 온라인으로 구매할 수 없습니다. 다른 날짜를 고르거나 운영팀에 이용 시간을 문의해 주세요.', code: 'PACKAGE_STARTED' };
     const pk = peakOf(event_date);
-    if (pk) return { error: `${kdate(event_date)}은(는) 성수기 요금(${pk.label} 기준${pk.people > P.people.base ? ' · 기준 ' + pk.people + '명 포함' : ''})이 적용되는 날이라 이용권으로 결제할 수 없습니다. '예약 신청 · 금액 확인'에서 그날 금액을 확인하고 신청해 주시면 결제 방법을 안내해 드립니다.`, code: 'PEAK', peak: pk.id };
+    if (pk) return { error: `${kdate(event_date)}은(는) 성수기 요금(${pk.label} 기준${pk.people > P.people.base ? ' · 기준 ' + pk.people + '명 포함' : ''})이 적용되는 날이라 이용권으로 결제할 수 없습니다. '예약/견적 문의'에서 그날 금액을 확인하고 신청해 주시면 결제 방법을 안내해 드립니다.`, code: 'PEAK', peak: pk.id };
     const col = dayCol(event_date), g = P.dayGroups[p.group];
     if (!g.cols.includes(col)) return { error: `${kdate(event_date)}은(는) ${COL_LABEL[col]} 요금이 적용되는 날이라 이 이용권(${g.label})으로 결제할 수 없습니다. 같은 패키지의 ${COL_LABEL[col]} 이용권을 골라 주세요.`, code: 'DAY_MISMATCH', col };
     people = input.people == null || input.people === '' ? P.people.base : Number(input.people);

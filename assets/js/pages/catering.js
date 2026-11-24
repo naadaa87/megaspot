@@ -72,7 +72,7 @@
       + '<tr class="sub"><td>공급가</td><td class="r">' + esc(won(r.supply)) + '</td></tr><tr class="sub"><td>부가세 10%</td><td class="r">' + esc(won(r.vat)) + '</td></tr>'
       + '<tr class="sum"><td><b>합계</b></td><td class="r"><b>' + esc(won(r.total)) + '</b></td></tr></tbody></table>'
       + (r.warn.length ? '<ul class="est-warn">' + r.warn.map(function(w){ return '<li>' + esc(w) + '</li>'; }).join('') + '</ul>' : '')
-      + '<a class="btn btn-primary btn-lg cc-go" href="/inquiry/' + query() + '#reserve" data-act="go">이 구성으로 대관과 함께 신청 <span class="arrow">→</span></a>'
+      + '<a class="btn btn-primary btn-lg cc-go" href="/inquiry/' + query() + '#reserve" data-act="go">이 구성으로 식음료 문의 <span class="arrow">→</span></a>'
       + '<div class="rv-sub"><a class="btn btn-kakao btn-sm" href="' + esc(M.CONFIG.kakaoChannel || '#') + '" target="_blank" rel="noopener" data-act="kakao">카카오톡으로 문의</a><button type="button" class="btn btn-light btn-sm" data-act="copy">내용 복사</button></div>'
       + '<p class="tiny muted mt-2">공간 대관료는 별도입니다. 신청서에 출장뷔페 구성이 함께 담기고, 담당자가 날짜와 메뉴를 확인해 대관료와 함께 안내해 드립니다.</p>';
   }

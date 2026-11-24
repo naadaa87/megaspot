@@ -21,7 +21,7 @@
     var x=EX[id], q=E.quote({ date:x.date, start:x.start, end:x.end, people:x.people, purpose:id, regular:x.regular });
     var parts=[q.pkg ? q.pkg.label+' '+E.man(q.pkg.price) : '공간료 '+E.man(q.spaceFee)]; if(q.peopleFee) parts.push('인원 추가 '+E.man(q.peopleFee));
     var url='/inquiry/';
-    return '<div class="mt-3"><div class="kicker">메가스팟 건대 1호 요금 예시</div><p class="mt-1 small" style="font-weight:600">'+esc(x.title)+' → <b style="color:var(--cobalt);font-size:16px">'+esc(E.man(q.total))+'</b> <span class="muted">('+esc(parts.join(' + '))+')</span></p><a class="tiny" style="color:var(--cobalt);font-weight:700" href="'+url+'">조건 바꿔서 금액 확인·예약 신청 →</a></div>';
+    return '<div class="mt-3"><div class="kicker">메가스팟 건대 1호 요금 예시</div><p class="mt-1 small" style="font-weight:600">'+esc(x.title)+' → <b style="color:var(--cobalt);font-size:16px">'+esc(E.man(q.total))+'</b> <span class="muted">('+esc(parts.join(' + '))+')</span></p><a class="tiny" style="color:var(--cobalt);font-weight:700" href="'+url+'">조건 바꿔서 예약/견적 문의 →</a></div>';
   }
 
   // 목적별 사진 목록: 활용 장면 → 없으면 공간 사진
