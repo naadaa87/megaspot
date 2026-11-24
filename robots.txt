@@ -60,3 +60,5 @@ Disallow: /my-booking/
 
 Sitemap: https://megaspot.kr/sitemap.xml
 Sitemap: https://megaspot.kr/spaces/sitemap.xml
+Sitemap: https://megaspot.kr/community/sitemap.xml
+Sitemap: https://megaspot.kr/meetups/sitemap.xml
