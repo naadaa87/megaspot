@@ -308,7 +308,9 @@ function renderGuide(S, g) {
   const p = guidePath(g.slug), url = SITE + p, c = guideCtx(), headline = text(g.h1), trail = [['행사 준비 가이드', '/event-guide/'], [headline, p]], faq = guideFaq(g, c);
   const body = g.body(c).trim(), toc = [...body.matchAll(/<h2 id="([^"]+)">([^<]+)<\/h2>/g)].map(m => [m[1], m[2]]);
   const hubs = (g.hubs || []).map(slug => { const h = HUBS.find(x => x.slug === slug); if (!h) throw new Error('모음이 없습니다: ' + slug); return h; });
-  const others = GUIDES.filter(x => x.slug !== g.slug && (g.host ? true : !x.host)).slice(0, 3);
+  // 이어서 읽기: 같은 묶음에서 이 글 다음 순서 3개 (앞쪽 글에만 링크가 몰리지 않게 돌아가며 고릅니다)
+  const pool = GUIDES.filter(x => g.host ? true : !x.host), at = pool.findIndex(x => x.slug === g.slug);
+  const others = [1, 2, 3].map(i => pool[(at + i) % pool.length]).filter((x, i, arr) => x && x.slug !== g.slug && arr.indexOf(x) === i);
   const main = `
 <article>
 <header class="hl-hero eg-hero">
@@ -334,6 +336,7 @@ ${faq.length ? `<h2 id="faq">자주 묻는 질문</h2>\n${faqHtml(faq)}` : ''}
     <div class="pf-sec-head${hubs.length ? ' mt-4' : ''}"><div class="eyebrow">Read next</div><h2 class="h-l mt-1">이어서 읽기</h2></div>
     ${guideLinks(others.map(x => x.slug), 'c3')}
     <p class="mt-3"><a class="pf-link" href="/event-guide/">가이드 전체 보기 →</a></p>
+    <p class="mt-2 small muted">${g.host ? '함께 보면 좋은 안내: <a class="pf-link" href="/host/">호스트 입점 안내</a> · <a class="pf-link" href="/host/register/">공간 등록 신청</a> · <a class="pf-link" href="/advertise/">배너 광고 안내</a>' : '함께 보면 좋은 안내: <a class="pf-link" href="/visit/">사전답사 신청</a> · <a class="pf-link" href="/parking/">주차 안내</a> · <a class="pf-link" href="/help/">자주 묻는 질문 검색</a>'}</p>
   </div>
 </section>
 ${g.host ? '' : hostStrip()}`;

@@ -278,7 +278,8 @@ function playHub() {
 
 // 도구 화면 공통 틀
 function toolPage(t, o) {
-  const others = TOOLS.filter(x => x.k !== t.k);
+  // 다른 놀이: 이 도구 다음 순서부터 돌아가며 (앞쪽 도구에만 링크가 몰리지 않게)
+  const at = TOOLS.findIndex(x => x.k === t.k), others = TOOLS.slice(at + 1).concat(TOOLS.slice(0, at));
   return `
 <section class="mv-top">
   <div class="container">
