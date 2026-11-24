@@ -134,3 +134,62 @@ test('화면·검색 차단·연결 링크가 제자리에 있다', () => {
   const js = read('assets/js/pages/my-booking.js');
   assert.ok(!/p:last4/.test(js));
 });
+
+// ---------- 이용일 + 휴대폰 뒷 4자리로 찾기 (2026-11-24) ----------
+import { DAY } from './helpers/admin-fixture.mjs';
+const nextDay = d => new Date(Date.parse(d + 'T00:00:00Z') + 864e5).toISOString().slice(0, 10);
+
+test('예약번호 없이 이용일과 휴대폰 뒷 4자리로 찾는다', async t => {
+  const f = setup(t);
+  const r = await f.call('lookup', { method: 'POST', body: { date: DAY, phone_last4: '5678' } });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.booking.code, 'BK-TEST');
+  assert.equal(r.json.key.k, await confirmToken(f.env, 'BK-TEST'));
+  assert.equal((await f.call('lookup', { method: 'POST', body: { date: DAY, phone_last4: '0000' } })).status, 404);
+  assert.equal((await f.call('lookup', { method: 'POST', body: { date: nextDay(DAY), phone_last4: '5678' } })).status, 404);
+  assert.equal((await f.call('lookup', { method: 'POST', body: { date: '2026-13-40', phone_last4: '5678' } })).status, 400);
+});
+
+test('같은 날 같은 뒷자리 예약이 여럿이면 고르게 하고, 자정 넘어 시작하는 예약은 실제 날짜로도 찾는다', async t => {
+  const f = setup(t);
+  const ins = f.db.prepare("INSERT INTO bookings(booking_code,space_id,inquiry_ref,customer_name,phone,phone_last4,date,headcount,status,start_h,end_h,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)");
+  ins.run('BK-SECOND', 'megaspot-gundae-2', null, '다른 예약', '01055555678', '5678', DAY, 40, 'confirmed', 18, 22, DAY);
+  ins.run('BK-NIGHT', 'megaspot-gundae', null, '밤 예약', '01077771111', '1111', DAY, 40, 'confirmed', 25, 30, DAY);
+  const two = await f.call('lookup', { method: 'POST', body: { date: DAY, phone_last4: '5678' } });
+  assert.equal(two.status, 200);
+  assert.deepEqual(two.json.choose.map(x => x.code).sort(), ['BK-SECOND', 'BK-TEST']);
+  for (const x of two.json.choose) assert.equal(x.k, await confirmToken(f.env, x.code));
+  assert.ok(!JSON.stringify(two.json).includes('01055555678'));
+  const night = await f.call('lookup', { method: 'POST', body: { date: nextDay(DAY), phone_last4: '1111' } });
+  assert.equal(night.json.booking.code, 'BK-NIGHT');
+  const same = await f.call('lookup', { method: 'POST', body: { date: DAY, phone_last4: '1111' } });
+  assert.equal(same.json.booking.code, 'BK-NIGHT');
+});
+
+test('한 날짜에 틀린 시도가 몰리면 그 날짜만 잠시 막고 예약번호로는 계속 찾을 수 있다', async t => {
+  const f = setup(t);
+  for (let i = 0; i < 30; i++) await f.call('lookup', { method: 'POST', body: { date: DAY, phone_last4: String(2000 + i) } });
+  const locked = await f.call('lookup', { method: 'POST', body: { date: DAY, phone_last4: '5678' } });
+  assert.equal(locked.status, 429); assert.equal(locked.json.code, 'DATE_LOCKED');
+  assert.equal((await f.call('lookup', { method: 'POST', body: { booking_code: 'BK-TEST', phone_last4: '5678' } })).status, 200);
+});
+
+// ---------- 증빙 요청 (2026-11-25) ----------
+test('예약 고객이 세금계산서·현금영수증을 요청하고 관리자가 처리 완료로 바꾸면 화면에 안내가 남는다', async t => {
+  const f = setup(t);
+  const r = await f.call('lookup', { method: 'POST', body: { date: DAY, phone_last4: '5678' } });
+  const { c, k } = r.json.key;
+  const before = JSON.stringify(f.db.prepare('SELECT * FROM bookings').all());
+  const post = body => f.call('proof', { method: 'POST', body: { c, k, ...body } });
+  assert.equal((await post({ kind: 'tax_invoice', biz_no: '123', company: 'A', email: 'a@b.kr' })).status, 400);
+  assert.equal((await post({ kind: 'cash_receipt', cash_no: '' })).status, 400);
+  assert.equal((await f.call('proof', { method: 'POST', body: { c, k: 'bad', kind: 'quote' } })).status, 403);
+  const ok = await post({ kind: 'tax_invoice', biz_no: '123-45-67890', company: '테스트컴퍼니', email: 'tax@test.kr', note: '이용료만' });
+  assert.equal(ok.status, 200); assert.equal(ok.json.proofs[0].kind_label, '세금계산서');
+  const list = await f.api('proof-requests?status=requested');
+  assert.equal(list.counts.requested, 1); assert.equal(list.items[0].data.biz_no, '123-45-67890');
+  await f.api('proof-requests/' + list.items[0].id, 'PATCH', { status: 'done', admin_note: '11/25 이메일로 발행했습니다.' });
+  const view = await f.call('view?c=' + c + '&k=' + encodeURIComponent(k));
+  assert.equal(view.json.proofs[0].status, 'done'); assert.equal(view.json.proofs[0].admin_note, '11/25 이메일로 발행했습니다.');
+  assert.equal(JSON.stringify(f.db.prepare('SELECT * FROM bookings').all()), before, '예약 자료는 그대로');
+});

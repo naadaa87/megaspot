@@ -13,6 +13,7 @@ import {
   getCookie, sessionCookies, withCookies, isEmail, clientIp, sameOrigin, getMember, tooMany, hit, clearHits, SESSION_DAYS
 } from '../_lib.js';
 import { withdrawMember as withdrawCommunity } from '../_community.js';
+import { authExtra } from '../_auth_extra.js';   // 카카오 간편 로그인 · 비밀번호 재설정 메일 · 예약 직접 연결 (2026-11-25)
 
 const PW_RULE = '비밀번호는 8자 이상, 영문과 숫자를 함께 넣어 주세요.';
 function pwOk(pw) { return typeof pw === 'string' && pw.length >= 8 && pw.length <= 100 && /[A-Za-z]/.test(pw) && /\d/.test(pw); }
@@ -38,6 +39,7 @@ export async function onRequest({ request, env, params }) {
     if (!(request.headers.get('content-type') || '').includes('application/json')) return err('잘못된 요청 형식입니다.', 415, 'BAD_TYPE');
   }
   try {
+    const extra = await authExtra({ request, env, path, method }); if (extra) return extra;
     // ---- 가입 ----
     if (path === 'signup' && method === 'POST') {
       const ip = clientIp(request);
@@ -126,12 +128,15 @@ export async function onRequest({ request, env, params }) {
     if (path === 'withdraw' && method === 'POST') {
       const d = await readJson(request);
       const row = await env.DB.prepare('SELECT pw_hash FROM members WHERE id = ?').bind(me.id).first();
-      if (!(await verifyPassword(String(d.password || ''), row.pw_hash))) return err('비밀번호가 맞지 않습니다.', 401, 'BAD_PASSWORD');
+      // 카카오로만 가입한 회원(비밀번호 없음)은 '탈퇴'를 입력해 확인합니다 (2026-11-25)
+      const socialOnly = String(row.pw_hash || '').startsWith('social$');
+      if (socialOnly ? String(d.password || '').trim() !== '탈퇴' : !(await verifyPassword(String(d.password || ''), row.pw_hash))) return err(socialOnly ? '확인을 위해 ‘탈퇴’라고 입력해 주세요.' : '비밀번호가 맞지 않습니다.', 401, 'BAD_PASSWORD');
       // 호스트로 등록한 회원은 공간·예약·이용료 정리가 필요해 바로 탈퇴하지 않습니다
       if (await env.DB.prepare('SELECT 1 AS x FROM member_hosts WHERE member_id = ?').bind(me.id).first())
         return err('호스트센터에 등록한 공간이 있어 바로 탈퇴할 수 없습니다. 진행 중인 예약과 이용료를 정리해야 하니 운영팀에 문의해 주세요.', 409, 'HOST_LINKED');
       await env.DB.prepare('DELETE FROM sessions WHERE member_id = ?').bind(me.id).run();
       await env.DB.prepare('DELETE FROM members WHERE id = ?').bind(me.id).run();
+      try { await env.DB.prepare('DELETE FROM member_social WHERE member_id = ?').bind(me.id).run(); await env.DB.prepare('DELETE FROM member_booking_links WHERE member_id = ?').bind(me.id).run(); } catch {}   // 간편 로그인 연결·예약 연결 (예약 자료는 그대로)
       try { await withdrawCommunity(env, me.id); } catch (e) { console.error('community withdraw', e && e.message); }   // 커뮤니티 글·댓글은 내립니다 (기록은 보관 — _retention.js)
       await log(env, 'member.withdrawn', String(me.id), 'member', '');
       return withCookies(json({ ok: true }), sessionCookies('', 0));

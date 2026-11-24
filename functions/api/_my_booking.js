@@ -17,6 +17,7 @@ import { refundBooking, refundDate, eventTime } from './_deposit_refunds.js';
 import { links as inviteLinks, summarize as rsvpSummary } from './_invites.js';
 import { linkOf as contractLink, STATUS as CONTRACT_STATUS } from './_contracts.js';
 import { RENTAL_BANK, DEPOSIT_BANK, bankCopy } from './_business.js';
+import { proofsFor } from './_proof_requests.js';
 
 const STATUS = { confirmed: '예약 확정', completed: '이용 완료', cancelled: '취소된 예약', payment_review: '결제 확인 중' };
 const SPACE_PAGE = { 'megaspot-gundae': '/spaces/megaspot-gundae/', 'megaspot-gundae-2': '/spaces/megaspot-gundae-2/' };
@@ -48,6 +49,7 @@ export async function bookingView(env, code, { today = kstToday() } = {}) {
   const end = eventTime(b);
   const start = realStart(b.date, end ? end.hours[0] : b.start_h);
   const k = await confirmToken(env, b.booking_code);
+  const purpose = b.inquiry_ref ? ((await env.DB.prepare("SELECT json_extract(data, '$.purpose') AS p FROM inquiries WHERE ref = ?").bind(b.inquiry_ref).first().catch(() => null)) || {}).p || '' : '';
   const out = {
     booking: {
       code: b.booking_code, space_id: b.space_id, space: spaceName(b.space_id), space_url: SPACE_PAGE[b.space_id] || '',
@@ -62,11 +64,13 @@ export async function bookingView(env, code, { today = kstToday() } = {}) {
     payment: null, deposit: null, contract: null, invite: null, review: null, food: null,
     links: {
       parking: '/parking/purchase/', parking_guide: '/parking/',
-      rebook: '/inquiry/?' + new URLSearchParams({ ...(SPACE_PAGE[b.space_id] ? { space: b.space_id } : {}), ...(b.headcount ? { people: String(b.headcount) } : {}) }).toString(),
+      rebook: '/inquiry/?' + rebookQuery({ ...b, purpose }, end).toString() + '#reserve',
+      regular: '/inquiry/?' + new URLSearchParams({ type: 'regular', ...Object.fromEntries(rebookQuery({ ...b, purpose }, end)) }).toString() + '#reserve',
       food: '/catering/#food-compare', kit: '/kit/', play: '/play/', guide: '/guide/', help: '/help/'
     }
   };
   if (!live) return out;   // 취소·확인 중인 예약은 상태와 확정서 링크까지만
+  out.proofs = await proofsFor(env, b.booking_code);   // 증빙 요청 (2026-11-25)
 
   // 결제 (확정서에서 금액을 숨긴 예약은 금액을 싣지 않습니다)
   const vis = await env.DB.prepare('SELECT amount_visible, confirmed_at, confirm_version FROM booking_journey_state WHERE booking_code = ?').bind(b.booking_code).first().catch(() => null);
@@ -154,12 +158,36 @@ export async function memberBookings(env, memberId) {
   const { results } = await env.DB.prepare(`SELECT b.booking_code, b.space_id, b.date, b.start_h, b.end_h, b.headcount, b.status FROM bookings b
     WHERE b.inquiry_ref IN (SELECT ref FROM inquiries WHERE json_extract(data, '$.member_id') = ? AND status <> '삭제됨')
        OR b.booking_code IN (SELECT booking_code FROM orders WHERE member_id = ? AND booking_code IS NOT NULL)
-    ORDER BY b.date DESC, b.start_h DESC LIMIT 60`).bind(memberId, memberId).all();
+       OR b.booking_code IN (SELECT booking_code FROM member_booking_links WHERE member_id = ?)
+    ORDER BY b.date DESC, b.start_h DESC LIMIT 60`).bind(memberId, memberId, memberId).all();
   const out = [];
   for (const b of results || []) {
     const s = realStart(b.date, b.start_h);
     out.push({ code: b.booking_code, space: spaceName(b.space_id), date: b.date, start_date: s.date, start_h: b.start_h, end_h: b.end_h, headcount: b.headcount, status: b.status, status_label: STATUS[b.status] || b.status, k: await confirmToken(env, b.booking_code) });
   }
+  return out;
+}
+
+// 다시 예약 — 지난번과 같은 공간·인원·시간·목적으로 금액 화면을 엽니다 (날짜만 새로 고르면 됨) (2026-11-25)
+function rebookQuery(b, end) {
+  const q = new URLSearchParams();
+  if (SPACE_PAGE[b.space_id]) q.set('space', b.space_id);
+  if (b.headcount) q.set('people', String(b.headcount));
+  const sh = end ? end.hours[0] : b.start_h, eh = end ? end.hours[1] : b.end_h;
+  if (Number.isFinite(+sh) && Number.isFinite(+eh) && sh !== null && eh !== null && +eh > +sh) { q.set('start', String(sh)); q.set('end', String(eh)); }
+  if (b.purpose) q.set('purpose', b.purpose);
+  return q;
+}
+
+// 이용일 + 휴대폰 뒷 4자리로 찾기 — 자정을 넘겨 시작하는 예약(24시 이후 시작)은 실제 날짜로도 찾습니다
+export async function findByDate(env, date, last4) {
+  const prev = new Date(Date.parse(date + 'T00:00:00Z') - 864e5).toISOString().slice(0, 10);
+  const { results } = await env.DB.prepare('SELECT booking_code, space_id, date, start_h, end_h, status, phone_last4 FROM bookings WHERE phone_last4 = ? AND date IN (?, ?) ORDER BY start_h, id LIMIT 20').bind(last4, date, prev).all();
+  return (results || []).filter(b => b.phone_last4 === last4 && (b.date === date || realStart(b.date, b.start_h).date === date));
+}
+export async function chooseList(env, rows) {
+  const out = [];
+  for (const b of rows) out.push({ code: b.booking_code, space: spaceName(b.space_id), date: b.date, start_h: b.start_h, end_h: b.end_h, status: b.status, status_label: STATUS[b.status] || b.status, k: await confirmToken(env, b.booking_code) });
   return out;
 }
 

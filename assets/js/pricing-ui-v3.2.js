@@ -460,7 +460,8 @@
       var cp = !PLAN && CC && CC.preset(), cq = cp && (cp.course || cp.bbq || cp.beer || cp.soju) ? CC.quote(cp) : null;
       out('body').innerHTML = (cq && !cq.empty ? '<p class="rv-cat-note"><span class="badge badge-direct">출장뷔페</span> ' + esc(CC.parts(cq)) + ' · 예상 ' + esc(won(cq.total)) + ' <small class="muted">부가세 포함 · 대관료와 별도 · 예약 신청서에 함께 담깁니다</small></p>' : '')
         + '<button type="button" class="btn btn-primary btn-lg rv-go" data-act="reserve">이 구성으로 예약 상담 <span class="arrow">→</span></button>'
-        + '<div class="rv-sub"><button type="button" class="btn btn-light btn-sm" data-act="pdf">전체 견적서 저장</button>' + (KAKAO ? '<a class="btn btn-kakao btn-sm" data-act="kakao" href="' + esc(KAKAO) + '" target="_blank" rel="noopener">카카오톡으로 문의</a>' : '') + '</div>'
+        + '<div class="rv-sub"><button type="button" class="btn btn-light btn-sm" data-act="pdf">전체 견적서 저장</button><button type="button" class="btn btn-light btn-sm" data-act="share">견적 링크 공유</button>' + (KAKAO ? '<a class="btn btn-kakao btn-sm" data-act="kakao" href="' + esc(KAKAO) + '" target="_blank" rel="noopener">카카오톡으로 문의</a>' : '') + '</div>'
+        + '<p class="rv-docs tiny muted">품의 자료 한 번에: <button type="button" class="linkish" data-act="pdf">견적서 PDF</button>' + (SPACE_ID === 'megaspot-gundae' ? ' · <a href="/assets/docs/megaspot-gundae-floorplan-v01.pdf" target="_blank" rel="noopener">실측 평면도 PDF</a>' : '') + ' · <a href="/assets/docs/megaspot-catering-guide.pdf" target="_blank" rel="noopener">출장뷔페 안내 PDF</a> · <a href="/assets/docs/megaspot-drinks-guide.pdf" target="_blank" rel="noopener">음료 안내 PDF</a></p>'
         + '<p class="tiny muted mt-2">' + (ON_INQUIRY ? '' : '예약/견적 문의 화면에서 지금 고른 조건 그대로 이어서 신청합니다. ') + '예약 신청은 결제가 아닙니다. 담당자가 일정을 확인한 뒤 확정 금액과 결제 방법을 안내드리고, 결제가 끝나면 예약이 확정됩니다.</p>'
         + (D.specialNote ? '<p class="rv-special"><span class="badge badge-rust">추가 협찬 · 할인</span>' + esc(D.specialNote) + '</p>' : '');
       paintAvailability();
@@ -601,10 +602,25 @@
       if (!last) calc();
       var text = done ? reserveText(done.r, done.who) : (last.plan&&last.plan.unknownDate?NAME+' · 행사 일정 상담 후 결정':E.summaryText(last, purLabel(last.purpose)));
       if(PLAN && last && last.plan) text+='\n\n'+last.plan.text;
+      if (act === 'share'){ shareLink(); return; }
       if (act === 'copy'){ copyText(text, '내용을 복사했습니다.'); }
       if (act === 'kakao'){ copyText(text, '내용을 복사했습니다. 카카오톡 채팅창에 붙여 넣어 보내 주세요.'); }
       if (act === 'pdf'){ printQuote(done ? done.r : last); }
     });
+    // 견적 링크 — 같은 조건으로 계산기가 열리는 주소 (2026-11-25). 받은 사람은 예약/견적 문의 화면에서 그대로 보고 이어서 신청할 수 있습니다.
+    function shareUrl(){
+      var r = last || calc(), q = { space: SPACE_ID };
+      if (!dateUnknown()) q.date = st.date;
+      q.start = String(st.start); q.end = String(st.end); q.people = String(st.requestedPeople || st.people);
+      if (st.purpose) q.purpose = st.purpose; if (st.regular) q.type = 'regular';
+      var o = ['manager', 'cleaning', 'disposable', 'banner', 'xbanner'].filter(function(k){ return st.opt[k]; }); if (o.length) q.opts = o.join(',');
+      return location.origin + '/inquiry/?' + new URLSearchParams(q).toString() + '#reserve';
+    }
+    function shareLink(){
+      var url = shareUrl(), r = last || calc(), title = NAME + ' 예상 견적', text = NAME + ' · ' + (dateUnknown() ? '날짜 미정' : st.date) + ' ' + st.start + '–' + st.end + '시 · ' + (st.requestedPeople || st.people) + '명' + (r && r.total ? ' · 예상 ' + won(r.total) : '');
+      if (navigator.share && window.matchMedia('(max-width:959px)').matches) navigator.share({ title: title, text: text, url: url }).catch(function(){});
+      else copyText(text + '\n' + url, '견적 링크를 복사했습니다. 받은 분이 열면 같은 조건으로 금액이 보입니다.');
+    }
     function copyText(text, msg){ (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(function(){ M.toast(msg); }).catch(function(){ window.prompt('아래 내용을 복사해 주세요.', text); }); }
     if (M.account && M.account.loggedIn()) M.account.me().then(function(m){ member = m; if (phase === 'form') fillMember(m); });
 
@@ -637,6 +653,7 @@
     if(PLAN){ PLAN.bind(el,calc,function(){return st.people;}); if(q0.opt) Object.keys(q0.opt).forEach(function(k){var x=f(k);if(x){if(x.type==='checkbox')x.checked=!!q0.opt[k];else x.value=q0.opt[k];}}); planFormDraft=PLAN.formDraft(); }
     setHours(st.start, st.end);
     calc();
+    if (q0.opts) api.set({ options: String(q0.opts).split(',').filter(function(k){ return /^(manager|cleaning|disposable|banner|xbanner)$/.test(k); }) });   // 견적 링크로 받은 옵션
     if (!retiredLink && initialPackage !== 'full-day' && q0.reserve === '1') api.reserve();
     return api;
   }

@@ -3072,3 +3072,72 @@ body :is(.card,.space-card,.prod-card,.purpose-card,.gq-card,.food-compare a,.ho
 .pp-both-links a:hover{border-color:var(--cobalt)}
 .pp-both-links a:hover b{color:var(--cobalt)}
 @media (max-width:899px){.pp-both-grid{grid-template-columns:1fr}}
+/* 견적 링크 공유 · 품의 자료 (2026-11-25) */
+.rv-docs{margin:10px 0 0;line-height:1.7}
+.rv-docs a,.rv-docs .linkish{color:var(--cobalt);font-weight:700;text-decoration:underline;text-underline-offset:2px}
+/* 공간 상세: 한눈에 보기 (2026-11-25) */
+.sp-sum-sec{background:#fff;padding:8px 0 28px}
+.sp-sum{border:1px solid var(--concrete-2);border-top:4px solid var(--cobalt);border-radius:var(--radius-lg);padding:20px;background:#fff}
+.sp-sum-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.sp-sum-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 20px;margin:14px 0 0}
+.sp-sum-facts div{display:grid;gap:2px;padding:10px 0;border-bottom:1px dashed var(--concrete-2)}
+.sp-sum-facts dt{font-size:12px;color:var(--ink-3);font-weight:700}
+.sp-sum-facts dd{margin:0;font-weight:800;font-size:15.5px;color:var(--ink)}
+.sp-sum-facts dd small{display:block;font-weight:500;font-size:12.5px;color:var(--ink-2);margin-top:2px}
+.sp-sum-go{display:flex;flex-wrap:wrap;gap:6px;margin-top:16px}
+.sp-sum-go a{padding:7px 12px;border-radius:999px;border:1px solid var(--concrete);background:#fff;font-size:13.5px;font-weight:700;color:var(--ink);text-decoration:none}
+.sp-sum-go a:hover{border-color:var(--cobalt);color:var(--cobalt)}
+.sp-sum-go a[href^="/visit/"]{background:var(--cobalt-soft);border-color:var(--cobalt-soft);color:var(--cobalt-2)}
+@media (max-width:899px){.sp-sum-facts{grid-template-columns:1fr 1fr}}
+@media (max-width:539px){.sp-sum{padding:14px}.sp-sum-facts{grid-template-columns:1fr 1fr;gap:0 12px}.sp-sum-facts div{padding:8px 0}.sp-sum-facts dd{font-size:14px}.sp-sum-facts dd small{font-size:11.5px}.sp-sum-go a{font-size:13px;padding:6px 10px}}
+/* 홈: 날짜부터 확인하기 (2026-11-25) */
+.date-first-sec{background:#fff;padding:8px 0 32px}
+.df-card{border:1px solid var(--concrete-2);border-radius:var(--radius-lg);padding:20px;background:#fff;box-shadow:var(--shadow)}
+.df-form{display:grid;grid-template-columns:1.3fr 1fr 1fr .8fr auto;gap:10px;align-items:end;margin-top:14px}
+.df-form .f{display:grid;gap:4px}
+.df-form label{font-size:12px;font-weight:700;color:var(--ink-2)}
+.df-form .btn{height:44px}
+.df-result{margin-top:14px}
+.df-rows{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.df-row{padding:14px 16px;border-radius:var(--radius);border:1px solid var(--concrete-2);border-left:4px solid var(--concrete)}
+.df-row-h{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 10px}
+.df-row-h b{font-size:16px}
+.df-row-h small{color:var(--ink-2);font-size:12.5px}
+.df-row-h em{margin-left:auto;font-style:normal;font-size:12px;font-weight:800;padding:3px 10px;border-radius:999px;background:var(--concrete-2);color:var(--ink-2)}
+.df-ok{border-left-color:var(--ok)} .df-ok .df-row-h em{background:var(--ok-soft);color:var(--ok)}
+.df-no,.df-over{border-left-color:var(--rust)} .df-no .df-row-h em,.df-over .df-row-h em{background:var(--rust-soft);color:var(--rust)}
+.df-ask{border-left-color:var(--warn)} .df-ask .df-row-h em{background:var(--warn-soft);color:var(--warn)}
+.df-price{margin:8px 0 2px;font-size:20px;font-weight:800;color:var(--cobalt)}
+.df-price small{font-size:12px;font-weight:600;color:var(--ink-2)}
+.df-acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+@media (max-width:899px){.df-form{grid-template-columns:1fr 1fr}.df-form .f:first-child{grid-column:1/-1}.df-form .btn{grid-column:1/-1}.df-rows{grid-template-columns:1fr}}
+/* 간편 로그인 · 비밀번호 재설정 · 예약 연결 (2026-11-25) */
+.ax-social{display:grid;gap:12px;margin-bottom:6px}
+.ax-kakao{justify-content:center;gap:8px}
+.ax-or{display:flex;align-items:center;gap:10px;color:var(--ink-3);font-size:12.5px}
+.ax-or::before,.ax-or::after{content:'';flex:1;height:1px;background:var(--concrete)}
+.ax-reset-row{display:flex;gap:6px}
+.ax-reset-row .input{flex:1;min-width:0}
+.ax-link .field-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ax-social-my{padding-top:12px;border-top:1px dashed var(--concrete-2)}
+/* 공간 상세: 편의 정보 (2026-11-25) */
+.am-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 24px;margin:16px 0 0}
+.am-grid div{display:grid;grid-template-columns:110px 1fr;gap:10px;padding:12px 0;border-bottom:1px solid var(--concrete-2)}
+.am-grid dt{font-weight:800;font-size:14px;color:var(--ink)}
+.am-grid dd{margin:0;font-size:14px;color:var(--ink-2);line-height:1.6}
+.am-grid a{color:var(--cobalt);font-weight:700;text-decoration:underline;text-underline-offset:2px}
+@media (max-width:1023px){.am-grid{grid-template-columns:1fr 1fr}}
+@media (max-width:599px){.am-grid{grid-template-columns:1fr}.am-grid div{grid-template-columns:96px 1fr}}
+/* English page (2026-11-25) */
+.en-hero{background:#fff}
+.en-hero .lead{max-width:66ch}
+.en-cta{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.en-spaces{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.en-space img{width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;border-radius:var(--radius)}
+.en-facts{list-style:none;padding:0;margin:10px 0 14px;display:grid;gap:6px;font-size:14.5px}
+.en-facts b{display:inline-block;min-width:76px;color:var(--ink-2)}
+.en-cols{display:grid;grid-template-columns:1fr 1fr;gap:32px}
+.en-list{list-style:disc;padding-left:18px;margin:12px 0;display:grid;gap:8px;font-size:15px;line-height:1.7}
+.en-list a,.en-cols a{color:var(--cobalt);font-weight:700;text-decoration:underline}
+.en-contact{display:flex;justify-content:space-between;gap:20px;align-items:center;flex-wrap:wrap}
+@media (max-width:899px){.en-spaces,.en-cols{grid-template-columns:1fr}}

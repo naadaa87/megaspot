@@ -1258,6 +1258,51 @@ CREATE TABLE IF NOT EXISTS contract_messages (   -- 계약서 카카오톡(알�
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_contract_messages ON contract_messages(contract_id, created_at);
+CREATE TABLE IF NOT EXISTS visit_messages (   -- 사전답사 신청 고객과 운영팀이 주고받은 글 (2026-11-25) · site_visits.id 와 연결
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  visit_id INTEGER NOT NULL,
+  sender TEXT NOT NULL,                -- customer 고객 | admin 운영팀
+  body TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  read_at TEXT                         -- 상대가 읽은 시각
+);
+CREATE INDEX IF NOT EXISTS idx_visit_messages ON visit_messages(visit_id, id);
+CREATE TABLE IF NOT EXISTS member_booking_links (   -- 회원이 이용일·예약번호와 휴대폰 뒷자리로 직접 연결한 예약 (2026-11-25) · 예약 자료는 바꾸지 않음
+  member_id INTEGER NOT NULL,
+  booking_code TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (member_id, booking_code)
+);
+CREATE TABLE IF NOT EXISTS member_social (   -- 간편 로그인 연결 (카카오) (2026-11-25)
+  provider TEXT NOT NULL,              -- kakao
+  sub TEXT NOT NULL,                   -- 제공자 회원 번호
+  member_id INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (provider, sub)
+);
+CREATE INDEX IF NOT EXISTS idx_member_social_member ON member_social(member_id);
+CREATE TABLE IF NOT EXISTS auth_tokens (   -- 비밀번호 재설정 링크 · 간편 로그인 가입 마무리 (한 번 쓰면 끝, 해시만 저장) (2026-11-25)
+  token_hash TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,                  -- reset 비밀번호 재설정 | social 간편 로그인 가입 마무리
+  member_id INTEGER,
+  data TEXT NOT NULL DEFAULT '{}',
+  expires_at TEXT NOT NULL,
+  used_at TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS proof_requests (   -- 예약 고객의 증빙 요청 (세금계산서·현금영수증·견적서 등) (2026-11-25)
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ref TEXT NOT NULL UNIQUE,            -- PR-YYMM-XXXX
+  booking_code TEXT NOT NULL,
+  kind TEXT NOT NULL,                  -- tax_invoice 세금계산서 | cash_receipt 현금영수증 | card_slip 카드 영수증 | quote 견적서·거래명세서 | other 기타
+  data TEXT NOT NULL DEFAULT '{}',     -- 사업자등록번호·상호·받을 이메일·현금영수증 번호·요청 내용
+  status TEXT NOT NULL DEFAULT 'requested',   -- requested 접수 | done 처리 완료 | cancelled 취소
+  admin_note TEXT,                     -- 고객에게 보이는 처리 안내
+  created_at TEXT NOT NULL,
+  updated_at TEXT,
+  done_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_proof_requests_booking ON proof_requests(booking_code, id);
 
 -- ---------- 검색 노출 점검 (2026-11-23 추가) ----------
 CREATE TABLE IF NOT EXISTS crawler_hits (  -- 검색봇 방문 기록 · 날짜와 봇별로 1줄 (네이버 Yeti·구글·빙·다음·AI 검색 봇이 실제로 들어오는지 확인용 · 사람 방문은 기록하지 않음 · 2026-11-23)

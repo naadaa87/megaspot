@@ -1,6 +1,6 @@
 /* 나의 예약확인 (/my-booking/) — 2026-11-24
    예약 한 건에 딸린 화면(예약확정서·계약서·결제·보증금·입실·주차·초대장·식음료·후기·다시 예약)을 한 곳에서.
-   들어오는 문: ① 예약번호 + 휴대폰 뒷 4자리  ② #c=예약번호&k=열쇠 (확정서·예약 안내 화면에서 넘어옴)  ③ 회원 로그인(#mine=예약번호)
+   들어오는 문: ① 이용일 + 휴대폰 뒷 4자리(기본) · 예약번호 + 휴대폰 뒷 4자리  ② #c=예약번호&k=열쇠 (확정서·예약 안내 화면에서 넘어옴)  ③ 회원 로그인(#mine=예약번호)
    열쇠는 이 탭(sessionStorage ms_my_booking, 24시간)과, 원하실 때만 이 기기(localStorage ms_my_bookings, 최근 5건)에 기억합니다. 휴대폰 뒷자리는 어디에도 저장하지 않습니다. */
 (function(){
   var M=window.MEGASPOT; if(!M) return;
@@ -26,13 +26,16 @@
     root.innerHTML=''
       +'<div class="mb-find-grid">'
       + '<form class="card mb-find" id="mb-find" novalidate>'
-      +  '<h2 class="h-s">예약번호로 찾기</h2>'
-      +  '<p class="small muted mt-1">예약 확정 카카오톡·문자에 있는 예약번호와 예약자 휴대폰 뒷 4자리를 넣어 주세요.</p>'
-      +  '<div class="f mt-2"><label for="mb-code">예약번호</label><input class="input" id="mb-code" name="booking_code" placeholder="예: MS-2612-AB12" autocomplete="off" autocapitalize="characters" maxlength="20" required></div>'
+      +  '<h2 class="h-s" id="mb-find-h">이용일로 찾기</h2>'
+      +  '<p class="small muted mt-1" id="mb-find-p">예약하신 이용일과 예약자 휴대폰 뒷 4자리만 넣으면 됩니다. 예약번호는 몰라도 괜찮아요.</p>'
+      +  '<div class="f mt-2" data-by="date"><label for="mb-date">이용일</label><input class="input" id="mb-date" name="date" type="date" required></div>'
+      +  '<div class="f" data-by="code" hidden><label for="mb-code">예약번호</label><input class="input" id="mb-code" name="booking_code" placeholder="예: MS-2612-AB12" autocomplete="off" autocapitalize="characters" maxlength="20"></div>'
       +  '<div class="f"><label for="mb-last4">예약자 휴대폰 뒷 4자리</label><input class="input" id="mb-last4" name="phone_last4" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" required></div>'
       +  '<label class="agree small"><input type="checkbox" id="mb-remember"> 이 기기에서 다음에도 바로 열기 <span class="muted">(공용 PC에서는 체크하지 마세요)</span></label>'
       +  '<button class="btn btn-primary btn-lg" type="submit" id="mb-go">예약 확인하기 <span class="arrow">→</span></button>'
+      +  '<button type="button" class="linkish small mb-switch" id="mb-switch">예약번호로 찾기</button>'
       +  '<div class="err" id="mb-err" role="alert"'+(msg?'':' hidden')+'>'+esc(msg||'')+'</div>'
+      +  '<div class="mb-choose" id="mb-choose" hidden></div>'
       + '</form>'
       + '<div class="mb-side">'
       +  '<div class="card mb-mine" id="mb-mine"><h2 class="h-s">회원이신가요?</h2><p class="small muted mt-1">로그인한 상태로 보낸 예약 신청과 이용권 결제는 예약번호 없이 바로 열 수 있습니다.</p><div id="mb-mine-list" class="mt-2"><div class="tiny muted">확인하는 중…</div></div></div>'
@@ -43,22 +46,38 @@
       + '<a class="mb-other-card" href="/spaces/booking/"><b>입점 공간 예약 요청</b><span>HB로 시작하는 요청번호로 진행 상태·견적·결제 확인</span></a>'
       + '<a class="mb-other-card" href="/planning/status/"><b>행사 준비 맡기기</b><span>PL로 시작하는 접수번호로 진행 상태 확인</span></a>'
       + '<a class="mb-other-card" href="/parking/purchase/"><b>주차권 구매 내역</b><span>구매한 주차권과 차량 등록 확인</span></a>'
+      + '<a class="mb-other-card" href="/visit/"><b>사전답사 신청</b><span>신청한 답사 확인 · 운영팀과 글 주고받기</span></a>'
       + '<a class="mb-other-card" href="/meetups/"><b>모임 참가 신청</b><span>신청한 모임 화면에서 신청 확인·취소</span></a>'
       +'</div></div>';
-    var f=$('#mb-find'), code=$('#mb-code'), l4=$('#mb-last4');
+    var f=$('#mb-find'), code=$('#mb-code'), l4=$('#mb-last4'), day=$('#mb-date'), by='date';
+    function setBy(v){ by=v; f.querySelectorAll('[data-by]').forEach(function(x){ x.hidden=x.dataset.by!==v; });
+      $('#mb-find-h').textContent=v==='date'?'이용일로 찾기':'예약번호로 찾기';
+      $('#mb-find-p').textContent=v==='date'?'예약하신 이용일과 예약자 휴대폰 뒷 4자리만 넣으면 됩니다. 예약번호는 몰라도 괜찮아요.':'예약 확정 카카오톡·문자에 있는 예약번호와 예약자 휴대폰 뒷 4자리를 넣어 주세요.';
+      $('#mb-switch').textContent=v==='date'?'예약번호로 찾기':'이용일로 찾기'; $('#mb-choose').hidden=true; }
+    $('#mb-switch').addEventListener('click',function(){ setBy(by==='date'?'code':'date'); (by==='date'?day:code).focus(); });
     var tab=readJSON('tab',TAB,null); if(tab&&tab.c) code.value=tab.c;
     code.addEventListener('input',function(){ code.value=code.value.toUpperCase().replace(/[^A-Z0-9-]/g,''); });
     l4.addEventListener('input',function(){ l4.value=l4.value.replace(/\D/g,'').slice(0,4); });
     f.addEventListener('submit',function(e){
-      e.preventDefault(); var er=$('#mb-err'); er.hidden=true;
-      var c=code.value.trim(), p=l4.value.trim();
-      if(c.length<4||p.length!==4){ er.textContent='예약번호와 휴대폰 뒷 4자리를 확인해 주세요.'; er.hidden=false; return; }
+      e.preventDefault(); var er=$('#mb-err'); er.hidden=true; $('#mb-choose').hidden=true;
+      var c=code.value.trim(), p=l4.value.trim(), d=day.value;
+      if(by==='date'&&(!/^\d{4}-\d{2}-\d{2}$/.test(d)||p.length!==4)){ er.textContent='이용일과 휴대폰 뒷 4자리를 확인해 주세요.'; er.hidden=false; return; }
+      if(by==='code'&&(c.length<4||p.length!==4)){ er.textContent='예약번호와 휴대폰 뒷 4자리를 확인해 주세요.'; er.hidden=false; return; }
       var btn=$('#mb-go'); btn.disabled=true; btn.textContent='확인하는 중…';
-      api('/my-booking/lookup',{method:'POST',body:{booking_code:c,phone_last4:p}}).then(function(j){
-        last4=p; remember(j, $('#mb-remember').checked); show(j);
+      api('/my-booking/lookup',{method:'POST',body:by==='date'?{date:d,phone_last4:p}:{booking_code:c,phone_last4:p}}).then(function(j){
+        last4=p;
+        if(j.choose){ btn.disabled=false; btn.innerHTML='예약 확인하기 <span class="arrow">→</span>'; return pick(j.choose); }
+        remember(j, $('#mb-remember').checked); show(j);
       }).catch(function(x){ er.textContent=x.code==='NO_API'?'지금은 예약 정보를 불러올 수 없습니다. 잠시 후 다시 시도하거나 카카오톡으로 문의해 주세요.':x.message; er.hidden=false; btn.disabled=false; btn.innerHTML='예약 확인하기 <span class="arrow">→</span>'; });
     });
     loadMine(); drawDevice();
+  }
+
+  // 같은 날 같은 뒷자리 예약이 여러 건이면 고르게 합니다
+  function pick(list){
+    var box=$('#mb-choose'); box.hidden=false;
+    box.innerHTML='<p class="small"><b>이 날짜에 예약이 '+list.length+'건 있습니다.</b> 확인할 예약을 골라 주세요.</p><div class="mb-list mt-1">'+list.map(function(b){ return '<button type="button" class="mb-row" data-c="'+esc(b.code)+'" data-k="'+esc(b.k)+'"><b>'+esc(b.space)+'</b><span>'+esc(when(b))+' · '+esc(b.code)+'</span><em class="mb-chip st-'+esc(b.status)+'">'+esc(b.status_label)+'</em></button>'; }).join('')+'</div>';
+    Array.prototype.forEach.call(box.querySelectorAll('.mb-row'),function(btn){ btn.addEventListener('click',function(){ var keep=$('#mb-remember')&&$('#mb-remember').checked; open(btn.dataset.c, btn.dataset.k, keep, last4); }); });
   }
 
   function remember(j,device){
@@ -91,11 +110,11 @@
     $('#mb-forget').addEventListener('click',function(){ writeJSON('local',DEVICE,null); drawDevice(); });
   }
 
-  function open(c,k){
+  function open(c,k,keep,p4){
     root.innerHTML='<div class="card mb-loading">예약 정보를 불러오는 중…</div>';
     api('/my-booking/view?c='+encodeURIComponent(c)+'&k='+encodeURIComponent(k)).then(function(j){
-      if(!cur||cur.key.c!==c) last4='';
-      writeJSON('tab',TAB,{c:c,k:k,at:Date.now()}); show(j);
+      last4=p4||((cur&&cur.key.c===c)?last4:'');
+      writeJSON('tab',TAB,{c:c,k:k,at:Date.now()}); if(keep) remember(j,true); show(j);
     }).catch(function(x){ writeJSON('tab',TAB,null); showFind(x.code==='NO_API'?'지금은 예약 정보를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.':x.message); });
   }
 
@@ -155,7 +174,7 @@
       // 입실·주차·오시는 길 (이용을 마친 예약은 생략)
       if(!b.ended) tiles.push(tile({id:'arrive',icon:'🚪',title:'입실 · 주차 · 오시는 길',
         body:'<p>도어락 번호와 와이파이 같은 입실 정보는 보안을 위해 카카오톡으로 받으신 <b>‘예약 안내’ 링크</b>에서만 보여 드립니다. 링크가 없으시면 카카오톡으로 말씀해 주세요.</p>',
-        actions:btn('/parking/purchase/','주차권 구매 · 차량 등록','btn-primary')+btn('/parking/','주차 안내')+(b.space_url?btn(b.space_url+'#location','오시는 길'):'')+btn(KAKAO,'예약 안내 링크 다시 받기','btn-kakao',true)}));
+        actions:btn('/parking/purchase/','주차권 구매 · 차량 등록','btn-primary')+btn('/parking/','주차 안내')+(b.space_url?btn(b.space_url+'#access','오시는 길'):'')+btn(KAKAO,'예약 안내 링크 다시 받기','btn-kakao',true)}));
       // 초대장·행사 게임
       var inv=j.invite||{};
       if(!b.ended||inv.exists) tiles.push(tile({id:'invite',icon:'💌',title:'모임 초대장 · 행사 게임',chip:inv.exists?'참석 '+(inv.rsvp?inv.rsvp.yes:0)+'명 응답':'무료',chipClass:inv.exists?'ok':'',
@@ -169,14 +188,16 @@
         body:food&&food.length?food.map(function(f){ return line('출장뷔페',esc(f.label)+(f.people?' · '+esc(f.people)+'명':'')+(f.meal_time?' · 식사 '+esc(f.meal_time):'')); }).join('')+'<p class="small muted mt-1">메뉴·인원 변경은 카카오톡으로 말씀해 주세요.</p>'
           :'<p>출장뷔페·케이터링·출장 칵테일을 공간 예약과 함께 준비할 수 있습니다. 행사 3일 전까지 말씀해 주시면 좋습니다.</p>',
         actions:btn(j.links.food,'식음료 문의',food&&food.length?'btn-light':'btn-primary')}));
+      // 증빙 서류 (세금계산서·현금영수증·카드 영수증·견적서) — 2026-11-25
+      tiles.push(tile({id:'proof',icon:'🧾',title:'증빙 서류',chip:(j.proofs||[]).some(function(x){ return x.status==='requested'; })?'처리 중':'',chipClass:'todo',body:proofBody(j.proofs||[])}));
       // 후기
       var r=j.review||{};
       tiles.push(tile({id:'review',icon:'⭐',title:'이용 후기',chip:r.written?(r.status==='approved'?'게시됨':'확인 중'):(r.can_write?'작성 가능':'이용 후 작성'),chipClass:r.written?'ok':'',
         body:r.written?'<p>후기를 보내 주셔서 감사합니다. 운영팀이 확인한 뒤 공간 화면에 게시합니다.</p>':(r.can_write?reviewForm(b):'<p>이용을 마치고 운영팀이 이용 완료로 바꾸면 여기에서 바로 후기를 쓸 수 있습니다.</p>')}));
     }
     // 다시 예약
-    tiles.push(tile({id:'rebook',icon:'🔁',title:'다시 예약하기',body:'<p>같은 공간·인원으로 날짜만 바꿔 금액을 확인하고 신청할 수 있습니다. 정기 모임이면 할인 상담도 받아 보세요.</p>',
-      actions:btn(j.links.rebook,'예약/견적 문의','btn-primary')+btn('/inquiry/?type=regular'+(b.space_id&&b.space_id!=='food-only'?'&space='+encodeURIComponent(b.space_id):''),'정기 모임 상담')}));
+    tiles.push(tile({id:'rebook',icon:'🔁',title:'다시 예약하기',body:'<p>지난번과 같은 공간·인원·시간으로 금액 화면이 열립니다. 날짜만 새로 고르시면 돼요. 매주·매월 여는 모임이면 여러 날짜를 한 번에 정기 모임으로 신청하고 할인 상담을 받아 보세요.</p>',
+      actions:btn(j.links.rebook,'지난번 그대로 다시 예약','btn-primary')+btn(j.links.regular||'/inquiry/?type=regular','여러 날짜 정기 모임 신청')}));
 
     tiles.sort(function(x,y){ return (/id="mb-review"/.test(x)?1:0)-(/id="mb-review"/.test(y)?1:0); });   // 후기는 맨 아래 한 줄 전체
     root.innerHTML=hero+next+'<div class="mb-tiles">'+tiles.join('')+'</div>'
@@ -184,6 +205,22 @@
       +'<p class="tiny muted">이 화면은 예약확정서와 같은 수준으로 보호됩니다. 공용 PC에서는 다 보신 뒤 ‘이 기기에서 닫기’를 눌러 주세요.</p></div>';
     bind();
     try{ window.scrollTo({top:Math.max(0,($('.mb-sum')||root).getBoundingClientRect().top+window.scrollY-90),behavior:'smooth'}); }catch(e){}
+  }
+
+  var PROOF_KINDS=[['tax_invoice','세금계산서'],['cash_receipt','현금영수증'],['card_slip','카드 영수증'],['quote','견적서·거래명세서'],['other','기타 증빙']];
+  function proofList(list){
+    return list.length?'<ul class="mb-proofs">'+list.map(function(x){ return '<li><b>'+esc(x.kind_label)+'</b> <em class="mb-chip '+(x.status==='done'?'ok':x.status==='requested'?'todo':'')+'">'+esc(x.status_label)+'</em>'+(x.admin_note?'<p class="small">'+esc(x.admin_note)+'</p>':'')+'</li>'; }).join('')+'</ul>':'';
+  }
+  function proofBody(list){
+    return '<p>회사 품의·정산에는 예약확정서(PDF)를 함께 쓰실 수 있어요. 세금계산서나 현금영수증이 필요하시면 아래에서 요청해 주세요. 발행하면 이 화면에 안내가 남습니다.</p>'
+      +'<div id="mb-proof-list">'+proofList(list)+'</div>'
+      +'<details class="mb-proof-box"><summary>증빙 요청하기</summary><form class="form mb-proof-form" id="mb-proof-form" novalidate>'
+      +'<div class="f"><label for="mbp-kind">필요한 증빙</label><select class="select" id="mbp-kind">'+PROOF_KINDS.map(function(k){ return '<option value="'+k[0]+'">'+esc(k[1])+'</option>'; }).join('')+'</select></div>'
+      +'<div data-pk="tax_invoice"><div class="field-row"><div class="f"><label for="mbp-biz">사업자등록번호 <span class="req">*</span></label><input class="input" id="mbp-biz" inputmode="numeric" maxlength="12" placeholder="000-00-00000"></div><div class="f"><label for="mbp-company">상호 <span class="req">*</span></label><input class="input" id="mbp-company" maxlength="60"></div></div><div class="f"><label for="mbp-ceo">대표자 <span class="muted">(선택)</span></label><input class="input" id="mbp-ceo" maxlength="30"></div></div>'
+      +'<div data-pk="cash_receipt" hidden><div class="f"><label for="mbp-cash">현금영수증 받을 번호 <span class="req">*</span></label><input class="input" id="mbp-cash" inputmode="numeric" maxlength="13" placeholder="휴대폰 번호 또는 사업자등록번호"></div></div>'
+      +'<div class="f" data-pk-email><label for="mbp-email">받을 이메일 <span class="req" id="mbp-email-req">*</span></label><input class="input" id="mbp-email" type="email" maxlength="120"></div>'
+      +'<div class="f"><label for="mbp-note">요청 내용 <span class="muted">(선택)</span></label><textarea class="textarea" id="mbp-note" rows="2" maxlength="500" placeholder="예: 보증금은 빼고 이용료만 발행 부탁드립니다."></textarea></div>'
+      +'<div class="form-note" id="mbp-msg" hidden></div><button class="btn btn-primary btn-sm" type="submit">요청 보내기</button></form></details>';
   }
 
   function reviewForm(b){
@@ -198,7 +235,21 @@
       +'<div class="form-note" id="mbr-msg" hidden></div><button class="btn btn-primary btn-sm" type="submit">후기 보내기</button></form>';
   }
 
+  function bindProof(){
+    var f=$('#mb-proof-form'); if(!f) return;
+    var kind=$('#mbp-kind');
+    function sync(){ var v=kind.value; f.querySelectorAll('[data-pk]').forEach(function(x){ x.hidden=x.dataset.pk!==v; }); $('#mb-proof-form [data-pk-email]').hidden=v==='cash_receipt'; $('#mbp-email-req').hidden=v!=='tax_invoice'; }
+    kind.addEventListener('change',sync); sync();
+    f.addEventListener('submit',function(e){
+      e.preventDefault(); var msg=$('#mbp-msg'), b=f.querySelector('button[type=submit]');
+      var d={c:cur.key.c,k:cur.key.k,kind:kind.value,biz_no:$('#mbp-biz').value.trim(),company:$('#mbp-company').value.trim(),ceo:$('#mbp-ceo').value.trim(),cash_no:$('#mbp-cash').value.trim(),email:$('#mbp-email').value.trim(),note:$('#mbp-note').value.trim()};
+      b.disabled=true;
+      M.api('/my-booking/proof',{method:'POST',body:d}).then(function(r){ $('#mb-proof-list').innerHTML=proofList(r.proofs); msg.className='form-note ok'; msg.textContent='요청을 보냈습니다. 발행하면 이 화면에 안내가 남습니다.'; msg.hidden=false; f.reset(); sync(); b.disabled=false; })
+        .catch(function(x){ msg.className='form-note err'; msg.textContent=x.message||'보내지 못했습니다.'; msg.hidden=false; b.disabled=false; });
+    });
+  }
   function bind(){
+    bindProof();
     Array.prototype.forEach.call(root.querySelectorAll('[data-copy]'),function(el){ el.addEventListener('click',function(){ (M.copy?M.copy(el.dataset.copy):Promise.reject()).then(function(){ el.textContent='복사했습니다'; setTimeout(function(){ el.textContent='복사'; },1600); }).catch(function(){ window.prompt('복사해 주세요',el.dataset.copy); }); }); });
     $('#mb-again').addEventListener('click',function(){ writeJSON('tab',TAB,null); showFind(); window.scrollTo(0,0); });
     $('#mb-close').addEventListener('click',function(){ if(cur){ var l=readJSON('local',DEVICE,[]).filter(function(x){ return x&&x.c!==cur.key.c; }); writeJSON('local',DEVICE,l.length?l:null); } writeJSON('tab',TAB,null); last4=''; showFind(); window.scrollTo(0,0); });

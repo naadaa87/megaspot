@@ -5,10 +5,10 @@
   var $=function(s){return document.querySelector(s);},nav=$('#adm-nav'),main=$('.adm-main');
   var aliases={'guide-settings':'guide-delivery','deposit-settings':'deposit-notifications','parking-settings':'parking','prices-catering':'prices','prices-reception':'prices','prices-cocktail':'prices'};
   var groups=[
-    {id:'consult',label:'문의·상담',open:true,items:[['inq','문의 관리'],['quote','견적 계산'],['visits','현장답사']]},
+    {id:'consult',label:'문의·상담',open:true,items:[['inq','문의 관리'],['quote','견적 계산'],['visits','현장답사']].concat(document.getElementById('view-visit-requests')?[['visit-requests','사전답사 신청']]:[])},
     {id:'booking',label:'예약·일정',open:true,items:[['orders','주문·결제 확인'],['resv','예약 현황'],['contracts','대관 계약서'],['spacecloud-blocks','스페이스클라우드 외부예약'],['booking-readiness','미안내·미발급'],['transaction-notifications','거래 알림'],['guide-messages','예약별 알림']]},
     {id:'event',label:'행사·부가서비스',items:[['catering','식음료 서비스'],['parking','주차권 관리'],['invites','모임 초대장']]},
-    {id:'after',label:'정산·사후관리',items:[['deposit-refunds','보증금 환급'],['feedback','이용 의견'],['reviews','후기 관리']]},
+    {id:'after',label:'정산·사후관리',items:[['deposit-refunds','보증금 환급'],['feedback','이용 의견'],['reviews','후기 관리']].concat(document.getElementById('view-proof-requests')?[['proof-requests','증빙 요청']]:[])},
     {id:'platform',label:'고객·플랫폼',items:[['members','회원'],['meetups','모임 관리'],['community','커뮤니티 관리'],['hosts','입점·광고 신청'],['listings','등록 공간'],['ads','배너 광고']]},
     {id:'hostplat',label:'입점 플랫폼',items:[['hp-spaces','입점 심사·공간'],['hp-assist','공간 등록 대행'],['hp-bookings','호스트 예약·문의'],['hp-addons','본사 부가서비스'],['hp-planning','행사 준비 요청'],['hp-billing','입점 이용료'],['hp-notices','호스트 알림']]},
     {id:'settings',label:'운영 설정',items:[['prices-catering','공급가·판매가'],['guide-settings','알림톡·자동 발송'],['parking-settings','주차 판매·연결 설정']].concat(document.getElementById('view-notify-center')?[['notify-center','알림 센터']]:[])}
