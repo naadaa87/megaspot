@@ -1,0 +1,35 @@
+/* 공간대관 계약서 본문 (2026-11-24) — 고객 화면 /contract/ · PDF · 관리자 미리보기가 같이 씁니다. 그리는 코드: assets/js/kit/contract-doc.js */
+.cdoc{font-family:var(--font-body);color:#1E2225;font-size:13.5px;line-height:1.7;word-break:keep-all;overflow-wrap:anywhere;max-width:760px;margin:0 auto}
+.cdoc-head{text-align:center;border-bottom:2px solid #1E2225;padding-bottom:14px;margin-bottom:16px}
+.cdoc-brand{font-family:var(--font-display);letter-spacing:.24em;color:#1F53D5;font-size:13px}
+.cdoc h1{font-size:24px;letter-spacing:-.02em;margin:6px 0 2px}
+.cdoc-no{margin:0;font-size:12px;color:#6B7178}
+.cdoc-intro{margin:0 0 14px}
+.cdoc-sec{margin:0 0 18px}
+.cdoc h2{font-size:15px;margin:0 0 8px;padding:6px 12px;background:#EEF2FC;color:#1744B3;border-radius:4px;line-height:1.4}
+.cdoc h3{font-size:14px;margin:0 0 4px}
+.cdoc p{margin:0 0 6px}
+.cdoc-tbl{width:100%;border-collapse:collapse;font-size:13px}
+.cdoc-tbl th,.cdoc-tbl td{border:1px solid #C9C4BB;padding:7px 10px;vertical-align:top;text-align:left}
+.cdoc-tbl thead th{background:#F1EFEB;font-weight:800;text-align:center}
+.cdoc-tbl tbody th{background:#F7F5F1;font-weight:700;width:120px;white-space:nowrap}
+.cdoc-party td{width:38%}
+.cdoc-cb{display:inline-block;width:13px;height:13px;border:1.5px solid #1E2225;border-radius:2px;vertical-align:middle;margin:-2px 4px 0 0;position:relative;background:#fff}
+.cdoc-cb.on{background:#1F53D5;border-color:#1F53D5}
+.cdoc-cb.on::after{content:"";position:absolute;left:3.5px;top:0;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.cdoc-gap{display:inline-block;width:14px}
+.cdoc-cbs{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:4px}
+.cdoc-blank{display:inline-block;border-bottom:1px solid #8A8F94;height:1em;vertical-align:-2px}
+.cdoc-note{font-size:12.5px;color:#5B6168;margin-top:6px}
+.cdoc-clause{margin:0 0 10px}
+.cdoc-clause ul{margin:2px 0 6px;padding-left:20px}
+.cdoc-clause li{margin:0 0 2px}
+.cdoc-refund{max-width:440px;margin:4px 0 8px}
+.cdoc-refund td:last-child{text-align:center;width:120px}
+.cdoc-special{border:1px solid #C9C4BB;border-radius:4px;padding:10px 12px;min-height:54px;white-space:normal}
+.cdoc-muted{color:#8A8F94}
+.cdoc-date{text-align:center;margin:12px 0}
+.cdoc-signs td{width:50%;padding:12px;line-height:2}
+.cdoc-stamp{display:inline-flex;align-items:center;min-width:64px;min-height:30px;vertical-align:middle;color:#6B7178}
+.cdoc-stamp img{max-height:58px;max-width:160px;display:block}
+.cdoc-evidence{font-size:11.5px;color:#5B6168;border-top:1px dashed #C9C4BB;padding-top:8px;margin-top:10px}

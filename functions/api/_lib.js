@@ -143,6 +143,7 @@ export const TABLES = ['inquiries', 'admin_inquiry_reads', 'host_applications', 
 TABLES.push('host_billing_pay_requests');
 TABLES.push('invites', 'invite_rsvps');   // 모임 키트 초대장 (2026-11-21)
 TABLES.push('invite_messages');   // 초대장 카카오톡 보낸 기록 (2026-11-24)
+TABLES.push('rental_contracts', 'contract_messages');   // 공간대관 계약서 (2026-11-24)
 TABLES.push('booking_deposit_methods','booking_deposit_card_cancellations');
 TABLES.push('crawler_hits');   // 검색봇 방문 기록 (2026-11-23)
 TABLES.push('community_photos');   // 커뮤니티 모임 사진 (2026-11-23)

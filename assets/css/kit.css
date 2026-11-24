@@ -392,3 +392,48 @@ html:has(.stage.is-full){overflow:hidden}
   .stage-bar .hint{display:none}
 }
 @media (prefers-reduced-motion:reduce){.dr-slot.win,.dr-multi span,.tm-card li,.qz-rank div,.bc-bingo.on{animation:none}}
+
+/* ---------- 공간대관 계약서 (/contract/ · 2026-11-24) ---------- */
+.ct-top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.ct-top h1{font-size:clamp(26px,3.4vw,36px);margin:6px 0 2px}
+.ct-top .muted{margin:0}
+.ct-badge{display:inline-flex;align-items:center;height:32px;padding:0 14px;border-radius:999px;font-weight:800;font-size:14px;background:var(--cobalt-soft);color:var(--cobalt-2)}
+.ct-badge.st-signed{background:var(--ok-soft);color:#1E5C38}
+.ct-badge.st-void{background:var(--rust-soft);color:#8A3A1C}
+.ct-sum{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:14px}
+.ct-sum > div{background:#fff;border:1px solid var(--concrete);border-radius:var(--radius);padding:12px 14px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.ct-sum span{font-size:12.5px;color:var(--ink-2)}
+.ct-sum b{font-size:15px;line-height:1.35}
+@media (max-width:720px){.ct-sum{grid-template-columns:1fr 1fr}}
+.ct-steps{list-style:none;margin:0 0 14px;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.ct-steps li{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:var(--radius);background:#fff;border:1px solid var(--concrete-2);font-size:13.5px;font-weight:700;color:var(--ink-3)}
+.ct-steps li b{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--concrete-3);border:1px solid var(--concrete);font-size:12.5px;flex:none}
+.ct-steps li.on{color:var(--cobalt-2);border-color:var(--cobalt)}
+.ct-steps li.on b{background:var(--cobalt);border-color:var(--cobalt);color:#fff}
+.ct-split{display:grid;gap:20px;align-items:start}
+@media (min-width:1080px){.ct-split{grid-template-columns:minmax(0,1.25fr) minmax(340px,.75fr)}.ct-split .ct-form{position:sticky;top:calc(var(--header-h) + 16px);max-height:calc(100vh - var(--header-h) - 32px);overflow:auto}}
+.ct-paper{background:#fff;border:1px solid var(--concrete);border-radius:var(--radius-lg);padding:clamp(18px,4vw,44px);box-shadow:var(--shadow);overflow-x:auto}
+.ct-agree{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.55;padding:12px 14px;border:1px solid var(--concrete-2);border-radius:var(--radius);background:var(--concrete-3);cursor:pointer}
+.ct-agree input{width:20px;height:20px;flex:none;margin-top:1px;accent-color:var(--cobalt)}
+.ct-agree a{text-decoration:underline;color:var(--ink-2)}
+.ct-pad{position:relative;border:1.5px dashed var(--concrete);border-radius:var(--radius);background:#fff;height:190px}
+.ct-pad canvas{display:block;width:100%;height:100%;cursor:crosshair;border-radius:var(--radius)}
+.ct-pad-hint{position:absolute;inset:0;display:grid;place-items:center;color:var(--concrete);font-size:22px;font-weight:800;pointer-events:none}
+.ct-pad-tools{position:absolute;right:8px;bottom:8px;display:flex;gap:6px}
+.ct-done{display:grid;gap:14px;margin-bottom:16px;border-color:var(--ok);background:linear-gradient(0deg,#fff,#fff) padding-box}
+.ct-done h2{font-size:22px;margin:10px 0 2px}
+.ct-inv{margin-top:20px}
+.ct-inv-head h2{font-size:22px;margin:6px 0 2px}
+.ct-inv-head .desc{margin:0 0 14px}
+.ct-inv-grid{display:grid;gap:18px}
+@media (min-width:1000px){.ct-inv-grid{grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);align-items:start}}
+.ct-inv-card .inv{max-width:460px}
+.ct-inv-form{gap:14px}
+.ct-print-box{position:fixed;left:-12000px;top:0;width:760px;background:#fff;padding:0}
+.ct-print-box .cdoc{font-size:13px}
+@media print{
+  body.page-contract *{visibility:hidden}
+  body.page-contract [data-doc],body.page-contract [data-doc] *{visibility:visible}
+  body.page-contract [data-doc]{position:absolute;left:0;top:0;width:100%;border:0;box-shadow:none;padding:0}
+  .cdoc-clause,.cdoc-tbl tr,.cdoc-sign{break-inside:avoid}
+}

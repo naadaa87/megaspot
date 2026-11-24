@@ -1222,6 +1222,42 @@ CREATE TABLE IF NOT EXISTS invite_messages (   -- 초대장 카카오톡(알림�
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_invite_messages ON invite_messages(invite_id, created_at);
+CREATE TABLE IF NOT EXISTS rental_contracts (   -- 공간대관 계약서 (2026-11-24) · 서명 완료는 이용일로부터 5년, 서명 전·취소는 1년 뒤 지움
+  id TEXT PRIMARY KEY,                 -- RC-YYMM-XXXX
+  booking_code TEXT,                   -- 연결된 예약 (문의만 있을 때는 비어 있음)
+  inquiry_ref TEXT,                    -- 연결된 문의
+  status TEXT NOT NULL DEFAULT 'ready',-- ready 서명 대기 | signed 서명 완료 | void 취소
+  link_ver INTEGER NOT NULL DEFAULT 1, -- 링크를 다시 만들면 1 올라가 예전 링크가 막힘 (링크 열쇠는 계약 번호·차수로 만든 서명값이라 저장하지 않음)
+  data TEXT NOT NULL,                  -- 관리자가 채운 계약 내용 JSON (대관자 정보 기본값 · 대관 내용 · 대관료 · 특약 · 운영자 정보)
+  renter TEXT,                         -- 대관자가 서명하며 확인한 대관자 정보 JSON
+  signature TEXT,                      -- 대관자 서명 그림 (PNG data URL)
+  signer TEXT,                         -- 서명한 사람 이름
+  signed_at TEXT,
+  signed_ip TEXT,                      -- 서명할 때 접속 IP (전자서명 기록)
+  signed_ua TEXT,                      -- 서명할 때 브라우저 정보
+  doc_hash TEXT,                       -- 서명 시점 계약 내용의 SHA-256 (문서 확인값)
+  terms_version TEXT,                  -- 계약 조항 판
+  event_date TEXT,                     -- 이용일 (보관 기간 · 정렬)
+  viewed_at TEXT,                      -- 대관자가 처음 연 시각
+  sent_at TEXT,                        -- 처음 보낸 시각
+  created_at TEXT NOT NULL,
+  updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_rental_contracts_booking ON rental_contracts(booking_code, status);
+CREATE INDEX IF NOT EXISTS idx_rental_contracts_status ON rental_contracts(status, event_date);
+CREATE TABLE IF NOT EXISTS contract_messages (   -- 계약서 카카오톡(알림톡) 보낸 기록 (2026-11-24) · 계약서와 함께 지움 · 받는 번호는 가운데를 가려 저장
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  contract_id TEXT,                    -- 운영자 시험 발송은 비어 있음
+  booking_code TEXT,
+  receiver_mask TEXT NOT NULL,
+  receiver_hash TEXT NOT NULL,
+  actor TEXT NOT NULL,                 -- admin 관리자 | test 운영자 시험
+  status TEXT NOT NULL,                -- sending | accepted 알리고 접수 | failed | unknown 결과 확인 필요
+  provider_mid TEXT,
+  error TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_contract_messages ON contract_messages(contract_id, created_at);
 
 -- ---------- 검색 노출 점검 (2026-11-23 추가) ----------
 CREATE TABLE IF NOT EXISTS crawler_hits (  -- 검색봇 방문 기록 · 날짜와 봇별로 1줄 (네이버 Yeti·구글·빙·다음·AI 검색 봇이 실제로 들어오는지 확인용 · 사람 방문은 기록하지 않음 · 2026-11-23)

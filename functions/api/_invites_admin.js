@@ -9,7 +9,7 @@ import { json, err, readJson, str, isDate, kstToday, uniqueRef, log, now, requir
 import { cleanInvite, inviteCode, links, parse, publicInvite, summarize, VENUES, LIVE_STATUS, shiftDate } from './_invites.js';
 import { bookingHourSql } from './_booking_availability.js';
 import { bookingPhone2Sql, bookingContacts, contactPhones, mobilePhone } from './_contacts.js';
-import { kakaoState, saveKakaoConfig, checkTemplate, sendInviteKakao, inviteMessages, sampleVars, markTested, maskPhone, INVITE_TEMPLATE, TEMPLATE_VARS, SUBJECT } from './_invite_kakao.js';
+import { kakaoState, saveKakaoConfig, checkTemplate, sendInviteKakao, inviteMessages, inviteTests, sampleVars, markTested, maskPhone, INVITE_TEMPLATE, TEMPLATE_VARS, SUBJECT } from './_invite_kakao.js';
 
 const SPACE_IN = Object.keys(VENUES).map(() => '?').join(',');
 const digits = v => String(v || '').replace(/\D/g, '');
@@ -107,8 +107,7 @@ async function send(request, env, H) {
 }
 
 async function kakaoGet(env) {
-  const { results } = await env.DB.prepare("SELECT receiver_mask, status, error, created_at FROM invite_messages WHERE actor = 'test' ORDER BY id DESC LIMIT 5").all();
-  return json({ ok: true, ...(await kakaoState(env)), template: { ...INVITE_TEMPLATE, subject: SUBJECT, vars: TEMPLATE_VARS }, relay_env: 'ALIGO_MEMBER_TEMPLATE_CODES', tests: results || [] });
+  return json({ ok: true, ...(await kakaoState(env)), template: { ...INVITE_TEMPLATE, subject: SUBJECT, vars: TEMPLATE_VARS }, relay_env: 'ALIGO_MEMBER_TEMPLATE_CODES', tests: await inviteTests(env) });
 }
 async function kakaoPost(request, env) {
   let d; try { d = await readJson(request, 4 * 1024); } catch (e) { return err(e.message); }

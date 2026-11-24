@@ -14,6 +14,7 @@ Disallow: /host/center/
 Disallow: /spaces/booking/
 Disallow: /planning/status/
 Disallow: /docs/
+Disallow: /contract/
 Allow: /api/venues/photo/
 Disallow: /cdn-cgi/
 
@@ -27,6 +28,7 @@ Disallow: /host/center/
 Disallow: /spaces/booking/
 Disallow: /planning/status/
 Disallow: /docs/
+Disallow: /contract/
 
 User-agent: Googlebot
 Allow: /
@@ -38,6 +40,7 @@ Disallow: /host/center/
 Disallow: /spaces/booking/
 Disallow: /planning/status/
 Disallow: /docs/
+Disallow: /contract/
 
 User-agent: Daum
 Allow: /
@@ -49,6 +52,7 @@ Disallow: /host/center/
 Disallow: /spaces/booking/
 Disallow: /planning/status/
 Disallow: /docs/
+Disallow: /contract/
 
 Sitemap: https://megaspot.kr/sitemap.xml
 Sitemap: https://megaspot.kr/spaces/sitemap.xml

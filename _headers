@@ -85,6 +85,11 @@
   Referrer-Policy: no-referrer
   Cache-Control: no-cache
 
+/contract/*
+  X-Robots-Tag: noindex, nofollow
+  Referrer-Policy: no-referrer
+  Cache-Control: no-cache
+
 /play/bingo/card/*
   X-Robots-Tag: noindex, nofollow
 

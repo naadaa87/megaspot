@@ -68,7 +68,7 @@ ${index ? S.naver + '\n' : ''}<link rel="icon" href="/assets/img/brand/favicon.s
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Black+Han+Sans&display=swap">
 <link rel="stylesheet" href="/assets/css/site.css?v=${S.siteCss}">
-<link rel="stylesheet" href="/assets/css/kit.css?v=${ver('assets/css/kit.css')}">
+<link rel="stylesheet" href="/assets/css/kit.css?v=${ver('assets/css/kit.css')}">${(o.css || []).map(c => `\n<link rel="stylesheet" href="/assets/css/${c}.css?v=${ver(`assets/css/${c}.css`)}">`).join('')}
 <link rel="stylesheet" href="/assets/css/mobile-viewport.css?v=${S.mobile}">
 <script src="/assets/js/mobile-viewport.js?v=${S.mobile}" defer></script>
 <script type="application/ld+json">${ld({ '@context': 'https://schema.org', '@graph': graph })}</script>
@@ -479,6 +479,12 @@ function inviteManage() {
 <section class="mv-top"><div class="container">${crumbs([['모임 키트', '/kit/'], ['초대장 관리', '/invite/manage/']])}</div></section>
 <section class="section" style="padding-top:14px"><div class="container"><div id="inv-root"><div class="empty small">관리 화면을 여는 중…</div></div></div></section>`;
 }
+// ---------- 공간대관 계약서 (2026-11-24) ----------
+function contractPage() {
+  return `
+<section class="mv-top"><div class="container">${crumbs([['공간대관 계약서', '/contract/']])}</div></section>
+<section class="section" style="padding-top:14px"><div class="container"><div id="ct-root"><div class="empty small">계약서를 여는 중…</div></div></div></section>`;
+}
 function bingoCard() {
   return `<div class="bc-wrap" id="bc-root"><div class="empty small">빙고판을 만드는 중…</div></div>`;
 }
@@ -500,6 +506,7 @@ export function buildPages() {
   add('/play/bingo/card/', { title: '내 빙고판 · 메가스팟 플레이', desc: '휴대폰으로 쓰는 빙고판', bodyClass: 'page-bingo-card kit-noquick', main: bingoCard(), noindex: true, scripts: ['play-bingo-card'] });
   add('/invite/new/', { title: '모임 초대장 만들기 · 메가스팟', desc: '메가스팟 예약 정보로 일행에게 보낼 모임 초대장을 만들고 PDF·카카오톡으로 보냅니다.', bodyClass: 'page-kit page-invite-new', main: inviteNew(), noindex: true, scripts: ['invite-card', 'invite-pdf', 'invite-new'] });
   add('/invite/', { title: '모임 초대장 · 메가스팟', og: '모임 초대장이 도착했습니다', desc: '메가스팟에서 열리는 모임 초대장입니다. 일시와 장소, 길찾기, 주차 안내를 확인하고 참석 여부를 알려 주세요.', bodyClass: 'page-invite kit-noquick', main: inviteView(), noindex: true, scripts: ['invite-card', 'invite-view'] });
+  add('/contract/', { title: '공간대관 계약서 · 메가스팟', desc: '메가스팟 공간대관 계약서 확인과 전자 서명', bodyClass: 'page-kit page-contract kit-noquick', main: contractPage(), noindex: true, css: ['contract-doc'], scripts: ['contract-doc', 'sign-pad', 'invite-card', 'invite-pdf', 'invite-new', 'contract-view'] });
   add('/invite/manage/', { title: '초대장 관리 · 메가스팟', desc: '주최자 초대장 관리 화면', bodyClass: 'page-kit page-invite-manage kit-noquick', main: inviteManage(), noindex: true, scripts: ['invite-card', 'invite-pdf', 'invite-new', 'invite-manage'] });
   return out;
 }
