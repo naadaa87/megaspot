@@ -167,12 +167,15 @@
 
   /* ---------- 사진 경로 ---------- */
   var SPACE_DIR={ 'megaspot-gundae':'gundae', 'megaspot-gundae-2':'gundae2' };
-  function photoSrc(spaceId, pid, thumb){ return '/assets/img/'+ (SPACE_DIR[spaceId]||spaceId) +'/'+(thumb?'t/':'')+pid+'.jpg'; }
+  // 중간(m)·작은(t) 크기는 WebP 로 보여 줍니다 (tools/webp/make_webp.py). 원본 크기는 JPG 그대로 — 크게 보기·공유용
+  function photoSrc(spaceId, pid, thumb){ return '/assets/img/'+ (SPACE_DIR[spaceId]||spaceId) +'/'+(thumb?'t/':'')+pid+(thumb?'.webp':'.jpg'); }
   // 이미지 id 첫 글자로 종류를 구분합니다. size: '' | 'm' | 't'
   //  p: 1호 공간 사진 · s: 활용 장면 · v: 1호 공간 전경 · a: 1호 조감도 · r: 2호 공간 전경·배치 예시 (화면에는 이미지 종류 표시를 붙이지 않습니다)
   var IMG_DIR={ p:'gundae', s:'scenes', v:'views', a:'aerial', r:'gundae2' };
   function kind(id){ var c=String(id).charAt(0); return IMG_DIR[c] ? c : 'p'; }
-  function imgSrc(id, size){ var sub=size?size+'/':''; return '/assets/img/'+IMG_DIR[kind(id)]+'/'+sub+id+'.jpg'; }
+  function imgSrc(id, size){ var sub=size?size+'/':''; return '/assets/img/'+IMG_DIR[kind(id)]+'/'+sub+id+(size==='m'||size==='t'?'.webp':'.jpg'); }
+  // WebP 를 아직 만들지 않은 사진이면 한 번만 JPG 로 바꿔 다시 불러옵니다
+  document.addEventListener('error', function(e){ var t=e.target; if(!t||t.tagName!=='IMG'||t.getAttribute('data-webp-fallback')) return; var u=t.getAttribute('src')||''; if(!/^\/assets\/img\/.+\.webp(\?|$)/.test(u)) return; t.setAttribute('data-webp-fallback','1'); t.src=u.replace(/\.webp(\?|$)/,'.jpg$1'); }, true);
   function isStaged(id){ if(kind(id)!=='s') return false; var sc=window.MEGASPOT_SCENE && window.MEGASPOT_SCENE(id); return !sc || sc.staged!==false; }
   function isCG(id){ var k=kind(id); return k==='v' || k==='a' || (k==='r' && /^r(?:0[1-9]|1[0-2])$/.test(String(id))); }
   function imgTag(id){ return ''; }

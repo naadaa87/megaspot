@@ -41,7 +41,8 @@ function spaces() {
   return { list: ctx.window.MEGASPOT_SPACES || [], feat };
 }
 const IMG_DIR = { p: 'gundae', s: 'scenes', v: 'views', a: 'aerial', r: 'gundae2' };
-function thumb(id) { const p = `/assets/img/${IMG_DIR[String(id)[0]] || 'gundae'}/t/${id}.jpg`; if (!existsSync(path.join(ROOT, p))) throw new Error('대표 사진이 없습니다: ' + p); return p; }
+// 화면에는 WebP 를 씁니다 (tools/webp/make_webp.py 가 만든 것). 없으면 JPG
+function thumb(id) { const p = `/assets/img/${IMG_DIR[String(id)[0]] || 'gundae'}/t/${id}.jpg`; if (!existsSync(path.join(ROOT, p))) throw new Error('대표 사진이 없습니다: ' + p); const w = p.replace(/\.jpg$/, '.webp'); return existsSync(path.join(ROOT, w)) ? w : p; }
 
 function page(S, o) {
   const url = SITE + o.path, image = `${SITE}/assets/img/brand/og-megaspot.jpg`;
