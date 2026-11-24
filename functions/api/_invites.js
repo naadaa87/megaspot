@@ -1,10 +1,13 @@
 // 모임 키트 — 초대장 · 참석 응답 · 스크린 준비 내용 (2026-11-21)
-//  · 초대장은 메가스팟 확정 예약 1건에 1장. 예약번호 + 예약자 휴대폰 뒷 4자리로 만들고 고칩니다.
+//  · 초대장은 메가스팟 확정 예약 1건에 1장. 예약을 확인하는 방법은 두 가지입니다 (2026-11-24부터).
+//      ① 이용 날짜 + 시작 시간 + 예약자 이름 + 예약자 연락처 (예약번호를 몰라도 됩니다)
+//      ② 예약번호 + 예약자 휴대폰 뒷 4자리
 //  · 일시·공간은 늘 예약에서 다시 읽어, 예약이 바뀌면 초대장도 함께 바뀝니다.
 //  · 참석 응답은 이름·참석 여부·인원·차량 여부·질문 답변만 받습니다(휴대폰 번호 없음). 행사일로부터 30일 뒤 지웁니다.
 //  · 초대장과 스크린 준비 내용은 행사일로부터 90일 뒤 지웁니다.
 import { str, num, kstToday, isDate } from './_lib.js';
 import { hmacToken, tokenEq } from './_confirm.js';
+import { mobilePhone, contactPhones } from './_contacts.js';
 
 export const THEMES = { chalk: '밝은 기본', cobalt: '코발트', graphite: '차분한 저녁', rust: '따뜻한 오렌지' };
 export const RSVP_STATUS = { yes: '참석', maybe: '미정', no: '불참' };
@@ -139,6 +142,53 @@ export function cleanPlay(p) {
   };
 }
 
+// ---------- 예약 정보로 예약 찾기 (2026-11-24) ----------
+// 예약자가 기억하는 이용 날짜·시작 시간·이름·연락처로 확정 예약을 찾습니다.
+//  · 연락처는 예약의 대표 연락처나 추가 연락처와 같아야 합니다(숫자만 비교).
+//  · 이름은 띄어쓰기와 끝의 '님'을 빼고 비교하고, "홍길동(OO회사)"처럼 덧붙인 예약 이름도 찾습니다.
+//  · 시간은 예약 시작 1시간 전부터 끝나기 전까지면 맞는 것으로 봅니다(입장 시간을 적는 경우).
+//    자정을 넘겨 시작하는 예약(전날 날짜 · 시작 24시 이상)도 찾습니다.
+export const nameKey = s => String(s || '').normalize('NFC').replace(/\s+/g, '').replace(/님$/, '').toLowerCase();
+export function nameMatches(input, stored) {
+  const a = nameKey(input), b = nameKey(stored);
+  if (a.length < 2 || b.length < 2) return false;
+  return a === b || b.includes(a) || a.includes(b);
+}
+const digits = v => String(v || '').replace(/\D/g, '');
+export function phoneMatches(input, booking) {
+  const p = mobilePhone(input), d = digits(input);
+  if (p && contactPhones(booking).includes(p)) return p;
+  return d.length >= 9 && d === digits(booking.phone) ? (mobilePhone(booking.phone) || d) : '';
+}
+export function hourOf(v) { const t = hhmm(v); return t ? +t.slice(0, 2) + +t.slice(3) / 60 : null; }
+export function shiftDate(date, days) {
+  return new Date(Date.UTC(+date.slice(0, 4), +date.slice(5, 7) - 1, +date.slice(8, 10) + days)).toISOString().slice(0, 10);
+}
+// rows: 입력한 날짜와 그 전날의 예약. 맞는 예약 가운데 확정 예약 → 시작 시각이 가까운 순으로 하나를 고릅니다.
+export function pickBooking(rows, { date, time, name, phone }) {
+  const t = hourOf(time), found = [];
+  for (const r of rows || []) {
+    const off = r.date === date ? 0 : r.date === shiftDate(date, -1) ? -24 : null;
+    if (off == null || !Object.prototype.hasOwnProperty.call(VENUES, r.space_id)) continue;
+    const receiver = phoneMatches(phone, r); if (!receiver || !nameMatches(name, r.customer_name)) continue;
+    const s = num(r.start_h), e = num(r.end_h);
+    if (s != null) {
+      const start = s + off, end = (e != null && e > s ? e : s + 1) + off;
+      if (t == null || t < start - 1 || t >= end) continue;
+    } else if (off) continue;   // 시간이 없는 예전 예약은 같은 날짜만
+    found.push({ r, receiver, gap: s == null ? 99 : Math.abs(t - (s + off)) });
+  }
+  const rank = st => (LIVE_STATUS.includes(st) ? 0 : st === 'payment_review' ? 1 : 2);
+  found.sort((a, b) => rank(a.r.status) - rank(b.r.status) || a.gap - b.gap);
+  return found[0] || null;
+}
+export const LIVE_STATUS = ['confirmed', 'completed'];
+export function cleanLookup(d) {
+  const date = str(d.date, 10), time = hhmm(d.time), name = line(d.name, 30), phone = digits(str(d.phone, 30));
+  if (!isDate(date) || !time || nameKey(name).length < 2 || phone.length < 9) return null;
+  return { date, time, name, phone };
+}
+
 // ---------- 화면에 내보내는 값 ----------
 export function parse(raw, fallback = {}) { try { const o = JSON.parse(raw || ''); return o && typeof o === 'object' ? o : fallback; } catch { return fallback; } }
 // 이용일과 끝나는 시각으로 '행사 전 · 오늘 · 끝남'을 정합니다 (자정을 넘기는 예약은 다음 날 아침까지 '오늘')
@@ -170,6 +220,16 @@ export function publicInvite(row, data, bk, today = kstToday()) {
     rsvp: { open: rsvpOpen(data, phase, today), enabled: !!r.open, deadline: r.deadline || '', ask_party: !!r.ask_party, ask_car: !!r.ask_car, question: r.question || '' }
   };
 }
+// 예시 초대장 (/invite/?c=sample) — 카카오톡 시험 발송과 모임 키트 소개에서 씁니다. 실제 예약과 이어지지 않습니다.
+export function sampleInvite(today = kstToday()) {
+  const date = new Date(Date.UTC(+today.slice(0, 4), +today.slice(5, 7) - 1, +today.slice(8, 10) + 14)).toISOString().slice(0, 10);
+  return {
+    code: 'sample', sample: true, title: '2026 송년의 밤', host: '메가스팟 운영팀', message: '예시로 보여 드리는 초대장입니다.\n실제 초대장에는 예약하신 날짜와 공간이 자동으로 들어갑니다.', entry: '17:30',
+    schedule: [{ time: '18:00', text: '개회 · 인사' }, { time: '18:30', text: '저녁 식사' }, { time: '20:00', text: '퀴즈 · 경품 추첨' }], notice: '편한 차림으로 오세요.', contact: '', contact_url: '',
+    theme: 'chalk', date, start_h: 18, end_h: 22, space: { id: 'megaspot-gundae', ...VENUES['megaspot-gundae'] }, place: PLACE, phase: 'before',
+    rsvp: { open: false, enabled: false, deadline: '', ask_party: false, ask_car: false, question: '' }
+  };
+}
 export function summarize(rows) {
   const s = { yes: 0, maybe: 0, no: 0, people: 0, maybe_people: 0, cars: 0, total: rows.length };
   for (const r of rows) {
@@ -184,5 +244,7 @@ export function summarize(rows) {
 export async function purge(env, today = kstToday()) {
   const shift = d => new Date(Date.UTC(+today.slice(0, 4), +today.slice(5, 7) - 1, +today.slice(8, 10) - d)).toISOString().slice(0, 10);
   await env.DB.prepare('DELETE FROM invite_rsvps WHERE invite_id IN (SELECT id FROM invites WHERE event_date < ?)').bind(shift(KEEP_RSVP_DAYS)).run();
+  await env.DB.prepare('DELETE FROM invite_messages WHERE invite_id IN (SELECT id FROM invites WHERE event_date < ?)').bind(shift(KEEP_INVITE_DAYS)).run();
+  await env.DB.prepare("DELETE FROM invite_messages WHERE invite_id IS NULL AND created_at < datetime('now', '-90 day')").run();
   await env.DB.prepare('DELETE FROM invites WHERE event_date < ?').bind(shift(KEEP_INVITE_DAYS)).run();
 }

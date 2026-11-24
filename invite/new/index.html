@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>모임 초대장 만들기 · 메가스팟</title>
-<meta name="description" content="메가스팟 예약번호로 일행에게 보낼 모임 초대장을 만듭니다.">
+<meta name="description" content="메가스팟 예약 정보로 일행에게 보낼 모임 초대장을 만들고 PDF·카카오톡으로 보냅니다.">
 <meta name="author" content="메가스팟 MEGASPOT">
 <meta name="robots" content="noindex,nofollow">
 <meta name="NaverBot" content="Noindex,Nofollow">
@@ -16,7 +16,7 @@
 <meta property="og:site_name" content="메가스팟 MEGASPOT">
 <meta property="og:locale" content="ko_KR">
 <meta property="og:title" content="모임 초대장 만들기 · 메가스팟">
-<meta property="og:description" content="메가스팟 예약번호로 일행에게 보낼 모임 초대장을 만듭니다.">
+<meta property="og:description" content="메가스팟 예약 정보로 일행에게 보낼 모임 초대장을 만들고 PDF·카카오톡으로 보냅니다.">
 <meta property="og:url" content="https://megaspot.kr/invite/new/">
 <meta property="og:image" content="https://megaspot.kr/assets/img/brand/og-megaspot.jpg">
 <meta property="og:image:width" content="1200">
@@ -24,7 +24,7 @@
 <meta property="og:image:alt" content="메가스팟 — 큰 모임에 맞는 공간을 찾다">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="모임 초대장 만들기 · 메가스팟">
-<meta name="twitter:description" content="메가스팟 예약번호로 일행에게 보낼 모임 초대장을 만듭니다.">
+<meta name="twitter:description" content="메가스팟 예약 정보로 일행에게 보낼 모임 초대장을 만들고 PDF·카카오톡으로 보냅니다.">
 <meta name="twitter:image" content="https://megaspot.kr/assets/img/brand/og-megaspot.jpg">
 <link rel="icon" href="/assets/img/brand/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/assets/img/brand/apple-touch-icon.png">
@@ -34,10 +34,10 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Black+Han+Sans&display=swap">
 <link rel="stylesheet" href="/assets/css/site.css?v=284b7c359a42">
-<link rel="stylesheet" href="/assets/css/kit.css?v=f75e7776f77b">
+<link rel="stylesheet" href="/assets/css/kit.css?v=2950590351a8">
 <link rel="stylesheet" href="/assets/css/mobile-viewport.css?v=20261104landscape2">
 <script src="/assets/js/mobile-viewport.js?v=20261104landscape2" defer></script>
-<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebPage","@id":"https://megaspot.kr/invite/new/#page","url":"https://megaspot.kr/invite/new/","name":"모임 초대장 만들기 · 메가스팟","description":"메가스팟 예약번호로 일행에게 보낼 모임 초대장을 만듭니다.","inLanguage":"ko-KR","isPartOf":{"@type":"WebSite","name":"메가스팟","url":"https://megaspot.kr/"}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebPage","@id":"https://megaspot.kr/invite/new/#page","url":"https://megaspot.kr/invite/new/","name":"모임 초대장 만들기 · 메가스팟","description":"메가스팟 예약 정보로 일행에게 보낼 모임 초대장을 만들고 PDF·카카오톡으로 보냅니다.","inLanguage":"ko-KR","isPartOf":{"@type":"WebSite","name":"메가스팟","url":"https://megaspot.kr/"}}]}</script>
 </head>
 <body class="page-kit page-invite-new">
 <a class="skip-link" href="#main">본문으로 바로가기</a>
@@ -160,7 +160,7 @@
 <section class="mv-top"><div class="container"><div class="crumbs"><a href="/">홈</a><span>/</span><a href="/kit/">모임 키트</a><span>/</span><span>초대장 만들기</span></div></div></section>
 <section class="section" style="padding-top:14px">
   <div class="container">
-    <div style="margin-bottom:18px"><div class="eyebrow">Invitation</div><h1 style="font-size:clamp(26px,3.4vw,36px);margin:6px 0 4px">모임 초대장 만들기</h1><p class="muted" style="margin:0;max-width:66ch">일행에게 보낼 초대장을 만듭니다. 날짜와 장소, 길찾기, 주차 안내는 예약에서 자동으로 채워지고, 참석 응답은 관리 화면에서 모아 봅니다.</p></div>
+    <div style="margin-bottom:18px"><div class="eyebrow">Invitation</div><h1 style="font-size:clamp(26px,3.4vw,36px);margin:6px 0 4px">모임 초대장 만들기</h1><p class="muted" style="margin:0;max-width:66ch">일행에게 보낼 초대장을 만듭니다. 날짜와 장소, 길찾기, 주차 안내는 예약에서 자동으로 채워지고, 다 만든 초대장은 PDF로 내려받거나 카카오톡으로 보낼 수 있습니다.</p></div>
     <div id="inv-root"><div class="empty small">불러오는 중…</div></div>
   </div>
 </section>
@@ -252,8 +252,9 @@
 <script src="/assets/js/site.js?v=690b91100033"></script>
 <script src="/assets/js/kit/qr.js?v=3035855a159a"></script>
 <script src="/assets/js/kit/kit-core.js?v=19269e631768"></script>
-<script src="/assets/js/kit/invite-card.js?v=9526db62cce0"></script>
-<script src="/assets/js/kit/invite-new.js?v=f2bfadc1c1fe"></script>
+<script src="/assets/js/kit/invite-card.js?v=bcc9c5bf6eca"></script>
+<script src="/assets/js/kit/invite-pdf.js?v=7f5753972b38"></script>
+<script src="/assets/js/kit/invite-new.js?v=0367728750aa"></script>
 <script defer src="https://choisijun.com/k1.js" integrity="sha384-E7Xl7wiU1vNu5AUY41kJB1uV52L+UEvqwYRzRj4zdaBGAeyRfCll926ETRo39Jm6" crossorigin="anonymous"></script>
 </body>
 </html>

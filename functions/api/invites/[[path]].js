@@ -2,23 +2,33 @@
 //  GET  /api/invites/view?c=코드                    참석자용 초대장
 //  GET  /api/invites/rsvp?c=코드&t=내키              내가 보낸 응답 (고치기용)
 //  POST /api/invites/rsvp                           참석 응답 보내기·고치기 { c, t, name, status, party, cars, answer, agree }
-//  POST /api/invites/verify                         예약 확인 { booking_code, phone_last4 } → 예약 요약 + 이미 만든 초대장
-//  POST /api/invites/create                         초대장 만들기 { booking_code, phone_last4, ...내용 }
+//  POST /api/invites/verify                         예약 확인 → 예약 요약 + 이미 만든 초대장
+//                                                   { date, time, name, phone } 이용 날짜·시작 시간·예약자 이름·연락처 (2026-11-24)
+//                                                   또는 { booking_code, phone_last4 }
+//  POST /api/invites/create                         초대장 만들기 { 위 예약 확인 값, ...내용 }
+//  POST /api/invites/kakao                          카카오톡으로 받기 { id, k, phone? } — 예약자 본인 번호로만 (관리자가 켜야 동작)
 //  GET  /api/invites/manage?id=&k=                  주최자 화면 (응답 명단)
 //  POST /api/invites/manage                         주최자 화면 { id, k, action: update | remove | delete, ... }
 //  GET  /api/invites/screen?id=&s=                  스크린 도구용 (행사 정보 · 참석 응답한 이름 · 준비 내용)
 //  POST /api/invites/screen                         스크린 준비 내용 저장 { id, s, play }
+//  /api/invites/admin/*                             관리자 → 모임 초대장 (functions/api/_invites_admin.js)
 import { json, err, hasDb, readJson, str, num, now, uniqueRef, log, clientIp, tooMany, hit, kstToday, sameOrigin, sha256 } from '../_lib.js';
 import { inviteCode, keyOk, links, cleanInvite, cleanRsvp, cleanPlay, parse, publicInvite, summarize, purge, phaseOf, rsvpOpen,
-  VENUES, MAX_RSVPS } from '../_invites.js';
+  VENUES, MAX_RSVPS, cleanLookup, pickBooking, shiftDate, sampleInvite, LIVE_STATUS, manageKey } from '../_invites.js';
+import { bookingHourSql } from '../_booking_availability.js';
+import { bookingPhone2Sql, bookingContacts, contactPhones, mobilePhone } from '../_contacts.js';
+import { customerKakao, sendInviteKakao, dateLabel, timeLabel } from '../_invite_kakao.js';
+import { inviteAdmin } from '../_invites_admin.js';
 
-const BK = 'booking_code, space_id, phone_last4, date, start_h, end_h, headcount, status';
+// 예약 시간이 비어 있는 예전 예약은 연결된 문의의 시간을 씁니다
+export const BK_SQL = `SELECT b.booking_code, b.space_id, b.phone_last4, b.date, ${bookingHourSql('b', 'i', 'start_h')} AS start_h, ${bookingHourSql('b', 'i', 'end_h')} AS end_h, b.headcount, b.status
+  FROM bookings b LEFT JOIN inquiries i ON i.ref = b.inquiry_ref`;
 const tooManyErr = () => err('짧은 시간에 너무 많은 요청이 들어왔습니다. 잠시 후 다시 시도해 주세요.', 429, 'TOO_MANY');
 async function limited(env, key, n, min) { try { if (await tooMany(env, key, n, min)) return true; await hit(env, key, min); } catch {} return false; }
-const booking = (env, code) => env.DB.prepare(`SELECT ${BK} FROM bookings WHERE booking_code = ?`).bind(code).first();
+const booking = (env, code) => env.DB.prepare(`${BK_SQL} WHERE b.booking_code = ?`).bind(code).first();
 const inviteByCode = (env, code) => env.DB.prepare('SELECT * FROM invites WHERE code = ?').bind(code).first();
 const inviteById = (env, id) => env.DB.prepare('SELECT * FROM invites WHERE id = ?').bind(id).first();
-const LIVE = ['confirmed', 'completed'];
+const LIVE = LIVE_STATUS;
 
 function bookingSummary(bk) {
   return { code: bk.booking_code, space_id: bk.space_id, space_name: (VENUES[bk.space_id] || {}).name || '메가스팟', date: bk.date,
@@ -33,20 +43,39 @@ async function liveBooking(env, inv) {
   }
   return bk;
 }
+// 예약 확인: 이용 날짜·시작 시간·예약자 이름·연락처(기본) 또는 예약번호·휴대폰 뒷 4자리
 async function checkBooking(env, request, d) {
+  if (!str(d.booking_code, 20)) return findBooking(env, request, d);
   const code = str(d.booking_code, 20).toUpperCase(), last4 = str(d.phone_last4, 4).replace(/\D/g, '');
   if (!code || last4.length !== 4) return { error: err('예약번호와 예약자 휴대폰 뒷 4자리를 확인해 주세요.') };
   if (await limited(env, 'inv-verify:' + clientIp(request), 12, 10)) return { error: tooManyErr() };
   const bk = await booking(env, code);
   if (!bk || bk.phone_last4 !== last4) return { error: err('예약을 찾지 못했습니다. 예약번호와 예약자 휴대폰 뒷 4자리를 확인해 주세요.', 404, 'NOT_FOUND') };
+  return statusCheck(bk);
+}
+function statusCheck(bk, receiver = '') {
   if (bk.status === 'cancelled') return { error: err('취소된 예약에는 초대장을 만들 수 없습니다.', 410, 'CANCELLED') };
   if (!LIVE.includes(bk.status)) return { error: err('예약이 확정된 뒤에 초대장을 만들 수 있습니다. 확정 안내를 받으신 뒤 다시 시도해 주세요.', 409, 'NOT_CONFIRMED') };
-  return { bk };
+  return { bk, receiver };
+}
+async function findBooking(env, request, d) {
+  const q = cleanLookup(d);
+  if (!q) return { error: err('이용 날짜, 시작 시간, 예약자 이름, 연락처를 모두 적어 주세요.') };
+  if (await limited(env, 'inv-verify:' + clientIp(request), 12, 10)) return { error: tooManyErr() };
+  const { results } = await env.DB.prepare(`SELECT b.booking_code, b.space_id, b.customer_name, b.phone, b.phone_last4, b.date, b.headcount, b.status,
+      ${bookingHourSql('b', 'i', 'start_h')} AS start_h, ${bookingHourSql('b', 'i', 'end_h')} AS end_h, ${bookingPhone2Sql()} AS phone2
+    FROM bookings b LEFT JOIN inquiries i ON i.ref = b.inquiry_ref WHERE b.date IN (?, ?) AND b.space_id IN (${Object.keys(VENUES).map(() => '?').join(',')})`)
+    .bind(q.date, shiftDate(q.date, -1), ...Object.keys(VENUES)).all();
+  const hit = pickBooking(results, q);
+  if (!hit) return { error: err('입력하신 정보와 맞는 예약을 찾지 못했습니다. 예약하실 때 적은 이름·연락처와 이용 날짜·시작 시간을 다시 확인해 주세요. 계속 안 되면 예약번호로 찾거나 카카오톡으로 문의해 주세요.', 404, 'NOT_FOUND') };
+  const r = hit.r;
+  return statusCheck({ booking_code: r.booking_code, space_id: r.space_id, phone_last4: r.phone_last4, date: r.date, start_h: r.start_h, end_h: r.end_h, headcount: r.headcount, status: r.status }, hit.receiver);
 }
 
 async function view(env, url) {
   const code = str(url.searchParams.get('c'), 20).toLowerCase();
   if (!code) return err('초대장 주소를 다시 확인해 주세요.', 400, 'BAD_LINK');
+  if (code === 'sample') return json({ ok: true, invite: sampleInvite() });
   try { await purge(env); } catch {}
   const inv = await inviteByCode(env, code);
   if (!inv || inv.status !== 'active') return err('초대장을 찾을 수 없습니다. 주소가 바뀌었거나 보관 기간이 끝났을 수 있습니다.', 404, 'NOT_FOUND');
@@ -95,9 +124,10 @@ async function verify(request, env) {
   let d; try { d = await readJson(request, 4 * 1024); } catch (e) { return err(e.message); }
   const c = await checkBooking(env, request, d); if (c.error) return c.error;
   const inv = await env.DB.prepare('SELECT * FROM invites WHERE booking_code = ?').bind(c.bk.booking_code).first();
-  if (inv) return json({ ok: true, booking: bookingSummary(c.bk), existing: { id: inv.id, title: parse(inv.data).title || '', ...(await links(env, inv)) } });
+  const kakao = await customerKakao(env);
+  if (inv) return json({ ok: true, booking: bookingSummary(c.bk), kakao, existing: { id: inv.id, title: parse(inv.data).title || '', ...(await links(env, inv)) } });
   if (c.bk.date < kstToday()) return err('이미 지난 예약에는 새 초대장을 만들 수 없습니다.', 409, 'PAST');
-  return json({ ok: true, booking: bookingSummary(c.bk), existing: null });
+  return json({ ok: true, booking: bookingSummary(c.bk), kakao, existing: null });
 }
 
 async function create(request, env) {
@@ -105,7 +135,7 @@ async function create(request, env) {
   const c = await checkBooking(env, request, d); if (c.error) return c.error;
   const bk = c.bk;
   const old = await env.DB.prepare('SELECT * FROM invites WHERE booking_code = ?').bind(bk.booking_code).first();
-  if (old) return json({ ok: true, existing: true, id: old.id, ...(await links(env, old)) });
+  if (old) return json({ ok: true, existing: true, id: old.id, kakao: await customerKakao(env), ...(await links(env, old)) });
   if (bk.date < kstToday()) return err('이미 지난 예약에는 새 초대장을 만들 수 없습니다.', 409, 'PAST');
   const data = cleanInvite(d, bk.date); if (data.error) return err(data.error);
   const id = await uniqueRef(env, 'invites', 'id', 'IV');
@@ -115,7 +145,7 @@ async function create(request, env) {
   await env.DB.prepare('INSERT INTO invites (id, code, booking_code, space_id, event_date, data, play, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)')
     .bind(id, code, bk.booking_code, bk.space_id, bk.date, JSON.stringify(data), null, 'active', ts, ts).run();
   await log(env, 'invite.created', bk.booking_code, 'customer', { id, date: bk.date });
-  return json({ ok: true, id, ...(await links(env, { id, code })) });
+  return json({ ok: true, id, kakao: await customerKakao(env), ...(await links(env, { id, code })) });
 }
 
 async function manageGet(env, url, request) {
@@ -131,7 +161,7 @@ async function manageGet(env, url, request) {
   const { results } = await env.DB.prepare('SELECT id, name, status, party, cars, answer, created_at, updated_at FROM invite_rsvps WHERE invite_id = ? ORDER BY created_at')
     .bind(inv.id).all();
   const rows = results || [];
-  return json({ ok: true, id: inv.id, data, booking: bk ? bookingSummary(bk) : null, closed: !bk,
+  return json({ ok: true, id: inv.id, data, booking: bk ? bookingSummary(bk) : null, closed: !bk, kakao: await customerKakao(env),
     invite: bk ? publicInvite(inv, data, bk) : null, rsvps: rows, summary: summarize(rows), ...(await links(env, inv)) });
 }
 
@@ -154,6 +184,7 @@ async function managePost(request, env) {
   }
   if (d.action === 'delete') {
     await env.DB.prepare('DELETE FROM invite_rsvps WHERE invite_id = ?').bind(id).run();
+    await env.DB.prepare('DELETE FROM invite_messages WHERE invite_id = ?').bind(id).run();
     await env.DB.prepare('DELETE FROM invites WHERE id = ?').bind(id).run();
     await log(env, 'invite.deleted', inv.booking_code, 'customer', { id });
     return json({ ok: true, deleted: true });
@@ -187,6 +218,31 @@ async function screenPost(request, env) {
   return json({ ok: true, play });
 }
 
+// 카카오톡 문구에 들어갈 값 (관리자 발송과 같이 씁니다)
+export async function kakaoVars(env, inv, bk, customerName) {
+  return { 고객명: str(customerName, 20) || '예약자', 모임이름: parse(inv.data).title || '모임', 공간명: (VENUES[bk.space_id] || {}).name || '메가스팟',
+    이용일: dateLabel(bk.date), 이용시간: timeLabel(bk.start_h, bk.end_h), 초대장코드: inv.code, 관리번호: inv.id, 관리키: await manageKey(env, inv.id) };
+}
+// 카카오톡으로 받기: 관리 링크를 가진 주최자가 예약자 본인 번호로 받습니다. 예약에 없는 번호로는 보내지 않습니다.
+async function kakaoSelf(request, env) {
+  let d; try { d = await readJson(request, 4 * 1024); } catch (e) { return err(e.message); }
+  const id = str(d.id, 20).toUpperCase();
+  if (await limited(env, 'inv-kakao-ip:' + clientIp(request), 10, 60)) return tooManyErr();
+  if (!(await keyOk(env, id, str(d.k, 40)))) return err('관리 링크가 올바르지 않습니다.', 403, 'BAD_KEY');
+  if (!(await customerKakao(env)).ready) return err('지금은 카카오톡으로 보내 드릴 수 없습니다. 초대장 주소를 복사하거나 PDF로 내려받아 주세요.', 409, 'KAKAO_OFF');
+  const inv = await inviteById(env, id); if (!inv) return err('초대장을 찾을 수 없습니다.', 404, 'NOT_FOUND');
+  const bk = await liveBooking(env, inv); if (!bk) return err('예약이 취소되었거나 확인되지 않아 보낼 수 없습니다.', 410, 'CLOSED');
+  const c = await bookingContacts(env, bk.booking_code), phones = contactPhones(c), want = mobilePhone(d.phone);
+  const receiver = want && phones.includes(want) ? want : mobilePhone(c && c.phone);
+  if (!receiver) return err('예약에 카카오톡을 받을 수 있는 휴대폰 번호가 없습니다. 메가스팟에 문의해 주세요.', 409, 'NO_PHONE');
+  if (await tooMany(env, 'inv-kakao:' + id, 3, 1440)) return err('카카오톡은 하루에 세 번까지 보내 드립니다. 받은 메시지를 확인해 주세요.', 429, 'TOO_MANY');
+  try { await hit(env, 'inv-kakao:' + id, 1440); } catch {}
+  const r = await sendInviteKakao(env, { inviteId: id, bookingCode: bk.booking_code, receiver, name: c.customer_name, vars: await kakaoVars(env, inv, bk, c.customer_name), actor: 'host' });
+  if (r.error) return err(r.error, r.status || 400, r.code || 'SEND_FAILED');
+  await log(env, 'invite.kakao', bk.booking_code, 'customer', { id, status: r.status });
+  return json({ ok: true, receiver: r.receiver, status: r.status });
+}
+
 export async function onRequest({ request, env, params }) {
   if (!hasDb(env)) return err('데이터베이스가 연결되어 있지 않습니다.', 503, 'NO_DB');
   const url = new URL(request.url);
@@ -203,6 +259,8 @@ export async function onRequest({ request, env, params }) {
     if (m === 'POST' && route === 'manage') return await managePost(request, env);
     if (m === 'GET' && route === 'screen') return await screenGet(env, url);
     if (m === 'POST' && route === 'screen') return await screenPost(request, env);
+    if (m === 'POST' && route === 'kakao') return await kakaoSelf(request, env);
+    if (route === 'admin') return await inviteAdmin({ request, env, url, seg: seg.slice(1), method: m, helpers: { booking, liveBooking, bookingSummary, kakaoVars } });
   } catch (e) {
     return err('처리 중 문제가 생겼습니다. 잠시 후 다시 시도해 주세요.', 500, 'SERVER');
   }

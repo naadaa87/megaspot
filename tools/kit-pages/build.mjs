@@ -10,7 +10,7 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const SITE = 'https://megaspot.kr', UPDATED = '2026-11-23';
+const SITE = 'https://megaspot.kr', UPDATED = '2026-11-24';
 const read = p => readFileSync(path.join(ROOT, p), 'utf8');
 const ver = p => createHash('sha256').update(read(p)).digest('hex').slice(0, 12);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -153,7 +153,8 @@ const toolCard = (t, extra = '') => `<a class="kit-tool" href="${t.path}">${icon
 
 // ---------- 모임 키트 (/kit/) ----------
 const KIT_FAQ = [
-  ['모임 키트는 누가 쓸 수 있나요?', '초대장은 메가스팟 건대 1호·2호 예약이 확정된 분이 예약번호와 예약자 휴대폰 뒷 4자리로 만듭니다. 웰컴 스크린, 추첨, 팀 나누기, 퀴즈 같은 플레이 도구는 예약 없이도 누구나 쓸 수 있습니다.'],
+  ['모임 키트는 누가 쓸 수 있나요?', '초대장은 메가스팟 건대 1호·2호 예약이 확정된 분이 만듭니다. 이용 날짜와 시작 시간, 예약자 이름과 연락처만 넣으면 예약을 찾아 주고, 예약번호로도 찾을 수 있습니다. 웰컴 스크린, 추첨, 팀 나누기, 퀴즈 같은 플레이 도구는 예약 없이도 누구나 쓸 수 있습니다.'],
+  ['초대장을 PDF나 카카오톡으로 받을 수 있나요?', '네. 초대장을 만든 뒤 A5 크기 PDF와 이미지로 내려받을 수 있습니다. PDF에는 QR 코드가 들어가서 인쇄해 나눠 줘도 초대장 주소로 이어집니다. 카카오톡으로는 초대장 주소나 이미지를 단체방에 바로 보낼 수 있습니다.'],
   ['요금이 있나요?', '없습니다. 초대장과 플레이 도구는 모두 무료입니다.'],
   ['참석자도 회원 가입을 해야 하나요?', '아니요. 참석자는 받은 주소를 열어 이름과 참석 여부만 남기면 됩니다. 휴대폰 번호는 받지 않습니다.'],
   ['초대장에는 어떤 정보가 들어가나요?', '행사 이름과 인사말, 일정, 공지는 주최자가 씁니다. 날짜와 시간, 공간, 주소, 길찾기, 주차 안내는 예약 내용에서 자동으로 붙습니다. 출입 방법, 결제·계좌 정보, 예약자 연락처는 넣지 않습니다.'],
@@ -161,7 +162,7 @@ const KIT_FAQ = [
   ['200인치 스크린에는 어떻게 띄우나요?', '노트북을 스크린에 연결한 뒤 플레이 도구를 열고 ‘스크린에 띄우기’를 누르면 전체 화면으로 바뀝니다. 초대장 관리 화면의 ‘스크린 연결’ 주소로 열면 참석자 이름과 준비한 문제를 그대로 불러옵니다.'],
 ];
 function kitHub() {
-  const inv = { k: 'invite', path: '/invite/new/', name: '모임 초대장', text: '예약번호만 넣으면 날짜, 장소, 길찾기, 주차 안내가 붙은 초대장이 만들어집니다. 참석 여부와 인원, 차량 여부를 한 화면에서 모아 봅니다.' };
+  const inv = { k: 'invite', path: '/invite/new/', name: '모임 초대장', text: '예약 날짜와 예약자 이름·연락처만 넣으면 날짜, 장소, 길찾기, 주차 안내가 붙은 초대장이 만들어집니다. PDF로 내려받거나 카카오톡으로 보내고, 참석 응답을 한 화면에서 모아 봅니다.' };
   return `
 <section class="kit-hero">
   <div class="container">
@@ -177,9 +178,9 @@ function kitHub() {
     <h2>예약하고 나면 이렇게 쓰세요</h2>
     <p class="sub">초대장을 만들 때 받은 ‘스크린 연결’ 주소 하나로 초대장과 당일 진행 도구가 이어집니다.</p>
     <ol class="kit-steps">
-      <li><b>예약 확정</b>예약확정 안내에 있는 예약번호를 준비합니다.</li>
+      <li><b>예약 확인</b>이용 날짜와 시작 시간, 예약자 이름·연락처로 예약을 찾습니다. 예약번호로도 됩니다.</li>
       <li><b>초대장 만들기</b>행사 이름과 인사말, 일정을 쓰면 장소와 주차 안내는 자동으로 붙습니다.</li>
-      <li><b>주소 보내기</b>카카오톡이나 문자로 주소를 보내고, 참석 응답을 관리 화면에서 확인합니다.</li>
+      <li><b>PDF·카카오톡으로 보내기</b>PDF와 이미지로 내려받거나 카카오톡으로 주소를 보내고, 참석 응답은 관리 화면에서 확인합니다.</li>
       <li><b>당일 스크린 연결</b>‘스크린 연결’ 주소로 열면 참석자 이름이 추첨과 팀 나누기에 바로 들어갑니다.</li>
     </ol>
   </div>
@@ -465,7 +466,7 @@ function inviteNew() {
 <section class="mv-top"><div class="container">${crumbs([['모임 키트', '/kit/'], ['초대장 만들기', '/invite/new/']])}</div></section>
 <section class="section" style="padding-top:14px">
   <div class="container">
-    <div style="margin-bottom:18px"><div class="eyebrow">Invitation</div><h1 style="font-size:clamp(26px,3.4vw,36px);margin:6px 0 4px">모임 초대장 만들기</h1><p class="muted" style="margin:0;max-width:66ch">일행에게 보낼 초대장을 만듭니다. 날짜와 장소, 길찾기, 주차 안내는 예약에서 자동으로 채워지고, 참석 응답은 관리 화면에서 모아 봅니다.</p></div>
+    <div style="margin-bottom:18px"><div class="eyebrow">Invitation</div><h1 style="font-size:clamp(26px,3.4vw,36px);margin:6px 0 4px">모임 초대장 만들기</h1><p class="muted" style="margin:0;max-width:66ch">일행에게 보낼 초대장을 만듭니다. 날짜와 장소, 길찾기, 주차 안내는 예약에서 자동으로 채워지고, 다 만든 초대장은 PDF로 내려받거나 카카오톡으로 보낼 수 있습니다.</p></div>
     <div id="inv-root"><div class="empty small">불러오는 중…</div></div>
   </div>
 </section>`;
@@ -497,9 +498,9 @@ export function buildPages() {
   tool(TOOLS[5], balancePage(), 'play-balance');
   tool(TOOLS[6], wheelPage(), 'play-wheel');
   add('/play/bingo/card/', { title: '내 빙고판 · 메가스팟 플레이', desc: '휴대폰으로 쓰는 빙고판', bodyClass: 'page-bingo-card kit-noquick', main: bingoCard(), noindex: true, scripts: ['play-bingo-card'] });
-  add('/invite/new/', { title: '모임 초대장 만들기 · 메가스팟', desc: '메가스팟 예약번호로 일행에게 보낼 모임 초대장을 만듭니다.', bodyClass: 'page-kit page-invite-new', main: inviteNew(), noindex: true, scripts: ['invite-card', 'invite-new'] });
+  add('/invite/new/', { title: '모임 초대장 만들기 · 메가스팟', desc: '메가스팟 예약 정보로 일행에게 보낼 모임 초대장을 만들고 PDF·카카오톡으로 보냅니다.', bodyClass: 'page-kit page-invite-new', main: inviteNew(), noindex: true, scripts: ['invite-card', 'invite-pdf', 'invite-new'] });
   add('/invite/', { title: '모임 초대장 · 메가스팟', og: '모임 초대장이 도착했습니다', desc: '메가스팟에서 열리는 모임 초대장입니다. 일시와 장소, 길찾기, 주차 안내를 확인하고 참석 여부를 알려 주세요.', bodyClass: 'page-invite kit-noquick', main: inviteView(), noindex: true, scripts: ['invite-card', 'invite-view'] });
-  add('/invite/manage/', { title: '초대장 관리 · 메가스팟', desc: '주최자 초대장 관리 화면', bodyClass: 'page-kit page-invite-manage kit-noquick', main: inviteManage(), noindex: true, scripts: ['invite-card', 'invite-new', 'invite-manage'] });
+  add('/invite/manage/', { title: '초대장 관리 · 메가스팟', desc: '주최자 초대장 관리 화면', bodyClass: 'page-kit page-invite-manage kit-noquick', main: inviteManage(), noindex: true, scripts: ['invite-card', 'invite-pdf', 'invite-new', 'invite-manage'] });
   return out;
 }
 

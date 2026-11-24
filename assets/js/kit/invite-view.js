@@ -5,7 +5,8 @@
   'use strict';
   var K = window.Kit, esc = K.esc, root = K.$('#inv-root');
   if (!root) return;
-  var code = (new URLSearchParams(location.search).get('c') || '').trim().toLowerCase().slice(0, 20);
+  // 카카오톡 알림톡 버튼은 주소 뒤쪽(#c=)으로 엽니다
+  var code = (new URLSearchParams(location.search).get('c') || new URLSearchParams(location.hash.slice(1)).get('c') || '').trim().toLowerCase().slice(0, 20);
   var KEY = 'ms_invite_rsvp', inv = null, mine = null, editing = false;
 
   function tokenFor(c, create) {
@@ -53,7 +54,7 @@
   function render() {
     var card = K.inviteCard(inv, { rsvpSlot: true });
     var shareTitle = inv.title + ' 초대장';
-    root.innerHTML = card +
+    root.innerHTML = (inv.sample ? '<p class="kit-msg info" style="margin:0 0 12px">예시로 보여 드리는 초대장입니다. 실제 예약과 이어지지 않습니다.</p>' : '') + card +
       '<div class="inv-share"><button type="button" class="btn btn-light" data-ics>캘린더에 저장</button><button type="button" class="btn btn-light" data-share>초대장 전달하기</button></div>' +
       '<a class="inv-cta" href="/kit/"><div><b>나도 메가스팟에서 모임 열기</b><small>건대입구 190평·400평 공간 · 초대장과 진행 도구 무료</small></div><span class="arrow">→</span></a>' +
       '<p class="inv-foot">이 초대장은 주최자가 <a href="/kit/">메가스팟 모임 키트</a>로 만들었습니다.<br>메가스팟은 초대장 내용과 회비를 대신 받거나 확인하지 않습니다.</p>';

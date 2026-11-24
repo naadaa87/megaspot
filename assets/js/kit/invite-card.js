@@ -8,6 +8,11 @@
 
   K.inviteCard = function (inv, opt) {
     opt = opt || {};
+    // 자정을 넘겨 시작하는 예약(시작 24시 이상)은 실제 날짜와 시각으로 보여 줍니다 (2026-11-24)
+    if (Number(inv.start_h) >= 24 && K.ymd(inv.date)) {
+      var nd = new Date(K.ymd(inv.date).t + 864e5).toISOString().slice(0, 10);
+      inv = Object.assign({}, inv, { date: nd, start_h: Number(inv.start_h) - 24, end_h: inv.end_h != null ? Number(inv.end_h) - 24 : inv.end_h });
+    }
     var place = Object.assign({}, K.PLACE, inv.place || {}), space = inv.space || {}, maps = K.maps(place);
     var theme = K.THEMES[inv.theme] ? inv.theme : 'chalk', phase = inv.phase || 'before';
     var dd = phase === 'today' ? 'TODAY' : phase === 'after' ? '' : K.ddayLabel(inv.date);

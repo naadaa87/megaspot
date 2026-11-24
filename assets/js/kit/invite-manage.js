@@ -1,16 +1,20 @@
 /* 모임 초대장 — 주최자 관리 /invite/manage/?id=&k= (2026-11-21)
-   응답 현황 · 명단 내려받기 · 응답 지우기 · 초대장 고치기 · 스크린 준비 · 초대장 삭제 */
+   응답 현황 · PDF·카카오톡(2026-11-24) · 명단 내려받기 · 응답 지우기 · 초대장 고치기 · 스크린 준비 · 초대장 삭제
+   카카오톡 알림톡의 '초대장 관리' 버튼은 주소 뒤쪽(#id=&k=)으로 열어, 관리 열쇠가 서버 기록에 남지 않게 합니다. */
 (function () {
   'use strict';
   var K = window.Kit, esc = K.esc, root = K.$('#inv-root');
   if (!root) return;
-  var q = new URLSearchParams(location.search), id = (q.get('id') || '').toUpperCase().slice(0, 20), key = (q.get('k') || '').slice(0, 40);
+  var q = new URLSearchParams(location.search);
+  if (!q.get('id') && location.hash.length > 1) q = new URLSearchParams(location.hash.slice(1));
+  var id = (q.get('id') || '').toUpperCase().slice(0, 20), key = (q.get('k') || '').slice(0, 40);
   var S = null, tab = 'rsvp', filter = 'all', armed = false;
 
   function fail(msg) {
-    root.innerHTML = '<div class="kit-panel" style="max-width:640px"><h2>관리 화면을 열 수 없습니다</h2><p class="desc" style="margin-top:6px">' + esc(msg) + '</p><a class="btn btn-primary" href="/invite/new/">예약번호로 다시 열기</a></div>';
+    root.innerHTML = '<div class="kit-panel" style="max-width:640px"><h2>관리 화면을 열 수 없습니다</h2><p class="desc" style="margin-top:6px">' + esc(msg) + '</p><a class="btn btn-primary" href="/invite/new/">예약 정보로 다시 열기</a></div>';
   }
-  if (!id || !key) { fail('관리 주소가 잘렸을 수 있습니다. 받은 주소 전체를 다시 열거나, 예약번호와 휴대폰 뒷 4자리로 다시 열어 주세요.'); return; }
+  if (id === 'SAMPLE') { root.innerHTML = '<div class="kit-panel" style="max-width:640px"><span class="kit-tag">시험 발송</span><h2 style="margin-top:10px">카카오톡 시험 메시지의 예시 링크입니다</h2><p class="desc" style="margin-top:6px">실제 초대장의 \'초대장 관리\' 버튼을 누르면 이 자리에 응답 현황과 PDF·카카오톡 보내기 화면이 열립니다.</p><a class="btn btn-primary" href="/invite/?c=sample">예시 초대장 보기</a></div>'; return; }
+  if (!id || !key) { fail('관리 주소가 잘렸을 수 있습니다. 받은 주소 전체를 다시 열거나, 예약 정보로 다시 열어 주세요.'); return; }
 
   function load() {
     return K.api('manage?id=' + encodeURIComponent(id) + '&k=' + encodeURIComponent(key)).then(function (j) {
@@ -57,9 +61,10 @@
     var head = '<div class="kit-row" style="justify-content:space-between;align-items:flex-end;margin-bottom:16px"><div><div class="eyebrow">Invitation · 주최자 관리</div><h1 style="font-size:clamp(24px,3.2vw,34px);margin:6px 0 2px">' + esc(d.title) + '</h1>' +
       '<p class="muted" style="margin:0">' + (bk ? esc(bk.space_name) + ' · ' + esc(K.fmtDate(bk.date)) + ' ' + esc(K.timeRange(bk.start_h, bk.end_h)) + ' · ' + esc(K.ddayLabel(bk.date)) : '예약이 취소되었거나 확인되지 않아 참석자에게 초대장이 열리지 않습니다.') + '</p></div>' +
       '<div class="kit-row"><button type="button" class="btn btn-primary" data-share' + (S.closed ? ' disabled' : '') + '>초대장 보내기</button><a class="btn btn-light" href="' + esc(S.public_url) + '" target="_blank" rel="noopener">참석자 화면 보기</a></div></div>';
-    var tabs = '<div class="kit-tabs">' + [['rsvp', '응답 현황'], ['edit', '초대장 고치기'], ['screen', '행사 날 스크린'], ['more', '주소·삭제']].map(function (t) { return '<button type="button" data-tab="' + t[0] + '" class="' + (tab === t[0] ? 'on' : '') + '">' + t[1] + '</button>'; }).join('') + '</div>';
+    var tabs = '<div class="kit-tabs">' + [['rsvp', '응답 현황'], ['send', 'PDF·카카오톡'], ['edit', '초대장 고치기'], ['screen', '행사 날 스크린'], ['more', '주소·삭제']].map(function (t) { return '<button type="button" data-tab="' + t[0] + '" class="' + (tab === t[0] ? 'on' : '') + '">' + t[1] + '</button>'; }).join('') + '</div>';
     var body = '';
     if (tab === 'rsvp') body = rsvpTab();
+    else if (tab === 'send') body = '<div class="kit-panel" style="max-width:860px" data-deliver></div>';
     else if (tab === 'edit') body = S.closed ? '<div class="empty">예약이 확인되지 않아 고칠 수 없습니다.</div>' : '<div data-edit></div>';
     else if (tab === 'screen') body = screenTab();
     else body = '<div class="kit-split"><div class="kit-panel kit-done">' + K.linkBox('참석자에게 보낼 주소', S.public_url) + K.linkBox('주최자 관리 주소 (나만 보관)', S.manage_url, '이 주소를 아는 사람은 응답 명단을 볼 수 있습니다.') + K.linkBox('스크린 연결 주소', S.screen_url) +
@@ -70,6 +75,7 @@
       return post({ action: 'update', data: v }).then(function (j) { S.data = j.data; K.toast('초대장을 고쳤습니다. 참석자 화면에 바로 반영됩니다.'); });
     } });
     if (tab === 'more') K.qr(K.$('[data-qr]', root), S.public_url, { label: '초대장 QR 코드' });
+    if (tab === 'send') K.deliverBox(K.$('[data-deliver]', root), { invite: S.closed ? null : S.invite, public_url: S.public_url, manage_url: S.manage_url, kakao: S.kakao, title: d.title });
   }
 
   root.addEventListener('click', function (e) {

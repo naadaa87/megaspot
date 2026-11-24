@@ -1209,6 +1209,19 @@ CREATE TABLE IF NOT EXISTS invite_rsvps (   -- 초대장 참석 응답 · 행사
   UNIQUE(invite_id, token_hash)
 );
 CREATE INDEX IF NOT EXISTS idx_invite_rsvps ON invite_rsvps(invite_id, status, created_at);
+CREATE TABLE IF NOT EXISTS invite_messages (   -- 초대장 카카오톡(알림톡) 보낸 기록 (2026-11-24) · 초대장을 지울 때 함께 지움 · 받는 번호는 가운데를 가려 저장
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  invite_id TEXT,                      -- 운영자 시험 발송은 비어 있음
+  booking_code TEXT,
+  receiver_mask TEXT NOT NULL,         -- 010-****-1234
+  receiver_hash TEXT NOT NULL,         -- 같은 번호로 여러 번 보냈는지 확인용 해시
+  actor TEXT NOT NULL,                 -- customer 고객이 직접 | host 주최자 관리 화면 | admin 관리자 | test 운영자 시험
+  status TEXT NOT NULL,                -- sending | accepted 알리고 접수 | failed | unknown 결과 확인 필요
+  provider_mid TEXT,
+  error TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_invite_messages ON invite_messages(invite_id, created_at);
 
 -- ---------- 검색 노출 점검 (2026-11-23 추가) ----------
 CREATE TABLE IF NOT EXISTS crawler_hits (  -- 검색봇 방문 기록 · 날짜와 봇별로 1줄 (네이버 Yeti·구글·빙·다음·AI 검색 봇이 실제로 들어오는지 확인용 · 사람 방문은 기록하지 않음 · 2026-11-23)
