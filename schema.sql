@@ -1314,6 +1314,41 @@ CREATE TABLE IF NOT EXISTS event_cases (   -- 행사 사례 (2026-11-25) · 주�
 );
 CREATE INDEX IF NOT EXISTS idx_event_cases_status ON event_cases(status, published_at);
 
+CREATE TABLE IF NOT EXISTS talents (   -- MC·아나운서·강사·레크리에이션 진행자 프로필 (2026-11-25) · 연락처는 private 칸에만 두고 공개 화면·API에는 내보내지 않음
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  slug TEXT NOT NULL UNIQUE,              -- 주소용 영문 이름 (/mc/view/?id=kim-sol)
+  status TEXT NOT NULL DEFAULT 'draft',   -- draft 준비 중 | published 공개 | hidden 숨김
+  sort INTEGER NOT NULL DEFAULT 100,      -- 목록 순서 (작을수록 앞)
+  data TEXT NOT NULL DEFAULT '{}',        -- 공개 정보: 이름·직함·역할·한 줄 소개·소개·강점·대표 이력·학력·자격·언어·사진·안내 금액
+  private TEXT NOT NULL DEFAULT '{}',     -- 관리자만: 휴대폰·이메일·카카오톡·소속/매니저·출연료 기준·정산 메모·운영 메모
+  published_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_talents_status ON talents(status, sort);
+CREATE TABLE IF NOT EXISTS talent_requests (   -- 진행자 섭외 요청 (2026-11-25) · 고객 요청 원문(data)과 운영 기록(admin)을 나눠 보관
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ref TEXT NOT NULL UNIQUE,               -- 접수번호 TR-YYMM-XXXX
+  status TEXT NOT NULL DEFAULT 'new',     -- new 접수 | checking 일정 확인 중 | quoted 견적 안내 | confirmed 섭외 확정 | done 행사 완료 | cancelled 취소
+  name TEXT, phone TEXT, email TEXT,
+  event_date TEXT,                        -- 행사일 (미정이면 비움)
+  data TEXT NOT NULL DEFAULT '{}',        -- 행사 종류·시간·장소·인원·원하는 진행·언어·희망 진행자·예산·요청사항·유입
+  admin TEXT NOT NULL DEFAULT '{}',       -- 배정 진행자·고객 견적 금액·진행자 출연료·부가세·연결 문의번호·운영 메모·진행 기록
+  member_id INTEGER,
+  created_at TEXT NOT NULL,
+  updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_talent_requests_status ON talent_requests(status, created_at);
+CREATE TABLE IF NOT EXISTS talent_photos (   -- 진행자 프로필 사진 (관리자가 올림 · 2026-11-25) · /api/talent/photo/<번호> 로 누구나 볼 수 있음
+  id TEXT PRIMARY KEY,                    -- 무작위 22자
+  mime TEXT NOT NULL,                     -- image/jpeg · image/png · image/webp
+  thumb_mime TEXT,
+  body TEXT NOT NULL,                     -- 사진 (base64 · 긴 변 1600px 이하)
+  thumb TEXT,                             -- 목록용 작은 사진 (base64 · 긴 변 640px 이하)
+  w INTEGER, h INTEGER,
+  created_at TEXT NOT NULL
+);
+
 -- ---------- 검색 노출 점검 (2026-11-23 추가) ----------
 CREATE TABLE IF NOT EXISTS crawler_hits (  -- 검색봇 방문 기록 · 날짜와 봇별로 1줄 (네이버 Yeti·구글·빙·다음·AI 검색 봇이 실제로 들어오는지 확인용 · 사람 방문은 기록하지 않음 · 2026-11-23)
   day TEXT NOT NULL,                       -- 한국 날짜 YYYY-MM-DD

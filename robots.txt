@@ -63,3 +63,4 @@ Sitemap: https://megaspot.kr/spaces/sitemap.xml
 Sitemap: https://megaspot.kr/community/sitemap.xml
 Sitemap: https://megaspot.kr/meetups/sitemap.xml
 Sitemap: https://megaspot.kr/cases/sitemap.xml
+Sitemap: https://megaspot.kr/mc/sitemap.xml
