@@ -77,7 +77,7 @@
     h += '<section class="cdoc-sec"><h2>3. 대관료와 결제</h2><table class="cdoc-tbl cdoc-kv"><tbody>' +
       row('공간 이용료', won(f.space) + ' (' + cb(f.type !== 'package', '시간제') + '<span class="cdoc-gap"></span>' + cb(f.type === 'package', '패키지' + (f.type === 'package' && f.pkg ? ': ' + f.pkg : '')) + ')') +
       row('추가 인원', '기본 포함 ' + (f.base_people ? n(f.base_people).toLocaleString('ko-KR') : '　　') + '명 초과 ' + n(f.extra_people) + '명 × 10,000원 = ' + won(t.extra_amount)) +
-      row('부가 옵션', won(f.options_amount) + '<div class="cdoc-cbs">' + OPTIONS.map(function (x) { return '<span>' + cb(opts.indexOf(x[0]) >= 0, x[0] === 'etc' && f.options_etc ? '기타: ' + f.options_etc : x[1]) + '</span>'; }).join('') + '</div>') +
+      row('부가 옵션', won(f.options_amount) + ((f.option_items || []).length ? '<ul class="cdoc-items">' + f.option_items.map(function (x) { return '<li><span>' + esc(x.label) + '</span><span>' + won(x.amount) + '</span></li>'; }).join('') + '</ul>' : '') + '<div class="cdoc-cbs">' + OPTIONS.map(function (x) { return '<span>' + cb(opts.indexOf(x[0]) >= 0, x[0] === 'etc' && f.options_etc ? '기타: ' + f.options_etc : x[1]) + '</span>'; }).join('') + '</div>') +
       row('할인·협찬', '−' + won(f.discount)) +
       row('대관료 합계', '<b>' + won(t.total) + ' (부가세 포함)</b>') +
       row('예약금', won(f.deposit) + ' (결제일 ' + (f.deposit_date ? esc(dotDate(f.deposit_date)) : '　　.　　.　　') + ')') +

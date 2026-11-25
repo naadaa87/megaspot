@@ -1457,6 +1457,15 @@ body:has(.subnav) section[id]{scroll-margin-top:calc(var(--header-h) + 22px)}
 .nw-opts summary{cursor:pointer;padding:10px 0;font-size:13.5px;font-weight:700}
 .nw-opts-body{display:grid;gap:8px;padding-bottom:12px}
 .nw-opts-body .chk{font-size:13.5px;padding:7px 10px}
+/* 관리자 문의 등록 · 기타 옵션 · 식음료 요청 (2026-11-25) */
+.nw-extra{display:grid;gap:8px;padding:10px;border:1px dashed var(--concrete);border-radius:10px;background:#fff}
+.nw-extra-head{font-size:13.5px;line-height:1.5}
+.nw-extra-row{display:grid;grid-template-columns:minmax(0,1fr) 130px auto;gap:6px;align-items:center}
+.nw-extra-row .input{min-height:38px}
+.nw-food-row{display:grid;gap:6px}
+.nw-food-fields{display:grid;grid-template-columns:90px 140px minmax(0,1fr);gap:6px;padding:0 0 4px 28px}
+.nw-food-fields .input{min-height:38px}
+@media (max-width:560px){.nw-extra-row{grid-template-columns:minmax(0,1fr) 100px auto}.nw-food-fields{grid-template-columns:1fr 1fr;padding-left:0}.nw-food-fields [data-nwf=note]{grid-column:1/-1}}
 .nw-amount{border:1px solid var(--concrete);border-radius:var(--radius-lg);padding:12px 14px 14px;margin:0;display:grid;gap:10px;background:var(--concrete-3)}
 .nw-amount legend{font-weight:800;font-size:14px;padding:0 6px}
 .seg2{display:flex;flex-wrap:wrap;gap:6px}

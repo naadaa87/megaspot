@@ -64,8 +64,13 @@ export function cleanRenter(r) {
   r = r || {};
   return { name: line(r.name, 60), rep: line(r.rep, 40), bizno: line(r.bizno, 20), address: line(r.address, 120), phone: line(r.phone, 20), email: line(r.email, 80) };
 }
+// 부가 옵션 항목 (여러 줄 · 2026-11-25). 항목이 있으면 그 합계가 부가 옵션 금액입니다.
+export function cleanOptionItems(v) {
+  return (Array.isArray(v) ? v : []).slice(0, 20).map(x => ({ label: line(x && x.label, 40), amount: money(x && x.amount) })).filter(x => x.label || x.amount).map(x => ({ label: x.label || '부가 옵션', amount: x.amount }));
+}
 export function cleanContract(d) {
   d = d && typeof d === 'object' ? d : {}; const f = d.fee && typeof d.fee === 'object' ? d.fee : {};
+  const items = cleanOptionItems(f.option_items);
   return {
     renter: cleanRenter(d.renter),
     space: Object.prototype.hasOwnProperty.call(CD.SPACES, d.space) ? d.space : '',
@@ -74,7 +79,7 @@ export function cleanContract(d) {
     fee: {
       space: money(f.space), type: f.type === 'package' ? 'package' : 'hourly', pkg: line(f.pkg, 40),
       base_people: clampInt(f.base_people, 0, 5000, 0), extra_people: clampInt(f.extra_people, 0, 5000, 0),
-      options_amount: money(f.options_amount), options: subset(f.options, CD.OPTIONS), options_etc: line(f.options_etc, 40),
+      options_amount: items.length ? items.reduce((a, x) => a + x.amount, 0) : money(f.options_amount), ...(items.length ? { option_items: items } : {}), options: subset(f.options, CD.OPTIONS), options_etc: line(f.options_etc, 40),
       discount: money(f.discount), deposit: money(f.deposit), deposit_date: isDate(str(f.deposit_date, 10)) ? str(f.deposit_date, 10) : '',
       balance_days: clampInt(f.balance_days, 0, 90, 0), security: f.security == null || f.security === '' ? CD.SECURITY : money(f.security),
       methods: subset(f.methods, CD.METHODS), bank: cleanBank(f.bank)
@@ -109,6 +114,7 @@ export function prefillFrom({ booking: b, inquiry: q, settings }) {
   const start = s != null ? hh(s) : hhmm(inq.t_start), end = e != null ? hh(e) : hhmm(inq.t_end);
   const name = (b && b.customer_name) || inq.name || (q && q.name) || '', org = line(inq.org, 60);
   const total = doc && doc.amount != null ? doc.amount : b && b.amount != null ? b.amount : inq.total || 0;
+  const extras = cleanOptionItems(inq.option_extras), extrasSum = extras.reduce((a, x) => a + x.amount, 0), splitExtras = extras.length && money(total) >= extrasSum;
   return {
     renter: { name: org || name, rep: name, bizno: '', address: '', phone: fmtPhone((b && b.phone) || (q && q.phone) || inq.phone || ''), email: line((q && q.email) || inq.email || '', 80) },
     space: Object.prototype.hasOwnProperty.call(CD.SPACES, b ? b.space_id : (q && q.space_id)) ? (b ? b.space_id : q.space_id) : '',
@@ -116,7 +122,7 @@ export function prefillFrom({ booking: b, inquiry: q, settings }) {
     event: line((doc && doc.event) || inq.theme || '', 80), purpose: line(inq.purpose, 20),
     headcount: (b && b.headcount) || inq.headcount || (q && q.headcount) || 0,
     booking_code: (b && b.booking_code) || '',
-    fee: { space: money(total), type: inq.pkg ? 'package' : 'hourly', pkg: '', base_people: 0, extra_people: 0, options_amount: 0, options: optionsFrom(inq, doc), options_etc: '',
+    fee: { space: splitExtras ? money(total) - extrasSum : money(total), type: inq.pkg ? 'package' : 'hourly', pkg: '', base_people: 0, extra_people: 0, options_amount: splitExtras ? extrasSum : 0, ...(splitExtras ? { option_items: extras } : {}), options: optionsFrom(inq, doc), options_etc: '',
       discount: 0, deposit: doc && doc.paid ? money(doc.paid) : 0, deposit_date: '', balance_days: settings.balance_days, security: CD.SECURITY, methods: settings.methods, bank: settings.bank },
     special: ''
   };

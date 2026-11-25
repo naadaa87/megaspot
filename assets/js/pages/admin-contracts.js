@@ -89,6 +89,20 @@
     run('');
   }
 
+  /* ---------- 부가 옵션 항목 (여러 줄 · 2026-11-25) ----------
+     항목이 없던 예전 계약서는 부가 옵션 금액을 한 줄로 보여 줍니다. 저장하기 전에는 계약서 내용이 바뀌지 않습니다. */
+  function optRows(fe) {
+    var items = (fe.option_items || []).filter(function (x) { return x && (x.label || x.amount); });
+    if (items.length) return items;
+    if (Number(fe.options_amount) > 0) return [{ label: fe.options_etc || '부가 옵션', amount: fe.options_amount }];
+    return [{}];
+  }
+  function optRow(x) {
+    return '<div class="act-opt-row"><input class="input" data-oi="label" maxlength="40" placeholder="항목 (예: 현장 매니저 2명 · 4시간)" value="' + esc(x.label || '') + '">' +
+      '<span class="act-unit"><input class="input" data-oi="amount" inputmode="numeric" data-money value="' + esc(x.amount ? Number(x.amount).toLocaleString('ko-KR') : '') + '" aria-label="금액"><em>원</em></span>' +
+      '<button type="button" class="btn btn-light btn-sm" data-optdel aria-label="이 항목 지우기">✕</button></div>';
+  }
+
   /* ---------- 계약서 쓰기·고치기 ---------- */
   function form(id, d, inquiryRef) {
     var body = drawer(id ? '계약서 고치기 · ' + id : '새 계약서'); S.cur = id || '';
@@ -107,8 +121,9 @@
       '<div class="adm-card"><h3>3. 대관료와 결제</h3><div class="act-3">' + num('f_space', '공간 이용료', fe.space) +
       '<label>요금 방식<select class="input" name="f_type"><option value="hourly"' + (fe.type !== 'package' ? ' selected' : '') + '>시간제</option><option value="package"' + (fe.type === 'package' ? ' selected' : '') + '>패키지</option></select></label>' + inp('f_pkg', '패키지 이름', fe.pkg, 'maxlength="40"') + '</div>' +
       '<div class="act-3">' + num('f_base', '기본 포함 인원', fe.base_people, '명') + num('f_extra', '초과 인원', fe.extra_people, '명') + '<label>추가 인원 금액<output class="input act-out" data-extra></output></label></div>' +
-      '<div class="act-3">' + num('f_opt', '부가 옵션 금액', fe.options_amount) + num('f_discount', '할인·협찬', fe.discount) + num('f_security', '이용 보증금', fe.security == null ? C.SECURITY : fe.security) + '</div>' +
+      '<div class="act-3"><label>부가 옵션 금액<output class="input act-out" data-optsum></output></label>' + num('f_discount', '할인·협찬', fe.discount) + num('f_security', '이용 보증금', fe.security == null ? C.SECURITY : fe.security) + '</div>' +
       '<p class="small" style="margin:10px 0 4px">부가 옵션</p>' + checks('f_options', C.OPTIONS, fe.options) + inp('f_options_etc', '기타 옵션 내용', fe.options_etc, 'maxlength="40"') +
+      '<p class="small" style="margin:12px 0 4px">부가 옵션 항목과 금액 <span class="muted">여러 개 추가할 수 있고, 합계가 부가 옵션 금액이 됩니다</span></p><div class="act-opt-items" data-optitems>' + optRows(fe).map(optRow).join('') + '</div><button type="button" class="btn btn-light btn-sm" data-optadd>+ 항목 추가</button>' +
       '<div class="act-3">' + num('f_deposit', '예약금', fe.deposit) + inp('f_deposit_date', '예약금 결제일', fe.deposit_date, 'type="date"') + num('f_balance_days', '잔금 기한 (이용일 며칠 전)', fe.balance_days, '일 전') + '</div>' +
       '<div class="act-total" data-total></div>' +
       '<p class="small" style="margin:10px 0 4px">결제 방법</p>' + checks('f_methods', C.METHODS, fe.methods) +
@@ -117,17 +132,18 @@
       '<p class="small muted">4. 계약 조항과 6. 서명란은 정해진 양식이 그대로 들어갑니다. 계약일은 대관자가 확인한 날로 적힙니다.</p></div>' +
       '<p class="small act-err" data-err role="alert"></p><div class="act-sticky"><button class="btn btn-primary" type="submit">' + (id ? '고친 내용 저장' : '계약서 만들기') + '</button>' + (id ? '<button class="btn btn-light" type="button" data-back>취소</button>' : '') + '</div></form>';
     var fm = $('[data-cf]', body);
+    var optItems = function () { return $$('[data-optitems] .act-opt-row', fm).map(function (r) { return { label: r.querySelector('[data-oi=label]').value.trim(), amount: Number(String(r.querySelector('[data-oi=amount]').value).replace(/[^\d]/g, '')) || 0 }; }).filter(function (x) { return x.label || x.amount; }).map(function (x) { return { label: x.label || '부가 옵션', amount: x.amount }; }); };
     var val = function () {
       var v = fm.elements, m = function (n) { return Number(String(v[n].value).replace(/[^\d]/g, '')) || 0; }, all = function (n) { return $$('input[name="' + n + '"]:checked', fm).map(function (x) { return x.value; }); };
       return { renter: { name: v.r_name.value.trim(), rep: v.r_rep.value.trim(), bizno: v.r_bizno.value.trim(), phone: v.r_phone.value.trim(), email: v.r_email.value.trim(), address: v.r_address.value.trim() },
         space: (fm.querySelector('input[name=space]:checked') || {}).value || '', date: v.date.value, start: v.start.value, end: v.end.value, event: v.event.value.trim(), headcount: m('headcount'), booking_code: v.booking_code.value.trim().toUpperCase(),
-        fee: { space: m('f_space'), type: v.f_type.value, pkg: v.f_pkg.value.trim(), base_people: m('f_base'), extra_people: m('f_extra'), options_amount: m('f_opt'), discount: m('f_discount'), security: m('f_security'),
+        fee: { space: m('f_space'), type: v.f_type.value, pkg: v.f_pkg.value.trim(), base_people: m('f_base'), extra_people: m('f_extra'), option_items: optItems(), options_amount: optItems().reduce(function (a, x) { return a + x.amount; }, 0), discount: m('f_discount'), security: m('f_security'),
           options: all('f_options'), options_etc: v.f_options_etc.value.trim(), deposit: m('f_deposit'), deposit_date: v.f_deposit_date.value, balance_days: m('f_balance_days'), methods: all('f_methods'),
           bank: { bank: v.b_bank.value.trim(), number: v.b_number.value.trim(), holder: v.b_holder.value.trim() } }, special: v.special.value };
     };
     var calc = function () {
       var v = val(), t = C.totals(v.fee), h = C.hours(v.start, v.end);
-      $('[data-extra]', fm).textContent = won(t.extra_amount);
+      $('[data-extra]', fm).textContent = won(t.extra_amount); $('[data-optsum]', fm).textContent = won(v.fee.options_amount);
       $('[data-total]', fm).innerHTML = '<span>대관료 합계 <b>' + won(t.total) + '</b> <small>(부가세 포함)</small></span><span>잔금 <b>' + (t.paid_full ? '해당 없음' : won(t.balance)) + '</b></span><span>보증금 <b>' + won(v.fee.security) + '</b> <small>별도</small></span>';
       $('[data-hours]', fm).textContent = h != null ? '총 ' + h + '시간' + (v.end && v.start && v.end <= v.start ? ' (끝 시각은 다음 날)' : '') : '';
       fm.elements.f_pkg.disabled = v.fee.type !== 'package';
@@ -137,7 +153,11 @@
       calc();
     };
     body.onchange = calc; calc();
-    body.onclick = function (e) { if (e.target.closest('[data-back]')) open(id); };
+    body.onclick = function (e) {
+      if (e.target.closest('[data-back]')) open(id);
+      if (e.target.closest('[data-optadd]')) { $('[data-optitems]', fm).insertAdjacentHTML('beforeend', optRow({})); var rows = $$('[data-optitems] .act-opt-row', fm); rows[rows.length - 1].querySelector('input').focus(); calc(); }
+      var del = e.target.closest('[data-optdel]'); if (del) { del.closest('.act-opt-row').remove(); calc(); }
+    };
     fm.addEventListener('submit', function (e) {
       e.preventDefault();
       var v = val(), errEl = $('[data-err]', fm), btn = fm.querySelector('button[type=submit]');

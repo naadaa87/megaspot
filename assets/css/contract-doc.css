@@ -35,3 +35,7 @@
 .cdoc-esign small{font-size:9.5px;font-weight:700;letter-spacing:.12em}
 .cdoc-stamp img{max-height:58px;max-width:160px;display:block}
 .cdoc-evidence{font-size:11.5px;color:#5B6168;border-top:1px dashed #C9C4BB;padding-top:8px;margin-top:10px}
+/* 부가 옵션 항목 (2026-11-25 · 항목이 있는 계약서에만 보입니다) */
+.cdoc-items{list-style:none;margin:4px 0 2px;padding:0;display:grid;gap:2px;max-width:420px}
+.cdoc-items li{display:flex;justify-content:space-between;gap:12px;font-size:.95em}
+.cdoc-items li span:first-child::before{content:'· '}

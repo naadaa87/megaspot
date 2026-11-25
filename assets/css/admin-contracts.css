@@ -81,3 +81,8 @@
 .act-file{cursor:pointer}
 @media (max-width:560px){.act-seal{grid-template-columns:1fr}}
 @media (max-width:640px){.act-sum-amt{align-items:flex-start}}
+/* 부가 옵션 항목 여러 줄 (2026-11-25) */
+.act-opt-items{display:grid;gap:6px;margin-bottom:8px}
+.act-opt-row{display:grid;grid-template-columns:minmax(0,1fr) 170px auto;gap:6px;align-items:center}
+.act-opt-row .act-unit{margin:0}
+@media (max-width:560px){.act-opt-row{grid-template-columns:minmax(0,1fr) 120px auto}}

@@ -106,6 +106,22 @@ function cleanOptions(o) {
   for (const k of OPT_KEYS) { const v = o[k]; if (!v) continue; out[k] = (typeof v === 'object') ? { count: Math.max(1, Math.min(10, num(v.count) || 1)), hours: Math.max(1, Math.min(24, num(v.hours) || 1)) } : true; }
   return out;
 }
+// 기타 옵션 (관리자가 내역·금액을 직접 적는 항목 · 2026-11-25): [{label, amount}] 최대 10줄, 금액은 부가세 포함 원 단위
+function cleanOptionExtras(v) {
+  return (Array.isArray(v) ? v : []).slice(0, 10).map(x => ({ label: str(x && x.label, 40), amount: Math.max(0, Math.min(100000000, Math.round(Number(String((x && x.amount) ?? '').replace(/[^\d.-]/g, ''))) || 0)) }))
+    .filter(x => x.label || x.amount).map(x => ({ label: x.label || '기타 옵션', amount: x.amount }));
+}
+// 식음료 요청 (문의 등록 때 적는 메모 · 2026-11-25): 메뉴·금액은 출장뷔페·케이터링·칵테일 계산에서 정합니다
+const FOOD_REQUEST_KINDS = ['catering', 'reception', 'cocktail'];
+function cleanFoodRequest(v) {
+  const out = {}; if (!v || typeof v !== 'object' || Array.isArray(v)) return out;
+  for (const k of FOOD_REQUEST_KINDS) { const x = v[k]; if (!x || typeof x !== 'object' || !x.on) continue;
+    const people = num(x.people); out[k] = { on: true, people: people && people > 0 && people <= 2000 ? people : null, time: /^\d{1,2}:\d{2}$/.test(String(x.time || '')) ? String(x.time) : '', note: str(x.note, 200) }; }
+  return out;
+}
+const FOOD_REQUEST_LABEL = { catering: '출장뷔페', reception: '케이터링', cocktail: '출장 칵테일' };
+function foodRequestText(o) { return Object.keys(o || {}).filter(k => o[k] && o[k].on).map(k => FOOD_REQUEST_LABEL[k] + (o[k].people ? ' ' + o[k].people + '명' : '') + (o[k].time ? ' ' + o[k].time : '') + (o[k].note ? ' (' + o[k].note + ')' : '')).join(', '); }
+function optionExtrasText(list) { return (list || []).map(x => x.label + ' ' + Number(x.amount || 0).toLocaleString('ko-KR') + '원').join(', '); }
 function hourOk(h) { h = num(h); return h !== null && h >= 0 && h <= 47 ? h : null; }
 function fullDayFits(space, date, start, end) {
   const pricing = PRICING_ALL[space], offer = pricing?.fullDayOffer;
@@ -126,6 +142,8 @@ function adminSummary(d) {
     '이름: ' + d.name, d.phone ? '연락처: ' + d.phone : '', d.email ? '이메일: ' + d.email : '',
     d.date ? '날짜: ' + d.date + (sh != null ? ' ' + hl(sh) + '–' + (eh != null ? hl(eh) : '') : (d.t_start ? ' ' + d.t_start + '–' + (d.t_end || '') : '')) : '',
     d.headcount ? '인원: ' + d.headcount + '명' : '',
+    (d.option_extras || []).length ? '기타 옵션: ' + optionExtrasText(d.option_extras) : '',
+    foodRequestText(d.food_request) ? '식음료 요청: ' + foodRequestText(d.food_request) : '',
     d.total != null ? '금액: ' + Number(d.total).toLocaleString('ko-KR') + '원 (' + (d.amount_mode === 'auto' ? '요금표 계산' : '직접 입력') + ')' + (d.amount_note ? ' · ' + d.amount_note : '') : '',
     d.message ? '내용: ' + d.message : ''].filter(Boolean).join('\n');
 }
@@ -391,6 +409,9 @@ export async function onRequest({ request, env, params, waitUntil }) {
         slot: start_h !== null ? 'custom' : '', headcount: num(d.headcount), name, phone, phone2, email, regular: !!d.regular, options: cleanOptions(d.options), price_adjustment: d.price_adjustment || null,
         pkg, total, amount_mode: total !== null ? (amount_mode || 'manual') : '', amount_note: str(d.amount_note, 200), estimate: str(d.estimate, 3000),
         org: str(d.org, 120), message: str(d.message, 2000), source: 'admin', summary: '' };
+      { const ox = cleanOptionExtras(d.option_extras), fr = cleanFoodRequest(d.food_request);
+        if (ox.length) { data.option_extras = ox; data.option_extras_amount = ox.reduce((a, x) => a + x.amount, 0); }
+        if (Object.keys(fr).length) data.food_request = fr; }
       data.summary = adminSummary(data);
       // 현장답사 일정을 함께 등록할 때는 문의를 저장하기 전에 날짜·시간부터 확인합니다
       const visit = d.visit && typeof d.visit === 'object' ? d.visit : null;
@@ -679,12 +700,14 @@ export async function onRequest({ request, env, params, waitUntil }) {
         const pkg = d.pkg === undefined ? data.pkg || '' : str(d.pkg, 20);
         const fullDayValid = pkg === 'full-day' && fullDayFits(spaceOk(newSpace), date, start_h, end_h);
         if (d.pkg === 'full-day' && !fullDayValid) return fullDayError();
-        const pick = o => ({ 패키지: o.pkg === 'full-day' ? '종일 대관' : '', 공간: SPACES[o.space_id] || o.space_id || '', 경로: chText(o.channel || 'web', o.channel_note), 이름: o.name || '', 연락처: o.phone || '', 추가연락처: o.phone2 || '', 이메일: o.email || '', 이용일: o.date || '', 시간: o.start_h != null ? hl(o.start_h) + '–' + (o.end_h != null ? hl(o.end_h) : '') : (o.t_start ? o.t_start + '–' + (o.t_end || '') : ''), 인원: o.headcount || '', 목적: o.purpose || '', 금액: o.total != null ? o.total : '', 옵션: JSON.stringify(o.options || {}), 내용: o.message || '' });
+        const pick = o => ({ 패키지: o.pkg === 'full-day' ? '종일 대관' : '', 공간: SPACES[o.space_id] || o.space_id || '', 경로: chText(o.channel || 'web', o.channel_note), 이름: o.name || '', 연락처: o.phone || '', 추가연락처: o.phone2 || '', 이메일: o.email || '', 이용일: o.date || '', 시간: o.start_h != null ? hl(o.start_h) + '–' + (o.end_h != null ? hl(o.end_h) : '') : (o.t_start ? o.t_start + '–' + (o.t_end || '') : ''), 인원: o.headcount || '', 목적: o.purpose || '', 금액: o.total != null ? o.total : '', 옵션: JSON.stringify(o.options || {}), 기타옵션: optionExtrasText(o.option_extras), 식음료요청: foodRequestText(o.food_request), 내용: o.message || '' });
         const before = pick({ ...data, space_id: row.space_id, name: data.name || row.name, phone: data.phone || row.phone, email: data.email || row.email, date: data.date || row.event_date, headcount: data.headcount || row.headcount });
         if ((date || '') !== (row.event_date || '') || spaceOk(newSpace) !== spaceOk(row.space_id)) rejoinWaitQueue(data);
         Object.assign(data, { name, phone, phone2, email, date, headcount, purpose: str(d.purpose, 40), options: cleanOptions(d.options), regular: !!d.regular, message: str(d.message, 2000) });
         if (newSpace !== row.space_id) data.space_id = newSpace;
         else if (SPACES[row.space_id]) data.space_id = row.space_id;
+        if (d.option_extras !== undefined) { const ox = cleanOptionExtras(d.option_extras); if (ox.length) { data.option_extras = ox; data.option_extras_amount = ox.reduce((a, x) => a + x.amount, 0); } else { delete data.option_extras; delete data.option_extras_amount; } }
+        if (d.food_request !== undefined) { const fr = cleanFoodRequest(d.food_request); if (Object.keys(fr).length) data.food_request = fr; else delete data.food_request; }
         if (['event', 'regular', 'partner'].includes(d.inquiry_type)) data.inquiry_type = d.inquiry_type;
         if (CHANNELS.includes(d.channel)) { data.channel = d.channel; data.channel_note = str(d.channel_note, 40); }
         if (start_h !== null) {
@@ -711,7 +734,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
         const after = pick(data);
         const changed = Object.keys(after).filter(k => String(after[k]) !== String(before[k]));
         const memo = d.memo !== undefined ? str(d.memo, 2000) : row.memo;
-        const sync = await linkedBookingChanges(env, ref, { space_id: newSpace, name, phone, phone2, date, start_h: data.start_h ?? null, end_h: data.end_h ?? null, headcount, memo, document_changed: changed.some(key => key==='목적'||key==='옵션'),
+        const sync = await linkedBookingChanges(env, ref, { space_id: newSpace, name, phone, phone2, date, start_h: data.start_h ?? null, end_h: data.end_h ?? null, headcount, memo, document_changed: changed.some(key => key==='목적'||key==='옵션'||key==='기타옵션'),
           ...(mode === 'keep' ? {} : { amount: data.total }) });
         if (sync.error) return sync.error;
         await batch(env, [env.DB.prepare('UPDATE inquiries SET space_id = ?, name = ?, phone = ?, email = ?, event_date = ?, headcount = ?, data = ?, memo = ?, updated_at = ? WHERE ref = ?')
