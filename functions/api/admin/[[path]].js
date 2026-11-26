@@ -26,6 +26,7 @@ import {notifyCenterAdmin} from '../_notify_center.js';   // 알림 센터 (발�
 import {visitRequestsAdmin} from '../_visit_self.js';   // 사전답사 신청 (고객이 고른 시간 확인·확정·글 주고받기 · 2026-11-25)
 import {proofRequestsAdmin} from '../_proof_requests.js';   // 증빙 요청 (세금계산서·현금영수증 등 · 2026-11-25)
 import {searchPerfAdmin} from '../_search_perf.js';   // 검색 성과 (검색봇 방문·IndexNow·검색 유입·주간 기록 · 2026-11-25)
+import {collectionsAdmin} from '../_collections.js';   // 수납 관리 (사전고지·완납 확인·예외 · 2026-11-26)
 import {eventCasesAdmin} from '../_event_cases.js';   // 행사 사례 (주최 측 동의를 받은 사례만 공개 · 2026-11-25)
 import {talentAdmin} from '../_talent.js';   // MC·아나운서·강사·레크리에이션 섭외 (진행자 연락처는 관리자 API 에서만 · 2026-11-25)
 import {cancellationAdmin} from '../_cancellation.js';
@@ -273,6 +274,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
     if(path==='proof-requests'||path.startsWith('proof-requests/')){const pr=await proofRequestsAdmin({request,env,path,method,url});if(pr)return pr;}
     if(path==='search-perf'||path.startsWith('search-perf/')){const sp=await searchPerfAdmin({request,env,path,method,url});if(sp)return sp;}
     if(path==='event-cases'||path.startsWith('event-cases/')){const ec=await eventCasesAdmin({request,env,path,method,url});if(ec)return ec;}
+    if(path==='collections'||path.startsWith('collections/')){const co=await collectionsAdmin({request,env,path,method,url});if(co)return co;}
     if(path==='talent'||path.startsWith('talent/')){const tl=await talentAdmin({request,env,path,method,url});if(tl)return tl;}
     if(/^spacecloud-blocks\/login\/(start|save|cancel)$/.test(path))return await spacecloudControl({env,request,method,path});
     if(path==='spacecloud-blocks')return await spacecloudBlocksAdmin({env,request,method});

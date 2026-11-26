@@ -1313,6 +1313,23 @@ CREATE TABLE IF NOT EXISTS event_cases (   -- 행사 사례 (2026-11-25) · 주�
   updated_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_event_cases_status ON event_cases(status, published_at);
+CREATE TABLE IF NOT EXISTS booking_collection_marks (   -- 수납 관리 (2026-11-26): 예외 표시(현장 결제·당일 결제·결제 일정 별도 협의)와 비고
+  booking_code TEXT PRIMARY KEY,
+  exception INTEGER NOT NULL DEFAULT 0,
+  exception_type TEXT NOT NULL DEFAULT '',   -- onsite | sameday | schedule | other
+  note TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS booking_collection_logs (   -- 수납 관리 (2026-11-26): 사전고지·결제 요청·입금 확인 연락·메모·예외 변경 기록
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  booking_code TEXT NOT NULL,
+  kind TEXT NOT NULL,                  -- notice | request | check | memo | exception
+  channel TEXT NOT NULL DEFAULT '',    -- kakao | sms | phone | email | alimtalk | other
+  memo TEXT NOT NULL DEFAULT '',
+  balance INTEGER,                     -- 기록할 때 남아 있던 이용료
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_collection_logs_code ON booking_collection_logs(booking_code, id);
 
 CREATE TABLE IF NOT EXISTS talents (   -- MC·아나운서·강사·레크리에이션 진행자 프로필 (2026-11-25) · 연락처는 private 칸에만 두고 공개 화면·API에는 내보내지 않음
   id INTEGER PRIMARY KEY AUTOINCREMENT,

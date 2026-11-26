@@ -1,0 +1,62 @@
+/* 관리자 · 수납 관리 (2026-11-26) */
+.co-view .adm-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}
+.co-view .adm-head p{max-width:80ch}
+.co-tiles{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin:12px 0}
+.co-tile{display:grid;gap:2px;text-align:left;background:#fff;border:1px solid #E6E2DB;border-radius:12px;padding:12px 14px;font:inherit;cursor:pointer;color:#1D2125}
+.co-tile:hover{border-color:#1F53D5}
+.co-tile.on{border-color:#1F53D5;box-shadow:0 0 0 2px rgba(31,83,213,.15)}
+.co-tile span{font-size:13px;font-weight:800;color:#3C4248}
+.co-tile b{font-size:24px;line-height:1.2;font-variant-numeric:tabular-nums}
+.co-tile b small{font-size:13px;font-weight:700;margin-left:2px;color:#6B7178}
+.co-tile em{font-style:normal;font-size:12px;color:#6B7178}
+.co-tile i{font-style:normal;font-size:12px;font-weight:700;color:#3C4248}
+.co-t-due b{color:#B35632}
+.co-t-notice b{color:#8A5A00}
+.co-bar{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:6px 0}
+.co-tabs{display:flex;gap:6px;flex-wrap:wrap}
+.co-tabs button{border:1px solid #D5D0C8;background:#fff;border-radius:999px;padding:6px 12px;font:inherit;font-size:13px;font-weight:700;color:#5B6168;cursor:pointer}
+.co-tabs button b{color:#1F53D5;margin-left:2px}
+.co-tabs button.on{background:#262B2E;border-color:#262B2E;color:#fff}
+.co-tabs button.on b{color:#fff}
+.co-search{max-width:260px}
+.co-list{display:grid;gap:10px;margin-top:8px}
+.co-row{border-left:4px solid #E6E2DB;display:grid;gap:8px}
+.co-b-due{border-left-color:#B35632}
+.co-b-notice{border-left-color:#E0A526}
+.co-b-past{border-left-color:#7A2E1A}
+.co-b-exception{border-left-color:#6B7178}
+.co-b-paid{border-left-color:#2E7D4F}
+.co-b-unpriced{border-left-color:#1F53D5}
+.co-row.is-overdue{background:#FFF8F5}
+.co-top{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:start}
+.co-d{display:inline-block;min-width:64px;text-align:center;padding:5px 8px;border-radius:8px;background:#EEF1F4;font-weight:800;font-size:13px;color:#262B2E;font-variant-numeric:tabular-nums}
+.co-b-due .co-d{background:#F5E6DF;color:#B35632}
+.co-b-notice .co-d{background:#FBF1D9;color:#8A5A00}
+.co-d.is-today{background:#262B2E;color:#fff}
+.co-who b{font-size:16px}
+.co-who p{margin:2px 0 0}
+.co-who a{color:inherit;text-decoration:underline}
+.co-money{display:grid;justify-items:end;gap:1px;font-size:12.5px;color:#6B7178;font-variant-numeric:tabular-nums;white-space:nowrap}
+.co-money b{font-size:16px;color:#1D2125}
+.co-b-due .co-money b,.co-b-past .co-money b{color:#B35632}
+.co-mid{display:flex;flex-wrap:wrap;gap:6px}
+.co-flag,.co-chip{display:inline-block;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:700;background:#EEF1F4;color:#3C4248}
+.co-flag.co-red{background:#B35632;color:#fff}
+.co-flag.co-amber{background:#E0A526;color:#262B2E}
+.co-chip.co-ok{background:#E3F2E8;color:#2E7D4F}
+.co-chip.co-warn{background:#FBF1D9;color:#8A5A00}
+.co-ex{margin:0;font-size:13.5px;padding:8px 10px;background:#F4F4F2;border-radius:8px}
+.co-ex.co-note{background:#FAFAF8;color:#3C4248}
+.co-acts,.co-p-acts{display:flex;gap:6px;flex-wrap:wrap}
+.co-panel{border-top:1px dashed #D5D0C8;padding-top:10px;display:grid;gap:10px}
+.co-p-row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+.co-p-row label,.co-lab{display:grid;gap:4px;font-size:12.5px;font-weight:700;color:#3C4248}
+.co-lab small{font-weight:500;color:#6B7178}
+.co-p-rec{align-items:center;padding:8px 10px;background:#F6F8FE;border-radius:10px}
+.co-p-rec .select{width:auto;min-width:120px}
+.co-msg{font-size:14px;line-height:1.6;font-family:inherit;white-space:pre-wrap}
+.co-types{display:flex;gap:6px;flex-wrap:wrap}
+.co-ex-on small{font-weight:500;color:#6B7178}
+.co-hist{margin:0;padding-left:18px;display:grid;gap:4px;font-size:13px}
+@media (max-width:1100px){.co-tiles{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:640px){.co-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.co-top{grid-template-columns:auto minmax(0,1fr)}.co-money{grid-column:1/-1;justify-items:start}.co-search{max-width:none;width:100%}}
