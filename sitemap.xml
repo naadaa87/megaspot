@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+<urlset xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url><loc>https://megaspot.kr/</loc><lastmod>2026-11-23</lastmod><changefreq>weekly</changefreq><priority>1.0</priority>
     <image:image><image:loc>https://megaspot.kr/assets/img/views/m/v01.jpg</image:loc><image:title>메가스팟 건대 1호 메인 홀 — 연속창으로 낮빛이 드는 190평 홀과 긴 테이블</image:title></image:image>
     <image:image><image:loc>https://megaspot.kr/assets/img/scenes/m/s14.jpg</image:loc><image:title>메가스팟 건대 1호 저녁 리셉션 — 연속창 앞에서 서서 대화하는 참석자들</image:title></image:image>
@@ -49,8 +49,6 @@
   <url><loc>https://megaspot.kr/inquiry/</loc><lastmod>2026-10-27</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>
   </url>
   <url><loc>https://megaspot.kr/visit/</loc><lastmod>2026-11-25</lastmod><changefreq>monthly</changefreq><priority>0.7</priority>
-  </url>
-  <url><loc>https://megaspot.kr/en/</loc><lastmod>2026-11-25</lastmod><changefreq>monthly</changefreq><priority>0.5</priority>
   </url>
   <url><loc>https://megaspot.kr/purpose/</loc><lastmod>2026-10-27</lastmod><changefreq>monthly</changefreq><priority>0.8</priority>
   </url>
@@ -157,4 +155,147 @@
   <!-- faq:start · tools/faq/build.mjs 가 만드는 구간입니다. 손으로 고치지 마세요 -->
   <url><loc>https://megaspot.kr/help/</loc><lastmod>2026-11-25</lastmod><changefreq>weekly</changefreq><priority>0.6</priority></url>
   <!-- faq:end -->
+  <!-- i18n:start · tools/i18n/build.mjs 가 만드는 구간입니다. 손으로 고치지 마세요 -->
+  <url><loc>https://megaspot.kr/en/</loc><lastmod>2026-11-26</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://megaspot.kr/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://megaspot.kr/en/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://megaspot.kr/ja/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://megaspot.kr/zh/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://megaspot.kr/"/>
+  </url>
+  <url><loc>https://megaspot.kr/ja/</loc><lastmod>2026-11-26</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://megaspot.kr/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://megaspot.kr/en/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://megaspot.kr/ja/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://megaspot.kr/zh/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://megaspot.kr/"/>
+  </url>
+  <url><loc>https://megaspot.kr/zh/</loc><lastmod>2026-11-26</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://megaspot.kr/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://megaspot.kr/en/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://megaspot.kr/ja/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://megaspot.kr/zh/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://megaspot.kr/"/>
+  </url>
+  <url><loc>https://megaspot.kr/en/gundae-1/</loc><lastmod>2026-11-26</lastmod><changefreq>monthly</changefreq><priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://megaspot.kr/spaces/megaspot-gundae/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://megaspot.kr/en/gundae-1/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://megaspot.kr/ja/gundae-1/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://megaspot.kr/zh/gundae-1/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://megaspot.kr/spaces/megaspot-gundae/"/>
+  </url>
+  <url><loc>https://megaspot.kr/ja/gundae-1/</loc><lastmod>2026-11-26</lastmod><changefreq>monthly</changefreq><priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://megaspot.kr/spaces/megaspot-gundae/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://megaspot.kr/en/gundae-1/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://megaspot.kr/ja/gundae-1/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://megaspot.kr/zh/gundae-1/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://megaspot.kr/spaces/megaspot-gundae/"/>
+  </url>
+  <url><loc>https://megaspot.kr/zh/gundae-1/</loc><lastmod>2026-11-26</lastmod><changefreq>monthly</changefreq><priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://megaspot.kr/spaces/megaspot-gundae/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://megaspot.kr/en/gundae-1/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://megaspot.kr/ja/gundae-1/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://megaspot.kr/zh/gundae-1/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://megaspot.kr/spaces/megaspot-gundae/"/>
+  </url>
+  <url><loc>https://megaspot.kr/en/gundae-2/</loc><lastmod>2026-11-26</lastmod><changefreq>monthly</changefreq><priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://megaspot.kr/spaces/megaspot-gundae-2/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://megaspot.kr/en/gundae-2/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://megaspot.kr/ja/gundae-2/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://megaspot.kr/zh/gundae-2/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://megaspot.kr/spaces/megaspot-gundae-2/"/>
+  </url>
+  <url><loc>https://megaspot.kr/ja/gundae-2/</loc><lastmod>2026-11-26</lastmod><changefreq>monthly</changefreq><priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://megaspot.kr/spaces/megaspot-gundae-2/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://megaspot.kr/en/gundae-2/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://megaspot.kr/ja/gundae-2/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://megaspot.kr/zh/gundae-2/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://megaspot.kr/spaces/megaspot-gundae-2/"/>
+  </url>
+  <url><loc>https://megaspot.kr/zh/gundae-2/</loc><lastmod>2026-11-26</lastmod><changefreq>monthly</changefreq><priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://megaspot.kr/spaces/megaspot-gundae-2/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://megaspot.kr/en/gundae-2/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://megaspot.kr/ja/gundae-2/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://megaspot.kr/zh/gundae-2/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://megaspot.kr/spaces/megaspot-gundae-2/"/>
+  </url>
+  <url><loc>https://megaspot.kr/en/rates/</loc><lastmod>2026-11-26</lastmod><changefreq>monthly</changefreq><priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://megaspot.kr/spaces/megaspot-gundae/pricing/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://megaspot.kr/en/rates/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://megaspot.kr/ja/rates/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://megaspot.kr/zh/rates/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://megaspot.kr/spaces/megaspot-gundae/pricing/"/>
+  </url>
+  <url><loc>https://megaspot.kr/ja/rates/</loc><lastmod>2026-11-26</lastmod><changefreq>monthly</changefreq><priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://megaspot.kr/spaces/megaspot-gundae/pricing/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://megaspot.kr/en/rates/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://megaspot.kr/ja/rates/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://megaspot.kr/zh/rates/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://megaspot.kr/spaces/megaspot-gundae/pricing/"/>
+  </url>
+  <url><loc>https://megaspot.kr/zh/rates/</loc><lastmod>2026-11-26</lastmod><changefreq>monthly</changefreq><priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://megaspot.kr/spaces/megaspot-gundae/pricing/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://megaspot.kr/en/rates/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://megaspot.kr/ja/rates/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://megaspot.kr/zh/rates/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://megaspot.kr/spaces/megaspot-gundae/pricing/"/>
+  </url>
+  <url><loc>https://megaspot.kr/en/access/</loc><lastmod>2026-11-26</lastmod><changefreq>monthly</changefreq><priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://megaspot.kr/parking/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://megaspot.kr/en/access/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://megaspot.kr/ja/access/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://megaspot.kr/zh/access/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://megaspot.kr/parking/"/>
+  </url>
+  <url><loc>https://megaspot.kr/ja/access/</loc><lastmod>2026-11-26</lastmod><changefreq>monthly</changefreq><priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://megaspot.kr/parking/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://megaspot.kr/en/access/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://megaspot.kr/ja/access/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://megaspot.kr/zh/access/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://megaspot.kr/parking/"/>
+  </url>
+  <url><loc>https://megaspot.kr/zh/access/</loc><lastmod>2026-11-26</lastmod><changefreq>monthly</changefreq><priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://megaspot.kr/parking/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://megaspot.kr/en/access/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://megaspot.kr/ja/access/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://megaspot.kr/zh/access/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://megaspot.kr/parking/"/>
+  </url>
+  <url><loc>https://megaspot.kr/en/faq/</loc><lastmod>2026-11-26</lastmod><changefreq>monthly</changefreq><priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://megaspot.kr/en/faq/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://megaspot.kr/ja/faq/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://megaspot.kr/zh/faq/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://megaspot.kr/en/faq/"/>
+  </url>
+  <url><loc>https://megaspot.kr/ja/faq/</loc><lastmod>2026-11-26</lastmod><changefreq>monthly</changefreq><priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://megaspot.kr/en/faq/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://megaspot.kr/ja/faq/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://megaspot.kr/zh/faq/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://megaspot.kr/en/faq/"/>
+  </url>
+  <url><loc>https://megaspot.kr/zh/faq/</loc><lastmod>2026-11-26</lastmod><changefreq>monthly</changefreq><priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://megaspot.kr/en/faq/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://megaspot.kr/ja/faq/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://megaspot.kr/zh/faq/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://megaspot.kr/en/faq/"/>
+  </url>
+  <url><loc>https://megaspot.kr/en/contact/</loc><lastmod>2026-11-26</lastmod><changefreq>monthly</changefreq><priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://megaspot.kr/en/contact/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://megaspot.kr/ja/contact/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://megaspot.kr/zh/contact/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://megaspot.kr/en/contact/"/>
+  </url>
+  <url><loc>https://megaspot.kr/ja/contact/</loc><lastmod>2026-11-26</lastmod><changefreq>monthly</changefreq><priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://megaspot.kr/en/contact/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://megaspot.kr/ja/contact/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://megaspot.kr/zh/contact/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://megaspot.kr/en/contact/"/>
+  </url>
+  <url><loc>https://megaspot.kr/zh/contact/</loc><lastmod>2026-11-26</lastmod><changefreq>monthly</changefreq><priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://megaspot.kr/en/contact/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://megaspot.kr/ja/contact/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://megaspot.kr/zh/contact/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://megaspot.kr/en/contact/"/>
+  </url>
+  <!-- i18n:end -->
 </urlset>

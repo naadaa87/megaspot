@@ -3153,3 +3153,28 @@ body :is(.card,.space-card,.prod-card,.purpose-card,.gq-card,.food-compare a,.ho
 .en-list a,.en-cols a{color:var(--cobalt);font-weight:700;text-decoration:underline}
 .en-contact{display:flex;justify-content:space-between;gap:20px;align-items:center;flex-wrap:wrap}
 @media (max-width:899px){.en-spaces,.en-cols{grid-template-columns:1fr}}
+/* ---------- 언어 고르기 · 브라우저 언어 안내 (2026-11-26) — 머리말 지구본 단추, /en/ · /ja/ · /zh/ ---------- */
+.lang-sw{position:relative;flex:none}
+.lang-btn{display:inline-flex;align-items:center;gap:5px;height:34px;padding:0 10px;border:1px solid var(--concrete);border-radius:999px;background:#fff;color:var(--graphite);font:inherit;font-size:13px;font-weight:800;line-height:1;cursor:pointer;white-space:nowrap}
+.lang-btn svg{width:17px;height:17px;flex:none}
+.lang-btn:hover,.lang-btn[aria-expanded="true"]{border-color:var(--cobalt);color:var(--cobalt)}
+.lang-menu{position:absolute;right:0;top:calc(100% + 8px);min-width:168px;background:#fff;border:1px solid var(--concrete);border-radius:12px;box-shadow:var(--shadow-lg);padding:6px;display:grid;z-index:80}
+.lang-menu[hidden]{display:none}
+.lang-menu a{padding:10px 12px;border-radius:8px;font-weight:700;font-size:14.5px;color:var(--ink);white-space:nowrap}
+.lang-menu a:hover,.lang-menu a:focus-visible{background:var(--cobalt-soft);color:var(--cobalt-2)}
+.lang-menu a[aria-current]{color:var(--cobalt)}
+.lang-menu a[aria-current]::after{content:'✓';margin-left:8px}
+.mnav-lang a[aria-current]{color:var(--cobalt);font-weight:800}
+@media (max-width:899px){.lang-btn{height:32px;padding:0 9px}.site-header .lang-sw{margin-right:6px}.i18n-header .lang-sw{margin-left:auto}}
+@media (max-width:379px){.site-header .lang-btn span{display:none}.site-header .lang-btn{padding:0 7px}}
+/* 한국어 화면 머리말은 자리가 빠듯해 넉넉한 너비에서만 지구본 단추를 둡니다. 그 밖의 너비는 전체 메뉴 맨 위 '언어 · Language'와 꼬리말, 브라우저 언어 안내 줄로 고릅니다 */
+@media (max-width:767px),(min-width:1100px) and (max-width:1599px){.site-header:not(.i18n-header) .lang-sw{display:none}}
+@media (min-width:900px) and (max-width:1099px){.site-header:not(.i18n-header) .lang-btn span{display:none}.site-header:not(.i18n-header) .lang-btn{padding:0 8px}}
+.hero-lang{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin:14px 0 0;font-size:13.5px;color:var(--ink-3)}
+.hero-lang svg{width:16px;height:16px;flex:none}
+.hero-lang a{font-weight:700;color:var(--graphite);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--concrete)}
+.hero-lang a:hover{color:var(--cobalt);text-decoration-color:var(--cobalt)}
+.lang-hint{background:var(--cobalt-soft);border-bottom:1px solid #C9D6F6;font-size:14px;color:var(--ink)}
+.lang-hint .container{display:flex;align-items:center;gap:8px 14px;min-height:44px;flex-wrap:wrap;padding-top:6px;padding-bottom:6px}
+.lang-hint a{font-weight:800;color:var(--cobalt-2);text-decoration:underline;text-underline-offset:3px}
+.lang-hint button{margin-left:auto;border:0;background:none;font-size:22px;line-height:1;cursor:pointer;color:var(--ink-2);padding:4px 8px}

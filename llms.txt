@@ -25,6 +25,12 @@
 - [공간 찾기](https://megaspot.kr/spaces/): 지역·인원·날짜로 대형 공간 검색
 - [예약 신청·금액 확인](https://megaspot.kr/inquiry/): 날짜·시간·인원을 넣으면 금액이 계산됩니다
 
+## 외국어 안내 (English · 日本語 · 简体中文)
+
+- [English](https://megaspot.kr/en/): 영어 안내 — 1호·2호, 요금(https://megaspot.kr/en/rates/), 오시는 길·주차, 자주 묻는 질문, 문의
+- [日本語](https://megaspot.kr/ja/): 일본어 안내 — 같은 구성
+- [简体中文](https://megaspot.kr/zh/): 중국어(간체) 안내 — 같은 구성
+
 ## 인원·목적별 공간 모음
 
 - [초대형 공간 모음](https://megaspot.kr/venues/)

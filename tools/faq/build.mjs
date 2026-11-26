@@ -12,7 +12,7 @@ import { createHash } from 'node:crypto';
 const ROOT = new URL('../..', import.meta.url).pathname;
 const HERE = new URL('.', import.meta.url).pathname;
 const SITE = 'https://megaspot.kr';
-const SKIP = new Set(['node_modules', '.git', 'tests', 'tools', 'deploy', 'migrations', '.claude', 'admin', 'help']);
+const SKIP = new Set(['node_modules', '.git', 'tests', 'tools', 'deploy', 'migrations', '.claude', 'admin', 'help', 'en', 'ja', 'zh']);   // en·ja·zh: 외국어 화면(tools/i18n)의 FAQ 는 한국어 모음에 넣지 않습니다
 const read = p => readFileSync(join(ROOT, p), 'utf8');
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const norm = s => String(s || '').replace(/\s+/g, ' ').trim();

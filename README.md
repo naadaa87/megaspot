@@ -988,3 +988,13 @@ QR 이미지는 `assets/img/brand/kakao-qr.svg` 입니다. **채널 주소를 �
 - **삭제**: '최근 저장한 견적'에서 문의·예약에 연결되지 않은 견적에만 [삭제] 버튼이 붙습니다. 지우면 목록에서 빠지고, `quotes` 원본 행은 남긴 채 `quote_deletions` 표에 기록합니다(`DELETE /api/admin/quotes/<견적번호>`). 문의에 연결된 견적, 식음료 문의에 연결된 견적, 문의 데이터에 적힌 견적은 서버에서도 막습니다.
 - **이미지 저장**: [견적서 이미지 저장]은 인쇄용 견적서와 같은 내용을 PNG 한 장으로 내려받습니다(`assets/js/pages/admin-quote-image.js`, 그림 도구는 `assets/js/vendor/html2pdf.bundle.min.js`). 견적서 모양은 인쇄용 CSS를 그대로 옮겨 씁니다.
 - 시험: `node --test tests/quote-delete-image.test.mjs`.
+
+## 외국어 화면 — 영어 · 일본어 · 중국어 간체 (2026-11-26)
+해외 손님용 안내를 언어마다 7개 화면으로 둡니다: 첫 화면 · 건대 1호 · 건대 2호 · 요금 · 오시는 길(주차) · 자주 묻는 질문 · 문의.
+주소는 `/en/` `/ja/` `/zh/` 아래 `gundae-1/` `gundae-2/` `rates/` `access/` `faq/` `contact/` 입니다.
+
+- **만들기**: `node tools/i18n/build.mjs` (확인만: `--check`). 글은 `tools/i18n/content/en.mjs · ja.mjs · zh.mjs`, 숫자는 한국어 화면과 같은 데이터(`assets/js/data/pricing-gundae.js`·`pricing-gundae2.js`·`spaces.js`, 주차권 `functions/api/_parking.js`)에서 가져옵니다. **요금표를 고치면 이 도구를 다시 돌려 주세요** — `tests/i18n.test.mjs` 가 다르면 알려 줍니다. 성수기 구분이나 옵션·환불 항목이 새로 생기면 번역이 없다고 멈추니, 세 언어 파일에 같은 이름으로 넣어 주세요.
+- **머리말·꼬리말**: 외국어 화면은 이 도구가 언어별 머리말을 만듭니다(`class="site-header i18n-header"` — `tools/site-chrome` 이 건드리지 않습니다). 화면 전용 스타일 `assets/css/i18n.css`, 동작 `assets/js/i18n.js`(사진 크게 보기·주소 복사·문의 보내기).
+- **언어 고르기**: 한국어 머리말 지구본 단추(넉넉한 너비에서만 보임), 전체 메뉴 맨 위 '언어 · Language', 꼬리말, 첫 화면 문구 아래 'For international guests'. 브라우저 언어가 영어·일본어·중국어면 한국어 화면 위에 안내 줄을 한 번 보여 줍니다(닫으면 다시 안 보임). 같은 내용의 화면끼리는 `hreflang` 으로 이어져 있어, 한국어 1호 화면에서 English 를 누르면 `/en/gundae-1/` 로 갑니다.
+- **외국어 문의**: 문의 화면에서 보낸 내용은 기존 `/api/inquiry` 로 '문의 관리'에 들어옵니다. 국제 전화번호(+ 국가번호)를 받고, `문의 원문`에 `[해외 문의 · 영어 화면]` 같은 한국어 요약(공간·이용일·시간·인원·답장 방법)을 붙입니다. 고객이 쓴 글은 원문 그대로입니다.
+- 외국어 화면의 FAQ 는 한국어 질문 모음(`/help/`)에 넣지 않습니다(`tools/faq/build.mjs` 에서 제외).

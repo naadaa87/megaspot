@@ -30,6 +30,17 @@
     apiBase: '/api'
   };
 
+  // 외국어 화면(/en/ · /ja/ · /zh/, tools/i18n)에서 이 파일이 만드는 단추 글 (2026-11-26)
+  var LANG = (document.documentElement.getAttribute('lang')||'ko').slice(0,2);
+  var UI = {
+    ko:{ menuOpen:'메뉴 열기', menuClose:'메뉴 닫기', quick:'빠른 연락', call:'전화', kakao:'카카오톡', top:'맨 위로', lb:'사진 크게 보기', close:'닫기', prev:'이전 사진', next:'다음 사진' },
+    en:{ menuOpen:'Open menu', menuClose:'Close menu', quick:'Quick contact', call:'Call', kakao:'KakaoTalk', ask:'Get a quote', top:'Back to top', lb:'Photo viewer', close:'Close', prev:'Previous photo', next:'Next photo' },
+    ja:{ menuOpen:'メニューを開く', menuClose:'メニューを閉じる', quick:'お問い合わせ', call:'電話', kakao:'カカオトーク', ask:'見積もり依頼', top:'ページの先頭へ', lb:'写真を拡大', close:'閉じる', prev:'前の写真', next:'次の写真' },
+    zh:{ menuOpen:'打开菜单', menuClose:'关闭菜单', quick:'快速联系', call:'电话', kakao:'KakaoTalk', ask:'咨询报价', top:'返回顶部', lb:'查看大图', close:'关闭', prev:'上一张', next:'下一张' }
+  }[LANG] || null;
+  var INTL = !!UI && LANG!=='ko';
+  if(!UI) UI = { menuOpen:'메뉴 열기', menuClose:'메뉴 닫기', quick:'빠른 연락', call:'전화', kakao:'카카오톡', top:'맨 위로', lb:'사진 크게 보기', close:'닫기', prev:'이전 사진', next:'다음 사진' };
+
   var $  = function(sel, root){ return (root||document).querySelector(sel); };
   var $$ = function(sel, root){ return Array.prototype.slice.call((root||document).querySelectorAll(sel)); };
 
@@ -95,11 +106,43 @@
     $$('[data-host-link]').forEach(function(a){ a.href = (on||hostIn) ? '/host/center/' : '/host/'; });
   }
 
+  /* ---------- 언어 고르기 (2026-11-26) ----------
+     머리말의 지구본 단추. 한국어 화면에서는 <link rel="alternate" hreflang> 가 있으면 같은 내용의 외국어 화면으로 잇고,
+     없으면 각 언어 첫 화면으로 갑니다. 브라우저 언어가 영어·일본어·중국어면 한 번 안내 줄을 보여 줍니다(닫으면 다시 안 보임). */
+  var LANG_HINT = {
+    en:{ t:'This site is also available in English.', a:'View in English' },
+    ja:{ t:'このサイトは日本語でもご覧いただけます。', a:'日本語で見る' },
+    zh:{ t:'本网站提供简体中文版本。', a:'查看中文版' }
+  };
+  function initLangSwitch(){
+    var alt={}; $$('link[rel="alternate"][hreflang]').forEach(function(l){ alt[l.getAttribute('hreflang').slice(0,2)]=l.getAttribute('href').replace(/^https?:\/\/[^/]+/,''); });
+    if(LANG==='ko') $$('[data-lang-sw] a[data-lang], .mnav-lang a[data-lang]').forEach(function(a){ var k=a.getAttribute('data-lang'); if(alt[k]) a.href=alt[k]; });
+    $$('[data-lang-sw]').forEach(function(w){
+      var b=$('.lang-btn',w), m=$('.lang-menu',w); if(!b||!m) return;
+      var set=function(open){ m.hidden=!open; b.setAttribute('aria-expanded', String(open)); };
+      b.addEventListener('click', function(e){ e.stopPropagation(); set(m.hidden); });
+      document.addEventListener('click', function(e){ if(!w.contains(e.target)) set(false); });
+      w.addEventListener('keydown', function(e){ if(e.key==='Escape'){ set(false); b.focus(); } });
+    });
+    // 브라우저 언어 안내 (한국어 화면에서만)
+    try{
+      if(LANG!=='ko' || !$('[data-lang-sw]') || localStorage.getItem('ms_lang_hint')) return;
+      var want=((navigator.languages&&navigator.languages[0])||navigator.language||'').toLowerCase().slice(0,2), h=LANG_HINT[want];
+      if(!h) return;
+      var hd=$('.site-header'); if(!hd) return;
+      var bar=document.createElement('div'); bar.className='lang-hint'; bar.setAttribute('lang', want==='zh'?'zh-Hans':want);
+      bar.innerHTML='<div class="container"><span>'+h.t+'</span><a href="'+esc(alt[want]||('/'+want+'/'))+'">'+h.a+' →</a><button type="button" aria-label="Close">×</button></div>';
+      hd.parentNode.insertBefore(bar, hd.nextSibling);
+      $('button',bar).addEventListener('click', function(){ bar.remove(); try{ localStorage.setItem('ms_lang_hint','1'); }catch(e){} });
+      $('a',bar).addEventListener('click', function(){ try{ localStorage.setItem('ms_lang_hint','1'); }catch(e){} });
+    }catch(e){}
+  }
+
   /* ---------- header / nav ---------- */
   function initHeader(){
     var btn=$('.menu-btn'), nav=$('.mobile-nav');
     if(btn&&nav){
-      var setMenu=function(open){ nav.classList.toggle('open', open); btn.setAttribute('aria-expanded', String(open)); btn.setAttribute('aria-label', open?'메뉴 닫기':'메뉴 열기'); document.body.style.overflow = open?'hidden':''; document.body.classList.toggle('menu-open', open); if(open){ var first=Array.prototype.find.call(nav.querySelectorAll('a'),function(a){return a.getClientRects().length>0;}); if(first) first.focus({preventScroll:true}); } };
+      var setMenu=function(open){ nav.classList.toggle('open', open); btn.setAttribute('aria-expanded', String(open)); btn.setAttribute('aria-label', open?UI.menuClose:UI.menuOpen); document.body.style.overflow = open?'hidden':''; document.body.classList.toggle('menu-open', open); if(open){ var first=Array.prototype.find.call(nav.querySelectorAll('a'),function(a){return a.getClientRects().length>0;}); if(first) first.focus({preventScroll:true}); } };
       btn.addEventListener('click', function(){ setMenu(!nav.classList.contains('open')); });
       nav.addEventListener('click', function(e){ if(e.target.closest('a')) setMenu(false); });
       document.addEventListener('keydown', function(e){ if(e.key==='Escape' && nav.classList.contains('open')){ setMenu(false); btn.focus(); } });
@@ -117,7 +160,8 @@
     // 드롭다운 메뉴: Esc 로 닫기 (마우스를 올리거나 Tab 으로 들어가면 열립니다)
     $$('.nav-group').forEach(function(g){ g.addEventListener('keydown', function(e){ if(e.key==='Escape'){ var t=$('.nav-top',g); g.classList.add('closed'); if(t) t.focus(); } }); g.addEventListener('mouseleave', function(){ g.classList.remove('closed'); }); g.addEventListener('focusout', function(e){ if(!g.contains(e.relatedTarget)) g.classList.remove('closed'); }); });
     // contact placeholders
-    $$('[data-phone]').forEach(function(el){ el.textContent=CONFIG.phone; if(el.tagName==='A') el.href='tel:'+CONFIG.phone.replace(/-/g,''); });
+    $$('[data-phone]').forEach(function(el){ var d=CONFIG.phone.replace(/-/g,''); el.textContent=INTL?'+82 '+CONFIG.phone.replace(/^0/,''):CONFIG.phone; if(el.tagName==='A') el.href='tel:'+(INTL?'+82'+d.replace(/^0/,''):d); });
+    initLangSwitch();
     $$('[data-email]').forEach(function(el){
       var kind=el.getAttribute('data-email');
       var email=kind==='inquiry'?CONFIG.inquiryEmail:kind==='company'?CONFIG.companyEmail:CONFIG.email;
@@ -150,8 +194,8 @@
   var LB = { el:null, items:[], i:0 };
   function ensureLB(){
     if(LB.el) return;
-    var el=document.createElement('div'); el.className='lightbox'; el.setAttribute('role','dialog'); el.setAttribute('aria-modal','true'); el.setAttribute('aria-label','사진 크게 보기');
-    el.innerHTML='<div class="lb-top"><span class="lb-counter"></span><button class="lb-close" aria-label="닫기">×</button></div><div class="lb-stage"><button class="lb-arrow prev" aria-label="이전 사진">‹</button><img alt=""><button class="lb-arrow next" aria-label="다음 사진">›</button></div><div class="lb-cap"><em class="lb-tag" hidden></em><b></b><span></span></div>';
+    var el=document.createElement('div'); el.className='lightbox'; el.setAttribute('role','dialog'); el.setAttribute('aria-modal','true'); el.setAttribute('aria-label',UI.lb);
+    el.innerHTML='<div class="lb-top"><span class="lb-counter"></span><button class="lb-close" aria-label="'+UI.close+'">×</button></div><div class="lb-stage"><button class="lb-arrow prev" aria-label="'+UI.prev+'">‹</button><img alt=""><button class="lb-arrow next" aria-label="'+UI.next+'">›</button></div><div class="lb-cap"><em class="lb-tag" hidden></em><b></b><span></span></div>';
     document.body.appendChild(el); LB.el=el;
     $('.lb-close',el).addEventListener('click', closeLB);
     $('.lb-arrow.prev',el).addEventListener('click', function(){ showLB(LB.i-1); });
@@ -385,15 +429,15 @@
   function initQuickBar(){
     var skip=/^\/(admin|order|login|signup|mypage|confirm|my-booking)\//.test(location.pathname) || /^\/meetups\/(manage|new|view)\//.test(location.pathname) || /^\/spaces\/listing\//.test(location.pathname) || /^\/host\/register\//.test(location.pathname) || document.body.classList.contains('page-admin') || document.body.classList.contains('page-inquiry');
     if(!skip){
-      var bar=document.createElement('nav'); bar.className='quick-bar'; bar.setAttribute('aria-label','빠른 연락');
-      bar.innerHTML='<a class="qb-call" href="tel:'+CONFIG.phone.replace(/-/g,'')+'"><span class="qb-ico" aria-hidden="true">☎</span>전화</a>'
-        +(CONFIG.kakaoChannel?'<a class="qb-kakao" href="'+esc(CONFIG.kakaoChannel)+'" target="_blank" rel="noopener"><svg class="ico-talk" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3.2C6.6 3.2 2.3 6.6 2.3 10.9c0 2.7 1.8 5.1 4.5 6.5l-.9 3.4c-.1.3.3.6.6.4l4-2.6c.5.1 1 .1 1.5.1 5.4 0 9.7-3.4 9.7-7.8S17.4 3.2 12 3.2z"/></svg>카카오톡</a>':'')
-        +(function(){ var food=document.querySelector('#cat-calc,#cocktail-calc,#reception-calc'), talent=document.body.classList.contains('page-talent'); if(talent) return '<a class="qb-main" href="'+(document.getElementById('tl-form')?'#request':'/mc/#request')+'">섭외 요청 <span class="arrow">→</span></a>'; return '<a class="qb-main" href="'+(food?'#calc':document.querySelector('[data-price=estimator]')?'#estimate':'/inquiry/')+'">'+(food?'식음료 문의':'예약/견적 문의')+' <span class="arrow">→</span></a>'; })();
+      var bar=document.createElement('nav'); bar.className='quick-bar'; bar.setAttribute('aria-label',UI.quick);
+      bar.innerHTML='<a class="qb-call" href="tel:'+(INTL?'+82'+CONFIG.phone.replace(/-/g,'').replace(/^0/,''):CONFIG.phone.replace(/-/g,''))+'"><span class="qb-ico" aria-hidden="true">☎</span>'+UI.call+'</a>'
+        +(CONFIG.kakaoChannel?'<a class="qb-kakao" href="'+esc(CONFIG.kakaoChannel)+'" target="_blank" rel="noopener"><svg class="ico-talk" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3.2C6.6 3.2 2.3 6.6 2.3 10.9c0 2.7 1.8 5.1 4.5 6.5l-.9 3.4c-.1.3.3.6.6.4l4-2.6c.5.1 1 .1 1.5.1 5.4 0 9.7-3.4 9.7-7.8S17.4 3.2 12 3.2z"/></svg>'+UI.kakao+'</a>':'')
+        +(function(){ if(INTL) return '<a class="qb-main" href="/'+LANG+'/contact/">'+UI.ask+' <span class="arrow">→</span></a>'; var food=document.querySelector('#cat-calc,#cocktail-calc,#reception-calc'), talent=document.body.classList.contains('page-talent'); if(talent) return '<a class="qb-main" href="'+(document.getElementById('tl-form')?'#request':'/mc/#request')+'">섭외 요청 <span class="arrow">→</span></a>'; return '<a class="qb-main" href="'+(food?'#calc':document.querySelector('[data-price=estimator]')?'#estimate':'/inquiry/')+'">'+(food?'식음료 문의':'예약/견적 문의')+' <span class="arrow">→</span></a>'; })();
       document.body.appendChild(bar); document.body.classList.add('has-quick-bar');
       var est=document.querySelector('[data-price=estimator]');
       if(est && 'IntersectionObserver' in window){ new IntersectionObserver(function(en){ bar.classList.toggle('off', en[0].isIntersecting); }, { rootMargin:'0px 0px -40% 0px' }).observe(est); }
     }
-    var top=document.createElement('button'); top.type='button'; top.className='to-top'; top.setAttribute('aria-label','맨 위로'); top.innerHTML='↑'; document.body.appendChild(top);
+    var top=document.createElement('button'); top.type='button'; top.className='to-top'; top.setAttribute('aria-label',UI.top); top.innerHTML='↑'; document.body.appendChild(top);
     top.addEventListener('click', function(){ window.scrollTo({top:0, behavior:'smooth'}); });
     var ticking=false; window.addEventListener('scroll', function(){ if(ticking) return; ticking=true; requestAnimationFrame(function(){ top.classList.toggle('show', window.scrollY>900); ticking=false; }); }, {passive:true});
   }
