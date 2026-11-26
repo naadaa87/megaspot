@@ -4,13 +4,29 @@
 //      c.areaTable([50,100,200])  배치별 면적 표     c.need(100,'round')  100명 원형 테이블 좌석 면적
 //      c.calc()                   계산기              c.plans / c.freeMonths  입점 이용료(functions/api/_hostplat.js 의 PLATFORM)
 //      c.won(n) · c.man(n)        금액 표기           c.src                 면적 기준 출처
+//      c.hourly('fri','evening') · c.pkg('day','sat') · c.total('fri','evening',4,100) · c.opt('cleaning') · c.deposit · c.refundTable()
+//                                 직영 공간 요금표(assets/js/data/pricing-gundae.js)에서 계산한 금액 — 글에 금액을 직접 적지 않습니다
 //  · 수치는 출처가 있는 것과 메가스팟 자체 기준만 씁니다. 시장 평균가·검색량처럼 확인하지 못한 숫자는 넣지 않습니다.
+//  · 글마다 쓸 수 있는 항목
+//      answer   글 맨 위 ‘한눈에 보기’ 두세 문장 (문자열 또는 c => 문자열). 검색·AI 답변이 그대로 옮겨 적기 쉬운 길이로 씁니다
+//      keywords 구조화 데이터에 넣는 검색어      next  이어서 읽기에 먼저 보일 글 slug      terms  용어 사전 [[용어, 뜻, 주소?, 링크 글?]]
+//      date     처음 올린 날 (없으면 UPDATED)     updated  고친 날
+//  · 2026-11-27 에 더한 글은 guides-more.mjs 에 있고, 아래 GUIDES 에 합쳐집니다(공간 운영 글은 맨 뒤).
+import { MORE } from './guides-more.mjs';
 export const UPDATED = '2026-11-13';
+const REV = '2026-11-27';   // 한눈에 보기를 더하고 갈래를 나눈 날
 const cta = (href, title, text, go) => `<a class="eg-cta" href="${href}"><span><b>${title}</b>${text}</span><em>${go} →</em></a>`;
 
-export const GUIDES = [
+const BASE = [
   {
-    slug: 'capacity', cat: '행사 준비', tool: true,
+    slug: 'capacity', cat: '장소 고르기', tool: true, updated: REV,
+    keywords: ['행사 평수 계산', '수용 인원 계산', '100명 몇 평', '행사장 면적'],
+    answer: [
+      c => `같은 100명이라도 좌석 면적은 스탠딩 ${c.need(100, 'standing')}, 강연형 ${c.need(100, 'theater')}, 원형 테이블 식사 ${c.need(100, 'round')}, 책상형 ${c.need(100, 'classroom')}으로 배치에 따라 크게 다릅니다.`,
+      '이 값은 사람이 앉거나 서는 자리만 계산한 것입니다. 무대, 통로, 음식 테이블 자리를 더하고 10~20%의 여유를 얹어야 합니다.',
+      '실제로 받을 수 있는 인원은 공간이 안내하는 <b>최대 인원</b>이 기준입니다.'
+    ],
+    next: ['seating-layout', 'site-visit', 'venue-cost'],
     title: '행사 인원별 필요 평수 계산기 | 배치별 수용 인원 기준표 — 메가스팟',
     desc: '50명, 100명, 200명 행사에는 몇 평이 필요할까요? 스탠딩·강연형·연회형·책상형 배치별 1명당 면적 기준과 계산기로 필요한 평수와 수용 인원을 바로 확인하세요.',
     og: '몇 명이면 몇 평? 행사 인원별 필요 평수 계산기',
@@ -64,7 +80,14 @@ ${cta('/spaces/', '인원과 날짜로 공간 찾기', '필요한 평수를 가�
     hubs: ['100-people', '200-people', 'seminar']
   },
   {
-    slug: 'venue-cost', cat: '행사 준비',
+    slug: 'venue-cost', cat: '예산·계약', updated: REV,
+    keywords: ['대관 비용', '행사장 대관료', '대관 견적', '대관 견적서'],
+    answer: [
+      '대관 견적은 <b>요금 단위, 기준 인원, 요일·성수기, 준비·정리 시간, 장비, 식음료, 보증금·청소, 부가세·환불</b> 여덟 가지를 같은 순서로 확인합니다.',
+      '견적 금액과 최종 금액이 달라지는 흔한 이유는 인원 변동, 빠뜨린 준비 시간, 뒤늦게 더해지는 옵션입니다.',
+      '여러 공간을 비교할 때는 같은 날짜와 같은 인원으로 견적을 받아야 합니다.'
+    ],
+    next: ['event-budget', 'contract-deposit-refund', 'booking-timing'],
     title: '행사장 대관 비용, 견적서에서 확인할 8가지 — 메가스팟',
     desc: '대관료만 보고 예약하면 인원 추가 요금, 장비, 보증금, 부가세에서 금액이 달라집니다. 행사장 대관 견적을 받을 때 꼭 확인할 여덟 가지를 정리했습니다.',
     og: '행사장 대관 비용, 견적서에서 확인할 8가지',
@@ -95,7 +118,7 @@ ${cta('/spaces/', '인원과 날짜로 공간 찾기', '필요한 평수를 가�
 <p>이용 보증금이 있는지, 어떤 경우에 공제하는지, 언제 돌려받는지 확인합니다. 기본 정리는 어디까지 해야 하고 청소를 맡기면 얼마인지도 함께 봅니다.</p>
 
 <h2 id="tax">8. 부가세, 증빙, 취소·환불</h2>
-<p>견적 금액이 부가세 포함인지 별도인지에 따라 10%가 달라집니다. 회사 행사라면 세금계산서 발행이 되는지 확인하고, 날짜별 환불 비율도 계약 전에 받아 두세요.</p>
+<p>견적 금액이 부가세 포함인지 별도인지에 따라 10%가 달라집니다. 회사 행사라면 세금계산서 발행이 되는지 확인하고, 날짜별 환불 비율도 계약 전에 받아 두세요. 환불표를 읽는 법은 <a href="/event-guide/contract-deposit-refund/">계약·보증금·환불 규정 글</a>에, 예산을 항목별로 나누는 법은 <a href="/event-guide/event-budget/">행사 예산 짜는 법</a>에 따로 적었습니다.</p>
 
 <h2 id="megaspot">메가스팟에서는 이렇게 확인합니다</h2>
 <ul>
@@ -112,7 +135,14 @@ ${cta('/planning/', '예산에 맞춰 제안받기', '날짜와 인원, 1인 예
     hubs: ['100-people', 'corporate', 'year-end']
   },
   {
-    slug: '100-people-checklist', cat: '행사 준비',
+    slug: '100-people-checklist', cat: '행사별 준비 순서', updated: REV,
+    keywords: ['100명 행사', '행사 준비 체크리스트', '행사 준비 순서', '단체 행사 준비'],
+    answer: [
+      '100명 행사는 <b>두 달 전</b>에 날짜·인원·예산을 정하고, <b>6주 전</b>에 장소를 답사해 예약하는 순서로 준비합니다.',
+      '4주 전에 식음료와 진행 순서를, 3주 전에 초대와 참석 여부를, 2주 전에 인원과 좌석을 확정합니다.',
+      '당일에는 일찍 도착해 배치, 화면과 마이크, 접수대, 음식 도착 순으로 점검합니다.'
+    ],
+    next: ['cue-sheet', 'event-budget', 'event-catering'],
     title: '100명 행사 준비 체크리스트 | 두 달 전부터 당일까지 — 메가스팟',
     desc: '100명 규모 행사를 처음 맡았다면. 날짜와 예산 정하기부터 장소 답사, 식음료, 진행 순서, 당일 점검까지 시기별로 챙길 것을 순서대로 정리했습니다.',
     og: '100명 행사 준비 체크리스트',
@@ -142,7 +172,7 @@ ${cta('/planning/', '예산에 맞춰 제안받기', '날짜와 인원, 1인 예
 <li>주차가 몇 대까지 되고 요금은 얼마인지</li>
 <li>보증금과 환불 기준은 어떤지</li>
 </ul>
-<p>답사 때 현장에서 볼 것은 <a href="/event-guide/site-visit/">대형 공간 답사 체크리스트</a>에, 견적서에서 볼 것은 <a href="/event-guide/venue-cost/">대관 비용 확인 항목</a>에 따로 정리했습니다.</p>
+<p>답사 때 현장에서 볼 것은 <a href="/event-guide/site-visit/">대형 공간 답사 체크리스트</a>에, 견적서에서 볼 것은 <a href="/event-guide/venue-cost/">대관 비용 확인 항목</a>에 따로 정리했습니다. 분 단위 진행표는 <a href="/event-guide/cue-sheet/">진행표 만드는 법</a>을, 식사 방식은 <a href="/event-guide/event-catering/">행사 음식 준비</a>를, 초대와 참석 조사는 <a href="/event-guide/invitation-rsvp/">초대장 쓰는 법</a>을 참고하세요.</p>
 
 <h2 id="day">당일에 자주 생기는 문제</h2>
 <ul>
@@ -161,7 +191,14 @@ ${cta('/planning/', '준비를 맡기고 싶다면', '공간, 식음료, 사회�
     hubs: ['100-people', 'corporate', 'seminar']
   },
   {
-    slug: 'year-end-party', cat: '행사 준비',
+    slug: 'year-end-party', cat: '행사별 준비 순서', updated: REV,
+    keywords: ['송년회 장소', '단체 송년회', '회사 송년회', '송년회 준비', '송년회 대관'],
+    answer: [
+      '송년회 장소는 <b>인원과 날짜 → 식당이냐 대관이냐 → 식사와 주류 → 프로그램 → 예산</b> 순으로 정합니다.',
+      '식사만 함께 하는 자리는 식당 단체석이 편하고, 시상이나 영상 같은 순서가 있거나 인원이 50명을 넘으면 공간을 통째로 빌리는 쪽이 맞습니다.',
+      '12월 저녁은 먼저 예약됩니다. 날짜 후보를 두세 개 두고, 성수기 요금이 있는지 날짜를 넣어 견적을 받으세요.'
+    ],
+    next: ['cue-sheet', 'event-catering', 'booking-timing'],
     title: '송년회 장소 고르는 법 | 단체 송년회 준비 순서 — 메가스팟',
     desc: '회사 송년회나 동문 송년 모임을 맡았다면. 인원과 날짜 정하기, 식사와 주류, 프로그램, 예산까지 단체 송년회 장소를 고르는 기준을 순서대로 정리했습니다.',
     og: '송년회 장소 고르는 법',
@@ -196,7 +233,7 @@ ${cta('/planning/', '준비를 맡기고 싶다면', '공간, 식음료, 사회�
 </ul>
 
 <h2 id="budget">5. 예산을 나눠 봅니다</h2>
-<p>공간료, 인원 추가 요금, 식음료, 옵션(청소, 일회용품, 장비), 보증금으로 나눠 적으면 빠지는 항목이 없습니다. 12월과 1월에 요금이 달라지는 공간이 있으니 날짜를 넣어 견적을 받으세요. 메가스팟 직영 공간도 12월·1월에는 성수기 요금이 적용됩니다.</p>
+<p>공간료, 인원 추가 요금, 식음료, 옵션(청소, 일회용품, 장비), 보증금으로 나눠 적으면 빠지는 항목이 없습니다. 12월과 1월에 요금이 달라지는 공간이 있으니 날짜를 넣어 견적을 받으세요. 메가스팟 직영 공간도 12월·1월에는 성수기 요금이 적용됩니다. 항목별로 나누는 방법은 <a href="/event-guide/event-budget/">행사 예산 짜는 법</a>에, 순서를 짜는 방법은 <a href="/event-guide/cue-sheet/">송년회 진행표 예시</a>에 적었습니다.</p>
 
 <h2 id="check">6. 예약 전에 확인할 것</h2>
 <ul>
@@ -215,7 +252,14 @@ ${cta('/reservation-calendar/', '직영 공간 예약 현황', '메가스팟 건
     hubs: ['year-end', 'party', '100-people']
   },
   {
-    slug: 'workshop-venue', cat: '행사 준비',
+    slug: 'workshop-venue', cat: '장소 고르기', updated: REV,
+    keywords: ['워크숍 장소', '기업 워크숍', '세미나 장소', '워크샵 대관'],
+    answer: [
+      '워크숍 장소는 위치와 가격보다 <b>하루 프로그램이 그 공간에서 돌아가는지</b>를 먼저 봅니다.',
+      '확인할 일곱 가지는 프로그램 순서, 배치 전환, 화면과 마이크, 전원과 와이파이, 식사 장소, 오가는 길, 견적서와 증빙입니다.',
+      '공간이 넉넉하면 처음부터 팀별 테이블에 앉아 발표와 토론을 한자리에서 할 수 있어 배치를 바꾸는 시간이 줄어듭니다.'
+    ],
+    next: ['team-building', 'seminar-planning', 'seating-layout'],
     title: '기업 워크숍·세미나 장소 고르는 기준 7가지 — 메가스팟',
     desc: '워크숍 장소를 정할 때는 위치보다 프로그램이 돌아가는 공간인지를 먼저 봐야 합니다. 배치 전환, 화면과 음향, 식사, 이동까지 일곱 가지 기준을 정리했습니다.',
     og: '기업 워크숍·세미나 장소 고르는 기준 7가지',
@@ -255,7 +299,14 @@ ${cta('/planning/', '행사 준비 맡기기', '조건을 남기면 구성과 �
     hubs: ['corporate', 'seminar', '50-people']
   },
   {
-    slug: 'site-visit', cat: '행사 준비',
+    slug: 'site-visit', cat: '장소 고르기', updated: REV,
+    keywords: ['행사장 답사', '대관 답사', '답사 체크리스트', '사전답사'],
+    answer: [
+      '답사는 참석자가 움직이는 순서대로 <b>도착 → 올라가기 → 입장 → 홀 → 준비 공간 → 화장실</b>을 걸어 보며 확인합니다.',
+      '홀에서는 맨 뒤와 양 끝에 서서 화면이 보이는지, 마이크 소리가 뒤쪽까지 들리는지 직접 확인합니다.',
+      '행사와 같은 요일, 같은 시간대에 가면 주차와 채광, 주변 소음을 실제와 가깝게 볼 수 있습니다.'
+    ],
+    next: ['av-checklist', 'seating-layout', 'contract-deposit-refund'],
     title: '대형 공간 답사 체크리스트 | 계약 전에 현장에서 볼 것 — 메가스팟',
     desc: '사진과 평수만 보고 계약하면 당일에 문제가 생깁니다. 오는 길, 주차, 엘리베이터, 화면과 음향, 전기, 반입, 화장실까지 답사 때 확인할 항목을 정리했습니다.',
     og: '대형 공간 답사 체크리스트',
@@ -319,7 +370,7 @@ ${cta('/planning/', '행사 준비 맡기기', '조건을 남기면 구성과 �
 <li>보증금 공제 기준과 환불 규정</li>
 </ul>
 <div class="eg-callout"><b>사진을 찍어 두세요</b><p>입구, 홀 전경, 화면 쪽, 준비 공간, 콘센트 위치를 찍어 두면 배치도를 그리거나 진행 인력에게 설명할 때 그대로 쓸 수 있습니다.</p></div>
-<p>메가스팟 직영 공간은 일정을 맞춰 사전 답사를 안내합니다. 건대 1호는 실측 도면과 3D 둘러보기를 먼저 보고 올 수 있습니다.</p>
+<p>메가스팟 직영 공간은 <a href="/visit/">사전답사 신청</a>에서 시간을 골라 답사를 잡을 수 있습니다. 건대 1호는 실측 도면과 3D 둘러보기를 먼저 보고 올 수 있습니다.</p>
 ${cta('/spaces/megaspot-gundae/3d/', '건대 1호 3D로 먼저 둘러보기', '답사 전에 190평 홀의 구조와 기둥 위치를 화면으로 확인할 수 있습니다.', '3D 둘러보기')}
 ${cta('/venues/', '인원·목적별 공간 모음', '답사할 후보를 인원과 목적에 맞춰 골라 보세요.', '공간 모음')}`,
     faq: [
@@ -329,7 +380,13 @@ ${cta('/venues/', '인원·목적별 공간 모음', '답사할 후보를 인원
     hubs: ['200-people', '300-people', 'popup']
   },
   {
-    slug: 'space-platform-fee', cat: '공간 운영',
+    slug: 'space-platform-fee', cat: '공간 운영', updated: REV,
+    keywords: ['공간대여 플랫폼 수수료', '공간 플랫폼 입점', '대관 플랫폼 수수료'],
+    answer: [
+      '공간 예약 플랫폼에 내는 비용은 예약마다 금액의 일부를 떼는 <b>수수료형</b>과 등록 기간마다 정해진 금액을 내는 <b>정액형</b>으로 나뉩니다.',
+      '한 건의 금액이 큰 대형 공간은 한 건의 수수료가 한 달 정액을 넘기도 해서, 단가가 클수록 정액형이 유리해집니다.',
+      c => `메가스팟은 예약 금액에 수수료를 붙이지 않는 정액형이고, 공간이 공개된 날부터 ${c.freeMonths}개월은 무료입니다.`
+    ],
     title: '공간 예약 플랫폼 수수료 계산법 | 수수료형과 월 정액형 비교 — 메가스팟',
     desc: '공간을 플랫폼에 올릴 때 드는 비용은 예약마다 떼는 수수료형과 기간마다 내는 정액형으로 나뉩니다. 대관 단가가 큰 대형 공간이라면 어느 쪽이 유리한지 계산해 봅니다.',
     og: '공간 예약 플랫폼 수수료, 어떻게 계산될까',
@@ -388,7 +445,13 @@ ${cta('/host/register/', '공간 등록하기', '50명 이상 모일 수 있거�
     hubs: [], host: true
   },
   {
-    slug: 'space-listing-checklist', cat: '공간 운영',
+    slug: 'space-listing-checklist', cat: '공간 운영', updated: REV,
+    keywords: ['공간 상세페이지', '공간 소개 작성', '대관 공간 홍보'],
+    answer: [
+      '대형 공간 소개에는 <b>면적, 배치별 수용 인원, 천장 높이, 주차, 역에서의 거리</b>를 숫자로 적습니다.',
+      '요금은 단위와 포함 범위, 추가로 드는 비용까지 구조를 보여 주고, 장비 목록과 반입 규정, 환불 기준을 미리 알립니다.',
+      '사진은 전경, 배치 예시, 화면 쪽, 준비 공간과 입구 순으로 싣고, 치수가 적힌 도면을 함께 올립니다.'
+    ],
     title: '대형 공간 소개에 꼭 넣을 정보 10가지 | 문의가 오는 상세페이지 — 메가스팟',
     desc: '100명 행사를 맡은 담당자는 사진보다 숫자를 먼저 봅니다. 면적, 배치별 인원, 요금 구조, 장비, 주차, 반입 규정까지 대형 공간 소개에 꼭 들어가야 할 정보를 정리했습니다.',
     og: '대형 공간 소개에 꼭 넣을 정보 10가지',
@@ -440,11 +503,48 @@ ${cta('/event-guide/space-platform-fee/', '플랫폼 수수료 계산법', '수�
   }
 ];
 
+// 행사를 준비하는 분께 드리는 글을 앞에, 공간을 운영하는 분께 드리는 글을 맨 뒤에 둡니다
+export const GUIDES = [...BASE.filter(g => !g.host), ...MORE, ...BASE.filter(g => g.host)];
+
 export const INDEX = {
-  title: '행사 준비 가이드 | 대형 행사 장소·평수·견적 체크리스트 — 메가스팟',
-  desc: '몇 명이면 몇 평이 필요한지, 견적서에서 무엇을 봐야 하는지, 100명 행사는 언제부터 준비하는지. 큰 모임을 준비하는 담당자를 위한 실무 가이드를 모았습니다.',
+  title: '행사 준비 가이드 | 장소·예산·진행표·좌석 배치 — 메가스팟',
+  desc: '몇 평이 필요한지, 예산은 어떻게 나누는지, 진행표는 어떻게 쓰는지. 장소 고르기부터 계약, 식음료, 당일 진행까지 큰 모임을 준비하는 담당자를 위한 실무 가이드를 모았습니다.',
+  // 갈래 [이름, 한 줄 소개] — 목록 화면이 이 순서로 묶어 보여 줍니다. 글의 cat 은 여기 있는 이름이어야 합니다
+  cats: [
+    ['장소 고르기', '몇 평이 필요한지, 어떤 배치로 앉을지, 언제 예약할지부터 정합니다.'],
+    ['예산·계약', '견적서와 계약에서 금액이 달라지는 곳을 미리 확인합니다.'],
+    ['행사별 준비 순서', '행사 종류마다 챙길 일을 시기 순으로 정리했습니다.'],
+    ['진행·프로그램', '당일을 매끄럽게 만드는 진행표와 장비, 프로그램입니다.'],
+    ['식음료', '식사 방식을 고르고 주문 전에 확인할 것들입니다.'],
+    ['용어', '견적서와 진행 회의에 나오는 말을 쉬운 말로 풀었습니다.']
+  ],
+  // 첫 화면(/)에 싣는 글
+  home: [['capacity', '필요 평수 계산기'], ['100-people-checklist', '100명 행사 준비 체크리스트'], ['seating-layout', '좌석 배치 고르는 법'], ['cue-sheet', '진행표(큐시트) 만드는 법'], ['event-budget', '행사 예산 짜는 법'], ['contract-deposit-refund', '계약·보증금·환불 규정 읽는 법']],
   og: '행사 준비 가이드 — 큰 모임을 준비하는 담당자를 위해',
   eyebrow: 'Event guide · 행사 준비 가이드',
   h1: '큰 모임을 준비하는<br><em>담당자를 위한 가이드</em>',
-  lead: '50명이 넘는 행사는 작은 모임과 준비하는 방법이 다릅니다. 메가스팟이 대형 공간을 직접 운영하며 정리한 기준을 글로 옮겼습니다. 필요한 평수 계산부터 견적 확인, 답사, 당일 점검까지 순서대로 읽어 보세요.'
+  lead: '50명이 넘는 행사는 작은 모임과 준비하는 방법이 다릅니다. 메가스팟이 대형 공간을 직접 운영하며 정리한 기준을 글로 옮겼습니다. 장소 고르기부터 예산과 계약, 진행표, 식음료, 당일 점검까지 필요한 글을 골라 읽어 보세요.'
+};
+
+// 다른 화면 아래쪽에 붙이는 ‘함께 읽으면 좋은 글’ — 화면 파일: [글 slug 3개]
+//  · build.mjs 가 각 화면의 </main> 앞에 <!-- seo-pages:related --> 구간으로 넣습니다. 손으로 쓴 화면만 적습니다
+//    (다른 도구가 통째로 다시 만드는 화면 — /kit/, /play/, /reception/, /cocktail/ — 은 여기 적지 않습니다).
+export const RELATED = {
+  'spaces/megaspot-gundae/index.html': ['capacity', 'seating-layout', 'site-visit'],
+  'spaces/megaspot-gundae-2/index.html': ['capacity', 'seating-layout', 'site-visit'],
+  'spaces/megaspot-gundae/pricing/index.html': ['booking-timing', 'event-budget', 'contract-deposit-refund'],
+  'spaces/megaspot-gundae-2/pricing/index.html': ['booking-timing', 'event-budget', 'contract-deposit-refund'],
+  'guide/index.html': ['contract-deposit-refund', 'venue-cost', 'glossary'],
+  'catering/index.html': ['event-catering', 'event-budget', 'reunion-planning'],
+  'planning/index.html': ['100-people-checklist', 'event-budget', 'cue-sheet'],
+  'mc/index.html': ['cue-sheet', 'kickoff-new-year', 'networking-party'],
+  'visit/index.html': ['site-visit', 'av-checklist', 'seating-layout'],
+  'purpose/seminar/index.html': ['seminar-planning', 'seating-layout', 'av-checklist'],
+  'purpose/workshop/index.html': ['team-building', 'workshop-venue', 'kickoff-new-year'],
+  'purpose/networking/index.html': ['networking-party', 'event-catering', 'invitation-rsvp'],
+  'purpose/party/index.html': ['year-end-party', 'cue-sheet', 'event-catering'],
+  'purpose/community/index.html': ['reunion-planning', 'invitation-rsvp', 'booking-timing'],
+  'purpose/culture/index.html': ['av-checklist', 'seating-layout', 'cue-sheet'],
+  'purpose/popup/index.html': ['site-visit', 'contract-deposit-refund', 'booking-timing'],
+  'purpose/class/index.html': ['seating-layout', 'av-checklist', 'invitation-rsvp']
 };

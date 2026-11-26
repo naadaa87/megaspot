@@ -5,15 +5,18 @@
 //  · 내용은 venues.mjs(공간 모음) · guides.mjs(가이드 글) · capacity.mjs(면적 기준)에 있습니다.
 //  · 머리말·꼬리말과 자산 버전은 about/index.html · planning/index.html 에서 읽어 오므로, 공통 메뉴가 바뀌면 다시 실행하면 됩니다.
 //  · 직영 공간의 면적·최대 인원은 assets/js/data/spaces.js, 입점 이용료는 functions/api/_hostplat.js 의 값을 씁니다.
+//  · 가이드 글 속 금액 예시(시간당 요금·패키지·보증금·환불 기준)는 assets/js/data/pricing-gundae.js 에서 계산합니다. 요금표를 고치면 다시 실행하세요.
+//  · 소개 화면(about/)의 '한눈에 보는 메가스팟'과 첫 화면(index.html)의 가이드 구역도 이 도구가 표시된 구간만 고칩니다 (2026-11-27).
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
 import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import { HUBS, INDEX as HUB_INDEX, NAV, DIRECT_COPY, UPDATED as HUB_UPDATED } from './venues.mjs';
-import { GUIDES, INDEX as GUIDE_INDEX, UPDATED as GUIDE_UPDATED } from './guides.mjs';
+import { GUIDES, INDEX as GUIDE_INDEX, UPDATED as GUIDE_UPDATED, RELATED } from './guides.mjs';
 import * as cap from './capacity.mjs';
 import { PLATFORM } from '../../functions/api/_hostplat.js';
+import { PLACE } from '../../functions/api/_site_info.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SITE = 'https://megaspot.kr', ASSET_V = '20261113seo1';
@@ -39,6 +42,10 @@ function spaces() {
   const ctx = { window: {} }; vm.runInNewContext(read('assets/js/data/spaces.js'), ctx);
   const feat = Object.fromEntries((ctx.window.MEGASPOT_FEATURES || []).map(f => [f.id, f.label]));
   return { list: ctx.window.MEGASPOT_SPACES || [], feat };
+}
+function pricing() {
+  const ctx = { window: {} }; vm.runInNewContext(read('assets/js/data/pricing-gundae.js'), ctx);
+  const P = (ctx.window.MEGASPOT_PRICING || {})['megaspot-gundae']; if (!P) throw new Error('요금표(assets/js/data/pricing-gundae.js)를 읽지 못했습니다'); return P;
 }
 const IMG_DIR = { p: 'gundae', s: 'scenes', v: 'views', a: 'aerial', r: 'gundae2' };
 // 화면에는 WebP 를 씁니다 (tools/webp/make_webp.py 가 만든 것). 없으면 JPG
@@ -88,7 +95,7 @@ ${S.naver}
 <link rel="stylesheet" href="/assets/css/mobile-viewport.css?v=${S.mobile}">
 <script src="/assets/js/mobile-viewport.js?v=${S.mobile}" defer></script>
 <script type="application/ld+json">${ld({ '@context': 'https://schema.org', '@graph': o.graph })}</script>
-${o.headExtra || ''}</head>
+${o.published ? `<meta property="article:published_time" content="${o.published}T09:00:00+09:00">\n<meta property="article:modified_time" content="${o.modified}T09:00:00+09:00">\n<meta property="article:author" content="메가스팟 운영팀">\n` : ''}${o.headExtra || ''}</head>
 <body class="${o.bodyClass}">
 ${S.header}
 <main id="main">
@@ -303,15 +310,38 @@ ${hostStrip()}`;
 }
 
 // ---------- 행사 준비 가이드 ----------
-function guideCtx() { return { areaTable, need: cap.need, calc, plans: PLATFORM.plans, freeMonths: PLATFORM.freeMonths, won, man, src: cap.SOURCE }; }
+function guideCtx() {
+  const P = pricing(), pk = id => { const p = P.packages.find(x => x.id === id); if (!p) throw new Error('패키지 없음: ' + id); return p; };
+  const total = (c, b, hours, people = P.people.base) => P.hourly[c][b] * hours + P.surcharge.amount + Math.max(0, people - P.people.base) * P.people.extra;
+  return { areaTable, need: cap.need, calc, plans: PLATFORM.plans, freeMonths: PLATFORM.freeMonths, won, man, src: cap.SOURCE,
+    // 직영 공간 요금표에서 읽는 값 — 글 속 금액 예시는 모두 여기서 계산합니다
+    P, fee: man(P.surcharge.amount), extra: man(P.people.extra), base: P.people.base, deposit: man(P.deposit.amount),
+    hourly: (c, b) => man(P.hourly[c][b]), pkg: (id, c) => man(pk(id).price[c]), pkgN: (id, c) => pk(id).price[c], pkgTime: id => pk(id).time, pkgHours: id => pk(id).hours,
+    total: (c, b, hours, people) => man(total(c, b, hours, people)), totalN: total, extraFor: n => man(Math.max(0, n - P.people.base) * P.people.extra),
+    opt: id => { const o = P.options.find(x => x.id === id); if (!o) throw new Error('옵션 없음: ' + id); return man(o.price); },
+    refundTable: () => `<div class="hub-table-wrap"><table class="hub-table"><thead><tr><th>취소 시점</th><th>환불</th></tr></thead><tbody>${P.refund.map(r => `<tr><th scope="row">${esc(r.k)}</th><td>${Math.round(r.rate * 100)}%</td></tr>`).join('')}</tbody></table></div>`,
+    peakLabel: P.peak.periods.filter(x => x.to >= '2026-11-27').map(x => x.label).join('·') };
+}
 const guideFaq = (g, c) => (g.faq || []).map(([q, a]) => [q, typeof a === 'function' ? a(c) : a]);
 function renderGuide(S, g) {
   const p = guidePath(g.slug), url = SITE + p, c = guideCtx(), headline = text(g.h1), trail = [['행사 준비 가이드', '/event-guide/'], [headline, p]], faq = guideFaq(g, c);
-  const body = g.body(c).trim(), toc = [...body.matchAll(/<h2 id="([^"]+)">([^<]+)<\/h2>/g)].map(m => [m[1], m[2]]);
+  const pub = g.date || GUIDE_UPDATED, mod = g.updated || g.date || GUIDE_UPDATED;
+  // 용어 사전: terms [[용어, 뜻, 관련 주소?]] 를 가나다순 목록으로 (용어마다 #t-번호 로 바로 갈 수 있습니다)
+  const terms = g.terms ? g.terms.map(([t, d, href, more]) => ({ t, d: typeof d === 'function' ? d(c) : d, href, more })).sort((a, b) => a.t.localeCompare(b.t, 'ko')) : null;
+  // 첫소리(ㄱ·ㄴ·ㄷ…)별로 건너뛰는 줄 — 그 첫소리로 시작하는 첫 용어로 갑니다
+  const CHO = ['ㄱ', 'ㄱ', 'ㄴ', 'ㄷ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅂ', 'ㅅ', 'ㅅ', 'ㅇ', 'ㅈ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
+  const cho = t => { const ch = t.codePointAt(0); return ch >= 0xAC00 && ch <= 0xD7A3 ? CHO[Math.floor((ch - 0xAC00) / 588)] : ch >= 0x3131 && ch <= 0x314E ? t[0] : 'A–Z'; };
+  const idx = terms ? terms.reduce((a, x, i) => { const k = cho(x.t); if (!a.some(v => v[0] === k)) a.push([k, i + 1]); return a; }, []) : [];
+  const termNav = terms ? `<nav class="eg-idx" aria-label="첫소리로 찾기">${idx.map(([k, n]) => `<a href="#t-${n}">${k}</a>`).join('')}</nav>` : '';
+  const termHtml = terms ? termNav + `<dl class="eg-terms">${terms.map((x, i) => `<div id="t-${i + 1}"><dt>${esc(x.t)}</dt><dd>${esc(x.d)}${x.href ? ` <a href="${x.href}">${esc(x.more || '자세히 보기')} →</a>` : ''}</dd></div>`).join('')}</dl>` : '';
+  const body = (g.body(c).trim() + (terms ? '\n' + termHtml : '')).trim(), toc = [...body.matchAll(/<h2 id="([^"]+)">([^<]+)<\/h2>/g)].map(m => [m[1], m[2]]);
+  const answer = (g.answer || []).map(a => typeof a === 'function' ? a(c) : a);
   const hubs = (g.hubs || []).map(slug => { const h = HUBS.find(x => x.slug === slug); if (!h) throw new Error('모음이 없습니다: ' + slug); return h; });
   // 이어서 읽기: 같은 묶음에서 이 글 다음 순서 3개 (앞쪽 글에만 링크가 몰리지 않게 돌아가며 고릅니다)
+  // 같은 갈래의 글을 먼저, 모자라면 다음 순서의 글로 채웁니다
   const pool = GUIDES.filter(x => g.host ? true : !x.host), at = pool.findIndex(x => x.slug === g.slug);
-  const others = [1, 2, 3].map(i => pool[(at + i) % pool.length]).filter((x, i, arr) => x && x.slug !== g.slug && arr.indexOf(x) === i);
+  const ring = [...pool.slice(at + 1), ...pool.slice(0, at)], related = (g.next || []).map(sl => { const x = GUIDES.find(y => y.slug === sl); if (!x) throw new Error(g.slug + ': 이어 읽을 글이 없습니다 — ' + sl); return x; });
+  const others = [...related, ...ring.filter(x => x.cat === g.cat), ...ring].slice(0, 12).filter((x, i, arr) => x && x.slug !== g.slug && arr.indexOf(x) === i).slice(0, 3);
   const main = `
 <article>
 <header class="hl-hero eg-hero">
@@ -320,10 +350,11 @@ function renderGuide(S, g) {
     <div class="eyebrow mt-2">Event guide · ${esc(g.cat)}</div>
     <h1 class="h-xl mt-1" style="font-size:clamp(30px,5vw,50px)">${g.h1}</h1>
     <p class="lead">${esc(g.lead)}</p>
-    <div class="eg-meta"><span><b>메가스팟 운영팀</b></span><span>업데이트 <time datetime="${GUIDE_UPDATED}">${GUIDE_UPDATED.replace(/-/g, '.')}</time></span></div>
+    <div class="eg-meta"><span><b><a href="/about/">메가스팟 운영팀</a></b></span><span>업데이트 <time datetime="${mod}">${mod.replace(/-/g, '.')}</time></span></div>
   </div>
 </header>
 <div class="container eg-narrow eg-body">
+${answer.length ? `<div class="eg-answer"><b>한눈에 보기</b><ul>${answer.map(a => `<li>${a}</li>`).join('')}</ul></div>` : ''}
 ${toc.length > 3 && !g.tool ? `<nav class="eg-toc" aria-label="이 글의 순서"><b>이 글의 순서</b><ol>${toc.map(([id, t]) => `<li><a href="#${id}">${esc(t.replace(/^\d+\.\s*/, ''))}</a></li>`).join('')}</ol></nav>` : ''}
 ${body}
 ${faq.length ? `<h2 id="faq">자주 묻는 질문</h2>\n${faqHtml(faq)}` : ''}
@@ -342,15 +373,18 @@ ${faq.length ? `<h2 id="faq">자주 묻는 질문</h2>\n${faqHtml(faq)}` : ''}
 </section>
 ${g.host ? '' : hostStrip()}`;
   const graph = [
-    { '@type': 'Article', '@id': url + '#article', headline, description: g.desc, inLanguage: 'ko', datePublished: GUIDE_UPDATED, dateModified: GUIDE_UPDATED, image: `${SITE}/assets/img/brand/og-megaspot.jpg`,
+    { '@type': 'Article', '@id': url + '#article', headline, description: g.desc, inLanguage: 'ko', datePublished: pub, dateModified: mod, ...(g.keywords ? { keywords: g.keywords.join(', ') } : {}), image: `${SITE}/assets/img/brand/og-megaspot.jpg`,
       author: { '@type': 'Organization', '@id': SITE + '/#org', name: '메가스팟 MEGASPOT', url: SITE + '/' }, publisher: { '@id': SITE + '/#org' }, mainEntityOfPage: { '@type': 'WebPage', '@id': url }, articleSection: g.cat, isPartOf: { '@id': SITE + '/#website' } },
-    crumbsLd(url, [['메가스팟', '/'], ...trail]), ...(faq.length ? [faqLd(url, faq)] : [])
+    crumbsLd(url, [['메가스팟', '/'], ...trail]), ...(faq.length ? [faqLd(url, faq)] : []),
+    ...(terms ? [{ '@type': 'DefinedTermSet', '@id': url + '#terms', name: headline, inLanguage: 'ko', hasDefinedTerm: terms.map((x, i) => ({ '@type': 'DefinedTerm', '@id': url + '#t-' + (i + 1), name: x.t, description: x.d, inDefinedTermSet: { '@id': url + '#terms' } })) }] : [])
   ];
-  return page(S, { path: p, title: g.title, desc: g.desc, og: g.og, graph, article: true, bodyClass: 'page-guide-article page-guide-' + g.slug, main,
+  return page(S, { path: p, title: g.title, desc: g.desc, og: g.og, graph, article: true, published: pub, modified: mod, bodyClass: 'page-guide-article page-guide-' + g.slug, main,
     scripts: g.tool ? `<script src="/assets/js/pages/capacity-calc.js?v=${ASSET_V}"></script>\n` : '' });
 }
 function renderGuideIndex(S) {
   const I = GUIDE_INDEX, p = '/event-guide/', url = SITE + p, trail = [['행사 준비 가이드', p]];
+  const cats = I.cats.filter(([cat]) => GUIDES.some(g => !g.host && g.cat === cat));
+  for (const g of GUIDES) if (!g.host && !I.cats.some(([cat]) => cat === g.cat)) throw new Error(g.slug + ': 갈래가 목록에 없습니다 — ' + g.cat);
   const card = g => `<a class="eg-card${g.host ? ' host' : ''}" href="${guidePath(g.slug)}"><small>${esc(g.tool ? '계산기' : g.cat)}</small><b>${esc(text(g.h1))}</b><span>${esc(g.card)}</span><em>${g.tool ? '계산해 보기' : '읽어 보기'} →</em></a>`;
   const main = `
 <section class="hl-hero eg-hero">
@@ -364,7 +398,8 @@ function renderGuideIndex(S) {
 <section class="section" id="planner">
   <div class="container">
     <div class="pf-sec-head"><div class="eyebrow">01 · For planners</div><h2 class="h-l mt-1">행사를 준비하는 분께</h2></div>
-    <div class="eg-list">${GUIDES.filter(g => !g.host).map(card).join('')}</div>
+    <nav class="eg-cats" aria-label="가이드 갈래">${cats.map(([cat], i) => `<a href="#cat-${i + 1}">${esc(cat)} <b>${GUIDES.filter(g => !g.host && g.cat === cat).length}</b></a>`).join('')}</nav>
+    ${cats.map(([cat, lead], i) => `<div class="eg-cat" id="cat-${i + 1}"><h3 class="h-m">${esc(cat)}</h3><p class="small muted">${esc(lead)}</p><div class="eg-list">${GUIDES.filter(g => !g.host && g.cat === cat).map(card).join('')}</div></div>`).join('\n    ')}
   </div>
 </section>
 <section class="section sec-white sec-line" id="host">
@@ -380,7 +415,7 @@ function renderGuideIndex(S) {
   </div>
 </section>`;
   const graph = [
-    { '@type': 'CollectionPage', '@id': url + '#webpage', url, name: I.title, description: I.desc, inLanguage: 'ko', dateModified: GUIDE_UPDATED, isPartOf: { '@id': SITE + '/#website' }, publisher: { '@id': SITE + '/#org' }, breadcrumb: { '@id': url + '#breadcrumb' },
+    { '@type': 'CollectionPage', '@id': url + '#webpage', url, name: I.title, description: I.desc, inLanguage: 'ko', dateModified: GUIDES.map(g => g.updated || g.date || GUIDE_UPDATED).sort().pop(), isPartOf: { '@id': SITE + '/#website' }, publisher: { '@id': SITE + '/#org' }, breadcrumb: { '@id': url + '#breadcrumb' },
       hasPart: GUIDES.map(g => ({ '@type': 'Article', headline: text(g.h1), url: SITE + guidePath(g.slug) })) },
     crumbsLd(url, [['메가스팟', '/'], ...trail])
   ];
@@ -394,8 +429,8 @@ export function buildPages() {
   const add = (p, html, title, desc, updated, priority) => out.push({ path: p, file: p.slice(1) + 'index.html', html, title, desc, updated, priority });
   add('/venues/', renderHubIndex(S, SP), HUB_INDEX.title, HUB_INDEX.desc, HUB_UPDATED, '0.9');
   for (const h of HUBS) add(hubPath(h.slug), renderHub(S, SP, h), h.title, h.desc, HUB_UPDATED, '0.8');
-  add('/event-guide/', renderGuideIndex(S), GUIDE_INDEX.title, GUIDE_INDEX.desc, GUIDE_UPDATED, '0.7');
-  for (const g of GUIDES) add(guidePath(g.slug), renderGuide(S, g), g.title, g.desc, GUIDE_UPDATED, '0.7');
+  add('/event-guide/', renderGuideIndex(S), GUIDE_INDEX.title, GUIDE_INDEX.desc, GUIDES.map(g => g.updated || g.date || GUIDE_UPDATED).sort().pop(), '0.7');
+  for (const g of GUIDES) add(guidePath(g.slug), renderGuide(S, g), g.title, g.desc, g.updated || g.date || GUIDE_UPDATED, '0.7');
   return out;
 }
 const START = 'seo-pages:start', END = 'seo-pages:end';
@@ -415,9 +450,71 @@ export function buildFeeds(pages) {
   rss = rss.replace(/<lastBuildDate>([^<]*)<\/lastBuildDate>/, (m, d) => new Date(d).getTime() >= new Date(latest + 'T09:00:00+09:00').getTime() ? m : `<lastBuildDate>${rfc822(latest)}</lastBuildDate>`);
   return { 'sitemap.xml': sitemap, 'rss.xml': rss };
 }
+// ---------- 다른 화면에 넣는 구간 ----------
+// 소개 화면의 '한눈에 보는 메가스팟' — 검색엔진과 AI 가 그대로 옮겨 적기 쉬운 사실 표 (값은 공간·요금 데이터에서)
+function factsHtml() {
+  const SP = spaces(), P = pricing(), s = id => { const x = SP.list.find(v => v.id === id); if (!x) throw new Error('공간 정보 없음: ' + id); return x; };
+  const g1 = s('megaspot-gundae'), g2 = s('megaspot-gundae-2'), from = P.hourly.wd.morning + P.surcharge.amount, hh = h => String(h % 24).padStart(2, '0') + ':00';
+  const rows = [
+    ['메가스팟이란', '50명 이상 모이는 대형·초대형 공간을 찾고 예약하는 공간 대관 플랫폼입니다. 직접 운영하는 공간과 호스트가 등록한 공간을 같은 형식으로 보여 줍니다.'],
+    ['직영 공간', `<a href="/spaces/megaspot-gundae/">메가스팟 건대 1호</a> — ${g1.area.pyeong}평(약 ${g1.area.m2.toLocaleString('ko-KR')}㎡) · 최대 ${g1.capacity.max}명<br><a href="/spaces/megaspot-gundae-2/">메가스팟 건대 2호</a> — ${g2.area.pyeong}평(약 ${g2.area.m2.toLocaleString('ko-KR')}㎡) · 최대 ${g2.capacity.max}명`],
+    ['위치', `${esc(PLACE.withJibun)} · ${esc(PLACE.transit)}`],
+    ['이용 시간', `${hh(P.openFrom)}부터 다음 날 ${hh(P.openTo)}까지 · ${P.minHours}시간 단위 예약`],
+    ['요금', `기준 인원 ${P.people.base}명 포함 1시간 총 ${man(from)}부터 (평소 월–목 아침, 시간당 ${man(P.hourly.wd.morning)} + 예약 1건당 ${man(P.surcharge.amount)}). ${P.people.base + 1}명째부터 1명당 ${man(P.people.extra)}. 부가세 포함. <a href="/spaces/megaspot-gundae/pricing/">요금표</a>`],
+    ['보증금', `${man(P.deposit.amount)} (이용료와 따로 받고, 이용 뒤 확인하고 돌려 드립니다)`],
+    ['공간료에 포함', esc(P.includedShort.replace(/은 공간료에 들어 있습니다\.$/, '')) + ' (건대 1호 기준 · 2호는 빔프로젝터 2대)'],
+    ['주차', `건물 주차장 ${g1.parking.spaces}여 대 (유료) · <a href="/parking/">주차 안내</a>`],
+    ['함께 준비하는 것', '<a href="/catering/">출장뷔페</a> · <a href="/reception/">케이터링</a> · <a href="/cocktail/">출장 칵테일</a> · <a href="/mc/">사회자 섭외</a> · <a href="/planning/">행사 준비 맡기기</a>'],
+    ['문의', '<a href="tel:01023849580" data-phone>010-2384-9580</a> · <a href="https://pf.kakao.com/_LnxbmX/chat" target="_blank" rel="noopener" data-kakao>카카오톡 채널</a> · <a href="/inquiry/">예약·견적 문의</a> (평일 10:00–19:00)'],
+    ['공간 입점', `최대 인원 50명 이상 또는 면적 50평 이상인 공간. 예약 금액에 붙는 수수료 없이 월 정액 이용료, 공간 공개 후 ${PLATFORM.freeMonths}개월 무료 · <a href="/host/">입점 안내</a>`]
+  ];
+  return `<section class="section sec-white sec-line" id="facts">
+  <div class="container">
+    <div class="eyebrow">At a glance</div>
+    <h2 class="h-l mt-1">한눈에 보는 메가스팟</h2>
+    <dl class="about-facts">${rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>
+    <p class="small muted mt-2">요금과 조건은 ${esc(P.version.replace(/^.*?(v[\d.]+).*$/, '요금표 $1'))} 기준이며, 날짜·요일·인원에 따라 달라집니다. 정확한 금액은 <a class="read-more" href="/inquiry/">예약 신청 화면</a>에서 계산됩니다.</p>
+  </div>
+</section>`;
+}
+// 첫 화면의 가이드 구역 — 새 글이 생기면 첫 화면에서 바로 이어지게
+function homeGuidesHtml() {
+  const pick = GUIDE_INDEX.home.map(([slug, label]) => { const g = GUIDES.find(x => x.slug === slug); if (!g) throw new Error('첫 화면에 실을 가이드가 없습니다: ' + slug); return { ...g, label }; });
+  return `<section class="section sec-line" id="guides"><div class="container"><div class="eyebrow">Event guide</div><h2 class="h-m">행사 준비, 무엇부터 해야 할지 모를 때</h2><p class="lead" style="max-width:62ch;margin-top:8px">평수 계산부터 좌석 배치, 진행표, 예산, 계약까지 큰 모임을 준비하는 순서대로 정리했습니다.</p><nav class="home-more-links" aria-label="행사 준비 가이드">${pick.map(g => `<a href="${guidePath(g.slug)}"><b>${esc(g.label)} →</b><span>${esc(g.card)}</span></a>`).join('')}</nav><p class="mt-3"><a class="btn btn-light" href="/event-guide/">가이드 ${GUIDES.length}편 모두 보기 →</a></p></div></section>`;
+}
+function mark(src, name, body, anchor, where) {   // <!-- seo-pages:이름 --> 구간을 바꾸고, 없으면 anchor 앞(뒤)에 넣습니다
+  const a = `<!-- seo-pages:${name} · tools/seo-pages/build.mjs 가 만드는 구간입니다. 손으로 고치지 마세요 -->`, b = `<!-- /seo-pages:${name} -->`;
+  const re = new RegExp(`<!-- seo-pages:${name}[^>]*-->[\\s\\S]*?<!-- /seo-pages:${name} -->\\n?`), next = `${a}\n${body}\n${b}\n`;
+  if (re.test(src)) return src.replace(re, () => next);
+  const i = src.indexOf(anchor); if (i < 0) throw new Error(name + ': 넣을 자리를 찾지 못했습니다 — ' + anchor);
+  const at = where === 'after' ? i + anchor.length : i;
+  return src.slice(0, at) + (where === 'after' ? '\n' : '') + next + src.slice(at);
+}
+// llms.txt 의 ‘공간 모음’과 ‘행사 준비 가이드’ 목록 — 모음이나 글을 더하면 여기서 함께 늘어납니다 (나머지 내용은 손으로 씁니다)
+function llmsText() {
+  const src = read('llms.txt'), a = '## 인원·목적별 공간 모음', b = '## 식음료와 행사 준비', i = src.indexOf(a), j = src.indexOf(b);
+  if (i < 0 || j < i) throw new Error('llms.txt 에서 목록을 넣을 자리를 찾지 못했습니다');
+  const hub = slug => HUBS.find(h => h.slug === slug), planner = GUIDES.filter(g => !g.host);
+  const hubs = NAV.map(g => `### ${g.group}별\n\n${g.items.map(([slug]) => `- [${hub(slug).og}](${SITE}${hubPath(slug)})`).join('\n')}`).join('\n\n');
+  const guides = GUIDE_INDEX.cats.filter(([cat]) => planner.some(g => g.cat === cat)).map(([cat]) => `### ${cat}\n\n${planner.filter(g => g.cat === cat).map(g => `- [${text(g.h1)}](${SITE}${guidePath(g.slug)}): ${g.card}`).join('\n')}`).join('\n\n');
+  return src.slice(0, i) + `${a}\n\n- [초대형 공간 모음](${SITE}/venues/): 인원·목적·시간·지역별 대형 공간 모음의 첫 화면\n\n${hubs}\n\n## 행사 준비 가이드\n\n- [행사 준비 가이드 전체 목록](${SITE}/event-guide/): 큰 모임을 준비하는 담당자를 위한 글 ${planner.length}편\n\n${guides}\n\n` + src.slice(j);
+}
+// 서비스·공간 화면 아래쪽의 ‘함께 읽으면 좋은 글’ — 관련 글로 이어지는 길을 만들어 둡니다
+function relatedHtml(slugs) {
+  const pick = slugs.map(slug => { const g = GUIDES.find(x => x.slug === slug); if (!g) throw new Error('함께 읽을 글이 없습니다: ' + slug); return g; });
+  return `<section class="section sec-white sec-line" id="read-next"><div class="container"><div class="eyebrow">Event guide</div><h2 class="h-m">함께 읽으면 좋은 글</h2><nav class="read-next" aria-label="관련 행사 준비 가이드">${pick.map(g => `<a href="${guidePath(g.slug)}"><b>${esc(text(g.h1))} →</b><span>${esc(g.card)}</span></a>`).join('')}</nav><p class="mt-2 small"><a class="read-more" href="/event-guide/">행사 준비 가이드 모두 보기 →</a></p></div></section>`;
+}
+export function buildBlocks() {
+  return {
+    ...Object.fromEntries(Object.entries(RELATED).map(([file, slugs]) => [file, mark(read(file), 'related', relatedHtml(slugs), '</main>', 'before')])),
+    'llms.txt': llmsText(),
+    'about/index.html': mark(read('about/index.html'), 'facts', factsHtml(), '<section class="section">', 'before'),
+    'index.html': mark(read('index.html'), 'guides', homeGuidesHtml(), '<section class="section" id="platform">', 'before')
+  };
+}
 export function buildAll() {
   const pages = buildPages(), files = Object.fromEntries(pages.map(p => [p.file, p.html]));
-  return { pages, files: { ...files, ...buildFeeds(pages) } };
+  return { pages, files: { ...files, ...buildFeeds(pages), ...buildBlocks() } };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

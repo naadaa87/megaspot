@@ -3178,3 +3178,20 @@ body :is(.card,.space-card,.prod-card,.purpose-card,.gq-card,.food-compare a,.ho
 .lang-hint .container{display:flex;align-items:center;gap:8px 14px;min-height:44px;flex-wrap:wrap;padding-top:6px;padding-bottom:6px}
 .lang-hint a{font-weight:800;color:var(--cobalt-2);text-decoration:underline;text-underline-offset:3px}
 .lang-hint button{margin-left:auto;border:0;background:none;font-size:22px;line-height:1;cursor:pointer;color:var(--ink-2);padding:4px 8px}
+
+/* ---------- 소개 화면 ‘한눈에 보는 메가스팟’ (tools/seo-pages/build.mjs 가 만드는 구간) ---------- */
+.about-facts{display:grid;margin-top:24px;border-top:2px solid var(--graphite)}
+.about-facts>div{display:grid;gap:4px;padding:16px 2px;border-bottom:1px solid var(--concrete)}
+.about-facts dt{font-size:14px;font-weight:800;color:var(--graphite)}
+.about-facts dd{margin:0;font-size:15.5px;line-height:1.8;color:var(--ink-2)}
+.about-facts dd a{color:var(--cobalt);font-weight:700;text-decoration:underline;text-underline-offset:3px}
+@media (min-width:760px){.about-facts>div{grid-template-columns:180px minmax(0,1fr);gap:24px;padding:18px 6px}}
+
+/* ---------- 서비스·공간 화면 아래 ‘함께 읽으면 좋은 글’ (tools/seo-pages/build.mjs 가 만드는 구간) ---------- */
+.read-next{display:grid;gap:12px;margin-top:20px}
+.read-next a{display:block;padding:18px 20px;border:1px solid var(--concrete);border-radius:var(--radius-lg);background:var(--white);min-width:0;transition:border-color .15s}
+.read-next a:hover{border-color:var(--graphite)}
+.read-next b{display:block;font-size:16px;line-height:1.5;color:var(--graphite)}
+.read-next span{display:block;margin-top:6px;font-size:14px;line-height:1.7;color:var(--ink-2)}
+@media (min-width:860px){.read-next{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.read-more{color:var(--cobalt);font-weight:700;text-decoration:underline;text-underline-offset:3px}

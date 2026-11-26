@@ -5,12 +5,13 @@
 //  · 머리말·꼬리말과 공통 자산 버전은 about/index.html 에서 읽어 오므로, 공통 메뉴가 바뀌면 다시 실행하면 됩니다.
 //  · 화면을 움직이는 코드는 assets/js/kit/*.js, 모양은 assets/css/kit.css 에 있습니다.
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { GUIDES } from '../seo-pages/guides.mjs';   // 화면 아래 ‘함께 읽으면 좋은 글’에 쓰는 가이드 제목·소개
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const SITE = 'https://megaspot.kr', UPDATED = '2026-11-24';
+const SITE = 'https://megaspot.kr', UPDATED = '2026-11-27';
 const read = p => readFileSync(path.join(ROOT, p), 'utf8');
 const ver = p => createHash('sha256').update(read(p)).digest('hex').slice(0, 12);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -34,6 +35,9 @@ function page(S, o) {
     : '<meta name="robots" content="noindex,nofollow">\n<meta name="NaverBot" content="Noindex,Nofollow">\n<meta name="Yeti" content="Noindex,Nofollow">\n<meta name="referrer" content="no-referrer">';
   const graph = [{ '@type': 'WebPage', '@id': url + '#page', url, name: o.title, description: o.desc, inLanguage: 'ko-KR', isPartOf: { '@type': 'WebSite', name: '메가스팟', url: SITE + '/' } }];
   if (o.trail) graph.push({ '@type': 'BreadcrumbList', '@id': url + '#breadcrumb', itemListElement: [['홈', '/'], ...o.trail].map(([name, p], i) => ({ '@type': 'ListItem', position: i + 1, name, item: SITE + p })) });
+  // 플레이 도구는 가입·설치 없이 쓰는 무료 웹 도구라는 것을 검색엔진에 알려 줍니다 (2026-11-27)
+  if (o.app) graph.push({ '@type': 'WebApplication', '@id': url + '#app', name: o.app, url, description: o.desc, inLanguage: 'ko-KR', applicationCategory: 'UtilitiesApplication', operatingSystem: 'Web', browserRequirements: 'JavaScript 가 켜진 웹 브라우저',
+    isAccessibleForFree: true, offers: { '@type': 'Offer', price: 0, priceCurrency: 'KRW' }, provider: { '@type': 'Organization', name: '메가스팟', url: SITE + '/' } });
   if (o.faq) graph.push({ '@type': 'FAQPage', '@id': url + '#faq', mainEntity: o.faq.map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })) });
   return `<!doctype html>
 <html lang="ko">
@@ -227,6 +231,20 @@ function kitHub() {
     <h2>자주 묻는 질문</h2>
     ${faqHtml(KIT_FAQ)}
   </div>
+</section>${readNext(['invitation-rsvp', 'cue-sheet', 'reunion-planning'])}`;
+}
+
+// 화면 아래 ‘함께 읽으면 좋은 글’ — 행사 준비 가이드(tools/seo-pages/guides.mjs)의 글 3개로 이어 줍니다 (2026-11-27)
+function readNext(slugs) {
+  const pick = slugs.map(slug => { const g = GUIDES.find(x => x.slug === slug); if (!g) throw new Error('함께 읽을 글이 없습니다: ' + slug); return g; });
+  const plain = h => String(h).replace(/<br\s*\/?>/g, ' ').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+  return `
+<section class="kit-sec" id="read-next">
+  <div class="container">
+    <h2>함께 읽으면 좋은 글</h2>
+    <nav class="read-next" aria-label="관련 행사 준비 가이드">${pick.map(g => `<a href="/event-guide/${g.slug}/"><b>${esc(plain(g.h1))} →</b><span>${esc(g.card)}</span></a>`).join('')}</nav>
+    <p style="margin-top:14px;font-size:14px"><a class="read-more" href="/event-guide/">행사 준비 가이드 모두 보기 →</a></p>
+  </div>
 </section>`;
 }
 
@@ -273,7 +291,7 @@ function playHub() {
     <h2>자주 묻는 질문</h2>
     ${faqHtml(PLAY_FAQ)}
   </div>
-</section>`;
+</section>${readNext(['team-building', 'networking-party', 'cue-sheet'])}`;
 }
 
 // 도구 화면 공통 틀
@@ -496,7 +514,7 @@ export function buildPages() {
   const add = (p, o) => out.push({ path: p, file: p.slice(1) + 'index.html', html: page(S, { path: p, ...o }), index: !o.noindex, title: o.title, desc: o.desc, priority: o.priority || '0.6' });
   add('/kit/', { title: '모임 키트 | 무료 모임 초대장·경품 추첨·팀 나누기 — 메가스팟', og: '메가스팟 모임 키트', desc: '메가스팟에서 모임을 여는 분께 드리는 무료 도구. 길찾기·주차 안내가 붙은 모임 초대장과 참석 응답, 200인치 스크린용 웰컴 화면·경품 추첨·팀 나누기·퀴즈.', bodyClass: 'page-kit', main: kitHub(), faq: KIT_FAQ, trail: [['모임 키트', '/kit/']], priority: '0.7' });
   add('/play/', { title: '무료 행사 진행 도구 | 경품 추첨·팀 나누기·퀴즈·빙고·돌림판 — 메가스팟 플레이', og: '메가스팟 플레이', desc: '설치·가입 없이 브라우저에서 바로 쓰는 모임 진행 도구. 웰컴 스크린, 경품 추첨, 팀 나누기, 팀 대항 퀴즈, 빙고, 밸런스 게임, 돌림판.', bodyClass: 'page-kit page-play-hub', main: playHub(), faq: PLAY_FAQ, trail: [['모임 키트', '/kit/'], ['메가스팟 플레이', '/play/']], scripts: ['play-hub'], priority: '0.7' });
-  const tool = (t, main, script) => add(t.path, { title: TOOL_SEO[t.k].title, og: `${t.name} — 메가스팟 플레이`, desc: TOOL_SEO[t.k].desc, faq: TOOL_SEO[t.k].faq, bodyClass: 'page-kit page-play kit-noquick', main, trail: [['모임 키트', '/kit/'], ['메가스팟 플레이', '/play/'], [t.name, t.path]], scripts: [script] });
+  const tool = (t, main, script) => add(t.path, { title: TOOL_SEO[t.k].title, og: `${t.name} — 메가스팟 플레이`, desc: TOOL_SEO[t.k].desc, faq: TOOL_SEO[t.k].faq, app: t.name, bodyClass: 'page-kit page-play kit-noquick', main, trail: [['모임 키트', '/kit/'], ['메가스팟 플레이', '/play/'], [t.name, t.path]], scripts: [script] });
   tool(TOOLS[0], welcomePage(), 'play-welcome');
   tool(TOOLS[1], drawPage(false), 'play-draw');
   tool(TOOLS[2], drawPage(true), 'play-draw');

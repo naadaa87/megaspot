@@ -35,6 +35,9 @@
 .hub-table td{white-space:nowrap}
 .hub-table td.wrap{white-space:normal;min-width:180px}
 .hub-table td b{color:var(--cobalt-2)}
+.hub-table.txt{min-width:0}
+.hub-table.txt td{white-space:normal;line-height:1.65}
+.hub-table.txt th,.hub-table.txt td{word-break:keep-all;overflow-wrap:break-word}
 .hub-table small{display:block;color:var(--ink-3);font-size:12.5px;font-weight:400;margin-top:2px}
 .hub-src{font-size:13px;color:var(--ink-3);margin-top:10px;line-height:1.7}
 .hub-src a{text-decoration:underline;text-underline-offset:3px}
@@ -72,6 +75,22 @@
 .eg-toc b{display:block;font-size:13px;color:var(--ink-3);margin-bottom:8px}
 .eg-toc ol{display:grid;gap:6px;padding-left:20px;list-style:decimal}
 .eg-toc li{font-size:15px;line-height:1.6}
+/* 한눈에 보기 — 글 맨 위에서 질문에 먼저 답하는 두세 문장 */
+.eg-answer{padding:20px 22px;border:1px solid var(--concrete);border-left:4px solid var(--cobalt);border-radius:var(--radius-lg);background:var(--white)}
+.eg-answer>b{display:block;font-size:13px;font-weight:800;letter-spacing:.04em;color:var(--cobalt);margin-bottom:10px}
+.eg-answer ul{display:grid;gap:8px;padding-left:20px;list-style:disc}
+.eg-answer li{font-size:16px;line-height:1.75;color:var(--ink)}
+.eg-answer li::marker{color:var(--cobalt)}
+/* 용어 사전 */
+.eg-terms{display:grid;gap:0;border-top:1px solid var(--concrete)}
+.eg-terms>div{display:grid;gap:4px;padding:16px 2px;border-bottom:1px solid var(--concrete);scroll-margin-top:90px}
+.eg-terms dt{font-size:16.5px;font-weight:800;color:var(--graphite);line-height:1.5}
+.eg-terms dd{margin:0;font-size:15.5px;line-height:1.8;color:var(--ink-2)}
+.eg-terms dd a{white-space:nowrap}
+.eg-terms>div:target{background:var(--cobalt-soft)}
+.eg-idx{display:flex;flex-wrap:wrap;gap:6px}
+.eg-idx a{display:inline-flex;align-items:center;justify-content:center;min-width:40px;height:40px;padding:0 10px;border:1px solid var(--concrete);border-radius:10px;background:var(--white);font-size:15px;font-weight:800;color:var(--graphite);text-decoration:none!important}
+.eg-idx a:hover{border-color:var(--cobalt);color:var(--cobalt)}
 .eg-callout{padding:18px 20px;border-radius:var(--radius-lg);background:var(--cobalt-soft);border:1px solid #C9D6F6}
 .eg-callout b{display:block;font-size:15.5px;color:var(--cobalt-2);margin-bottom:4px}
 .eg-callout p{font-size:15px;line-height:1.75;color:var(--ink)}
@@ -87,6 +106,15 @@
 .eg-steps>li>span{display:block;font-size:15px;line-height:1.75;color:var(--ink-2)}
 .eg-foot{margin-top:44px;padding-top:20px;border-top:1px solid var(--concrete-2);font-size:13.5px;color:var(--ink-3);line-height:1.7}
 .eg-list{display:grid;gap:14px}
+/* 가이드 목록 — 갈래별 묶음 */
+.eg-cats{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+.eg-cats a{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 15px;border:1px solid var(--concrete);border-radius:999px;background:var(--white);font-size:14px;font-weight:700;color:var(--ink)}
+.eg-cats a:hover{border-color:var(--graphite)}
+.eg-cats a b{font-size:12.5px;font-weight:800;color:var(--cobalt)}
+.eg-cat{margin-top:44px;scroll-margin-top:90px}
+.eg-cat>h3{font-size:21px;letter-spacing:-.01em}
+.eg-cat>p{margin-top:4px}
+.eg-cat>.eg-list{margin-top:16px}
 .eg-card{display:flex;flex-direction:column;gap:8px;padding:22px;border:1px solid var(--concrete);border-radius:var(--radius-lg);background:var(--white);min-width:0;transition:border-color .15s,box-shadow .15s}
 .eg-card:hover{border-color:var(--graphite);box-shadow:var(--shadow)}
 .eg-card small{font-size:12px;font-weight:800;letter-spacing:.04em;color:var(--cobalt)}
@@ -116,6 +144,9 @@
   .eg-list{grid-template-columns:repeat(2,minmax(0,1fr))}
   .cc-in{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
+@media (min-width:760px){
+  .eg-terms>div{grid-template-columns:200px minmax(0,1fr);gap:20px;padding:18px 6px}
+}
 @media (min-width:1000px){
   .hub-links.c3{grid-template-columns:repeat(3,minmax(0,1fr))}
   .eg-list{grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -125,6 +156,8 @@
   .hub-table th,.hub-table td{padding:10px 9px}
   .hub-table tbody th{white-space:normal;min-width:108px}
   .hub-table.n1{min-width:0}
+  .hub-table.txt tbody th{min-width:0}
+  .hub-table.txt th,.hub-table.txt td{padding:10px 8px}
   .hub-table.n1 thead th{white-space:normal}
   .hub-nav-row>b{flex-basis:100%}
   .eg-steps>li{padding-left:18px}
