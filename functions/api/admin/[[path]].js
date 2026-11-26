@@ -602,8 +602,20 @@ export async function onRequest({ request, env, params, waitUntil }) {
       await log(env, 'quote.saved', foodRef || ref || quote_no, 'admin', { quote_no, total });
       return json({ ok: true, quote_no, ...(foodOnly?{food_inquiry_ref:foodRef}:{}), reception_revision, food_state:input?.food_state, confirm_doc_invalidated: invalidated });
     }
+    // 저장한 견적 삭제 (2026-11-26): 문의·예약에 연결되지 않은 견적만. quotes 행은 지우지 않고 quote_deletions 에 적어 목록에서 뺍니다.
+    const mQuoteDel = path.match(/^quotes\/([A-Za-z0-9-]{3,40})$/);
+    if (mQuoteDel && method === 'DELETE') {
+      const no = mQuoteDel[1].toUpperCase();
+      const q = await env.DB.prepare('SELECT q.quote_no, q.inquiry_ref, (SELECT l.inquiry_ref FROM food_quote_links l WHERE l.quote_no=q.quote_no LIMIT 1) AS food_ref FROM quotes q WHERE q.quote_no=?').bind(no).first();
+      if (!q) return err('견적을 찾지 못했습니다.', 404, 'NOT_FOUND');
+      const used = q.inquiry_ref || q.food_ref || await env.DB.prepare('SELECT 1 FROM inquiries WHERE instr(data, ?) > 0 LIMIT 1').bind(no).first();
+      if (used) return err('문의·예약에 연결된 견적은 기록으로 남아 있어 삭제할 수 없습니다.', 409, 'QUOTE_LINKED');
+      await env.DB.prepare('INSERT OR IGNORE INTO quote_deletions (quote_no, deleted_at) VALUES (?, ?)').bind(no, now()).run();
+      await log(env, 'quote.deleted', no, 'admin', {});
+      return json({ ok: true, quote_no: no });
+    }
     if (path === 'quotes' && method === 'GET') {
-      const { results } = await env.DB.prepare('SELECT q.quote_no,q.inquiry_ref,q.customer,q.event_date,q.total,q.data,q.created_at,l.inquiry_ref AS food_inquiry_ref FROM quotes q LEFT JOIN food_quote_links l ON l.quote_no=q.quote_no ORDER BY q.id DESC LIMIT 100').all();
+      const { results } = await env.DB.prepare('SELECT q.quote_no,q.inquiry_ref,q.customer,q.event_date,q.total,q.data,q.created_at,l.inquiry_ref AS food_inquiry_ref FROM quotes q LEFT JOIN food_quote_links l ON l.quote_no=q.quote_no WHERE NOT EXISTS (SELECT 1 FROM quote_deletions d WHERE d.quote_no=q.quote_no) ORDER BY q.id DESC LIMIT 100').all();
       return json({ ok: true, items: (results || []).map(q => ({ ...q, data: safe(q.data) })) });
     }
 

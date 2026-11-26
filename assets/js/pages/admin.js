@@ -1567,6 +1567,17 @@
     setTimeout(function(){ window.print(); setTimeout(function(){ document.title=old; }, 500); }, 60);
     }).catch(function(e){if(!guard(e))M.toast(e.message);});
   });
+  // 견적서 이미지 저장 (2026-11-26): 인쇄용 견적서와 같은 내용을 PNG로 (admin-quote-image.js)
+  var qImageBtn=document.getElementById('q-image');
+  if(qImageBtn) qImageBtn.addEventListener('click', function(){
+    var b=qImageBtn, label=b.textContent;
+    if(!window.MEGASPOT_QUOTE_IMAGE){ M.toast('이미지 도구를 불러오지 못했습니다. 새로고침 후 다시 눌러 주세요.'); return; }
+    ensureCurrentQuote('print').then(function(ok){ if(!ok)return; readForm(); calc(); if(!R||Q.foodOnly&&!R.extras.length){ M.toast('견적 항목을 먼저 넣어 주세요.'); return; } renderSheet();
+      var name=(Q.foodOnly?'메가스팟_식음료':D.fileTag||'메가스팟건대')+'_견적서_'+(Q.quoteNo||'미저장')+'_'+(Q.customer||'').split('·')[0].trim();
+      b.disabled=true; b.textContent='이미지 만드는 중…';
+      return window.MEGASPOT_QUOTE_IMAGE.save(document.getElementById('quote-print'), name).then(function(){ b.disabled=false; b.textContent=label; M.toast('견적서 이미지를 저장했습니다.'); }, function(e){ b.disabled=false; b.textContent=label; throw e; });
+    }).catch(function(e){if(!guard(e))M.toast(e.message||'이미지를 만들지 못했습니다.');});
+  });
   function quoteSettlementHtml(){var value=quoteHistorical?(savedQuoteSnapshot&&savedQuoteSnapshot.settlement):Q.ref?quoteSettlement:null;if(!value)return '';var rows=window.MEGASPOT_SETTLEMENT.rows(Object.assign({},value,{amount:R.total}));return '<table class="qp-cond"><caption>이용료 수납·정산 (반환 보증금 별도)</caption><tbody>'+rows.map(function(r){return '<tr><th>'+esc(r[0])+'</th><td>'+esc(r[1])+'</td></tr>';}).join('')+'</tbody></table>';}
   function renderSheet(){
     var q=R.q, C=M.CONFIG||{}, now=new Date(), stamp=savedQuoteCreatedAt?savedQuoteCreatedAt.slice(0,10).replace(/-/g,'.'):now.getFullYear()+'.'+(now.getMonth()+1)+'.'+now.getDate();
@@ -1625,9 +1636,13 @@
   }
   function loadRecentQuotes(){
     A('/quotes').then(function(r){ var l=(r.items||[]).slice(0,12);
-      $('#q-recent').innerHTML=l.length?l.map(function(q){ var input=q.data?.input, schedule=[q.event_date?kd(q.event_date):'',input?.foodOnly?foodQuoteTimeText(input):''].filter(Boolean).join(' · '); return '<div class="adm-row"><div class="r1"><b>'+esc(q.customer||'(고객명 없음)')+'</b><span class="small">'+esc(won(q.total))+'</span></div><div class="r3"><span>'+esc(q.quote_no)+(q.data?.input?.foodOnly?' · 식음료 단독'+(q.data.input.location?' · '+esc(q.data.input.location):''):'')+(q.inquiry_ref?' · '+esc(q.inquiry_ref):'')+(schedule?' · '+esc(schedule):'')+'</span><button class="btn btn-light btn-sm" type="button" data-recent="'+esc(q.quote_no)+'">열기</button>'+(input?.foodOnly?'<button class="btn btn-light btn-sm" type="button" data-food-quote-register="'+esc(q.quote_no)+'">'+(q.food_inquiry_ref?'기존 문의에 견적 적용':'문의 선택·예약 등록')+'</button>':'')+'</div></div>'; }).join(''):emptyMsg('저장한 견적이 없습니다.');
+      $('#q-recent').innerHTML=l.length?l.map(function(q){ var input=q.data?.input, schedule=[q.event_date?kd(q.event_date):'',input?.foodOnly?foodQuoteTimeText(input):''].filter(Boolean).join(' · '); return '<div class="adm-row"><div class="r1"><b>'+esc(q.customer||'(고객명 없음)')+'</b><span class="small">'+esc(won(q.total))+'</span></div><div class="r3"><span>'+esc(q.quote_no)+(q.data?.input?.foodOnly?' · 식음료 단독'+(q.data.input.location?' · '+esc(q.data.input.location):''):'')+(q.inquiry_ref?' · '+esc(q.inquiry_ref):'')+(schedule?' · '+esc(schedule):'')+'</span><button class="btn btn-light btn-sm" type="button" data-recent="'+esc(q.quote_no)+'">열기</button>'+(input?.foodOnly?'<button class="btn btn-light btn-sm" type="button" data-food-quote-register="'+esc(q.quote_no)+'">'+(q.food_inquiry_ref?'기존 문의에 견적 적용':'문의 선택·예약 등록')+'</button>':'')+(!q.inquiry_ref&&!q.food_inquiry_ref?'<button class="btn btn-light btn-sm q-del" type="button" data-del-quote="'+esc(q.quote_no)+'" title="이 견적을 목록에서 삭제">삭제</button>':'')+'</div></div>'; }).join(''):emptyMsg('저장한 견적이 없습니다.');
       $$('#q-recent [data-food-quote-register]').forEach(function(b){b.onclick=function(){
         openFoodQuote(l.find(function(q){return q.quote_no===b.dataset.foodQuoteRegister;}));
+      };});
+      $$('#q-recent [data-del-quote]').forEach(function(b){ b.onclick=function(){ var no=b.dataset.delQuote, q=l.find(function(x){return x.quote_no===no;})||{};
+        if(!confirm('견적 '+no+(q.customer?' ('+q.customer+')':'')+'을(를) 삭제할까요?\n삭제하면 최근 저장한 견적 목록에서 사라집니다.'))return;
+        b.disabled=true; A('/quotes/'+encodeURIComponent(no),{method:'DELETE'}).then(function(){ M.toast('견적 '+no+'을(를) 삭제했습니다.'); loadRecentQuotes(); }).catch(function(e){ b.disabled=false; if(!guard(e))M.toast(e.message); });
       };});
       $$('#q-recent [data-recent]').forEach(function(b){ b.addEventListener('click', function(){ var q=l.filter(function(x){ return x.quote_no===b.dataset.recent; })[0]; if(q){ loadSavedQuote(q, q.inquiry_ref); window.scrollTo(0,0); } }); });
     }).catch(fail($('#q-recent')));

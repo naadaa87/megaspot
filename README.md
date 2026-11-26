@@ -983,3 +983,8 @@ QR 이미지는 `assets/img/brand/kakao-qr.svg` 입니다. **채널 주소를 �
 - **예외**: 현장 결제·당일 결제·결제 일정 별도 협의·기타 중에서 고르고 비고를 남깁니다('기타'는 비고 필수). 해제하면 원래 묶음으로 돌아가고 이력은 남습니다.
 - **기록 남기기**: 입금 확인·사전고지·결제 요청·메모를 연락 방법과 함께 남깁니다. 입금 자체는 [수납 기록 · 기한]에서 해야 남은 금액이 바뀝니다.
 - 예약·문의·수납 원장은 읽기만 합니다. 새 표는 `booking_collection_marks`(예외·비고), `booking_collection_logs`(연락·확인 이력) 두 개입니다. 시험: `node --test tests/collections.test.mjs`.
+
+## 견적 계산 · 저장한 견적 삭제 · 견적서 이미지 저장 (2026-11-26)
+- **삭제**: '최근 저장한 견적'에서 문의·예약에 연결되지 않은 견적에만 [삭제] 버튼이 붙습니다. 지우면 목록에서 빠지고, `quotes` 원본 행은 남긴 채 `quote_deletions` 표에 기록합니다(`DELETE /api/admin/quotes/<견적번호>`). 문의에 연결된 견적, 식음료 문의에 연결된 견적, 문의 데이터에 적힌 견적은 서버에서도 막습니다.
+- **이미지 저장**: [견적서 이미지 저장]은 인쇄용 견적서와 같은 내용을 PNG 한 장으로 내려받습니다(`assets/js/pages/admin-quote-image.js`, 그림 도구는 `assets/js/vendor/html2pdf.bundle.min.js`). 견적서 모양은 인쇄용 CSS를 그대로 옮겨 씁니다.
+- 시험: `node --test tests/quote-delete-image.test.mjs`.

@@ -1330,6 +1330,10 @@ CREATE TABLE IF NOT EXISTS booking_collection_logs (   -- 수납 관리 (2026-11
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_collection_logs_code ON booking_collection_logs(booking_code, id);
+CREATE TABLE IF NOT EXISTS quote_deletions (   -- 견적 계산 '최근 저장한 견적' 삭제 (2026-11-26): 문의·예약에 연결되지 않은 견적만, 원본 quotes 행은 남기고 목록에서만 뺌
+  quote_no TEXT PRIMARY KEY,
+  deleted_at TEXT NOT NULL
+);
 
 CREATE TABLE IF NOT EXISTS talents (   -- MC·아나운서·강사·레크리에이션 진행자 프로필 (2026-11-25) · 연락처는 private 칸에만 두고 공개 화면·API에는 내보내지 않음
   id INTEGER PRIMARY KEY AUTOINCREMENT,
