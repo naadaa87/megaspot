@@ -153,7 +153,7 @@
   <url><loc>https://megaspot.kr/play/wheel/</loc><lastmod>2026-11-24</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <!-- kit-pages:end -->
   <!-- faq:start · tools/faq/build.mjs 가 만드는 구간입니다. 손으로 고치지 마세요 -->
-  <url><loc>https://megaspot.kr/help/</loc><lastmod>2026-11-25</lastmod><changefreq>weekly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://megaspot.kr/help/</loc><lastmod>2026-11-26</lastmod><changefreq>weekly</changefreq><priority>0.6</priority></url>
   <!-- faq:end -->
   <!-- i18n:start · tools/i18n/build.mjs 가 만드는 구간입니다. 손으로 고치지 마세요 -->
   <url><loc>https://megaspot.kr/en/</loc><lastmod>2026-11-26</lastmod><changefreq>monthly</changefreq><priority>0.6</priority>

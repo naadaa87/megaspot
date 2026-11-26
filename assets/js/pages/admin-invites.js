@@ -1,6 +1,6 @@
 /* 관리자 · 모임 초대장 (2026-11-24)
    확정 예약의 모임 초대장을 대신 만들고, 예약자 번호로 카카오톡(알림톡)을 보내거나 PDF·이미지로 내려받습니다.
-   · 고객은 /invite/new/ 에서 이용 날짜·시작 시간·예약자 이름·연락처로 직접 만들 수 있습니다.
+   · 고객은 /invite/new/ 에서 이용 날짜·예약자 연락처로 직접 만들 수 있습니다.
    · 카카오톡은 알리고 템플릿 승인 → 코드 저장 → 승인 확인 → 운영자 시험 수신을 마쳐야 보낼 수 있습니다('카카오톡 설정').
    · 초대장 내용 고치기·응답 명단·삭제는 '주최자 관리 화면'(고객과 같은 화면)에서 합니다.
    서버: /api/invites/admin/* (functions/api/_invites_admin.js) · PDF: assets/js/kit/invite-pdf.js */
@@ -29,7 +29,7 @@
 
   /* ---------- 화면 틀 ---------- */
   var sec = document.createElement('section'); sec.className = 'adm-view aiv-view'; sec.id = 'view-invites'; sec.hidden = true;
-  sec.innerHTML = '<header class="adm-head"><div><h1>모임 초대장</h1><p class="small muted">확정 예약의 모임 초대장을 대신 만들고, 예약자 번호로 카카오톡을 보내거나 PDF로 내려받습니다. 고객은 초대장 만들기 화면에서 이용 날짜·시작 시간·예약자 이름·연락처로 직접 만들 수 있습니다.</p></div>' +
+  sec.innerHTML = '<header class="adm-head"><div><h1>모임 초대장</h1><p class="small muted">확정 예약의 모임 초대장을 대신 만들고, 예약자 번호로 카카오톡을 보내거나 PDF로 내려받습니다. 고객은 초대장 만들기 화면에서 이용 날짜·예약자 연락처로 직접 만들 수 있습니다.</p></div>' +
     '<div class="row aiv-head-act"><a class="btn btn-light btn-sm" href="/invite/new/" target="_blank" rel="noopener">고객 초대장 만들기 화면 ↗</a><button class="btn btn-light btn-sm" type="button" data-ia="kakao">카카오톡 설정</button><button class="btn btn-light btn-sm" type="button" data-ia="reload">새로고침</button></div></header>' +
     '<div class="aiv-kakao" id="aiv-kakao"></div>' +
     '<form class="adm-card aiv-filter" id="aiv-filter"><label>이용일 <input class="input" type="date" name="from"></label><span class="muted">~</span><label><span class="sr-only">끝 날짜</span><input class="input" type="date" name="to"></label>' +

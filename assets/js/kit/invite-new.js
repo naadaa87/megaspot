@@ -1,5 +1,5 @@
 /* 모임 초대장 — 만들기 /invite/new/ (2026-11-21 · 2026-11-24 예약 정보로 찾기, PDF·카카오톡)
-   1) 확정 예약 확인 — 이용 날짜·시작 시간·예약자 이름·연락처(기본) 또는 예약번호 + 휴대폰 뒷 4자리
+   1) 확정 예약 확인 — 이용 날짜·예약자 연락처(기본, 2026-11-26부터 두 칸만) 또는 예약번호 + 휴대폰 뒷 4자리
    2) 내용 쓰기(오른쪽 미리보기) → 3) PDF·이미지 내려받기, 카카오톡으로 받기·보내기, 주소·QR·관리 링크
    초대장 쓰기 화면(Kit.inviteForm)은 관리 화면의 ‘초대장 고치기’도 함께 씁니다.
    만든 초대장의 관리 주소는 이 브라우저(ms_invite_mine)에 최근 5개까지 기억해 다시 열기 쉽게 합니다. */
@@ -162,9 +162,7 @@
     var mine = (K.store.get(MINE, []) || []).filter(function (x) { return x && x.manage_url; });
     var fields = mode === 'info'
       ? '<div class="field-row"><div class="f"><label for="v-date">이용 날짜</label><input class="input" id="v-date" name="date" type="date" min="' + K.today() + '" required></div>' +
-        '<div class="f"><label for="v-time">시작 시간</label><input class="input" id="v-time" name="time" type="time" step="1800" required><span class="hint">예약하신 이용 시작 시각</span></div></div>' +
-        '<div class="field-row"><div class="f"><label for="v-name">예약자 이름</label><input class="input" id="v-name" name="name" maxlength="30" autocomplete="name" placeholder="예약할 때 적은 이름" required></div>' +
-        '<div class="f"><label for="v-phone">예약자 연락처</label><input class="input" id="v-phone" name="phone" type="tel" inputmode="tel" maxlength="20" autocomplete="tel" placeholder="010-0000-0000" required></div></div>'
+        '<div class="f"><label for="v-phone">예약자 연락처</label><input class="input" id="v-phone" name="phone" type="tel" inputmode="tel" maxlength="20" autocomplete="tel" placeholder="010-0000-0000" required><span class="hint">예약할 때 적은 휴대폰 번호</span></div></div>'
       : '<div class="field-row"><div class="f"><label for="v-code">예약번호</label><input class="input" id="v-code" name="code" autocomplete="off" autocapitalize="characters" maxlength="20" placeholder="예약확정 안내에 있는 번호" value="' + esc(b) + '"></div>' +
         '<div class="f"><label for="v-last4">예약자 휴대폰 뒷 4자리</label><input class="input" id="v-last4" name="last4" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="1234"></div></div>';
     root.innerHTML = '<div class="kit-split"><form class="kit-panel" data-verify novalidate><div class="form">' +
@@ -173,7 +171,7 @@
       fields +
       '<p class="kit-msg err" data-err role="alert">' + esc(msg || '') + '</p>' +
       '<button type="submit" class="btn btn-primary btn-lg">예약 확인하고 시작하기</button>' +
-      (mode === 'info' ? '<p class="hint" style="margin:0">예약하실 때 적은 이름과 연락처를 넣어 주세요. 입력한 정보는 예약을 찾는 데만 쓰고 따로 저장하지 않습니다.</p>'
+      (mode === 'info' ? '<p class="hint" style="margin:0">이용 날짜와 예약하실 때 적은 휴대폰 번호만 넣으면 됩니다. 입력한 정보는 예약을 찾는 데만 쓰고 따로 저장하지 않습니다.</p>'
         : '<p class="hint" style="margin:0">예약번호는 예약확정 안내 문자와 <a href="/confirm/" style="text-decoration:underline">예약확정서 조회</a>에서 볼 수 있습니다.</p>') +
       '</div></form><div>' +
       (mine.length ? '<div class="kit-panel"><h3>이 브라우저에서 만든 초대장</h3><div style="display:grid;gap:8px;margin-top:12px">' + mine.map(function (x) {
@@ -191,12 +189,10 @@
       var err = K.$('[data-err]', f), btn = f.querySelector('button[type=submit]'), body;
       var stop = function (el, m) { if (el) el.focus(); err.textContent = m; };
       if (mode === 'info') {
-        var phone = f.phone.value.replace(/\D/g, ''), name = f.name.value.trim();
+        var phone = f.phone.value.replace(/\D/g, '');
         if (!f.date.value) return stop(f.date, '이용 날짜를 골라 주세요.');
-        if (!f.time.value) return stop(f.time, '예약하신 시작 시간을 넣어 주세요.');
-        if (name.replace(/\s/g, '').length < 2) return stop(f.name, '예약자 이름을 두 글자 이상 적어 주세요.');
         if (phone.length < 9) return stop(f.phone, '예약자 연락처를 숫자로 적어 주세요.');
-        body = { date: f.date.value, time: f.time.value, name: name, phone: phone };
+        body = { date: f.date.value, phone: phone };
       } else {
         var code = f.code.value.trim().toUpperCase(), last4 = f.last4.value.replace(/\D/g, '');
         if (!code) return stop(f.code, '예약번호를 적어 주세요.');
@@ -217,7 +213,7 @@
     root.innerHTML = '<div data-form></div>';
     K.inviteForm(K.$('[data-form]', root), {
       booking: booking, submitLabel: '초대장 만들기', data: lookupName ? { host: lookupName } : {},
-      contactFill: lookupName && lookupPhone ? lookupName + ' ' + fmtPhone(lookupPhone) : '',
+      contactFill: lookupPhone ? (lookupName ? lookupName + ' ' : '') + fmtPhone(lookupPhone) : '',
       onSubmit: function (v) {
         return K.api('create', Object.assign({}, cred, v)).then(function (j) {
           if (j.kakao) kakao = j.kakao;

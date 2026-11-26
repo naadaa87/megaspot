@@ -76,12 +76,48 @@ test('예약 정보로 찾기 — 이름 띄어쓰기·님·덧붙인 이름, �
   assert.equal((await v({ date: day(11), time: '01:00', name: '김민지', phone: '01055556666' })).json.booking.code, 'BK-N');   // 전날 날짜 · 시작 25시
   assert.equal((await v({ date: day(12), time: '18:00', name: '박철수', phone: '01077778888' })).json.code, 'CANCELLED');
   assert.equal((await v({ date: day(13), time: '18:00', name: '이영희', phone: '01033334444' })).json.code, 'NOT_CONFIRMED');
-  assert.equal((await v({ date: day(20), time: '', name: '홍길동', phone: '01012345678' })).status, 400);
+  assert.equal((await v({ date: day(20), time: '', name: '홍길동', phone: '' })).status, 400);   // 연락처는 꼭
+  assert.equal((await v({ date: '', phone: '01012345678' })).status, 400);   // 날짜도 꼭
   // 예약 정보로 만들고, 같은 예약으로 다시 확인하면 기존 초대장 주소를 돌려준다
   const c = await f.call('create', { method: 'POST', body: { date: day(20), time: '18:30', name: '홍길동', phone: '01012345678', ...CONTENT } });
   assert.equal(c.status, 200); assert.match(c.json.manage_url, /^\/invite\/manage\/\?id=IV-/);
   assert.equal((await v({ date: day(20), time: '18:00', name: '홍길동', phone: '01099990000' })).json.existing.manage_url, c.json.manage_url);
   assert.equal(nameMatches('홍', '홍길동'), false);
+});
+
+test('이용 날짜·연락처만으로 찾기 (2026-11-26) — 시작 시간·이름 없이, 추가 연락처·자정 넘긴 예약·취소·확정 전', async t => {
+  const f = fixture(t);
+  f.booking('BK-A', { name: '홍길동(조직문화팀)', start: 18, end: 22 });
+  f.booking('BK-N', { name: '김민지', phone: '01055556666', date: day(10), start: 25, end: 29, space: 'megaspot-gundae' });
+  f.booking('BK-X', { name: '박철수', phone: '01077778888', date: day(12), status: 'cancelled' });
+  f.booking('BK-R', { name: '이영희', phone: '01033334444', date: day(13), status: 'payment_review' });
+  f.db.prepare("INSERT INTO booking_contacts (booking_code, phone2, updated_at) VALUES ('BK-A', '01099990000', '2026-11-01 10:00:00')").run();
+  const v = body => f.call('verify', { method: 'POST', body });
+  let r = await v({ date: day(20), phone: '010-1234-5678' });
+  assert.equal(r.status, 200); assert.equal(r.json.booking.code, 'BK-A');
+  assert.ok(!JSON.stringify(r.json).includes('홍길동') && !JSON.stringify(r.json).includes('1234-5678'), '응답에 이름·번호를 싣지 않음');
+  assert.equal((await v({ date: day(20), phone: '01099990000' })).json.booking.code, 'BK-A');   // 추가 연락처
+  assert.equal((await v({ date: day(20), phone: '01011112222' })).status, 404);
+  assert.equal((await v({ date: day(21), phone: '01012345678' })).status, 404);
+  assert.equal((await v({ date: day(10), phone: '01055556666' })).json.booking.code, 'BK-N');   // 자정 넘겨 시작하는 예약은 예약 날짜로
+  assert.equal((await v({ date: day(12), phone: '01077778888' })).json.code, 'CANCELLED');
+  assert.equal((await v({ date: day(13), phone: '01033334444' })).json.code, 'NOT_CONFIRMED');
+  // 두 칸으로 만들고, 같은 두 칸으로 다시 확인하면 기존 초대장
+  const c = await f.call('create', { method: 'POST', body: { date: day(20), phone: '01012345678', ...CONTENT } });
+  assert.equal(c.status, 200); assert.equal((await v({ date: day(20), phone: '01012345678' })).json.existing.manage_url, c.json.manage_url);
+});
+
+test('pickBooking: 날짜·연락처만이면 그날 확정 예약 가운데 이른 시작을 고른다', () => {
+  const rows = [
+    { booking_code: 'A', space_id: 'megaspot-gundae', customer_name: '홍길동', phone: '01012345678', date: '2026-12-01', start_h: 9, end_h: 12, status: 'cancelled' },
+    { booking_code: 'B', space_id: 'megaspot-gundae-2', customer_name: '홍길동', phone: '01012345678', date: '2026-12-01', start_h: 13, end_h: 17, status: 'confirmed' },
+    { booking_code: 'C', space_id: 'megaspot-gundae', customer_name: '홍길동', phone: '01012345678', date: '2026-12-01', start_h: 18, end_h: 22, status: 'confirmed' },
+    { booking_code: 'P', space_id: 'megaspot-gundae', customer_name: '홍길동', phone: '01012345678', date: '2026-11-30', start_h: 25, end_h: 28, status: 'confirmed' }
+  ];
+  assert.equal(pickBooking(rows, { date: '2026-12-01', time: null, name: '', phone: '01012345678' }).r.booking_code, 'B');
+  assert.equal(pickBooking(rows, { date: '2026-11-30', time: null, name: '', phone: '01012345678' }).r.booking_code, 'P');
+  assert.equal(pickBooking(rows, { date: '2026-12-01', time: null, name: '', phone: '01000000000' }), null);
+  assert.equal(pickBooking(rows, { date: '2026-12-01', time: '18:00', name: '', phone: '01012345678' }).r.booking_code, 'C');   // 시간을 적으면 예전처럼
 });
 
 test('pickBooking: 확정 예약을 먼저, 시작 시각이 가까운 예약을 고른다', () => {
@@ -243,7 +279,7 @@ test('화면 연결: 만들기·관리 화면에 PDF 도구, 관리자 메뉴·�
   assert.ok(admin.includes('/assets/js/pages/admin-invites.js?v=') && admin.includes('/assets/js/kit/invite-pdf.js?v=') && admin.includes('/assets/css/admin-invites.css?v='));
   assert.match(read('assets/js/pages/admin-navigation.js'), /\['invites','모임 초대장'\]/);
   assert.match(read('privacy/index.html'), /id="invite-kakao"/);
-  assert.match(read('terms/index.html'), /이용 날짜·시작 시간·예약자 이름·연락처/);
+  assert.match(read('terms/index.html'), /이용 날짜·예약자 연락처 또는 예약번호/);
   const js = read('assets/js/kit/invite-new.js');
   assert.ok(js.includes("K.api('kakao'") && js.includes('data-mode="info"'));
 });

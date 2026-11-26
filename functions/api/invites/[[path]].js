@@ -43,7 +43,7 @@ async function liveBooking(env, inv) {
   }
   return bk;
 }
-// 예약 확인: 이용 날짜·시작 시간·예약자 이름·연락처(기본) 또는 예약번호·휴대폰 뒷 4자리
+// 예약 확인: 이용 날짜·예약자 연락처(기본, 시작 시간·이름은 적으면 함께 확인) 또는 예약번호·휴대폰 뒷 4자리
 async function checkBooking(env, request, d) {
   if (!str(d.booking_code, 20)) return findBooking(env, request, d);
   const code = str(d.booking_code, 20).toUpperCase(), last4 = str(d.phone_last4, 4).replace(/\D/g, '');
@@ -60,14 +60,14 @@ function statusCheck(bk, receiver = '') {
 }
 async function findBooking(env, request, d) {
   const q = cleanLookup(d);
-  if (!q) return { error: err('이용 날짜, 시작 시간, 예약자 이름, 연락처를 모두 적어 주세요.') };
+  if (!q) return { error: err('이용 날짜와 예약자 연락처를 적어 주세요.') };
   if (await limited(env, 'inv-verify:' + clientIp(request), 12, 10)) return { error: tooManyErr() };
   const { results } = await env.DB.prepare(`SELECT b.booking_code, b.space_id, b.customer_name, b.phone, b.phone_last4, b.date, b.headcount, b.status,
       ${bookingHourSql('b', 'i', 'start_h')} AS start_h, ${bookingHourSql('b', 'i', 'end_h')} AS end_h, ${bookingPhone2Sql()} AS phone2
     FROM bookings b LEFT JOIN inquiries i ON i.ref = b.inquiry_ref WHERE b.date IN (?, ?) AND b.space_id IN (${Object.keys(VENUES).map(() => '?').join(',')})`)
     .bind(q.date, shiftDate(q.date, -1), ...Object.keys(VENUES)).all();
   const hit = pickBooking(results, q);
-  if (!hit) return { error: err('입력하신 정보와 맞는 예약을 찾지 못했습니다. 예약하실 때 적은 이름·연락처와 이용 날짜·시작 시간을 다시 확인해 주세요. 계속 안 되면 예약번호로 찾거나 카카오톡으로 문의해 주세요.', 404, 'NOT_FOUND') };
+  if (!hit) return { error: err('입력하신 이용 날짜와 연락처로 확정된 예약을 찾지 못했습니다. 예약하실 때 적은 연락처와 이용 날짜를 다시 확인해 주세요. 계속 안 되면 예약번호로 찾거나 카카오톡으로 알려 주세요.', 404, 'NOT_FOUND') };
   const r = hit.r;
   return statusCheck({ booking_code: r.booking_code, space_id: r.space_id, phone_last4: r.phone_last4, date: r.date, start_h: r.start_h, end_h: r.end_h, headcount: r.headcount, status: r.status }, hit.receiver);
 }

@@ -147,7 +147,7 @@ export function cleanPlay(p) {
 // 예약자가 기억하는 이용 날짜·시작 시간·이름·연락처로 확정 예약을 찾습니다.
 //  · 연락처는 예약의 대표 연락처나 추가 연락처와 같아야 합니다(숫자만 비교).
 //  · 이름은 띄어쓰기와 끝의 '님'을 빼고 비교하고, "홍길동(OO회사)"처럼 덧붙인 예약 이름도 찾습니다.
-//  · 시간은 예약 시작 1시간 전부터 끝나기 전까지면 맞는 것으로 봅니다(입장 시간을 적는 경우).
+//  · 시작 시간을 적으면 예약 시작 1시간 전부터 끝나기 전까지면 맞는 것으로 봅니다(입장 시간을 적는 경우). 적지 않으면 그 날짜에 시작하는 예약을 찾습니다.
 //    자정을 넘겨 시작하는 예약(전날 날짜 · 시작 24시 이상)도 찾습니다.
 export const nameKey = s => String(s || '').normalize('NFC').replace(/\s+/g, '').replace(/님$/, '').toLowerCase();
 export function nameMatches(input, stored) {
@@ -171,8 +171,12 @@ export function pickBooking(rows, { date, time, name, phone }) {
   for (const r of rows || []) {
     const off = r.date === date ? 0 : r.date === shiftDate(date, -1) ? -24 : null;
     if (off == null || !Object.prototype.hasOwnProperty.call(VENUES, r.space_id)) continue;
-    const receiver = phoneMatches(phone, r); if (!receiver || !nameMatches(name, r.customer_name)) continue;
+    const receiver = phoneMatches(phone, r); if (!receiver || (name && !nameMatches(name, r.customer_name))) continue;
     const s = num(r.start_h), e = num(r.end_h);
+    if (t == null) {   // 이용 날짜·연락처만 적은 경우 (2026-11-26): 그 날짜에 시작하는 예약만, 이른 시작 순
+      if (off) continue;
+      found.push({ r, receiver, gap: s == null ? 99 : s }); continue;
+    }
     if (s != null) {
       const start = s + off, end = (e != null && e > s ? e : s + 1) + off;
       if (t == null || t < start - 1 || t >= end) continue;
@@ -184,10 +188,11 @@ export function pickBooking(rows, { date, time, name, phone }) {
   return found[0] || null;
 }
 export const LIVE_STATUS = ['confirmed', 'completed'];
+// 이용 날짜와 예약자 연락처(9자리 이상)는 꼭, 시작 시간·이름은 적었을 때만 함께 맞춰 봅니다 (2026-11-26)
 export function cleanLookup(d) {
-  const date = str(d.date, 10), time = hhmm(d.time), name = line(d.name, 30), phone = digits(str(d.phone, 30));
-  if (!isDate(date) || !time || nameKey(name).length < 2 || phone.length < 9) return null;
-  return { date, time, name, phone };
+  const date = str(d.date, 10), time = hhmm(d.time) || null, name = line(d.name, 30), phone = digits(str(d.phone, 30));
+  if (!isDate(date) || phone.length < 9) return null;
+  return { date, time, name: nameKey(name).length >= 2 ? name : '', phone };
 }
 
 // ---------- 화면에 내보내는 값 ----------
