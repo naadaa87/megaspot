@@ -1,4 +1,5 @@
 import {foodCancellationTerms} from '../_food_cancellation_terms.js';
+import {paymentLinksAdmin} from '../_payment_links.js';
 import {venuePaymentTerms} from '../_venue_payment_terms.js';
 import {inquirySettlement,inquirySettlementAdmin} from '../_inquiry_receipts.js';
 import {foodOperationsAdmin} from '../_food_operations.js';
@@ -305,6 +306,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
     if(path==='feedback'||path.startsWith('feedback/'))return await feedbackAdmin({env,request,url,path,method});
     if(path==='booking-notifications'||path.startsWith('booking-notifications/'))return await bookingNotificationsAdmin({env,request,url,path,method});
     if(path==='transaction-notifications')return await transactionNoticeAdmin(env,request);
+    if(path==='payment-links'||path.startsWith('payment-links/'))return await paymentLinksAdmin({env,request,url,path,method});
     if(path==='deposit-notifications'||path.startsWith('deposit-notifications/'))return await depositNoticeAdmin({env,request,url,path,method});
     if (path === 'deposit-refunds' || path.startsWith('deposit-refunds/')) {
       try { return await refundAdmin({env,request,url,path,method}); }

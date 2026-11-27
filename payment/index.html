@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#12213c">
+  <title>예약·결제 안내 · 메가스팟</title>
+  <meta name="description" content="메가스팟에서 안내드린 내역과 금액을 확인하고 결제해 주세요.">
+  <link rel="icon" href="/assets/img/brand/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/css/payment-link.css?v=20261127">
+  <script src="/assets/js/pages/payment-link.js?v=20261127" defer></script>
+</head>
+<body>
+  <a class="pl-skip" href="#main">본문으로 바로가기</a>
+  <header class="pl-header">
+    <a href="/" class="pl-brand" aria-label="메가스팟 홈으로"><img src="/assets/img/brand/megaspot-official-wordmark-transparent.png" width="156" height="54" alt="MEGASPOT 메가스팟"></a>
+    <a class="pl-header-help" href="https://pf.kakao.com/_LnxbmX/chat" target="_blank" rel="noopener noreferrer">문의하기 <span aria-hidden="true">↗</span></a>
+  </header>
+  <main id="main" class="pl-main">
+    <div class="pl-heading">
+      <span class="pl-eyebrow">메가스팟 결제 안내</span>
+      <h1 id="pl-title">예약·결제 안내</h1>
+      <p id="pl-intro">안내받으신 내역과 금액을 확인해 주세요.</p>
+    </div>
+    <section id="pl-status" class="pl-status" aria-live="polite" aria-atomic="true" aria-busy="true">
+      <span id="pl-status-icon" class="pl-status-icon" aria-hidden="true">···</span>
+      <div><strong id="pl-status-title">결제 안내를 불러오고 있습니다</strong><p id="pl-status-detail">잠시만 기다려 주세요.</p></div>
+    </section>
+    <div class="pl-layout" id="pl-content" hidden>
+      <div class="pl-summary-column">
+        <section class="pl-card pl-bill" aria-labelledby="pl-bill-title">
+          <div class="pl-amount-panel">
+            <div class="pl-amount-head"><h2 id="pl-bill-title">결제 요청 내역</h2><span id="pl-purpose-badge" class="pl-purpose-badge">결제</span></div>
+            <p class="pl-amount"><strong id="pl-amount">—</strong><span>원</span></p>
+            <p class="pl-amount-note">부가세를 포함한 최종 결제 금액입니다.</p>
+          </div>
+          <dl class="pl-details">
+            <div><dt>청구번호</dt><dd id="pl-reference">—</dd></div>
+            <div><dt>항목</dt><dd id="pl-service">—</dd></div>
+            <div><dt>판매자</dt><dd>주식회사 지유공간개발</dd></div>
+            <div id="pl-space-row" hidden><dt>이용 장소</dt><dd id="pl-space"></dd></div>
+            <div id="pl-date-row" hidden><dt>이용일</dt><dd id="pl-date"></dd></div>
+            <div id="pl-people-row" hidden><dt>인원</dt><dd id="pl-people"></dd></div>
+            <div id="pl-time-row" hidden><dt>이용시간</dt><dd id="pl-time"></dd></div>
+            <div id="pl-booking-row" hidden><dt>예약번호</dt><dd id="pl-booking"></dd></div>
+            <div id="pl-expiry-row" hidden><dt>결제 기한</dt><dd id="pl-expiry"></dd></div>
+            <div id="pl-order-row" hidden><dt>주문번호</dt><dd id="pl-order"></dd></div>
+            <div id="pl-refund-row" class="pl-refund-row" hidden><dt>환불 금액</dt><dd id="pl-refund"></dd></div>
+          </dl>
+        </section>
+        <section id="pl-description-section" class="pl-card pl-description-card" aria-labelledby="pl-description-title" hidden>
+          <h2 id="pl-description-title">안내 내용</h2>
+          <p id="pl-description" class="pl-description"></p>
+        </section>
+        <p class="pl-booking-note">예약 일정과 서비스 진행 사항은 담당자에게 안내받은 내용을 확인해 주세요. <a id="pl-service-guide" href="/guide/" target="_blank" rel="noopener noreferrer">이용 안내 보기 →</a></p>
+      </div>
+      <div class="pl-action-column">
+        <section id="pl-checkout" class="pl-card pl-checkout" aria-labelledby="pl-form-title" hidden>
+          <form id="pl-form">
+            <fieldset id="pl-fields">
+              <legend class="pl-sr-only">결제자 정보와 필수 동의</legend>
+              <div class="pl-section-heading"><span class="pl-step">01</span><h2 id="pl-form-title">결제자 정보</h2></div>
+              <p id="pl-buyer-help" class="pl-form-help">예약·상담 시 안내받은 정보로 입력해 주세요.</p>
+              <div class="pl-field-row">
+                <div class="pl-field"><label for="pl-name">이름 <span aria-hidden="true">*</span><span class="pl-sr-only">필수</span></label><input id="pl-name" name="name" autocomplete="name" maxlength="40" placeholder="이름을 입력해 주세요" required></div>
+                <div class="pl-field"><label for="pl-phone">휴대폰 번호 <span aria-hidden="true">*</span><span class="pl-sr-only">필수</span></label><input id="pl-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="14" placeholder="010-0000-0000" required></div>
+              </div>
+              <div class="pl-field"><label for="pl-email">이메일 <span class="pl-optional">선택</span></label><input id="pl-email" name="email" type="email" autocomplete="email" maxlength="120" placeholder="example@email.com"></div>
+              <div class="pl-section-heading pl-consent-heading"><span class="pl-step">02</span><h2>내용 확인 및 동의</h2></div>
+              <div class="pl-agreements">
+                <label class="pl-agreement pl-agreement-all"><input id="pl-agree-all" type="checkbox"><span>아래 내용을 모두 확인했습니다</span></label>
+                <div class="pl-agreement-item"><label class="pl-agreement"><input id="pl-agree-terms" name="agree_terms" type="checkbox" required><span><em>필수</em> 이용약관에 동의합니다.</span></label><a href="/terms/" target="_blank" rel="noopener noreferrer" aria-label="이용약관 새 창으로 보기">보기</a></div>
+                <div class="pl-agreement-item"><label class="pl-agreement"><input id="pl-agree-privacy" name="agree_privacy" type="checkbox" required><span><em>필수</em> 결제·예약 처리를 위한 개인정보 수집·이용에 동의합니다.</span></label><a href="/privacy/" target="_blank" rel="noopener noreferrer" aria-label="개인정보처리방침 새 창으로 보기">보기</a></div>
+                <label class="pl-agreement pl-refund-agreement"><input id="pl-agree-refund" name="agree_refund" type="checkbox" required><span><em>필수</em> 안내받은 일정·서비스 구성과 취소·환불 조건을 확인했습니다.</span></label>
+              </div>
+              <p class="pl-policy-note">변경이 필요한 내용이 있다면 결제 전에 담당자에게 문의해 주세요.</p>
+              <p id="pl-error" class="pl-error" role="alert" tabindex="-1" hidden></p>
+              <button id="pl-pay" class="pl-pay" type="submit" disabled><span id="pl-pay-label">결제하기</span><span aria-hidden="true">→</span></button>
+              <p class="pl-provider-note"><svg viewBox="0 0 16 18" aria-hidden="true"><path d="M4 7V5a4 4 0 0 1 8 0v2M3 7h10v9H3z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>페이앱 보안 결제창에서 결제가 진행됩니다.</p>
+            </fieldset>
+          </form>
+        </section>
+        <section class="pl-card pl-help-card" aria-labelledby="pl-help-title">
+          <h2 id="pl-help-title">결제 내역 확인이 필요하신가요?</h2>
+          <p>결제를 마쳤다면 다시 결제하지 말고<br>상태를 다시 확인해 주세요.</p>
+          <button id="pl-refresh" class="pl-secondary" type="button">상태 다시 확인 <span aria-hidden="true">↻</span></button>
+          <a class="pl-contact" href="https://pf.kakao.com/_LnxbmX/chat" target="_blank" rel="noopener noreferrer">카카오톡 문의 <span aria-hidden="true">↗</span></a>
+        </section>
+      </div>
+    </div>
+    <div id="pl-load-error" class="pl-load-error" hidden><button id="pl-load-retry" class="pl-secondary" type="button">다시 불러오기</button><a href="https://pf.kakao.com/_LnxbmX/chat" target="_blank" rel="noopener noreferrer">카카오톡으로 문의하기 ↗</a></div>
+    <noscript><p class="pl-status">결제 안내를 확인하려면 자바스크립트를 켜 주세요. 카카오톡으로 문의하셔도 안내해 드립니다.</p></noscript>
+  </main>
+  <footer class="pl-footer">
+    <div><strong>주식회사 지유공간개발</strong><span>대표 최시준 · 사업자등록번호 757-86-04159</span></div>
+    <p>경기도 화성시 병점구 경기대로 1014, 6층 603호 1023번</p>
+    <p><a href="tel:01023849580">010-2384-9580</a></p>
+    <p>이용/예약/제휴문의: <a href="mailto:spaceblank0100@gmail.com">spaceblank0100@gmail.com</a></p>
+    <p>회사문의: <a href="mailto:guspacedev@gmail.com">guspacedev@gmail.com</a></p>
+    <p class="pl-copyright">© MEGASPOT. All rights reserved.</p>
+  </footer>
+</body>
+</html>

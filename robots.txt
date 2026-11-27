@@ -2,6 +2,7 @@ User-agent: *
 Allow: /
 Disallow: /admin/
 Disallow: /deposit/
+Disallow: /payment/
 Disallow: /booking/
 Disallow: /arrival/
 Disallow: /api/
@@ -23,6 +24,7 @@ User-agent: Yeti
 Allow: /
 Disallow: /admin/
 Disallow: /deposit/
+Disallow: /payment/
 Disallow: /booking/
 Disallow: /arrival/
 Disallow: /host/center/
@@ -36,6 +38,7 @@ User-agent: Googlebot
 Allow: /
 Disallow: /admin/
 Disallow: /deposit/
+Disallow: /payment/
 Disallow: /booking/
 Disallow: /arrival/
 Disallow: /host/center/
@@ -49,6 +52,7 @@ User-agent: Daum
 Allow: /
 Disallow: /admin/
 Disallow: /deposit/
+Disallow: /payment/
 Disallow: /booking/
 Disallow: /arrival/
 Disallow: /host/center/

@@ -1,4 +1,5 @@
 import {wakeParkingRegistration} from '../_parking_wake.js';
+import {paymentLinkFeedback} from '../_payment_links.js';
 import {preserveLegacyPayments} from '../_settlement.js';
 import {recordPayappRefund} from '../_payapp_refunds.js';
 import {depositCardFeedback,recordDepositCardCancellation} from '../_deposit_payment_methods.js';
@@ -271,7 +272,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
       const refunds = await env.DB.prepare('SELECT COALESCE(SUM(amount), 0) AS total FROM payapp_refunds WHERE oid = ?').bind(row.oid).first();
       return json({ ok: true, order: { oid: row.oid, product_id: row.product_id, verification: PRODUCTS.get(row.product_id)?.kind === 'verification', title: row.title, event_date: row.event_date, people: row.people, price: row.price, status: row.status,
         buyer_name: row.buyer_name.slice(0, 1) + '*'.repeat(Math.max(1, row.buyer_name.length - 1)), buyer_phone: row.buyer_phone.replace(/(\d{3})\d{3,4}(\d{4})/, '$1-****-$2'), buyer_email: row.buyer_email ? row.buyer_email.replace(/^(.).*(@.*)$/, '$1***$2') : '',
-        lines: data.lines || [], retry:retrySelection(row,data), refunded_amount: row.status==='refunded'?row.price:Math.min(row.price, refunds?.total || 0), pay_method: row.pay_method, tid: row.tid ? row.tid.slice(-8) : '', appl_at: row.appl_at, result_msg: row.result_msg, booking_code: row.booking_code, booking_status:reservation?.status||null, test: !!row.test, created_at: row.created_at } });
+        lines: data.lines || [], payment_link:data.kind==='admin_payment_link'?{service:data.service,purpose:data.purpose}:null, retry:retrySelection(row,data), refunded_amount: row.status==='refunded'?row.price:Math.min(row.price, refunds?.total || 0), pay_method: row.pay_method, tid: row.tid ? row.tid.slice(-8) : '', appl_at: row.appl_at, result_msg: row.result_msg, booking_code: row.booking_code, booking_status:reservation?.status||null, test: !!row.test, created_at: row.created_at } });
     }
     return err('경로를 찾을 수 없습니다.', 404, 'NOT_FOUND');
   } catch (e) { console.error('pay', e && e.message); if(path==='feedback'||path==='deposit-feedback')return notice('FAIL',500); return err('처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.', 500, 'SERVER_ERROR'); }
@@ -312,6 +313,8 @@ async function feedback(request, env, waitUntil) {
   const bound = await env.DB.prepare('SELECT mul_no, merchant_userid FROM payapp_payments WHERE oid = ?').bind(row.oid).first();
   if (!bound || bound.mul_no !== originalNo || !payappMerchantMatches(env, bound.merchant_userid, C)) return notice('FAIL', 400);
   const t = now(), oid = row.oid, data = safe(row.data);
+  // Admin links have explicit settlement semantics; never infer a reservation from an inquiry.
+  if(data.kind==='admin_payment_link')return await paymentLinkFeedback(env,{...row,payapp_no:originalNo,merchant_userid:bound.merchant_userid},f,partial);
   const sql = (q, ...args) => env.DB.prepare(q).bind(...args);
   if (state === '4') {
     if(!['created','pending'].includes(row.status))return notice('SUCCESS');

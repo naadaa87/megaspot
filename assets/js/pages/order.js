@@ -283,7 +283,17 @@
       var rows=(o.lines||[]).map(function(l){ return '<tr><td>'+esc(l.label)+'<small>'+esc(l.desc||'')+'</small></td><td>'+esc(won(l.amount))+'</td></tr>'; }).join('');
       var isVerificationOrder=!!o.verification;
       var pm={'PayApp:1':'신용·체크카드','PayApp:2':'휴대폰','PayApp:4':'대면결제','PayApp:6':'계좌이체','PayApp:7':'가상계좌','PayApp:15':'카카오페이','PayApp:16':'네이버페이','PayApp:21':'스마일페이','PayApp:23':'애플페이','PayApp:24':'내통장결제','PayApp:25':'토스페이',Card:'신용·체크카드',DirectBank:'실시간 계좌이체',VBank:'가상계좌',HPP:'휴대폰'}[o.pay_method]||o.pay_method||'';
-      if(o.status==='paid'&&o.booking_status==='payment_review'){
+      if(o.payment_link){
+        var purpose={deposit:'예약금',balance:'잔금',full:'전체 금액'}[o.payment_link.purpose]||'안내 금액';
+        var service={rental:'공간 대관',catering:'출장뷔페',other:'서비스'}[o.payment_link.service]||'서비스';
+        $('#oc-title').textContent=o.status==='paid'?(o.refunded_amount?'부분 환불이 반영되었습니다':purpose+' 결제가 완료되었습니다'):o.status==='refunded'?'환불이 확인되었습니다':o.status==='cancelled'?'결제 요청이 취소되었습니다':o.status==='failed'?'결제가 완료되지 않았습니다':'결제 결과를 확인하고 있습니다';
+        $('#oc-sub').textContent=o.status==='paid'?'결제 결과가 확인되었습니다. 예약 일정과 서비스 진행 사항은 담당자 안내를 확인해 주세요.':o.status==='refunded'?'이 주문의 환불 결과가 반영되었습니다. 자세한 내용은 담당자에게 문의해 주세요.':o.status==='created'||o.status==='pending'?'결제를 마쳤다면 다시 결제하지 말고 상태를 확인해 주세요.':'다시 결제하기 전에 담당자에게 주문번호를 알려 주세요.';
+        $('#oc-card').innerHTML='<div class="eyebrow">메가스팟 결제 내역</div><div class="oc-code"><small>주문번호</small><b>'+esc(o.oid)+'</b></div>'
+          +'<dl class="def mt-3"><dt>청구 내용</dt><dd>'+esc(o.title)+'</dd><dt>항목</dt><dd>'+esc(service+' · '+purpose)+'</dd>'+(o.event_date?'<dt>이용일</dt><dd>'+esc(o.event_date)+(o.people?' · '+esc(o.people)+'명':'')+'</dd>':'')
+          +'<dt>결제 금액</dt><dd>'+esc(won(o.price))+'</dd>'+(pm?'<dt>결제 수단</dt><dd>'+esc(pm)+'</dd>':'')+(o.booking_code?'<dt>예약번호</dt><dd>'+esc(o.booking_code)+'</dd>':'')+(o.refunded_amount?'<dt>환불 금액</dt><dd>'+esc(won(o.refunded_amount))+'</dd>':'')+'</dl>'
+          +(rows?'<table class="q-table mt-3"><tbody>'+rows+'</tbody></table>':'')
+          +'<div class="row mt-3" style="gap:8px"><button class="btn btn-light btn-sm" type="button" onclick="location.reload()">상태 다시 확인</button><a class="btn btn-kakao btn-sm" href="https://pf.kakao.com/_LnxbmX/chat" target="_blank" rel="noopener noreferrer">카카오톡 문의</a></div>';
+      } else if(o.status==='paid'&&o.booking_status==='payment_review'){
         $('#oc-title').textContent='결제 완료 · 예약 일정 확인 중';
         $('#oc-sub').textContent='결제는 완료됐지만 일정 확인이 필요해 예약 확정을 보류했습니다. 다시 결제하지 마세요. 운영팀에서 일정 조정 또는 환불을 안내해 드립니다.';
         $('#oc-card').innerHTML='<div class="eyebrow">일정 확인 필요</div><dl class="def mt-2"><dt>상품</dt><dd>'+esc(o.title)+'</dd><dt>주문번호</dt><dd>'+esc(o.oid)+'</dd><dt>결제 금액</dt><dd>'+esc(won(o.price))+'</dd></dl><p class="notice mt-3">아직 공간 이용이 확정되지 않았습니다.</p><a class="btn btn-kakao btn-sm mt-3" href="https://pf.kakao.com/_LnxbmX/chat" target="_blank" rel="noopener">운영팀에 문의하기</a>';

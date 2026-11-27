@@ -8,6 +8,11 @@ const fingerprint = (row,type,refundNo,amount) => JSON.stringify([row.oid,type,r
 const same = (event,fp) => event.fingerprint===fp;
 
 export async function recordPayappRefund(env,row,f,partial){
+ let custom=false;try{custom=JSON.parse(row.data||'{}').kind==='admin_payment_link';}catch{}
+ const receiptEvidence=row.booking_code||(custom?'admin_payment_link':null);
+ // A verified partial refund proves the custom charge existed, even if an
+ // earlier request-cancellation/rejection arrived before its approval.
+ const receiptStates=custom&&partial?"('created','pending','cancelled','failed')":"('created','pending')";
  const amount=Number(f.price),type=partial?'partial':'full',refundNo=partial?f.mul_no:row.payapp_no;
  const key=(partial?'part:':'full:')+refundNo,fp=fingerprint(row,type,refundNo,amount);
  const existing=await env.DB.prepare('SELECT fingerprint FROM payapp_refund_events WHERE event_key=?').bind(key).first();
@@ -30,9 +35,9 @@ export async function recordPayappRefund(env,row,f,partial){
    SELECT ?,o.oid,?,?,?,?,${effective},${changed},?,?,?,? FROM orders o WHERE o.oid=?
    ${partial?`AND (o.status='refunded' OR EXISTS(SELECT 1 FROM payapp_refunds r WHERE r.mul_no=? AND r.oid=o.oid AND r.amount=?) OR (?<=MAX(0,o.price-MIN(o.price,${total('o')})) AND NOT EXISTS(SELECT 1 FROM payapp_refunds r WHERE r.mul_no=?)))`:''}`,...args),
   sql(`INSERT OR IGNORE INTO payapp_refunds(mul_no,oid,amount,created_at) SELECT ?,oid,effective_amount,created_at FROM payapp_refund_events WHERE event_key=? AND processing_token=? AND effective_amount>0`,partial?refundNo:'full-'+row.payapp_no,key,token),
-  sql(`UPDATE orders SET status=CASE WHEN ?='full' OR ${total('orders')}>=price THEN 'refunded' WHEN status IN ('created','pending') AND ? IS NOT NULL THEN 'paid' ELSE status END,booking_code=COALESCE(booking_code,?),paid_at=CASE WHEN status IN ('created','pending') AND ? IS NOT NULL THEN COALESCE(paid_at,?) ELSE paid_at END,result_msg=?,updated_at=? WHERE oid=? AND ${mutation}`,
-   type,row.booking_code||null,row.booking_code||null,row.booking_code||null,time,partial?'부분 환불 · 페이앱 내역 확인':'페이앱 승인 취소',time,row.oid,key,token),
-  ...(row.test?[]:refundCompletionStatements(env,row.booking_code,mutation,[key,token],time)),
+  sql(`UPDATE orders SET status=CASE WHEN ?='full' OR ${total('orders')}>=price THEN 'refunded' WHEN status IN ${receiptStates} AND ? IS NOT NULL THEN 'paid' ELSE status END,booking_code=COALESCE(booking_code,?),paid_at=CASE WHEN status IN ${receiptStates} AND ? IS NOT NULL THEN COALESCE(paid_at,?) ELSE paid_at END,result_msg=?,updated_at=? WHERE oid=? AND ${mutation}`,
+   type,receiptEvidence,row.booking_code||null,receiptEvidence,time,partial?'부분 환불 · 페이앱 내역 확인':'페이앱 승인 취소',time,row.oid,key,token),
+  ...(row.test||custom?[]:refundCompletionStatements(env,row.booking_code,mutation,[key,token],time)),
   sql(`UPDATE bookings SET confirm_doc=NULL,updated_at=? WHERE booking_code=(SELECT booking_code FROM orders WHERE oid=? AND test=0) AND ${mutation}`,time,row.oid,key,token),
   sql(`INSERT INTO event_log(kind,ref,actor,detail,created_at) SELECT ?,oid,'payapp',json_object('event',event_key,'amount',effective_amount,'raw_amount',raw_amount),created_at FROM payapp_refund_events WHERE event_key=? AND processing_token=? AND state_changed=1`,partial?'order.partial_refund':'order.refunded',key,token)
  ]);

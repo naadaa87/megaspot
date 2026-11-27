@@ -171,6 +171,29 @@ CREATE TABLE IF NOT EXISTS orders (          -- 이용권·옵션 온라인 주�
 );
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status, created_at);
 
+-- Admin-created immutable payment descriptions; a link may have only one external payment attempt.
+CREATE TABLE IF NOT EXISTS payment_links (
+ id TEXT PRIMARY KEY,
+ request_id TEXT NOT NULL UNIQUE,
+ request_fingerprint TEXT NOT NULL,
+ token TEXT NOT NULL UNIQUE,
+ token_hash TEXT NOT NULL UNIQUE,
+ service TEXT NOT NULL CHECK(service IN ('rental','catering','other')),
+ purpose TEXT NOT NULL CHECK(purpose IN ('deposit','balance','full')),
+ title TEXT NOT NULL,
+ description TEXT NOT NULL,
+ amount INTEGER NOT NULL CHECK(amount BETWEEN 1000 AND 100000000),
+ event_date TEXT,space_id TEXT,headcount INTEGER,start_h INTEGER,end_h INTEGER,
+ booking_code TEXT,booking_snapshot TEXT,
+ expires_at INTEGER NOT NULL,
+ status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','closed')),
+ order_oid TEXT UNIQUE,
+ attempt_state TEXT NOT NULL DEFAULT 'none',
+ payurl TEXT,event_token TEXT,
+ created_at TEXT NOT NULL,updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_payment_links_created ON payment_links(created_at);
+
 -- ---------- 운영 설정 (2026-10-20 추가) ----------
 CREATE TABLE IF NOT EXISTS settings (        -- 관리자 화면에서 바꾸는 운영 설정 (출장뷔페 발주처 연락처·1인 수수료 등). 공개 저장소에 두지 않을 값은 여기에 둡니다.
   key TEXT PRIMARY KEY,                      -- 'catering'
