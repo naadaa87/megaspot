@@ -46,7 +46,7 @@ test('확정서 미발급·금액 비공개·보증금 0원을 각각 처리하�
  f.db.prepare("UPDATE booking_refunds SET amount=0 WHERE booking_code='BK-TEST'").run();await f.api('bookings/BK-TEST/confirm-doc','PUT',{doc:{amount:500000,deposit:0,show_amount:true}});const zero=await f.call();assert.equal(zero.json.deposit.amount,0);assert.equal(zero.json.deposit.account.available,false);
 });
 test('2호는 전용 출입 정보와 안내 페이지를 반환하고 1호 와이파이를 반환하지 않는다',async t=>{
- const f=setup(t,{space:'megaspot-gundae-2'});await f.ready();const r=await f.call();assert.equal(r.json.arrival.ready,true);assert.equal(r.json.arrival.door_code,'0105#');assert.equal(r.json.arrival.wifi_name,'설치 예정');assert.equal(r.json.arrival.wifi_password,'');assert.equal(r.json.arrival.equipment_url,'https://megaspot.kr/arrival/space2/');assert.equal(r.json.deposit.account.available,true);
+ const f=setup(t,{space:'megaspot-gundae-2'});await f.ready();const r=await f.call();assert.equal(r.json.arrival.ready,true);assert.equal(r.json.arrival.door_code,'0105#');assert.deepEqual(r.json.arrival.wifi_name.split(' · '),['MEGASPOT2_2.4G', 'MEGASPOT2_5G']);assert.equal(r.json.arrival.wifi_password,'1234567890');assert.equal(r.json.arrival.equipment_url,'https://megaspot.kr/arrival/space2/');assert.equal(r.json.deposit.account.available,true);
 });
 test('같은 문의의 다른 예약은 다른 전용 링크를 사용하고 임의 예약번호로 다른 계좌를 수정하지 못한다',async t=>{
  const f=setup(t);await f.ready();const first=f.token();
