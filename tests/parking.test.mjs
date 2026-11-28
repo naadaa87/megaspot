@@ -51,7 +51,7 @@ test('등록 결과 불확실은 무료 배정을 유지·미적용 확인 때�
 test('취소 문의는 실제 환불과 구분·환불 전후 등록 차단·적용완료 기록 보존',async t=>{
  const f=fixture(t),p=await f.buy();await f.feedback(p);await f.call('orders/'+p.oid+'/cancel-request','POST',{reason:'차량번호 정정'},p.key);
  assert.equal((await f.get(p)).payment_status,'paid');assert.equal((await f.claim(p)).status,409);
- await f.admin('orders/'+p.oid+'/refund-reviewed',{memo:'구매자 확인 후 계속 진행'});assert.equal((await f.claim(p)).status,200);await f.complete(p);await f.feedback(p,'9');
+ await f.admin('orders/'+p.oid+'/refund-reviewed',{memo:'구매자 확인 후 계속 진행',decision:'keep',confirm_keep:true});assert.equal((await f.claim(p)).status,200);await f.complete(p);await f.feedback(p,'9');
  const item=await f.get(p);assert.equal(item.payment_status,'refunded');assert.equal(item.status,'applied');assert.equal((await f.claim(p)).status,409);
 });
 test('같은 주문의 입차ID 교체 재요청은 다른 입차 건 무료 시간을 예약하지 않는다',async t=>{

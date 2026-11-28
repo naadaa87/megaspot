@@ -146,8 +146,24 @@ export async function parkingAdmin(request,env,path){
    env.DB.prepare("UPDATE parking_orders SET status=CASE WHEN arrival_at IS NULL THEN 'waiting' ELSE 'requested' END,session_id=NULL,free_hours=0,paid_hours=0,memo=?,updated_at=? WHERE oid=? AND status IN ('processing','issue')").bind(memo,t,p.oid)
   ]);
  }else{
+  // 취소·정정 문의 검토 (2026-11-28)
+  //  · 'keep'  결제를 유지하고 등록을 진행 — 이때만 등록 차단을 풉니다. 확인 체크 필수, 이미 취소·환불된 결제는 불가.
+  //  · 'refund' 결제 취소를 진행 — 페이앱 취소가 반영될 때까지 문의를 열어 두어 자동 등록을 계속 막습니다.
+  //    취소·환불이 이미 반영된 뒤라면 문의를 닫습니다(환불 내역이 등록을 계속 막습니다).
+  //  예전처럼 결정 없이 "검토 완료"만 기록하면, 페이앱에서 취소하기 전 몇 분 사이에 자동 등록이 다시 시작될 수 있었습니다.
   if(!memo||!p.refund_requested_at)return err('취소 요청 검토 결과를 메모로 남겨 주세요.');
-  await env.DB.prepare('UPDATE parking_orders SET refund_reviewed_at=?,memo=?,updated_at=? WHERE oid=?').bind(t,memo,t,p.oid).run();
+  if(d.decision!=='keep'&&d.decision!=='refund')return err('결제를 유지하고 등록할지, 결제 취소를 진행할지 선택해 주세요.');
+  const settled=p.payment_status!=='paid'||p.refunded_amount>0||!!p.refund_hold;
+  if(d.decision==='keep'){
+   if(settled)return err('이미 취소·환불된 결제는 유지로 처리할 수 없습니다. 페이앱 결제 내역을 확인해 주세요.',409);
+   if(d.confirm_keep!==true)return err('결제를 취소하지 않고 주차 등록을 진행하는지 확인해 주세요.');
+   const kept=await env.DB.prepare("UPDATE parking_orders SET refund_reviewed_at=?,memo=?,updated_at=? WHERE oid=? AND refund_requested_at IS NOT NULL AND EXISTS(SELECT 1 FROM orders WHERE oid=? AND status='paid') AND NOT EXISTS(SELECT 1 FROM payapp_refunds WHERE oid=?)").bind(t,memo,t,p.oid,p.payment_id,p.payment_id).run();
+   if(!kept.meta?.changes)return err('결제 상태가 바뀌었습니다. 새로고침 후 확인해 주세요.',409);
+  }else if(settled)await env.DB.prepare('UPDATE parking_orders SET refund_reviewed_at=?,memo=?,updated_at=? WHERE oid=?').bind(t,memo,t,p.oid).run();
+  else await env.DB.prepare('UPDATE parking_orders SET memo=?,updated_at=? WHERE oid=? AND refund_requested_at IS NOT NULL').bind(memo,t,p.oid).run();
+  const registration=d.decision==='keep'?'resumed':settled?'refunded':'held';
+  await log(env,'parking.'+action,p.oid,'admin',{memo,decision:d.decision,registration});
+  return json({ok:true,decision:d.decision,registration});
  }
  await log(env,'parking.'+action,p.oid,'admin',{memo,entry_id:action==='claim'?str(d.entry_id,80):p.entry_id});
  return json({ok:true});

@@ -53,5 +53,14 @@
    return '<details class="pa-day" data-parking-day="'+esc(day.key)+'" aria-label="'+esc(day.label)+' 구매 내역"'+(isOpen?' open':'')+'><summary class="pa-day-head"><h2>'+esc(day.label)+' <span>'+esc(day.weekday)+'</span>'+(isToday?'<b class="pa-day-today">오늘</b>':'')+'</h2><span class="pa-day-meta">'+day.items.length+'건 · '+day.vehicles+'대 <i aria-hidden="true"></i></span></summary><div class="pa-day-orders">'+day.items.map(function(g){return payment(g,tools,options);}).join('')+'</div></details>';
   }).join('');
  }
- return {groups:groups,dateGroups:dateGroups,render:render,counts:counts};
+ // 아마노에 등록해도 되는 결제인지 (2026-11-28). 결제 완료이고 취소·환불·검토 전 취소 문의가 없을 때만 ok.
+ // 서버도 같은 조건으로 막지만, 담당자가 화면을 보고 아마노에 직접 등록하는 일을 막기 위해 카드에 크게 표시합니다.
+ function registrationGate(p){
+  var unpaid={created:'결제 미완료(결제요청 상태)',pending:'입금 대기(결제 전)',cancelled:'결제 취소',failed:'결제 실패',refunded:'환불 완료'};
+  if(!p||p.payment_status!=='paid')return {ok:false,label:(unpaid[p&&p.payment_status]||'결제 확인 필요')+' · 아마노 등록 금지'};
+  if(Number(p.refunded_amount)>0||p.refund_hold)return {ok:false,label:'취소·환불 내역 있음 · 아마노 등록 금지'};
+  if(p.refund_requested_at&&!p.refund_reviewed_at)return {ok:false,label:'취소 문의 검토 전 · 아마노 등록 보류'};
+  return {ok:true,label:''};
+ }
+ return {groups:groups,dateGroups:dateGroups,render:render,counts:counts,registrationGate:registrationGate};
 });
