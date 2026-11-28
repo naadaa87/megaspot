@@ -63,6 +63,7 @@
     if(x.auto_reminder) chips.push('<span class="co-chip">자동 잔금 알림톡 '+esc(AUTO[x.auto_reminder.status]||x.auto_reminder.status)+' '+esc(kst(x.auto_reminder.at))+'</span>');
     if(x.last_notice) chips.push('<span class="co-chip co-ok">고지 '+esc(kst(x.last_notice.at))+(x.last_notice.channel_label?' · '+esc(x.last_notice.channel_label):'')+'</span>');
     else if(x.bucket==='notice') chips.push('<span class="co-chip co-warn">사전고지 전</span>');
+    if(x.ledger) chips.push(x.ledger.entries?'<span class="co-chip'+(x.ledger.balance>0?' co-warn':' co-ok')+'">수납 장부 받은 돈 '+won(x.ledger.received)+(x.ledger.balance>0?' · 남은 '+won(x.ledger.balance):x.ledger.balance===0?' · 완납':'')+'</span>':'<span class="co-chip">수납 장부 기록 없음</span>');
     if(x.last_request) chips.push('<span class="co-chip co-ok">결제 요청 '+esc(kst(x.last_request.at))+(x.last_request.channel_label?' · '+esc(x.last_request.channel_label):'')+'</span>');
     else if(x.bucket==='due'||x.bucket==='past') chips.push('<span class="co-chip co-warn">결제 요청 기록 없음</span>');
     var ex=x.exception?'<p class="co-ex"><b>예외 · '+esc(x.exception.type_label)+'</b>'+(x.exception.note?' — '+esc(x.exception.note):'')+' <span class="muted">('+esc(kst(x.exception.at))+')</span></p>':(x.note?'<p class="co-ex co-note">비고 — '+esc(x.note)+'</p>':'');
@@ -72,6 +73,7 @@
       +'<div class="co-money"><span>이용료 '+won(x.amount)+'</span><span>받은 금액 '+won(x.received)+'</span><b>'+(x.amount==null?'금액 미정':x.balance>0?'남은 금액 '+won(x.balance):'완납')+'</b></div></div>'
       +'<div class="co-mid">'+due+dep+chips.join('')+'</div>'+ex
       +'<div class="co-acts"><button type="button" class="btn '+(['notice','due','past'].indexOf(x.bucket)>=0?'btn-primary':'btn-light')+' btn-sm" data-act="msg">'+(x.bucket==='notice'?'사전고지 안내문':['due','past'].indexOf(x.bucket)>=0?'결제 요청 안내문':'안내문')+'</button>'
+      +'<button type="button" class="btn btn-light btn-sm" data-ledger-code="'+esc(x.code)+'">수납 장부</button>'
       +'<button type="button" class="btn btn-light btn-sm" data-settlement-code="'+esc(x.code)+'">수납 기록 · 기한</button>'
       +'<button type="button" class="btn btn-light btn-sm" data-act="ex">'+(x.exception?'예외 수정':'예외')+'</button>'
       +'<button type="button" class="btn btn-light btn-sm" data-act="log">기록 남기기'+(x.history.length?' · '+x.history.length:'')+'</button></div>'

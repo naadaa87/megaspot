@@ -5,12 +5,13 @@
 //  · 예외: 현장 결제·당일 결제·결제 일정 별도 협의 → 담당자가 '예외'로 표시하고 비고를 남기면 독촉 목록에서 빠집니다
 // 받은 금액·남은 금액은 기존 정산 계산(settlementsFor)을 그대로 읽고, 납부 기한은 기존 잔금 기한(기본 이용일 15일 전)을 씁니다.
 // 예약·문의·수납 원장은 읽기만 합니다. 이 화면이 쓰는 곳은 새 표 두 개(booking_collection_marks · booking_collection_logs)뿐이고,
-// 입금 기록은 기존 '이용료 수납·정산' 창에서 합니다.
+// 입금 기록은 기존 '이용료 수납·정산' 창에서 합니다. 수납 장부(2026-11-28)의 받은 금액은 참고로 함께 보여 줍니다.
 import { json, err, readJson, str, now, kstToday, SPACES, log } from './_lib.js';
 import { settlementsFor } from './_settlement.js';
 import { defaultBalanceDue, shiftDay } from './_booking_payment_schedule.js';
 import { refundBooking, initialDepositAmount } from './_deposit_refunds.js';
 import { RENTAL_BANK, bankCopy } from './_business.js';
+import { ledgerSummaries } from './_ledger.js';   // 수납 장부 (2026-11-28) — 장부 기준 받은 금액을 함께 보여 줍니다
 
 export const RULES = { notice_from: 20, notice_to: 16, due_days: 15, past_days: 60 };
 export const EXCEPTION_TYPES = { onsite: '현장 결제', sameday: '당일 결제', schedule: '결제 일정 별도 협의', other: '기타' };
@@ -60,6 +61,7 @@ export async function collectionList(env, { today = kstToday() } = {}) {
     inList(env, "SELECT booking_code, status, occurred_at, updated_at, id FROM transaction_notifications WHERE kind = 'balance_reminder' AND audience = 'customer' AND booking_code IN (?) ORDER BY id DESC", codes)
   ]);
   const by = (list, key = 'booking_code') => { const m = {}; for (const r of list) if (!m[r[key]]) m[r[key]] = r; return m; };
+  const ledger = await ledgerSummaries(env, codes, settle);
   const S = by(sched), J = by(state), K = by(marks), N = by(notes), L = {};
   for (const r of logs) (L[r.booking_code] = L[r.booking_code] || []).push(r);
   const items = [];
@@ -80,7 +82,8 @@ export async function collectionList(env, { today = kstToday() } = {}) {
       overdue: bucket === 'due' && today > due, due_today: bucket === 'due' && today === due,
       bucket, exception: mark && mark.exception ? { type: mark.exception_type, type_label: EXCEPTION_TYPES[mark.exception_type] || '예외', note: mark.note, at: mark.updated_at } : null,
       note: mark ? mark.note : '', deposit, auto_reminder: N[b.booking_code] ? { status: N[b.booking_code].status, at: N[b.booking_code].updated_at || N[b.booking_code].occurred_at } : null,
-      last_notice: last('notice'), last_request: last('request'), history
+      last_notice: last('notice'), last_request: last('request'), history,
+      ledger: (({ entries, billed, received, balance, status, status_label, sync, unrecorded }) => ({ entries, billed, received, balance, status, status_label, sync, unrecorded }))(ledger[b.booking_code])
     });
   }
   const counts = {};

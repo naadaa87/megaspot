@@ -148,6 +148,7 @@ TABLES.push('rental_contracts', 'contract_messages');   // 공간대관 계약�
 TABLES.push('event_cases');   // 행사 사례 (2026-11-25)
 TABLES.push('booking_collection_marks', 'booking_collection_logs');   // 수납 관리 (2026-11-26)
 TABLES.push('quote_deletions');   // 저장 견적 삭제 (2026-11-26)
+TABLES.push('ledger_entries', 'ledger_bookings', 'ledger_revisions');   // 수납 장부 (2026-11-28)
 TABLES.push('talents', 'talent_requests', 'talent_photos');   // MC·아나운서·강사·레크리에이션 섭외 (2026-11-25)
 TABLES.push('visit_messages', 'member_booking_links', 'member_social', 'auth_tokens', 'proof_requests');   // 사전답사 메시지 · 예약 연결 · 간편 로그인 · 증빙 요청 (2026-11-25)
 TABLES.push('booking_deposit_methods','booking_deposit_card_cancellations');
